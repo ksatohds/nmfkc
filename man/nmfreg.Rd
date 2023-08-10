@@ -20,6 +20,8 @@ nmfreg(Y, A, Q = 2, gamma = 0, iter = 500)
 \value{
 X:NxQ, C:QxN, B=XC, YHAT=XB
 
+P:PxN, probability for soft clustering
+
 err:last objective function, errs:objective function at each iteration
 
 r.squared: squared correlation, i.e., coefficient of determination R^2 between Y and YHAT
@@ -37,7 +39,4 @@ r.squared: squared correlation, i.e., coefficient of determination R^2 between Y
 # library(nmfreg)
 # result <- nmfreg(Y,A,Q=2)
 # result$r.squared
-#  n <- 1
-# plot(Y[,n])
-# lines(result$YHAT[,n])
 }

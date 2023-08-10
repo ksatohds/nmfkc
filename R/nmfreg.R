@@ -24,6 +24,7 @@ create.kernel <- function(U,beta){
 #' @param gamma penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C
 #' @param iter number of iterations
 #' @return X:NxQ, C:QxN, B=XC, YHAT=XB
+#' @return P:PxN, probability for soft clustering
 #' @return err:last objective function, errs:objective function at each iteration
 #' @return r.squared: squared correlation, i.e., coefficient of determination R^2 between Y and YHAT
 #' @export
@@ -37,9 +38,6 @@ create.kernel <- function(U,beta){
 #' # library(nmfreg)
 #' # result <- nmfreg(Y,A,Q=2)
 #' # result$r.squared
-#' #  n <- 1
-#' # plot(Y[,n])
-#' # lines(result$YHAT[,n])
 
 nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
   set.seed(123)
@@ -59,9 +57,11 @@ nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
     YHAT <- X %*% B
     errs[ii] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
   }
+  colB <- colSums(B)
+  P <- t(t(B)/colB)
   err <- sum((Y-YHAT)^2)+gamma*sum(C^2)
   r2 <- stats::cor(as.vector(YHAT),as.vector(Y))^2
-  return(list(X=X,C=C,B=B,YHAT=YHAT,err=err,errs=errs,r.squared=r2))
+  return(list(X=X,C=C,B=B,YHAT=YHAT,P=P,err=err,errs=errs,r.squared=r2))
 }
 
 #' @title Checking if kernel matrix is identity matrix
