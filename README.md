@@ -33,25 +33,31 @@ U <- (u0-umin)/(umax-umin) # normalization
 # without covariate
 A <- diag(ncol(Y))
 library(nmfreg)
-result <- nmfreg(Y,A,Q=2)
+result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
+# visualization of some results
 plot(result$errs) # check convergence
 result$r.squared # coefficient of determination
+# check individual fit
 n <- 1
 plot(Y[,n]) # observation
 lines(result$YHAT[,n]) # fitted values
+# check basis function of which sum is 1
 q <- 1
-plot(result$X[,q]) # basis function of which sum is 1
+plot(result$X[,q])
+# soft clulustering based on P
+Q <- nrow(result$P)
+plot(t(U),type="n")
+legend("topright",legend=1:Q,fill=1:Q+1)
 stars(t(result$P),
       locations=t(U),
       draw.segments = TRUE,labels=NULL,
-      col.segments=brewer.pal(Q,"Set1"),
-      len=t(U)/40,
-      cex=1,
-      key.loc=c(quantile(uv[,1],0.01),
-                quantile(uv[,2],0.01),add=T))
+      col.segments=1:nrow(result$P)+1,
+      len=t(U)/10,add=T)
 
 # with covariates
+# find best seed for cv
 myseed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
+# perform cv for some beta
 betas <- c(0.1,0.2,0.5,1,2,5,10)
 errs <- 0*betas
 for(i in 1:length(betas)){
@@ -60,6 +66,17 @@ for(i in 1:length(betas)){
   result <- nmfreg.cv(Y,A,Q=2,div=10,seed=myseed)
   errs[i] <- result$err
 }
+# check objective function by beta
 plot(betas,errs,type="o",log="x")
+(bestbeta <- betas[which.min(errs)])
+
+# create kernel with best beta
+A <- create.kernel(U,beta=bestbeta)
+result <- nmfreg(Y,A,Q=2)
+# soft clulustering based on P
+library(akima)
+q <- 2
+result.interp <- interp(U[1,],U[2,],result$P[q,])
+filled.contour(result.interp,xlab=rownames(U)[1],ylab=rownames(U)[2])
 ```
 
