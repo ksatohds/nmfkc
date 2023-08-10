@@ -20,7 +20,7 @@ create.kernel <- function(U,beta){
 #' @description \code{nmfreg} optimize basis matrix X whose column sum is 1 and coefficient matrix C
 #' @param Y observation matrix Y:PxN
 #' @param A kernel matrix A:NxN
-#' @param Q rank of basis matrix X:P*Q
+#' @param Q rank of basis matrix X:PxQ
 #' @param gamma penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C
 #' @param iter number of iterations
 #' @return X:NxQ, C:QxN, B=XC, YHAT=XB
@@ -33,6 +33,8 @@ create.kernel <- function(U,beta){
 #' # d <- CanadianWeather$dailyAv[,,1]
 #' # Y <- d-min(d)
 #' # A <- diag(ncol(Y))
+#' #
+#' # library(nmfreg)
 #' # result <- nmfreg(Y,A,Q=2)
 #' # result$r.squared
 #' #  n <- 1
@@ -62,7 +64,6 @@ nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
   return(list(X=X,C=C,B=B,YHAT=YHAT,err=err,errs=errs,r.squared=r2))
 }
 
-
 #' @title Checking if kernel matrix is identity matrix
 #' @description \code{is.identity.matrix} check if kernel matrix A is identity matrix
 #' @param A kernel matrix A:NxN
@@ -86,6 +87,27 @@ is.identity.matrix <- function(A){
   return(result)
 }
 
+#' @title Finding best seed for nmfreg.cv
+#' @description \code{nmfreg.cv.seed} find best seed for k-fold cross validation
+#' @param n number of columns of Y: PxN
+#' @param div number of partition, usually referred to as "k"
+#' @param iter number of iterations
+#' @return seed: best seed which minimizes sd between group index
+#' @return group: partition index between 1 and div for each column of Y
+#' @export
+#' @examples
+#' # seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
+
+nmfreg.cv.seed <- function(n,div=5,iter=500){
+  sds <- 0*(1:iter)
+  for(i in 1:iter){
+    set.seed(i)
+    index <- sample(1:div,n,replace=T)
+    f <- table(index)
+    sds[i] <- stats::sd(f)
+  }
+  return(which.min(sds))
+}
 
 #' @title Performing k-fold cross validation
 #' @description \code{nmfreg.cv} apply cv method for k-pertitioned columns of Y:PxN
@@ -116,8 +138,6 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
     X_j <- res$X
     C_j <- res$C
     if(is.identity.matrix(A)){
-      # Aが単位行列の場合，つまり，説明変数なしの場合に
-      # 観測行列に対応する係数行列をX_j固定で求める
       C_j <- matrix(stats::rnorm(ncol(X_j)*ncol(Yj),mean=2,sd=0.3),
                     nrow=ncol(X_j),ncol=ncol(Yj))
       for(l in 1:iter){

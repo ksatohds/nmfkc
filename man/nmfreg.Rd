@@ -11,7 +11,7 @@ nmfreg(Y, A, Q = 2, gamma = 0, iter = 500)
 
 \item{A}{kernel matrix A:NxN}
 
-\item{Q}{rank of basis matrix X:P*Q}
+\item{Q}{rank of basis matrix X:PxQ}
 
 \item{gamma}{penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C}
 
@@ -33,6 +33,8 @@ r.squared: squared correlation, i.e., coefficient of determination R^2 between Y
 # d <- CanadianWeather$dailyAv[,,1]
 # Y <- d-min(d)
 # A <- diag(ncol(Y))
+#
+# library(nmfreg)
 # result <- nmfreg(Y,A,Q=2)
 # result$r.squared
 #  n <- 1
