@@ -67,7 +67,7 @@ stars(t(result$P),
 # with covariates
 #----------------------------
 # find best seed for cv
-myseed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
+best.seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
 
 # perform cv for some beta
 betas <- c(0.1,0.2,0.5,1,2,5,10)
@@ -75,7 +75,7 @@ errs <- 0*betas
 for(i in 1:length(betas)){
   print(i)
   A <- create.kernel(U,beta=betas[i])
-  result <- nmfreg.cv(Y,A,Q=2,div=10,seed=myseed)
+  result <- nmfreg.cv(Y,A,Q=2,div=10,seed=best.seed)
   errs[i] <- result$err
 }
 # check objective function by beta

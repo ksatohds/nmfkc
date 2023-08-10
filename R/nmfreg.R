@@ -96,7 +96,8 @@ is.identity.matrix <- function(A){
 #' @return group: partition index between 1 and div for each column of Y
 #' @export
 #' @examples
-#' # seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
+#' # best.seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
+#' # result.cv <- nmfreg.cv(Y,A,seed=best.seed)
 
 nmfreg.cv.seed <- function(n,div=5,iter=500){
   sds <- 0*(1:iter)
@@ -123,7 +124,8 @@ nmfreg.cv.seed <- function(n,div=5,iter=500){
 #' @return group: partition index between 1 and div for each column of Y
 #' @export
 #' @examples
-#' # result.cv <- nmfreg.cv(Y,A)
+#' # best.seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
+#' # result.cv <- nmfreg.cv(Y,A,seed=best.seed)
 
 nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
   set.seed(seed)
