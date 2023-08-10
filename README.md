@@ -29,6 +29,7 @@ Y <- d-min(d)
 A <- diag(ncol(Y))
 library(nmfreg)
 result <- nmfreg(Y,A,Q=2)
+plot(result$errs)
 result$r.squared
 n <- 1
 plot(Y[,n])
