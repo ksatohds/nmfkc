@@ -20,6 +20,9 @@ devtools::install_github("ksatohds/nmfreg")
 This is a basic example which shows you how to solve a common problem:
 
 ``` r
+#----------------------------
+# obervation and covariates
+#----------------------------
 library(fda)
 data(CanadianWeather)
 d <- CanadianWeather$dailyAv[,,1]
@@ -30,20 +33,26 @@ umin <- apply(u0,1,min)
 umax <- apply(u0,1,max)
 U <- (u0-umin)/(umax-umin) # normalization
 
+#----------------------------
 # without covariate
+#----------------------------
 A <- diag(ncol(Y))
 library(nmfreg)
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
+
 # visualization of some results
 plot(result$errs) # check convergence
 result$r.squared # coefficient of determination
+
 # check individual fit
 n <- 1
 plot(Y[,n]) # observation
 lines(result$YHAT[,n]) # fitted values
+
 # check basis function of which sum is 1
 q <- 1
 plot(result$X[,q])
+
 # soft clulustering based on P
 Q <- nrow(result$P)
 plot(t(U),type="n")
@@ -54,9 +63,12 @@ stars(t(result$P),
       col.segments=1:nrow(result$P)+1,
       len=t(U)/10,add=T)
 
+#----------------------------
 # with covariates
+#----------------------------
 # find best seed for cv
 myseed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
+
 # perform cv for some beta
 betas <- c(0.1,0.2,0.5,1,2,5,10)
 errs <- 0*betas
@@ -73,10 +85,10 @@ plot(betas,errs,type="o",log="x")
 # create kernel with best beta
 A <- create.kernel(U,beta=bestbeta)
 result <- nmfreg(Y,A,Q=2)
+
 # soft clulustering based on P
 library(akima)
 q <- 2
 result.interp <- interp(U[1,],U[2,],result$P[q,])
 filled.contour(result.interp,xlab=rownames(U)[1],ylab=rownames(U)[2])
 ```
-
