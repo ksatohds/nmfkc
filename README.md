@@ -62,6 +62,7 @@ stars(t(result$P),
       draw.segments=TRUE,labels=colnames(Y),
       col.segments=1:Q+1,
       len=max(U)/30,add=T)
+
 #----------------------------
 # with covariates
 #----------------------------
