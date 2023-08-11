@@ -5,7 +5,7 @@
 #' @return kernel matrix A: NxN
 #' @export
 #' @examples
-#' # A <- create.kernel(U,beta=10)
+#' # A <- create.kernel(U,beta=5)
 
 create.kernel <- function(U,beta){
   kernel <- function(n){
@@ -37,7 +37,6 @@ create.kernel <- function(U,beta){
 #' # d <- CanadianWeather$dailyAv[,,1]
 #' # Y <- d-min(d)
 #' # A <- diag(ncol(Y))
-#' #
 #' # library(nmfreg)
 #' # result <- nmfreg(Y,A,Q=2)
 #' # result$r.squared
@@ -73,19 +72,18 @@ nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
 #' @return logical value
 #' @export
 #' @examples
-#' # if(is.identity.matrix(A)) print("A is identity matrix") else print("A is not identity matrix")
+#' # library(fda)
+#' # data(CanadianWeather)
+#' # d <- CanadianWeather$dailyAv[,,1]
+#' # Y <- d-min(d)
+#' # A <- diag(ncol(Y))
+#' # library(nmfreg)
+#' # is.identity.matrix(diag(ncol(Y)))
 
 is.identity.matrix <- function(A){
   result <- FALSE
-  if(min(A)==0&max(A)==1){
-    result <- TRUE
-    for(i in 1:nrow(A))
-      for(j in 1:ncol(A))
-        if(i==j){
-          if(A[i,j]!=1) result <- FALSE
-        }else{
-          if(A[i,j]!=0) result <- FALSE
-        }
+  if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
+    if(prod(diag(A))==1&sum(A-diag(nrow(A)))==0) result <- TRUE
   }
   return(result)
 }
@@ -104,6 +102,12 @@ is.identity.matrix <- function(A){
 #' @return block: partition block index {1,...,div} assigned to each column of Y
 #' @export
 #' @examples
+#' # library(fda)
+#' # data(CanadianWeather)
+#' # d <- CanadianWeather$dailyAv[,,1]
+#' # Y <- d-min(d)
+#' # A <- diag(ncol(Y))
+#' # library(nmfreg)
 #' # result.cv <- nmfreg.cv(Y,A,Q=2)
 
 nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){

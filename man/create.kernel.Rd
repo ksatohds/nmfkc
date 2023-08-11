@@ -18,5 +18,5 @@ kernel matrix A: NxN
 \code{create.kernel} create kernel matrix A from covariate matrix U
 }
 \examples{
-# A <- create.kernel(U,beta=10)
+# A <- create.kernel(U,beta=5)
 }

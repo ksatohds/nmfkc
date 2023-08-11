@@ -32,5 +32,11 @@ block: partition block index {1,...,div} assigned to each column of Y
 \code{nmfreg.cv} apply cv method for k-pertitioned columns of Y:PxN
 }
 \examples{
+# library(fda)
+# data(CanadianWeather)
+# d <- CanadianWeather$dailyAv[,,1]
+# Y <- d-min(d)
+# A <- diag(ncol(Y))
+# library(nmfreg)
 # result.cv <- nmfreg.cv(Y,A,Q=2)
 }

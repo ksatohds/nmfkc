@@ -41,7 +41,6 @@ r.squared: squared correlation, i.e., coefficient of determination R^2 between Y
 # d <- CanadianWeather$dailyAv[,,1]
 # Y <- d-min(d)
 # A <- diag(ncol(Y))
-#
 # library(nmfreg)
 # result <- nmfreg(Y,A,Q=2)
 # result$r.squared

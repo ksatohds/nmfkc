@@ -16,5 +16,11 @@ logical value
 \code{is.identity.matrix} check if kernel matrix A is identity matrix
 }
 \examples{
-# if(is.identity.matrix(A)) print("A is identity matrix") else print("A is not identity matrix")
+# library(fda)
+# data(CanadianWeather)
+# d <- CanadianWeather$dailyAv[,,1]
+# Y <- d-min(d)
+# A <- diag(ncol(Y))
+# library(nmfreg)
+# is.identity.matrix(diag(ncol(Y)))
 }
