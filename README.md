@@ -78,7 +78,7 @@ result$r.squared # bad fit
 # with covariates using kernel
 #----------------------------
 # perform cv for some beta
-betas <- c(1,2,5,10)
+betas <- c(0.5,1,2,5,10)
 objfuncs <- 0*betas
 for(i in 1:length(betas)){
   print(i)

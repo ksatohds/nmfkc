@@ -42,7 +42,7 @@ create.kernel <- function(U,beta){
 #' # result <- nmfreg(Y,A,Q=2)
 #' # result$r.squared
 
-nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=1000){
+nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-3,maxit=1000){
   set.seed(123)
   res <- stats::kmeans(t(Y),centers=Q)
   X <- t(res$centers)
@@ -122,7 +122,7 @@ is.identity.matrix <- function(A){
 #' # library(nmfreg)
 #' # result.cv <- nmfreg.cv(Y,A,Q=2)
 
-nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=2000,div=5,seed=123){
+nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-3,maxit=1000,div=5,seed=123){
   n <- ncol(Y)
   (remainder <- n %% div)
   (division <- n %/% div)
