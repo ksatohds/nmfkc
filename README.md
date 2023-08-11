@@ -72,16 +72,13 @@ result$r.squared # bad fit
 #----------------------------
 # with covariates using kernel
 #----------------------------
-# find best seed for cv
-best.seed  <- nmfreg.cv.seed(n=ncol(Y),iter=1000)
-
 # perform cv for some beta
 betas <- c(0.1,0.2,0.5,1,2,5,10)
 objective.functions <- 0*betas
 for(i in 1:length(betas)){
   print(i)
   A <- create.kernel(U,beta=betas[i])
-  result <- nmfreg.cv(Y,A,Q=2,div=10,seed=best.seed)
+  result <- nmfreg.cv(Y,A,Q=2,div=10)
   objective.functions[i] <- result$objective.function
 }
 table(result$group) # partition of cv

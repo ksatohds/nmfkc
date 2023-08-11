@@ -92,29 +92,6 @@ is.identity.matrix <- function(A){
   return(result)
 }
 
-#' @title Finding best seed for nmfreg.cv
-#' @description \code{nmfreg.cv.seed} find best seed for k-fold cross validation
-#' @param n number of columns of Y: PxN
-#' @param div number of partition, usually referred to as "k"
-#' @param iter number of iterations
-#' @return seed: best seed which minimizes sd between group index
-#' @return group: partition index between 1 and div for each column of Y
-#' @export
-#' @examples
-#' # best.seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
-#' # result.cv <- nmfreg.cv(Y,A,seed=best.seed)
-
-nmfreg.cv.seed <- function(n,div=5,iter=500){
-  sds <- 0*(1:iter)
-  for(i in 1:iter){
-    set.seed(i)
-    index <- sample(1:div,n,replace=T)
-    f <- table(index)
-    sds[i] <- stats::sd(f)
-  }
-  return(which.min(sds))
-}
-
 #' @title Performing k-fold cross validation
 #' @description \code{nmfreg.cv} apply cv method for k-pertitioned columns of Y:PxN
 #' @param Y observation matrix Y:PxN
@@ -134,8 +111,20 @@ nmfreg.cv.seed <- function(n,div=5,iter=500){
 #' # result.cv <- nmfreg.cv(Y,A,seed=best.seed)
 
 nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
+  n <- ncol(Y)
+  (remainder <- n %% div)
+  (division <- n %/% div)
+  group <- 0*(1:n)
   set.seed(seed)
-  index <- sample(1:div,ncol(Y),replace=T)
+  index <- sample(1:n,n,replace=F)
+  for(i in 1:(div-1)){
+    plus <- ifelse(i<=remainder,1,0)
+    j <- index[1:(division+plus)]
+    group[j] <- i
+    index <- index[-(1:(division+plus))]
+  }
+  group[index] <- div
+  index <- group
   objective.function.partition <- 0*(1:div)
   for(j in 1:div){
     Y_j <- Y[,index!=j]
