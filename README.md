@@ -64,7 +64,13 @@ stars(t(result$P),
       len=t(U)/10,add=T)
 
 #----------------------------
-# with covariates
+# with ordinary covariates
+#----------------------------
+result <- nmfreg(Y,U,Q=2)
+result$r.squared # bad fit
+
+#----------------------------
+# with covariates using kernel
 #----------------------------
 # find best seed for cv
 best.seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
@@ -85,6 +91,7 @@ plot(betas,errs,type="o",log="x")
 # create kernel with best beta
 A <- create.kernel(U,beta=best.beta)
 result <- nmfreg(Y,A,Q=2)
+result$r.squared # less than nmf without covariates
 
 # soft clulustering based on P
 library(akima)
