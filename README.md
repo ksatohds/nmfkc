@@ -84,6 +84,7 @@ for(i in 1:length(betas)){
   result <- nmfreg.cv(Y,A,Q=2,div=10,seed=best.seed)
   errs[i] <- result$err
 }
+table(result$group) # partition of cv
 # check objective function by beta
 plot(betas,errs,type="o",log="x")
 (best.beta <- betas[which.min(errs)])
