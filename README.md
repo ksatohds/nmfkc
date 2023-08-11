@@ -73,7 +73,7 @@ result$r.squared # bad fit
 # with covariates using kernel
 #----------------------------
 # find best seed for cv
-best.seed  <- nmfreg.cv.seed(n=ncol(Y))
+best.seed  <- nmfreg.cv.seed(n=ncol(Y),iter=1000)
 
 # perform cv for some beta
 betas <- c(0.1,0.2,0.5,1,2,5,10)
