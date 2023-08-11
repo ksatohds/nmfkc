@@ -4,7 +4,7 @@
 \alias{nmfreg}
 \title{Optimizing X and C on NMF:Y~XCA where Y and A are given}
 \usage{
-nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 2000)
+nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 0.001, maxit = 1000)
 }
 \arguments{
 \item{Y}{observation matrix Y:PxN}
