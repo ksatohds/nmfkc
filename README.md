@@ -66,7 +66,7 @@ stars(t(result$P),
 #----------------------------
 # with covariates
 #----------------------------
-result <- nmfreg(Y,U,Q=2)
+result <- nmfreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 
 #----------------------------
@@ -90,7 +90,7 @@ plot(betas,errs,type="o",log="x")
 
 # create kernel with best beta
 A <- create.kernel(U,beta=best.beta)
-result <- nmfreg(Y,A,Q=2)
+result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 result$r.squared # less than nmf without covariates
 
 # soft clulustering based on P
