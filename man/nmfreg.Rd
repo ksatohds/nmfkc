@@ -4,7 +4,7 @@
 \alias{nmfreg}
 \title{Optimizing X and C on NMF:Y~XCA where Y and A are given}
 \usage{
-nmfreg(Y, A, Q = 2, gamma = 0, iter = 500)
+nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 1000)
 }
 \arguments{
 \item{Y}{observation matrix Y:PxN}
@@ -15,7 +15,9 @@ nmfreg(Y, A, Q = 2, gamma = 0, iter = 500)
 
 \item{gamma}{penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C}
 
-\item{iter}{number of iterations}
+\item{epsilon}{positive convergence tolerance}
+
+\item{maxit}{maximum number of iterations}
 }
 \value{
 X:NxQ whose column sum is 1

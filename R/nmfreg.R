@@ -22,7 +22,8 @@ create.kernel <- function(U,beta){
 #' @param A kernel matrix A:NxN
 #' @param Q rank of basis matrix X:PxQ
 #' @param gamma penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C
-#' @param iter number of iterations
+#' @param epsilon positive convergence tolerance
+#' @param maxit maximum number of iterations
 #' @return X:NxQ whose column sum is 1
 #' @return C:QxN parameter matrix
 #' @return B=XC: QxN coefficient matrix
@@ -41,7 +42,7 @@ create.kernel <- function(U,beta){
 #' # result <- nmfreg(Y,A,Q=2)
 #' # result$r.squared
 
-nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
+nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=1000){
   set.seed(123)
   res <- stats::kmeans(t(Y),centers=Q)
   X <- t(res$centers)
@@ -50,18 +51,28 @@ nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
                nrow=ncol(X),ncol=nrow(A))
   B <- C %*% A
   YHAT <- X %*% B
-  objfunc.iter <- 0*(1:iter)
-  for(i in 1:iter){
+  objfunc.iter <- 0*(1:maxit)
+  for(i in 1:maxit){
     X <- X * ((Y %*% t(B)) / (YHAT %*% t(B)))
     X <- t(t(X)/colSums(X))
     C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%YHAT%*%t(A)+gamma*C))
     B <- C %*% A
     YHAT <- X %*% B
     objfunc.iter[i] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+    if(i>=10){
+      epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
+      if(epsilon.iter <= epsilon){
+        objfunc.iter <- objfunc.iter[1:i]
+        break
+      }
+    }
   }
   P <- t(t(B)/colSums(B))
   objfunc <- sum((Y-YHAT)^2)+gamma*sum(C^2)
   r2 <- stats::cor(as.vector(YHAT),as.vector(Y))^2
+  if(epsilon.iter > epsilon) print(paste0(
+    "maximum iterations (",maxit,
+    ") reached and the optimization hasn't converged yet."))
   return(list(X=X,C=C,B=B,YHAT=YHAT,P=P,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
@@ -94,7 +105,8 @@ is.identity.matrix <- function(A){
 #' @param A kernel matrix A:NxN
 #' @param Q rank of basis matrix X:P*Q
 #' @param gamma penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C
-#' @param iter number of iterations
+#' @param epsilon positive convergence tolerance
+#' @param maxit maximum number of iterations
 #' @param div number of partition, usually referred to as "k"
 #' @param seed random seed which decides the partition at random
 #' @return objfunc: last objective function
@@ -110,7 +122,7 @@ is.identity.matrix <- function(A){
 #' # library(nmfreg)
 #' # result.cv <- nmfreg.cv(Y,A,Q=2)
 
-nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
+nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=2000,div=5,seed=123){
   n <- ncol(Y)
   (remainder <- n %% div)
   (division <- n %/% div)
@@ -130,15 +142,22 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
     A_j <- A[index!=j,index!=j]
-    res <- nmfreg(Y_j,A_j,Q,gamma,iter)
+    res <- nmfreg(Y_j,A_j,Q,gamma,epsilon,maxit)
     X_j <- res$X
     C_j <- res$C
     if(is.identity.matrix(A)){
       C_j <- matrix(stats::rnorm(ncol(X_j)*ncol(Yj),mean=2,sd=0.3),
                     nrow=ncol(X_j),ncol=ncol(Yj))
-      for(l in 1:iter){
+      oldSum <- 0
+      for(l in 1:maxit){
         YHATj <- X_j %*% C_j
         C_j <- C_j*((t(X_j)%*%Yj)/(t(X_j)%*%YHATj+gamma*C_j))
+        newSum <- sum(C_j)
+        if(l>=10){
+          epsilon.iter <- abs(newSum-oldSum)/(abs(newSum)+0.1)
+          if(epsilon.iter <= epsilon) break
+        }
+        oldSum <- sum(C_j)
       }
       YHATj <- X_j %*% C_j
     }else{

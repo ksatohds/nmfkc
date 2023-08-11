@@ -4,7 +4,16 @@
 \alias{nmfreg.cv}
 \title{Performing k-fold cross validation}
 \usage{
-nmfreg.cv(Y, A, Q, gamma = 0, iter = 500, div = 5, seed = 123)
+nmfreg.cv(
+  Y,
+  A,
+  Q,
+  gamma = 0,
+  epsilon = 1e-04,
+  maxit = 2000,
+  div = 5,
+  seed = 123
+)
 }
 \arguments{
 \item{Y}{observation matrix Y:PxN}
@@ -15,7 +24,9 @@ nmfreg.cv(Y, A, Q, gamma = 0, iter = 500, div = 5, seed = 123)
 
 \item{gamma}{penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C}
 
-\item{iter}{number of iterations}
+\item{epsilon}{positive convergence tolerance}
+
+\item{maxit}{maximum number of iterations}
 
 \item{div}{number of partition, usually referred to as "k"}
 
