@@ -22,8 +22,6 @@ nmfreg.cv(Y, A, Q, gamma = 0, iter = 500, div = 5, seed = 123)
 \item{seed}{random seed which decides the partition at random}
 }
 \value{
-X:NxQ, C:QxN, B=XC, YHAT=XB
-
 objfunc: last objective function
 
 objfunc.block: objective function at each block
@@ -34,5 +32,5 @@ block: partition block index {1,...,div} assigned to each column of Y
 \code{nmfreg.cv} apply cv method for k-pertitioned columns of Y:PxN
 }
 \examples{
-# result.cv <- nmfreg.cv(Y,A)
+# result.cv <- nmfreg.cv(Y,A,Q=2)
 }
