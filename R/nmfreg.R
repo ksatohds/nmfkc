@@ -99,13 +99,12 @@ is.identity.matrix <- function(A){
 #' @param iter number of iterations
 #' @param div number of partition, usually referred to as "k"
 #' @param seed random seed which decides the partition at random
-#' @return X:NxQ, C:QxN, B=XC, YHAT=XB
 #' @return objfunc: last objective function
 #' @return objfunc.block: objective function at each block
 #' @return block: partition block index {1,...,div} assigned to each column of Y
 #' @export
 #' @examples
-#' # result.cv <- nmfreg.cv(Y,A)
+#' # result.cv <- nmfreg.cv(Y,A,Q=2)
 
 nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
   n <- ncol(Y)
