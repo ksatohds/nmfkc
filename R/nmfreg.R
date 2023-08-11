@@ -52,13 +52,13 @@ nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
   B <- C %*% A
   YHAT <- X %*% B
   objective.function.iter <- 0*(1:iter)
-  for(ii in 1:iter){
+  for(i in 1:iter){
     X <- X * ((Y %*% t(B)) / (YHAT %*% t(B)))
     X <- t(t(X)/colSums(X))
     C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%YHAT%*%t(A)+gamma*C))
     B <- C %*% A
     YHAT <- X %*% B
-    errs[ii] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+    objective.function.iter[i] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
   }
   P <- t(t(B)/colSums(B))
   objective.function <- sum((Y-YHAT)^2)+gamma*sum(C^2)
@@ -136,7 +136,7 @@ nmfreg.cv.seed <- function(n,div=5,iter=500){
 nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
   set.seed(seed)
   index <- sample(1:div,ncol(Y),replace=T)
-  objective.function.iter <- 0*(1:div)
+  objective.function.partition <- 0*(1:div)
   for(j in 1:div){
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
@@ -155,10 +155,10 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
     }else{
       YHATj <- X_j %*% C_j %*% A[index!=j,index==j] # Aのサイズに注意！
     }
-    objective.function.iter[j] <- sum((Yj-YHATj)^2)+gamma*sum(C_j^2)
+    objective.function.partition[j] <- sum((Yj-YHATj)^2)+gamma*sum(C_j^2)
   }
-  objective.function <- sum(objective.function.iter)
+  objective.function <- sum(objective.function.partition)
   return(list(objective.function=objective.function,
-              objective.function.iter=objective.function.iter,
+              objective.function.partition=objective.function.partition,
               group=index))
 }
