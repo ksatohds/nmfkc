@@ -80,10 +80,10 @@ for(i in 1:length(betas)){
 }
 # check objective function by beta
 plot(betas,errs,type="o",log="x")
-(bestbeta <- betas[which.min(errs)])
+(best.beta <- betas[which.min(errs)])
 
 # create kernel with best beta
-A <- create.kernel(U,beta=bestbeta)
+A <- create.kernel(U,beta=best.beta)
 result <- nmfreg(Y,A,Q=2)
 
 # soft clulustering based on P
