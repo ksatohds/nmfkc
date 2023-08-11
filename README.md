@@ -58,11 +58,10 @@ Q <- nrow(result$P)
 plot(t(U),type="n")
 legend("topright",legend=1:Q,fill=1:Q+1)
 stars(t(result$P),
-      locations=t(U),
-      draw.segments = TRUE,labels=NULL,
-      col.segments=1:nrow(result$P)+1,
-      len=t(U)/10,add=T)
-
+      locations=t(U),scale=F,
+      draw.segments=TRUE,labels=colnames(Y),
+      col.segments=1:Q+1,
+      len=max(U)/30,add=T)
 #----------------------------
 # with covariates
 #----------------------------
