@@ -27,8 +27,8 @@ create.kernel <- function(U,beta){
 #' @return C:QxN parameter matrix
 #' @return B=XC: QxN coefficient matrix
 #' @return P:PxN, calculated from B as P <- t(t(B)/colSums(B)) and probability matrix whose column sum is 1
-#' @return objective.function: last objective function
-#' @return objective.function.iter: objective function at each iteration
+#' @return objfun: last objective function
+#' @return objfun.iter: objective function at each iteration
 #' @return r.squared: squared correlation, i.e., coefficient of determination R^2 between Y and YHAT
 #' @export
 #' @examples
@@ -51,22 +51,20 @@ nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
                nrow=ncol(X),ncol=nrow(A))
   B <- C %*% A
   YHAT <- X %*% B
-  objective.function.iter <- 0*(1:iter)
+  objfun.iter <- 0*(1:iter)
   for(i in 1:iter){
     X <- X * ((Y %*% t(B)) / (YHAT %*% t(B)))
     X <- t(t(X)/colSums(X))
     C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%YHAT%*%t(A)+gamma*C))
     B <- C %*% A
     YHAT <- X %*% B
-    objective.function.iter[i] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+    objfun.iter[i] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
   }
   P <- t(t(B)/colSums(B))
-  objective.function <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+  objfun <- sum((Y-YHAT)^2)+gamma*sum(C^2)
   r2 <- stats::cor(as.vector(YHAT),as.vector(Y))^2
   return(list(X=X,C=C,B=B,YHAT=YHAT,P=P,
-              objective.function=objective.function,
-              objective.function.iter=objective.function.iter,
-              r.squared=r2))
+              objfun=objfun,objfun.iter=objfun.iter,r.squared=r2))
 }
 
 #' @title Checking if kernel matrix is identity matrix
@@ -102,30 +100,29 @@ is.identity.matrix <- function(A){
 #' @param div number of partition, usually referred to as "k"
 #' @param seed random seed which decides the partition at random
 #' @return X:NxQ, C:QxN, B=XC, YHAT=XB
-#' @return objective.function: last objective function
-#' @return objective.function.iter: objective function at each iteration
-#' @return group: partition index between 1 and div for each column of Y
+#' @return objfun: last objective function
+#' @return objfun.block: objective function at each block
+#' @return block: partition block index {1,...,div} assigned to each column of Y
 #' @export
 #' @examples
-#' # best.seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
-#' # result.cv <- nmfreg.cv(Y,A,seed=best.seed)
+#' # result.cv <- nmfreg.cv(Y,A)
 
 nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
   n <- ncol(Y)
   (remainder <- n %% div)
   (division <- n %/% div)
-  group <- 0*(1:n)
+  block <- 0*(1:n)
   set.seed(seed)
   index <- sample(1:n,n,replace=F)
   for(i in 1:(div-1)){
     plus <- ifelse(i<=remainder,1,0)
     j <- index[1:(division+plus)]
-    group[j] <- i
+    block[j] <- i
     index <- index[-(1:(division+plus))]
   }
-  group[index] <- div
-  index <- group
-  objective.function.partition <- 0*(1:div)
+  block[index] <- div
+  index <- block
+  objfun.block <- 0*(1:div)
   for(j in 1:div){
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
@@ -144,10 +141,8 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
     }else{
       YHATj <- X_j %*% C_j %*% A[index!=j,index==j] # Aのサイズに注意！
     }
-    objective.function.partition[j] <- sum((Yj-YHATj)^2)+gamma*sum(C_j^2)
+    objfun.block[j] <- sum((Yj-YHATj)^2)+gamma*sum(C_j^2)
   }
-  objective.function <- sum(objective.function.partition)
-  return(list(objective.function=objective.function,
-              objective.function.partition=objective.function.partition,
-              group=index))
+  objfun <- sum(objfun.block)
+  return(list(objfun=objfun,objfun.block=objfun.block,block=index))
 }

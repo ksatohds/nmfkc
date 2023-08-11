@@ -24,16 +24,15 @@ nmfreg.cv(Y, A, Q, gamma = 0, iter = 500, div = 5, seed = 123)
 \value{
 X:NxQ, C:QxN, B=XC, YHAT=XB
 
-objective.function: last objective function
+objfun: last objective function
 
-objective.function.iter: objective function at each iteration
+objfun.block: objective function at each block
 
-group: partition index between 1 and div for each column of Y
+block: partition block index {1,...,div} assigned to each column of Y
 }
 \description{
 \code{nmfreg.cv} apply cv method for k-pertitioned columns of Y:PxN
 }
 \examples{
-# best.seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
-# result.cv <- nmfreg.cv(Y,A,seed=best.seed)
+# result.cv <- nmfreg.cv(Y,A)
 }

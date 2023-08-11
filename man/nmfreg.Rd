@@ -26,9 +26,9 @@ B=XC: QxN coefficient matrix
 
 P:PxN, calculated from B as P <- t(t(B)/colSums(B)) and probability matrix whose column sum is 1
 
-objective.function: last objective function
+objfunc: last objective function
 
-objective.function.iter: objective function at each iteration
+objfunc.iter: objective function at each iteration
 
 r.squared: squared correlation, i.e., coefficient of determination R^2 between Y and YHAT
 }
