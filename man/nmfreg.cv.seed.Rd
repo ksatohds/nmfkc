@@ -22,5 +22,6 @@ group: partition index between 1 and div for each column of Y
 \code{nmfreg.cv.seed} find best seed for k-fold cross validation
 }
 \examples{
-# seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
+# best.seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
+# result.cv <- nmfreg.cv(Y,A,seed=best.seed)
 }

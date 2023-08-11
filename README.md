@@ -41,7 +41,7 @@ library(nmfreg)
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
-plot(result$errs) # check convergence
+plot(result$objective.function.iter) # check convergence
 result$r.squared # coefficient of determination
 
 # check individual fit
@@ -77,12 +77,12 @@ best.seed  <- nmfreg.cv.seed(n=ncol(Y),div=10)
 
 # perform cv for some beta
 betas <- c(0.1,0.2,0.5,1,2,5,10)
-errs <- 0*betas
+objective.functions <- 0*betas
 for(i in 1:length(betas)){
   print(i)
   A <- create.kernel(U,beta=betas[i])
   result <- nmfreg.cv(Y,A,Q=2,div=10,seed=best.seed)
-  errs[i] <- result$err
+  objective.functions[i] <- result$objective.function
 }
 table(result$group) # partition of cv
 # check objective function by beta

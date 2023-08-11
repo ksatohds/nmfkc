@@ -18,11 +18,17 @@ nmfreg(Y, A, Q = 2, gamma = 0, iter = 500)
 \item{iter}{number of iterations}
 }
 \value{
-X:NxQ, C:QxN, B=XC, YHAT=XB
+X:NxQ whose column sum is 1
 
-P:PxN, probability for soft clustering
+C:QxN parameter matrix
 
-err:last objective function, errs:objective function at each iteration
+B=XC: QxN coefficient matrix
+
+P:PxN, calculated from B as P <- t(t(B)/colSums(B)) and probability matrix whose column sum is 1
+
+objective.function: last objective function
+
+objective.function.iter: objective function at each iteration
 
 r.squared: squared correlation, i.e., coefficient of determination R^2 between Y and YHAT
 }

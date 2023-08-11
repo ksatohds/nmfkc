@@ -23,9 +23,12 @@ create.kernel <- function(U,beta){
 #' @param Q rank of basis matrix X:PxQ
 #' @param gamma penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C
 #' @param iter number of iterations
-#' @return X:NxQ, C:QxN, B=XC, YHAT=XB
-#' @return P:PxN, probability for soft clustering
-#' @return err:last objective function, errs:objective function at each iteration
+#' @return X:NxQ whose column sum is 1
+#' @return C:QxN parameter matrix
+#' @return B=XC: QxN coefficient matrix
+#' @return P:PxN, calculated from B as P <- t(t(B)/colSums(B)) and probability matrix whose column sum is 1
+#' @return objective.function: last objective function
+#' @return objective.function.iter: objective function at each iteration
 #' @return r.squared: squared correlation, i.e., coefficient of determination R^2 between Y and YHAT
 #' @export
 #' @examples
@@ -48,7 +51,7 @@ nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
                nrow=ncol(X),ncol=nrow(A))
   B <- C %*% A
   YHAT <- X %*% B
-  errs <- 0*(1:iter)
+  objective.function.iter <- 0*(1:iter)
   for(ii in 1:iter){
     X <- X * ((Y %*% t(B)) / (YHAT %*% t(B)))
     X <- t(t(X)/colSums(X))
@@ -57,11 +60,13 @@ nmfreg <- function(Y,A,Q=2,gamma=0,iter=500){
     YHAT <- X %*% B
     errs[ii] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
   }
-  colB <- colSums(B)
-  P <- t(t(B)/colB)
-  err <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+  P <- t(t(B)/colSums(B))
+  objective.function <- sum((Y-YHAT)^2)+gamma*sum(C^2)
   r2 <- stats::cor(as.vector(YHAT),as.vector(Y))^2
-  return(list(X=X,C=C,B=B,YHAT=YHAT,P=P,err=err,errs=errs,r.squared=r2))
+  return(list(X=X,C=C,B=B,YHAT=YHAT,P=P,
+              objective.function=objective.function,
+              objective.function.iter=objective.function.iter,
+              r.squared=r2))
 }
 
 #' @title Checking if kernel matrix is identity matrix
@@ -120,7 +125,8 @@ nmfreg.cv.seed <- function(n,div=5,iter=500){
 #' @param div number of partition, usually referred to as "k"
 #' @param seed random seed which decides the partition at random
 #' @return X:NxQ, C:QxN, B=XC, YHAT=XB
-#' @return err:last objective function, errs:objective function at each iteration
+#' @return objective.function: last objective function
+#' @return objective.function.iter: objective function at each iteration
 #' @return group: partition index between 1 and div for each column of Y
 #' @export
 #' @examples
@@ -130,8 +136,7 @@ nmfreg.cv.seed <- function(n,div=5,iter=500){
 nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
   set.seed(seed)
   index <- sample(1:div,ncol(Y),replace=T)
-  err <- 0
-  errs <- 0*(1:div)
+  objective.function.iter <- 0*(1:div)
   for(j in 1:div){
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
@@ -150,8 +155,10 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,iter=500,div=5,seed=123){
     }else{
       YHATj <- X_j %*% C_j %*% A[index!=j,index==j] # Aのサイズに注意！
     }
-    errs[j] <- sum((Yj-YHATj)^2)+gamma*sum(C_j^2)
+    objective.function.iter[j] <- sum((Yj-YHATj)^2)+gamma*sum(C_j^2)
   }
-  err <- sum(errs)
-  return(list(errs=errs,err=err,group=index))
+  objective.function <- sum(objective.function.iter)
+  return(list(objective.function=objective.function,
+              objective.function.iter=objective.function.iter,
+              group=index))
 }
