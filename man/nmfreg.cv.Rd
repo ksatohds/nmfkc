@@ -24,9 +24,9 @@ nmfreg.cv(Y, A, Q, gamma = 0, iter = 500, div = 5, seed = 123)
 \value{
 X:NxQ, C:QxN, B=XC, YHAT=XB
 
-objfun: last objective function
+objfunc: last objective function
 
-objfun.block: objective function at each block
+objfunc.block: objective function at each block
 
 block: partition block index {1,...,div} assigned to each column of Y
 }
