@@ -64,7 +64,7 @@ stars(t(result$P),
       len=t(U)/10,add=T)
 
 #----------------------------
-# with ordinary covariates
+# with covariates
 #----------------------------
 result <- nmfreg(Y,U,Q=2)
 result$r.squared # bad fit
