@@ -4,7 +4,7 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of **nmfreg** is to optimize X and C on the NMF regression model $Y \approx X C A$.
+The goal of **nmfreg** is to optimize X and C on the NMF (Non-negative Matrix Factorization) regression model $Y \approx X C A$.
 
 - given Y[P,N] observation matrix
 - given A[N,N] kernel matrix of which $(i,j)$ element can be 

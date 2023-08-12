@@ -28,8 +28,8 @@ create.kernel <- function(U,beta){
   return(A)
 }
 
-#' @title Optimizing X and C on NMF:Y~XCA where Y and A are given
-#' @description \code{nmfreg} The goal of nmfreg is to perform NMF regression model described by Y~XCA
+#' @title Optimizing X and C on Non-negative Matrix Factorization regression model Y~XCA where Y and A are given
+#' @description \code{nmfreg} The goal of nmfreg is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
 #'  where observation matrix Y(P,N),
 #'  kernel matrix A(N,N) with parameter beta,
 #'  basis matrix X(P,Q) whose column sum is 1
@@ -116,8 +116,8 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
-#' @title Performing k-fold cross validation
-#' @description \code{nmfreg.cv} apply cv method for k-partitioned columns of Y
+#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) regression model
+#' @description \code{nmfreg.cv} apply cv method for k-partitioned columns of Y on NMF (Non-negative Matrix Factorization) regression model
 #' @param Y observation matrix
 #' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).
 #' @param Q rank of basis matrix
