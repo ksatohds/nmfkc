@@ -40,9 +40,9 @@ plot(as.vector(result$YHAT),as.vector(result$Y),
 main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
 
-# soft clulustering based on P
+# dimension reduction based on regression coefficient B
 labels <- as.numeric(iris[,5])
-plot(result$P[1,],col=labels)
+plot(t(result$B),col=labels)
 legend("topright",
   legend=unique(iris[,5]),fill=unique(labels))
 
@@ -63,18 +63,18 @@ result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 # visualization of some results
 plot(result$objfunc.iter) # check convergence
 
-# check fit
+# good of fit
 plot(as.vector(result$YHAT),as.vector(result$Y),
      main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
 
-# check individual fit
+# individual fit
 n <- 1
 f <- rbind(Y[,n],result$YHAT[,n])
 rownames(f) <- c("obs","fitted")
-barplot(f,beside=T,las=3,legend=T) # observation
+barplot(f,beside=T,las=3,legend=T,main=colnames(Y)[n])
 
-# check basis function of which sum is 1
+# basis function of which sum is 1
 Q <- ncol(result$X)
 barplot(t(result$X),beside=T,col=1:Q+1,legend=T,las=3)
 
@@ -112,17 +112,21 @@ result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 plot(result$objfunc.iter) # check convergence
 result$r.squared # coefficient of determination
 
-# check individual fit
+# individual fit
 n <- 1
-plot(Y[,n]) # observation
-lines(result$YHAT[,n]) # fitted values
+plot(Y[,n],main=colnames(Y)[n]) # observation
+lines(result$YHAT[,n],col=2) # fitted values
+legend("topright",
+  legend=c("obs","fitted"),fill=c(1,2))
 
-# check basis function of which sum is 1
-q <- 1
-plot(result$X[,q])
+# basis function of which sum is 1
+plot(result$X[,1],type="n",ylim=range(result$X[,1]),
+  ylab="basis function")
+Q <- ncol(result$X)  
+for(q in 1:Q) lines(result$X[,q],col=q+1)
+legend("topright",legend=1:Q,fill=1:Q+1)
 
 # soft clulustering based on P
-Q <- nrow(result$P)
 plot(u0,type="n")
 legend("topright",legend=1:Q,fill=1:Q+1)
 stars(t(result$P),
@@ -151,7 +155,7 @@ for(i in 1:length(betas)){
 }
 table(result$block) # partition block of cv
 
-# check objective function by beta
+# objective function by beta
 plot(betas,objfuncs,type="o",log="x")
 (best.beta <- betas[which.min(objfuncs)])
 
