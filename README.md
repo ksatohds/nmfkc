@@ -100,12 +100,12 @@ u = t(u0)
 umin <- apply(u,1,min)
 umax <- apply(u,1,max)
 U <- (u-umin)/(umax-umin) # normalization
+library(nmfreg)
 
 #------------------
 ## 3.1 without covariate
 #------------------
 A <- diag(ncol(Y))
-library(nmfreg)
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results

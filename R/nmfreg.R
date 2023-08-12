@@ -144,7 +144,7 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,metho
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
     A_j <- A[index!=j,index!=j]
-    res <- nmfreg(Y_j,A_j,Q,gamma,epsilon,maxit)
+    res <- nmfreg(Y_j,A_j,Q,gamma,epsilon,maxit,method)
     X_j <- res$X
     C_j <- res$C
     if(is.identity){
@@ -153,7 +153,12 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,metho
       oldSum <- 0
       for(l in 1:maxit){
         YHATj <- X_j %*% C_j
-        C_j <- C_j*((t(X_j)%*%Yj)/(t(X_j)%*%YHATj+gamma*C_j))
+        if(method=="EU"){
+          C_j <- C_j*((t(X_j)%*%Yj)/(t(X_j)%*%YHATj+gamma*C_j))
+        }else{
+          C0_j <- t(X_j)%*%(Yj/YHATj)%*%t(A_j)
+          C_j <- C_j*(C0_j/(colSums(X_j)%o%rowSums(A_j)+2*gamma*C_j))
+        }
         newSum <- sum(C_j)
         if(l>=10){
           epsilon.iter <- abs(newSum-oldSum)/(abs(newSum)+0.1)
@@ -165,7 +170,11 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,metho
     }else{
       YHATj <- X_j %*% C_j %*% A[index!=j,index==j] # Aのサイズに注意！
     }
-    objfunc.block[j] <- sum((Yj-YHATj)^2)+gamma*sum(C_j^2)
+    if(method=="EU"){
+      objfunc.block[j] <- sum((Yj-YHATj)^2)+gamma*sum(C_j^2)
+    }else{
+      objfunc.block[j] <- sum(-Yj*log(YHATj)+YHATj)+gamma*sum(C_j^2)
+    }
   }
   objfunc <- sum(objfunc.block)
   return(list(objfunc=objfunc,objfunc.block=objfunc.block,block=index))
