@@ -68,7 +68,7 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
       C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
       B <- C %*% A
       YHAT <- X %*% B
-      objfunc.iter[i] <- sum(Y*log(Y/YHAT)-Y+YHAT)+gamma*sum(C^2)
+      objfunc.iter[i] <- sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2)
     }
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
