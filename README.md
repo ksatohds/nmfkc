@@ -6,10 +6,12 @@
 
 The goal of nmfreg is to perform NMF regression model described by Y~XCA where 
   observation matrix Y:PxN,
-  kernel matrix A:NxN with parameter beta,
-  basis matrix X:PxQ whose column sum is 1,
+  kernel matrix A:NxN with parameter beta.
+  A is derived from covariates and
+  it can be given by the identity matrix A=diag(ncol(Y)) without covariate. 
+  Basis matrix X:PxQ whose column sum is 1,
   Q is a number of basis (rank)
-  and coefficient matrix C:QxN,
+  and coefficient matrix C:QxN.
   Y and A are known, and X and C are unknown.
   
 ## Reference
@@ -43,10 +45,10 @@ devtools::install_github("ksatohds/nmfreg")
 ## Example
 
 ``` r
-#----------------------------
+#--------------------------------------
 # example 1: iris
 ## without covariate
-#----------------------------
+#--------------------------------------
 library(nmfreg)
 Y <- t(iris[,-5])
 A <- diag(ncol(Y))
@@ -66,10 +68,10 @@ plot(t(result$B),col=labels)
 legend("topright",
   legend=unique(iris[,5]),fill=unique(labels))
 
-#----------------------------
+#--------------------------------------
 # example 2: basketball players and statistics
 ## without covariate
-#----------------------------
+#--------------------------------------
 # https://rpubs.com/sirinya/847402
 library(nmfreg)
 d <- read.csv("http://datasets.flowingdata.com/ppg2008.csv")
@@ -104,12 +106,12 @@ stars(t(result$P),scale=F,
       col.segments=1:Q+1,
       len=1)
 
-#----------------------------
+#--------------------------------------
 # example 3: CanadianWeather
 ## 3.1 without covariate
 ## 3.2 with covariates
 ## 3.3 with covariates using kernel
-#----------------------------
+#--------------------------------------
 library(nmfreg)
 library(fda)
 data(CanadianWeather)
@@ -122,9 +124,9 @@ umin <- apply(u,1,min)
 umax <- apply(u,1,max)
 U <- (u-umin)/(umax-umin) # normalization
 
-#------------------
+#--------------------------------------
 ## 3.1 without covariate
-#------------------
+#--------------------------------------
 A <- diag(ncol(Y))
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 
@@ -155,15 +157,15 @@ stars(t(result$P),
       col.segments=1:Q+1,
       len=max(u0)/30,add=T)
 
-#------------------
+#--------------------------------------
 ## 3.2 with covariates
-#------------------
+#--------------------------------------
 result <- nmfreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 
-#------------------
+#--------------------------------------
 ## 3.3 with covariates using kernel
-#------------------
+#--------------------------------------
 # perform cv for some beta
 betas <- c(0.5,1,2,5,10)
 objfuncs <- 0*betas
