@@ -94,6 +94,12 @@ library(fda)
 data(CanadianWeather)
 d <- CanadianWeather$dailyAv[,,1]
 Y <- d-min(d)
+u0 <- CanadianWeather$coordinates[,2:1]
+u0[,1] = -u0[,1]
+u = t(u0)
+umin <- apply(u,1,min)
+umax <- apply(u,1,max)
+U <- (u-umin)/(umax-umin) # normalization
 
 #------------------
 ## 3.1 without covariate
@@ -117,8 +123,6 @@ plot(result$X[,q])
 
 # soft clulustering based on P
 Q <- nrow(result$P)
-u0 <- CanadianWeather$coordinates[,2:1]
-u0[,1] = -u0[,1]
 plot(u0,type="n")
 legend("topright",legend=1:Q,fill=1:Q+1)
 stars(t(result$P),
@@ -130,11 +134,6 @@ stars(t(result$P),
 #------------------
 ## 3.2 with covariates
 #------------------
-u = t(u0)
-umin <- apply(u,1,min)
-umax <- apply(u,1,max)
-U <- (u-umin)/(umax-umin) # normalization
-
 result <- nmfreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 
