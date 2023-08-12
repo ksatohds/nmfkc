@@ -4,11 +4,11 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of **nmfreg** is to optimize X and C on the NMF regression model $Y \approx X C A$ where 
+The goal of **nmfreg** is to optimize X and C on the NMF regression model $Y \approx X C A$.
 
 - given Y[P,N] observation matrix
 - given A[N,N] kernel matrix of which $(i,j)$ element can be 
-written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U=[u_1,...u_n]$ 
+written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U=[u_1,...u_N]$ 
 is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the case where there are no covariate.
 - unknown X[P,Q] basis matrix whose column sum is 1.
 Q shows the number of basis (rank).
@@ -18,12 +18,15 @@ Q shows the number of basis (rank).
 
 ## Reference
 
-- Kenichi Satoh (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press.
-- Kenichi Satoh (2022) Soft Clustering Based on Non-negative Matrix
-Factorization for Longitudinal Data, Japanese Journal of Applied Statistics 51 (1&2), 1-18. https://doi.org/10.5023/jappstat.51.1
+- Satoh, K. (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press.
+- Satoh, K. (2022) Soft Clustering Based on Non-negative Matrix
+Factorization for Longitudinal Data, {\it Japanese Journal of Applied Statistics}, {\bf 51} (1&2), 1-18. https://doi.org/10.5023/jappstat.51.1
 - Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
 Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
  {\it Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining}, 126-135.
+- Potthoff, R. F. and Roy, S. N. (1964) A generalized multivariate analysis of variance model useful especially for growth curve problems,
+{\it Biometrika}, {\bf 51}, 313–326.
+
 
 ## Reference in Japanese
 - 佐藤健一 (2023) ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中.
@@ -31,6 +34,8 @@ Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
 - Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
 Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
  {\it Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining}, 126-135.
+- Potthoff, R. F. and Roy, S. N. (1964) A generalized multivariate analysis of variance model useful especially for growth curve problems,
+{\it Biometrika}, {\bf 51}, 313–326.
 
 ## Installation
 
@@ -43,11 +48,10 @@ devtools::install_github("ksatohds/nmfreg")
 
 ## Example
 
+There are three examples.
+
+### iris
 ``` r
-#--------------------------------------
-# example 1: iris
-## without covariate
-#--------------------------------------
 library(nmfreg)
 Y <- t(iris[,-5])
 A <- diag(ncol(Y))
@@ -66,12 +70,11 @@ labels <- as.numeric(iris[,5])
 plot(t(result$B),col=labels)
 legend("topright",
   legend=unique(iris[,5]),fill=unique(labels))
+``` 
 
-#--------------------------------------
-# example 2: basketball players and statistics
-## without covariate
-#--------------------------------------
-# https://rpubs.com/sirinya/847402
+### basketball players and statistics
+- https://rpubs.com/sirinya/847402
+``` r
 library(nmfreg)
 d <- read.csv("http://datasets.flowingdata.com/ppg2008.csv")
 y <- d[,-1]
@@ -104,13 +107,16 @@ stars(t(result$P),scale=F,
       draw.segments=TRUE,labels=colnames(Y),
       col.segments=1:Q+1,
       len=1)
+``` 
 
-#--------------------------------------
-# example 3: CanadianWeather
-## 3.1 without covariate
-## 3.2 with covariates
-## 3.3 with covariates using kernel
-#--------------------------------------
+### CanadianWeather
+- preparation
+- without covariate
+- with covariates
+- with covariates using kernel
+
+#### preparation
+``` r
 library(nmfreg)
 library(fda)
 data(CanadianWeather)
@@ -122,10 +128,10 @@ u = t(u0)
 umin <- apply(u,1,min)
 umax <- apply(u,1,max)
 U <- (u-umin)/(umax-umin) # normalization
+``` 
 
-#--------------------------------------
-## 3.1 without covariate
-#--------------------------------------
+#### without covariate
+``` r
 A <- diag(ncol(Y))
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 
@@ -155,17 +161,16 @@ stars(t(result$P),
       draw.segments=TRUE,labels=colnames(Y),
       col.segments=1:Q+1,
       len=max(u0)/30,add=T)
+```
 
-#--------------------------------------
-## 3.2 with covariates
-#--------------------------------------
+#### with covariates
+``` r
 result <- nmfreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
+```
 
-#--------------------------------------
-## 3.3 with covariates using kernel
-#--------------------------------------
-# perform cv for some beta
+#### with covariates
+``` r
 betas <- c(0.5,1,2,5,10)
 objfuncs <- 0*betas
 for(i in 1:length(betas)){
