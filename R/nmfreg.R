@@ -1,8 +1,8 @@
 #' @title Creating kernel matrix A from covariate matrix U
 #' @description \code{create.kernel} create kernel matrix A from covariate matrix U
-#' @param U covariate matrix U: KxN, each row should be normalized
+#' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance
 #' @param beta parameter of kernel matrix A of which element is defined by exp(-beta*|u_i-u_j|^2)
-#' @return kernel matrix A: NxN
+#' @return kernel matrix A(N,N)
 #' @export
 #' @examples
 #' #library(nmfreg)
@@ -30,25 +30,30 @@ create.kernel <- function(U,beta){
 
 #' @title Optimizing X and C on NMF:Y~XCA where Y and A are given
 #' @description \code{nmfreg} The goal of nmfreg is to perform NMF regression model described by Y~XCA
-#'  where observation matrix Y:PxN,
-#'  kernel matrix A:NxN with parameter beta,
-#'  rank of basis matrix X:PxQ whose column sum is 1
-#'  and coefficient matrix C:QxN,
-#'  Y and A are known, and X and C are unknown.
-#' @param Y observation matrix Y:PxN
-#' @param A kernel matrix A:NxN. Without covariate, use identity matrix A=diag(ncol(Y)).
-#' @param Q rank of basis matrix X:PxQ
-#' @param gamma penalty parameter for C:QxN where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU" and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
+#'  where observation matrix Y(P,N),
+#'  kernel matrix A(N,N) with parameter beta,
+#'  basis matrix X(P,Q) whose column sum is 1
+#'  and coefficient matrix C(Q,N).
+#'  Note that Y and A are known, and X and C are unknown.
+#' @param Y observation matrix
+#' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).
+#' @param Q rank of basis matrix
+#' @param gamma penalty parameter for C:QxN where
+#' objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU"
+#' and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
-#' @param method default objective function uses Euclid distance "EU" and Kullback–Leibler divergence is used by method="KL".
-#' @return X:NxQ whose column sum is 1
-#' @return C:QxN parameter matrix
-#' @return B=XC: QxN coefficient matrix
-#' @return P:PxN, calculated from B as P <- t(t(B)/colSums(B)) and probability matrix whose column sum is 1
+#' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
+#' @return X(N,Q) whose column sum is 1
+#' @return C(Q,N) parameter matrix
+#' @return B, B=XC regression coefficient matrix
+#' @return YHAT(P,N), YHAT=XB=XCA prediction matrix or fitted values for observation matrix Y
+#' @return P(P,N) probability matrix
+#' for soft clustering based on regression coeffient matrix B.
+#' It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
-#' @return r.squared: squared correlation, i.e., coefficient of determination R^2 between Y and YHAT
+#' @return r.squared: coefficient of determination R^2, squared correlation between Y and YHAT
 #' @export
 #' @examples
 #' # library(fda)
@@ -112,16 +117,19 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
 }
 
 #' @title Performing k-fold cross validation
-#' @description \code{nmfreg.cv} apply cv method for k-pertitioned columns of Y:PxN
-#' @param Y observation matrix Y:PxN
-#' @param A kernel matrix A:NxN. Without covariate, use identity matrix A=diag(ncol(Y)).
-#' @param Q rank of basis matrix X:P*Q
-#' @param gamma penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C
+#' @description \code{nmfreg.cv} apply cv method for k-partitioned columns of Y
+#' @param Y observation matrix
+#' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).
+#' @param Q rank of basis matrix
+#' @param gamma penalty parameter for C:QxN where
+#' objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU"
+#' and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
-#' @param div number of partition, usually referred to as "k"
-#' @param seed random seed which decides the partition at random
-#' @param method default objective function uses Euclid distance "EU" and Kullback–Leibler divergence is used by method="KL".
+#' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
+#' @param div number of partition usually described as "k" of k-fold
+#' @param seed integer used as argument in set.seed function
+#'  which controls the reproducibility of the partition.
 #' @return objfunc: last objective function
 #' @return objfunc.block: objective function at each block
 #' @return block: partition block index {1,...,div} assigned to each column of Y

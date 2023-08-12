@@ -17,23 +17,26 @@ nmfreg.cv(
 )
 }
 \arguments{
-\item{Y}{observation matrix Y:PxN}
+\item{Y}{observation matrix}
 
-\item{A}{kernel matrix A:NxN. Without covariate, use identity matrix A=diag(ncol(Y)).}
+\item{A}{kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).}
 
-\item{Q}{rank of basis matrix X:P*Q}
+\item{Q}{rank of basis matrix}
 
-\item{gamma}{penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C}
+\item{gamma}{penalty parameter for C:QxN where
+objective function:tr(Y-YHAT)'(Y-YHAT)+gamma\emph{trC'C for method="EU"
+and sum(-Y}log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"}
 
 \item{epsilon}{positive convergence tolerance}
 
 \item{maxit}{maximum number of iterations}
 
-\item{div}{number of partition, usually referred to as "k"}
+\item{div}{number of partition usually described as "k" of k-fold}
 
-\item{seed}{random seed which decides the partition at random}
+\item{seed}{integer used as argument in set.seed function
+which controls the reproducibility of the partition.}
 
-\item{method}{default objective function uses Euclid distance "EU" and Kullback–Leibler divergence is used by method="KL".}
+\item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 }
 \value{
 objfunc: last objective function
@@ -43,7 +46,7 @@ objfunc.block: objective function at each block
 block: partition block index {1,...,div} assigned to each column of Y
 }
 \description{
-\code{nmfreg.cv} apply cv method for k-pertitioned columns of Y:PxN
+\code{nmfreg.cv} apply cv method for k-partitioned columns of Y
 }
 \examples{
 #library(nmfreg)

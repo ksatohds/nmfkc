@@ -7,42 +7,48 @@
 nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 5000, method = "EU")
 }
 \arguments{
-\item{Y}{observation matrix Y:PxN}
+\item{Y}{observation matrix}
 
-\item{A}{kernel matrix A:NxN. Without covariate, use identity matrix A=diag(ncol(Y)).}
+\item{A}{kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).}
 
-\item{Q}{rank of basis matrix X:PxQ}
+\item{Q}{rank of basis matrix}
 
-\item{gamma}{penalty parameter for C:QxN where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma\emph{trC'C for method="EU" and sum(-Y}log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"}
+\item{gamma}{penalty parameter for C:QxN where
+objective function:tr(Y-YHAT)'(Y-YHAT)+gamma\emph{trC'C for method="EU"
+and sum(-Y}log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"}
 
 \item{epsilon}{positive convergence tolerance}
 
 \item{maxit}{maximum number of iterations}
 
-\item{method}{default objective function uses Euclid distance "EU" and Kullback–Leibler divergence is used by method="KL".}
+\item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 }
 \value{
-X:NxQ whose column sum is 1
+X(N,Q) whose column sum is 1
 
-C:QxN parameter matrix
+C(Q,N) parameter matrix
 
-B=XC: QxN coefficient matrix
+B, B=XC regression coefficient matrix
 
-P:PxN, calculated from B as P <- t(t(B)/colSums(B)) and probability matrix whose column sum is 1
+YHAT(P,N), YHAT=XB=XCA prediction matrix or fitted values for observation matrix Y
+
+P(P,N) probability matrix
+for soft clustering based on regression coeffient matrix B.
+It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
 
 objfunc: last objective function
 
 objfunc.iter: objective function at each iteration
 
-r.squared: squared correlation, i.e., coefficient of determination R^2 between Y and YHAT
+r.squared: coefficient of determination R^2, squared correlation between Y and YHAT
 }
 \description{
 \code{nmfreg} The goal of nmfreg is to perform NMF regression model described by Y~XCA
-where observation matrix Y:PxN,
-kernel matrix A:NxN with parameter beta,
-rank of basis matrix X:PxQ whose column sum is 1
-and coefficient matrix C:QxN,
-Y and A are known, and X and C are unknown.
+where observation matrix Y(P,N),
+kernel matrix A(N,N) with parameter beta,
+basis matrix X(P,Q) whose column sum is 1
+and coefficient matrix C(Q,N).
+Note that Y and A are known, and X and C are unknown.
 }
 \examples{
 # library(fda)

@@ -7,12 +7,12 @@
 create.kernel(U, beta)
 }
 \arguments{
-\item{U}{covariate matrix U: KxN, each row should be normalized}
+\item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance}
 
 \item{beta}{parameter of kernel matrix A of which element is defined by exp(-beta*|u_i-u_j|^2)}
 }
 \value{
-kernel matrix A: NxN
+kernel matrix A(N,N)
 }
 \description{
 \code{create.kernel} create kernel matrix A from covariate matrix U

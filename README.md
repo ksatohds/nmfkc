@@ -110,12 +110,12 @@ stars(t(result$P),scale=F,
 ``` 
 
 ### CanadianWeather
-- preparation
+- common preparation
 - without covariate
-- with covariates
-- with covariates using kernel
+- with covariates using covariate matrix U
+- with covariates using kernel matrix A
 
-#### preparation
+#### common preparation
 ``` r
 library(nmfreg)
 library(fda)
@@ -163,14 +163,15 @@ stars(t(result$P),
       len=max(u0)/30,add=T)
 ```
 
-#### with covariates
+#### with covariates using covariate matrix U
 ``` r
 result <- nmfreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 ```
 
-#### with covariates
+#### with covariates using kernel matrix A
 ``` r
+# k-fold cross validation for beta
 betas <- c(0.5,1,2,5,10)
 objfuncs <- 0*betas
 for(i in 1:length(betas)){
