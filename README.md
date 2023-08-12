@@ -15,7 +15,7 @@ Q shows the number of basis (rank).
 - unkown C[Q,N] regression coefficient matrix which is described by $\Theta$ in the paper Satoh (2023).
 - **nmfreg** function is used for optimization of X and C
 - **nmfreg.cv** function is used for k-fold cross-validation optimizing $\beta$ and $Q$
-
+- **create.kernel** function is used fot creating kernel matrix A from covariate matrix U
 ## Reference
 
 - Satoh, K. (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press.
