@@ -43,7 +43,10 @@ devtools::install_github("ksatohds/nmfreg")
 
 ## Example
 
-There are three examples.
+Three datasets are used in examples.
+- iris
+- basketball players and statistics
+- CanadianWeather
 
 ### iris
 ``` r
