@@ -24,6 +24,7 @@ create.kernel <- function(U,beta){
 #' @param gamma penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
+#' @param method default objective function uses Euclid distance "EU" and Kullback–Leibler divergence is used by method="KL".
 #' @return X:NxQ whose column sum is 1
 #' @return C:QxN parameter matrix
 #' @return B=XC: QxN coefficient matrix
@@ -42,7 +43,7 @@ create.kernel <- function(U,beta){
 #' # result <- nmfreg(Y,A,Q=2)
 #' # result$r.squared
 
-nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000){
+nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
   set.seed(123)
   res <- stats::kmeans(t(Y),centers=Q)
   X <- t(res$centers)
@@ -53,12 +54,22 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000){
   YHAT <- X %*% B
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
-    X <- X * ((Y %*% t(B)) / (YHAT %*% t(B)))
-    X <- t(t(X)/colSums(X))
-    C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%YHAT%*%t(A)+gamma*C))
-    B <- C %*% A
-    YHAT <- X %*% B
-    objfunc.iter[i] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+    if(method=="EU"){
+      X <- X * ((Y %*% t(B)) / (YHAT %*% t(B)))
+      X <- t(t(X)/colSums(X))
+      C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%YHAT%*%t(A)+gamma*C))
+      B <- C %*% A
+      YHAT <- X %*% B
+      objfunc.iter[i] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+    }else{
+      X <- t(t(X*(Y/YHAT)%*%t(B))/rowSums(B))
+      X <- t(t(X)/colSums(X))
+      C0 <- t(X)%*%(Y/YHAT)%*%t(A)
+      C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
+      B <- C %*% A
+      YHAT <- X %*% B
+      objfunc.iter[i] <- sum(Y*log(Y/YHAT)-Y+YHAT)+gamma*sum(C^2)
+    }
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
       if(epsilon.iter <= epsilon){
@@ -67,36 +78,18 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000){
       }
     }
   }
-  P <- t(t(B)/colSums(B))
-  objfunc <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+  if(method=="EU"){
+    objfunc <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+  }else{
+    objfunc <- sum(Y*log(Y/YHAT)-Y+YHAT)+gamma*sum(C^2)
+  }
   r2 <- stats::cor(as.vector(YHAT),as.vector(Y))^2
+  P <- t(t(B)/colSums(B))
   if(epsilon.iter > epsilon) print(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet."))
   return(list(X=X,C=C,B=B,YHAT=YHAT,P=P,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
-}
-
-#' @title Checking if kernel matrix is identity matrix
-#' @description \code{is.identity.matrix} check if kernel matrix A is identity matrix
-#' @param A kernel matrix A:NxN
-#' @return logical value
-#' @export
-#' @examples
-#' # library(fda)
-#' # data(CanadianWeather)
-#' # d <- CanadianWeather$dailyAv[,,1]
-#' # Y <- d-min(d)
-#' # A <- diag(ncol(Y))
-#' # library(nmfreg)
-#' # is.identity.matrix(diag(ncol(Y)))
-
-is.identity.matrix <- function(A){
-  result <- FALSE
-  if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
-    if(prod(diag(A))==1&sum(A-diag(nrow(A)))==0) result <- TRUE
-  }
-  return(result)
 }
 
 #' @title Performing k-fold cross validation
@@ -109,6 +102,7 @@ is.identity.matrix <- function(A){
 #' @param maxit maximum number of iterations
 #' @param div number of partition, usually referred to as "k"
 #' @param seed random seed which decides the partition at random
+#' @param method default objective function uses Euclid distance "EU" and Kullback–Leibler divergence is used by method="KL".
 #' @return objfunc: last objective function
 #' @return objfunc.block: objective function at each block
 #' @return block: partition block index {1,...,div} assigned to each column of Y
@@ -122,7 +116,15 @@ is.identity.matrix <- function(A){
 #' # library(nmfreg)
 #' # result.cv <- nmfreg.cv(Y,A,Q=2)
 
-nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123){
+nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){
+  is.identity.matrix <- function(A){
+    result <- FALSE
+    if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
+      if(prod(diag(A))==1&sum(A-diag(nrow(A)))==0) result <- TRUE
+    }
+    return(result)
+  }
+  is.identity <- is.identity.matrix(A)
   n <- ncol(Y)
   (remainder <- n %% div)
   (division <- n %/% div)
@@ -145,7 +147,7 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123){
     res <- nmfreg(Y_j,A_j,Q,gamma,epsilon,maxit)
     X_j <- res$X
     C_j <- res$C
-    if(is.identity.matrix(A)){
+    if(is.identity){
       C_j <- matrix(stats::rnorm(ncol(X_j)*ncol(Yj),mean=2,sd=0.3),
                     nrow=ncol(X_j),ncol=ncol(Yj))
       oldSum <- 0
