@@ -10,6 +10,11 @@ The goal of nmfreg is to perform NMF regression model described by Y~XCA where
   rank of basis matrix X:PxQ whose column sum is 1
   and coefficient matrix C:QxN,
   Y and A are known, and X and C are unknown.
+  
+## Reference
+  The model is introduced in the paper, Kenichi Satoh (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press.
+In Japanese,
+佐藤健一, ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中.
 
 ## Installation
 
