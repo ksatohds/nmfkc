@@ -5,6 +5,18 @@
 #' @return kernel matrix A: NxN
 #' @export
 #' @examples
+#' #library(nmfreg)
+#' #library(fda)
+#' #data(CanadianWeather)
+#' #d <- CanadianWeather$dailyAv[,,1]
+#' #Y <- d-min(d)
+#' #u0 <- CanadianWeather$coordinates[,2:1]
+#' #u0[,1] = -u0[,1]
+#' #u = t(u0)
+#' #umin <- apply(u,1,min)
+#' #umax <- apply(u,1,max)
+#' # install.packages("devtools")
+#' # devtools::install_github("ksatohds/nmfreg")
 #' # A <- create.kernel(U,beta=5)
 
 create.kernel <- function(U,beta){
@@ -44,6 +56,8 @@ create.kernel <- function(U,beta){
 #' # d <- CanadianWeather$dailyAv[,,1]
 #' # Y <- d-min(d)
 #' # A <- diag(ncol(Y))
+#' # install.packages("devtools")
+#' # devtools::install_github("ksatohds/nmfreg")
 #' # library(nmfreg)
 #' # result <- nmfreg(Y,A,Q=2)
 #' # result$r.squared
@@ -113,12 +127,19 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
 #' @return block: partition block index {1,...,div} assigned to each column of Y
 #' @export
 #' @examples
-#' # library(fda)
-#' # data(CanadianWeather)
-#' # d <- CanadianWeather$dailyAv[,,1]
-#' # Y <- d-min(d)
-#' # A <- diag(ncol(Y))
-#' # library(nmfreg)
+#' #library(nmfreg)
+#' #library(fda)
+#' #data(CanadianWeather)
+#' #d <- CanadianWeather$dailyAv[,,1]
+#' #Y <- d-min(d)
+#' #u0 <- CanadianWeather$coordinates[,2:1]
+#' #u0[,1] = -u0[,1]
+#' #u = t(u0)
+#' #umin <- apply(u,1,min)
+#' #umax <- apply(u,1,max)
+#' # install.packages("devtools")
+#' # devtools::install_github("ksatohds/nmfreg")
+#' # A <- create.kernel(U,beta=5)
 #' # result.cv <- nmfreg.cv(Y,A,Q=2)
 
 nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){

@@ -50,6 +50,8 @@ Y and A are known, and X and C are unknown.
 # d <- CanadianWeather$dailyAv[,,1]
 # Y <- d-min(d)
 # A <- diag(ncol(Y))
+# install.packages("devtools")
+# devtools::install_github("ksatohds/nmfreg")
 # library(nmfreg)
 # result <- nmfreg(Y,A,Q=2)
 # result$r.squared

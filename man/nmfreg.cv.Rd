@@ -46,11 +46,18 @@ block: partition block index {1,...,div} assigned to each column of Y
 \code{nmfreg.cv} apply cv method for k-pertitioned columns of Y:PxN
 }
 \examples{
-# library(fda)
-# data(CanadianWeather)
-# d <- CanadianWeather$dailyAv[,,1]
-# Y <- d-min(d)
-# A <- diag(ncol(Y))
-# library(nmfreg)
+#library(nmfreg)
+#library(fda)
+#data(CanadianWeather)
+#d <- CanadianWeather$dailyAv[,,1]
+#Y <- d-min(d)
+#u0 <- CanadianWeather$coordinates[,2:1]
+#u0[,1] = -u0[,1]
+#u = t(u0)
+#umin <- apply(u,1,min)
+#umax <- apply(u,1,max)
+# install.packages("devtools")
+# devtools::install_github("ksatohds/nmfreg")
+# A <- create.kernel(U,beta=5)
 # result.cv <- nmfreg.cv(Y,A,Q=2)
 }
