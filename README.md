@@ -27,9 +27,11 @@ This is a basic example which shows you how to solve a common problem:
 ``` r
 #----------------------------
 # example 1: iris
+## without covariate
 #----------------------------
 Y <- t(iris[,-5])
 A <- diag(ncol(Y))
+library(nmfreg)
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
@@ -47,13 +49,18 @@ legend("topright",legend=unique(iris[,5]),fill=unique(labels))
 
 #----------------------------
 # example 2: CanadianWeather
+## without covariate
+## with covariates
+## with covariates using kernel
 #----------------------------
 library(fda)
 data(CanadianWeather)
 d <- CanadianWeather$dailyAv[,,1]
 Y <- d-min(d)
 
+#------------------
 ## without covariate
+#------------------
 A <- diag(ncol(Y))
 library(nmfreg)
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
@@ -83,35 +90,9 @@ stars(t(result$P),
       col.segments=1:Q+1,
       len=max(u0)/30,add=T)
 
-## without covariate
-A <- diag(ncol(Y))
-library(nmfreg)
-result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
-
-# visualization of some results
-plot(result$objfunc.iter) # check convergence
-result$r.squared # coefficient of determination
-
-# check individual fit
-n <- 1
-plot(Y[,n]) # observation
-lines(result$YHAT[,n]) # fitted values
-
-# check basis function of which sum is 1
-q <- 1
-plot(result$X[,q])
-
-# soft clulustering based on P
-Q <- nrow(result$P)
-plot(t(U),type="n")
-legend("topright",legend=1:Q,fill=1:Q+1)
-stars(t(result$P),
-      locations=t(U),scale=F,
-      draw.segments=TRUE,labels=colnames(Y),
-      col.segments=1:Q+1,
-      len=max(U)/30,add=T)
-
+#------------------
 ## with covariates
+#------------------
 u = t(u0)
 umin <- apply(u,1,min)
 umax <- apply(u,1,max)
@@ -120,7 +101,9 @@ U <- (u-umin)/(umax-umin) # normalization
 result <- nmfreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 
+#------------------
 ## with covariates using kernel
+#------------------
 # perform cv for some beta
 betas <- c(0.5,1,2,5,10)
 objfuncs <- 0*betas
