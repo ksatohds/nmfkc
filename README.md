@@ -7,7 +7,8 @@
 The goal of nmfreg is to perform NMF regression model described by Y~XCA where 
   observation matrix Y:PxN,
   kernel matrix A:NxN with parameter beta,
-  rank of basis matrix X:PxQ whose column sum is 1
+  basis matrix X:PxQ whose column sum is 1,
+  Q is a number of basis (rank)
   and coefficient matrix C:QxN,
   Y and A are known, and X and C are unknown.
   
