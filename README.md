@@ -22,8 +22,6 @@ devtools::install_github("ksatohds/nmfreg")
 
 ## Example
 
-This is a basic example which shows you how to solve a common problem:
-
 ``` r
 #----------------------------
 # example 1: iris
@@ -45,13 +43,52 @@ abline(a=0,b=1,col=2)
 # soft clulustering based on P
 labels <- as.numeric(iris[,5])
 plot(result$P[1,],col=labels)
-legend("topright",legend=unique(iris[,5]),fill=unique(labels))
+legend("topright",
+  legend=unique(iris[,5]),fill=unique(labels))
 
 #----------------------------
-# example 2: CanadianWeather
+# example 2: basketball players and statistics
 ## without covariate
-## with covariates
-## with covariates using kernel
+#----------------------------
+# https://rpubs.com/sirinya/847402
+d <- read.csv("http://datasets.flowingdata.com/ppg2008.csv")
+y <- d[,-1]
+rownames(y) <- d[,1]
+
+Y <- t(y)
+A <- diag(ncol(Y))
+library(nmfreg)
+result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
+
+# visualization of some results
+plot(result$objfunc.iter) # check convergence
+
+# check fit
+plot(as.vector(result$YHAT),as.vector(result$Y),
+     main=paste0("r.squared=",round(result$r.squared,3)))
+abline(a=0,b=1,col=2)
+
+# check individual fit
+n <- 1
+f <- rbind(Y[,n],result$YHAT[,n])
+rownames(f) <- c("obs","fitted")
+barplot(f,beside=T,las=3,legend=T) # observation
+
+# check basis function of which sum is 1
+Q <- ncol(result$X)
+barplot(t(result$X),beside=T,col=1:Q+1,legend=T,las=3)
+
+# soft clulustering based on P
+stars(t(result$P),scale=F,
+      draw.segments=TRUE,labels=colnames(Y),
+      col.segments=1:Q+1,
+      len=1)
+
+#----------------------------
+# example 3: CanadianWeather
+## 3.1 without covariate
+## 3.2 with covariates
+## 3.3 with covariates using kernel
 #----------------------------
 library(fda)
 data(CanadianWeather)
@@ -59,7 +96,7 @@ d <- CanadianWeather$dailyAv[,,1]
 Y <- d-min(d)
 
 #------------------
-## without covariate
+## 3.1 without covariate
 #------------------
 A <- diag(ncol(Y))
 library(nmfreg)
@@ -91,7 +128,7 @@ stars(t(result$P),
       len=max(u0)/30,add=T)
 
 #------------------
-## with covariates
+## 3.2 with covariates
 #------------------
 u = t(u0)
 umin <- apply(u,1,min)
@@ -102,7 +139,7 @@ result <- nmfreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 
 #------------------
-## with covariates using kernel
+## 3.3 with covariates using kernel
 #------------------
 # perform cv for some beta
 betas <- c(0.5,1,2,5,10)
@@ -128,5 +165,6 @@ result$r.squared # less than nmf without covariates
 library(akima)
 q <- 2
 result.interp <- interp(U[1,],U[2,],result$P[q,])
-filled.contour(result.interp,xlab=rownames(U)[1],ylab=rownames(U)[2])
+filled.contour(result.interp,
+  xlab=rownames(U)[1],ylab=rownames(U)[2])
 ```
