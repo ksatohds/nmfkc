@@ -18,9 +18,9 @@ Q shows the number of basis (rank).
 - **create.kernel** function is used fot creating kernel matrix A from covariate matrix U
 ## Reference
 
-- Satoh, K. (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press.
+- Satoh, K. (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press. (in Japanese)
 - Satoh, K. (2022) Soft Clustering Based on Non-negative Matrix
-Factorization for Longitudinal Data, {\it Japanese Journal of Applied Statistics}, {\bf 51} (1&2), 1-18. https://doi.org/10.5023/jappstat.51.1
+Factorization for Longitudinal Data, {\it Japanese Journal of Applied Statistics}, {\bf 51} (1&2), 1-18. https://doi.org/10.5023/jappstat.51.1 (in Japanese)
 - Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
 Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
  {\it Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining}, 126-135.
@@ -28,14 +28,9 @@ Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
 {\it Biometrika}, {\bf 51}, 313–326.
 
 
-## Reference in Japanese
+## Reference (in Japanese)
 - 佐藤健一 (2023) ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中.
 - 佐藤健一 (2022) 経時測定データに対する非負値行列因子分解によるソフトクラスタリングについて, 応用統計学, 51(1-2), 1-18. https://doi.org/10.5023/jappstat.51.1
-- Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
-Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
- {\it Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining}, 126-135.
-- Potthoff, R. F. and Roy, S. N. (1964) A generalized multivariate analysis of variance model useful especially for growth curve problems,
-{\it Biometrika}, {\bf 51}, 313–326.
 
 ## Installation
 
