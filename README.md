@@ -14,7 +14,21 @@ The goal of nmfreg is to perform NMF regression model described by Y~XCA where
 ## Reference
   The model is introduced in the paper, Kenichi Satoh (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press.
 In Japanese,
-佐藤健一, ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中.
+The basic idea is introduced in the paper, 
+Kenichi Satoh (2022) Soft Clustering Based on Non-negative Matrix
+Factorization for Longitudinal Data, Japanese Journal of Applied Statistics 51 (1&2), 1-18. https://doi.org/10.5023/jappstat.51.1
+  Ding, C., Tao, L., Wei, P. and Haesun, P. (2006):
+Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
+ {\it Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining}, 126--135.
+
+## Reference in Japanese
+  モデルは以下の論文で紹介されています．佐藤健一, ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中.
+  また，基本的なアイデアは以下の論文で紹介されています．
+  佐藤健一, 経時測定データに対する非負値行列因子分解によるソフトクラスタリングについて, 応用統計学, 51(1-2), 1-18, 2022. https://doi.org/10.5023/jappstat.51.1
+  なお，更新式については下記論文でも紹介されている．
+  Ding, C., Tao, L., Wei, P. and Haesun, P. (2006):
+Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
+ {\it Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining}, 126--135.
 
 ## Installation
 
