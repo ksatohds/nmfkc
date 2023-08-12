@@ -4,34 +4,31 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of nmfreg is to optimize X and C on the NMF regression model Y=XCA where 
+The goal of **nmfreg** is to optimize X and C on the NMF regression model $Y \approx X C A$ where 
 
 - given Y[P,N] observation matrix
-- given A[N,N] kernel matrix with parameter beta
+- given A[N,N] kernel matrix of which $(i,j)$ element can be 
+written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U=[u_1,...u_n]$ 
+is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the case where there are no covariate.
+- unknown X[P,Q] basis matrix whose column sum is 1.
+Q shows the number of basis (rank).
+- unkown C[Q,N] regression coefficient matrix which is described by $\Theta$ in the paper Satoh (2023).
+- **nmfreg** function is used for optimization of X and C
+- **nmfreg.cv** function is used for k-fold cross-validation optimizing $\beta$ and $Q$
 
-  A is derived from covariates and
-  it can be given by the identity matrix A=diag(ncol(Y)) without covariate. 
-  Basis matrix X:PxQ whose column sum is 1,
-  Q is a number of basis (rank)
-  and coefficient matrix C:QxN.
-  Y and A are known, and X and C are unknown.
-  
 ## Reference
-  The model is introduced in the paper, Kenichi Satoh (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press.
-In Japanese,
-The basic idea is introduced in the paper, 
-Kenichi Satoh (2022) Soft Clustering Based on Non-negative Matrix
+
+- Kenichi Satoh (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press.
+- Kenichi Satoh (2022) Soft Clustering Based on Non-negative Matrix
 Factorization for Longitudinal Data, Japanese Journal of Applied Statistics 51 (1&2), 1-18. https://doi.org/10.5023/jappstat.51.1
-  Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
+- Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
 Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
  {\it Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining}, 126-135.
 
 ## Reference in Japanese
-  モデルは以下の論文で紹介されています．佐藤健一 (2023) ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中.
-  また，基本的なアイデアは以下の論文で紹介されています．
-  佐藤健一 (2022) 経時測定データに対する非負値行列因子分解によるソフトクラスタリングについて, 応用統計学, 51(1-2), 1-18. https://doi.org/10.5023/jappstat.51.1
-  なお，更新式については下記論文でも紹介されている．
-  Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
+- 佐藤健一 (2023) ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中.
+- 佐藤健一 (2022) 経時測定データに対する非負値行列因子分解によるソフトクラスタリングについて, 応用統計学, 51(1-2), 1-18. https://doi.org/10.5023/jappstat.51.1
+- Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
 Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
  {\it Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining}, 126-135.
 
