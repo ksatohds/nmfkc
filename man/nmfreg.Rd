@@ -4,7 +4,7 @@
 \alias{nmfreg}
 \title{Optimizing X and C on NMF:Y~XCA where Y and A are given}
 \usage{
-nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 5000)
+nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 5000, method = "EU")
 }
 \arguments{
 \item{Y}{observation matrix Y:PxN}
@@ -18,6 +18,8 @@ nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 5000)
 \item{epsilon}{positive convergence tolerance}
 
 \item{maxit}{maximum number of iterations}
+
+\item{method}{default objective function uses Euclid distance "EU" and Kullback–Leibler divergence is used by method="KL".}
 }
 \value{
 X:NxQ whose column sum is 1

@@ -12,7 +12,8 @@ nmfreg.cv(
   epsilon = 1e-04,
   maxit = 5000,
   div = 5,
-  seed = 123
+  seed = 123,
+  method = "EU"
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ nmfreg.cv(
 \item{div}{number of partition, usually referred to as "k"}
 
 \item{seed}{random seed which decides the partition at random}
+
+\item{method}{default objective function uses Euclid distance "EU" and Kullback–Leibler divergence is used by method="KL".}
 }
 \value{
 objfunc: last objective function
