@@ -13,7 +13,7 @@ nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 5000, method = "EU")
 
 \item{Q}{rank of basis matrix X:PxQ}
 
-\item{gamma}{penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C}
+\item{gamma}{penalty parameter for C:QxN where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma\emph{trC'C for method="EU" and sum(-Y}log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"}
 
 \item{epsilon}{positive convergence tolerance}
 

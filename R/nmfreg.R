@@ -21,7 +21,7 @@ create.kernel <- function(U,beta){
 #' @param Y observation matrix Y:PxN
 #' @param A kernel matrix A:NxN
 #' @param Q rank of basis matrix X:PxQ
-#' @param gamma penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C
+#' @param gamma penalty parameter for C:QxN where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU" and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function uses Euclid distance "EU" and Kullback–Leibler divergence is used by method="KL".
@@ -81,7 +81,7 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
   if(method=="EU"){
     objfunc <- sum((Y-YHAT)^2)+gamma*sum(C^2)
   }else{
-    objfunc <- sum(Y*log(Y/YHAT)-Y+YHAT)+gamma*sum(C^2)
+    objfunc <- sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2)
   }
   r2 <- stats::cor(as.vector(YHAT),as.vector(Y))^2
   P <- t(t(B)/colSums(B))
