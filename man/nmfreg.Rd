@@ -2,13 +2,7 @@
 % Please edit documentation in R/nmfreg.R
 \name{nmfreg}
 \alias{nmfreg}
-\title{The goal of nmfreg is to perform NMF regression model described by Y~XCA
-where observation matrix Y:PxN,
-kernel matrix A:NxN with parameter beta,
-rank of basis matrix X:PxQ whose column sum is 1
-and coefficient matrix C:QxN,
-Y and A are known, and X and C are unknown.
-Optimizing X and C on NMF:Y~XCA where Y and A are given}
+\title{Optimizing X and C on NMF:Y~XCA where Y and A are given}
 \usage{
 nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 5000, method = "EU")
 }
@@ -43,7 +37,12 @@ objfunc.iter: objective function at each iteration
 r.squared: squared correlation, i.e., coefficient of determination R^2 between Y and YHAT
 }
 \description{
-\code{nmfreg} optimize basis matrix X whose column sum is 1 and coefficient matrix C
+\code{nmfreg} The goal of nmfreg is to perform NMF regression model described by Y~XCA
+where observation matrix Y:PxN,
+kernel matrix A:NxN with parameter beta,
+rank of basis matrix X:PxQ whose column sum is 1
+and coefficient matrix C:QxN,
+Y and A are known, and X and C are unknown.
 }
 \examples{
 # library(fda)

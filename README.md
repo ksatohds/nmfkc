@@ -27,9 +27,9 @@ devtools::install_github("ksatohds/nmfreg")
 # example 1: iris
 ## without covariate
 #----------------------------
+library(nmfreg)
 Y <- t(iris[,-5])
 A <- diag(ncol(Y))
-library(nmfreg)
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
@@ -51,13 +51,13 @@ legend("topright",
 ## without covariate
 #----------------------------
 # https://rpubs.com/sirinya/847402
+library(nmfreg)
 d <- read.csv("http://datasets.flowingdata.com/ppg2008.csv")
 y <- d[,-1]
 rownames(y) <- d[,1]
 
 Y <- t(y)
 A <- diag(ncol(Y))
-library(nmfreg)
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
@@ -90,6 +90,7 @@ stars(t(result$P),scale=F,
 ## 3.2 with covariates
 ## 3.3 with covariates using kernel
 #----------------------------
+library(nmfreg)
 library(fda)
 data(CanadianWeather)
 d <- CanadianWeather$dailyAv[,,1]
@@ -100,7 +101,6 @@ u = t(u0)
 umin <- apply(u,1,min)
 umax <- apply(u,1,max)
 U <- (u-umin)/(umax-umin) # normalization
-library(nmfreg)
 
 #------------------
 ## 3.1 without covariate

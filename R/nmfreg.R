@@ -16,14 +16,13 @@ create.kernel <- function(U,beta){
   return(A)
 }
 
-#' @title The goal of nmfreg is to perform NMF regression model described by Y~XCA
+#' @title Optimizing X and C on NMF:Y~XCA where Y and A are given
+#' @description \code{nmfreg} The goal of nmfreg is to perform NMF regression model described by Y~XCA
 #'  where observation matrix Y:PxN,
 #'  kernel matrix A:NxN with parameter beta,
 #'  rank of basis matrix X:PxQ whose column sum is 1
 #'  and coefficient matrix C:QxN,
 #'  Y and A are known, and X and C are unknown.
-#'  Optimizing X and C on NMF:Y~XCA where Y and A are given
-#' @description \code{nmfreg} optimize basis matrix X whose column sum is 1 and coefficient matrix C
 #' @param Y observation matrix Y:PxN
 #' @param A kernel matrix A:NxN. Set A <- diag(ncol(Y)) without covariate.
 #' @param Q rank of basis matrix X:PxQ
