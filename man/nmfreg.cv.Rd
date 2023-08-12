@@ -9,8 +9,8 @@ nmfreg.cv(
   A,
   Q,
   gamma = 0,
-  epsilon = 0.001,
-  maxit = 1000,
+  epsilon = 1e-04,
+  maxit = 5000,
   div = 5,
   seed = 123
 )

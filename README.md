@@ -26,21 +26,64 @@ This is a basic example which shows you how to solve a common problem:
 
 ``` r
 #----------------------------
-# obervation and covariates
+# example 1: iris
+#----------------------------
+Y <- t(iris[,-5])
+A <- diag(ncol(Y))
+result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
+
+# visualization of some results
+plot(result$objfunc.iter) # check convergence
+
+# check fit
+plot(as.vector(result$YHAT),as.vector(result$Y),
+main=paste0("r.squared=",round(result$r.squared,3)))
+abline(a=0,b=1,col=2)
+
+# soft clulustering based on P
+labels <- as.numeric(iris[,5])
+plot(result$P[1,],col=labels)
+legend("topright",legend=unique(iris[,5]),fill=unique(labels))
+
+#----------------------------
+# example 2: CanadianWeather
 #----------------------------
 library(fda)
 data(CanadianWeather)
 d <- CanadianWeather$dailyAv[,,1]
 Y <- d-min(d)
-u0 <- t(CanadianWeather$coordinates[,2:1])
-u0[1,] = -u0[1,]
-umin <- apply(u0,1,min)
-umax <- apply(u0,1,max)
-U <- (u0-umin)/(umax-umin) # normalization
 
-#----------------------------
-# without covariate
-#----------------------------
+## without covariate
+A <- diag(ncol(Y))
+library(nmfreg)
+result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
+
+# visualization of some results
+plot(result$objfunc.iter) # check convergence
+result$r.squared # coefficient of determination
+
+# check individual fit
+n <- 1
+plot(Y[,n]) # observation
+lines(result$YHAT[,n]) # fitted values
+
+# check basis function of which sum is 1
+q <- 1
+plot(result$X[,q])
+
+# soft clulustering based on P
+Q <- nrow(result$P)
+u0 <- CanadianWeather$coordinates[,2:1]
+u0[,1] = -u0[,1]
+plot(u0,type="n")
+legend("topright",legend=1:Q,fill=1:Q+1)
+stars(t(result$P),
+      locations=u0,scale=F,
+      draw.segments=TRUE,labels=colnames(Y),
+      col.segments=1:Q+1,
+      len=max(u0)/30,add=T)
+
+## without covariate
 A <- diag(ncol(Y))
 library(nmfreg)
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
@@ -68,15 +111,16 @@ stars(t(result$P),
       col.segments=1:Q+1,
       len=max(U)/30,add=T)
 
-#----------------------------
-# with covariates
-#----------------------------
+## with covariates
+u = t(u0)
+umin <- apply(u,1,min)
+umax <- apply(u,1,max)
+U <- (u-umin)/(umax-umin) # normalization
+
 result <- nmfreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 
-#----------------------------
-# with covariates using kernel
-#----------------------------
+## with covariates using kernel
 # perform cv for some beta
 betas <- c(0.5,1,2,5,10)
 objfuncs <- 0*betas
@@ -87,6 +131,7 @@ for(i in 1:length(betas)){
   objfuncs[i] <- result$objfunc
 }
 table(result$block) # partition block of cv
+
 # check objective function by beta
 plot(betas,objfuncs,type="o",log="x")
 (best.beta <- betas[which.min(objfuncs)])
