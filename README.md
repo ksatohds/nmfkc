@@ -164,7 +164,7 @@ A <- create.kernel(U,beta=best.beta)
 result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
 result$r.squared # less than nmf without covariates
 
-# soft clulustering based on P
+# soft clulustering based on P by using covariates
 library(akima)
 q <- 2
 result.interp <- interp(U[1,],U[2,],result$P[q,])
