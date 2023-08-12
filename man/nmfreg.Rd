@@ -2,14 +2,20 @@
 % Please edit documentation in R/nmfreg.R
 \name{nmfreg}
 \alias{nmfreg}
-\title{Optimizing X and C on NMF:Y~XCA where Y and A are given}
+\title{The goal of nmfreg is to perform NMF regression model described by Y~XCA
+where observation matrix Y:PxN,
+kernel matrix A:NxN with parameter beta,
+rank of basis matrix X:PxQ whose column sum is 1
+and coefficient matrix C:QxN,
+Y and A are known, and X and C are unknown.
+Optimizing X and C on NMF:Y~XCA where Y and A are given}
 \usage{
 nmfreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 5000, method = "EU")
 }
 \arguments{
 \item{Y}{observation matrix Y:PxN}
 
-\item{A}{kernel matrix A:NxN}
+\item{A}{kernel matrix A:NxN. Set A <- diag(ncol(Y)) without covariate.}
 
 \item{Q}{rank of basis matrix X:PxQ}
 
