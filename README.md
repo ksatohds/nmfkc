@@ -108,6 +108,9 @@ stars(t(result$P),scale=F,
 ``` 
 
 ### CanadianWeather
+
+It includes four subsection below. Excute "common preparation" at first. 
+
 - common preparation
 - without covariate
 - with covariates using covariate matrix U
