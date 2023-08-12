@@ -148,6 +148,7 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,metho
     X_j <- res$X
     C_j <- res$C
     if(is.identity){
+      A_j <- diag(ncol(Yj))
       C_j <- matrix(stats::rnorm(ncol(X_j)*ncol(Yj),mean=2,sd=0.3),
                     nrow=ncol(X_j),ncol=ncol(Yj))
       oldSum <- 0
