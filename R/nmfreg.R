@@ -24,7 +24,7 @@ create.kernel <- function(U,beta){
 #'  and coefficient matrix C:QxN,
 #'  Y and A are known, and X and C are unknown.
 #' @param Y observation matrix Y:PxN
-#' @param A kernel matrix A:NxN. Set A <- diag(ncol(Y)) without covariate.
+#' @param A kernel matrix A:NxN. Without covariate, use identity matrix A=diag(ncol(Y)).
 #' @param Q rank of basis matrix X:PxQ
 #' @param gamma penalty parameter for C:QxN where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU" and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
 #' @param epsilon positive convergence tolerance
@@ -100,7 +100,7 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
 #' @title Performing k-fold cross validation
 #' @description \code{nmfreg.cv} apply cv method for k-pertitioned columns of Y:PxN
 #' @param Y observation matrix Y:PxN
-#' @param A kernel matrix A:NxN. Set A <- diag(ncol(Y)) without covariate.
+#' @param A kernel matrix A:NxN. Without covariate, use identity matrix A=diag(ncol(Y)).
 #' @param Q rank of basis matrix X:P*Q
 #' @param gamma penalty parameter for C:QxN, where objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C
 #' @param epsilon positive convergence tolerance

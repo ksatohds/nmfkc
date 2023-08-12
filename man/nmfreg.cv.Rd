@@ -19,7 +19,7 @@ nmfreg.cv(
 \arguments{
 \item{Y}{observation matrix Y:PxN}
 
-\item{A}{kernel matrix A:NxN. Set A <- diag(ncol(Y)) without covariate.}
+\item{A}{kernel matrix A:NxN. Without covariate, use identity matrix A=diag(ncol(Y)).}
 
 \item{Q}{rank of basis matrix X:P*Q}
 
