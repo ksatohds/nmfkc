@@ -18,7 +18,7 @@ kernel matrix A(N,N)
 \code{create.kernel} create kernel matrix A from covariate matrix U
 }
 \examples{
-#library(nmfreg)
+#library(nmfkcreg)
 #library(fda)
 #data(CanadianWeather)
 #d <- CanadianWeather$dailyAv[,,1]
@@ -29,6 +29,6 @@ kernel matrix A(N,N)
 #umin <- apply(u,1,min)
 #umax <- apply(u,1,max)
 # install.packages("devtools")
-# devtools::install_github("ksatohds/nmfreg")
+# devtools::install_github("ksatohds/nmfkcreg")
 # A <- create.kernel(U,beta=5)
 }

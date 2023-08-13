@@ -5,7 +5,7 @@
 #' @return kernel matrix A(N,N)
 #' @export
 #' @examples
-#' #library(nmfreg)
+#' #library(nmfkcreg)
 #' #library(fda)
 #' #data(CanadianWeather)
 #' #d <- CanadianWeather$dailyAv[,,1]
@@ -16,7 +16,7 @@
 #' #umin <- apply(u,1,min)
 #' #umax <- apply(u,1,max)
 #' # install.packages("devtools")
-#' # devtools::install_github("ksatohds/nmfreg")
+#' # devtools::install_github("ksatohds/nmfkcreg")
 #' # A <- create.kernel(U,beta=5)
 
 create.kernel <- function(U,beta){
@@ -28,8 +28,8 @@ create.kernel <- function(U,beta){
   return(A)
 }
 
-#' @title Optimizing X and C on Non-negative Matrix Factorization regression model Y~XCA where Y and A are given
-#' @description \code{nmfreg} The goal of nmfreg is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
+#' @title Optimizing X and C on NMF (Non-negative Matrix Factorization) kernel covariate regression model Y~XCA where Y and A are given
+#' @description \code{nmkcfreg} The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
 #'  where observation matrix Y(P,N),
 #'  kernel matrix A(N,N) with parameter beta,
 #'  basis matrix X(P,Q) whose column sum is 1
@@ -62,12 +62,12 @@ create.kernel <- function(U,beta){
 #' # Y <- d-min(d)
 #' # A <- diag(ncol(Y))
 #' # install.packages("devtools")
-#' # devtools::install_github("ksatohds/nmfreg")
-#' # library(nmfreg)
-#' # result <- nmfreg(Y,A,Q=2)
+#' # devtools::install_github("ksatohds/nmfkcreg")
+#' # library(nmfkcreg)
+#' # result <- nmfkcreg(Y,A,Q=2)
 #' # result$r.squared
 
-nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
+nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
   set.seed(123)
   res <- stats::kmeans(t(Y),centers=Q)
   X <- t(res$centers)
@@ -116,8 +116,8 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
-#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) regression model
-#' @description \code{nmfreg.cv} apply cv method for k-partitioned columns of Y on NMF (Non-negative Matrix Factorization) regression model
+#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) kernel covariate regression model
+#' @description \code{nmfkcreg.cv} apply cv method for k-partitioned columns of Y on NMF (Non-negative Matrix Factorization) regression model
 #' @param Y observation matrix
 #' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).
 #' @param Q rank of basis matrix
@@ -135,7 +135,7 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
 #' @return block: partition block index {1,...,div} assigned to each column of Y
 #' @export
 #' @examples
-#' #library(nmfreg)
+#' #library(nmfkcreg)
 #' #library(fda)
 #' #data(CanadianWeather)
 #' #d <- CanadianWeather$dailyAv[,,1]
@@ -146,11 +146,11 @@ nmfreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU"){
 #' #umin <- apply(u,1,min)
 #' #umax <- apply(u,1,max)
 #' # install.packages("devtools")
-#' # devtools::install_github("ksatohds/nmfreg")
+#' # devtools::install_github("ksatohds/nmfkcreg")
 #' # A <- create.kernel(U,beta=5)
-#' # result.cv <- nmfreg.cv(Y,A,Q=2)
+#' # result.cv <- nmfkcreg.cv(Y,A,Q=2)
 
-nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){
+nmfkcreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){
   is.identity.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
@@ -178,7 +178,7 @@ nmfreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,metho
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
     A_j <- A[index!=j,index!=j]
-    res <- nmfreg(Y_j,A_j,Q,gamma,epsilon,maxit,method)
+    res <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method)
     X_j <- res$X
     C_j <- res$C
     if(is.identity){
