@@ -11,7 +11,7 @@ nmfkcreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 5000, method = "EU")
 
 \item{A}{kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).}
 
-\item{Q}{rank of basis matrix}
+\item{Q}{rank of basis matrix and P<=Q}
 
 \item{gamma}{penalty parameter for C:QxN where
 objective function:tr(Y-YHAT)'(Y-YHAT)+gamma\emph{trC'C for method="EU"
@@ -46,7 +46,7 @@ r.squared: coefficient of determination R^2, squared correlation between Y and Y
 \code{nmkcfreg} The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
 where observation matrix Y(P,N),
 kernel matrix A(N,N) with parameter beta,
-basis matrix X(P,Q) whose column sum is 1
+basis matrix X(P,Q) whose column sum is 1 and P<=Q,
 and coefficient matrix C(Q,N).
 Note that Y and A are known, and X and C are unknown.
 }
