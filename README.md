@@ -1,10 +1,10 @@
 
-# nmfreg
+# nmfkcreg
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of **nmfreg** is to optimize X and C on the NMF (Non-negative Matrix Factorization) regression model $Y \approx X C A$.
+The goal of **nmfkcreg** is to optimize X and C on the NMF (Non-negative Matrix Factorization) kernel covariate regression model $Y \approx X C A$.
 
 - given Y[P,N] observation matrix
 - given A[N,N] kernel matrix of which $(i,j)$ element can be 
@@ -13,8 +13,8 @@ is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the
 - unknown X[P,Q] basis matrix whose column sum is 1.
 Q shows the number of basis (rank).
 - unkown C[Q,N] regression coefficient matrix which is described by $\Theta$ in the paper Satoh (2023).
-- **nmfreg** function is used for optimization of X and C
-- **nmfreg.cv** function is used for k-fold cross-validation optimizing $\beta$ and $Q$
+- **nmfkcreg** function is used for optimization of X and C
+- **nmfkcreg.cv** function is used for k-fold cross-validation optimizing $\beta$ and $Q$
 - **create.kernel** function is used fot creating kernel matrix A from covariate matrix U
 ## Reference
 
@@ -34,11 +34,11 @@ Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
 
 ## Installation
 
-You can install the development version of nmfreg from [GitHub](https://github.com/) with:
+You can install the development version of nmfkcreg from [GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("ksatohds/nmfreg")
+devtools::install_github("ksatohds/nmfkcreg")
 ```
 
 ## Example
@@ -50,10 +50,10 @@ Three datasets are used in examples.
 
 ### iris
 ``` r
-library(nmfreg)
+library(nmfkcreg)
 Y <- t(iris[,-5])
 A <- diag(ncol(Y))
-result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
 plot(result$objfunc.iter) # check convergence
@@ -73,14 +73,14 @@ legend("topright",
 ### basketball players and statistics
 - https://rpubs.com/sirinya/847402
 ``` r
-library(nmfreg)
+library(nmfkcreg)
 d <- read.csv("http://datasets.flowingdata.com/ppg2008.csv")
 y <- d[,-1]
 rownames(y) <- d[,1]
 
 Y <- t(y)
 A <- diag(ncol(Y))
-result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
 plot(result$objfunc.iter) # check convergence
@@ -118,7 +118,7 @@ It includes four subsection below. Excute "common preparation" at first.
 
 #### common preparation
 ``` r
-library(nmfreg)
+library(nmfkcreg)
 library(fda)
 data(CanadianWeather)
 d <- CanadianWeather$dailyAv[,,1]
@@ -134,7 +134,7 @@ U <- (u-umin)/(umax-umin) # normalization
 #### without covariate
 ``` r
 A <- diag(ncol(Y))
-result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
 plot(result$objfunc.iter) # check convergence
@@ -166,7 +166,7 @@ stars(t(result$P),
 
 #### with covariates using covariate matrix U
 ``` r
-result <- nmfreg(Y,U,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 ```
 
@@ -178,7 +178,7 @@ objfuncs <- 0*betas
 for(i in 1:length(betas)){
   print(i)
   A <- create.kernel(U,beta=betas[i])
-  result <- nmfreg.cv(Y,A,Q=2,div=10)
+  result <- nmfkcreg.cv(Y,A,Q=2,div=10)
   objfuncs[i] <- result$objfunc
 }
 table(result$block) # partition block of cv
@@ -189,7 +189,7 @@ plot(betas,objfuncs,type="o",log="x")
 
 # create kernel with best beta
 A <- create.kernel(U,beta=best.beta)
-result <- nmfreg(Y,A,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 result$r.squared # less than nmf without covariates
 
 # soft clulustering based on P by using covariates
