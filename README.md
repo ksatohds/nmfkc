@@ -197,5 +197,10 @@ library(akima)
 q <- 2
 result.interp <- interp(U[1,],U[2,],result$P[q,])
 filled.contour(result.interp,
-  xlab=rownames(U)[1],ylab=rownames(U)[2])
+  xlab=rownames(U)[1],ylab=rownames(U)[2],
+  plot.axes={
+    points(t(U),col=3,pch=19)
+    text(t(U),colnames(Y),pos=4)
+  }
+)
 ```
