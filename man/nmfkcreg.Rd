@@ -12,7 +12,7 @@ nmfkcreg(
   epsilon = 1e-04,
   maxit = 5000,
   method = "EU",
-  trace = TRUE
+  trace = FALSE
 )
 }
 \arguments{
