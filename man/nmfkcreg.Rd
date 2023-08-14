@@ -4,7 +4,16 @@
 \alias{nmfkcreg}
 \title{Optimizing X and C on NMF (Non-negative Matrix Factorization) kernel covariate regression model Y~XCA where Y and A are given}
 \usage{
-nmfkcreg(Y, A, Q = 2, gamma = 0, epsilon = 1e-04, maxit = 5000, method = "EU")
+nmfkcreg(
+  Y,
+  A,
+  Q = 2,
+  gamma = 0,
+  epsilon = 1e-04,
+  maxit = 5000,
+  method = "EU",
+  trace = F
+)
 }
 \arguments{
 \item{Y}{observation matrix}
@@ -22,6 +31,8 @@ and sum(-Y}log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"}
 \item{maxit}{maximum number of iterations}
 
 \item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
+
+\item{trace}{display current iteration every 100 timescurrent if trace=TRUE}
 }
 \value{
 X(N,Q) whose column sum is 1
