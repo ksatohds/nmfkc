@@ -59,7 +59,7 @@ result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 plot(result$objfunc.iter) # check convergence
 
 # check fit
-plot(as.vector(result$YHAT),as.vector(result$Y),
+plot(as.vector(result$YHAT),as.vector(Y),
 main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
 
@@ -86,7 +86,7 @@ result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 plot(result$objfunc.iter) # check convergence
 
 # good of fit
-plot(as.vector(result$YHAT),as.vector(result$Y),
+plot(as.vector(result$YHAT),as.vector(Y),
      main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
 
