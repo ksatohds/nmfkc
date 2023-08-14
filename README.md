@@ -43,10 +43,11 @@ devtools::install_github("ksatohds/nmfkcreg")
 
 ## Example
 
-Three datasets are used in examples.
+Four datasets are used in examples.
 - iris
 - basketball players and statistics
 - CanadianWeather
+- PimaIndiansDiabetes2
 
 ### iris
 ``` r
@@ -56,9 +57,9 @@ A <- diag(ncol(Y))
 result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
-plot(result$objfunc.iter) # check convergence
+plot(result$objfunc.iter) # convergence
 
-# check fit
+# fitness
 plot(as.vector(result$YHAT),as.vector(Y),
 main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
@@ -83,7 +84,7 @@ A <- diag(ncol(Y))
 result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
-plot(result$objfunc.iter) # check convergence
+plot(result$objfunc.iter) # convergence
 
 # good of fit
 plot(as.vector(result$YHAT),as.vector(Y),
@@ -137,7 +138,7 @@ A <- diag(ncol(Y))
 result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 
 # visualization of some results
-plot(result$objfunc.iter) # check convergence
+plot(result$objfunc.iter) # convergence
 result$r.squared # coefficient of determination
 
 # individual fit
@@ -203,4 +204,32 @@ filled.contour(result.interp,
     text(t(U),colnames(Y),pos=4)
   }
 )
+```
+
+### PimaIndiansDiabetes2
+- comparison between NMF and ordinary LM
+``` r
+library(mlbench)
+data(PimaIndiansDiabetes2)
+d <- PimaIndiansDiabetes2
+colnames(d)
+d <- d[,-c(1,9)]
+index <- complete.cases(d)
+d <- d[index,]  # remove rows including NA's
+res0 <- lm(glucose~.,d) # ordinary linear model
+
+# preparation for NMF
+Y <- t(as.matrix(d$glucose))
+dim(Y) # 1*N
+A <- t(as.matrix(cbind(1,d[,-1])))
+dim(A) # R*
+library(nmfkcreg)
+result <- nmfkcreg(Y,A,Q=1,epsilon=1e-15,maxit=20000) # Y~XCA=XB
+plot(result$objfunc.iter,log="xy") # convergence
+result$r.squared # coefficient of determination
+
+# comparison between NMF and LM
+f <- rbind(res0$coefficients,result$C)
+rownames(f) <- c("LM","NMF")
+print(f)
 ```

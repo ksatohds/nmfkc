@@ -36,7 +36,7 @@ create.kernel <- function(U,beta){
 #'  and coefficient matrix C(Q,N).
 #'  Note that Y and A are known, and X and C are unknown.
 #' @param Y observation matrix
-#' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).
+#' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)). Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix
 #' @param gamma penalty parameter for C:QxN where
 #' objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU"
@@ -128,7 +128,7 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
 #' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) kernel covariate regression model
 #' @description \code{nmfkcreg.cv} apply cv method for k-partitioned columns of Y on NMF (Non-negative Matrix Factorization) regression model
 #' @param Y observation matrix
-#' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).
+#' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).  Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix
 #' @param gamma penalty parameter for C:QxN where
 #' objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU"

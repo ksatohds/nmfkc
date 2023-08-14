@@ -19,9 +19,9 @@ nmfkcreg.cv(
 \arguments{
 \item{Y}{observation matrix}
 
-\item{A}{kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).}
+\item{A}{kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).  Or matrix A(R,N) having N columns can be accepted.}
 
-\item{Q}{rank of basis matrix and Q<=P}
+\item{Q}{rank of basis matrix}
 
 \item{gamma}{penalty parameter for C:QxN where
 objective function:tr(Y-YHAT)'(Y-YHAT)+gamma\emph{trC'C for method="EU"
