@@ -9,9 +9,9 @@ The goal of **nmfkcreg** is to optimize X and C on the NMF (Non-negative Matrix 
 - given Y(P,N) observation matrix
 - given A(N,N) kernel matrix of which $(i,j)$ element can be 
 written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U=(u_1,...u_N)$ 
-is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the case where there are no covariate.
-- unknown X(P,Q) basis matrix whose column sum is 1.
-Q shows the number of basis (rank).
+is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the case where there are no covariate. Or matrix A(R,N) having N columns can be accepted.
+- unknown X(P,Q) basis matrix whose column sum is 1 and Q<=P.
+Q is the number of basis (rank).
 - unkown C(Q,N) regression coefficient matrix which is described by $\Theta$ in the paper Satoh (2023).
 - **nmfkcreg** function is used for optimization of X and C
 - **nmfkcreg.cv** function is used for k-fold cross-validation optimizing $\beta$ and $Q$
