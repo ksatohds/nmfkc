@@ -32,7 +32,7 @@ create.kernel <- function(U,beta){
 #' @description \code{nmkcfreg} The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
 #'  where observation matrix Y(P,N),
 #'  kernel matrix A(N,N) with parameter beta,
-#'  basis matrix X(P,Q) whose column sum is 1 and Q<=P
+#'  basis matrix X(P,Q) whose column sum is 1 and Q<=min{P,N}
 #'  and coefficient matrix C(Q,N).
 #'  Note that Y and A are known, and X and C are unknown.
 #' @param Y observation matrix
@@ -71,8 +71,13 @@ create.kernel <- function(U,beta){
 nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
   set.seed(123)
   if(nrow(Y)>=2){
-    res <- stats::kmeans(t(Y),centers=Q)
-    X <- t(res$centers)
+    if(nrow(Y)>Q){
+      res <- stats::kmeans(t(Y),centers=Q)
+      X <- t(res$centers)
+    }
+    if(nrow(Y)==Q){
+      X <- Y
+    }
     X <- t(t(X)/colSums(X))
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
@@ -129,7 +134,7 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
 #' @description \code{nmfkcreg.cv} apply cv method for k-partitioned columns of Y on NMF (Non-negative Matrix Factorization) regression model
 #' @param Y observation matrix
 #' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).  Or matrix A(R,N) having N columns can be accepted.
-#' @param Q rank of basis matrix and Q<=P
+#' @param Q rank of basis matrix and Q<=min{P,N}
 #' @param gamma penalty parameter for C:QxN where
 #' objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU"
 #' and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
