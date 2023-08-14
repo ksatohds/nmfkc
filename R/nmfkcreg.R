@@ -78,12 +78,9 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
     if(nrow(Y)==Q){
       X <- Y
     }
-    X <- t(t(X)/colSums(X))
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
   }
-  res <- stats::kmeans(t(Y),centers=Q)
-  X <- t(res$centers)
   X <- t(t(X)/colSums(X))
   C <- matrix(stats::rnorm(ncol(X)*nrow(A),mean=2,sd=0.3),
               nrow=ncol(X),ncol=nrow(A))
