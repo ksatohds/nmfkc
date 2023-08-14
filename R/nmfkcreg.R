@@ -44,7 +44,7 @@ create.kernel <- function(U,beta){
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
-#' @param trace display current iteration every 100 timescurrent if trace=TRUE
+#' @param trace display current iteration every 10 times if trace=TRUE
 #' @return X(N,Q) whose column sum is 1
 #' @return C(Q,N) parameter matrix
 #' @return B, B=XC regression coefficient matrix
@@ -68,7 +68,7 @@ create.kernel <- function(U,beta){
 #' # result <- nmfkcreg(Y,A,Q=2)
 #' # result$r.squared
 
-nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F){
+nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
   set.seed(123)
   res <- stats::kmeans(t(Y),centers=Q)
   X <- t(res$centers)
@@ -79,7 +79,7 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
   YHAT <- X %*% B
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
-    if(trace&i %% 100==0) print(paste0(i,"..."))
+    if(trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
       X <- X * ((Y %*% t(B)) / (YHAT %*% t(B)))
       X <- t(t(X)/colSums(X))

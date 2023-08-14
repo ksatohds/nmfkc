@@ -12,7 +12,7 @@ nmfkcreg(
   epsilon = 1e-04,
   maxit = 5000,
   method = "EU",
-  trace = F
+  trace = TRUE
 )
 }
 \arguments{
@@ -32,7 +32,7 @@ and sum(-Y}log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"}
 
 \item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 
-\item{trace}{display current iteration every 100 timescurrent if trace=TRUE}
+\item{trace}{display current iteration every 10 times if trace=TRUE}
 }
 \value{
 X(N,Q) whose column sum is 1
