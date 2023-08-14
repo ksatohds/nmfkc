@@ -37,7 +37,7 @@ create.kernel <- function(U,beta){
 #'  Note that Y and A are known, and X and C are unknown.
 #' @param Y observation matrix
 #' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).
-#' @param Q rank of basis matrix and P<=Q
+#' @param Q rank of basis matrix and Q<=P
 #' @param gamma penalty parameter for C:QxN where
 #' objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU"
 #' and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
