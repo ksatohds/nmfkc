@@ -219,10 +219,11 @@ d <- d[index,]  # remove rows including NA's
 res0 <- lm(glucose~.,d) # ordinary linear model
 
 # preparation for NMF
+# Y(1,N)~X(1,1)C(1,R)A(R,N) where X=1, Q=1 and R=7
 Y <- t(as.matrix(d$glucose))
 dim(Y) # 1*N
 A <- t(as.matrix(cbind(1,d[,-1])))
-dim(A) # R*
+dim(A) # R*N
 library(nmfkcreg)
 result <- nmfkcreg(Y,A,Q=1,epsilon=1e-15,maxit=20000) # Y~XCA=XB
 plot(result$objfunc.iter,log="xy") # convergence
