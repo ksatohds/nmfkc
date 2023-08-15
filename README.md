@@ -43,13 +43,14 @@ devtools::install_github("ksatohds/nmfkcreg")
 
 ## Example
 
-Four datasets are used in examples.
-- iris
-- basketball players and statistics
-- CanadianWeather
-- PimaIndiansDiabetes2
+Five datasets are used in examples.
+- 1. iris
+- 2. basketball players and statistics
+- 3. CanadianWeather
+- 4. PimaIndiansDiabetes2
+- 5. mcycle
 
-### iris
+### 1. iris
 ``` r
 library(nmfkcreg)
 Y <- t(iris[,-5])
@@ -71,7 +72,7 @@ legend("topright",
   legend=unique(iris[,5]),fill=unique(labels))
 ``` 
 
-### basketball players and statistics
+### 2. basketball players and statistics
 - https://rpubs.com/sirinya/847402
 ``` r
 library(nmfkcreg)
@@ -108,16 +109,16 @@ stars(t(result$P),scale=F,
       len=1)
 ``` 
 
-### CanadianWeather
+### 3. CanadianWeather
 
 It includes four subsection below. Excute "common preparation" at first. 
 
-- common preparation
-- without covariate
-- with covariates using covariate matrix U
-- with covariates using kernel matrix A
+- 3.0. common preparation
+- 3.1. without covariate
+- 3.2. with covariates using covariate matrix U
+- 3.3. with covariates using kernel matrix A
 
-#### common preparation
+#### 3.0. common preparation
 ``` r
 library(nmfkcreg)
 library(fda)
@@ -132,7 +133,7 @@ umax <- apply(u,1,max)
 U <- (u-umin)/(umax-umin) # normalization
 ``` 
 
-#### without covariate
+#### 3.1. without covariate
 ``` r
 A <- diag(ncol(Y))
 result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
@@ -165,13 +166,13 @@ stars(t(result$P),
       len=max(u0)/30,add=T)
 ```
 
-#### with covariates using covariate matrix U
+#### 3.2. with covariates using covariate matrix U
 ``` r
 result <- nmfkcreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 ```
 
-#### with covariates using kernel matrix A
+#### 3.3. with covariates using kernel matrix A
 ``` r
 # k-fold cross validation for beta
 betas <- c(0.5,1,2,5,10)
@@ -206,7 +207,7 @@ filled.contour(result.interp,
 )
 ```
 
-### PimaIndiansDiabetes2
+### 4. PimaIndiansDiabetes2
 - comparison between NMF and ordinary LM
 ``` r
 library(nmfkcreg)
@@ -234,4 +235,43 @@ result$r.squared # coefficient of determination
 f <- rbind(res0$coefficients,result$C)
 rownames(f) <- c("LM","NMF")
 print(f)
+```
+
+### 5. mcycle
+- kernel ridge regression
+``` r
+  library(MASS)
+  d <- mcycle
+  y0 <- d$accel
+  y <- y0-min(y0)
+  Y <- t(as.matrix(y))
+  U <- t(as.matrix(d$times))
+  
+  betas <- c(1,2,5,10,20)/100
+  gammas <- c(0,0.01,0.1)
+  bg <- expand.grid(betas,gammas)
+  objfuncs <- 0*(1:nrow(bg))
+  for(i in 1:nrow(bg)){
+    print(i)
+    A <- create.kernel(U,beta=bg[i,1])
+    result <- nmfkcreg.cv(Y,A,gamma=bg[i,2],Q=1,div=10)
+    objfuncs[i] <- result$objfunc
+  }
+  table(result$block) # partition block of cv
+  
+  # objective function by beta and gamma
+  plot(1:nrow(bg),objfuncs,type="o")
+  text(1:nrow(bg),objfuncs,labels=paste0("b",bg[,1]),pos=3,col=2)
+  text(1:nrow(bg),objfuncs,labels=paste0("g",bg[,2]),pos=4,col=4)
+  
+  (bg.best <- unlist(bg[which.min(objfuncs),]))  
+  A <- create.kernel(U,beta=bg.best[1])
+  result <- nmfkcreg(Y,A,Q=1,gamma=bg.best[2])
+  # visualization of some results
+  plot(result$objfunc.iter) # convergence  
+
+  # fitted curve
+  plot(d$times,as.vector(Y),
+       main=paste0("r.squared=",round(result$r.squared,3)))
+  lines(d$times,as.vector(result$YHAT),col=2)
 ```
