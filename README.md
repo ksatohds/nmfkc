@@ -44,11 +44,11 @@ devtools::install_github("ksatohds/nmfkcreg")
 ## Example
 
 Five datasets are used in examples.
-- 1. iris
-- 2. basketball players and statistics
-- 3. CanadianWeather
-- 4. PimaIndiansDiabetes2
-- 5. mcycle
+1. iris
+2. basketball players and statistics
+3. CanadianWeather
+4. PimaIndiansDiabetes2
+5. mcycle
 
 ### 1. iris
 ``` r
