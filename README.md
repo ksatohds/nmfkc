@@ -209,6 +209,7 @@ filled.contour(result.interp,
 ### PimaIndiansDiabetes2
 - comparison between NMF and ordinary LM
 ``` r
+library(nmfkcreg)
 library(mlbench)
 data(PimaIndiansDiabetes2)
 d <- PimaIndiansDiabetes2
