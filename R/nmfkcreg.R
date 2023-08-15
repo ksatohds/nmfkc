@@ -73,8 +73,10 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
   if(nrow(Y)>=2){
     if(nrow(Y)>=Q){
       if(nrow(Y)==Q){
+        print("Q==P")
         X <- Y
       }else{
+        print("Q<P")
         res.kmeans <- stats::kmeans(t(Y),centers=Q)
         X <- t(res.kmeans$centers)
       }
