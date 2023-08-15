@@ -71,12 +71,13 @@ create.kernel <- function(U,beta){
 nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
   set.seed(123)
   if(nrow(Y)>=2){
-    if(nrow(Y)>Q){
-      res <- stats::kmeans(t(Y),centers=Q)
-      X <- t(res$centers)
-    }
-    if(nrow(Y)==Q){
-      X <- Y
+    if(nrow(Y)>=Q){
+      if(nrow(Y)==Q){
+        X <- Y
+      }else{
+        res.kmeans <- stats::kmeans(t(Y),centers=Q)
+        X <- t(res.kmeans$centers)
+      }
     }
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
