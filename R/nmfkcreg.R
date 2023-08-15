@@ -37,7 +37,7 @@ create.kernel <- function(U,beta){
 #'  Note that Y and A are known, and X and C are unknown.
 #' @param Y observation matrix
 #' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)). Or matrix A(R,N) having N columns can be accepted.
-#' @param Q rank of basis matrix and Q<=P
+#' @param Q rank of basis matrix and Q<=min{P,N}
 #' @param gamma penalty parameter for C:QxN where
 #' objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU"
 #' and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
@@ -78,6 +78,8 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
         res.kmeans <- stats::kmeans(t(Y),centers=Q)
         X <- t(res.kmeans$centers)
       }
+    }else{
+     print("It does not hold Q<=min{P,N} where dim(Y)=(P,N)")
     }
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
