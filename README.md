@@ -241,7 +241,6 @@ print(f)
 - kernel ridge regression
 ``` r
 library(nmfkcreg)
-
 library(MASS)
 d <- mcycle
 y0 <- d$accel
