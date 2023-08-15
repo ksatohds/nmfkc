@@ -83,8 +83,7 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
     X <- matrix(data=1,nrow=1,ncol=1)
   }
   X <- t(t(X)/colSums(X))
-  C <- matrix(stats::rnorm(ncol(X)*nrow(A),mean=2,sd=0.3),
-              nrow=ncol(X),ncol=nrow(A))
+  C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   B <- C %*% A
   YHAT <- X %*% B
   objfunc.iter <- 0*(1:maxit)
@@ -195,8 +194,7 @@ nmfkcreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,met
     C_j <- res$C
     if(is.identity){
       A_j <- diag(ncol(Yj))
-      C_j <- matrix(stats::rnorm(ncol(X_j)*ncol(Yj),mean=2,sd=0.3),
-                    nrow=ncol(X_j),ncol=ncol(Yj))
+      C_j <- matrix(1,nrow=ncol(X_j),ncol=ncol(Yj))
       oldSum <- 0
       for(l in 1:maxit){
         YHATj <- X_j %*% C_j
