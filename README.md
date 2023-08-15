@@ -60,7 +60,7 @@ result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 # visualization of some results
 plot(result$objfunc.iter) # convergence
 
-# fitness
+# goodness of fit
 plot(as.vector(result$YHAT),as.vector(Y),
 main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
@@ -87,7 +87,7 @@ result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 # visualization of some results
 plot(result$objfunc.iter) # convergence
 
-# good of fit
+# goodness of fit
 plot(as.vector(result$YHAT),as.vector(Y),
      main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
@@ -240,38 +240,42 @@ print(f)
 ### 5. mcycle
 - kernel ridge regression
 ``` r
-  library(MASS)
-  d <- mcycle
-  y0 <- d$accel
-  y <- y0-min(y0)
-  Y <- t(as.matrix(y))
-  U <- t(as.matrix(d$times))
-  
-  betas <- c(1,2,5,10,20)/100
-  gammas <- c(0,0.01,0.1)
-  bg <- expand.grid(betas,gammas)
-  objfuncs <- 0*(1:nrow(bg))
-  for(i in 1:nrow(bg)){
-    print(i)
-    A <- create.kernel(U,beta=bg[i,1])
-    result <- nmfkcreg.cv(Y,A,gamma=bg[i,2],Q=1,div=10)
-    objfuncs[i] <- result$objfunc
-  }
-  table(result$block) # partition block of cv
-  
-  # objective function by beta and gamma
-  plot(1:nrow(bg),objfuncs,type="o")
-  text(1:nrow(bg),objfuncs,labels=paste0("b",bg[,1]),pos=3,col=2)
-  text(1:nrow(bg),objfuncs,labels=paste0("g",bg[,2]),pos=4,col=4)
-  
-  (bg.best <- unlist(bg[which.min(objfuncs),]))  
-  A <- create.kernel(U,beta=bg.best[1])
-  result <- nmfkcreg(Y,A,Q=1,gamma=bg.best[2])
-  # visualization of some results
-  plot(result$objfunc.iter) # convergence  
+library(nmfkcreg)
 
-  # fitted curve
-  plot(d$times,as.vector(Y),
-       main=paste0("r.squared=",round(result$r.squared,3)))
+library(MASS)
+d <- mcycle
+y0 <- d$accel
+y <- y0-min(y0)
+Y <- t(as.matrix(y))
+U <- t(as.matrix(d$times))
+
+# cv for optimization of beta and gamma
+betas <- c(1,2,5,10,20)/100
+gammas <- c(0,0.01,0.1)
+bg <- expand.grid(betas,gammas)
+objfuncs <- 0*(1:nrow(bg))
+for(i in 1:nrow(bg)){
+  print(i)
+  A <- create.kernel(U,beta=bg[i,1])
+  result <- nmfkcreg.cv(Y,A,gamma=bg[i,2],Q=1,div=10)
+  objfuncs[i] <- result$objfunc
+}
+table(result$block) # partition block of cv
+  
+# objective function by beta and gamma
+plot(1:nrow(bg),objfuncs,type="o")
+text(1:nrow(bg),objfuncs,labels=paste0("b",bg[,1]),pos=3,col=2)
+text(1:nrow(bg),objfuncs,labels=paste0("g",bg[,2]),pos=4,col=4)
+
+(bg.best <- unlist(bg[which.min(objfuncs),]))  
+A <- create.kernel(U,beta=bg.best[1])
+result <- nmfkcreg(Y,A,Q=1,gamma=bg.best[2])
+
+# visualization of some results
+plot(result$objfunc.iter) # convergence  
+
+# fitted curve
+plot(d$times,as.vector(Y),
+  main=paste0("r.squared=",round(result$r.squared,3)))
   lines(d$times,as.vector(result$YHAT),col=2)
 ```
