@@ -119,8 +119,9 @@ stars(t(result$P),scale=F,
 ### 3. data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
-# US presidential inaugural address texts
+#------------------
 # text analysis
+#------------------
 library(nmfkcreg)
 library(quanteda)
 corp <- corpus(data_corpus_inaugural)
@@ -134,7 +135,9 @@ index <- order(colSums(d),decreasing=T)
 d <- d[,index] # document-word matrix
 colSums(d)[1:30] # Top 30 most frequent words
 
+#------------------
 # without covariates
+#------------------
 U <- t(as.matrix(corp$Year))
 Y <- t(d)
 A <- diag(ncol(Y))
@@ -144,7 +147,9 @@ result$r.squared # coefficient of determination
 colnames(result$P) <- corp$Year
 barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
 
+#------------------
 # with covariates using covariate matrix U
+#------------------
 # k-fold cross validation for beta
 betas <- c(0.2,0.5,1,2,5)/10000
 objfuncs <- 0*betas
@@ -172,15 +177,7 @@ barplot(t(result$X[1:30,]),col=1:Q+1,beside=T,legend=T,las=3,
 ``` 
 
 ### 4. CanadianWeather
-
-It includes four subsection below. Excute "common preparation" at first. 
-
-- 4.0. common preparation
-- 4.1. without covariate
-- 4.2. with covariates using covariate matrix U
-- 4.3. with covariates using kernel matrix A
-
-#### 4.0. common preparation
+-  spatio-temporal Analysis
 ``` r
 library(nmfkcreg)
 library(fda)
@@ -193,10 +190,10 @@ u <- t(u0)
 umin <- apply(u,1,min)
 umax <- apply(u,1,max)
 U <- (u-umin)/(umax-umin) # normalization
-``` 
 
-#### 4.1. without covariate
-``` r
+#------------------
+# without covariate
+#------------------
 A <- diag(ncol(Y))
 result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 
@@ -226,16 +223,10 @@ stars(t(result$P),
       draw.segments=TRUE,labels=colnames(Y),
       col.segments=1:Q+1,
       len=max(u0)/30,add=T)
-```
 
-#### 4.2. with covariates using covariate matrix U
-``` r
-result <- nmfkcreg(Y,U,Q=2) # Y~XCA=XB
-result$r.squared # bad fit
-```
-
-#### 4.3. with covariates using kernel matrix A
-``` r
+#------------------
+# with covariates using kernel matrix A
+#------------------
 # k-fold cross validation for beta
 betas <- c(0.5,1,2,5,10)
 objfuncs <- 0*betas
