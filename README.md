@@ -122,10 +122,10 @@ stars(t(result$P),scale=F,
 - data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
+library(nmfkcreg)
 #------------------
 # text analysis
 #------------------
-library(nmfkcreg)
 library(quanteda)
 corp <- corpus(data_corpus_inaugural)
 tok <- tokens(corp)
@@ -174,9 +174,22 @@ result$r.squared # less than nmf without covariates
 # Topic probability changing over time
 colnames(result$P) <- corp$Year
 barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
+
 # frequent words that constitute each topic
-barplot(t(result$X[1:30,]),col=1:Q+1,beside=T,legend=T,las=3,
-  ylab="basis of topic")
+par(mfrow=c(3,1))
+for(q in 1:Q){
+  f <- t(result$X[,q])
+  names(f) <- rownames(result$X)
+  index <- order(f,decreasing=T) 
+  f <- f[index]
+  barplot(f[1:30],col=q+1,las=3,ylab="probability",
+    ylim=range(result$X),main=paste0("topic ",q))
+}
+
+# probability of topic at each frequent word
+par(mfrow=c(1,1))
+barplot(prop.table(t(result$X[1:30,]),2),col=1:Q+1,beside=F,
+  legend=T,las=3,ylab="probability")
 ``` 
 
 ### 4. Spatio-temporal Analysis
