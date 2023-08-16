@@ -50,15 +50,15 @@ devtools::install_github("ksatohds/nmfkcreg")
 ## Example
 
 Six datasets are used in examples.
-1. iris: Dimension reduction
-2. basketball players and statistics: Soft clulustering
-3. data_corpus_inaugural: Topic model
-4. CanadianWeather: Spatio-temporal Analysis
-5. PimaIndiansDiabetes2: Comparison between NMF and ordinary LM
-6. mcycle: Kernel ridge regression
+1. Dimension reduction: iris
+2. Soft clulustering: basketball players and statistics
+3. Topic model: data_corpus_inaugural
+4. Spatio-temporal Analysis: CanadianWeather
+5. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
+6. Kernel ridge regression: mcycle 
 
-### 1. iris
-- Dimension reduction
+### 1. Dimension reduction 
+- iris
 ``` r
 library(nmfkcreg)
 Y <- t(iris[,-5])
@@ -80,8 +80,8 @@ legend("topright",
   legend=unique(iris[,5]),fill=unique(labels))
 ``` 
 
-### 2. basketball players and statistics
-- Soft clulustering
+### 2. Soft clulustering
+- basketball players and statistics
 - https://rpubs.com/sirinya/847402
 ``` r
 library(nmfkcreg)
@@ -118,15 +118,15 @@ stars(t(result$P),scale=F,
       len=1)
 ``` 
 
-### 3. data_corpus_inaugural
-- Topic model
+### 3. Topic model
+- data_corpus_inaugural
+- US presidential inaugural address texts
 ``` r
 #------------------
 # text analysis
 #------------------
 library(nmfkcreg)
 library(quanteda)
-# US presidential inaugural address texts
 corp <- corpus(data_corpus_inaugural)
 tok <- tokens(corp)
 tok <- tokens_remove(tok,pattern=stopwords("en",source="snowball"))
@@ -179,8 +179,8 @@ barplot(t(result$X[1:30,]),col=1:Q+1,beside=T,legend=T,las=3,
   ylab="basis of topic")
 ``` 
 
-### 4. CanadianWeather
--  Spatio-temporal Analysis
+### 4. Spatio-temporal Analysis
+-  CanadianWeather
 ``` r
 library(nmfkcreg)
 library(fda)
@@ -263,8 +263,8 @@ filled.contour(result.interp,
 )
 ```
 
-### 5. PimaIndiansDiabetes2
-- Comparison between NMF and ordinary LM
+### 5. Comparison between NMF and ordinary LM
+- PimaIndiansDiabetes2
 ``` r
 library(nmfkcreg)
 library(mlbench)
@@ -293,8 +293,8 @@ rownames(f) <- c("LM","NMF")
 print(f)
 ```
 
-### 6. mcycle
-- Kernel ridge regression
+### 6. Kernel ridge regression
+- mcycle
 ``` r
 library(nmfkcreg)
 library(MASS)
