@@ -1,5 +1,6 @@
 
-# Developed by Kenichi SATOH, Ph.D.
+# Author
+-  Kenichi SATOH, Ph.D.
 -  Professor, [Faculty of Data Science](https://www.ds.shiga-u.ac.jp/), 
 -  [Shiga University](https://www.shiga-u.ac.jp/), JAPAN
 - [HomePage](https://sites.google.com/view/ksatoh/english)
