@@ -49,12 +49,13 @@ devtools::install_github("ksatohds/nmfkcreg")
 
 ## Example
 
-Five datasets are used in examples.
+Six datasets are used in examples.
 1. iris
 2. basketball players and statistics
-3. CanadianWeather
-4. PimaIndiansDiabetes2
-5. mcycle
+3. data_corpus_inaugural
+4. CanadianWeather
+5. PimaIndiansDiabetes2
+6. mcycle
 
 ### 1. iris
 ``` r
@@ -115,16 +116,70 @@ stars(t(result$P),scale=F,
       len=1)
 ``` 
 
-### 3. CanadianWeather
+### 3. data_corpus_inaugural
+- US presidential inaugural address texts
+``` r
+# US presidential inaugural address texts
+# text analysis
+library(nmfkcreg)
+library(quanteda)
+corp <- corpus(data_corpus_inaugural)
+tok <- tokens(corp)
+tok <- tokens_remove(tok,pattern=stopwords("en",source="snowball"))
+df <- dfm(tok)
+df <- dfm_select(df,min_nchar=3)
+df <- dfm_trim(df,min_termfreq=100)
+d <- as.matrix(df)
+index <- order(colSums(d),decreasing=T) 
+d <- d[,index] # document-word matrix
+colSums(d)[1:30] # Top 30 most frequent words
+
+# without covariates
+U <- t(as.matrix(corp$Year))
+Y <- t(d)
+A <- diag(ncol(Y))
+Q <- 3
+result <- nmfkcreg(Y,A,Q) # Y~XCA=XB
+result$r.squared # coefficient of determination
+colnames(result$P) <- corp$Year
+barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
+
+# with covariates using covariate matrix U
+# k-fold cross validation for beta
+betas <- c(0.2,0.5,1,2,5)/10000
+objfuncs <- 0*betas
+for(i in 1:length(betas)){
+  print(i)
+  A <- create.kernel(U,beta=betas[i])
+  result <- nmfkcreg.cv(Y,A,Q,div=5)
+  objfuncs[i] <- result$objfunc
+}
+table(result$block) # partition block of cv
+plot(betas,objfuncs,type="o",log="x")
+(best.beta <- betas[which.min(objfuncs)])
+
+# create kernel with best beta
+A <- create.kernel(U,beta=best.beta)
+result <- nmfkcreg(Y,A,Q) # Y~XCA=XB
+result$r.squared # less than nmf without covariates
+
+# Topic probability changing over time
+barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
+# frequent words that constitute each topic
+barplot(t(result$X[1:30,]),col=1:Q+1,beside=T,legend=T,las=3,
+  ylab="basis of topic")
+``` 
+
+### 4. CanadianWeather
 
 It includes four subsection below. Excute "common preparation" at first. 
 
-- 3.0. common preparation
-- 3.1. without covariate
-- 3.2. with covariates using covariate matrix U
-- 3.3. with covariates using kernel matrix A
+- 4.0. common preparation
+- 4.1. without covariate
+- 4.2. with covariates using covariate matrix U
+- 4.3. with covariates using kernel matrix A
 
-#### 3.0. common preparation
+#### 4.0. common preparation
 ``` r
 library(nmfkcreg)
 library(fda)
@@ -139,7 +194,7 @@ umax <- apply(u,1,max)
 U <- (u-umin)/(umax-umin) # normalization
 ``` 
 
-#### 3.1. without covariate
+#### 4.1. without covariate
 ``` r
 A <- diag(ncol(Y))
 result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
@@ -172,13 +227,13 @@ stars(t(result$P),
       len=max(u0)/30,add=T)
 ```
 
-#### 3.2. with covariates using covariate matrix U
+#### 4.2. with covariates using covariate matrix U
 ``` r
 result <- nmfkcreg(Y,U,Q=2) # Y~XCA=XB
 result$r.squared # bad fit
 ```
 
-#### 3.3. with covariates using kernel matrix A
+#### 4.3. with covariates using kernel matrix A
 ``` r
 # k-fold cross validation for beta
 betas <- c(0.5,1,2,5,10)
@@ -213,7 +268,7 @@ filled.contour(result.interp,
 )
 ```
 
-### 4. PimaIndiansDiabetes2
+### 5. PimaIndiansDiabetes2
 - comparison between NMF and ordinary LM
 ``` r
 library(nmfkcreg)
@@ -243,7 +298,7 @@ rownames(f) <- c("LM","NMF")
 print(f)
 ```
 
-### 5. mcycle
+### 6. mcycle
 - kernel ridge regression
 ``` r
 library(nmfkcreg)
