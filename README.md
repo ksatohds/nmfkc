@@ -50,12 +50,12 @@ devtools::install_github("ksatohds/nmfkcreg")
 ## Example
 
 Six datasets are used in examples.
-1. iris
-2. basketball players and statistics
-3. data_corpus_inaugural
-4. CanadianWeather
-5. PimaIndiansDiabetes2
-6. mcycle
+1. iris: Dimension reduction
+2. basketball players and statistics: Soft clulustering
+3. data_corpus_inaugural: Topic model
+4. CanadianWeather: Spatio-temporal Analysis
+5. PimaIndiansDiabetes2: Comparison between NMF and ordinary LM
+6. mcycle: Kernel ridge regression
 
 ### 1. iris
 - Dimension reduction
@@ -119,13 +119,14 @@ stars(t(result$P),scale=F,
 ``` 
 
 ### 3. data_corpus_inaugural
-- Topic model for US presidential inaugural address texts
+- Topic model
 ``` r
 #------------------
 # text analysis
 #------------------
 library(nmfkcreg)
 library(quanteda)
+# US presidential inaugural address texts
 corp <- corpus(data_corpus_inaugural)
 tok <- tokens(corp)
 tok <- tokens_remove(tok,pattern=stopwords("en",source="snowball"))
