@@ -58,6 +58,7 @@ Six datasets are used in examples.
 6. mcycle
 
 ### 1. iris
+- Dimension reduction
 ``` r
 library(nmfkcreg)
 Y <- t(iris[,-5])
@@ -80,6 +81,7 @@ legend("topright",
 ``` 
 
 ### 2. basketball players and statistics
+- Soft clulustering
 - https://rpubs.com/sirinya/847402
 ``` r
 library(nmfkcreg)
@@ -117,7 +119,7 @@ stars(t(result$P),scale=F,
 ``` 
 
 ### 3. data_corpus_inaugural
-- US presidential inaugural address texts
+- Topic model for US presidential inaugural address texts
 ``` r
 #------------------
 # text analysis
@@ -177,7 +179,7 @@ barplot(t(result$X[1:30,]),col=1:Q+1,beside=T,legend=T,las=3,
 ``` 
 
 ### 4. CanadianWeather
--  spatio-temporal Analysis
+-  Spatio-temporal Analysis
 ``` r
 library(nmfkcreg)
 library(fda)
@@ -261,7 +263,7 @@ filled.contour(result.interp,
 ```
 
 ### 5. PimaIndiansDiabetes2
-- comparison between NMF and ordinary LM
+- Comparison between NMF and ordinary LM
 ``` r
 library(nmfkcreg)
 library(mlbench)
@@ -291,7 +293,7 @@ print(f)
 ```
 
 ### 6. mcycle
-- kernel ridge regression
+- Kernel ridge regression
 ``` r
 library(nmfkcreg)
 library(MASS)
