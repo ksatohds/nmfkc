@@ -164,6 +164,7 @@ result <- nmfkcreg(Y,A,Q) # Y~XCA=XB
 result$r.squared # less than nmf without covariates
 
 # Topic probability changing over time
+colnames(result$P) <- corp$Year
 barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
 # frequent words that constitute each topic
 barplot(t(result$X[1:30,]),col=1:Q+1,beside=T,legend=T,las=3,
