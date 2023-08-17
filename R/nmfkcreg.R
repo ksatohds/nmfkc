@@ -70,6 +70,9 @@ create.kernel <- function(U,beta){
 
 nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
   set.seed(123)
+  if(min(A)<0) print("A has negative values and should be a non-negative matrix!")
+  if(min(Y)<0) print("Y has negative values and should be a non-negative matrix!")
+  if(sum(colSums(Y)==0)>0) print("Some columns of Y are zero!")
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
@@ -125,7 +128,7 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
   P <- t(t(B)/colSums(B))
   if(epsilon.iter > epsilon) print(paste0(
     "maximum iterations (",maxit,
-    ") reached and the optimization hasn't converged yet."))
+    ") reached and the optimization hasn't converged yet!"))
   return(list(X=X,C=C,B=B,YHAT=YHAT,P=P,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
