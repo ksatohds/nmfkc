@@ -70,10 +70,10 @@ create.kernel <- function(U,beta){
 
 nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
   set.seed(123)
+  if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(min(A)<0) print("Minimum value of A is negative. It should be a non-negative matrix!")
   if(min(Y)<0) print("Minimum value of Y is negative. It should be a non-negative matrix!")
-  if(sum(colSums(Y)==0)>0) print("There is a column of Y of which elements are all zero!")
-  if(is.vector(Y)) Y <- t(as.matrix(Y))
+  if(nrow(Y)>=2 & sum(colSums(Y)==0)>0) print("There is a column of Y of which elements are all zero!")
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
       if(ncol(Y)==Q){
