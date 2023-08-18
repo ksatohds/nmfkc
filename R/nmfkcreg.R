@@ -126,7 +126,10 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
     objfunc <- sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2)
   }
   r2 <- stats::cor(as.vector(YHAT),as.vector(Y))^2
+  colnames(B) <- colnames(Y)
+  colnames(YHAT) <- colnames(Y)
   P <- t(t(B)/colSums(B))
+  colnames(P) <- colnames(Y)
   if(epsilon.iter > epsilon) print(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet!"))
