@@ -52,10 +52,11 @@ devtools::install_github("ksatohds/nmfkcreg")
 Six datasets are used in examples.
 1. Dimension reduction: iris
 2. Soft clulustering: basketball players and statistics
-3. Topic model: data_corpus_inaugural
-4. Spatio-temporal Analysis: CanadianWeather
-5. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
-6. Kernel ridge regression: mcycle 
+3. Hard clulustering: COVID-19 in Japan
+4. Topic model: data_corpus_inaugural
+5. Spatio-temporal Analysis: CanadianWeather
+6. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
+7. Kernel ridge regression: mcycle 
 
 ### 1. Dimension reduction 
 - iris
@@ -118,7 +119,45 @@ stars(t(result$P),scale=F,
       len=1)
 ``` 
 
-### 3. Topic model
+### 3. Hard clulustering
+- COVID-19 in Japan
+- https://www3.nhk.or.jp/news/special/coronavirus/data/
+``` r
+library(nmfkcreg)
+d <- read.csv(
+  "https://www3.nhk.or.jp/n-data/opendata/coronavirus/nhk_news_covid19_prefectures_daily_data.csv")
+colnames(d) <- c(
+  "Date","Prefecture_code","Prefecture_name",
+  "Number_of_infected","Cumulative_Number_of_infected",
+  "Number_of_deaths","Cumulative_Number_of_deaths",
+  "Number_of_infected_100000_population_in_the_last_week")
+n <- length(unique(d$Prefecture_code)) # 47
+Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
+colnames(Y) <- unique(d$Prefecture_code)
+rownames(Y) <- unique(d$Date)
+Y <- Y[rowSums(Y)!=0,]
+A <- diag(ncol(Y))
+result <- nmfkcreg(Y,A,Q=7) # Y~XCA=XB
+result$r.squared # goodness of fit
+
+# basis function of which sum is 1
+Q <- ncol(result$X)
+par(mfrow=c(Q,1),mar=c(0,0,0,0))
+for(q in 1:Q){
+  barplot(result$X[,q],col=q+1,border=q+1,las=3,
+    ylim=range(result$X),ylab=paste0("topic",q)) 
+  legend("left",fill=q+1,legend=q)
+}
+
+# hard clulustering based on P
+mycol <- apply(t(result$P),1,which.max)
+library(NipponMap)
+par(mfrow=c(1,1),mar=c(0,0,0,0))
+JapanPrefMap(col=mycol+1)
+legend("left",fill=1:Q+1,legend=1:Q)
+``` 
+
+### 4. Topic model
 - data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
@@ -192,7 +231,7 @@ barplot(prop.table(t(result$X[1:30,]),2),col=1:Q+1,beside=F,
   legend=T,las=3,ylab="probability")
 ``` 
 
-### 4. Spatio-temporal Analysis
+### 5. Spatio-temporal Analysis
 -  CanadianWeather
 ``` r
 library(nmfkcreg)
@@ -276,7 +315,7 @@ filled.contour(result.interp,
 )
 ```
 
-### 5. Comparison between NMF and ordinary LM
+### 6. Comparison between NMF and ordinary LM
 - PimaIndiansDiabetes2
 ``` r
 library(nmfkcreg)
@@ -306,7 +345,7 @@ rownames(f) <- c("LM","NMF")
 print(f)
 ```
 
-### 6. Kernel ridge regression
+### 7. Kernel ridge regression
 - mcycle
 ``` r
 library(nmfkcreg)
