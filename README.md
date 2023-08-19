@@ -19,9 +19,11 @@ is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the
 - $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min{P,N}.
 Q is the number of basis (rank).
 -  $C(Q,N)$: **unkown** regression coefficient matrix which is described by $\Theta$ in the paper Satoh (2023).
-- **nmfkcreg** function is used for optimization of $X$ and $C$
-- **nmfkcreg.cv** function is used for k-fold cross-validation optimizing $\beta$ and $Q$
-- **create.kernel** function is used for creating kernel matrix $A$ from covariate matrix $U$
+- There are three functions in **nmfkcreg** package.
+
+  **nmfkcreg** function is used for optimization of $X$ and $C$
+  **nmfkcreg.cv** function is used for k-fold cross-validation optimizing $\beta$ and $Q$
+  **create.kernel** function is used for creating kernel matrix $A$ from covariate matrix $U$
 ## Reference
 
 - Satoh, K. (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press. (in Japanese)
