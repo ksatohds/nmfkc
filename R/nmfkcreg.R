@@ -47,7 +47,7 @@ create.kernel <- function(U,beta){
 #' @param trace display current iteration every 10 times if trace=TRUE
 #' @return X(N,Q) whose column sum is 1
 #' @return C(Q,N) parameter matrix
-#' @return B, B=XC regression coefficient matrix
+#' @return B(Q,N), B=CA regression coefficient matrix
 #' @return YHAT(P,N), YHAT=XB=XCA prediction matrix or fitted values for observation matrix Y
 #' @return P(P,N) probability matrix
 #' for soft clustering based on regression coeffient matrix B.
