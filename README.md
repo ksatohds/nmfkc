@@ -18,7 +18,7 @@ written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U=(u_1,...u_N)$
 is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the case where there are no covariate. Or matrix $A(R,N)$ having N columns can be accepted.
 - $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min{P,N}.
 Q is the number of basis (rank).
--  $C(Q,N)$: **unkown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). $B(Q,N)=CA$ is regression coefficient matrix and $B=C$ when $A$ is identity matrix.
+-  $C(Q,N)$: **unkown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). $B(Q,N)=CA$ is regression coefficient matrix. When $A$ is identity matrix, $B=C$. 
 - There are three functions in **nmfkcreg** package.
   - **nmfkcreg** function is used for optimization of $X$ and $C$
   - **nmfkcreg.cv** function is used for k-fold cross-validation optimizing $\beta$ and $Q$
