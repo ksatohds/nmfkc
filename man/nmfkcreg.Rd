@@ -39,7 +39,7 @@ X(N,Q) whose column sum is 1
 
 C(Q,N) parameter matrix
 
-B, B=XC regression coefficient matrix
+B(Q,N), B=CA regression coefficient matrix
 
 YHAT(P,N), YHAT=XB=XCA prediction matrix or fitted values for observation matrix Y
 

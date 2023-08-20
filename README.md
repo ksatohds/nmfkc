@@ -31,7 +31,7 @@ Q is the number of basis (rank).
 -  $C(Q,N)$: **unkown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). $B(Q,N)=CA$ is regression coefficient matrix. When $A$ is identity matrix, $B=C$. 
 - There are three functions in **nmfkcreg** package.
   - **nmfkcreg** function is used for optimization of $X$ and $C$
-  - **nmfkcreg.cv** function is used for k-fold cross-validation optimizing $\beta$ and $Q$
+  - **nmfkcreg.cv** function is used for k-fold cross-validation
   - **create.kernel** function is used for creating kernel matrix $A$ from covariate matrix $U$
 
 ## Reference
