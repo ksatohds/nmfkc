@@ -241,9 +241,8 @@ for(q in 1:Q){
 # probability of topic at each frequent word
 par(mfrow=c(1,1))
 f <- prop.table(t(result$X[1:30,]),2)
-q <- 1
-barplot(f[q,],col=q+1,las=3,ylim=c(0,1),
-  ylab="probability",main=paste0("topic ",q))
+barplot(f,col=1:Q+1,las=3,ylim=c(0,1),beside=T,legend=T,
+  ylab="probability (relative contribution)")
 abline(h=c(0.6,0.8),lty=3)
 ``` 
 
