@@ -240,8 +240,11 @@ for(q in 1:Q){
 
 # probability of topic at each frequent word
 par(mfrow=c(1,1))
-barplot(prop.table(t(result$X[1:30,]),2),col=1:Q+1,beside=F,
-  legend=T,las=3,ylab="probability")
+f <- prop.table(t(result$X[1:30,]),2)
+q <- 1
+barplot(f[q,],col=q+1,las=3,ylim=c(0,1),
+  ylab="probability",main=paste0("topic ",q))
+abline(h=c(0.6,0.8),lty=3)
 ``` 
 
 ### 5. Spatio-temporal Analysis
