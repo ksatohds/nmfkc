@@ -6,7 +6,7 @@
 \usage{
 nmfkcreg.cv(
   Y,
-  A,
+  A = diag(ncol(Y)),
   Q,
   gamma = 0,
   epsilon = 1e-04,
