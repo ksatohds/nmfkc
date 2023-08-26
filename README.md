@@ -9,7 +9,7 @@
 
 1. An ordinary LM (Linear Model) can be written as $y \approx Xb$, where $y$ is the observation, $X=(x_1,\cdots,x_Q)$ is the design matrix, and $b$ is a vector of regression coefficients. 
 
-2. Using the common $X$ of $N$ individual observations, $[y_1,y_2,...,y_N]=X[b_1,...,b_N]$，i.e. $Y=XB$, this is called NMF (Non-Negative Matrix Factorisation). The difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
+2. Using the common $X$ among $N$ individual observations, $[y_1,y_2,...,y_N] \approx X[b_1,...,b_N]$，i.e. $Y \approx XB$, this is called NMF (Non-Negative Matrix Factorisation). The difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
 
 3. Since all the matrices are non-negative, the components of the regression coefficients $b_n$ for each $n$ are also non-negative. Therefore we know the contribution of the bases $x_1,.., x_Q$ and those percentages or probabilities $p_{1,n},...,p_{Q,n}$ can be used for clustering.
 
