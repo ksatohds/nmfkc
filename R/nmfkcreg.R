@@ -50,7 +50,7 @@ create.kernel <- function(U,beta){
 #' library(nmfkcreg)
 #' Y <- t(iris[,-5])
 #' A <- diag(ncol(Y))
-#' result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
+#' result <- nmfkcreg(Y,A,Q=3) # Y~XCA=XB
 #' # visualization of some results
 #' plot(result$objfunc.iter) # convergence
 #'
@@ -61,9 +61,7 @@ create.kernel <- function(U,beta){
 #'
 #' # dimension reduction based on regression coefficient B
 #' labels <- as.numeric(iris[,5])
-#' plot(t(result$B),col=labels)
-#' legend("topright",
-#'   legend=unique(iris[,5]),fill=unique(labels))
+#' pairs(t(result$B),col=labels)
 #'
 #' # hard clustering
 #' cluster <- apply(result$P,2,which.max)
