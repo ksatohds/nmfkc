@@ -191,7 +191,7 @@ colSums(d)[1:30] # Top 30 most frequent words
 U <- t(as.matrix(corp$Year))
 Y <- t(d)
 Q <- 3
-result <- nmfkcreg(Y,Q)
+result <- nmfkcreg(Y,Q=Q)
 result$r.squared # coefficient of determination
 colnames(result$P) <- corp$Year
 barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
