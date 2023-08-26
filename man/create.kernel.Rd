@@ -24,4 +24,5 @@ U <- matrix(1:3,nrow=1,ncol=3)
 print(U)
 A <- create.kernel(U,beta=1)
 print(A)
+print(log(A))
 }

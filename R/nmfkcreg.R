@@ -11,13 +11,14 @@
 #' print(U)
 #' A <- create.kernel(U,beta=1)
 #' print(A)
+#' print(log(A))
 
 create.kernel <- function(U,beta){
   kernel <- function(n){
     un <- t(rep(1,ncol(U)) %o% U[,n])
     exp(-beta*colSums((U-un)^2))}
   A <- NULL
-  for(n in 1:ncol(U)) A <- rbind(A,kernel(n))
+  for(n in 1:ncol(U)) A <- cbind(A,kernel(n))
   return(A)
 }
 
@@ -154,8 +155,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #' @examples
 #' library(nmfkcreg)
 #' Y <- t(iris[,-5])
-#' A <- diag(ncol(Y))
-#' result <- nmfkcreg.cv(Y,A,Q=2) # Y~XCA=XB
+#' result <- nmfkcreg.cv(Y,Q=2)
 #' table(result$block)
 #' result$objfunc
 

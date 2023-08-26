@@ -51,8 +51,7 @@ block: partition block index {1,...,div} assigned to each column of Y
 \examples{
 library(nmfkcreg)
 Y <- t(iris[,-5])
-A <- diag(ncol(Y))
-result <- nmfkcreg.cv(Y,A,Q=2) # Y~XCA=XB
+result <- nmfkcreg.cv(Y,Q=2)
 table(result$block)
 result$objfunc
 }

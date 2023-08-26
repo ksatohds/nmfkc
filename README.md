@@ -145,7 +145,7 @@ Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
 colnames(Y) <- unique(d$Prefecture_code)
 rownames(Y) <- unique(d$Date)
 Y <- Y[rowSums(Y)!=0,]
-result <- nmfkcreg(Y,Q=7) # Y~XCA=XB
+result <- nmfkcreg(Y,Q=7)
 result$r.squared # goodness of fit
 
 # basis function of which sum is 1
@@ -214,7 +214,7 @@ plot(betas,objfuncs,type="o",log="x")
 
 # create kernel with best beta
 A <- create.kernel(U,beta=best.beta)
-result <- nmfkcreg(Y,A,Q) # Y~XCA=XB
+result <- nmfkcreg(Y,A,Q)
 result$r.squared # less than nmf without covariates
 
 # Topic probability changing over time
@@ -258,7 +258,7 @@ U <- (u-umin)/(umax-umin) # normalization
 #------------------
 # without covariate
 #------------------
-result <- nmfkcreg(Y,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,Q=2)
 
 # visualization of some results
 plot(result$objfunc.iter) # convergence
@@ -307,7 +307,7 @@ plot(betas,objfuncs,type="o",log="x")
 
 # create kernel with best beta
 A <- create.kernel(U,beta=best.beta)
-result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,A,Q=2)
 result$r.squared # less than nmf without covariates
 
 # soft clulustering based on P by using covariates
@@ -343,7 +343,7 @@ dim(Y) # 1*N
 A <- t(as.matrix(cbind(1,d[,-1])))
 dim(A) # R*N
 library(nmfkcreg)
-result <- nmfkcreg(Y,A,Q=1,epsilon=1e-15,maxit=20000) # Y~XCA=XB
+result <- nmfkcreg(Y,A,Q=1,epsilon=1e-15,maxit=20000)
 plot(result$objfunc.iter,log="xy") # convergence
 result$r.squared # coefficient of determination
 
