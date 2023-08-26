@@ -7,7 +7,10 @@
 #' @examples
 #' # install.packages("devtools")
 #' # devtools::install_github("ksatohds/nmfkcreg")
-#' # A <- create.kernel(U,beta=5)
+#' # U <- matrix(1:5,nrow=1,ncol=5)
+#' # U
+#' # A <- create.kernel(U,beta=1)
+#' # A
 
 create.kernel <- function(U,beta){
   kernel <- function(n){
@@ -50,7 +53,7 @@ create.kernel <- function(U,beta){
 #' library(nmfkcreg)
 #' Y <- t(iris[,-5])
 #' A <- diag(ncol(Y))
-#' result <- nmfkcreg(Y,A,Q=3) # Y~XCA=XB
+#' result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 #' # visualization of some results
 #' plot(result$objfunc.iter) # convergence
 #'
@@ -60,12 +63,7 @@ create.kernel <- function(U,beta){
 #' abline(a=0,b=1,col=2)
 #'
 #' # dimension reduction based on regression coefficient B
-#' labels <- as.numeric(iris[,5])
-#' pairs(t(result$B),col=labels)
-#'
-#' # hard clustering
-#' cluster <- apply(result$P,2,which.max)
-#' table(cluster,iris[,5])
+#' plot(t(result$B))
 
 nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
   set.seed(123)
@@ -155,20 +153,12 @@ nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=F
 #' @return block: partition block index {1,...,div} assigned to each column of Y
 #' @export
 #' @examples
-#' #library(nmfkcreg)
-#' #library(fda)
-#' #data(CanadianWeather)
-#' #d <- CanadianWeather$dailyAv[,,1]
-#' #Y <- d-min(d)
-#' #u0 <- CanadianWeather$coordinates[,2:1]
-#' #u0[,1] = -u0[,1]
-#' #u = t(u0)
-#' #umin <- apply(u,1,min)
-#' #umax <- apply(u,1,max)
-#' # install.packages("devtools")
-#' # devtools::install_github("ksatohds/nmfkcreg")
-#' # A <- create.kernel(U,beta=5)
-#' # result.cv <- nmfkcreg.cv(Y,A,Q=2)
+#' library(nmfkcreg)
+#' Y <- t(iris[,-5])
+#' A <- diag(ncol(Y))
+#' result <- nmfkcreg.cv(Y,A,Q=2) # Y~XCA=XB
+#' table(result$block)
+#' result$objfunc
 
 nmfkcreg.cv <- function(Y,A,Q,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){
   is.identity.matrix <- function(A){

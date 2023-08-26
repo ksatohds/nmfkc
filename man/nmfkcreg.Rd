@@ -65,7 +65,7 @@ Note that Y and A are known, and X and C are unknown.
 library(nmfkcreg)
 Y <- t(iris[,-5])
 A <- diag(ncol(Y))
-result <- nmfkcreg(Y,A,Q=3) # Y~XCA=XB
+result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
 # visualization of some results
 plot(result$objfunc.iter) # convergence
 
@@ -75,10 +75,5 @@ main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
 
 # dimension reduction based on regression coefficient B
-labels <- as.numeric(iris[,5])
-pairs(t(result$B),col=labels)
-
-# hard clustering
-cluster <- apply(result$P,2,which.max)
-table(cluster,iris[,5])
+plot(t(result$B))
 }

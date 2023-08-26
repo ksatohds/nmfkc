@@ -89,9 +89,7 @@ abline(a=0,b=1,col=2)
 
 # dimension reduction based on regression coefficient B
 labels <- as.numeric(iris[,5])
-plot(t(result$B),col=labels)
-legend("topright",
-  legend=unique(iris[,5]),fill=unique(labels))
+plot(t(result$B))
 ``` 
 
 ### 2. Soft clulustering

@@ -49,18 +49,10 @@ block: partition block index {1,...,div} assigned to each column of Y
 \code{nmfkcreg.cv} apply cv method for k-partitioned columns of Y on NMF (Non-negative Matrix Factorization) regression model
 }
 \examples{
-#library(nmfkcreg)
-#library(fda)
-#data(CanadianWeather)
-#d <- CanadianWeather$dailyAv[,,1]
-#Y <- d-min(d)
-#u0 <- CanadianWeather$coordinates[,2:1]
-#u0[,1] = -u0[,1]
-#u = t(u0)
-#umin <- apply(u,1,min)
-#umax <- apply(u,1,max)
-# install.packages("devtools")
-# devtools::install_github("ksatohds/nmfkcreg")
-# A <- create.kernel(U,beta=5)
-# result.cv <- nmfkcreg.cv(Y,A,Q=2)
+library(nmfkcreg)
+Y <- t(iris[,-5])
+A <- diag(ncol(Y))
+result <- nmfkcreg.cv(Y,A,Q=2) # Y~XCA=XB
+table(result$block)
+result$objfunc
 }
