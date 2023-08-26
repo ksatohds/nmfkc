@@ -5,16 +5,6 @@
 #' @return kernel matrix A(N,N)
 #' @export
 #' @examples
-#' #library(nmfkcreg)
-#' #library(fda)
-#' #data(CanadianWeather)
-#' #d <- CanadianWeather$dailyAv[,,1]
-#' #Y <- d-min(d)
-#' #u0 <- CanadianWeather$coordinates[,2:1]
-#' #u0[,1] = -u0[,1]
-#' #u = t(u0)
-#' #umin <- apply(u,1,min)
-#' #umax <- apply(u,1,max)
 #' # install.packages("devtools")
 #' # devtools::install_github("ksatohds/nmfkcreg")
 #' # A <- create.kernel(U,beta=5)
@@ -57,16 +47,27 @@ create.kernel <- function(U,beta){
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y and YHAT
 #' @export
 #' @examples
-#' # library(fda)
-#' # data(CanadianWeather)
-#' # d <- CanadianWeather$dailyAv[,,1]
-#' # Y <- d-min(d)
-#' # A <- diag(ncol(Y))
-#' # install.packages("devtools")
-#' # devtools::install_github("ksatohds/nmfkcreg")
-#' # library(nmfkcreg)
-#' # result <- nmfkcreg(Y,A,Q=2)
-#' # result$r.squared
+#' library(nmfkcreg)
+#' Y <- t(iris[,-5])
+#' A <- diag(ncol(Y))
+#' result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
+#' # visualization of some results
+#' plot(result$objfunc.iter) # convergence
+#'
+#' # goodness of fit
+#' plot(as.vector(result$YHAT),as.vector(Y),
+#' main=paste0("r.squared=",round(result$r.squared,3)))
+#' abline(a=0,b=1,col=2)
+#'
+#' # dimension reduction based on regression coefficient B
+#' labels <- as.numeric(iris[,5])
+#' plot(t(result$B),col=labels)
+#' legend("topright",
+#'   legend=unique(iris[,5]),fill=unique(labels))
+#'
+#' # hard clustering
+#' cluster <- apply(result$P,2,which.max)
+#' table(cluster,iris[,5])
 
 nmfkcreg <- function(Y,A,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
   set.seed(123)

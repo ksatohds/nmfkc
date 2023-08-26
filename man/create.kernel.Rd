@@ -18,16 +18,6 @@ kernel matrix A(N,N)
 \code{create.kernel} create kernel matrix A from covariate matrix U
 }
 \examples{
-#library(nmfkcreg)
-#library(fda)
-#data(CanadianWeather)
-#d <- CanadianWeather$dailyAv[,,1]
-#Y <- d-min(d)
-#u0 <- CanadianWeather$coordinates[,2:1]
-#u0[,1] = -u0[,1]
-#u = t(u0)
-#umin <- apply(u,1,min)
-#umax <- apply(u,1,max)
 # install.packages("devtools")
 # devtools::install_github("ksatohds/nmfkcreg")
 # A <- create.kernel(U,beta=5)
