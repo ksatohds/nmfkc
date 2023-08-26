@@ -7,7 +7,7 @@
 nmfkcreg.cv(
   Y,
   A = diag(ncol(Y)),
-  Q,
+  Q = 2,
   gamma = 0,
   epsilon = 1e-04,
   maxit = 5000,

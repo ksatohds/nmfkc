@@ -52,8 +52,7 @@ create.kernel <- function(U,beta){
 #' @examples
 #' library(nmfkcreg)
 #' Y <- t(iris[,-5])
-#' A <- diag(ncol(Y))
-#' result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
+#' result <- nmfkcreg(Y,Q=2)
 #' # visualization of some results
 #' plot(result$objfunc.iter) # convergence
 #'

@@ -76,8 +76,7 @@ Six datasets are used in examples.
 ``` r
 library(nmfkcreg)
 Y <- t(iris[,-5])
-A <- diag(ncol(Y))
-result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,Q=2)
 
 # visualization of some results
 plot(result$objfunc.iter) # convergence
@@ -102,8 +101,7 @@ y <- d[,-1]
 rownames(y) <- d[,1]
 
 Y <- t(y)
-A <- diag(ncol(Y))
-result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,Q=2)
 
 # visualization of some results
 plot(result$objfunc.iter) # convergence
@@ -147,8 +145,7 @@ Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
 colnames(Y) <- unique(d$Prefecture_code)
 rownames(Y) <- unique(d$Date)
 Y <- Y[rowSums(Y)!=0,]
-A <- diag(ncol(Y))
-result <- nmfkcreg(Y,A,Q=7) # Y~XCA=XB
+result <- nmfkcreg(Y,Q=7) # Y~XCA=XB
 result$r.squared # goodness of fit
 
 # basis function of which sum is 1
@@ -193,9 +190,8 @@ colSums(d)[1:30] # Top 30 most frequent words
 #------------------
 U <- t(as.matrix(corp$Year))
 Y <- t(d)
-A <- diag(ncol(Y))
 Q <- 3
-result <- nmfkcreg(Y,A,Q) # Y~XCA=XB
+result <- nmfkcreg(Y,Q)
 result$r.squared # coefficient of determination
 colnames(result$P) <- corp$Year
 barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
@@ -262,8 +258,7 @@ U <- (u-umin)/(umax-umin) # normalization
 #------------------
 # without covariate
 #------------------
-A <- diag(ncol(Y))
-result <- nmfkcreg(Y,A,Q=2) # Y~XCA=XB
+result <- nmfkcreg(Y,Q=2) # Y~XCA=XB
 
 # visualization of some results
 plot(result$objfunc.iter) # convergence
