@@ -20,8 +20,8 @@ kernel matrix A(N,N)
 \examples{
 # install.packages("devtools")
 # devtools::install_github("ksatohds/nmfkcreg")
-# U <- matrix(1:5,nrow=1,ncol=5)
-# U
-# A <- create.kernel(U,beta=1)
-# A
+U <- matrix(1:3,nrow=1,ncol=3)
+print(U)
+A <- create.kernel(U,beta=1)
+print(A)
 }
