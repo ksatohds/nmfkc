@@ -67,6 +67,7 @@ create.kernel <- function(U,beta){
 
 nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
   set.seed(123)
+  if(is.data.frame) Y <- as.matrix(Y)
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(min(A)<0) print("Minimum value of A is negative. It should be a non-negative matrix!")
   if(min(Y)<0) print("Minimum value of Y is negative. It should be a non-negative matrix!")
