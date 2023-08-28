@@ -69,7 +69,8 @@ Six datasets are used in examples.
 4. Topic model: data_corpus_inaugural
 5. Spatio-temporal Analysis: CanadianWeather
 6. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
-7. Kernel ridge regression: mcycle 
+7. Kernel ridge regression: mcycle
+8. Comparison between given covariate and kernel: Orthodont
 
 ### 1. Dimension reduction 
 - iris
@@ -393,4 +394,46 @@ plot(result$objfunc.iter) # convergence
 plot(d$times,as.vector(Y),
   main=paste0("r.squared=",round(result$r.squared,3)))
   lines(d$times,as.vector(result$YHAT),col=2)
+```
+
+### 8. Comparison between given covariate and kernel
+- Orthodont
+``` r
+library(nlme)
+d <- Orthodont
+head(d)
+Y <- matrix(d$distance,nrow=4)
+N <- ncol(Y)
+colnames(Y) <- unique(d$Subject)
+t <- unique(d$age)
+rownames(Y) <- t
+Male8 <- 1*(d$Sex=="Male")[d$age==8]
+U <- rbind(rep(1,N),Male8)
+
+# ordinary covariate
+library(nmfkcreg)
+result.U <- nmfkcreg(Y,U,Q=2,epsilon=1e-8,maxit=20000)
+
+# kernel covariate
+betas <- c(0.05,0.1,0.2,0.5,1)
+objfuncs <- 0*betas
+for(i in 1:length(betas)){
+  print(i)
+  A <- create.kernel(U,beta=betas[i])
+  result <- nmfkcreg(Y,A,Q=2,epsilon=1e-8,maxit=20000)
+  objfuncs[i] <- result$objfunc
+}
+# objective function by beta
+plot(betas,objfuncs,type="o",log="x")
+(best.beta <- betas[which.min(objfuncs)])
+
+A <- create.kernel(U,beta=best.beta)
+result.A <- nmfkcreg(Y,A,Q=2,epsilon=1e-8,maxit=20000)
+mycol <- ifelse(Male8==1,4,2)
+matplot(t,Y,type="l",col=mycol,
+        main=paste0("r.squared=",round(result.A$r.squared,5)))
+matplot(t,result.U$YHAT,type="l",col=mycol,lwd=10,add=T)
+matplot(t,result.A$YHAT,type="l",col=3,lwd=2,add=T)
+mylab <- paste0("U(r.squared=",round(result.U$r.squared,5),")")
+legend("topleft",legend=c("Male","Female",mylab),fill=c(4,2,3))
 ```
