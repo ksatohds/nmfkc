@@ -133,7 +133,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   if(epsilon.iter > epsilon) print(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet!"))
-  print("Attention user of nmfkcreg, Please use 'XB' instead of 'YHAT' as apporoximated value of 'Y' and 'YHAT' will be removed soon from return values. Return value 'cluster' is added for hard clustering. 2023/08/29.")
+  print("Notification of nmfkcreg. Please use 'XB' instead of 'YHAT' which will be removed soon. 2023/08/29.")
   return(list(X=X,C=C,B=B,XB=XB,YHAT=XB,P=P,cluster=cluster,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
