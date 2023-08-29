@@ -25,7 +25,7 @@ There are three functions in **nmfkcreg** package.
 
 4. Furthermore, we consider that the regression coefficient matrix is described by the covariate matrix $A$, i.e. $B=CA$, where $C$ is the unknown parameter matrix. Here we propose to use a kernel matrix with high explanatory power as A.
 
-# Matrices used in nmfkcreg
+# Matrices
 
 The goal of **nmfkcreg** is to optimize $X$ and $C$ on the NMF (Non-negative Matrix Factorization) kernel covariate regression model $Y \approx X C A$ where $Y$ and $A$ are given.
 
