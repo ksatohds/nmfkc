@@ -1,3 +1,4 @@
-# nmfkcreg 1.2.0
+# nmfkcreg 0.1.6
 
-* Initial CRAN submission.
+- Return value "YHAT" was removed. Use "XB" instead of "YHAT"
+- Return value "cluster"" is added for hard clustering

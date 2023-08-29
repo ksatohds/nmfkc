@@ -1,7 +1,6 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Notification of nmfkcreg on 2023/08/30")
-  packageStartupMessage("- Return value 'YHAT' was removed. Use 'XB' instead of 'YHAT'")
-  packageStartupMessage("- Return value 'cluster' is added for hard clustering")
+  packageStartupMessage("This package is a development version and should be downloaded and updated regularly.")
+  packageStartupMessage('devtools::install_github("ksatohds/nmfkcreg")')
 }
 
 #' @title Creating kernel matrix A from covariate matrix U
