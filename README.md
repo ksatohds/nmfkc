@@ -1,6 +1,11 @@
-# Notification of the package
-- Please use "XB" instead of "YHAT" as approximated value of "Y". "YHAT" was removed.
-- Return value "cluster" is added for hard clustering
+# Installation
+
+You can install the development version of nmfkcreg from [GitHub](https://github.com/) with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("ksatohds/nmfkcreg")
+```
 
 # Author
 -  Kenichi SATOH, Ph.D.
@@ -37,7 +42,7 @@ Q is the number of basis (rank).
   - **nmfkcreg.cv** function is used for k-fold cross-validation
   - **create.kernel** function is used for creating kernel matrix $A$ from covariate matrix $U$
 
-## Reference
+# Reference
 
 - Satoh, K. (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press. (in Japanese)
 [(preprint)](https://drive.google.com/file/d/1MnbJOPlcm0hn27WpP8rvcAgzy5X2E53B/view?usp=sharing)
@@ -50,20 +55,12 @@ Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
 {\it Biometrika}, {\bf 51}, 313–326.
 
 
-## Reference (in Japanese)
+# Reference (in Japanese)
 - 佐藤健一 (2023) ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中. [(プレプリント)](https://drive.google.com/file/d/1MnbJOPlcm0hn27WpP8rvcAgzy5X2E53B/view?usp=sharing)
 - 佐藤健一 (2022) 経時測定データに対する非負値行列因子分解によるソフトクラスタリングについて, 応用統計学, 51(1-2), 1-18. https://doi.org/10.5023/jappstat.51.1
 
-## Installation
 
-You can install the development version of nmfkcreg from [GitHub](https://github.com/) with:
-
-``` r
-# install.packages("devtools")
-devtools::install_github("ksatohds/nmfkcreg")
-```
-
-## Example
+# Examples
 
 Six datasets are used in examples.
 1. Dimension reduction: iris
@@ -75,7 +72,7 @@ Six datasets are used in examples.
 7. Kernel ridge regression: mcycle
 8. Comparison between given covariate and kernel: Orthodont
 
-### 1. Dimension reduction 
+## 1. Dimension reduction 
 - iris
 ``` r
 library(nmfkcreg)
@@ -95,7 +92,7 @@ labels <- as.numeric(iris[,5])
 plot(t(result$B))
 ``` 
 
-### 2. Soft clulustering
+## 2. Soft clulustering
 - basketball players and statistics
 - https://rpubs.com/sirinya/847402
 ``` r
@@ -132,7 +129,7 @@ stars(t(result$P),scale=F,
       len=1)
 ``` 
 
-### 3. Hard clulustering
+## 3. Hard clulustering
 - COVID-19 in Japan
 - https://www3.nhk.or.jp/news/special/coronavirus/data/
 ``` r
@@ -169,7 +166,7 @@ JapanPrefMap(col=mycol+1)
 legend("left",fill=1:Q+1,legend=1:Q)
 ``` 
 
-### 4. Topic model
+## 4. Topic model
 - data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
@@ -244,7 +241,7 @@ barplot(f,col=1:Q+1,las=3,ylim=c(0,1),beside=T,legend=T,
 abline(h=c(0.6,0.8),lty=3)
 ``` 
 
-### 5. Spatio-temporal Analysis
+## 5. Spatio-temporal Analysis
 -  CanadianWeather
 ``` r
 library(nmfkcreg)
@@ -327,7 +324,7 @@ filled.contour(result.interp,
 )
 ```
 
-### 6. Comparison between NMF and ordinary LM
+## 6. Comparison between NMF and ordinary LM
 - PimaIndiansDiabetes2
 ``` r
 library(nmfkcreg)
@@ -357,7 +354,7 @@ rownames(f) <- c("LM","NMF")
 print(f)
 ```
 
-### 7. Kernel ridge regression
+## 7. Kernel ridge regression
 - mcycle
 ``` r
 library(nmfkcreg)
@@ -399,7 +396,7 @@ plot(d$times,as.vector(Y),
   lines(d$times,as.vector(result$XB),col=2)
 ```
 
-### 8. Comparison between given covariate and kernel
+## 8. Comparison between given covariate and kernel
 - Orthodont
 ``` r
 library(nlme)
