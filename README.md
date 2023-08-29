@@ -59,7 +59,6 @@ Biometrika, 51, 313–326.
 
 # Examples
 
-Six datasets are used in examples.
 1. Dimension reduction: iris
 2. Soft clulustering: basketball players and statistics
 3. Hard clulustering: COVID-19 in Japan
