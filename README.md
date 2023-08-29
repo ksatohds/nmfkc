@@ -83,7 +83,7 @@ result <- nmfkcreg(Y,Q=2)
 plot(result$objfunc.iter) # convergence
 
 # goodness of fit
-plot(as.vector(result$YHAT),as.vector(Y),
+plot(as.vector(result$XB),as.vector(Y),
 main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
 
@@ -108,13 +108,13 @@ result <- nmfkcreg(Y,Q=2)
 plot(result$objfunc.iter) # convergence
 
 # goodness of fit
-plot(as.vector(result$YHAT),as.vector(Y),
+plot(as.vector(result$XB),as.vector(Y),
      main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
 
 # individual fit
 n <- 1
-f <- rbind(Y[,n],result$YHAT[,n])
+f <- rbind(Y[,n],result$XB[,n])
 rownames(f) <- c("obs","fitted")
 barplot(f,beside=T,las=3,legend=T,main=colnames(Y)[n])
 
@@ -268,7 +268,7 @@ result$r.squared # coefficient of determination
 # individual fit
 n <- 1
 plot(Y[,n],main=colnames(Y)[n]) # observation
-lines(result$YHAT[,n],col=2) # fitted values
+lines(result$XB[,n],col=2) # fitted values
 legend("topright",
   legend=c("obs","fitted"),fill=c(1,2))
 
@@ -393,7 +393,7 @@ plot(result$objfunc.iter) # convergence
 # fitted curve
 plot(d$times,as.vector(Y),
   main=paste0("r.squared=",round(result$r.squared,3)))
-  lines(d$times,as.vector(result$YHAT),col=2)
+  lines(d$times,as.vector(result$XB),col=2)
 ```
 
 ### 8. Comparison between given covariate and kernel
@@ -432,8 +432,8 @@ result.A <- nmfkcreg(Y,A,Q=2,epsilon=1e-8,maxit=20000)
 mycol <- ifelse(Male8==1,4,2)
 matplot(t,Y,type="l",col=mycol,
         main=paste0("r.squared=",round(result.A$r.squared,5)))
-matplot(t,result.U$YHAT,type="l",col=mycol,lwd=10,add=T)
-matplot(t,result.A$YHAT,type="l",col=3,lwd=2,add=T)
+matplot(t,result.U$XB,type="l",col=mycol,lwd=10,add=T)
+matplot(t,result.A$XB,type="l",col=3,lwd=2,add=T)
 mylab <- paste0("U(r.squared=",round(result.U$r.squared,5),")")
 legend("topleft",legend=c("Male","Female",mylab),fill=c(4,2,3))
 ```

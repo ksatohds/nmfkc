@@ -33,8 +33,8 @@ create.kernel <- function(U,beta){
 #' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)). Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix and Q<=min{P,N}
 #' @param gamma penalty parameter for C:QxN where
-#' objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU"
-#' and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
+#' objective function:tr(Y-XB)'(Y-XB)+gamma*trC'C for method="EU"
+#' and sum(-Y*log(XB)+XB)+gamma*sum(C^2) for method="KL"
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
@@ -42,13 +42,13 @@ create.kernel <- function(U,beta){
 #' @return X(N,Q) whose column sum is 1
 #' @return C(Q,N) parameter matrix
 #' @return B(Q,N), B=CA regression coefficient matrix
-#' @return YHAT(P,N), YHAT=XB=XCA prediction matrix or fitted values for observation matrix Y
+#' @return XB(P,N), XB=XCA prediction matrix or fitted values for observation matrix Y
 #' @return P(P,N) probability matrix
 #' for soft clustering based on regression coeffient matrix B.
 #' It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
-#' @return r.squared: coefficient of determination R^2, squared correlation between Y and YHAT
+#' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
 #' @export
 #' @examples
 #' library(nmfkcreg)
@@ -58,7 +58,7 @@ create.kernel <- function(U,beta){
 #' plot(result$objfunc.iter) # convergence
 #'
 #' # goodness of fit
-#' plot(as.vector(result$YHAT),as.vector(Y),
+#' plot(as.vector(result$XB),as.vector(Y),
 #' main=paste0("r.squared=",round(result$r.squared,3)))
 #' abline(a=0,b=1,col=2)
 #'
@@ -90,25 +90,25 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   X <- t(t(X)/colSums(X))
   C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   B <- C %*% A
-  YHAT <- X %*% B
+  XB <- X %*% B
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
     if(trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
-      X <- X * ((Y %*% t(B)) / (YHAT %*% t(B)))
+      X <- X * ((Y %*% t(B)) / (XB %*% t(B)))
       X <- t(t(X)/colSums(X))
-      C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%YHAT%*%t(A)+gamma*C))
+      C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       B <- C %*% A
-      YHAT <- X %*% B
-      objfunc.iter[i] <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+      XB <- X %*% B
+      objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
-      X <- t(t(X*(Y/YHAT)%*%t(B))/rowSums(B))
+      X <- t(t(X*(Y/XB)%*%t(B))/rowSums(B))
       X <- t(t(X)/colSums(X))
-      C0 <- t(X)%*%(Y/YHAT)%*%t(A)
+      C0 <- t(X)%*%(Y/XB)%*%t(A)
       C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
       B <- C %*% A
-      YHAT <- X %*% B
-      objfunc.iter[i] <- sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2)
+      XB <- X %*% B
+      objfunc.iter[i] <- sum(-Y*log(XB)+XB)+gamma*sum(C^2)
     }
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
@@ -119,19 +119,19 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
     }
   }
   if(method=="EU"){
-    objfunc <- sum((Y-YHAT)^2)+gamma*sum(C^2)
+    objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
   }else{
-    objfunc <- sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2)
+    objfunc <- sum(-Y*log(XB)+XB)+gamma*sum(C^2)
   }
-  r2 <- stats::cor(as.vector(YHAT),as.vector(Y))^2
+  r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   colnames(B) <- colnames(Y)
-  colnames(YHAT) <- colnames(Y)
+  colnames(XB) <- colnames(Y)
   P <- t(t(B)/colSums(B))
   colnames(P) <- colnames(Y)
   if(epsilon.iter > epsilon) print(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet!"))
-  return(list(X=X,C=C,B=B,YHAT=YHAT,P=P,
+  return(list(X=X,C=C,B=B,XB=XB,P=P,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
@@ -141,8 +141,8 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).  Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix and Q<=min{P,N}
 #' @param gamma penalty parameter for C:QxN where
-#' objective function:tr(Y-YHAT)'(Y-YHAT)+gamma*trC'C for method="EU"
-#' and sum(-Y*log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"
+#' objective function:tr(Y-XB)'(Y-XB)+gamma*trC'C for method="EU"
+#' and sum(-Y*log(XB)+XB)+gamma*sum(C^2) for method="KL"
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
@@ -196,11 +196,11 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
       C_j <- matrix(1,nrow=ncol(X_j),ncol=ncol(Yj))
       oldSum <- 0
       for(l in 1:maxit){
-        YHATj <- X_j %*% C_j
+        XBj <- X_j %*% C_j
         if(method=="EU"){
-          C_j <- C_j*((t(X_j)%*%Yj)/(t(X_j)%*%YHATj+gamma*C_j))
+          C_j <- C_j*((t(X_j)%*%Yj)/(t(X_j)%*%XBj+gamma*C_j))
         }else{
-          C0_j <- t(X_j)%*%(Yj/YHATj)%*%t(A_j)
+          C0_j <- t(X_j)%*%(Yj/XBj)%*%t(A_j)
           C_j <- C_j*(C0_j/(colSums(X_j)%o%rowSums(A_j)+2*gamma*C_j))
         }
         newSum <- sum(C_j)
@@ -210,14 +210,14 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
         }
         oldSum <- sum(C_j)
       }
-      YHATj <- X_j %*% C_j
+      XBj <- X_j %*% C_j
     }else{
-      YHATj <- X_j %*% C_j %*% A[index!=j,index==j] # Aのサイズに注意！
+      XBj <- X_j %*% C_j %*% A[index!=j,index==j] # Aのサイズに注意！
     }
     if(method=="EU"){
-      objfunc.block[j] <- sum((Yj-YHATj)^2)+gamma*sum(C_j^2)
+      objfunc.block[j] <- sum((Yj-XBj)^2)+gamma*sum(C_j^2)
     }else{
-      objfunc.block[j] <- sum(-Yj*log(YHATj)+YHATj)+gamma*sum(C_j^2)
+      objfunc.block[j] <- sum(-Yj*log(XBj)+XBj)+gamma*sum(C_j^2)
     }
   }
   objfunc <- sum(objfunc.block)

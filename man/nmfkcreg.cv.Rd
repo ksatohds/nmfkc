@@ -24,8 +24,8 @@ nmfkcreg.cv(
 \item{Q}{rank of basis matrix and Q<=min{P,N}}
 
 \item{gamma}{penalty parameter for C:QxN where
-objective function:tr(Y-YHAT)'(Y-YHAT)+gamma\emph{trC'C for method="EU"
-and sum(-Y}log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"}
+objective function:tr(Y-XB)'(Y-XB)+gamma\emph{trC'C for method="EU"
+and sum(-Y}log(XB)+XB)+gamma*sum(C^2) for method="KL"}
 
 \item{epsilon}{positive convergence tolerance}
 

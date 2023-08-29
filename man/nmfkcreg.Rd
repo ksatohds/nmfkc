@@ -23,8 +23,8 @@ nmfkcreg(
 \item{Q}{rank of basis matrix and Q<=min{P,N}}
 
 \item{gamma}{penalty parameter for C:QxN where
-objective function:tr(Y-YHAT)'(Y-YHAT)+gamma\emph{trC'C for method="EU"
-and sum(-Y}log(YHAT)+YHAT)+gamma*sum(C^2) for method="KL"}
+objective function:tr(Y-XB)'(Y-XB)+gamma\emph{trC'C for method="EU"
+and sum(-Y}log(XB)+XB)+gamma*sum(C^2) for method="KL"}
 
 \item{epsilon}{positive convergence tolerance}
 
@@ -41,7 +41,7 @@ C(Q,N) parameter matrix
 
 B(Q,N), B=CA regression coefficient matrix
 
-YHAT(P,N), YHAT=XB=XCA prediction matrix or fitted values for observation matrix Y
+XB(P,N), XB=XCA prediction matrix or fitted values for observation matrix Y
 
 P(P,N) probability matrix
 for soft clustering based on regression coeffient matrix B.
@@ -51,7 +51,7 @@ objfunc: last objective function
 
 objfunc.iter: objective function at each iteration
 
-r.squared: coefficient of determination R^2, squared correlation between Y and YHAT
+r.squared: coefficient of determination R^2, squared correlation between Y and XB
 }
 \description{
 \code{nmkcfreg} The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
@@ -69,7 +69,7 @@ result <- nmfkcreg(Y,Q=2)
 plot(result$objfunc.iter) # convergence
 
 # goodness of fit
-plot(as.vector(result$YHAT),as.vector(Y),
+plot(as.vector(result$XB),as.vector(Y),
 main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
 
