@@ -70,10 +70,10 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   set.seed(123)
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(!is.matrix(Y)) Y <- as.matrix(Y)
-  if(min(A)<0) warning("Minimum value of A is negative. It should be a non-negative matrix!")
-  if(min(Y)<0) warning("Minimum value of Y is negative. It should be a non-negative matrix!")
-  if(nrow(Y)>=2 & sum(colSums(Y)==0)>0) warning("There is a column of Y of which elements are all zero!")
-  if(nrow(Y)>=2 & sum(rowSums(Y)==0)>0) warning("There is a row of Y of which elements are all zero!")
+  if(min(A)<0) warning("Minimum value of A is negative. It should be a non-negative matrix.")
+  if(min(Y)<0) warning("Minimum value of Y is negative. It should be a non-negative matrix.")
+  if(nrow(Y)>=2 & sum(colSums(Y)==0)>0) warning("There is a column of Y of which elements are all zero. Some elements should be positive.")
+  if(nrow(Y)>=2 & sum(rowSums(Y)==0)>0) warning("There is a row of Y of which elements are all zero. Some elements should be positive.")
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
       if(ncol(Y)==Q){
@@ -83,7 +83,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
         X <- t(res.kmeans$centers)
       }
     }else{
-      warning("It does not hold Q<=min{P,N} where dim(Y)=(P,N)!")
+      warning("It does not hold Q<=min{P,N} where dim(Y)=(P,N).")
     }
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
@@ -132,7 +132,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   colnames(P) <- colnames(Y)
   if(epsilon.iter > epsilon) warning(paste0(
     "maximum iterations (",maxit,
-    ") reached and the optimization hasn't converged yet!"))
+    ") reached and the optimization hasn't converged yet."))
   message("Notification of nmfkcreg. Please use 'XB' instead of 'YHAT' which will be removed soon. 2023/08/29.")
   return(list(X=X,C=C,B=B,XB=XB,YHAT=XB,P=P,cluster=cluster,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
