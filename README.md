@@ -7,13 +7,15 @@ You can install the development version of nmfkcreg from [GitHub](https://github
 devtools::install_github("ksatohds/nmfkcreg")
 ```
 
-# Author
--  Kenichi SATOH, Ph.D.
--  Professor, [Faculty of Data Science](https://www.ds.shiga-u.ac.jp/), 
--  [Shiga University](https://www.shiga-u.ac.jp/), JAPAN
-- [HomePage](https://sites.google.com/view/ksatoh/english)
+# Functions in **nmfkcreg** package
 
-# Model
+There are three functions in **nmfkcreg** package.
+
+- **nmfkcreg** function is used for optimization of $X$ and $C$
+- **nmfkcreg.cv** function is used for k-fold cross-validation
+- **create.kernel** function is used for creating kernel matrix $A$ from covariate matrix $U$
+
+# Statistical model
 
 1. An ordinary LM (Linear Model) can be written as $y \approx Xb$, where $y$ is the observation, $X=(x_1,\cdots,x_Q)$ is the design matrix, and $b$ is a vector of regression coefficients. 
 
@@ -23,10 +25,7 @@ devtools::install_github("ksatohds/nmfkcreg")
 
 4. Furthermore, we consider that the regression coefficient matrix is described by the covariate matrix $A$, i.e. $B=CA$, where $C$ is the unknown parameter matrix. Here we propose to use a kernel matrix with high explanatory power as A.
 
-# nmfkcreg
-
-<!-- badges: start -->
-<!-- badges: end -->
+# Matrices used in nmfkcreg
 
 The goal of **nmfkcreg** is to optimize $X$ and $C$ on the NMF (Non-negative Matrix Factorization) kernel covariate regression model $Y \approx X C A$ where $Y$ and $A$ are given.
 
@@ -37,12 +36,8 @@ is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the
 - $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min{P,N}.
 Q is the number of basis (rank).
 -  $C(Q,N)$: **unkown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). $B(Q,N)=CA$ is regression coefficient matrix. When $A$ is identity matrix, $B=C$. 
-- There are three functions in **nmfkcreg** package.
-  - **nmfkcreg** function is used for optimization of $X$ and $C$
-  - **nmfkcreg.cv** function is used for k-fold cross-validation
-  - **create.kernel** function is used for creating kernel matrix $A$ from covariate matrix $U$
 
-# Reference
+# References
 
 - Satoh, K. (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press. (in Japanese)
 [(preprint)](https://drive.google.com/file/d/1MnbJOPlcm0hn27WpP8rvcAgzy5X2E53B/view?usp=sharing)
@@ -55,7 +50,7 @@ Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
 {\it Biometrika}, {\bf 51}, 313–326.
 
 
-# Reference (in Japanese)
+# References (in Japanese)
 - 佐藤健一 (2023) ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中. [(プレプリント)](https://drive.google.com/file/d/1MnbJOPlcm0hn27WpP8rvcAgzy5X2E53B/view?usp=sharing)
 - 佐藤健一 (2022) 経時測定データに対する非負値行列因子分解によるソフトクラスタリングについて, 応用統計学, 51(1-2), 1-18. https://doi.org/10.5023/jappstat.51.1
 
@@ -437,3 +432,9 @@ matplot(t,result.A$XB,type="l",col=3,lwd=2,add=T)
 mylab <- paste0("U(r.squared=",round(result.U$r.squared,5),")")
 legend("topleft",legend=c("Male","Female",mylab),fill=c(4,2,3))
 ```
+
+# Author
+-  Kenichi SATOH, Ph.D.
+-  Professor, [Faculty of Data Science](https://www.ds.shiga-u.ac.jp/), 
+-  [Shiga University](https://www.shiga-u.ac.jp/), JAPAN
+- [HomePage](https://sites.google.com/view/ksatoh/english)
