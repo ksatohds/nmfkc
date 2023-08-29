@@ -1,3 +1,9 @@
+.onAttach <- function(...) {
+  packageStartupMessage("Notification of nmfkcreg")
+  packageStartupMessage("- 'YHAT' was removed. Use 'XB' instead of 'YHAT'")
+  packageStartupMessage("- Return value 'cluster' is added for hard clustering")
+}
+
 #' @title Creating kernel matrix A from covariate matrix U
 #' @description \code{create.kernel} create kernel matrix A from covariate matrix U
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance
