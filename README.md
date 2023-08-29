@@ -35,7 +35,9 @@ written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U=(u_1,...u_N)$
 is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the case where there are no covariate. Or matrix $A(R,N)$ having N columns can be accepted.
 - $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min{P,N}.
 Q is the number of basis (rank).
--  $C(Q,N)$: **unkown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). $B(Q,N)=CA$ is regression coefficient matrix. When $A$ is identity matrix, $B=C$. 
+-  $C(Q,N)$: **unkown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
+- $B(Q,N)=CA$ is regression coefficient matrix. When $A$ is identity matrix, $B=C$. 
+- $P(Q,N)$ is probability matrix for soft clustering based on regression coefficient matrix B. It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
 
 # References
 
