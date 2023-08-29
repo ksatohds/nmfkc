@@ -32,7 +32,7 @@ The goal of **nmfkcreg** is to optimize $X$ and $C$ on the NMF (Non-negative Mat
 - $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
 - $A(N,N)$: **given** kernel matrix of which $(i,j)$ element can be 
 written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U=(u_1,...u_N)$ 
-is covariate matrix. Note that identity matrix is used as A=diag(ncol(Y)) in the case where there are no covariate. Or matrix $A(R,N)$ having N columns can be accepted.
+is covariate matrix. Note that identity matrix is used when there are no covariate. Or matrix $A(R,N)$ having N columns can be accepted.
 - $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min{P,N}.
 Q is the number of basis (rank).
 -  $C(Q,N)$: **unkown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
@@ -50,12 +50,6 @@ Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
 Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135.
 - Potthoff, R. F. and Roy, S. N. (1964) A generalized multivariate analysis of variance model useful especially for growth curve problems,
 Biometrika, 51, 313–326.
-
-
-# References (in Japanese)
-- 佐藤健一 (2023) ガウスカーネルを共変量に用いた非負値行列因子分解について, 応用統計学 52 (2), 印刷中. [(プレプリント)](https://drive.google.com/file/d/1MnbJOPlcm0hn27WpP8rvcAgzy5X2E53B/view?usp=sharing)
-- 佐藤健一 (2022) 経時測定データに対する非負値行列因子分解によるソフトクラスタリングについて, 応用統計学, 51(1-2), 1-18. https://doi.org/10.5023/jappstat.51.1
-
 
 # Examples
 
