@@ -133,8 +133,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   if(epsilon.iter > epsilon) warning(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet."))
-  message("Notification of nmfkcreg. Please use 'XB' instead of 'YHAT' which will be removed soon. 2023/08/29.")
-  return(list(X=X,C=C,B=B,XB=XB,YHAT=XB,P=P,cluster=cluster,
+  return(list(X=X,C=C,B=B,XB=XB,P=P,cluster=cluster,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
