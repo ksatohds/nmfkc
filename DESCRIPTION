@@ -4,7 +4,7 @@ Title: nmfkcreg is to optimize X and C on the NMF (Non-negative Matrix Factoriza
 Version: 0.1.6
 Author: Kenichi Satoh
 Maintainer: Kenichi Satoh <kenichi-satoh@biwako.shiga-u.ac.jp>
-Description: The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factorization)  kernel covariate regression model described by Y~XCA
+Description: The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factorization)  kernel covariate regression model wheredescribed by Y~XCA
  where observation matrix Y(P,N),
  kernel matrix A(N,N) with parameter beta,
  basis matrix X(P,Q) whose column sum is 1 and Q<=min{P,N}
@@ -12,6 +12,7 @@ Description: The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factori
  Note that Y and A are known, and X and C are unknown.
 License: MIT + file LICENSE
 Encoding: UTF-8
+Language: en-US
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
