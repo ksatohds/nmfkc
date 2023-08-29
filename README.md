@@ -1,4 +1,4 @@
-# Installation
+# Installation of **nmfkcreg** package
 
 You can install the development version of nmfkcreg from [GitHub](https://github.com/) with:
 
@@ -7,7 +7,7 @@ You can install the development version of nmfkcreg from [GitHub](https://github
 devtools::install_github("ksatohds/nmfkcreg")
 ```
 
-# Functions in **nmfkcreg** package
+# Functions
 
 There are three functions in **nmfkcreg** package.
 
