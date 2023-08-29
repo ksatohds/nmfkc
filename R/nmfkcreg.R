@@ -1,6 +1,6 @@
 .onAttach <- function(...) {
   packageStartupMessage("Notification of nmfkcreg on 2023/08/30")
-  packageStartupMessage("- 'YHAT' was removed. Use 'XB' instead of 'YHAT'")
+  packageStartupMessage("- Return value 'YHAT' was removed. Use 'XB' instead of 'YHAT'")
   packageStartupMessage("- Return value 'cluster' is added for hard clustering")
 }
 
