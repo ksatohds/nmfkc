@@ -39,13 +39,14 @@ create.kernel <- function(U,beta){
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
 #' @param trace display current iteration every 10 times if trace=TRUE
-#' @return X(N,Q) whose column sum is 1
+#' @return X(P,Q) whose column sum is 1
 #' @return C(Q,N) parameter matrix
 #' @return B(Q,N), B=CA regression coefficient matrix
 #' @return XB(P,N), XB=XCA prediction matrix or fitted values for observation matrix Y
 #' @return P(P,N) probability matrix
 #' for soft clustering based on regression coeffient matrix B.
 #' It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
+#' @return cluster for hard clustering which is given by cluster <- apply(P,2,which.max)
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
@@ -127,11 +128,12 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   colnames(B) <- colnames(Y)
   colnames(XB) <- colnames(Y)
   P <- t(t(B)/colSums(B))
+  cluster <- apply(P,2,which.max)
   colnames(P) <- colnames(Y)
   if(epsilon.iter > epsilon) print(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet!"))
-  return(list(X=X,C=C,B=B,XB=XB,P=P,
+  return(list(X=X,C=C,B=B,XB=XB,P=P,cluster=cluster,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 

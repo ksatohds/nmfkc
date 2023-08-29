@@ -159,7 +159,7 @@ for(q in 1:Q){
 }
 
 # hard clulustering based on P
-mycol <- apply(t(result$P),1,which.max)
+mycol <- result$cluster
 library(NipponMap)
 par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
 JapanPrefMap(col=mycol+1)

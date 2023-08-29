@@ -35,7 +35,7 @@ and sum(-Y}log(XB)+XB)+gamma*sum(C^2) for method="KL"}
 \item{trace}{display current iteration every 10 times if trace=TRUE}
 }
 \value{
-X(N,Q) whose column sum is 1
+X(P,Q) whose column sum is 1
 
 C(Q,N) parameter matrix
 
@@ -46,6 +46,8 @@ XB(P,N), XB=XCA prediction matrix or fitted values for observation matrix Y
 P(P,N) probability matrix
 for soft clustering based on regression coeffient matrix B.
 It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
+
+cluster for hard clustering which is given by cluster <- apply(P,2,which.max)
 
 objfunc: last objective function
 
