@@ -1,3 +1,6 @@
+# Notification of the package
+- Please use "XB" instead of "YHAT" as approximated value of "Y". "YHAT" was removed.
+- Return value "cluster" is added for hard clustering
 
 # Author
 -  Kenichi SATOH, Ph.D.
