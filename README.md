@@ -27,7 +27,7 @@ There are three functions in **nmfkcreg** package.
 
 # Matrices
 
-The goal of **nmfkcreg** is to optimize $X$ and $C$ on the NMF (Non-negative Matrix Factorization) kernel covariate regression model $Y \approx X C A$ where $Y$ and $A$ are given.
+The goal of **nmfkcreg** is to optimize $X$ and $C$ on the NMF (Non-negative Matrix Factorization) kernel covariate regression model $Y \approx XB=X C A$ where $Y$ and $A$ are given.
 
 - $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
 - $A(N,N)$: **given** kernel matrix of which $(i,j)$ element can be 
