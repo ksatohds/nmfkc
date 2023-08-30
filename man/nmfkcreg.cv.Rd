@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkcreg.R
 \name{nmfkcreg.cv}
 \alias{nmfkcreg.cv}
-\title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) kernel covariate regression model}
+\title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates regression}
 \usage{
 nmfkcreg.cv(
   Y,
@@ -19,7 +19,7 @@ nmfkcreg.cv(
 \arguments{
 \item{Y}{observation matrix}
 
-\item{A}{kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).  Or matrix A(R,N) having N columns can be accepted.}
+\item{A}{kernel matrix. Without covariates, identity matrix is used.  Or matrix A(R,N) having N columns can be accepted.}
 
 \item{Q}{rank of basis matrix and Q<=min{P,N}}
 
@@ -44,7 +44,7 @@ objfunc.block: objective function at each block
 block: partition block index {1,...,div} assigned to each column of Y
 }
 \description{
-\code{nmfkcreg.cv} apply cv method for k-partitioned columns of Y on NMF (Non-negative Matrix Factorization) regression model
+\code{nmfkcreg.cv} apply cross validation method for k-partitioned columns of Y(P,N)
 }
 \examples{
 library(nmfkcreg)

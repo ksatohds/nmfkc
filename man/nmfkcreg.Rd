@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkcreg.R
 \name{nmfkcreg}
 \alias{nmfkcreg}
-\title{Optimizing X and C on NMF (Non-negative Matrix Factorization) kernel covariate regression model Y~XCA where Y and A are given}
+\title{Optimizing NMF (Non-negative Matrix Factorization) with kernel covariates regression}
 \usage{
 nmfkcreg(
   Y,
@@ -18,7 +18,7 @@ nmfkcreg(
 \arguments{
 \item{Y}{observation matrix}
 
-\item{A}{kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)). Or matrix A(R,N) having N columns can be accepted.}
+\item{A}{kernel matrix. Without covariate, identity matrix is used. Or matrix A(R,N) having N columns can be accepted.}
 
 \item{Q}{rank of basis matrix and Q<=min{P,N}}
 
@@ -37,29 +37,29 @@ X(P,Q): basis matrix whose column sum is 1
 
 C(Q,N): parameter matrix
 
-B(Q,N): B=CA regression coefficient matrix
+B(Q,N): B(Q,N)=C(Q,N)A(N,N) regression coefficient matrix
 
-XB(P,N): XB=XCA prediction matrix or fitted values for observation matrix Y
+XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
 
-P(P,N): probability matrix
-for soft clustering based on regression coefficient matrix B.
-It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
+P(Q,N): probability matrix whose column sum is 1
+for soft clustering based on regression coefficient matrix B(Q,N).
 
-cluster: for hard clustering which is given by cluster <- apply(P,2,which.max)
+cluster: the number of the basis that takes the maximum value of each column of P(Q,N)
+for hard clustering
 
 objfunc: last objective function
 
 objfunc.iter: objective function at each iteration
 
-r.squared: coefficient of determination R^2, squared correlation between Y and XB
+r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 }
 \description{
-\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
+\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates regression described by Y(P,N)~X(P,Q)C(Q,N)A(N,N)
 where observation matrix Y(P,N),
 kernel matrix A(N,N) with parameter beta,
 basis matrix X(P,Q) whose column sum is 1 and Q<=min{P,N}
 and coefficient matrix C(Q,N).
-Note that Y and A are known, and X and C are unknown.
+Note that Y(N,P) and A(N,N) are known, and X(P,Q) and C(Q,N) are unknown.
 }
 \examples{
 library(nmfkcreg)

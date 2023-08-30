@@ -11,33 +11,33 @@ devtools::install_github("ksatohds/nmfkcreg")
 
 There are three functions in **nmfkcreg** package.
 
-- **nmfkcreg** function is used for optimization of $X$ and $C$
+- **nmfkcreg** function optimizes the model
 - **nmfkcreg.cv** function is used for k-fold cross-validation
-- **create.kernel** function is used for creating kernel matrix $A$ from covariate matrix $U$
+- **create.kernel** function is used for creating kernel matrix from covariates
 
 # Statistical model
 
-1. An ordinary LM (Linear Model) can be written as $y \approx Xb$, where $y$ is the observation, $X=(x_1,...,x_Q)$ is the design matrix, and $b$ is a vector of regression coefficients. 
+1. An ordinary Linear Model (LM) can be written as $y \approx Xb$, where $y$ is the observation, $X=(x_1,...,x_Q)$ is the design matrix, and $b$ is a vector of regression coefficients. 
 
-2. Using the common $X$ among $N$ individual observations, $[y_1,y_2,...,y_N] \approx X[b_1,...,b_N]$，i.e. $Y \approx XB$, this is called NMF (Non-Negative Matrix Factorization). The difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
+2. Using the common $X$ among $N$ individual observations, $[y_1,y_2,...,y_N] \approx X[b_1,...,b_N]$，i.e. $Y \approx XB$, this is called Non-Negative Matrix Factorization (NMF). The most significant difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
 
-3. Since all the matrices are non-negative, the components of the regression coefficients $b_n$ for each $n$ are also non-negative. Therefore we know the contribution of the bases $x_1,.., x_Q$ and those percentages or probabilities $p_{1,n},...,p_{Q,n}$ can be used for clustering.
+3. Since all the matrices are non-negative, the components of the regression coefficients $b_n$ for each $n$ are also non-negative. Therefore we know the contribution of the bases $x_1,.., x_Q$ and those probabilities $p_{1,n},...,p_{Q,n}$ can be used for clustering.
 
-4. Furthermore, we consider that the regression coefficient matrix is described by the covariate matrix $A$, i.e. $B=CA$, where $C$ is the unknown parameter matrix. Here we propose to use a kernel matrix with high explanatory power as A.
+4. Furthermore, the regression coefficient matrix can be explained by covariates and Gaussian kernel can be applied as well.
 
 # Matrices
 
-The goal of **nmfkcreg** is to optimize $X$ and $C$ on the NMF (Non-negative Matrix Factorization) kernel covariate regression model $Y \approx XB=X C A$ where $Y$ and $A$ are given.
+The goal of **nmfkcreg** is to optimize $X(P,Q)$ and $C(Q,N)$ on the NMF (Non-negative Matrix Factorization) kernel covariates regression model $Y(P,N) \approx X(P,Q)B(Q,N)=X(P,Q)C(Q,N)A(N,N)$ where $Y(P,N)$ and $A(N,N)$ are given.
 
 - $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
 - $A(N,N)$: **given** kernel matrix of which $(i,j)$ element can be 
-written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U=(u_1,...u_N)$ 
-is covariate matrix. Note that identity matrix is used when there are no covariate. Or matrix $A(R,N)$ having N columns can be accepted.
+written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U(R,N)=(u_1,...u_N)$ 
+is covariate matrix. Note that identity matrix is used when there are no covariates. Or matrix $A(R,N)$ having N columns can be accepted.
 - $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min{P,N}.
 Q is the number of basis (rank).
 -  $C(Q,N)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
-- $B(Q,N)=CA$ is regression coefficient matrix. When $A$ is identity matrix, $B=C$. 
-- $P(Q,N)$ is probability matrix for soft clustering based on regression coefficient matrix B. It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
+- $B(Q,N)=C(Q,N)A(N,N)$ is regression coefficient matrix.
+- $P(Q,N)$ is probability matrix whose column sum is 1 for soft clustering based on regression coefficient matrix $B(Q,N)$.
 
 # References
 

@@ -16,7 +16,6 @@ PimaIndiansDiabetes
 Potthoff
 preprint
 Shiga
-cv
 Tri
 Factorizations
 Haesun
@@ -31,6 +30,7 @@ XB
 XCA
 YHAT
 nmfkcreg
-covariate
-Covariate
+covariates
+Covariates
+cv
 

@@ -3,8 +3,8 @@
   packageStartupMessage('devtools::install_github("ksatohds/nmfkcreg")')
 }
 
-#' @title Creating kernel matrix A from covariate matrix U
-#' @description \code{create.kernel} create kernel matrix A from covariate matrix U
+#' @title Creating kernel matrix from covariates
+#' @description \code{create.kernel} create kernel matrix A(N,N) from covariate matrix U(R,N)
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance
 #' @param beta parameter of kernel matrix A of which element is defined by exp(-beta*|u_i-u_j|^2)
 #' @return kernel matrix A(N,N)
@@ -27,15 +27,15 @@ create.kernel <- function(U,beta){
   return(A)
 }
 
-#' @title Optimizing X and C on NMF (Non-negative Matrix Factorization) kernel covariate regression model Y~XCA where Y and A are given
-#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
+#' @title Optimizing NMF (Non-negative Matrix Factorization) with kernel covariates regression
+#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates regression described by Y(P,N)~X(P,Q)C(Q,N)A(N,N)
 #'  where observation matrix Y(P,N),
 #'  kernel matrix A(N,N) with parameter beta,
 #'  basis matrix X(P,Q) whose column sum is 1 and Q<=min{P,N}
 #'  and coefficient matrix C(Q,N).
-#'  Note that Y and A are known, and X and C are unknown.
+#'  Note that Y(N,P) and A(N,N) are known, and X(P,Q) and C(Q,N) are unknown.
 #' @param Y observation matrix
-#' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)). Or matrix A(R,N) having N columns can be accepted.
+#' @param A kernel matrix. Without covariate, identity matrix is used. Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix and Q<=min{P,N}
 #' @param gamma penalty parameter for C(Q,N) in objective function
 #' @param epsilon positive convergence tolerance
@@ -44,15 +44,15 @@ create.kernel <- function(U,beta){
 #' @param trace display current iteration every 10 times if trace=TRUE
 #' @return X(P,Q): basis matrix whose column sum is 1
 #' @return C(Q,N): parameter matrix
-#' @return B(Q,N): B=CA regression coefficient matrix
-#' @return XB(P,N): XB=XCA prediction matrix or fitted values for observation matrix Y
-#' @return P(P,N): probability matrix
-#' for soft clustering based on regression coefficient matrix B.
-#' It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
-#' @return cluster: for hard clustering which is given by cluster <- apply(P,2,which.max)
+#' @return B(Q,N): B(Q,N)=C(Q,N)A(N,N) regression coefficient matrix
+#' @return XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
+#' @return P(Q,N): probability matrix whose column sum is 1
+#' for soft clustering based on regression coefficient matrix B(Q,N).
+#' @return cluster: the number of the basis that takes the maximum value of each column of P(Q,N)
+#' for hard clustering
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
-#' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
+#' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 #' @export
 #' @examples
 #' library(nmfkcreg)
@@ -140,10 +140,10 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
-#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) kernel covariate regression model
-#' @description \code{nmfkcreg.cv} apply cv method for k-partitioned columns of Y on NMF (Non-negative Matrix Factorization) regression model
+#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates regression
+#' @description \code{nmfkcreg.cv} apply cross validation method for k-partitioned columns of Y(P,N)
 #' @param Y observation matrix
-#' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).  Or matrix A(R,N) having N columns can be accepted.
+#' @param A kernel matrix. Without covariates, identity matrix is used.  Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix and Q<=min{P,N}
 #' @param gamma penalty parameter for C(Q,N) in objective function
 #' @param epsilon positive convergence tolerance

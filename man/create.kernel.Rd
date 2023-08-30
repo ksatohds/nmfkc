@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkcreg.R
 \name{create.kernel}
 \alias{create.kernel}
-\title{Creating kernel matrix A from covariate matrix U}
+\title{Creating kernel matrix from covariates}
 \usage{
 create.kernel(U, beta)
 }
@@ -15,7 +15,7 @@ create.kernel(U, beta)
 kernel matrix A(N,N)
 }
 \description{
-\code{create.kernel} create kernel matrix A from covariate matrix U
+\code{create.kernel} create kernel matrix A(N,N) from covariate matrix U(R,N)
 }
 \examples{
 # install.packages("devtools")
