@@ -47,7 +47,7 @@ Q is the number of basis (rank).
 Factorization for Longitudinal Data, Japanese Journal of Applied Statistics, 51 (1&2), 1-18. https://doi.org/10.5023/jappstat.51.1 (in Japanese)
 - Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
 Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
-Proceedings of the 12th 'ACM' SIGKDD international conference on Knowledge discovery and data mining, 126-135.
+Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135.
 - Potthoff, R. F. and Roy, S. N. (1964) A generalized multivariate analysis of variance model useful especially for growth curve problems,
 Biometrika, 51, 313–326.
 

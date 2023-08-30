@@ -28,7 +28,7 @@ create.kernel <- function(U,beta){
 }
 
 #' @title Optimizing X and C on NMF (Non-negative Matrix Factorization) kernel covariate regression model Y~XCA where Y and A are given
-#' @description \code{nmkcfreg} The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
+#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
 #'  where observation matrix Y(P,N),
 #'  kernel matrix A(N,N) with parameter beta,
 #'  basis matrix X(P,Q) whose column sum is 1 and Q<=min{P,N}

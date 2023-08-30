@@ -1,15 +1,13 @@
 Package: nmfkcreg
 Type: Package
-Title: nmfkcreg is to optimize X and C on the NMF (Non-negative Matrix Factorization) kernel covariate regression model Y~XCA
+Title: The Package is to Optimize Basis Matrix and Parameter Matrix on the Non-Negative Matrix Factorization Kernel Covariate Regression
 Version: 0.1.6
 Author: Kenichi Satoh
 Maintainer: Kenichi Satoh <kenichi-satoh@biwako.shiga-u.ac.jp>
-Description: The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factorization)  kernel covariate regression model described by Y~XCA
- where observation matrix Y(P,N),
- kernel matrix A(N,N) with parameter beta,
- basis matrix X(P,Q) whose column sum is 1 and Q<=min{P,N}
- and coefficient matrix C(Q,N).
- Note that Y and A are known, and X and C are unknown.
+Description: The goal of the package is to perform Non-negative Matrix Factorization
+ kernel covariate regression model. It optimizes basis matrix and parameter matrix
+ where observation matrix and kernel matrix are given.
+ In particular, if the kernel matrix is a unit matrix, it can be used as an ordinary non-negative matrix factorization.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-US
