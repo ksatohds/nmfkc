@@ -22,9 +22,7 @@ nmfkcreg(
 
 \item{Q}{rank of basis matrix and Q<=min{P,N}}
 
-\item{gamma}{penalty parameter for C:QxN where
-objective function:tr(Y-XB)'(Y-XB)+gamma\emph{trC'C for method="EU"
-and sum(-Y}log(XB)+XB)+gamma*sum(C^2) for method="KL"}
+\item{gamma}{penalty parameter for C(Q,N) in objective function}
 
 \item{epsilon}{positive convergence tolerance}
 
@@ -44,7 +42,7 @@ B(Q,N): B=CA regression coefficient matrix
 XB(P,N): XB=XCA prediction matrix or fitted values for observation matrix Y
 
 P(P,N): probability matrix
-for soft clustering based on regression coeffient matrix B.
+for soft clustering based on regression coefficient matrix B.
 It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
 
 cluster: for hard clustering which is given by cluster <- apply(P,2,which.max)

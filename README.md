@@ -17,9 +17,9 @@ There are three functions in **nmfkcreg** package.
 
 # Statistical model
 
-1. An ordinary LM (Linear Model) can be written as $y \approx Xb$, where $y$ is the observation, $X=(x_1,\cdots,x_Q)$ is the design matrix, and $b$ is a vector of regression coefficients. 
+1. An ordinary LM (Linear Model) can be written as $y \approx Xb$, where $y$ is the observation, $X=(x_1,...,x_Q)$ is the design matrix, and $b$ is a vector of regression coefficients. 
 
-2. Using the common $X$ among $N$ individual observations, $[y_1,y_2,...,y_N] \approx X[b_1,...,b_N]$，i.e. $Y \approx XB$, this is called NMF (Non-Negative Matrix Factorisation). The difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
+2. Using the common $X$ among $N$ individual observations, $[y_1,y_2,...,y_N] \approx X[b_1,...,b_N]$，i.e. $Y \approx XB$, this is called NMF (Non-Negative Matrix Factorization). The difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
 
 3. Since all the matrices are non-negative, the components of the regression coefficients $b_n$ for each $n$ are also non-negative. Therefore we know the contribution of the bases $x_1,.., x_Q$ and those percentages or probabilities $p_{1,n},...,p_{Q,n}$ can be used for clustering.
 
@@ -35,7 +35,7 @@ written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U=(u_1,...u_N)$
 is covariate matrix. Note that identity matrix is used when there are no covariate. Or matrix $A(R,N)$ having N columns can be accepted.
 - $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min{P,N}.
 Q is the number of basis (rank).
--  $C(Q,N)$: **unkown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
+-  $C(Q,N)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
 - $B(Q,N)=CA$ is regression coefficient matrix. When $A$ is identity matrix, $B=C$. 
 - $P(Q,N)$ is probability matrix for soft clustering based on regression coefficient matrix B. It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
 
@@ -47,17 +47,17 @@ Q is the number of basis (rank).
 Factorization for Longitudinal Data, Japanese Journal of Applied Statistics, 51 (1&2), 1-18. https://doi.org/10.5023/jappstat.51.1 (in Japanese)
 - Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
 Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
-Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135.
+Proceedings of the 12th 'ACM' SIGKDD international conference on Knowledge discovery and data mining, 126-135.
 - Potthoff, R. F. and Roy, S. N. (1964) A generalized multivariate analysis of variance model useful especially for growth curve problems,
 Biometrika, 51, 313–326.
 
 # Examples
 
 1. Dimension reduction: iris
-2. Soft clulustering: basketball players and statistics
-3. Hard clulustering: COVID-19 in Japan
+2. Soft clustering: basketball players and statistics
+3. Hard clustering: COVID-19 in Japan
 4. Topic model: data_corpus_inaugural
-5. Spatio-temporal Analysis: CanadianWeather
+5. Spatiotemporal Analysis: CanadianWeather
 6. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
 7. Kernel ridge regression: mcycle
 8. Comparison between given covariate and kernel: Orthodont
@@ -82,7 +82,7 @@ labels <- as.numeric(iris[,5])
 plot(t(result$B))
 ``` 
 
-## 2. Soft clulustering
+## 2. Soft clustering
 - basketball players and statistics
 - https://rpubs.com/sirinya/847402
 ``` r
@@ -112,14 +112,14 @@ barplot(f,beside=T,las=3,legend=T,main=colnames(Y)[n])
 Q <- ncol(result$X)
 barplot(t(result$X),beside=T,col=1:Q+1,legend=T,las=3)
 
-# soft clulustering based on P
+# soft clustering based on P
 stars(t(result$P),scale=F,
       draw.segments=TRUE,labels=colnames(Y),
       col.segments=1:Q+1,
       len=1)
 ``` 
 
-## 3. Hard clulustering
+## 3. Hard clustering
 - COVID-19 in Japan
 - https://www3.nhk.or.jp/news/special/coronavirus/data/
 ``` r
@@ -148,7 +148,7 @@ for(q in 1:Q){
   legend("left",fill=q+1,legend=q)
 }
 
-# hard clulustering based on P
+# hard clustering based on P
 mycol <- result$cluster
 library(NipponMap)
 par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
@@ -231,7 +231,7 @@ barplot(f,col=1:Q+1,las=3,ylim=c(0,1),beside=T,legend=T,
 abline(h=c(0.6,0.8),lty=3)
 ``` 
 
-## 5. Spatio-temporal Analysis
+## 5. Spatiotemporal Analysis
 -  CanadianWeather
 ``` r
 library(nmfkcreg)
@@ -269,7 +269,7 @@ Q <- ncol(result$X)
 for(q in 1:Q) lines(result$X[,q],col=q+1)
 legend("topright",legend=1:Q,fill=1:Q+1)
 
-# soft clulustering based on P
+# soft clustering based on P
 plot(u0,type="n")
 legend("topright",legend=1:Q,fill=1:Q+1)
 stars(t(result$P),
@@ -301,7 +301,7 @@ A <- create.kernel(U,beta=best.beta)
 result <- nmfkcreg(Y,A,Q=2)
 result$r.squared # less than nmf without covariates
 
-# soft clulustering based on P by using covariates
+# soft clustering based on P by using covariates
 library(akima)
 q <- 2
 result.interp <- interp(U[1,],U[2,],result$P[q,])
@@ -429,7 +429,7 @@ legend("topleft",legend=c("Male","Female",mylab),fill=c(4,2,3))
 ```
 
 # Author
--  Kenichi SATOH, Ph.D.
+-  Kenichi SATOH, PhD
 -  Professor, [Faculty of Data Science](https://www.ds.shiga-u.ac.jp/), 
 -  [Shiga University](https://www.shiga-u.ac.jp/), JAPAN
-- [HomePage](https://sites.google.com/view/ksatoh/english)
+- [homepage](https://sites.google.com/view/ksatoh/english)

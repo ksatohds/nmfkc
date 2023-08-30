@@ -37,9 +37,7 @@ create.kernel <- function(U,beta){
 #' @param Y observation matrix
 #' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)). Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix and Q<=min{P,N}
-#' @param gamma penalty parameter for C:QxN where
-#' objective function:tr(Y-XB)'(Y-XB)+gamma*trC'C for method="EU"
-#' and sum(-Y*log(XB)+XB)+gamma*sum(C^2) for method="KL"
+#' @param gamma penalty parameter for C(Q,N) in objective function
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
@@ -49,7 +47,7 @@ create.kernel <- function(U,beta){
 #' @return B(Q,N): B=CA regression coefficient matrix
 #' @return XB(P,N): XB=XCA prediction matrix or fitted values for observation matrix Y
 #' @return P(P,N): probability matrix
-#' for soft clustering based on regression coeffient matrix B.
+#' for soft clustering based on regression coefficient matrix B.
 #' It is given by P <- t(t(B)/colSums(B)) whose column sum is 1.
 #' @return cluster: for hard clustering which is given by cluster <- apply(P,2,which.max)
 #' @return objfunc: last objective function
@@ -147,9 +145,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #' @param Y observation matrix
 #' @param A kernel matrix. Without covariate, use identity matrix A=diag(ncol(Y)).  Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix and Q<=min{P,N}
-#' @param gamma penalty parameter for C:QxN where
-#' objective function:tr(Y-XB)'(Y-XB)+gamma*trC'C for method="EU"
-#' and sum(-Y*log(XB)+XB)+gamma*sum(C^2) for method="KL"
+#' @param gamma penalty parameter for C(Q,N) in objective function
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
