@@ -54,7 +54,7 @@ objfunc.iter: objective function at each iteration
 r.squared: coefficient of determination R^2, squared correlation between Y and XB
 }
 \description{
-\code{nmkcfreg} The goal of nmfkcreg is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
+\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) regression model described by Y~XCA
 where observation matrix Y(P,N),
 kernel matrix A(N,N) with parameter beta,
 basis matrix X(P,Q) whose column sum is 1 and Q<=min{P,N}

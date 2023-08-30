@@ -429,7 +429,5 @@ legend("topleft",legend=c("Male","Female",mylab),fill=c(4,2,3))
 ```
 
 # Author
--  Kenichi SATOH, PhD
--  Professor, [Faculty of Data Science](https://www.ds.shiga-u.ac.jp/), 
--  [Shiga University](https://www.shiga-u.ac.jp/), JAPAN
+-  Kenichi Satoh
 - [homepage](https://sites.google.com/view/ksatoh/english)
