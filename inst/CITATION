@@ -36,7 +36,7 @@ bibentry(
 
 
 bibentry(
-  bibtype  = "Proceeding",
+  bibtype  = "Article",
   title    = "Orthogonal Nonnegative Matrix T-Factorizations for Clustering",
   author   = "Ding, Chris and Li, Tao and Peng, Wei and Park, Haesun",
   journal  = "Proceedings of the 12th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining",
