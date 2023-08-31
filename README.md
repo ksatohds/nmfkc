@@ -1,4 +1,4 @@
-# Installation of **nmfkcreg** package
+# Installation
 
 You can install the development version of nmfkcreg from [GitHub](https://github.com/) with:
 
@@ -23,7 +23,7 @@ There are three functions in **nmfkcreg** package.
 
 3. Since all the matrices are non-negative, the components of the regression coefficients $b_n$ for each $n$ are also non-negative. Therefore we know the contribution of the bases $x_1,.., x_Q$ and those probabilities $p_{1,n},...,p_{Q,n}$ can be used for clustering.
 
-4. Furthermore, the regression coefficient matrix can be explained by covariates and Gaussian kernel can be applied as well.
+4. Furthermore, the regression coefficient matrix can be explained by covariates and its Gaussian kernel can be applied.
 
 # Matrices
 
