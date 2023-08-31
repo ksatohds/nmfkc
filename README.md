@@ -44,7 +44,7 @@ Q is the number of basis (rank).
 
 - Kenichi Satoh (2023)
   On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates,
-  Japanese Journal of Applied Statistics, 52 (2), in press. (in Japanese)
+  Japanese Journal of Applied Statistics, 52 (2), in press.
 [(preprint)](https://drive.google.com/file/d/1MnbJOPlcm0hn27WpP8rvcAgzy5X2E53B/view?usp=sharing)
 - Ding, Chris and Li, Tao and Peng, Wei and Park, Haesun (2006)
   Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
