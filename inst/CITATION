@@ -7,7 +7,7 @@ bibentry(
   volume   = "52",
   number   = "2",
   pages    = 0,
-  doi      ="in press"
+  doi      =""
 )
 
 bibentry(
@@ -19,7 +19,7 @@ bibentry(
   volume   = "",
   number   = "",
   pages    = 126-135,
-  doi      = "https://doi.org/10.1145/1150402.1150420"
+  doi      = "10.1145/1150402.1150420"
 )
 
 bibentry(
@@ -31,7 +31,7 @@ bibentry(
   volume   = "51",
   number   = "3/4",
   pages    = 313-326,
-  doi      = "https://doi.org/10.2307/2334137"
+  doi      = "10.2307/2334137"
 )
 
 
