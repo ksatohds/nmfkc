@@ -41,15 +41,22 @@ Q is the number of basis (rank).
 
 # References
 
-- Satoh, K. (2023) On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates, Japanese Journal of Applied Statistics 52 (2), in press. (in Japanese)
+- Kenichi Satoh (2023)
+  On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates,
+  Japanese Journal of Applied Statistics 52 (2), in press. (in Japanese)
 [(preprint)](https://drive.google.com/file/d/1MnbJOPlcm0hn27WpP8rvcAgzy5X2E53B/view?usp=sharing)
-- Satoh, K. (2022) Soft Clustering Based on Non-negative Matrix
-Factorization for Longitudinal Data, Japanese Journal of Applied Statistics, 51 (1&2), 1-18. https://doi.org/10.5023/jappstat.51.1 (in Japanese)
-- Ding, C., Tao, L., Wei, P. and Haesun, P. (2006)
-Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
-Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135.
-- Potthoff, R. F. and Roy, S. N. (1964) A generalized multivariate analysis of variance model useful especially for growth curve problems,
-Biometrika, 51, 313–326.
+- Kenichi Satoh (2022)
+  Soft Clustering Based on Non-negative Matrix Factorization for Longitudinal Data,
+  Japanese Journal of Applied Statistics, 51 (1/2), 1-18.
+  https://doi.org/10.5023/jappstat.51.1 (in Japanese)
+- Ding, Chris and Li, Tao and Peng, Wei and Park, Haesun (2006)
+  Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
+  Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135.
+  https://doi.org/10.1145/1150402.1150420
+- Potthoff, Richard F., and S. N. Roy. (1964) 
+  A generalized multivariate analysis of variance model useful especially for growth curve problems,
+  Biometrika, 51 (3/4), 313–326.
+  https://doi.org/10.2307/2334137
 
 # Examples
 

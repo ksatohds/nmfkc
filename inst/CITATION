@@ -7,19 +7,7 @@ bibentry(
   volume   = "52",
   number   = "2",
   pages    = 0,
-  doi      =""
-)
-
-bibentry(
-  bibtype  = "Article",
-  title    = "Soft Clustering Based on Non-negative Matrix Factorization for Longitudinal Data",
-  author   = "Kenichi Satoh",
-  journal  = "Japanese Journal of Applied Statistics",
-  year     = "2022",
-  volume   = "51",
-  number   = "1&2",
-  pages    = 1-18,
-  doi      = "https://doi.org/10.5023/jappstat.51.1"
+  doi      ="in press"
 )
 
 bibentry(
