@@ -23,7 +23,8 @@ There are three functions in **nmfkcreg** package.
 
 3. Since all the matrices are non-negative, the components of the regression coefficients $b_n$ for each $n$ are also non-negative. Therefore we know the contribution of the bases $x_1,.., x_Q$ and those probabilities $p_{1,n},...,p_{Q,n}$ can be used for clustering.
 
-4. Furthermore, the regression coefficient matrix can be explained by covariates and its Gaussian kernel can be applied.
+4. Furthermore, the regression coefficient matrix can be explained by covariates and its Gaussian kernel can be applied in Satoh (2023).
+Formally the model is contained in tri-NMF by Ding et al. (1964) and the update formula for optimization has been derived. The model can be described as a product of three matrices and is related to the growth curve model by Potthoff and Roy (1964). 
 
 # Matrices
 
@@ -43,17 +44,13 @@ Q is the number of basis (rank).
 
 - Kenichi Satoh (2023)
   On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates,
-  Japanese Journal of Applied Statistics 52 (2), in press. (in Japanese)
+  Japanese Journal of Applied Statistics, 52 (2), in press. (in Japanese)
 [(preprint)](https://drive.google.com/file/d/1MnbJOPlcm0hn27WpP8rvcAgzy5X2E53B/view?usp=sharing)
-- Kenichi Satoh (2022)
-  Soft Clustering Based on Non-negative Matrix Factorization for Longitudinal Data,
-  Japanese Journal of Applied Statistics, 51 (1/2), 1-18.
-  https://doi.org/10.5023/jappstat.51.1 (in Japanese)
 - Ding, Chris and Li, Tao and Peng, Wei and Park, Haesun (2006)
   Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
   Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135.
   https://doi.org/10.1145/1150402.1150420
-- Potthoff, Richard F., and S. N. Roy. (1964) 
+- Potthoff, Richard F., and Roy, S. N. (1964) 
   A generalized multivariate analysis of variance model useful especially for growth curve problems,
   Biometrika, 51 (3/4), 313–326.
   https://doi.org/10.2307/2334137
