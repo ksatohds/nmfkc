@@ -22,3 +22,41 @@ bibentry(
   doi      = "https://doi.org/10.5023/jappstat.51.1"
 )
 
+bibentry(
+  bibtype  = "Article",
+  title    = "Soft Clustering Based on Non-negative Matrix Factorization for Longitudinal Data",
+  author   = "Kenichi Satoh",
+  journal  = "Japanese Journal of Applied Statistics",
+  year     = "2022",
+  volume   = "51",
+  number   = "1/2",
+  pages    = 1-18,
+  doi      = "https://doi.org/10.5023/jappstat.51.1"
+)
+
+
+bibentry(
+  bibtype  = "Proceeding",
+  title    = "Orthogonal Nonnegative Matrix T-Factorizations for Clustering",
+  author   = "Ding, Chris and Li, Tao and Peng, Wei and Park, Haesun",
+  journal  = "Proceedings of the 12th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining",
+  year     = "2006",
+  volume   = "",
+  number   = "",
+  pages    = 126-135,
+  doi      = "https://doi.org/10.1145/1150402.1150420"
+)
+
+bibentry(
+  bibtype  = "Article",
+  title    = "A Generalized Multivariate Analysis of Variance Model Useful Especially for Growth Curve Problems",
+  author   = "Potthoff, Richard F., and S. N. Roy.",
+  journal  = "Biometrika",
+  year     = "1964",
+  volume   = "51",
+  number   = "3/4",
+  pages    = 313-326,
+  doi      = "https://doi.org/10.2307/2334137"
+)
+
+
