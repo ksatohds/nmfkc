@@ -1,6 +1,6 @@
 .onAttach <- function(...) {
-  packageStartupMessage("This package is a development version and should be downloaded and updated regularly.")
-  packageStartupMessage('devtools::install_github("ksatohds/nmfkcreg")')
+  packageStartupMessage("This package is a development version.")
+  packageStartupMessage("https://github.com/ksatohds/nmfkcreg")
 }
 
 #' @title Creating kernel matrix from covariates
