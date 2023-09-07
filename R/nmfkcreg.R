@@ -37,7 +37,6 @@ create.kernel <- function(U,beta){
 #' @param Y observation matrix
 #' @param A kernel matrix. Without covariate, identity matrix is used. Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix and Q<=min{P,N}
-#' @param weights an optional vector of weights to be used in the fitting process
 #' @param gamma penalty parameter for C(Q,N) in objective function
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
@@ -70,7 +69,7 @@ create.kernel <- function(U,beta){
 #' # dimension reduction based on regression coefficient B
 #' plot(t(result$B))
 
-nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
+nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
   set.seed(123)
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(!is.matrix(Y)) Y <- as.matrix(Y)
@@ -94,27 +93,26 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilo
   }
   X <- t(t(X)/colSums(X))
   C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
-  W <- diag(weights)
   B <- C %*% A
   XB <- X %*% B
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
     if(trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
-      X <- X * ((Y %*% W %*% t(B)) / (XB %*% W %*% t(B)))
+      X <- X * ((Y %*% t(B)) / (XB %*% t(B)))
       X <- t(t(X)/colSums(X))
-      C <- C*((t(X)%*%Y%*%W%*%t(A))/(t(X)%*%XB%*%W%*%t(A)+gamma*C))
+      C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       B <- C %*% A
       XB <- X %*% B
-      objfunc.iter[i] <- sum((Y-XB)%*%W%*%t(Y-XB))+gamma*sum(C^2)
+      objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
-      X <- t(t(X*(Y/XB)%*%W%*%t(B))/rowSums(B%*%W))
+      X <- t(t(X*(Y/XB)%*%t(B))/rowSums(B))
       X <- t(t(X)/colSums(X))
-      C0 <- t(X)%*%(Y/XB)%*%W%*%t(A)
-      C <- C*(C0/(colSums(X)%o%rowSums(A%*%W)+2*gamma*C))
+      C0 <- t(X)%*%(Y/XB)%*%t(A)
+      C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
       B <- C %*% A
       XB <- X %*% B
-      objfunc.iter[i] <- sum(-Y%*%W*log(XB)+XB%*%W)+gamma*sum(C^2)
+      objfunc.iter[i] <- sum(-Y*log(XB)+XB)+gamma*sum(C^2)
     }
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
@@ -125,9 +123,9 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilo
     }
   }
   if(method=="EU"){
-    objfunc <- sum((Y-XB)%*%W%*%t(Y-XB))+gamma*sum(C^2)
+    objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
   }else{
-    objfunc <- sum(-Y%*%W*log(XB)+XB%*%W)+gamma*sum(C^2)
+    objfunc <- sum(-Y*log(XB)+XB)+gamma*sum(C^2)
   }
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   colnames(B) <- colnames(Y)
@@ -147,7 +145,6 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilo
 #' @param Y observation matrix
 #' @param A kernel matrix. Without covariates, identity matrix is used.  Or matrix A(R,N) having N columns can be accepted.
 #' @param Q rank of basis matrix and Q<=min{P,N}
-#' @param weights an optional vector of weights to be used in the fitting process
 #' @param gamma penalty parameter for C(Q,N) in objective function
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
@@ -166,7 +163,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilo
 #' table(result$block)
 #' result$objfunc
 
-nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){
+nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){
   is.identity.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
@@ -193,9 +190,8 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,eps
   for(j in 1:div){
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
-    Wj <- diag(weights[index==j])
     A_j <- A[index!=j,index!=j]
-    res <- nmfkcreg(Y_j,A_j,Q,weights=weights[index!=j],gamma,epsilon,maxit,method)
+    res <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method)
     X_j <- res$X
     C_j <- res$C
     if(is.identity){
@@ -205,10 +201,10 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,eps
       for(l in 1:maxit){
         XBj <- X_j %*% C_j
         if(method=="EU"){
-          C_j <- C_j*((t(X_j)%*%Yj%*%Wj)/(t(X_j)%*%XBj%*%Wj+gamma*C_j))
+          C_j <- C_j*((t(X_j)%*%Yj)/(t(X_j)%*%XBj+gamma*C_j))
         }else{
-          C0_j <- t(X_j)%*%(Yj/XBj)%*%Wj%*%t(A_j)
-          C_j <- C_j*(C0_j/(colSums(X_j)%o%rowSums(A_j%*%Wj)+2*gamma*C_j))
+          C0_j <- t(X_j)%*%(Yj/XBj)%*%t(A_j)
+          C_j <- C_j*(C0_j/(colSums(X_j)%o%rowSums(A_j)+2*gamma*C_j))
         }
         newSum <- sum(C_j)
         if(l>=10){
@@ -222,9 +218,9 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,eps
       XBj <- X_j %*% C_j %*% A[index!=j,index==j] # Aのサイズに注意！
     }
     if(method=="EU"){
-      objfunc.block[j] <- sum((Yj-XBj)%*%Wj%*%t(Yj-XBj))+gamma*sum(C_j^2)
+      objfunc.block[j] <- sum((Yj-XBj)^2)+gamma*sum(C_j^2)
     }else{
-      objfunc.block[j] <- sum(-Yj%*%Wj*log(XBj)+XBj%*%Wj)+gamma*sum(C_j^2)
+      objfunc.block[j] <- sum(-Yj*log(XBj)+XBj)+gamma*sum(C_j^2)
     }
   }
   objfunc <- sum(objfunc.block)
