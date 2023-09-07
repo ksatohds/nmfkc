@@ -169,7 +169,7 @@ for(n in 1:N){
   plot(t,Y[,n],ylim=range(Y),main=colnames(Y)[n])
   lines(t,result$XB[,n],col=result$cluster[n]+1,lwd=3)
 }
-dev.off()
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
 ```
 
 ## 4. Longitudinal data
