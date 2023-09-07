@@ -106,7 +106,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilo
       C <- C*((t(X)%*%Y%*%W%*%t(A))/(t(X)%*%XB%*%W%*%t(A)+gamma*C))
       B <- C %*% A
       XB <- X %*% B
-      objfunc.iter[i] <- sum((Y-XB)%*%W%*%t(Y-XB))+gamma*sum(C^2)
+      objfunc.iter[i] <- sum(((Y-XB)%*%W)^2)+gamma*sum(C^2)
     }else{
       X <- t(t(X*(Y/XB)%*%W%*%t(B))/rowSums(B%*%W))
       X <- t(t(X)/colSums(X))
@@ -114,7 +114,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilo
       C <- C*(C0/(colSums(X)%o%rowSums(A%*%W)+2*gamma*C))
       B <- C %*% A
       XB <- X %*% B
-      objfunc.iter[i] <- sum(-Y%*%W*log(XB)+XB%*%W)+gamma*sum(C^2)
+      objfunc.iter[i] <- sum(-Y%*%W*log(XB)+XB)+gamma*sum(C^2)
     }
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
@@ -125,7 +125,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilo
     }
   }
   if(method=="EU"){
-    objfunc <- sum((Y-XB)%*%W%*%t(Y-XB))+gamma*sum(C^2)
+    objfunc <- sum(((Y-XB)^2)%*%W)+gamma*sum(C^2)
   }else{
     objfunc <- sum(-Y%*%W*log(XB)+XB%*%W)+gamma*sum(C^2)
   }
@@ -222,7 +222,7 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,eps
       XBj <- X_j %*% C_j %*% A[index!=j,index==j] # Aのサイズに注意！
     }
     if(method=="EU"){
-      objfunc.block[j] <- sum((Yj-XBj)%*%Wj%*%t(Yj-XBj))+gamma*sum(C_j^2)
+      objfunc.block[j] <- sum(((Yj-XBj)^2)%*%Wj)+gamma*sum(C_j^2)
     }else{
       objfunc.block[j] <- sum(-Yj%*%Wj*log(XBj)+XBj%*%Wj)+gamma*sum(C_j^2)
     }
