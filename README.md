@@ -59,12 +59,13 @@ Q is the number of basis (rank).
 
 1. Dimension reduction: iris
 2. Soft clustering: basketball players and statistics
-3. Hard clustering: COVID-19 in Japan
-4. Topic model: data_corpus_inaugural
-5. Spatiotemporal Analysis: CanadianWeather
-6. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
-7. Kernel ridge regression: mcycle
-8. Comparison between given covariate and kernel: Orthodont
+3. Repeated data: sleepstudy
+4. Longitudinal data: COVID-19 in Japan
+5. Topic model: data_corpus_inaugural
+6. Spatiotemporal Analysis: CanadianWeather
+7. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
+8. Kernel ridge regression: mcycle
+9. Comparison between given covariate and kernel: Orthodont
 
 ## 1. Dimension reduction 
 - iris
@@ -123,7 +124,55 @@ stars(t(result$P),scale=F,
       len=1)
 ``` 
 
-## 3. Hard clustering
+## 3. Repeated data
+- sleepstudy
+``` r
+library(nmfkcreg)
+library(lme4)
+d <- sleepstudy 
+head(d)
+(f <- xtabs(~Subject+Days,d))
+(N <- nrow(f))
+(P <- ncol(f))
+Y <- matrix(d$Reaction,nrow=P,ncol=N)
+colnames(Y) <- unique(d$Subject)
+t <- unique(d$Days)
+rownames(Y) <- t
+
+library(nmfkcreg)
+Q <- 3
+result <- nmfkcreg(Y,Q=Q,epsilon=1e-5)
+
+# visualization of some results
+plot(result$objfunc.iter) # convergence
+
+# goodness of fit
+plot(as.vector(result$XB),as.vector(Y),
+     main=paste0("r.squared=",round(result$r.squared,3)))
+abline(a=0,b=1,col=2)
+
+# basis function of which sum is 1
+plot(t,result$X[,1],type="n",ylim=range(result$X),
+     ylab="basis function")
+for(q in 1:Q) lines(t,result$X[,q],col=q+1)
+legend("topright",legend=1:Q,fill=1:Q+1)
+
+# soft clustering based on P
+stars(t(result$P),scale=F,nrow=6,ncol=3,
+      draw.segments=TRUE,labels=colnames(Y),
+      col.segments=1:Q+1,
+      len=1)
+
+# individual fit and hard clustering
+par(mfrow=c(6,3),mar=c(2,2,2,2))
+for(n in 1:N){
+  plot(t,Y[,n],ylim=range(Y),main=colnames(Y)[n])
+  lines(t,result$XB[,n],col=result$cluster[n]+1,lwd=3)
+}
+dev.off()
+```
+
+## 4. Longitudinal data
 - COVID-19 in Japan
 - https://www3.nhk.or.jp/news/special/coronavirus/data/
 ``` r
@@ -160,7 +209,7 @@ JapanPrefMap(col=mycol+1)
 legend("left",fill=1:Q+1,legend=1:Q)
 ``` 
 
-## 4. Topic model
+## 5. Topic model
 - data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
@@ -235,7 +284,7 @@ barplot(f,col=1:Q+1,las=3,ylim=c(0,1),beside=T,legend=T,
 abline(h=c(0.6,0.8),lty=3)
 ``` 
 
-## 5. Spatiotemporal Analysis
+## 6. Spatiotemporal Analysis
 -  CanadianWeather
 ``` r
 library(nmfkcreg)
@@ -318,7 +367,7 @@ filled.contour(result.interp,
 )
 ```
 
-## 6. Comparison between NMF and ordinary LM
+## 7. Comparison between NMF and ordinary LM
 - PimaIndiansDiabetes2
 ``` r
 library(nmfkcreg)
@@ -348,7 +397,7 @@ rownames(f) <- c("LM","NMF")
 print(f)
 ```
 
-## 7. Kernel ridge regression
+## 8. Kernel ridge regression
 - mcycle
 ``` r
 library(nmfkcreg)
@@ -390,7 +439,7 @@ plot(d$times,as.vector(Y),
   lines(d$times,as.vector(result$XB),col=2)
 ```
 
-## 8. Comparison between given covariate and kernel
+## 9. Comparison between given covariate and kernel
 - Orthodont
 ``` r
 library(nlme)
@@ -433,5 +482,4 @@ legend("topleft",legend=c("Male","Female",mylab),fill=c(4,2,3))
 ```
 
 # Author
--  Kenichi Satoh
-- [homepage](https://sites.google.com/view/ksatoh/english)
+-  Kenichi Satoh, [homepage](https://sites.google.com/view/ksatoh/english)
