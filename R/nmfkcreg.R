@@ -93,7 +93,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,epsilo
     X <- matrix(data=1,nrow=1,ncol=1)
   }
   X <- t(t(X)/colSums(X))
-  C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
+  C <- matrix(sum(Y)/(ncol(X)*nrow(A)),nrow=ncol(X),ncol=nrow(A))
   W <- diag(weights)
   B <- C %*% A
   XB <- X %*% B
@@ -200,7 +200,7 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,weights=rep(1,ncol(Y)),gamma=0,eps
     C_j <- res$C
     if(is.identity){
       A_j <- diag(ncol(Yj))
-      C_j <- matrix(1,nrow=ncol(X_j),ncol=ncol(Yj))
+      C_j <- matrix(sum(Yj)/(ncol(X_j)*ncol(Yj)),nrow=ncol(X_j),ncol=ncol(Yj))
       oldSum <- 0
       for(l in 1:maxit){
         XBj <- X_j %*% C_j
