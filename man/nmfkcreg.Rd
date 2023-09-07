@@ -8,7 +8,6 @@ nmfkcreg(
   Y,
   A = diag(ncol(Y)),
   Q = 2,
-  weights = rep(1, ncol(Y)),
   gamma = 0,
   epsilon = 1e-04,
   maxit = 5000,
@@ -22,8 +21,6 @@ nmfkcreg(
 \item{A}{kernel matrix. Without covariate, identity matrix is used. Or matrix A(R,N) having N columns can be accepted.}
 
 \item{Q}{rank of basis matrix and Q<=min{P,N}}
-
-\item{weights}{an optional vector of weights to be used in the fitting process}
 
 \item{gamma}{penalty parameter for C(Q,N) in objective function}
 
