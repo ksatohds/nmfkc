@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 1st Sep 2023")
+  packageStartupMessage("Last update on 9th Sep 2023")
   packageStartupMessage("https://github.com/ksatohds/nmfkcreg")
 }
 
@@ -82,7 +82,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
       if(ncol(Y)==Q){
         X <- Y
       }else{
-        res.kmeans <- stats::kmeans(t(Y),centers=Q)
+        res.kmeans <- stats::kmeans(t(Y),centers=Q,iter.max=maxit)
         X <- t(res.kmeans$centers)
       }
     }else{
