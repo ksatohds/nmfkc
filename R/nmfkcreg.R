@@ -164,6 +164,9 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #' result$objfunc
 
 nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){
+  is.symmetric.matrix <- function(A){
+    return(sum(abs(t(A)-A))==0)
+  }
   is.identity.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
@@ -190,7 +193,7 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
   for(j in 1:div){
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
-    if(nrow(A)==ncol(Y)){
+    if(is.symmetric.matrix(A)){
       A_j <- A[index!=j,index!=j]
     }else{
       A_j <- A[,index!=j]
@@ -219,7 +222,7 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
       }
       XBj <- X_j %*% C_j
     }else{
-      if(nrow(A)==ncol(Y)){
+      if(is.symmetric.matrix(A)){
         XBj <- X_j %*% C_j %*% A[index!=j,index==j]
       }else{
         XBj <- X_j %*% C_j %*% A[,index==j]
