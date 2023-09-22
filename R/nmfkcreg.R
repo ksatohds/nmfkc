@@ -165,7 +165,11 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 
 nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){
   is.symmetric.matrix <- function(A){
-    return(sum(abs(t(A)-A))==0)
+    result <- FALSE
+    if(nrow(A)==ncol(A)){
+      result <- sum(abs(t(A)-A))==0
+    }
+    return(result)
   }
   is.identity.matrix <- function(A){
     result <- FALSE
