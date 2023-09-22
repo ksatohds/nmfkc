@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 9th Sep 2023")
+  packageStartupMessage("Last update on 22th Sep 2023")
   packageStartupMessage("https://github.com/ksatohds/nmfkcreg")
 }
 
@@ -190,7 +190,11 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
   for(j in 1:div){
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
-    A_j <- A[index!=j,index!=j]
+    if(nrow(A)==ncol(Y)){
+      A_j <- A[index!=j,index!=j]
+    }else{
+      A_j <- A[,index!=j]
+    }
     res <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method)
     X_j <- res$X
     C_j <- res$C
@@ -215,7 +219,11 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
       }
       XBj <- X_j %*% C_j
     }else{
-      XBj <- X_j %*% C_j %*% A[index!=j,index==j] # Aのサイズに注意！
+      if(nrow(A)==ncol(Y)){
+        XBj <- X_j %*% C_j %*% A[index!=j,index==j]
+      }else{
+        XBj <- X_j %*% C_j %*% A[,index==j]
+      }
     }
     if(method=="EU"){
       objfunc.block[j] <- sum((Yj-XBj)^2)+gamma*sum(C_j^2)
