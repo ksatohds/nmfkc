@@ -178,7 +178,7 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
     }
     return(result)
   }
-  predict.XB.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
+  optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
     X <- result$X
     C <- matrix(1,nrow=ncol(X),ncol=ncol(Y))
     A <- diag(ncol(Y))
@@ -198,17 +198,17 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
       }
       oldSum <- sum(C)
     }
-    XB <- X %*% C
     B <- C
+    XB <- X %*% B
     colnames(B) <- colnames(Y)
     colnames(XB) <- colnames(Y)
     P <- t(t(B)/colSums(B))
-    cluster <- apply(P,2,which.max)
     colnames(P) <- colnames(Y)
+    cluster <- apply(P,2,which.max)
     if(epsilon.iter > epsilon) warning(paste0(
       "maximum iterations (",maxit,
       ") reached and the optimization hasn't converged yet."))
-    return(list(B=C,XB=XB,P=P,cluster=cluster))
+    return(list(B=B,XB=XB,P=P,cluster=cluster))
   }
   is.identity <- is.identity.matrix(A)
   is.symmetric.matrix <- is.symmetric.matrix(A)
@@ -237,7 +237,7 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
     }
     res_j <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method)
     if(is.identity){
-      resj <- predict.XB.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
+      resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
     }else{
       if(is.symmetric.matrix){
