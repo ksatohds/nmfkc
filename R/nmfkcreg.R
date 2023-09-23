@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 22th Sep 2023")
+  packageStartupMessage("Last update on 23th Sep 2023")
   packageStartupMessage("https://github.com/ksatohds/nmfkcreg")
 }
 
@@ -178,7 +178,40 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
     }
     return(result)
   }
+  predict.XB.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
+    X <- result$X
+    C <- matrix(1,nrow=ncol(X),ncol=ncol(Y))
+    A <- diag(ncol(Y))
+    oldSum <- 0
+    for(l in 1:maxit){
+      XB <- X %*% C
+      if(method=="EU"){
+        C <- C*((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+      }else{
+        C0 <- t(X)%*%(Y/XB)%*%t(A)
+        C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
+      }
+      newSum <- sum(C)
+      if(l>=10){
+        epsilon.iter <- abs(newSum-oldSum)/(abs(newSum)+0.1)
+        if(epsilon.iter <= epsilon) break
+      }
+      oldSum <- sum(C)
+    }
+    XB <- X %*% C
+    B <- C
+    colnames(B) <- colnames(Y)
+    colnames(XB) <- colnames(Y)
+    P <- t(t(B)/colSums(B))
+    cluster <- apply(P,2,which.max)
+    colnames(P) <- colnames(Y)
+    if(epsilon.iter > epsilon) warning(paste0(
+      "maximum iterations (",maxit,
+      ") reached and the optimization hasn't converged yet."))
+    return(list(B=C,XB=XB,P=P,cluster=cluster))
+  }
   is.identity <- is.identity.matrix(A)
+  is.symmetric.matrix <- is.symmetric.matrix(A)
   n <- ncol(Y)
   (remainder <- n %% div)
   (division <- n %/% div)
@@ -197,45 +230,27 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
   for(j in 1:div){
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
-    if(is.symmetric.matrix(A)){
-      A_j <- A[index!=j,index!=j]
+    if(is.symmetric.matrix){
+      A_j <- A[index!=j,index!=j] # kernel matrix or identity matrix
     }else{
-      A_j <- A[,index!=j]
+      A_j <- A[,index!=j] # ordinary design matrix
     }
-    res <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method)
-    X_j <- res$X
-    C_j <- res$C
+    res_j <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method)
     if(is.identity){
-      A_j <- diag(ncol(Yj))
-      C_j <- matrix(1,nrow=ncol(X_j),ncol=ncol(Yj))
-      oldSum <- 0
-      for(l in 1:maxit){
-        XBj <- X_j %*% C_j
-        if(method=="EU"){
-          C_j <- C_j*((t(X_j)%*%Yj)/(t(X_j)%*%XBj+gamma*C_j))
-        }else{
-          C0_j <- t(X_j)%*%(Yj/XBj)%*%t(A_j)
-          C_j <- C_j*(C0_j/(colSums(X_j)%o%rowSums(A_j)+2*gamma*C_j))
-        }
-        newSum <- sum(C_j)
-        if(l>=10){
-          epsilon.iter <- abs(newSum-oldSum)/(abs(newSum)+0.1)
-          if(epsilon.iter <= epsilon) break
-        }
-        oldSum <- sum(C_j)
-      }
-      XBj <- X_j %*% C_j
+      resj <- predict.XB.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
+      XBj <- resj$XB
     }else{
-      if(is.symmetric.matrix(A)){
-        XBj <- X_j %*% C_j %*% A[index!=j,index==j]
+      if(is.symmetric.matrix){
+        Aj <- A[index!=j,index==j]
       }else{
-        XBj <- X_j %*% C_j %*% A[,index==j]
+        Aj <- A[,index==j]
       }
+      XBj <- res_j$X %*% res_j$C %*% Aj
     }
     if(method=="EU"){
-      objfunc.block[j] <- sum((Yj-XBj)^2)+gamma*sum(C_j^2)
+      objfunc.block[j] <- sum((Yj-XBj)^2)+gamma*sum(res_j$C^2)
     }else{
-      objfunc.block[j] <- sum(-Yj*log(XBj)+XBj)+gamma*sum(C_j^2)
+      objfunc.block[j] <- sum(-Yj*log(XBj)+XBj)+gamma*sum(res_j$C^2)
     }
   }
   objfunc <- sum(objfunc.block)
