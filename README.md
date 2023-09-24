@@ -61,11 +61,11 @@ Q is the number of basis (rank).
 2. Soft clustering: basketball players and statistics
 3. Repeated data: sleepstudy
 4. Longitudinal data: COVID-19 in Japan
-5. Topic model: data_corpus_inaugural
-6. Spatiotemporal Analysis: CanadianWeather
-7. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
-8. Kernel ridge regression: mcycle
-9. Comparison between given covariate and kernel: Orthodont
+5. Growth curve data: Orthodont
+6. Topic model: data_corpus_inaugural
+7. Spatiotemporal Analysis: CanadianWeather
+8. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
+9. Kernel ridge regression: mcycle
 
 ## 1. Dimension reduction 
 - iris
@@ -209,7 +209,57 @@ JapanPrefMap(col=mycol+1)
 legend("left",fill=1:Q+1,legend=1:Q)
 ``` 
 
-## 5. Topic model
+## 5. Growth curve data
+- Orthodont
+``` r
+library(nmfkcreg)
+library(nlme)
+d <- Orthodont
+head(d)
+t <- unique(d$age)
+Y <- matrix(d$distance,nrow=length(t))
+colnames(Y) <- unique(d$Subject)
+rownames(Y) <- t
+
+# without covariate
+Q <- 2
+result <- nmfkcreg(Y,Q=Q,epsilon=1e-8)
+
+# visualization of some results
+plot(result$objfunc.iter) # convergence
+
+# goodness of fit
+plot(as.vector(result$XB),as.vector(Y),
+     main=paste0("r.squared=",round(result$r.squared,3)))
+abline(a=0,b=1,col=2)
+
+# individual fit
+par(mfrow=c(9,3),mar=c(0,0,0,0))
+for(n in 1:ncol(Y)){
+  plot(t,Y[,n],ylim=range(Y),axes=F)
+  text(8,max(Y)*0.9,colnames(Y)[n],cex=2,pos=4)
+  lines(t,result$XB[,n],col=2)
+  box()
+}
+
+# dimension reduction based on regression coefficient B
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+plot(t(result$B),type="n")
+mycol <- c(rep(4,16),rep(2,11))
+text(t(result$B),colnames(Y),cex=1,col=mycol)
+
+# with covariate
+Male8 <- 1*(d$Sex=="Male")[d$age==8]
+U <- rbind(rep(1,N),Male8)
+result.U <- nmfkcreg(Y,U,Q=Q,epsilon=1e-8)
+plot(t,Y[,1],ylim=range(Y),type="n",xlab="age",ylab="distance")
+for(n in 1:ncol(Y)){
+  lines(t,result$XB[,n],col=mycol[n])
+  lines(t,result.U$XB[,n],col=mycol[n],lwd=10)
+}
+```
+
+## 6. Topic model
 - data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
@@ -284,7 +334,7 @@ barplot(f,col=1:Q+1,las=3,ylim=c(0,1),beside=T,legend=T,
 abline(h=c(0.6,0.8),lty=3)
 ``` 
 
-## 6. Spatiotemporal Analysis
+## 7. Spatiotemporal Analysis
 -  CanadianWeather
 ``` r
 library(nmfkcreg)
@@ -367,7 +417,7 @@ filled.contour(result.interp,
 )
 ```
 
-## 7. Comparison between NMF and ordinary LM
+## 8. Comparison between NMF and ordinary LM
 - PimaIndiansDiabetes2
 ``` r
 library(nmfkcreg)
@@ -397,7 +447,7 @@ rownames(f) <- c("LM","NMF")
 print(f)
 ```
 
-## 8. Kernel ridge regression
+## 9. Kernel ridge regression
 - mcycle
 ``` r
 library(nmfkcreg)
@@ -437,48 +487,6 @@ plot(result$objfunc.iter) # convergence
 plot(d$times,as.vector(Y),
   main=paste0("r.squared=",round(result$r.squared,3)))
   lines(d$times,as.vector(result$XB),col=2)
-```
-
-## 9. Comparison between given covariate and kernel
-- Orthodont
-``` r
-library(nlme)
-d <- Orthodont
-head(d)
-Y <- matrix(d$distance,nrow=4)
-N <- ncol(Y)
-colnames(Y) <- unique(d$Subject)
-t <- unique(d$age)
-rownames(Y) <- t
-Male8 <- 1*(d$Sex=="Male")[d$age==8]
-U <- rbind(rep(1,N),Male8)
-
-# ordinary covariate
-library(nmfkcreg)
-result.U <- nmfkcreg(Y,U,Q=2,epsilon=1e-8,maxit=20000)
-
-# kernel covariate
-betas <- c(0.05,0.1,0.2,0.5,1)
-objfuncs <- 0*betas
-for(i in 1:length(betas)){
-  print(i)
-  A <- create.kernel(U,beta=betas[i])
-  result <- nmfkcreg(Y,A,Q=2,epsilon=1e-8,maxit=20000)
-  objfuncs[i] <- result$objfunc
-}
-# objective function by beta
-plot(betas,objfuncs,type="o",log="x")
-(best.beta <- betas[which.min(objfuncs)])
-
-A <- create.kernel(U,beta=best.beta)
-result.A <- nmfkcreg(Y,A,Q=2,epsilon=1e-8,maxit=20000)
-mycol <- ifelse(Male8==1,4,2)
-matplot(t,Y,type="l",col=mycol,
-        main=paste0("r.squared=",round(result.A$r.squared,5)))
-matplot(t,result.U$XB,type="l",col=mycol,lwd=10,add=T)
-matplot(t,result.A$XB,type="l",col=3,lwd=2,add=T)
-mylab <- paste0("U(r.squared=",round(result.U$r.squared,5),")")
-legend("topleft",legend=c("Male","Female",mylab),fill=c(4,2,3))
 ```
 
 # Author
