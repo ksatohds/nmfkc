@@ -250,7 +250,7 @@ text(t(result$B),colnames(Y),cex=1,col=mycol)
 
 # with covariate
 Male8 <- 1*(d$Sex=="Male")[d$age==8]
-U <- rbind(rep(1,N),Male8)
+U <- rbind(rep(1,ncol(Y)),Male8)
 result.U <- nmfkcreg(Y,U,Q=Q,epsilon=1e-8)
 plot(t,Y[,1],ylim=range(Y),type="n",xlab="age",ylab="distance")
 for(n in 1:ncol(Y)){
