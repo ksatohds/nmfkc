@@ -57,122 +57,14 @@ Q is the number of basis (rank).
 
 # Examples
 
-1. Dimension reduction: iris
-2. Soft clustering: basketball players and statistics
-3. Repeated data: sleepstudy
-4. Longitudinal data: COVID-19 in Japan
+1. Longitudinal data: COVID-19 in Japan
 5. Growth curve data: Orthodont
 6. Topic model: data_corpus_inaugural
 7. Spatiotemporal Analysis: CanadianWeather
 8. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
 9. Kernel ridge regression: mcycle
 
-## 1. Dimension reduction 
-- iris
-``` r
-library(nmfkcreg)
-Y <- t(iris[,-5])
-result <- nmfkcreg(Y,Q=2)
-
-# visualization of some results
-plot(result$objfunc.iter) # convergence
-
-# goodness of fit
-plot(as.vector(result$XB),as.vector(Y),
-main=paste0("r.squared=",round(result$r.squared,3)))
-abline(a=0,b=1,col=2)
-
-# dimension reduction based on regression coefficient B
-labels <- as.numeric(iris[,5])
-plot(t(result$B))
-``` 
-
-## 2. Soft clustering
-- basketball players and statistics
-- https://rpubs.com/sirinya/847402
-``` r
-library(nmfkcreg)
-d <- read.csv("http://datasets.flowingdata.com/ppg2008.csv")
-y <- d[,-1]
-rownames(y) <- d[,1]
-
-Y <- t(y)
-result <- nmfkcreg(Y,Q=2)
-
-# visualization of some results
-plot(result$objfunc.iter) # convergence
-
-# goodness of fit
-plot(as.vector(result$XB),as.vector(Y),
-     main=paste0("r.squared=",round(result$r.squared,3)))
-abline(a=0,b=1,col=2)
-
-# individual fit
-n <- 1
-f <- rbind(Y[,n],result$XB[,n])
-rownames(f) <- c("obs","fitted")
-barplot(f,beside=T,las=3,legend=T,main=colnames(Y)[n])
-
-# basis function of which sum is 1
-Q <- ncol(result$X)
-barplot(t(result$X),beside=T,col=1:Q+1,legend=T,las=3)
-
-# soft clustering based on P
-stars(t(result$P),scale=F,
-      draw.segments=TRUE,labels=colnames(Y),
-      col.segments=1:Q+1,
-      len=1)
-``` 
-
-## 3. Repeated data
-- sleepstudy
-``` r
-library(nmfkcreg)
-library(lme4)
-d <- sleepstudy 
-head(d)
-(f <- xtabs(~Subject+Days,d))
-(N <- nrow(f))
-(P <- ncol(f))
-Y <- matrix(d$Reaction,nrow=P,ncol=N)
-colnames(Y) <- unique(d$Subject)
-t <- unique(d$Days)
-rownames(Y) <- t
-
-library(nmfkcreg)
-Q <- 3
-result <- nmfkcreg(Y,Q=Q,epsilon=1e-5)
-
-# visualization of some results
-plot(result$objfunc.iter) # convergence
-
-# goodness of fit
-plot(as.vector(result$XB),as.vector(Y),
-     main=paste0("r.squared=",round(result$r.squared,3)))
-abline(a=0,b=1,col=2)
-
-# basis function of which sum is 1
-plot(t,result$X[,1],type="n",ylim=range(result$X),
-     ylab="basis function")
-for(q in 1:Q) lines(t,result$X[,q],col=q+1)
-legend("topright",legend=1:Q,fill=1:Q+1)
-
-# soft clustering based on P
-stars(t(result$P),scale=F,nrow=6,ncol=3,
-      draw.segments=TRUE,labels=colnames(Y),
-      col.segments=1:Q+1,
-      len=1)
-
-# individual fit and hard clustering
-par(mfrow=c(6,3),mar=c(2,2,2,2))
-for(n in 1:N){
-  plot(t,Y[,n],ylim=range(Y),main=colnames(Y)[n])
-  lines(t,result$XB[,n],col=result$cluster[n]+1,lwd=3)
-}
-par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
-```
-
-## 4. Longitudinal data
+## Longitudinal data
 - COVID-19 in Japan
 - https://www3.nhk.or.jp/news/special/coronavirus/data/
 ``` r
@@ -192,6 +84,12 @@ Y <- Y[rowSums(Y)!=0,]
 result <- nmfkcreg(Y,Q=7)
 result$r.squared # goodness of fit
 
+# individual fit
+n <- 1
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+plot(Y[,n],type="l",main=n)
+lines(result$XB[,n],col=2)
+
 # basis function of which sum is 1
 Q <- ncol(result$X)
 par(mfrow=c(Q,1),mar=c(0,0,0,0))
@@ -209,57 +107,7 @@ JapanPrefMap(col=mycol+1)
 legend("left",fill=1:Q+1,legend=1:Q)
 ``` 
 
-## 5. Growth curve data
-- Orthodont
-``` r
-library(nmfkcreg)
-library(nlme)
-d <- Orthodont
-head(d)
-t <- unique(d$age)
-Y <- matrix(d$distance,nrow=length(t))
-colnames(Y) <- unique(d$Subject)
-rownames(Y) <- t
-
-# without covariate
-Q <- 2
-result <- nmfkcreg(Y,Q=Q,epsilon=1e-8)
-
-# visualization of some results
-plot(result$objfunc.iter) # convergence
-
-# goodness of fit
-plot(as.vector(result$XB),as.vector(Y),
-     main=paste0("r.squared=",round(result$r.squared,3)))
-abline(a=0,b=1,col=2)
-
-# individual fit
-par(mfrow=c(9,3),mar=c(0,0,0,0))
-for(n in 1:ncol(Y)){
-  plot(t,Y[,n],ylim=range(Y),axes=F)
-  text(8,max(Y)*0.9,colnames(Y)[n],cex=2,pos=4)
-  lines(t,result$XB[,n],col=2)
-  box()
-}
-
-# dimension reduction based on regression coefficient B
-par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
-plot(t(result$B),type="n")
-mycol <- c(rep(4,16),rep(2,11))
-text(t(result$B),colnames(Y),cex=1,col=mycol)
-
-# with covariate
-Male8 <- 1*(d$Sex=="Male")[d$age==8]
-U <- rbind(rep(1,ncol(Y)),Male8)
-result.U <- nmfkcreg(Y,U,Q=Q,epsilon=1e-8)
-plot(t,Y[,1],ylim=range(Y),type="n",xlab="age",ylab="distance")
-for(n in 1:ncol(Y)){
-  lines(t,result$XB[,n],col=mycol[n])
-  lines(t,result.U$XB[,n],col=mycol[n],lwd=10)
-}
-```
-
-## 6. Topic model
+## Topic model
 - data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
@@ -282,17 +130,35 @@ colSums(d)[1:30] # Top 30 most frequent words
 #------------------
 # without covariates
 #------------------
-U <- t(as.matrix(corp$Year))
 Y <- t(d)
 Q <- 3
 result <- nmfkcreg(Y,Q=Q)
 result$r.squared # coefficient of determination
 colnames(result$P) <- corp$Year
-barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
+barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probabilities of topics")
+
+# basis function of which sum is 1
+par(mfrow=c(1,1),mar=c(5,4,2,2))
+barplot(t(result$X),col=1:Q+1,las=3,
+  ylab="Probabilities of words on each topic") 
+legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
+
+# contribution of words to each topics
+par(mfrow=c(1,1),mar=c(5,4,2,2))
+Xp <- prop.table(result$X,1)
+head(rowSums(Xp))
+par(cex=0.5)
+barplot(t(Xp),las=3,col=1:Q+1,
+  ylab="Proportion of words on each topic")
+legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
+Xp[Xp[,1]>0.7,] # featured words on topic1
+Xp[Xp[,2]>0.7,] # featured words on topic2
+Xp[Xp[,3]>0.7,] # featured words on topic3
 
 #------------------
 # with covariates using covariate matrix U
 #------------------
+U <- t(as.matrix(corp$Year))
 # k-fold cross validation for beta
 betas <- c(0.2,0.5,1,2,5)/10000
 objfuncs <- 0*betas
@@ -314,24 +180,6 @@ result$r.squared # less than nmf without covariates
 # Topic probability changing over time
 colnames(result$P) <- corp$Year
 barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
-
-# frequent words that constitute each topic
-par(mfrow=c(3,1))
-for(q in 1:Q){
-  f <- t(result$X[,q])
-  names(f) <- rownames(result$X)
-  index <- order(f,decreasing=T) 
-  f <- f[index]
-  barplot(f[1:30],col=q+1,las=3,ylab="probability",
-    ylim=range(result$X),main=paste0("topic ",q))
-}
-
-# probability of topic at each frequent word
-par(mfrow=c(1,1))
-f <- prop.table(t(result$X[1:30,]),2)
-barplot(f,col=1:Q+1,las=3,ylim=c(0,1),beside=T,legend=T,
-  ylab="probability (relative contribution)")
-abline(h=c(0.6,0.8),lty=3)
 ``` 
 
 ## 7. Spatiotemporal Analysis
