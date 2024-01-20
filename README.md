@@ -97,6 +97,15 @@ for(q in 1:Q){
   legend("left",fill=q+1,legend=q)
 }
 
+# individual coefficients
+n <- 1
+result$B[,n]
+
+# individual probabilites on basis function
+n <- 1
+result$B[,n]/sum(result$B[,n])
+result$P[,n]
+
 # hard clustering based on P
 mycol <- result$cluster
 library(NipponMap)
@@ -136,13 +145,13 @@ colnames(result$P) <- corp$Year
 barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probabilities of topics")
 
 # basis function of which sum is 1
-par(mfrow=c(1,1),mar=c(5,4,2,2))
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1)
 barplot(t(result$X),col=1:Q+1,las=3,
   ylab="Probabilities of words on each topic") 
 legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
 
 # contribution of words to each topics
-par(mfrow=c(1,1),mar=c(5,4,2,2))
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1)
 Xp <- prop.table(result$X,1)
 head(rowSums(Xp))
 par(cex=0.5)
@@ -190,10 +199,6 @@ d <- CanadianWeather$dailyAv[,,1]
 Y <- d-min(d)
 u0 <- CanadianWeather$coordinates[,2:1]
 u0[,1] <- -u0[,1]
-u <- t(u0)
-umin <- apply(u,1,min)
-umax <- apply(u,1,max)
-U <- (u-umin)/(umax-umin) # normalization
 
 #------------------
 # without covariate
@@ -201,6 +206,7 @@ U <- (u-umin)/(umax-umin) # normalization
 result <- nmfkcreg(Y,Q=2)
 
 # visualization of some results
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1)
 plot(result$objfunc.iter) # convergence
 result$r.squared # coefficient of determination
 
@@ -228,8 +234,24 @@ stars(t(result$P),
       len=max(u0)/30,add=T)
 
 #------------------
+# with covariates using location information
+#------------------
+u <- t(u0)
+umin <- apply(u,1,min)
+umax <- apply(u,1,max)
+U <- (u-umin)/(umax-umin) # normalization
+result <- nmfkcreg(Y,A=U,Q=2)
+result$r.squared
+
+#------------------
 # with covariates using kernel matrix A
 #------------------
+# U=[u1,...,uN]
+# A= |K(u1,u1),...,K(u1,uN)|
+#    |                     |
+#    |K(uN,u1),...,K(uN,uN)|
+# K(u,u')=exp{-beta*|u-u'|^2}
+
 # k-fold cross validation for beta
 betas <- c(0.5,1,2,5,10)
 objfuncs <- 0*betas
@@ -250,16 +272,35 @@ A <- create.kernel(U,beta=best.beta)
 result <- nmfkcreg(Y,A,Q=2)
 result$r.squared # less than nmf without covariates
 
+# prediction of coefficients on mesh
+# prediction of b on a
+# b=Ca
+# a= |K(u1,u)|
+#    |       |
+#    |K(uN,u)|
+u <- seq(from=0,to=1,length=20)
+v <- seq(from=0,to=1,length=20)
+uv <- cbind(expand.grid(u,v))
+dim(uv)
+# a= [K(u1,u),...,K(uN,u)]'
+vec1 <- matrix(rep(1,ncol(U)),nrow=1)
+beta <- best.beta
+K <- function(k) exp(-beta*colSums((U-vec1 %x% t(uv[k,]))^2))
+A <- NULL
+for(k in 1:nrow(uv)) A <- cbind(A,K(k))
+dim(A)
+B <- result$C %*% A
+P <- prop.table(B,2)
+P[,1:6]
+
 # soft clustering based on P by using covariates
 library(akima)
-q <- 2
-result.interp <- interp(U[1,],U[2,],result$P[q,])
+result.interp <- interp(uv[,1],uv[,2],P[2,])
 filled.contour(result.interp,
-  xlab=rownames(U)[1],ylab=rownames(U)[2],
-  plot.axes={
-    points(t(U),col=3,pch=19)
-    text(t(U),colnames(Y),pos=4)
-  }
+               plot.axes={
+                 points(t(U),col=3,pch=19)
+                 text(t(U),colnames(U),pos=4)
+               }
 )
 ```
 
@@ -269,40 +310,33 @@ filled.contour(result.interp,
 library(nmfkcreg)
 library(MASS)
 d <- mcycle
-y0 <- d$accel
-y <- y0-min(y0)
-Y <- t(as.matrix(y))
-U <- t(as.matrix(d$times))
+x <- d$times
+y <- d$accel
+Y <- t(as.matrix(y-min(y)))
+U <- t(as.matrix(x))
 
 # cv for optimization of beta and gamma
 betas <- c(1,2,5,10,20)/100
-gammas <- c(0,0.01,0.1)
-bg <- expand.grid(betas,gammas)
-objfuncs <- 0*(1:nrow(bg))
-for(i in 1:nrow(bg)){
+objfuncs <- 0*(1:length(betas))
+for(i in 1:length(betas)){
   print(i)
-  A <- create.kernel(U,beta=bg[i,1])
-  result <- nmfkcreg.cv(Y,A,gamma=bg[i,2],Q=1,div=10)
+  A <- create.kernel(U,beta=betas[i])
+  result <- nmfkcreg.cv(Y,A,Q=1,div=10)
   objfuncs[i] <- result$objfunc
 }
 table(result$block) # partition block of cv
-  
+
 # objective function by beta and gamma
-plot(1:nrow(bg),objfuncs,type="o")
-text(1:nrow(bg),objfuncs,labels=paste0("b",bg[,1]),pos=3,col=2)
-text(1:nrow(bg),objfuncs,labels=paste0("g",bg[,2]),pos=4,col=4)
+plot(betas,objfuncs,type="o",log="x")
 
-(bg.best <- unlist(bg[which.min(objfuncs),]))  
-A <- create.kernel(U,beta=bg.best[1])
-result <- nmfkcreg(Y,A,Q=1,gamma=bg.best[2])
-
-# visualization of some results
-plot(result$objfunc.iter) # convergence  
+(beta.best <- betas[which.min(objfuncs)])  
+A <- create.kernel(U,beta=beta.best)
+result <- nmfkcreg(Y,A,Q=1)
 
 # fitted curve
-plot(d$times,as.vector(Y),
-  main=paste0("r.squared=",round(result$r.squared,3)))
-  lines(d$times,as.vector(result$XB),col=2)
+plot(x,as.vector(Y),
+     main=paste0("r.squared=",round(result$r.squared,3)))
+lines(x,as.vector(result$XB),col=2)
 ```
 
 # Author
