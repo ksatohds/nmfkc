@@ -58,13 +58,11 @@ Q is the number of basis (rank).
 # Examples
 
 1. Longitudinal data: COVID-19 in Japan
-5. Growth curve data: Orthodont
-6. Topic model: data_corpus_inaugural
-7. Spatiotemporal Analysis: CanadianWeather
-8. Comparison between NMF and ordinary LM: PimaIndiansDiabetes2
-9. Kernel ridge regression: mcycle
+2. Topic model: data_corpus_inaugural
+3. Spatiotemporal Analysis: CanadianWeather
+4. Kernel ridge regression: mcycle
 
-## Longitudinal data
+## 1. Longitudinal data
 - COVID-19 in Japan
 - https://www3.nhk.or.jp/news/special/coronavirus/data/
 ``` r
@@ -107,7 +105,7 @@ JapanPrefMap(col=mycol+1)
 legend("left",fill=1:Q+1,legend=1:Q)
 ``` 
 
-## Topic model
+## 2. Topic model
 - data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
@@ -182,7 +180,7 @@ colnames(result$P) <- corp$Year
 barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
 ``` 
 
-## 7. Spatiotemporal Analysis
+## 3. Spatiotemporal Analysis
 -  CanadianWeather
 ``` r
 library(nmfkcreg)
@@ -265,37 +263,7 @@ filled.contour(result.interp,
 )
 ```
 
-## 8. Comparison between NMF and ordinary LM
-- PimaIndiansDiabetes2
-``` r
-library(nmfkcreg)
-library(mlbench)
-data(PimaIndiansDiabetes2)
-d <- PimaIndiansDiabetes2
-colnames(d)
-d <- d[,-c(1,9)]
-index <- complete.cases(d)
-d <- d[index,]  # remove rows including NA's
-res0 <- lm(glucose~.,d) # ordinary linear model
-
-# preparation for NMF
-# Y(1,N)~X(1,1)C(1,R)A(R,N) where X=1, Q=1 and R=7
-Y <- t(as.matrix(d$glucose))
-dim(Y) # 1*N
-A <- t(as.matrix(cbind(1,d[,-1])))
-dim(A) # R*N
-library(nmfkcreg)
-result <- nmfkcreg(Y,A,Q=1,epsilon=1e-15,maxit=20000)
-plot(result$objfunc.iter,log="xy") # convergence
-result$r.squared # coefficient of determination
-
-# comparison between NMF and LM
-f <- rbind(res0$coefficients,result$C)
-rownames(f) <- c("LM","NMF")
-print(f)
-```
-
-## 9. Kernel ridge regression
+## 4. Kernel ridge regression
 - mcycle
 ``` r
 library(nmfkcreg)
