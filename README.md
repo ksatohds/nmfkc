@@ -297,13 +297,14 @@ B <- result$C %*% A
 P <- prop.table(B,2)
 P[,1:6]
 
-# soft clustering based on P (base func 2) by using covariates
+# soft clustering based on P (basis function 2) by using covariates
 z <- matrix(P[2,],nrow=length(v)) 
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
-filled.contour(v,v,z,
+filled.contour(v,v,z,main="probability of basis function 2",
+  color.palette = function(n) hcl.colors(n,"Greens3",rev=TRUE),
                plot.axes={
-                 points(t(U),col=3,pch=19)
-                 text(t(U),colnames(U),pos=4)
+                 points(t(U),col=7,pch=19)
+                 text(t(U),colnames(U),pos=3)
                }
 )
 ```
