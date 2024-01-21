@@ -289,9 +289,8 @@ result$r.squared # less than nmf without covariates
 # A= |K(u1,v1),...,K(u1,vM)|
 #    |                     |
 #    |K(uN,v1),...,K(uN,vM)|
-V <- t(cbind(expand.grid(
-  seq(from=0,to=1,length=20),
-  seq(from=0,to=1,length=20))))
+v <- seq(from=0,to=1,length=20)
+V <- t(cbind(expand.grid(v,v)))
 dim(V)
 A <- create.kernel(U,V,beta=best.beta)
 B <- result$C %*% A
@@ -299,9 +298,9 @@ P <- prop.table(B,2)
 P[,1:6]
 
 # soft clustering based on P (base func 2) by using covariates
-library(akima)
-result.interp <- interp(V[1,],V[2,],P[2,])
-filled.contour(result.interp,
+z <- matrix(P[2,],nrow=length(v)) 
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
+filled.contour(v,v,z,
                plot.axes={
                  points(t(U),col=3,pch=19)
                  text(t(U),colnames(U),pos=4)
