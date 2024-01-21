@@ -79,18 +79,20 @@ Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
 colnames(Y) <- unique(d$Prefecture_code)
 rownames(Y) <- unique(d$Date)
 Y <- Y[rowSums(Y)!=0,]
-result <- nmfkcreg(Y,Q=7)
+
+# nmf
+Q <- 7
+result <- nmfkcreg(Y,Q=Q)
 result$r.squared # goodness of fit
 
 # individual fit
 n <- 1
-par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=1)
 plot(Y[,n],type="l",main=n)
 lines(result$XB[,n],col=2)
 
 # basis function of which sum is 1
-Q <- ncol(result$X)
-par(mfrow=c(Q,1),mar=c(0,0,0,0))
+par(mfrow=c(Q,1),mar=c(0,0,0,0),cex=1)
 for(q in 1:Q){
   barplot(result$X[,q],col=q+1,border=q+1,las=3,
     ylim=range(result$X),ylab=paste0("topic",q)) 
@@ -142,19 +144,20 @@ Q <- 3
 result <- nmfkcreg(Y,Q=Q)
 result$r.squared # coefficient of determination
 colnames(result$P) <- corp$Year
-barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probabilities of topics")
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=1)
+barplot(result$P,col=1:Q+1,legend=T,las=3,
+  ylab="Probabilities of topics")
 
 # basis function of which sum is 1
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1)
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
 barplot(t(result$X),col=1:Q+1,las=3,
   ylab="Probabilities of words on each topic") 
 legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
 
 # contribution of words to each topics
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1)
 Xp <- prop.table(result$X,1)
 head(rowSums(Xp))
-par(cex=0.5)
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
 barplot(t(Xp),las=3,col=1:Q+1,
   ylab="Proportion of words on each topic")
 legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
@@ -176,6 +179,7 @@ for(i in 1:length(betas)){
   objfuncs[i] <- result$objfunc
 }
 table(result$block) # partition block of cv
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(betas,objfuncs,type="o",log="x")
 (best.beta <- betas[which.min(objfuncs)])
 
@@ -186,6 +190,7 @@ result$r.squared # less than nmf without covariates
 
 # Topic probability changing over time
 colnames(result$P) <- corp$Year
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
 ``` 
 
@@ -204,20 +209,24 @@ u0[,1] <- -u0[,1]
 # without covariate
 #------------------
 result <- nmfkcreg(Y,Q=2)
-
-# visualization of some results
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1)
-plot(result$objfunc.iter) # convergence
 result$r.squared # coefficient of determination
 
+# visualization of some results
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
+plot(result$objfunc.iter) # convergence
+
 # individual fit
-n <- 1
-plot(Y[,n],main=colnames(Y)[n]) # observation
-lines(result$XB[,n],col=2) # fitted values
-legend("topright",
-  legend=c("obs","fitted"),fill=c(1,2))
+par(mfrow=c(6,6),mar=c(0,0,0,0)+0.1,cex=1)
+for(n in 1:ncol(Y)){
+  plot(Y[,n],ylim=range(Y),axes=F,type="l") # observation
+  lines(result$XB[,n],col=2) # fitted values
+  abline(h=-min(d),col="gray",lty=3,lwd=3)
+  text(median(1:365),0,colnames(Y)[n],pos=3)
+  box()
+}
 
 # basis function of which sum is 1
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(result$X[,1],type="n",ylim=range(result$X[,1]),
   ylab="basis function")
 Q <- ncol(result$X)  
@@ -225,6 +234,7 @@ for(q in 1:Q) lines(result$X[,q],col=q+1)
 legend("topright",legend=1:Q,fill=1:Q+1)
 
 # soft clustering based on P
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(u0,type="n")
 legend("topright",legend=1:Q,fill=1:Q+1)
 stars(t(result$P),
@@ -264,6 +274,7 @@ for(i in 1:length(betas)){
 table(result$block) # partition block of cv
 
 # objective function by beta
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(betas,objfuncs,type="o",log="x")
 (best.beta <- betas[which.min(objfuncs)])
 
@@ -272,8 +283,7 @@ A <- create.kernel(U,beta=best.beta)
 result <- nmfkcreg(Y,A,Q=2)
 result$r.squared # less than nmf without covariates
 
-# prediction of coefficients on mesh
-# prediction of b on a
+# prediction of coefficients(b) using covariate(a) on mesh point(u)
 # b=Ca
 # a= |K(u1,u)|
 #    |       |
@@ -293,7 +303,7 @@ B <- result$C %*% A
 P <- prop.table(B,2)
 P[,1:6]
 
-# soft clustering based on P by using covariates
+# soft clustering based on P (base func 2) by using covariates
 library(akima)
 result.interp <- interp(uv[,1],uv[,2],P[2,])
 filled.contour(result.interp,
@@ -314,6 +324,9 @@ x <- d$times
 y <- d$accel
 Y <- t(as.matrix(y-min(y)))
 U <- t(as.matrix(x))
+# scatter plot
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
+plot(U,Y)
 
 # cv for optimization of beta and gamma
 betas <- c(1,2,5,10,20)/100
@@ -324,18 +337,19 @@ for(i in 1:length(betas)){
   result <- nmfkcreg.cv(Y,A,Q=1,div=10)
   objfuncs[i] <- result$objfunc
 }
-table(result$block) # partition block of cv
-
-# objective function by beta and gamma
+# objective function by beta
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(betas,objfuncs,type="o",log="x")
+table(result$block) # partition block of cv
 
 (beta.best <- betas[which.min(objfuncs)])  
 A <- create.kernel(U,beta=beta.best)
 result <- nmfkcreg(Y,A,Q=1)
+result$r.squared
 
 # fitted curve
-plot(x,as.vector(Y),
-     main=paste0("r.squared=",round(result$r.squared,3)))
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
+plot(x,as.vector(Y))
 lines(x,as.vector(result$XB),col=2)
 ```
 
