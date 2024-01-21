@@ -58,8 +58,8 @@ Q is the number of basis (rank).
 # Examples
 
 1. Longitudinal data: COVID-19 in Japan
-2. Topic model: data_corpus_inaugural
-3. Spatiotemporal Analysis: CanadianWeather
+2. Spatiotemporal Analysis: CanadianWeather
+3. Topic model: data_corpus_inaugural
 4. Kernel ridge regression: mcycle
 
 ## 1. Longitudinal data
@@ -116,85 +116,8 @@ JapanPrefMap(col=mycol+1)
 legend("left",fill=1:Q+1,legend=1:Q)
 ``` 
 
-## 2. Topic model
-- data_corpus_inaugural
-- US presidential inaugural address texts
-``` r
-library(nmfkcreg)
-#------------------
-# text analysis
-#------------------
-library(quanteda)
-corp <- corpus(data_corpus_inaugural)
-tok <- tokens(corp)
-tok <- tokens_remove(tok,pattern=stopwords("en",source="snowball"))
-df <- dfm(tok)
-df <- dfm_select(df,min_nchar=3)
-df <- dfm_trim(df,min_termfreq=100)
-d <- as.matrix(df)
-index <- order(colSums(d),decreasing=T) 
-d <- d[,index] # document-word matrix
-colSums(d)[1:30] # Top 30 most frequent words
 
-#------------------
-# without covariates
-#------------------
-Y <- t(d)
-Q <- 3
-result <- nmfkcreg(Y,Q=Q)
-result$r.squared # coefficient of determination
-colnames(result$P) <- corp$Year
-par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=1)
-barplot(result$P,col=1:Q+1,legend=T,las=3,
-  ylab="Probabilities of topics")
-
-# basis function of which sum is 1
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
-barplot(t(result$X),col=1:Q+1,las=3,
-  ylab="Probabilities of words on each topic") 
-legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
-
-# contribution of words to each topics
-Xp <- prop.table(result$X,1)
-head(rowSums(Xp))
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
-barplot(t(Xp),las=3,col=1:Q+1,
-  ylab="Proportion of words on each topic")
-legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
-Xp[Xp[,1]>0.7,] # featured words on topic1
-Xp[Xp[,2]>0.7,] # featured words on topic2
-Xp[Xp[,3]>0.7,] # featured words on topic3
-
-#------------------
-# with covariates using covariate matrix U
-#------------------
-U <- t(as.matrix(corp$Year))
-# k-fold cross validation for beta
-betas <- c(0.2,0.5,1,2,5)/10000
-objfuncs <- 0*betas
-for(i in 1:length(betas)){
-  print(i)
-  A <- create.kernel(U,beta=betas[i])
-  result <- nmfkcreg.cv(Y,A,Q,div=5)
-  objfuncs[i] <- result$objfunc
-}
-table(result$block) # partition block of cv
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
-plot(betas,objfuncs,type="o",log="x")
-(best.beta <- betas[which.min(objfuncs)])
-
-# create kernel with best beta
-A <- create.kernel(U,beta=best.beta)
-result <- nmfkcreg(Y,A,Q)
-result$r.squared # less than nmf without covariates
-
-# Topic probability changing over time
-colnames(result$P) <- corp$Year
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
-barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
-``` 
-
-## 3. Spatiotemporal Analysis
+## 2. Spatiotemporal Analysis
 -  CanadianWeather
 ``` r
 library(nmfkcreg)
@@ -309,6 +232,85 @@ filled.contour(v,v,z,main="probability of basis function 2",
 )
 ```
 
+## 3. Topic model
+- data_corpus_inaugural
+- US presidential inaugural address texts
+``` r
+library(nmfkcreg)
+#------------------
+# text analysis
+#------------------
+library(quanteda)
+corp <- corpus(data_corpus_inaugural)
+tok <- tokens(corp)
+tok <- tokens_remove(tok,pattern=stopwords("en",source="snowball"))
+df <- dfm(tok)
+df <- dfm_select(df,min_nchar=3)
+df <- dfm_trim(df,min_termfreq=100)
+d <- as.matrix(df)
+index <- order(colSums(d),decreasing=T) 
+d <- d[,index] # document-word matrix
+colSums(d)[1:30] # Top 30 most frequent words
+
+#------------------
+# without covariates
+#------------------
+Y <- t(d)
+Q <- 3
+result <- nmfkcreg(Y,Q=Q)
+result$r.squared # coefficient of determination
+colnames(result$P) <- corp$Year
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=1)
+barplot(result$P,col=1:Q+1,legend=T,las=3,
+  ylab="Probabilities of topics")
+
+# basis function of which sum is 1
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
+barplot(t(result$X),col=1:Q+1,las=3,
+  ylab="Probabilities of words on each topic") 
+legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
+
+# contribution of words to each topics
+Xp <- prop.table(result$X,1)
+head(rowSums(Xp))
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
+barplot(t(Xp),las=3,col=1:Q+1,
+  ylab="Proportion of words on each topic")
+legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
+Xp[Xp[,1]>0.7,] # featured words on topic1
+Xp[Xp[,2]>0.7,] # featured words on topic2
+Xp[Xp[,3]>0.7,] # featured words on topic3
+
+#------------------
+# with covariates using covariate matrix U
+#------------------
+U <- t(as.matrix(corp$Year))
+# k-fold cross validation for beta
+betas <- c(0.2,0.5,1,2,5)/10000
+objfuncs <- 0*betas
+for(i in 1:length(betas)){
+  print(i)
+  A <- create.kernel(U,beta=betas[i])
+  result <- nmfkcreg.cv(Y,A,Q,div=5)
+  objfuncs[i] <- result$objfunc
+}
+table(result$block) # partition block of cv
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
+plot(betas,objfuncs,type="o",log="x")
+(best.beta <- betas[which.min(objfuncs)])
+
+# create kernel with best beta
+A <- create.kernel(U,beta=best.beta)
+result <- nmfkcreg(Y,A,Q)
+result$r.squared # less than nmf without covariates
+
+# Topic probability changing over time
+colnames(result$P) <- corp$Year
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
+barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
+``` 
+
+
 ## 4. Kernel ridge regression
 - mcycle
 ``` r
@@ -356,7 +358,15 @@ result$r.squared
 # fitted curve
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(x,as.vector(Y))
-lines(x,as.vector(result$XB),col=2)
+lines(x,as.vector(result$XB),col=2,lwd=2)
+
+# fitted curve for new data
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
+V <- matrix(seq(from=min(U),to=max(U),length=100),ncol=100)
+A <- create.kernel(U,V,beta=beta.best)
+XB <- result$X %*% result$C %*% A
+plot(x,as.vector(Y))
+lines(V,as.vector(XB),col=2,lwd=2)
 ```
 
 # Author
