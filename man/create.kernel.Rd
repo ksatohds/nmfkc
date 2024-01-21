@@ -9,7 +9,7 @@ create.kernel(U, V = U, beta)
 \arguments{
 \item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance}
 
-\item{V}{covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction}
+\item{V}{covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction, and the default value is U.}
 
 \item{beta}{parameter of kernel matrix A of which element is defined by exp(-beta*|u_n-v_m|^2)}
 }

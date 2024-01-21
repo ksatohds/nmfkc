@@ -6,7 +6,7 @@
 #' @title Creating kernel matrix from covariates
 #' @description \code{create.kernel} create kernel matrix A(N,N) from covariate matrix U(R,N)
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance
-#' @param V covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction
+#' @param V covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction, and the default value is U.
 #' @param beta parameter of kernel matrix A of which element is defined by exp(-beta*|u_n-v_m|^2)
 #' @return kernel matrix A(N,M)
 #' @export
