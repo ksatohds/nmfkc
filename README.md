@@ -323,10 +323,21 @@ d <- mcycle
 x <- d$times
 y <- d$accel
 Y <- t(as.matrix(y-min(y)))
+dim(Y)
 U <- t(as.matrix(x))
+dim(U)
 # scatter plot
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(U,Y)
+
+# linear curve
+A <- rbind(1,U)
+dim(A)
+result <- nmfkcreg(Y,A,Q=1)
+result$r.squared
+par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
+plot(U,Y)
+lines(U,result$XB,col=2)
 
 # cv for optimization of beta and gamma
 betas <- c(1,2,5,10,20)/100
