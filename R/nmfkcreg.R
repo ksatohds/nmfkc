@@ -6,8 +6,9 @@
 #' @title Creating kernel matrix from covariates
 #' @description \code{create.kernel} create kernel matrix A(N,N) from covariate matrix U(R,N)
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance
-#' @param beta parameter of kernel matrix A of which element is defined by exp(-beta*|u_i-u_j|^2)
-#' @return kernel matrix A(N,N)
+#' @param V covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction
+#' @param beta parameter of kernel matrix A of which element is defined by exp(-beta*|u_n-v_m|^2)
+#' @return kernel matrix A(N,M)
 #' @export
 #' @examples
 #' # install.packages("devtools")
@@ -18,12 +19,12 @@
 #' print(A)
 #' print(log(A))
 
-create.kernel <- function(U,beta){
-  kernel <- function(n){
-    un <- t(rep(1,ncol(U)) %o% U[,n])
-    exp(-beta*colSums((U-un)^2))}
+create.kernel <- function(U,V=U,beta){
+  kernel <- function(m){
+    vm <- t(rep(1,ncol(U)) %o% V[,m])
+    exp(-beta*colSums((U-vm)^2))}
   A <- NULL
-  for(n in 1:ncol(U)) A <- cbind(A,kernel(n))
+  for(m in 1:ncol(V)) A <- cbind(A,kernel(m))
   return(A)
 }
 

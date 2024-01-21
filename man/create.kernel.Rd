@@ -4,15 +4,17 @@
 \alias{create.kernel}
 \title{Creating kernel matrix from covariates}
 \usage{
-create.kernel(U, beta)
+create.kernel(U, V = U, beta)
 }
 \arguments{
 \item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance}
 
-\item{beta}{parameter of kernel matrix A of which element is defined by exp(-beta*|u_i-u_j|^2)}
+\item{V}{covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction}
+
+\item{beta}{parameter of kernel matrix A of which element is defined by exp(-beta*|u_n-v_m|^2)}
 }
 \value{
-kernel matrix A(N,N)
+kernel matrix A(N,M)
 }
 \description{
 \code{create.kernel} create kernel matrix A(N,N) from covariate matrix U(R,N)

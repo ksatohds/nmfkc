@@ -260,7 +260,7 @@ result$r.squared
 # A= |K(u1,u1),...,K(u1,uN)|
 #    |                     |
 #    |K(uN,u1),...,K(uN,uN)|
-# K(u,u')=exp{-beta*|u-u'|^2}
+# K(u,v)=exp{-beta*|u-v|^2}
 
 # k-fold cross validation for beta
 betas <- c(0.5,1,2,5,10)
@@ -283,29 +283,24 @@ A <- create.kernel(U,beta=best.beta)
 result <- nmfkcreg(Y,A,Q=2)
 result$r.squared # less than nmf without covariates
 
-# prediction of coefficients(b) using covariate(a) on mesh point(u)
-# b=Ca
-# a= |K(u1,u)|
-#    |       |
-#    |K(uN,u)|
-u <- seq(from=0,to=1,length=20)
-v <- seq(from=0,to=1,length=20)
-uv <- cbind(expand.grid(u,v))
-dim(uv)
-# a= [K(u1,u),...,K(uN,u)]'
-vec1 <- matrix(rep(1,ncol(U)),nrow=1)
-beta <- best.beta
-K <- function(k) exp(-beta*colSums((U-vec1 %x% t(uv[k,]))^2))
-A <- NULL
-for(k in 1:nrow(uv)) A <- cbind(A,K(k))
-dim(A)
+# prediction of coefficients(b) on mesh point V
+# U=[u1,...,uN]
+# V=[v1,...,vM]
+# A= |K(u1,v1),...,K(u1,vM)|
+#    |                     |
+#    |K(uN,v1),...,K(uN,vM)|
+V <- t(cbind(expand.grid(
+  seq(from=0,to=1,length=20),
+  seq(from=0,to=1,length=20))))
+dim(V)
+A <- create.kernel(U,V,beta=best.beta)
 B <- result$C %*% A
 P <- prop.table(B,2)
 P[,1:6]
 
 # soft clustering based on P (base func 2) by using covariates
 library(akima)
-result.interp <- interp(uv[,1],uv[,2],P[2,])
+result.interp <- interp(V[1,],V[2,],P[2,])
 filled.contour(result.interp,
                plot.axes={
                  points(t(U),col=3,pch=19)
