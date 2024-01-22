@@ -157,6 +157,12 @@ Q <- ncol(result$X)
 for(q in 1:Q) lines(result$X[,q],col=q+1)
 legend("topright",legend=1:Q,fill=1:Q+1)
 
+# cluster membership probability by coefficients
+n <- 1
+result$B[,n]
+result$B[,n]/sum(result$B[,n])
+result$P[,n]
+
 # soft clustering based on P
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(u0,type="n")
@@ -216,6 +222,7 @@ result$r.squared # less than nmf without covariates
 v <- seq(from=0,to=1,length=20)
 V <- t(cbind(expand.grid(v,v)))
 dim(V)
+plot(t(V))
 A <- create.kernel(U,V,beta=best.beta)
 B <- result$C %*% A
 P <- prop.table(B,2)
