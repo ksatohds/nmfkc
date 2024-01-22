@@ -61,6 +61,7 @@ Q is the number of basis (rank).
 2. Spatiotemporal Analysis: CanadianWeather
 3. Topic model: data_corpus_inaugural
 4. Kernel ridge regression: mcycle
+5. Growth curve model: Orthodont
 
 ## 1. Longitudinal data
 - COVID-19 in Japan
@@ -367,6 +368,32 @@ A <- create.kernel(U,V,beta=beta.best)
 XB <- result$X %*% result$C %*% A
 plot(x,as.vector(Y))
 lines(V,as.vector(XB),col=2,lwd=2)
+```
+
+## 5. Growth curve model
+- Orthodont
+``` r
+library(nmfkcreg)
+library(nlme)
+d <- Orthodont
+head(d)
+t <- unique(d$age)
+Y <- matrix(d$distance,nrow=length(t))
+colnames(Y) <- unique(d$Subject)
+rownames(Y) <- t
+
+Q <- 2
+Male <- 1*(d$Sex=="Male")[d$age==8]
+A <- rbind(rep(1,ncol(Y)),Male)
+result<- nmfkcreg(Y,A,Q=Q,epsilon=1e-8)
+
+# individual fit
+plot(t,Y[,1],ylim=range(Y),type="n")
+mycol <- ifelse(Male==1,4,2)
+for(n in 1:ncol(Y)){
+  lines(t,Y[,n],col=mycol[n])
+  lines(t,result$XB[,n],col=mycol[n],lwd=5)
+}
 ```
 
 # Author
