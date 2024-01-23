@@ -12,17 +12,20 @@ nmfkcreg(
   epsilon = 1e-04,
   maxit = 5000,
   method = "EU",
-  trace = FALSE
+  trace = FALSE,
+  dims = TRUE
 )
 }
 \arguments{
 \item{Y}{observation matrix}
 
-\item{A}{kernel matrix. Without covariate, identity matrix is used. Or matrix A(R,N) having N columns can be accepted.}
+\item{A}{covariate matrix. Without covariate, identity matrix is used.
+Or matrix A(R,N) having N columns can be accepted.
+kernel matrix A(N,N) can be created by create.kernel function.}
 
-\item{Q}{rank of basis matrix and Q<=min{P,N}}
+\item{Q}{rank of basis matrix and Q<=min(P,N)}
 
-\item{gamma}{penalty parameter for C(Q,N) in objective function}
+\item{gamma}{penalty parameter for C(Q,R) in objective function}
 
 \item{epsilon}{positive convergence tolerance}
 
@@ -31,13 +34,15 @@ nmfkcreg(
 \item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 
 \item{trace}{display current iteration every 10 times if trace=TRUE}
+
+\item{dims}{display dimensions of matrix sizes if dim=TRUE}
 }
 \value{
 X(P,Q): basis matrix whose column sum is 1
 
-C(Q,N): parameter matrix
+C(Q,R): parameter matrix
 
-B(Q,N): B(Q,N)=C(Q,N)A(N,N) regression coefficient matrix
+B(Q,N): B(Q,N)=C(Q,R)A(R,N) regression coefficient matrix
 
 XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
 
@@ -54,12 +59,12 @@ objfunc.iter: objective function at each iteration
 r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 }
 \description{
-\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates regression described by Y(P,N)~X(P,Q)C(Q,N)A(N,N)
+\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates regression described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
 where observation matrix Y(P,N),
-kernel matrix A(N,N) with parameter beta,
-basis matrix X(P,Q) whose column sum is 1 and Q<=min{P,N}
-and coefficient matrix C(Q,N).
-Note that Y(N,P) and A(N,N) are known, and X(P,Q) and C(Q,N) are unknown.
+covariate matrix A(R,N),
+basis matrix X(P,Q) whose column sum is 1 and Q<=min(P,N)
+and coefficient matrix C(Q,R).
+Note that Y(N,P) and A(R,N) are known, and X(P,Q) and C(Q,R) are unknown.
 }
 \examples{
 library(nmfkcreg)

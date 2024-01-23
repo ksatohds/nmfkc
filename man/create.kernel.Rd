@@ -17,7 +17,7 @@ create.kernel(U, V = U, beta)
 kernel matrix A(N,M)
 }
 \description{
-\code{create.kernel} create kernel matrix A(N,N) from covariate matrix U(R,N)
+\code{create.kernel} create kernel matrix A(R,N) from covariate matrix U(R,N)
 }
 \examples{
 # install.packages("devtools")

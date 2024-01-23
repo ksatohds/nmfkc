@@ -1,10 +1,10 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 20th Jan 2024")
+  packageStartupMessage("Last update on 23rd Jan 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkcreg")
 }
 
 #' @title Creating kernel matrix from covariates
-#' @description \code{create.kernel} create kernel matrix A(N,N) from covariate matrix U(R,N)
+#' @description \code{create.kernel} create kernel matrix A(R,N) from covariate matrix U(R,N)
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance
 #' @param V covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction, and the default value is U.
 #' @param beta parameter of kernel matrix A of which element is defined by exp(-beta*|u_n-v_m|^2)
@@ -29,23 +29,26 @@ create.kernel <- function(U,V=U,beta){
 }
 
 #' @title Optimizing NMF (Non-negative Matrix Factorization) with kernel covariates regression
-#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates regression described by Y(P,N)~X(P,Q)C(Q,N)A(N,N)
+#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates regression described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
 #'  where observation matrix Y(P,N),
-#'  kernel matrix A(N,N) with parameter beta,
-#'  basis matrix X(P,Q) whose column sum is 1 and Q<=min{P,N}
-#'  and coefficient matrix C(Q,N).
-#'  Note that Y(N,P) and A(N,N) are known, and X(P,Q) and C(Q,N) are unknown.
+#'  covariate matrix A(R,N),
+#'  basis matrix X(P,Q) whose column sum is 1 and Q<=min(P,N)
+#'  and coefficient matrix C(Q,R).
+#'  Note that Y(N,P) and A(R,N) are known, and X(P,Q) and C(Q,R) are unknown.
 #' @param Y observation matrix
-#' @param A kernel matrix. Without covariate, identity matrix is used. Or matrix A(R,N) having N columns can be accepted.
-#' @param Q rank of basis matrix and Q<=min{P,N}
-#' @param gamma penalty parameter for C(Q,N) in objective function
+#' @param A covariate matrix. Without covariate, identity matrix is used.
+#' Or matrix A(R,N) having N columns can be accepted.
+#' kernel matrix A(N,N) can be created by create.kernel function.
+#' @param Q rank of basis matrix and Q<=min(P,N)
+#' @param gamma penalty parameter for C(Q,R) in objective function
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
 #' @param trace display current iteration every 10 times if trace=TRUE
+#' @param dims display dimensions of matrix sizes if dim=TRUE
 #' @return X(P,Q): basis matrix whose column sum is 1
-#' @return C(Q,N): parameter matrix
-#' @return B(Q,N): B(Q,N)=C(Q,N)A(N,N) regression coefficient matrix
+#' @return C(Q,R): parameter matrix
+#' @return B(Q,N): B(Q,N)=C(Q,R)A(R,N) regression coefficient matrix
 #' @return XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
 #' @return P(Q,N): probability matrix whose column sum is 1
 #' for soft clustering based on regression coefficient matrix B(Q,N).
@@ -70,7 +73,14 @@ create.kernel <- function(U,V=U,beta){
 #' # dimension reduction based on regression coefficient B
 #' plot(t(result$B))
 
-nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE){
+nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE,dims=TRUE){
+  is.identity.matrix <- function(A){
+    result <- FALSE
+    if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
+      if(prod(diag(A))==1&sum(A-diag(nrow(A)))==0) result <- TRUE
+    }
+    return(result)
+  }
   set.seed(123)
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(!is.matrix(Y)) Y <- as.matrix(Y)
@@ -87,7 +97,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
         X <- t(res.kmeans$centers)
       }
     }else{
-      warning("It does not hold Q<=min{P,N} where dim(Y)=(P,N).")
+      warning("It does not hold Q<=min(P,N) where dim(Y)=(P,N).")
     }
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
@@ -125,6 +135,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   }
   if(method=="EU"){
     objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
+    #aic <- ncol(Y)*log(2*pi*sum((Y-XB)^2)/ncol(Y))+ncol(Y)+2*(ncol(X)*(nrow(X)-1)+ncol(C)*nrow(C))
   }else{
     objfunc <- sum(-Y*log(XB)+XB)+gamma*sum(C^2)
   }
@@ -137,6 +148,15 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   if(epsilon.iter > epsilon) warning(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet."))
+  if(dims)if(is.identity.matrix(A)){
+    packageStartupMessage(
+      sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
+              nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y)))
+  }else{
+    packageStartupMessage(
+      sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
+              nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)))
+  }
   return(list(X=X,C=C,B=B,XB=XB,P=P,cluster=cluster,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
@@ -144,9 +164,11 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates regression
 #' @description \code{nmfkcreg.cv} apply cross validation method for k-partitioned columns of Y(P,N)
 #' @param Y observation matrix
-#' @param A kernel matrix. Without covariates, identity matrix is used.  Or matrix A(R,N) having N columns can be accepted.
-#' @param Q rank of basis matrix and Q<=min{P,N}
-#' @param gamma penalty parameter for C(Q,N) in objective function
+#' @param A covariate matrix. Without covariate, identity matrix is used.
+#' Or matrix A(R,N) having N columns can be accepted.
+#' kernel matrix A(N,N) can be created by create.kernel function.
+#' @param Q rank of basis matrix and Q<=min(P,N)
+#' @param gamma penalty parameter for C(Q,R) in objective function
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
@@ -155,7 +177,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #'  which controls the reproducibility of the partition.
 #' @return objfunc: last objective function
 #' @return objfunc.block: objective function at each block
-#' @return block: partition block index {1,...,div} assigned to each column of Y
+#' @return block: partition block index (1,...,div) assigned to each column of Y
 #' @export
 #' @examples
 #' library(nmfkcreg)
@@ -236,7 +258,7 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method)
+    res_j <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method,dims=FALSE)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB

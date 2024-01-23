@@ -28,16 +28,17 @@ Formally the model is contained in tri-NMF by Ding et al. (1964) and the update 
 
 # Matrices
 
-The goal of **nmfkcreg** is to optimize $X(P,Q)$ and $C(Q,N)$ on the NMF (Non-negative Matrix Factorization) with kernel covariates regression, $Y(P,N) \approx X(P,Q)B(Q,N)=X(P,Q)C(Q,N)A(N,N)$ where $Y(P,N)$ and $A(N,N)$ are given.
+The goal of **nmfkcreg** is to optimize $X(P,Q)$ and $C(Q,R)$ on the NMF (Non-negative Matrix Factorization) with kernel covariates regression, $Y(P,N) \approx X(P,Q)B(Q,N)=X(P,Q)C(Q,R)A(R,N)$ where $Y(P,N)$ and $A(R,N)$ are given.
 
 - $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
-- $A(N,N)$: **given** kernel matrix of which $(i,j)$ element can be 
-written as $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U(R,N)=(u_1,...u_N)$ 
-is covariate matrix. Note that identity matrix is used when there are no covariates. Or matrix $A(R,N)$ having N columns can be accepted.
-- $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min{P,N}.
+- $A(R,N)$: **given** covariate matrix. 
+  The kernel matrix A(N,N) can be created by create.kernel function and its $(i,j)$ element
+  can be written as Gauss kernel, $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U(R,N)=(u_1,...u_N)$ 
+is covariate matrix. Note that identity matrix is used when there are no covariates.
+- $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min(P,N).
 Q is the number of basis (rank).
--  $C(Q,N)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
-- $B(Q,N)=C(Q,N)A(N,N)$ is regression coefficient matrix.
+-  $C(Q,R)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
+- $B(Q,N)=C(Q,R)A(R,N)$ is regression coefficient matrix.
 - $P(Q,N)$ is probability matrix whose column sum is 1 for soft clustering based on regression coefficient matrix $B(Q,N)$.
 
 # References
@@ -77,7 +78,7 @@ colnames(d) <- c(
   "Number_of_infected_100000_population_in_the_last_week")
 n <- length(unique(d$Prefecture_code)) # 47
 Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
-colnames(Y) <- unique(d$Prefecture_code)
+colnames(Y) <- unique(d$Prefecture_name)
 rownames(Y) <- unique(d$Date)
 Y <- Y[rowSums(Y)!=0,]
 
@@ -87,10 +88,13 @@ result <- nmfkcreg(Y,Q=Q)
 result$r.squared # goodness of fit
 
 # individual fit
-n <- 1
-par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=1)
-plot(Y[,n],type="l",main=n)
-lines(result$XB[,n],col=2)
+par(mfrow=c(7,7),mar=c(0,0,0,0)+0.1,cex=1)
+for(n in 1:ncol(Y)){
+  plot(Y[,n],axes=F,type="l") # observation
+  lines(result$XB[,n],col=2) # fitted values
+  text(1,max(Y[,n])/2,colnames(Y)[n],pos=4)
+  box()
+}
 
 # basis function of which sum is 1
 par(mfrow=c(Q,1),mar=c(0,0,0,0),cex=1)
@@ -100,12 +104,9 @@ for(q in 1:Q){
   legend("left",fill=q+1,legend=q)
 }
 
-# individual coefficients
+# cluster membership probability based on coefficients
 n <- 1
 result$B[,n]
-
-# individual probabilites on basis function
-n <- 1
 result$B[,n]/sum(result$B[,n])
 result$P[,n]
 
@@ -157,7 +158,7 @@ Q <- ncol(result$X)
 for(q in 1:Q) lines(result$X[,q],col=q+1)
 legend("topright",legend=1:Q,fill=1:Q+1)
 
-# cluster membership probability by coefficients
+# cluster membership probability based on coefficients
 n <- 1
 result$B[,n]
 result$B[,n]/sum(result$B[,n])
@@ -221,7 +222,6 @@ result$r.squared # less than nmf without covariates
 #    |K(uN,v1),...,K(uN,vM)|
 v <- seq(from=0,to=1,length=20)
 V <- t(cbind(expand.grid(v,v)))
-dim(V)
 plot(t(V))
 A <- create.kernel(U,V,beta=best.beta)
 B <- result$C %*% A
@@ -328,16 +328,13 @@ d <- mcycle
 x <- d$times
 y <- d$accel
 Y <- t(as.matrix(y-min(y)))
-dim(Y)
 U <- t(as.matrix(x))
-dim(U)
 # scatter plot
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(U,Y)
 
 # linear curve
 A <- rbind(1,U)
-dim(A)
 result <- nmfkcreg(Y,A,Q=1)
 result$r.squared
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
@@ -391,16 +388,25 @@ rownames(Y) <- t
 
 Q <- 2
 Male <- 1*(d$Sex=="Male")[d$age==8]
+table(Male)
 A <- rbind(rep(1,ncol(Y)),Male)
-result<- nmfkcreg(Y,A,Q=Q,epsilon=1e-8)
+print(A)
+result <- nmfkcreg(Y,A,Q=Q,epsilon=1e-8)
+result$r.squared
+
+# parameter matrix and coefficients by gender
+result$C
+(B <- t(unique(t(result$B))))
 
 # individual fit
 plot(t,Y[,1],ylim=range(Y),type="n")
 mycol <- ifelse(Male==1,4,2)
 for(n in 1:ncol(Y)){
   lines(t,Y[,n],col=mycol[n])
-  lines(t,result$XB[,n],col=mycol[n],lwd=5)
 }
+YHAT <- result$X %*% B
+lines(t,YHAT[,1],col=4,lwd=5)
+lines(t,YHAT[,2],col=2,lwd=5)
 ```
 
 # Author

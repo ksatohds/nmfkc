@@ -19,11 +19,13 @@ nmfkcreg.cv(
 \arguments{
 \item{Y}{observation matrix}
 
-\item{A}{kernel matrix. Without covariates, identity matrix is used.  Or matrix A(R,N) having N columns can be accepted.}
+\item{A}{covariate matrix. Without covariate, identity matrix is used.
+Or matrix A(R,N) having N columns can be accepted.
+kernel matrix A(N,N) can be created by create.kernel function.}
 
-\item{Q}{rank of basis matrix and Q<=min{P,N}}
+\item{Q}{rank of basis matrix and Q<=min(P,N)}
 
-\item{gamma}{penalty parameter for C(Q,N) in objective function}
+\item{gamma}{penalty parameter for C(Q,R) in objective function}
 
 \item{epsilon}{positive convergence tolerance}
 
@@ -41,7 +43,7 @@ objfunc: last objective function
 
 objfunc.block: objective function at each block
 
-block: partition block index {1,...,div} assigned to each column of Y
+block: partition block index (1,...,div) assigned to each column of Y
 }
 \description{
 \code{nmfkcreg.cv} apply cross validation method for k-partitioned columns of Y(P,N)
