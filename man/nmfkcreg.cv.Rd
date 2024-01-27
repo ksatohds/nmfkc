@@ -11,9 +11,10 @@ nmfkcreg.cv(
   gamma = 0,
   epsilon = 1e-04,
   maxit = 5000,
+  method = "EU",
+  unit = FALSE,
   div = 5,
-  seed = 123,
-  method = "EU"
+  seed = 123
 )
 }
 \arguments{
@@ -31,12 +32,14 @@ kernel matrix A(N,N) can be created by create.kernel function.}
 
 \item{maxit}{maximum number of iterations}
 
+\item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
+
+\item{unit}{column of basis matrix is unit vector if unit=TRUE The default is set by unit=FALSE.}
+
 \item{div}{number of partition usually described as "k" of k-fold}
 
 \item{seed}{integer used as argument in set.seed function
 which controls the reproducibility of the partition.}
-
-\item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 }
 \value{
 objfunc: last objective function

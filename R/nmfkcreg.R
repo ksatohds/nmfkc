@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 23rd Jan 2024")
+  packageStartupMessage("Last update on 27th Jan 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkcreg")
 }
 
@@ -32,7 +32,7 @@ create.kernel <- function(U,V=U,beta){
 #' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates regression described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
 #'  where observation matrix Y(P,N),
 #'  covariate matrix A(R,N),
-#'  basis matrix X(P,Q) whose column sum is 1 and Q<=min(P,N)
+#'  basis matrix X(P,Q) and Q<=min(P,N)
 #'  and coefficient matrix C(Q,R).
 #'  Note that Y(N,P) and A(R,N) are known, and X(P,Q) and C(Q,R) are unknown.
 #' @param Y observation matrix
@@ -44,9 +44,10 @@ create.kernel <- function(U,V=U,beta){
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
+#' @param unit column of basis matrix is unit vector if unit=TRUE The default is set by unit=FALSE.
 #' @param trace display current iteration every 10 times if trace=TRUE
-#' @param dims display dimensions of matrix sizes if dim=TRUE
-#' @return X(P,Q): basis matrix whose column sum is 1
+#' @param dims display dimensions of matrix sizes if dim=TRUE. The default is set by dim=FALSE.
+#' @return X(P,Q): basis matrix. If unit=TRUE, each column vector is unit, otherwise its column sum is 1.
 #' @return C(Q,R): parameter matrix
 #' @return B(Q,N): B(Q,N)=C(Q,R)A(R,N) regression coefficient matrix
 #' @return XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
@@ -73,7 +74,7 @@ create.kernel <- function(U,V=U,beta){
 #' # dimension reduction based on regression coefficient B
 #' plot(t(result$B))
 
-nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",trace=FALSE,dims=TRUE){
+nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",unit=FALSE,trace=FALSE,dims=TRUE){
   is.identity.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
@@ -102,7 +103,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
   }
-  X <- t(t(X)/colSums(X))
+  if(unit) X <- t(t(X)/colSums(X^2)^0.5) else X <- t(t(X)/colSums(X))
   C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   B <- C %*% A
   XB <- X %*% B
@@ -111,14 +112,14 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
     if(trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
       X <- X * ((Y %*% t(B)) / (XB %*% t(B)))
-      X <- t(t(X)/colSums(X))
+      if(unit) X <- t(t(X)/colSums(X^2)^0.5) else X <- t(t(X)/colSums(X))
       C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       B <- C %*% A
       XB <- X %*% B
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
       X <- t(t(X*(Y/XB)%*%t(B))/rowSums(B))
-      X <- t(t(X)/colSums(X))
+      if(unit) X <- t(t(X)/colSums(X^2)^0.5) else X <- t(t(X)/colSums(X))
       C0 <- t(X)%*%(Y/XB)%*%t(A)
       C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
       B <- C %*% A
@@ -172,6 +173,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
+#' @param unit column of basis matrix is unit vector if unit=TRUE The default is set by unit=FALSE.
 #' @param div number of partition usually described as "k" of k-fold
 #' @param seed integer used as argument in set.seed function
 #'  which controls the reproducibility of the partition.
@@ -186,7 +188,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #' table(result$block)
 #' result$objfunc
 
-nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,div=5,seed=123,method="EU"){
+nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",unit=FALSE,div=5,seed=123){
   is.symmetric.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)){
@@ -258,7 +260,7 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,di
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method,dims=FALSE)
+    res_j <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method,unit,dims=FALSE)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB

@@ -35,8 +35,7 @@ The goal of **nmfkcreg** is to optimize $X(P,Q)$ and $C(Q,R)$ on the NMF (Non-ne
   The kernel matrix A(N,N) can be created by create.kernel function and its $(i,j)$ element
   can be written as Gauss kernel, $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U(R,N)=(u_1,...u_N)$ 
 is covariate matrix. Note that identity matrix is used when there are no covariates.
-- $X(P,Q)$: **unknown** basis matrix whose column sum is 1 and Q<=min(P,N).
-Q is the number of basis (rank).
+- $X(P,Q)$: **unknown** basis matrix. Q is the number of basis (rank) and Q<=min(P,N).
 -  $C(Q,R)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
 - $B(Q,N)=C(Q,R)A(R,N)$ is regression coefficient matrix.
 - $P(Q,N)$ is probability matrix whose column sum is 1 for soft clustering based on regression coefficient matrix $B(Q,N)$.
