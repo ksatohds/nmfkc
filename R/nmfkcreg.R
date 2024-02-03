@@ -227,6 +227,8 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,me
     XB <- X %*% B
     colnames(B) <- colnames(Y)
     colnames(XB) <- colnames(Y)
+    colnames(C) <- rownames(A)
+    rownames(C) <- colnames(X)
     P <- t(t(B)/colSums(B))
     colnames(P) <- colnames(Y)
     cluster <- apply(P,2,which.max)
