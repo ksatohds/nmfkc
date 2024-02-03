@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 27th Jan 2024")
+  packageStartupMessage("Last update on 3rd Feb 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkcreg")
 }
 

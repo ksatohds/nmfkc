@@ -3,8 +3,8 @@
 You can install the development version of nmfkcreg from [GitHub](https://github.com/) with:
 
 ``` r
-# install.packages("devtools")
-devtools::install_github("ksatohds/nmfkcreg")
+#install.packages("remotes")
+remotes::install_github("ksatohds/nmfkcreg")
 ```
 
 # Functions
