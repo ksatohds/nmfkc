@@ -180,7 +180,8 @@ u <- t(u0)
 umin <- apply(u,1,min)
 umax <- apply(u,1,max)
 U <- (u-umin)/(umax-umin) # normalization
-result <- nmfkcreg(Y,A=U,Q=2)
+A <- rbind(rep(1,ncol(Y)),U)
+result <- nmfkcreg(Y,A,Q=2)
 result$r.squared
 
 #------------------
