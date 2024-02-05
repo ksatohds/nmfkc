@@ -286,6 +286,6 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,me
     XBvec <- c(XBvec,as.vector(XBj))
   }
   objfunc <- sum(objfunc.block)
-  r2 <- stats::cor(as.vector(XBvec),as.vector(Yvec))^2
+  r2 <- stats::cor(XBvec,Yvec)^2
   return(list(objfunc=objfunc,objfunc.block=objfunc.block,block=index,r.squared=r2))
 }
