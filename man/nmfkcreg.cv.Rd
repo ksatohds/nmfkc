@@ -47,6 +47,8 @@ objfunc: last objective function
 objfunc.block: objective function at each block
 
 block: partition block index (1,...,div) assigned to each column of Y
+
+r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 }
 \description{
 \code{nmfkcreg.cv} apply cross validation method for k-partitioned columns of Y(P,N)

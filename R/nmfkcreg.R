@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 3rd Feb 2024")
+  packageStartupMessage("Last update on 6th Feb 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkcreg")
 }
 
@@ -180,6 +180,7 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #' @return objfunc: last objective function
 #' @return objfunc.block: objective function at each block
 #' @return block: partition block index (1,...,div) assigned to each column of Y
+#' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 #' @export
 #' @examples
 #' library(nmfkcreg)
@@ -245,6 +246,8 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,me
   block <- 0*(1:n)
   set.seed(seed)
   index <- sample(1:n,n,replace=F)
+  Yvec <- NULL
+  XBvec <- NULL
   for(i in 1:(div-1)){
     plus <- ifelse(i<=remainder,1,0)
     j <- index[1:(division+plus)]
@@ -279,7 +282,10 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,me
     }else{
       objfunc.block[j] <- sum(-Yj*log(XBj)+XBj)+gamma*sum(res_j$C^2)
     }
+    Yvec <- c(Yvec,as.vector(Yj))
+    XBvec <- c(XBvec,as.vector(XBj))
   }
   objfunc <- sum(objfunc.block)
-  return(list(objfunc=objfunc,objfunc.block=objfunc.block,block=index))
+  r2 <- stats::cor(as.vector(XBvec),as.vector(Yvec))^2
+  return(list(objfunc=objfunc,objfunc.block=objfunc.block,block=index,r.squared=r2))
 }
