@@ -1,10 +1,10 @@
 .onAttach <- function(...) {
   packageStartupMessage("Last update on 6th Feb 2024")
-  packageStartupMessage("https://github.com/ksatohds/nmfkcreg")
+  packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
 #' @title Creating kernel matrix from covariates
-#' @description \code{create.kernel} create kernel matrix A(R,N) from covariate matrix U(R,N)
+#' @description \code{nmfkc.kernel} create kernel matrix A(R,N) from covariate matrix U(R,N)
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance
 #' @param V covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction, and the default value is U.
 #' @param beta parameter of kernel matrix A of which element is defined by exp(-beta*|u_n-v_m|^2)
@@ -12,14 +12,14 @@
 #' @export
 #' @examples
 #' # install.packages("devtools")
-#' # devtools::install_github("ksatohds/nmfkcreg")
+#' # devtools::install_github("ksatohds/nmfkc")
 #' U <- matrix(1:3,nrow=1,ncol=3)
 #' print(U)
-#' A <- create.kernel(U,beta=1)
+#' A <- nmfkc.kernel(U,beta=1)
 #' print(A)
 #' print(log(A))
 
-create.kernel <- function(U,V=U,beta){
+nmfkc.kernel <- function(U,V=U,beta){
   kernel <- function(m){
     vm <- t(rep(1,ncol(U)) %o% V[,m])
     exp(-beta*colSums((U-vm)^2))}
@@ -38,7 +38,7 @@ create.kernel <- function(U,V=U,beta){
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' Or matrix A(R,N) having N columns can be accepted.
-#' kernel matrix A(N,N) can be created by create.kernel function.
+#' kernel matrix A(N,N) can be created by nmfkc.kernel function.
 #' @param Q rank of basis matrix and Q<=min(P,N)
 #' @param gamma penalty parameter for C(Q,R) in objective function
 #' @param epsilon positive convergence tolerance
@@ -60,9 +60,9 @@ create.kernel <- function(U,V=U,beta){
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 #' @export
 #' @examples
-#' library(nmfkcreg)
+#' library(nmfkc)
 #' Y <- t(iris[,-5])
-#' result <- nmfkcreg(Y,Q=2)
+#' result <- nmfkc(Y,Q=2)
 #' # visualization of some results
 #' plot(result$objfunc.iter) # convergence
 #'
@@ -74,7 +74,7 @@ create.kernel <- function(U,V=U,beta){
 #' # dimension reduction based on regression coefficient B
 #' plot(t(result$B))
 
-nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",unit=FALSE,trace=FALSE,dims=TRUE){
+nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",unit=FALSE,trace=FALSE,dims=TRUE){
   is.identity.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
@@ -163,11 +163,11 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 }
 
 #' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates regression
-#' @description \code{nmfkcreg.cv} apply cross validation method for k-partitioned columns of Y(P,N)
+#' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y(P,N)
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' Or matrix A(R,N) having N columns can be accepted.
-#' kernel matrix A(N,N) can be created by create.kernel function.
+#' kernel matrix A(N,N) can be created by nmfkc.kernel function.
 #' @param Q rank of basis matrix and Q<=min(P,N)
 #' @param gamma penalty parameter for C(Q,R) in objective function
 #' @param epsilon positive convergence tolerance
@@ -183,13 +183,13 @@ nmfkcreg <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 #' @export
 #' @examples
-#' library(nmfkcreg)
+#' library(nmfkc)
 #' Y <- t(iris[,-5])
-#' result <- nmfkcreg.cv(Y,Q=2)
+#' result <- nmfkc.cv(Y,Q=2)
 #' table(result$block)
 #' result$objfunc
 
-nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",unit=FALSE,div=5,seed=123){
+nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",unit=FALSE,div=5,seed=123){
   is.symmetric.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)){
@@ -265,7 +265,7 @@ nmfkcreg.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,me
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkcreg(Y_j,A_j,Q,gamma,epsilon,maxit,method,unit,dims=FALSE)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,unit,dims=FALSE)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB

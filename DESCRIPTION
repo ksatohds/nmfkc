@@ -1,11 +1,11 @@
-Package: nmfkcreg
+Package: nmfkc
 Type: Package
-Title: The Package is to Optimize Non-Negative Matrix Factorization with Kernel Covariates Regression
-Version: 0.2.3
+Title: The Package is to Optimize Non-Negative Matrix Factorization with Kernel Covariates
+Version: 0.2.4
 Author: Kenichi Satoh
 Maintainer: Kenichi Satoh <kenichi-satoh@biwako.shiga-u.ac.jp>
 Description: The goal of the package is to perform Non-negative Matrix Factorization
- with kernel covariates regression. It optimizes basis matrix and parameter matrix
+ with kernel covariates. It optimizes basis matrix and parameter matrix
  where observation matrix and kernel covariates are given.
  In particular, if the kernel matrix is a unit matrix, it can be used as an ordinary Non-negative Matrix Factorization.
 License: MIT + file LICENSE

@@ -1,19 +1,19 @@
 # Installation
 
-You can install the development version of nmfkcreg from [GitHub](https://github.com/) with:
+You can install the development version of nmfkc from [GitHub](https://github.com/) with:
 
 ``` r
 #install.packages("remotes")
-remotes::install_github("ksatohds/nmfkcreg")
+remotes::install_github("ksatohds/nmfkc")
 ```
 
 # Functions
 
-There are three functions in **nmfkcreg** package.
+There are three functions in **nmfkc** package.
 
-- **nmfkcreg** function optimizes the model
-- **nmfkcreg.cv** function is used for k-fold cross-validation
-- **create.kernel** function is used for creating kernel matrix from covariates
+- **nmfkc** function optimizes the model
+- **nmfkc.cv** function is used for k-fold cross-validation
+- **nmfkc.kernel** function is used for creating kernel matrix from covariates
 
 # Statistical model
 
@@ -28,11 +28,11 @@ Formally the model is contained in tri-NMF by Ding et al. (1964) and the update 
 
 # Matrices
 
-The goal of **nmfkcreg** is to optimize $X(P,Q)$ and $C(Q,R)$ on the NMF (Non-negative Matrix Factorization) with kernel covariates regression, $Y(P,N) \approx X(P,Q)B(Q,N)=X(P,Q)C(Q,R)A(R,N)$ where $Y(P,N)$ and $A(R,N)$ are given.
+The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the NMF (Non-negative Matrix Factorization) with kernel covariates, $Y(P,N) \approx X(P,Q)B(Q,N)=X(P,Q)C(Q,R)A(R,N)$ where $Y(P,N)$ and $A(R,N)$ are given.
 
 - $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
 - $A(R,N)$: **given** covariate matrix. 
-  The kernel matrix A(N,N) can be created by create.kernel function and its $(i,j)$ element
+  The kernel matrix A(N,N) can be created by nmfkc.kernel function and its $(i,j)$ element
   can be written as Gauss kernel, $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U(R,N)=(u_1,...u_N)$ 
 is covariate matrix. Note that identity matrix is used when there are no covariates.
 - $X(P,Q)$: **unknown** basis matrix. Q is the number of basis (rank) and Q<=min(P,N).
@@ -67,7 +67,7 @@ is covariate matrix. Note that identity matrix is used when there are no covaria
 - COVID-19 in Japan
 - https://www3.nhk.or.jp/news/special/coronavirus/data/
 ``` r
-library(nmfkcreg)
+library(nmfkc)
 d <- read.csv(
   "https://www3.nhk.or.jp/n-data/opendata/coronavirus/nhk_news_covid19_prefectures_daily_data.csv")
 colnames(d) <- c(
@@ -83,7 +83,7 @@ Y <- Y[rowSums(Y)!=0,]
 
 # nmf
 Q <- 7
-result <- nmfkcreg(Y,Q=Q)
+result <- nmfkc(Y,Q=Q)
 result$r.squared # goodness of fit
 
 # individual fit
@@ -121,7 +121,7 @@ legend("left",fill=1:Q+1,legend=1:Q)
 ## 2. Spatiotemporal Analysis
 -  CanadianWeather
 ``` r
-library(nmfkcreg)
+library(nmfkc)
 library(fda)
 data(CanadianWeather)
 d <- CanadianWeather$dailyAv[,,1]
@@ -132,7 +132,7 @@ u0[,1] <- -u0[,1]
 #------------------
 # without covariate
 #------------------
-result <- nmfkcreg(Y,Q=2)
+result <- nmfkc(Y,Q=2)
 result$r.squared # coefficient of determination
 
 # visualization of some results
@@ -181,7 +181,7 @@ umin <- apply(u,1,min)
 umax <- apply(u,1,max)
 U <- (u-umin)/(umax-umin) # normalization
 A <- rbind(rep(1,ncol(Y)),U)
-result <- nmfkcreg(Y,A,Q=2)
+result <- nmfkc(Y,A,Q=2)
 result$r.squared
 
 #------------------
@@ -198,8 +198,8 @@ betas <- c(0.5,1,2,5,10)
 objfuncs <- 0*betas
 for(i in 1:length(betas)){
   print(i)
-  A <- create.kernel(U,beta=betas[i])
-  result <- nmfkcreg.cv(Y,A,Q=2,div=10)
+  A <- nmfkc.kernel(U,beta=betas[i])
+  result <- nmfkc.cv(Y,A,Q=2,div=10)
   objfuncs[i] <- result$objfunc
 }
 table(result$block) # partition block of cv
@@ -210,8 +210,8 @@ plot(betas,objfuncs,type="o",log="x")
 (best.beta <- betas[which.min(objfuncs)])
 
 # create kernel with best beta
-A <- create.kernel(U,beta=best.beta)
-result <- nmfkcreg(Y,A,Q=2)
+A <- nmfkc.kernel(U,beta=best.beta)
+result <- nmfkc(Y,A,Q=2)
 result$r.squared # less than nmf without covariates
 
 # prediction of coefficients(b) on mesh point V
@@ -223,7 +223,7 @@ result$r.squared # less than nmf without covariates
 v <- seq(from=0,to=1,length=20)
 V <- t(cbind(expand.grid(v,v)))
 plot(t(V))
-A <- create.kernel(U,V,beta=best.beta)
+A <- nmfkc.kernel(U,V,beta=best.beta)
 B <- result$C %*% A
 P <- prop.table(B,2)
 P[,1:6]
@@ -244,7 +244,7 @@ filled.contour(v,v,z,main="probability of basis function 2",
 - data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
-library(nmfkcreg)
+library(nmfkc)
 #------------------
 # text analysis
 #------------------
@@ -265,7 +265,7 @@ colSums(d)[1:30] # Top 30 most frequent words
 #------------------
 Y <- t(d)
 Q <- 3
-result <- nmfkcreg(Y,Q=Q)
+result <- nmfkc(Y,Q=Q)
 result$r.squared # coefficient of determination
 colnames(result$P) <- corp$Year
 par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=1)
@@ -298,8 +298,8 @@ betas <- c(0.2,0.5,1,2,5)/10000
 objfuncs <- 0*betas
 for(i in 1:length(betas)){
   print(i)
-  A <- create.kernel(U,beta=betas[i])
-  result <- nmfkcreg.cv(Y,A,Q,div=5)
+  A <- nmfkc.kernel(U,beta=betas[i])
+  result <- nmfkc.cv(Y,A,Q,div=5)
   objfuncs[i] <- result$objfunc
 }
 table(result$block) # partition block of cv
@@ -308,8 +308,8 @@ plot(betas,objfuncs,type="o",log="x")
 (best.beta <- betas[which.min(objfuncs)])
 
 # create kernel with best beta
-A <- create.kernel(U,beta=best.beta)
-result <- nmfkcreg(Y,A,Q)
+A <- nmfkc.kernel(U,beta=best.beta)
+result <- nmfkc(Y,A,Q)
 result$r.squared # less than nmf without covariates
 
 # Topic probability changing over time
@@ -322,7 +322,7 @@ barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
 ## 4. Kernel ridge regression
 - mcycle
 ``` r
-library(nmfkcreg)
+library(nmfkc)
 library(MASS)
 d <- mcycle
 x <- d$times
@@ -335,7 +335,7 @@ plot(U,Y)
 
 # linear curve
 A <- rbind(1,U)
-result <- nmfkcreg(Y,A,Q=1)
+result <- nmfkc(Y,A,Q=1)
 result$r.squared
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(U,Y)
@@ -346,8 +346,8 @@ betas <- c(1,2,5,10,20)/100
 objfuncs <- 0*(1:length(betas))
 for(i in 1:length(betas)){
   print(i)
-  A <- create.kernel(U,beta=betas[i])
-  result <- nmfkcreg.cv(Y,A,Q=1,div=10)
+  A <- nmfkc.kernel(U,beta=betas[i])
+  result <- nmfkc.cv(Y,A,Q=1,div=10)
   objfuncs[i] <- result$objfunc
 }
 # objective function by beta
@@ -356,8 +356,8 @@ plot(betas,objfuncs,type="o",log="x")
 table(result$block) # partition block of cv
 
 (beta.best <- betas[which.min(objfuncs)])  
-A <- create.kernel(U,beta=beta.best)
-result <- nmfkcreg(Y,A,Q=1)
+A <- nmfkc.kernel(U,beta=beta.best)
+result <- nmfkc(Y,A,Q=1)
 result$r.squared
 
 # fitted curve
@@ -368,7 +368,7 @@ lines(x,as.vector(result$XB),col=2,lwd=2)
 # fitted curve for new data
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 V <- matrix(seq(from=min(U),to=max(U),length=100),ncol=100)
-A <- create.kernel(U,V,beta=beta.best)
+A <- nmfkc.kernel(U,V,beta=beta.best)
 XB <- result$X %*% result$C %*% A
 plot(x,as.vector(Y))
 lines(V,as.vector(XB),col=2,lwd=2)
@@ -377,7 +377,7 @@ lines(V,as.vector(XB),col=2,lwd=2)
 ## 5. Growth curve model
 - Orthodont
 ``` r
-library(nmfkcreg)
+library(nmfkc)
 library(nlme)
 d <- Orthodont
 head(d)
@@ -391,7 +391,7 @@ Male <- 1*(d$Sex=="Male")[d$age==8]
 table(Male)
 A <- rbind(rep(1,ncol(Y)),Male)
 print(A)
-result <- nmfkcreg(Y,A,Q=Q,epsilon=1e-8)
+result <- nmfkc(Y,A,Q=Q,epsilon=1e-8)
 result$r.squared
 
 # parameter matrix and coefficients by gender

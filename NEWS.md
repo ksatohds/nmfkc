@@ -1,4 +1,5 @@
-# nmfkcreg 0.2.3
+# nmfkc 0.2.4
+- 0.2.4 Name changed from nmfkcreg to nmfkc
 - 0.2.3 Append argument "r.squared" in "nmfkcreg.cv" function
 - 0.2.2 Append argument "dims" to check the matrix sizes, argument "unit" to make the column of basis matrix be unit in "nmfkcreg" function
 - 0.2.1 create.kernel function was modified for prediction
