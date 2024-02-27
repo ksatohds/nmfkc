@@ -11,8 +11,8 @@
 #' @return kernel matrix A(N,M)
 #' @export
 #' @examples
-#' # install.packages("devtools")
-#' # devtools::install_github("ksatohds/nmfkc")
+#' # install.packages("remotes")
+#' # remotes::install_github("ksatohds/nmfkc")
 #' U <- matrix(1:3,nrow=1,ncol=3)
 #' print(U)
 #' A <- nmfkc.kernel(U,beta=1)
@@ -28,8 +28,8 @@ nmfkc.kernel <- function(U,V=U,beta){
   return(A)
 }
 
-#' @title Optimizing NMF (Non-negative Matrix Factorization) with kernel covariates regression
-#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates regression described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
+#' @title Optimizing NMF (Non-negative Matrix Factorization) with kernel covariates
+#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
 #'  where observation matrix Y(P,N),
 #'  covariate matrix A(R,N),
 #'  basis matrix X(P,Q) and Q<=min(P,N)
@@ -162,7 +162,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
-#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates regression
+#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates
 #' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y(P,N)
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.

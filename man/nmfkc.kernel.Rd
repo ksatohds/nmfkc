@@ -20,8 +20,8 @@ kernel matrix A(N,M)
 \code{nmfkc.kernel} create kernel matrix A(R,N) from covariate matrix U(R,N)
 }
 \examples{
-# install.packages("devtools")
-# devtools::install_github("ksatohds/nmfkc")
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
 U <- matrix(1:3,nrow=1,ncol=3)
 print(U)
 A <- nmfkc.kernel(U,beta=1)

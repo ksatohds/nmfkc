@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkcreg.R
 \name{nmfkc}
 \alias{nmfkc}
-\title{Optimizing NMF (Non-negative Matrix Factorization) with kernel covariates regression}
+\title{Optimizing NMF (Non-negative Matrix Factorization) with kernel covariates}
 \usage{
 nmfkc(
   Y,
@@ -62,7 +62,7 @@ objfunc.iter: objective function at each iteration
 r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 }
 \description{
-\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates regression described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
+\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
 where observation matrix Y(P,N),
 covariate matrix A(R,N),
 basis matrix X(P,Q) and Q<=min(P,N)

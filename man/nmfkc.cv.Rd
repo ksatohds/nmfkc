@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkcreg.R
 \name{nmfkc.cv}
 \alias{nmfkc.cv}
-\title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates regression}
+\title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates}
 \usage{
 nmfkc.cv(
   Y,
