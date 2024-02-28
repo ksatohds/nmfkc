@@ -5,7 +5,7 @@
 
 #' @title Creating kernel matrix from covariates
 #' @description \code{nmfkc.kernel} create kernel matrix A(R,N) from covariate matrix U(R,N)
-#' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row should be normalized in advance
+#' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
 #' @param V covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction, and the default value is U.
 #' @param beta parameter of kernel matrix A of which element is defined by exp(-beta*|u_n-v_m|^2)
 #' @return kernel matrix A(N,M)
@@ -28,8 +28,8 @@ nmfkc.kernel <- function(U,V=U,beta){
   return(A)
 }
 
-#' @title Optimizing NMF (Non-negative Matrix Factorization) with kernel covariates
-#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
+#' @title Optimizing NMF (Non-negative Matrix Factorization) with kernel covariate
+#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariate described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
 #'  where observation matrix Y(P,N),
 #'  covariate matrix A(R,N),
 #'  basis matrix X(P,Q) and Q<=min(P,N)
@@ -43,7 +43,7 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' @param gamma penalty parameter for C(Q,R) in objective function
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
-#' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
+#' @param method The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
 #' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if  print.dim=TRUE. The default is set by  print.dim=FALSE.
@@ -128,7 +128,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
     }
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
-      if(epsilon.iter <= epsilon){
+      if(epsilon.iter <= abs(epsilon)){
         objfunc.iter <- objfunc.iter[1:i]
         break
       }
@@ -146,7 +146,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   B.prob <- t(t(B)/colSums(B))
   B.cluster <- apply(B.prob,2,which.max)
   colnames(B.prob) <- colnames(Y)
-  if(epsilon.iter > epsilon) warning(paste0(
+  if(epsilon.iter > abs(epsilon)) warning(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet."))
   if(print.dims)if(is.identity.matrix(A)){
@@ -162,7 +162,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
-#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates
+#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariate
 #' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y(P,N)
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
@@ -173,7 +173,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
-#' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
+#' @param X.column default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
 #' @param div number of partition usually described as "k" of k-fold
 #' @param seed integer used as argument in set.seed function
 #'  which controls the reproducibility of the partition.
@@ -220,7 +220,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
       newSum <- sum(C)
       if(l>=10){
         epsilon.iter <- abs(newSum-oldSum)/(abs(newSum)+0.1)
-        if(epsilon.iter <= epsilon) break
+        if(epsilon.iter <= abs(epsilon)) break
       }
       oldSum <- sum(C)
     }
@@ -230,7 +230,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
     colnames(XB) <- colnames(Y)
     colnames(C) <- rownames(A)
     rownames(C) <- colnames(X)
-    if(epsilon.iter > epsilon) warning(paste0(
+    if(epsilon.iter > abs(epsilon)) warning(paste0(
       "maximum iterations (",maxit,
       ") reached and the optimization hasn't converged yet."))
     return(list(B=B,XB=XB))

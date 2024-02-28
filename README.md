@@ -28,7 +28,7 @@ Formally the model is contained in tri-NMF by Ding et al. (1964) and the update 
 
 # Matrices
 
-The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the NMF (Non-negative Matrix Factorization) with kernel covariates, $Y(P,N) \approx X(P,Q)B(Q,N)=X(P,Q)C(Q,R)A(R,N)$ where $Y(P,N)$ and $A(R,N)$ are given.
+The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative Matrix Factorization with Kernel Covariate, $Y(P,N) \approx X(P,Q)B(Q,N)=X(P,Q)C(Q,R)A(R,N)$ where $Y(P,N)$ and $A(R,N)$ are given.
 
 - $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
 - $A(R,N)$: **given** covariate matrix. 

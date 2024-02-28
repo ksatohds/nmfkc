@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.cv}
 \alias{nmfkc.cv}
-\title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariates}
+\title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariate}
 \usage{
 nmfkc.cv(
   Y,
@@ -34,7 +34,7 @@ kernel matrix A(N,N) can be created by nmfkc.kernel function.}
 
 \item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 
-\item{X.column}{The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".}
+\item{X.column}{default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".}
 
 \item{div}{number of partition usually described as "k" of k-fold}
 

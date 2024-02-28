@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc}
 \alias{nmfkc}
-\title{Optimizing NMF (Non-negative Matrix Factorization) with kernel covariates}
+\title{Optimizing NMF (Non-negative Matrix Factorization) with kernel covariate}
 \usage{
 nmfkc(
   Y,
@@ -32,7 +32,7 @@ kernel matrix A(N,N) can be created by nmfkc.kernel function.}
 
 \item{maxit}{maximum number of iterations}
 
-\item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
+\item{method}{The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 
 \item{X.column}{The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".}
 
@@ -62,7 +62,7 @@ objfunc.iter: objective function at each iteration
 r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 }
 \description{
-\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariates described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
+\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariate described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
 where observation matrix Y(P,N),
 covariate matrix A(R,N),
 basis matrix X(P,Q) and Q<=min(P,N)
