@@ -54,6 +54,8 @@ r.squared: coefficient of determination R^2, squared correlation between Y(P,N) 
 \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y(P,N)
 }
 \examples{
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
 library(nmfkc)
 Y <- t(iris[,-5])
 result <- nmfkc.cv(Y,Q=2)

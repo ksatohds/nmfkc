@@ -60,6 +60,8 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 #' @export
 #' @examples
+#' # install.packages("remotes")
+#' # remotes::install_github("ksatohds/nmfkc")
 #' library(nmfkc)
 #' Y <- t(iris[,-5])
 #' result <- nmfkc(Y,Q=2)
@@ -183,6 +185,8 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 #' @export
 #' @examples
+#' # install.packages("remotes")
+#' # remotes::install_github("ksatohds/nmfkc")
 #' library(nmfkc)
 #' Y <- t(iris[,-5])
 #' result <- nmfkc.cv(Y,Q=2)

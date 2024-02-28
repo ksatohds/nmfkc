@@ -70,6 +70,8 @@ and coefficient matrix C(Q,R).
 Note that Y(N,P) and A(R,N) are known, and X(P,Q) and C(Q,R) are unknown.
 }
 \examples{
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
 library(nmfkc)
 Y <- t(iris[,-5])
 result <- nmfkc(Y,Q=2)
