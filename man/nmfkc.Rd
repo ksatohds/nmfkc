@@ -12,9 +12,9 @@ nmfkc(
   epsilon = 1e-04,
   maxit = 5000,
   method = "EU",
-  unit = FALSE,
-  trace = FALSE,
-  dims = TRUE
+  X.column = "sum",
+  print.trace = FALSE,
+  print.dims = TRUE
 )
 }
 \arguments{
@@ -34,26 +34,26 @@ kernel matrix A(N,N) can be created by nmfkc.kernel function.}
 
 \item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 
-\item{unit}{column of basis matrix is unit vector if unit=TRUE The default is set by unit=FALSE.}
+\item{X.column}{The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".}
 
-\item{trace}{display current iteration every 10 times if trace=TRUE}
+\item{print.trace}{display current iteration every 10 times if print.trace=TRUE}
 
-\item{dims}{display dimensions of matrix sizes if dim=TRUE. The default is set by dim=FALSE.}
+\item{print.dims}{display dimensions of matrix sizes if  print.dim=TRUE. The default is set by  print.dim=FALSE.}
 }
 \value{
-X(P,Q): basis matrix. If unit=TRUE, each column vector is unit, otherwise its column sum is 1.
-
-C(Q,R): parameter matrix
+X(P,Q): basis matrix. The column sum depends on X.column.
 
 B(Q,N): B(Q,N)=C(Q,R)A(R,N) regression coefficient matrix
 
-XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
-
-P(Q,N): probability matrix whose column sum is 1
+B.prob(Q,N): probability matrix whose column sum is 1
 for soft clustering based on regression coefficient matrix B(Q,N).
 
-cluster: the number of the basis that takes the maximum value of each column of P(Q,N)
+B.cluster: the number of the basis that takes the maximum value of each column of B.prob(Q,N)
 for hard clustering
+
+XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
+
+C(Q,R): parameter matrix
 
 objfunc: last objective function
 

@@ -44,17 +44,17 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
-#' @param unit column of basis matrix is unit vector if unit=TRUE The default is set by unit=FALSE.
-#' @param trace display current iteration every 10 times if trace=TRUE
-#' @param dims display dimensions of matrix sizes if dim=TRUE. The default is set by dim=FALSE.
-#' @return X(P,Q): basis matrix. If unit=TRUE, each column vector is unit, otherwise its column sum is 1.
-#' @return C(Q,R): parameter matrix
+#' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
+#' @param print.trace display current iteration every 10 times if print.trace=TRUE
+#' @param print.dims display dimensions of matrix sizes if  print.dim=TRUE. The default is set by  print.dim=FALSE.
+#' @return X(P,Q): basis matrix. The column sum depends on X.column.
 #' @return B(Q,N): B(Q,N)=C(Q,R)A(R,N) regression coefficient matrix
-#' @return XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
-#' @return P(Q,N): probability matrix whose column sum is 1
+#' @return B.prob(Q,N): probability matrix whose column sum is 1
 #' for soft clustering based on regression coefficient matrix B(Q,N).
-#' @return cluster: the number of the basis that takes the maximum value of each column of P(Q,N)
+#' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob(Q,N)
 #' for hard clustering
+#' @return XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
+#' @return C(Q,R): parameter matrix
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
@@ -74,7 +74,7 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' # dimension reduction based on regression coefficient B
 #' plot(t(result$B))
 
-nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",unit=FALSE,trace=FALSE,dims=TRUE){
+nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",print.trace=FALSE,print.dims=TRUE){
   is.identity.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
@@ -103,23 +103,23 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
   }
-  if(unit) X <- t(t(X)/colSums(X^2)^0.5) else X <- t(t(X)/colSums(X))
+  if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
   C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   B <- C %*% A
   XB <- X %*% B
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
-    if(trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
+    if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
       X <- X * ((Y %*% t(B)) / (XB %*% t(B)))
-      if(unit) X <- t(t(X)/colSums(X^2)^0.5) else X <- t(t(X)/colSums(X))
+      if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
       C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       B <- C %*% A
       XB <- X %*% B
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
       X <- t(t(X*(Y/XB)%*%t(B))/rowSums(B))
-      if(unit) X <- t(t(X)/colSums(X^2)^0.5) else X <- t(t(X)/colSums(X))
+      if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
       C0 <- t(X)%*%(Y/XB)%*%t(A)
       C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
       B <- C %*% A
@@ -143,13 +143,13 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   colnames(B) <- colnames(Y)
   colnames(XB) <- colnames(Y)
-  P <- t(t(B)/colSums(B))
-  cluster <- apply(P,2,which.max)
-  colnames(P) <- colnames(Y)
+  B.prob <- t(t(B)/colSums(B))
+  B.cluster <- apply(B.prob,2,which.max)
+  colnames(B.prob) <- colnames(Y)
   if(epsilon.iter > epsilon) warning(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet."))
-  if(dims)if(is.identity.matrix(A)){
+  if(print.dims)if(is.identity.matrix(A)){
     packageStartupMessage(
       sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y)))
@@ -158,7 +158,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
       sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)))
   }
-  return(list(X=X,C=C,B=B,XB=XB,P=P,cluster=cluster,
+  return(list(X=X,B=B,B.prob=B.prob,B.cluster=B.cluster,XB=XB,C=C,
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
@@ -173,7 +173,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
-#' @param unit column of basis matrix is unit vector if unit=TRUE The default is set by unit=FALSE.
+#' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
 #' @param div number of partition usually described as "k" of k-fold
 #' @param seed integer used as argument in set.seed function
 #'  which controls the reproducibility of the partition.
@@ -189,7 +189,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 #' table(result$block)
 #' result$objfunc
 
-nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",unit=FALSE,div=5,seed=123){
+nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",div=5,seed=123){
   is.symmetric.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)){
@@ -230,13 +230,10 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
     colnames(XB) <- colnames(Y)
     colnames(C) <- rownames(A)
     rownames(C) <- colnames(X)
-    P <- t(t(B)/colSums(B))
-    colnames(P) <- colnames(Y)
-    cluster <- apply(P,2,which.max)
     if(epsilon.iter > epsilon) warning(paste0(
       "maximum iterations (",maxit,
       ") reached and the optimization hasn't converged yet."))
-    return(list(B=B,XB=XB,P=P,cluster=cluster))
+    return(list(B=B,XB=XB))
   }
   is.identity <- is.identity.matrix(A)
   is.symmetric.matrix <- is.symmetric.matrix(A)
@@ -265,7 +262,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,unit,dims=FALSE)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,print.dims=FALSE)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB

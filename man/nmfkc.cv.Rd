@@ -12,7 +12,7 @@ nmfkc.cv(
   epsilon = 1e-04,
   maxit = 5000,
   method = "EU",
-  unit = FALSE,
+  X.column = "sum",
   div = 5,
   seed = 123
 )
@@ -34,7 +34,7 @@ kernel matrix A(N,N) can be created by nmfkc.kernel function.}
 
 \item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 
-\item{unit}{column of basis matrix is unit vector if unit=TRUE The default is set by unit=FALSE.}
+\item{X.column}{The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".}
 
 \item{div}{number of partition usually described as "k" of k-fold}
 

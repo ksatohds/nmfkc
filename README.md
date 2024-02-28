@@ -38,7 +38,7 @@ is covariate matrix. Note that identity matrix is used when there are no covaria
 - $X(P,Q)$: **unknown** basis matrix. Q is the number of basis (rank) and Q<=min(P,N).
 -  $C(Q,R)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
 - $B(Q,N)=C(Q,R)A(R,N)$ is regression coefficient matrix.
-- $P(Q,N)$ is probability matrix whose column sum is 1 for soft clustering based on regression coefficient matrix $B(Q,N)$.
+- $B.prob(Q,N)$ is probability matrix whose column sum is 1 for soft clustering based on regression coefficient matrix $B(Q,N)$.
 
 # References
 
@@ -107,10 +107,10 @@ for(q in 1:Q){
 n <- 1
 result$B[,n]
 result$B[,n]/sum(result$B[,n])
-result$P[,n]
+result$B.prob[,n]
 
-# hard clustering based on P
-mycol <- result$cluster
+# hard clustering based on B.prob
+mycol <- result$B.cluster
 library(NipponMap)
 par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
 JapanPrefMap(col=mycol+1)
@@ -161,13 +161,13 @@ legend("topright",legend=1:Q,fill=1:Q+1)
 n <- 1
 result$B[,n]
 result$B[,n]/sum(result$B[,n])
-result$P[,n]
+result$B.prob[,n]
 
-# soft clustering based on P
+# soft clustering based on B.prob
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(u0,type="n")
 legend("topright",legend=1:Q,fill=1:Q+1)
-stars(t(result$P),
+stars(t(result$B.prob),
       locations=u0,scale=F,
       draw.segments=TRUE,labels=colnames(Y),
       col.segments=1:Q+1,
@@ -228,7 +228,7 @@ B <- result$C %*% A
 P <- prop.table(B,2)
 P[,1:6]
 
-# soft clustering based on P (basis function 2) by using covariates
+# soft clustering based on B.prob (basis function 2) by using covariates
 z <- matrix(P[2,],nrow=length(v)) 
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 filled.contour(v,v,z,main="probability of basis function 2",
@@ -267,9 +267,9 @@ Y <- t(d)
 Q <- 3
 result <- nmfkc(Y,Q=Q)
 result$r.squared # coefficient of determination
-colnames(result$P) <- corp$Year
+colnames(result$B.prob) <- corp$Year
 par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=1)
-barplot(result$P,col=1:Q+1,legend=T,las=3,
+barplot(result$B.prob,col=1:Q+1,legend=T,las=3,
   ylab="Probabilities of topics")
 
 # basis function of which sum is 1
@@ -313,9 +313,9 @@ result <- nmfkc(Y,A,Q)
 result$r.squared # less than nmf without covariates
 
 # Topic probability changing over time
-colnames(result$P) <- corp$Year
+colnames(result$B.prob) <- corp$Year
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
-barplot(result$P,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
+barplot(result$B.prob,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
 ``` 
 
 
