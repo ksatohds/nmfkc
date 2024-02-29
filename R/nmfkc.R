@@ -29,18 +29,17 @@ nmfkc.kernel <- function(U,V=U,beta){
 }
 
 #' @title Optimizing NMF (Non-negative Matrix Factorization) with Kernel Covariate
-#' @description \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)=XB(Q,N)
+#' @description \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB
 #'  where observation matrix Y(P,N),
 #'  covariate matrix A(R,N),
-#'  basis matrix X(P,Q) and Q<=min(P,N)
-#'  and parameter matrix C(Q,R).
+#'  basis matrix X(P,Q) and Q<=min(P,N),
+#'  parameter matrix C(Q,R)
+#'  and coefficient matrix B(Q,N).
 #'  Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
-#' Or matrix A(R,N) having N columns can be accepted.
-#' kernel matrix A(N,N) can be created by nmfkc.kernel function.
 #' @param Q rank of basis matrix and Q<=min(P,N)
-#' @param gamma penalty parameter for C(Q,R) in objective function
+#' @param gamma penalty parameter for parameter matrix C
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
@@ -50,14 +49,13 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' @return X: basis matrix. The column sum depends on X.column.
 #' @return B: coefficient matrix, B=CA
 #' @return B.prob: probability matrix whose column sum is 1
-#' for soft clustering based on coefficient matrix B(Q,N).
-#' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob(Q,N)
-#' for hard clustering
-#' @return XB: prediction matrix or fitted values for observation matrix Y
+#' for soft clustering based on coefficient matrix B.
+#' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
+#' @return XB: fitted values for observation matrix Y
 #' @return C: parameter matrix
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
-#' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
+#' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -173,12 +171,17 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 }
 
 #' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate
-#' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y(P,N)
+#' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y~XCA=XB
+#'  where observation matrix Y(P,N),
+#'  covariate matrix A(R,N),
+#'  basis matrix X(P,Q) and Q<=min(P,N),
+#'  parameter matrix C(Q,R)
+#'  and coefficient matrix B(Q,N).
+#'  Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 #' @param Y observation matrix
-#' @param A covariate matrix A(R,N). Without covariate, identity matrix is used.
-#' Kernel matrix can be created by nmfkc.kernel function.
-#' @param Q rank of basis matrix and Q<=min(P,N)
-#' @param gamma penalty parameter for C(Q,R) in objective function
+#' @param A covariate matrix. Without covariate, identity matrix is used.
+#' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
+#' @param gamma penalty parameter for parameter matrix C
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
@@ -189,7 +192,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 #' @return objfunc: last objective function
 #' @return objfunc.block: objective function at each block
 #' @return block: partition block index (1,...,div) assigned to each column of Y
-#' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
+#' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
 #' @export
 #' @examples
 #' # install.packages("remotes")

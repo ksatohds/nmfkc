@@ -20,13 +20,11 @@ nmfkc(
 \arguments{
 \item{Y}{observation matrix}
 
-\item{A}{covariate matrix. Without covariate, identity matrix is used.
-Or matrix A(R,N) having N columns can be accepted.
-kernel matrix A(N,N) can be created by nmfkc.kernel function.}
+\item{A}{covariate matrix. Without covariate, identity matrix is used.}
 
 \item{Q}{rank of basis matrix and Q<=min(P,N)}
 
-\item{gamma}{penalty parameter for C(Q,R) in objective function}
+\item{gamma}{penalty parameter for parameter matrix C}
 
 \item{epsilon}{positive convergence tolerance}
 
@@ -46,12 +44,11 @@ X: basis matrix. The column sum depends on X.column.
 B: coefficient matrix, B=CA
 
 B.prob: probability matrix whose column sum is 1
-for soft clustering based on coefficient matrix B(Q,N).
+for soft clustering based on coefficient matrix B.
 
-B.cluster: the number of the basis that takes the maximum value of each column of B.prob(Q,N)
-for hard clustering
+B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 
-XB: prediction matrix or fitted values for observation matrix Y
+XB: fitted values for observation matrix Y
 
 C: parameter matrix
 
@@ -59,14 +56,15 @@ objfunc: last objective function
 
 objfunc.iter: objective function at each iteration
 
-r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
+r.squared: coefficient of determination R^2, squared correlation between Y and XB
 }
 \description{
-\code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)=XB(Q,N)
+\code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB
 where observation matrix Y(P,N),
 covariate matrix A(R,N),
-basis matrix X(P,Q) and Q<=min(P,N)
-and parameter matrix C(Q,R).
+basis matrix X(P,Q) and Q<=min(P,N),
+parameter matrix C(Q,R)
+and coefficient matrix B(Q,N).
 Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 }
 \examples{

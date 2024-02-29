@@ -20,12 +20,11 @@ nmfkc.cv(
 \arguments{
 \item{Y}{observation matrix}
 
-\item{A}{covariate matrix A(R,N). Without covariate, identity matrix is used.
-Kernel matrix can be created by nmfkc.kernel function.}
+\item{A}{covariate matrix. Without covariate, identity matrix is used.}
 
-\item{Q}{rank of basis matrix and Q<=min(P,N)}
+\item{Q}{rank of basis matrix and Q<=min(P,N) where Y(P,N)}
 
-\item{gamma}{penalty parameter for C(Q,R) in objective function}
+\item{gamma}{penalty parameter for parameter matrix C}
 
 \item{epsilon}{positive convergence tolerance}
 
@@ -47,10 +46,16 @@ objfunc.block: objective function at each block
 
 block: partition block index (1,...,div) assigned to each column of Y
 
-r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
+r.squared: coefficient of determination R^2, squared correlation between Y and XB
 }
 \description{
-\code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y(P,N)
+\code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y~XCA=XB
+where observation matrix Y(P,N),
+covariate matrix A(R,N),
+basis matrix X(P,Q) and Q<=min(P,N),
+parameter matrix C(Q,R)
+and coefficient matrix B(Q,N).
+Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 }
 \examples{
 # install.packages("remotes")
