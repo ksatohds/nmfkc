@@ -41,19 +41,19 @@ kernel matrix A(N,N) can be created by nmfkc.kernel function.}
 \item{print.dims}{display dimensions of matrix sizes if  print.dim=TRUE. The default is set by  print.dim=FALSE.}
 }
 \value{
-X(P,Q): basis matrix. The column sum depends on X.column.
+X: basis matrix. The column sum depends on X.column.
 
-B(Q,N): B(Q,N)=C(Q,R)A(R,N) coefficient matrix
+B: coefficient matrix, B=CA
 
-B.prob(Q,N): probability matrix whose column sum is 1
+B.prob: probability matrix whose column sum is 1
 for soft clustering based on coefficient matrix B(Q,N).
 
 B.cluster: the number of the basis that takes the maximum value of each column of B.prob(Q,N)
 for hard clustering
 
-XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
+XB: prediction matrix or fitted values for observation matrix Y
 
-C(Q,R): parameter matrix
+C: parameter matrix
 
 objfunc: last objective function
 

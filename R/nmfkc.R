@@ -47,14 +47,14 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if  print.dim=TRUE. The default is set by  print.dim=FALSE.
-#' @return X(P,Q): basis matrix. The column sum depends on X.column.
-#' @return B(Q,N): B(Q,N)=C(Q,R)A(R,N) coefficient matrix
-#' @return B.prob(Q,N): probability matrix whose column sum is 1
+#' @return X: basis matrix. The column sum depends on X.column.
+#' @return B: coefficient matrix, B=CA
+#' @return B.prob: probability matrix whose column sum is 1
 #' for soft clustering based on coefficient matrix B(Q,N).
 #' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob(Q,N)
 #' for hard clustering
-#' @return XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
-#' @return C(Q,R): parameter matrix
+#' @return XB: prediction matrix or fitted values for observation matrix Y
+#' @return C: parameter matrix
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
