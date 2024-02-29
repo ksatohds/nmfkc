@@ -4,10 +4,10 @@
 }
 
 #' @title Creating kernel matrix from covariates
-#' @description \code{nmfkc.kernel} create kernel matrix A(R,N) from covariate matrix U(R,N)
+#' @description \code{nmfkc.kernel} create kernel matrix from covariate matrix
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
-#' @param V covariate matrix V(K,M)=(v_1,...,v_N) usually used for prediction, and the default value is U.
-#' @param beta parameter of kernel matrix A of which element is defined by exp(-beta*|u_n-v_m|^2)
+#' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and the default value is U.
+#' @param beta parameter of kernel matrix A of which element is defined by Gauss kernel function, exp(-beta*|u_n-v_m|^2)
 #' @return kernel matrix A(N,M)
 #' @export
 #' @examples
@@ -28,13 +28,13 @@ nmfkc.kernel <- function(U,V=U,beta){
   return(A)
 }
 
-#' @title Optimizing NMF (Non-negative Matrix Factorization) with kernel covariate
-#' @description \code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariate described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
+#' @title Optimizing NMF (Non-negative Matrix Factorization) with Kernel Covariate
+#' @description \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)=XB(Q,N)
 #'  where observation matrix Y(P,N),
 #'  covariate matrix A(R,N),
 #'  basis matrix X(P,Q) and Q<=min(P,N)
-#'  and coefficient matrix C(Q,R).
-#'  Note that Y(N,P) and A(R,N) are known, and X(P,Q) and C(Q,R) are unknown.
+#'  and parameter matrix C(Q,R).
+#'  Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' Or matrix A(R,N) having N columns can be accepted.
@@ -48,9 +48,9 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if  print.dim=TRUE. The default is set by  print.dim=FALSE.
 #' @return X(P,Q): basis matrix. The column sum depends on X.column.
-#' @return B(Q,N): B(Q,N)=C(Q,R)A(R,N) regression coefficient matrix
+#' @return B(Q,N): B(Q,N)=C(Q,R)A(R,N) coefficient matrix
 #' @return B.prob(Q,N): probability matrix whose column sum is 1
-#' for soft clustering based on regression coefficient matrix B(Q,N).
+#' for soft clustering based on coefficient matrix B(Q,N).
 #' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob(Q,N)
 #' for hard clustering
 #' @return XB(P,N): XB(P,N)=X(P,Q)B(Q,N) prediction matrix or fitted values for observation matrix Y
@@ -64,7 +64,8 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' # remotes::install_github("ksatohds/nmfkc")
 #' library(nmfkc)
 #' Y <- t(iris[,-5])
-#' result <- nmfkc(Y,Q=2)
+#' Q <- 2
+#' result <- nmfkc(Y,Q=Q)
 #' # visualization of some results
 #' plot(result$objfunc.iter) # convergence
 #'
@@ -73,8 +74,15 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' main=paste0("r.squared=",round(result$r.squared,3)))
 #' abline(a=0,b=1,col=2)
 #'
-#' # dimension reduction based on regression coefficient B
+#' # dimension reduction based on coefficient matrix B
 #' plot(t(result$B))
+#'
+#' # soft clustering based on coefficient matrix B
+#' plot(t(result$B),col=as.numeric(iris$Species))
+#' legend("topright",legend=1:Q,fill=1:Q+1)
+#' stars(t(result$B.prob),locations=t(result$B),scale=FALSE,
+#'   draw.segments=TRUE,col.segments=1:Q+1,len=0.2,add=TRUE)
+
 
 nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",print.trace=FALSE,print.dims=TRUE){
   is.identity.matrix <- function(A){
@@ -164,12 +172,11 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
-#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariate
+#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate
 #' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y(P,N)
 #' @param Y observation matrix
-#' @param A covariate matrix. Without covariate, identity matrix is used.
-#' Or matrix A(R,N) having N columns can be accepted.
-#' kernel matrix A(N,N) can be created by nmfkc.kernel function.
+#' @param A covariate matrix A(R,N). Without covariate, identity matrix is used.
+#' Kernel matrix can be created by nmfkc.kernel function.
 #' @param Q rank of basis matrix and Q<=min(P,N)
 #' @param gamma penalty parameter for C(Q,R) in objective function
 #' @param epsilon positive convergence tolerance

@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.cv}
 \alias{nmfkc.cv}
-\title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with kernel covariate}
+\title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate}
 \usage{
 nmfkc.cv(
   Y,
@@ -20,9 +20,8 @@ nmfkc.cv(
 \arguments{
 \item{Y}{observation matrix}
 
-\item{A}{covariate matrix. Without covariate, identity matrix is used.
-Or matrix A(R,N) having N columns can be accepted.
-kernel matrix A(N,N) can be created by nmfkc.kernel function.}
+\item{A}{covariate matrix A(R,N). Without covariate, identity matrix is used.
+Kernel matrix can be created by nmfkc.kernel function.}
 
 \item{Q}{rank of basis matrix and Q<=min(P,N)}
 

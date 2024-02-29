@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc}
 \alias{nmfkc}
-\title{Optimizing NMF (Non-negative Matrix Factorization) with kernel covariate}
+\title{Optimizing NMF (Non-negative Matrix Factorization) with Kernel Covariate}
 \usage{
 nmfkc(
   Y,
@@ -43,10 +43,10 @@ kernel matrix A(N,N) can be created by nmfkc.kernel function.}
 \value{
 X(P,Q): basis matrix. The column sum depends on X.column.
 
-B(Q,N): B(Q,N)=C(Q,R)A(R,N) regression coefficient matrix
+B(Q,N): B(Q,N)=C(Q,R)A(R,N) coefficient matrix
 
 B.prob(Q,N): probability matrix whose column sum is 1
-for soft clustering based on regression coefficient matrix B(Q,N).
+for soft clustering based on coefficient matrix B(Q,N).
 
 B.cluster: the number of the basis that takes the maximum value of each column of B.prob(Q,N)
 for hard clustering
@@ -62,19 +62,20 @@ objfunc.iter: objective function at each iteration
 r.squared: coefficient of determination R^2, squared correlation between Y(P,N) and XB(P,N)
 }
 \description{
-\code{nmkcfreg} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with kernel covariate described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)
+\code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y(P,N)~X(P,Q)C(Q,R)A(R,N)=XB(Q,N)
 where observation matrix Y(P,N),
 covariate matrix A(R,N),
 basis matrix X(P,Q) and Q<=min(P,N)
-and coefficient matrix C(Q,R).
-Note that Y(N,P) and A(R,N) are known, and X(P,Q) and C(Q,R) are unknown.
+and parameter matrix C(Q,R).
+Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 }
 \examples{
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
 library(nmfkc)
 Y <- t(iris[,-5])
-result <- nmfkc(Y,Q=2)
+Q <- 2
+result <- nmfkc(Y,Q=Q)
 # visualization of some results
 plot(result$objfunc.iter) # convergence
 
@@ -83,6 +84,12 @@ plot(as.vector(result$XB),as.vector(Y),
 main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
 
-# dimension reduction based on regression coefficient B
+# dimension reduction based on coefficient matrix B
 plot(t(result$B))
+
+# soft clustering based on coefficient matrix B
+plot(t(result$B),col=as.numeric(iris$Species))
+legend("topright",legend=1:Q,fill=1:Q+1)
+stars(t(result$B.prob),locations=t(result$B),scale=FALSE,
+  draw.segments=TRUE,col.segments=1:Q+1,len=0.2,add=TRUE)
 }
