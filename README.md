@@ -21,9 +21,10 @@ There are three functions in **nmfkc** package.
 
 2. Using the common $X$ among $N$ individual observations, $[y_1,y_2,...,y_N] \approx X[b_1,...,b_N]$，i.e. $Y \approx XB$, this is called Non-Negative Matrix Factorization (NMF). The most significant difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
 
-3. Since all the matrices are non-negative, the components of the regression coefficients $b_n$ for each $n$ are also non-negative. Therefore we know the contribution of the bases $x_1,.., x_Q$ and those probabilities $p_{1,n},...,p_{Q,n}$ can be used for clustering.
+3. Since all the matrices are non-negative, the components of the regression coefficient $b=(b_1,...,b_Q)$ are also non-negative. Therefore the proportion $p_q=b_q/(b_1+...+b_Q)$ can be used for clustering.
 
-4. Furthermore, the regression coefficient matrix can be explained by covariates and its Gaussian kernel can be applied in Satoh (2023).
+4. Furthermore, the coefficient matrix can be explained by covariates.
+Satoh (2023) proposed Gaussian kernel function as covariates.
 Formally the model is contained in tri-NMF by Ding et al. (1964) and the update formula for optimization has been derived. The model can be described as a product of three matrices and is related to the growth curve model by Potthoff and Roy (1964). 
 
 # Matrices
