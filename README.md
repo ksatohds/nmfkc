@@ -29,7 +29,7 @@ Formally the model is contained in tri-NMF by Ding et al. (1964) and the update 
 
 # Matrices
 
-The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative Matrix Factorization with Kernel Covariate, $Y(P,N) \approx X(P,Q)B(Q,N)=X(P,Q)C(Q,R)A(R,N)$ where $Y(P,N)$ and $A(R,N)$ are given.
+The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative Matrix Factorization, $Y(P,N) \approx X(P,Q)C(Q,R)A(R,N)=XB(Q,N)$ where $Y(P,N)$ and $A(R,N)$ are given.
 
 - $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
 - $A(R,N)$: **given** covariate matrix. 
@@ -38,8 +38,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 is covariate matrix. Note that identity matrix is used when there are no covariates.
 - $X(P,Q)$: **unknown** basis matrix. Q is the number of basis (rank) and Q<=min(P,N).
 -  $C(Q,R)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
-- $B(Q,N)=C(Q,R)A(R,N)$ is regression coefficient matrix.
-- $B.prob(Q,N)$ is probability matrix whose column sum is 1 for soft clustering based on regression coefficient matrix $B(Q,N)$.
+- $B(Q,N)=C(Q,R)A(R,N)$ is coefficient matrix.
 
 # References
 
