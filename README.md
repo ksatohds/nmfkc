@@ -32,10 +32,9 @@ Formally the model is contained in tri-NMF by Ding et al. (1964) and the update 
 The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative Matrix Factorization, $Y(P,N) \approx X(P,Q)C(Q,R)A(R,N)=XB(Q,N)$ where $Y(P,N)$ and $A(R,N)$ are given.
 
 - $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
-- $A(R,N)$: **given** covariate matrix. 
-  The kernel matrix A(N,N) can be created by nmfkc.kernel function and its $(i,j)$ element
-  can be written as Gauss kernel, $K(u_i,u_j)=exp(−\beta|u_i-u_j|^2)$ here $U(R,N)=(u_1,...u_N)$ 
-is covariate matrix. Note that identity matrix is used when there are no covariates.
+- $A(R,N)$: **given** covariate matrix.
+  The covariate matrix can be created by nmfkc.kernel function.
+  Note that identity matrix is used when there are no covariates.
 - $X(P,Q)$: **unknown** basis matrix. Q is the number of basis (rank) and Q<=min(P,N).
 -  $C(Q,R)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
 - $B(Q,N)=C(Q,R)A(R,N)$ is coefficient matrix.
