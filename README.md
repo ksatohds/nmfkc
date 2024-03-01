@@ -21,7 +21,7 @@ There are three functions in **nmfkc** package.
 
 2. Using the common $X$ among $N$ individual observations, $[y_1,y_2,...,y_N] \approx X[b_1,...,b_N]$，i.e. $Y \approx XB$, this is called Non-Negative Matrix Factorization (NMF). The most significant difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
 
-3. Since all the matrices are non-negative, the components of the regression coefficient $b=(b_1,...,b_Q)$ are also non-negative. Therefore the proportion $p_q=b_q/(b_1+...+b_Q)$ can be used for clustering.
+3. Since all the matrices are non-negative, the components of the regression coefficient $b=(b_1,...,b_Q)$ are also non-negative. Therefore the proportion $p_q=b_q/(b_1+...+b_Q)$, $q=1,...,Q$ can be used for soft clustering.
 
 4. Furthermore, the coefficient matrix can be explained by covariates.
 Satoh (2023) proposed Gaussian kernel function as covariates.
