@@ -1,5 +1,12 @@
 # nmfkc 0.2.4
-- 0.2.4 Name changed from nmfkcreg to nmfkc
+- 0.2.4 Name changed from nmfkcreg to nmfkc,
+  - from create.kernel to nmfkc.kernel
+  - from nmfkcreg.cv to nmfkc.cv
+  - from P to B.prob
+  - from cluster to B.cluster
+  - from unit to X.column
+  - from trace to print.trace
+  - from dims to print.dims
 - 0.2.3 Append argument "r.squared" in "nmfkcreg.cv" function
 - 0.2.2 Append argument "dims" to check the matrix sizes, argument "unit" to make the column of basis matrix be unit in "nmfkcreg" function
 - 0.2.1 create.kernel function was modified for prediction
