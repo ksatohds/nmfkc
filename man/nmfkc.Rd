@@ -70,24 +70,29 @@ Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 \examples{
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
+# Example 1.
 library(nmfkc)
 Y <- t(iris[,-5])
 Q <- 2
 result <- nmfkc(Y,Q=Q)
 # visualization of some results
 plot(result$objfunc.iter) # convergence
-
 # goodness of fit
 plot(as.vector(result$XB),as.vector(Y),
 main=paste0("r.squared=",round(result$r.squared,3)))
 abline(a=0,b=1,col=2)
-
 # dimension reduction based on coefficient matrix B
 plot(t(result$B))
-
 # soft clustering based on coefficient matrix B
 plot(t(result$B),col=as.numeric(iris$Species))
 legend("topright",legend=1:Q,fill=1:Q+1)
 stars(t(result$B.prob),locations=t(result$B),scale=FALSE,
   draw.segments=TRUE,col.segments=1:Q+1,len=0.2,add=TRUE)
+
+# Example 2.
+Y <- matrix(cars$dist,nrow=1)
+A <- rbind(1,cars$speed)
+result <- nmfkc(Y,A,Q=1)
+plot(as.vector(A[2,]),as.vector(Y))
+lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
 }

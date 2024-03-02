@@ -22,9 +22,19 @@ kernel matrix A(N,M)
 \examples{
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
+# Example 1.
 U <- matrix(1:3,nrow=1,ncol=3)
 print(U)
 A <- nmfkc.kernel(U,beta=1)
 print(A)
 print(log(A))
+
+# Example 2.
+Y <- matrix(cars$dist,nrow=1)
+U <- matrix(c(5,10,15,20,25),nrow=1)
+V <- matrix(cars$speed,nrow=1)
+A <- nmfkc.kernel(U,V,beta=0.031) # see, nmfkc.cv
+result <- nmfkc(Y,A,Q=1)
+plot(as.vector(V),as.vector(Y))
+lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }

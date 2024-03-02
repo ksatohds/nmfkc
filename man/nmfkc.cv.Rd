@@ -60,9 +60,31 @@ Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 \examples{
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
-library(nmfkc)
-Y <- t(iris[,-5])
-result <- nmfkc.cv(Y,Q=2)
-table(result$block)
-result$objfunc
+# Example 1.
+Y <- matrix(cars$dist,nrow=1)
+A <- rbind(1,cars$speed)
+result <- nmfkc.cv(Y,A,Q=1)
+
+# Example 2.
+Y <- matrix(cars$dist,nrow=1)
+U <- matrix(c(5,10,15,20,25),nrow=1)
+V <- matrix(cars$speed,nrow=1)
+betas <- 20:40/1000
+objfuncs <- 0*(1:length(betas))
+for(i in 1:length(betas)){
+  print(i)
+  A <- nmfkc.kernel(U,V,beta=betas[i])
+  result <- nmfkc.cv(Y,A,Q=1,div=10)
+  objfuncs[i] <- result$objfunc
+}
+min(objfuncs)
+(beta.best <- betas[which.min(objfuncs)])
+# objective function by beta
+plot(betas,objfuncs,type="o",log="x")
+table(result$block) # partition block of cv
+# fitted curve
+A <- nmfkc.kernel(U,V,beta=beta.best)
+result <- nmfkc(Y,A,Q=1)
+plot(as.vector(V),as.vector(Y))
+lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }

@@ -13,11 +13,21 @@
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
+#' # Example 1.
 #' U <- matrix(1:3,nrow=1,ncol=3)
 #' print(U)
 #' A <- nmfkc.kernel(U,beta=1)
 #' print(A)
 #' print(log(A))
+#'
+#' # Example 2.
+#' Y <- matrix(cars$dist,nrow=1)
+#' U <- matrix(c(5,10,15,20,25),nrow=1)
+#' V <- matrix(cars$speed,nrow=1)
+#' A <- nmfkc.kernel(U,V,beta=0.031) # see, nmfkc.cv
+#' result <- nmfkc(Y,A,Q=1)
+#' plot(as.vector(V),as.vector(Y))
+#' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
 nmfkc.kernel <- function(U,V=U,beta){
   kernel <- function(m){
@@ -60,27 +70,31 @@ nmfkc.kernel <- function(U,V=U,beta){
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
+#' # Example 1.
 #' library(nmfkc)
 #' Y <- t(iris[,-5])
 #' Q <- 2
 #' result <- nmfkc(Y,Q=Q)
 #' # visualization of some results
 #' plot(result$objfunc.iter) # convergence
-#'
 #' # goodness of fit
 #' plot(as.vector(result$XB),as.vector(Y),
 #' main=paste0("r.squared=",round(result$r.squared,3)))
 #' abline(a=0,b=1,col=2)
-#'
 #' # dimension reduction based on coefficient matrix B
 #' plot(t(result$B))
-#'
 #' # soft clustering based on coefficient matrix B
 #' plot(t(result$B),col=as.numeric(iris$Species))
 #' legend("topright",legend=1:Q,fill=1:Q+1)
 #' stars(t(result$B.prob),locations=t(result$B),scale=FALSE,
 #'   draw.segments=TRUE,col.segments=1:Q+1,len=0.2,add=TRUE)
-
+#'
+#' # Example 2.
+#' Y <- matrix(cars$dist,nrow=1)
+#' A <- rbind(1,cars$speed)
+#' result <- nmfkc(Y,A,Q=1)
+#' plot(as.vector(A[2,]),as.vector(Y))
+#' lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
 
 nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",print.trace=FALSE,print.dims=TRUE){
   is.identity.matrix <- function(A){
@@ -197,11 +211,34 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
-#' library(nmfkc)
-#' Y <- t(iris[,-5])
-#' result <- nmfkc.cv(Y,Q=2)
-#' table(result$block)
+#' # Example 1.
+#' Y <- matrix(cars$dist,nrow=1)
+#' A <- rbind(1,cars$speed)
+#' result <- nmfkc.cv(Y,A,Q=1)
 #' result$objfunc
+#'
+#' # Example 2.
+#' Y <- matrix(cars$dist,nrow=1)
+#' U <- matrix(c(5,10,15,20,25),nrow=1)
+#' V <- matrix(cars$speed,nrow=1)
+#' betas <- 20:40/1000
+#' objfuncs <- 0*(1:length(betas))
+#' for(i in 1:length(betas)){
+#'   print(i)
+#'   A <- nmfkc.kernel(U,V,beta=betas[i])
+#'   result <- nmfkc.cv(Y,A,Q=1,div=10)
+#'   objfuncs[i] <- result$objfunc
+#' }
+#' min(objfuncs)
+#' (beta.best <- betas[which.min(objfuncs)])
+#' # objective function by beta
+#' plot(betas,objfuncs,type="o",log="x")
+#' table(result$block) # partition block of cv
+#' # fitted curve
+#' A <- nmfkc.kernel(U,V,beta=beta.best)
+#' result <- nmfkc(Y,A,Q=1)
+#' plot(as.vector(V),as.vector(Y))
+#' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
 nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",div=5,seed=123){
   is.symmetric.matrix <- function(A){

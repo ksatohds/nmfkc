@@ -340,7 +340,7 @@ par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(U,Y)
 lines(U,result$XB,col=2)
 
-# cv for optimization of beta and gamma
+# cv for optimization of beta
 betas <- c(1,2,5,10,20)/100
 objfuncs <- 0*(1:length(betas))
 for(i in 1:length(betas)){
