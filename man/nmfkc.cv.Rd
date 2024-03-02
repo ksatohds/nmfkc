@@ -64,6 +64,7 @@ Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 Y <- matrix(cars$dist,nrow=1)
 A <- rbind(1,cars$speed)
 result <- nmfkc.cv(Y,A,Q=1)
+result$objfunc
 
 # Example 2.
 Y <- matrix(cars$dist,nrow=1)
