@@ -42,9 +42,8 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 # References
 
 - Kenichi Satoh (2023)
-  On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates,
-  Japanese Journal of Applied Statistics, 52 (2), in press.
-[(preprint)](https://drive.google.com/file/d/1MnbJOPlcm0hn27WpP8rvcAgzy5X2E53B/view?usp=sharing)
+  Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model
+[(arXiv)](https://arxiv.org/abs/2403.05359)
 - Ding, Chris and Li, Tao and Peng, Wei and Park, Haesun (2006)
   Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
   Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135.
