@@ -3,6 +3,9 @@
 \name{nmfkc.cv}
 \alias{nmfkc.cv}
 \title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate}
+\source{
+Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
+}
 \usage{
 nmfkc.cv(
   Y,
@@ -88,4 +91,9 @@ A <- nmfkc.kernel(U,V,beta=beta.best)
 result <- nmfkc(Y,A,Q=1)
 plot(as.vector(V),as.vector(Y))
 lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
+}
+\references{
+Ding, Chris and Li, Tao and Peng, Wei and Park, Haesun (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. \url{https://doi.org/10.1145/1150402.1150420}
+
+Potthoff, Richard F., and Roy, S. N. (1964) A generalized multivariate analysis of variance model useful especially for growth curve problems, Biometrika, 51 (3/4), 313–326. \url{https://doi.org/10.2307/2334137}
 }
