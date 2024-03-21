@@ -1,5 +1,5 @@
 # nmfkc 0.2.5
-- 0.2.5 Addition of references
+- 0.2.5 Addition of source and references in help
 - 0.2.4 Name changed from nmfkcreg to nmfkc,
   - from create.kernel to nmfkc.kernel
   - from nmfkcreg.cv to nmfkc.cv

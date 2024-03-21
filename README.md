@@ -24,7 +24,7 @@ There are three functions in **nmfkc** package.
 3. Since all the matrices are non-negative, the components of the regression coefficient $b=(b_1,...,b_Q)$ are also non-negative. Therefore the proportion $p_q=b_q/(b_1+...+b_Q)$, $q=1,...,Q$ can be used for soft clustering.
 
 4. Furthermore, the coefficient matrix can be explained by covariate $a$, i.e., $B=C A$ where $A=[a_1,a_2,...,a_N]$ and $C$ is the parameter matrix to be optimized.
-Satoh (2023) proposed Gaussian kernel function as covariates.
+Satoh (2024) proposed Gaussian kernel function as covariates.
 Formally the model is contained in tri-NMF by Ding et al. (1964) and the update formula for optimization has been derived. The model can be described as a product of three matrices and is related to the growth curve model by Potthoff and Roy (1964). 
 
 # Matrices
@@ -36,22 +36,17 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
   The covariate matrix can be created by nmfkc.kernel function.
   Note that identity matrix is used when there are no covariates.
 - $X(P,Q)$: **unknown** basis matrix. Q is the number of basis (rank) and Q<=min(P,N).
--  $C(Q,R)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2023). 
+-  $C(Q,R)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2024). 
 - $B(Q,N)=C(Q,R)A(R,N)$ is coefficient matrix.
+
+# Source
+
+- Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 
 # References
 
-- Kenichi Satoh (2023)
-  Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model.
-  https://doi.org/10.48550/arXiv.2403.05359
-- Ding, Chris and Li, Tao and Peng, Wei and Park, Haesun (2006)
-  Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering,
-  Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135.
-  https://doi.org/10.1145/1150402.1150420
-- Potthoff, Richard F., and Roy, S. N. (1964) 
-  A generalized multivariate analysis of variance model useful especially for growth curve problems,
-  Biometrika, 51 (3/4), 313–326.
-  https://doi.org/10.2307/2334137
+- Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. \url{https://doi.org/10.1145/1150402.1150420}
+- Potthoff, R.F., and Roy, S.N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems. Biometrika, 51, 313-326. \url{https://doi.org/10.2307/2334137}
 
 # Examples
 
