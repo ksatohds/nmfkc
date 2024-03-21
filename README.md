@@ -23,7 +23,7 @@ There are three functions in **nmfkc** package.
 
 3. Since all the matrices are non-negative, the components of the regression coefficient $b=(b_1,...,b_Q)$ are also non-negative. Therefore the proportion $p_q=b_q/(b_1+...+b_Q)$, $q=1,...,Q$ can be used for soft clustering.
 
-4. Furthermore, the coefficient matrix can be explained by covariate $a$, i.e., $B=\Theta A$ where $A=[a_1,a_2,...,a_N]$ and $\Theta$ is parameter matrix to be optimized.
+4. Furthermore, the coefficient matrix can be explained by covariate $a$, i.e., $B=C A$ where $A=[a_1,a_2,...,a_N]$ and $C$ is the parameter matrix to be optimized.
 Satoh (2023) proposed Gaussian kernel function as covariates.
 Formally the model is contained in tri-NMF by Ding et al. (1964) and the update formula for optimization has been derived. The model can be described as a product of three matrices and is related to the growth curve model by Potthoff and Roy (1964). 
 
