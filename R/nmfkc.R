@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 22nd Mar 2024")
+  packageStartupMessage("Last update on 20th Mar 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -113,10 +113,24 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   set.seed(123)
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(!is.matrix(Y)) Y <- as.matrix(Y)
-  if(min(A)<0) warning("Minimum value of A is negative. It should be a non-negative matrix.")
-  if(min(Y)<0) warning("Minimum value of Y is negative. It should be a non-negative matrix.")
-  if(nrow(Y)>=2 & sum(colSums(Y)==0)>0) warning("There is a column of Y of which elements are all zero. Some elements should be positive.")
-  if(nrow(Y)>=2 & sum(rowSums(Y)==0)>0) warning("There is a row of Y of which elements are all zero. Some elements should be positive.")
+  if(min(A)<0){
+    warning("Minimum value of A is negative. It should be a non-negative matrix.")
+    stop()
+  }
+  if(min(Y)<0){
+    warning("Minimum value of Y is negative. It should be a non-negative matrix.")
+    stop()
+  }
+  if(nrow(Y)>=2 & sum(colSums(Y)==0)>0){
+    warning("There is a column of Y of which elements are all zero. Some elements should be positive.")
+    Y <- Y[,colSums(Y)>0]
+    warning("Those columns were removed.")
+  }
+  if(nrow(Y)>=2 & sum(rowSums(Y)==0)>0){
+    warning("There is a row of Y of which elements are all zero. Some elements should be positive.")
+    Y <- Y[rowSums(Y)>0,]
+    warning("Those rows were removed.")
+  }
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
       if(ncol(Y)==Q){

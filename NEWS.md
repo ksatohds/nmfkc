@@ -1,4 +1,5 @@
-# nmfkc 0.2.5
+# nmfkc 0.2.6
+- 0.2.6 Zero columns and rows are removed with warnings
 - 0.2.5 Addition of source and references in help
 - 0.2.4 Name changed from nmfkcreg to nmfkc,
   - from create.kernel to nmfkc.kernel
