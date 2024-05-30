@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 20th Mar 2024")
+  packageStartupMessage("Last update on 31st Mar 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -122,14 +122,12 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
     stop()
   }
   if(nrow(Y)>=2 & sum(colSums(Y)==0)>0){
-    warning("There is a column of Y of which elements are all zero. Some elements should be positive.")
     Y <- Y[,colSums(Y)>0]
-    warning("Those columns were removed.")
+    warning("The columns in which all components of Y are zero are removed.")
   }
   if(nrow(Y)>=2 & sum(rowSums(Y)==0)>0){
-    warning("There is a row of Y of which elements are all zero. Some elements should be positive.")
     Y <- Y[rowSums(Y)>0,]
-    warning("Those rows were removed.")
+    warning("The rows in which all components of Y are zero are removed.")
   }
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
