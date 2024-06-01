@@ -372,6 +372,7 @@ result <- nmfkc(Y,A,Q=1)
 A <- nmfkc.kernel(U,V,method="Periodic",beta=c(11,0.07))
 XB <- result$X %*% result$C %*% A
 lines(as.vector(V),as.vector(XB),col=4,lwd=2)
+legend("topleft",legend=c("Gaussian","Periodic"),fill=c(2,4))
 ```
 
 ## 5. Growth curve model
