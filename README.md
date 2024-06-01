@@ -365,6 +365,13 @@ A <- nmfkc.kernel(U,V,beta=beta.best)
 XB <- result$X %*% result$C %*% A
 plot(x,as.vector(Y))
 lines(V,as.vector(XB),col=2,lwd=2)
+
+# Periodic kernel function
+A <- nmfkc.kernel(U,method="Periodic",beta=c(11,0.07))
+result <- nmfkc(Y,A,Q=1)
+A <- nmfkc.kernel(U,V,method="Periodic",beta=c(11,0.07))
+XB <- result$X %*% result$C %*% A
+lines(as.vector(V),as.vector(XB),col=4,lwd=2)
 ```
 
 ## 5. Growth curve model
