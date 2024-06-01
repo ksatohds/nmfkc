@@ -85,7 +85,7 @@ par(mfrow=c(7,7),mar=c(0,0,0,0)+0.1,cex=1)
 for(n in 1:ncol(Y)){
   plot(Y[,n],axes=F,type="l") # observation
   lines(result$XB[,n],col=2) # fitted values
-  text(1,max(Y[,n])/2,colnames(Y)[n],pos=4)
+  legend("topleft",legend=colnames(Y)[n],x.intersp=-0.5,bty="n")  
   box()
 }
 
@@ -110,7 +110,6 @@ par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
 JapanPrefMap(col=mycol+1)
 legend("left",fill=1:Q+1,legend=1:Q)
 ``` 
-
 
 ## 2. Spatiotemporal Analysis
 -  CanadianWeather
@@ -139,7 +138,7 @@ for(n in 1:ncol(Y)){
   plot(Y[,n],ylim=range(Y),axes=F,type="l") # observation
   lines(result$XB[,n],col=2) # fitted values
   abline(h=-min(d),col="gray",lty=3,lwd=3)
-  text(median(1:365),0,colnames(Y)[n],pos=3)
+  legend("topleft",legend=colnames(Y)[n],x.intersp=-0.5,bty="n")  
   box()
 }
 
