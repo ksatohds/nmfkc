@@ -44,6 +44,10 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=1){
     if(method=="Linear") k <- t(U) %*% V[,m]
     return(k)}
   A <- NULL; for(m in 1:ncol(V)) A <- cbind(A,kernel(m))
+  if(method=="Linear" & min(A)<0){
+    warning("Minimum value of A is negative. Linear kernel can not be applied.")
+    stop()
+  }
   return(A)
 }
 
@@ -67,8 +71,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=1){
 #' @param print.dims display dimensions of matrix sizes if  print.dim=TRUE. The default is set by  print.dim=FALSE.
 #' @return X: basis matrix. The column sum depends on X.column.
 #' @return B: coefficient matrix, B=CA
-#' @return B.prob: probability matrix whose column sum is 1
-#' for soft clustering based on coefficient matrix B.
+#' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
 #' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 #' @return XB: fitted values for observation matrix Y
 #' @return C: parameter matrix
