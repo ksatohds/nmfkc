@@ -387,6 +387,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
 #' @return correlation
+#' @export
 
 nmfkc.consensus <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,resampleit=1000,hclust.method="average",...){
   arglist=list(...)
