@@ -39,15 +39,14 @@ nmfkc(
 
 \item{print.trace}{display current iteration every 10 times if print.trace=TRUE}
 
-\item{print.dims}{display dimensions of matrix sizes if  print.dim=TRUE. The default is set by  print.dim=FALSE.}
+\item{print.dims}{display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.}
 }
 \value{
 X: basis matrix. The column sum depends on X.column.
 
 B: coefficient matrix, B=CA
 
-B.prob: probability matrix whose column sum is 1
-for soft clustering based on coefficient matrix B.
+B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
 
 B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 

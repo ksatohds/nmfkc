@@ -7,18 +7,7 @@
 Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 }
 \usage{
-nmfkc.cv(
-  Y,
-  A = diag(ncol(Y)),
-  Q = 2,
-  gamma = 0,
-  epsilon = 1e-04,
-  maxit = 5000,
-  method = "EU",
-  X.column = "sum",
-  div = 5,
-  seed = 123
-)
+nmfkc.cv(Y, A = diag(ncol(Y)), Q = 2, div = 5, seed = 123, ...)
 }
 \arguments{
 \item{Y}{observation matrix}
@@ -27,19 +16,11 @@ nmfkc.cv(
 
 \item{Q}{rank of basis matrix and Q<=min(P,N) where Y(P,N)}
 
-\item{gamma}{penalty parameter for parameter matrix C}
-
-\item{epsilon}{positive convergence tolerance}
-
-\item{maxit}{maximum number of iterations}
-
-\item{method}{default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
-
-\item{X.column}{default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".}
-
 \item{div}{number of partition usually described as "k" of k-fold}
 
-\item{seed}{integer used as argument in set.seed function
+\item{seed}{integer used as argument in set.seed function}
+
+\item{...}{arguments to be passed to nmfkc function.
 which controls the reproducibility of the partition.}
 }
 \value{

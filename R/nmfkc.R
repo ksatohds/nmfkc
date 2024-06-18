@@ -1,7 +1,8 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 2nd Jun 2024")
+  packageStartupMessage("Last update on 18th Jun 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
+
 
 #' @title Creating kernel matrix from covariates
 #' @description \code{nmfkc.kernel} create kernel matrix from covariate matrix
@@ -51,6 +52,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=1){
   return(A)
 }
 
+
 #' @title Optimizing NMF (Non-negative Matrix Factorization) with Kernel Covariate
 #' @description \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB
 #'  where observation matrix Y(P,N),
@@ -68,7 +70,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=1){
 #' @param method The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
 #' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
-#' @param print.dims display dimensions of matrix sizes if  print.dim=TRUE. The default is set by  print.dim=FALSE.
+#' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
 #' @return X: basis matrix. The column sum depends on X.column.
 #' @return B: coefficient matrix, B=CA
 #' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
@@ -211,6 +213,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
               objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
 }
 
+
 #' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate
 #' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y~XCA=XB
 #'  where observation matrix Y(P,N),
@@ -222,13 +225,9 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
-#' @param gamma penalty parameter for parameter matrix C
-#' @param epsilon positive convergence tolerance
-#' @param maxit maximum number of iterations
-#' @param method default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
-#' @param X.column default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
 #' @param div number of partition usually described as "k" of k-fold
 #' @param seed integer used as argument in set.seed function
+#' @param ... arguments to be passed to nmfkc function.
 #'  which controls the reproducibility of the partition.
 #' @return objfunc: last objective function
 #' @return objfunc.block: objective function at each block
@@ -270,7 +269,15 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",div=5,seed=123){
+nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
+  arglist=list(...)
+  gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
+  epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
+  maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
+  method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
+  X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
+  print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
+  print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
   is.symmetric.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)){
@@ -343,7 +350,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,print.dims=FALSE)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,print.trace,print.dims)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -366,4 +373,63 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,metho
   objfunc <- sum(objfunc.block)
   r.squared <- stats::cor(XBvec,Yvec)^2
   return(list(objfunc=objfunc,objfunc.block=objfunc.block,block=index,r.squared=r.squared))
+}
+
+
+#' @title Rank diagnostics with figure
+#' @description \code{nmfkc.consensus} provides rank diagnostics. The method is still under development.
+#' @param Y observation matrix
+#' @param A covariate matrix. Without covariate, identity matrix is used.
+#' @param Q vector of ranks to be diagnosed.
+#' @param draw.figure draw a diagram for diagnosis
+#' @param resampleit number of parametric bootstrap iterations
+#' @param hclust.method option of hclust for calculating cophenetic distances
+#' @param ... arguments to be passed to nmfkc function.
+#' @return r.squared
+#' @return correlation
+
+nmfkc.consensus <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,resampleit=1000,hclust.method="average",...){
+  arglist=list(...)
+  gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
+  epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
+  maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
+  method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
+  X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
+  print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
+  print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
+  myrmultinom <- function(prob.mat) stats::rmultinom(n=1,size=1,prob=prob.mat)
+  r.squared <- 0*Q
+  names(r.squared) <- Q
+  correlation <- 0*Q
+  names(correlation) <- Q
+  for(q in 1:length(Q)){
+    result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,print.trace,print.dims)
+    r.squared[q] <- result$r.squared
+    M <- matrix(0,nrow=ncol(Y),ncol=ncol(Y))
+    for(h in 1:resampleit){
+      set.seed(h)
+      class.mat <-  apply(result$B.prob,2,myrmultinom)
+      Mh <- t(class.mat) %*% class.mat
+      M <- M+Mh
+    }
+    M <- M/resampleit
+    Y.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::dist(t(Y)),method=hclust.method)))
+    up <- upper.tri(M)
+    correlation[q] <- stats::cor(Y.dist[up],(1-M)[up])
+  }
+  if(draw.figure){
+    graphics::par(mar=c(5,4,4,4)+0.1)
+    plot(Q,correlation,type="l",col=2,axes=F,xlab="Rank",ylab="")
+    graphics::text(Q,correlation,Q)
+    graphics::axis(side=1,at=Q)
+    graphics::axis(side=2,col=2,col.axis=2)
+    graphics::mtext(side=2,text="Consensus correlation",line=2.5,col=2)
+    graphics::par(new=T)
+    plot(Q,r.squared,type="l",col=4,axes=F,xlab="",ylab="")
+    graphics::text(Q,r.squared,Q)
+    graphics::axis(side=4,col=4,col.axis=4)
+    graphics::mtext(side=4,text="R.squared",line=2.5,col=4)
+    graphics::box()
+  }
+  invisible(list(Q=Q,r.squared=r.squared,correlation=correlation))
 }
