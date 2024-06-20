@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 18th Jun 2024")
+  packageStartupMessage("Last update on 21st Jun 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -376,20 +376,22 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
 }
 
 
-#' @title Rank diagnostics with figure
-#' @description \code{nmfkc.consensus} provides rank diagnostics. The method is still under development.
+#' @title Rank selection diagnostics with figure
+#' @description \code{nmfkc.rank} provides rank selection diagnostics. The method is still under development.
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q vector of ranks to be diagnosed.
 #' @param draw.figure draw a diagram for diagnosis
 #' @param resampleit number of parametric bootstrap iterations
-#' @param hclust.method option of hclust for calculating cophenetic distances
+#' @param hclust.method option of hclust for calculating Cophenetic distances
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
-#' @return correlation
+#' @return correlation: Cophenetic correlation coefficient
 #' @export
+#' @references Brunet, J.P.; Tamayo, P.; Golub, T.R.; Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
+#' @references Fogel, P.; Geissler, C.; Morizet, N. Luta, G. (2023) On Rank Selection in Non-Negative Matrix Factorization Using Concordance. Mathematics 2023, 11, 4611. \url{https://doi.org/10.3390/math11224611}
 
-nmfkc.consensus <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,resampleit=1000,hclust.method="average",...){
+nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,resampleit=1000,hclust.method="average",...){
   arglist=list(...)
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
@@ -424,7 +426,7 @@ nmfkc.consensus <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.fi
     graphics::text(Q,correlation,Q)
     graphics::axis(side=1,at=Q)
     graphics::axis(side=2,col=2,col.axis=2)
-    graphics::mtext(side=2,text="Consensus correlation",line=2.5,col=2)
+    graphics::mtext(side=2,text="Cophenetic correlation coefficient",line=2.5,col=2)
     graphics::par(new=T)
     plot(Q,r.squared,type="l",col=4,axes=F,xlab="",ylab="")
     graphics::text(Q,r.squared,Q)
