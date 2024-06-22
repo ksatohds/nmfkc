@@ -76,8 +76,8 @@ rownames(Y) <- unique(d$Date)
 Y <- Y[rowSums(Y)!=0,]
 
 # nmf
-Q <- 6
-result <- nmfkc(Y,Q=Q,nstart=100)
+Q <- 4
+result <- nmfkc(Y,Q=Q)
 result$r.squared # goodness of fit
 
 # individual fit
@@ -103,12 +103,19 @@ result$B[,n]
 result$B[,n]/sum(result$B[,n])
 result$B.prob[,n]
 
-# hard clustering based on B.prob
-mycol <- result$B.cluster
+# soft clustering based on B.prob
 library(NipponMap)
 par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
-JapanPrefMap(col=mycol+1)
-legend("left",fill=1:Q+1,legend=1:Q)
+jmap <- JapanPrefMap(col="white",axes=TRUE)
+stars(x=t(result$B.prob),scale=F,
+      locations=jmap,
+      key.loc =c(145,34),
+      draw.segments=T,len=1,
+      labels=NULL,
+      col.segments=c(1:Q)+1,add=T)
+
+# hard clustering based on B.prob
+table(result$B.cluster)
 ``` 
 
 ## 2. Spatiotemporal Analysis
