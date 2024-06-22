@@ -410,7 +410,7 @@ nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=
     r.squared[q] <- result$r.squared
     M <- t(result$B.prob) %*% result$B.prob
     P.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
-    up <- upper.tri(P)
+    up <- upper.tri(M)
     correlation[q] <- stats::cor(P.dist[up],(1-M)[up])
   }
   if(draw.figure){
