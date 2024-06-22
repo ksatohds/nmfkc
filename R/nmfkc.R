@@ -391,7 +391,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
 #' @references Brunet, J.P.; Tamayo, P.; Golub, T.R.; Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
 #' @references Fogel, P.; Geissler, C.; Morizet, N. Luta, G. (2023) On Rank Selection in Non-Negative Matrix Factorization Using Concordance. Mathematics 2023, 11, 4611. \url{https://doi.org/10.3390/math11224611}
 
-nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,resampleit=1000,hclust.method="average",...){
+nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,hclust.method="average",...){
   arglist=list(...)
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
@@ -408,17 +408,10 @@ nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=
   for(q in 1:length(Q)){
     result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,print.trace,print.dims)
     r.squared[q] <- result$r.squared
-    M <- matrix(0,nrow=ncol(Y),ncol=ncol(Y))
-    for(h in 1:resampleit){
-      set.seed(h)
-      class.mat <-  apply(result$B.prob,2,myrmultinom)
-      Mh <- t(class.mat) %*% class.mat
-      M <- M+Mh
-    }
-    M <- M/resampleit
-    M.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
-    up <- upper.tri(M)
-    correlation[q] <- stats::cor(M.dist[up],(1-M)[up])
+    M <- t(result$B.prob) %*% result$B.prob
+    P.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
+    up <- upper.tri(P)
+    correlation[q] <- stats::cor(P.dist[up],(1-M)[up])
   }
   if(draw.figure){
     graphics::par(mar=c(5,4,4,4)+0.1)
