@@ -16,6 +16,7 @@ nmfkc(
   maxit = 5000,
   method = "EU",
   X.column = "sum",
+  nstart = 1,
   print.trace = FALSE,
   print.dims = TRUE
 )
@@ -36,6 +37,8 @@ nmfkc(
 \item{method}{The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 
 \item{X.column}{The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".}
+
+\item{nstart}{The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.}
 
 \item{print.trace}{display current iteration every 10 times if print.trace=TRUE}
 

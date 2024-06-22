@@ -69,6 +69,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=1){
 #' @param maxit maximum number of iterations
 #' @param method The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
 #' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
+#' @param nstart The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
 #' @return X: basis matrix. The column sum depends on X.column.
@@ -113,7 +114,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=1){
 #' plot(as.vector(A[2,]),as.vector(Y))
 #' lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",print.trace=FALSE,print.dims=TRUE){
+nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",nstart=1,print.trace=FALSE,print.dims=TRUE){
   is.identity.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
@@ -145,7 +146,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
       if(ncol(Y)==Q){
         X <- Y
       }else{
-        res.kmeans <- stats::kmeans(t(Y),centers=Q,iter.max=maxit)
+        res.kmeans <- stats::kmeans(t(Y),centers=Q,iter.max=maxit,nstart=nstart)
         X <- t(res.kmeans$centers)
       }
     }else{
@@ -276,6 +277,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
   maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
   X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
+  nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
   is.symmetric.matrix <- function(A){
@@ -350,7 +352,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,print.trace,print.dims)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -396,6 +398,7 @@ nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=
   maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
   X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
+  nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
   myrmultinom <- function(prob.mat) stats::rmultinom(n=1,size=1,prob=prob.mat)
@@ -404,11 +407,11 @@ nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=
   correlation <- 0*Q
   names(correlation) <- Q
   for(q in 1:length(Q)){
-    result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,print.trace,print.dims)
+    result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims)
     r.squared[q] <- result$r.squared
     M <- t(result$B.prob) %*% result$B.prob
-    P.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
     up <- upper.tri(M)
+    P.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
     correlation[q] <- stats::cor(P.dist[up],(1-M)[up])
   }
   if(draw.figure){
