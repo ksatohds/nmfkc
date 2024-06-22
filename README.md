@@ -108,10 +108,8 @@ library(NipponMap)
 par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
 jmap <- JapanPrefMap(col="white",axes=TRUE)
 stars(x=t(result$B.prob),scale=F,
-      locations=jmap,
-      key.loc =c(145,34),
-      draw.segments=T,len=1,
-      labels=NULL,
+      locations=jmap,key.loc =c(145,34),
+      draw.segments=T,len=0.7,labels=NULL,
       col.segments=c(1:Q)+1,add=T)
 
 # hard clustering based on B.prob
