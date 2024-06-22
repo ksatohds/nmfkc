@@ -382,14 +382,12 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q vector of ranks to be diagnosed.
 #' @param draw.figure draw a diagram for diagnosis
-#' @param resampleit number of parametric bootstrap iterations
 #' @param hclust.method option of hclust for calculating Cophenetic distances
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
-#' @return correlation: Cophenetic correlation coefficient
+#' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @export
 #' @references Brunet, J.P.; Tamayo, P.; Golub, T.R.; Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
-#' @references Fogel, P.; Geissler, C.; Morizet, N. Luta, G. (2023) On Rank Selection in Non-Negative Matrix Factorization Using Concordance. Mathematics 2023, 11, 4611. \url{https://doi.org/10.3390/math11224611}
 
 nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,hclust.method="average",...){
   arglist=list(...)
@@ -419,7 +417,7 @@ nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=
     graphics::text(Q,correlation,Q)
     graphics::axis(side=1,at=Q)
     graphics::axis(side=2,col=2,col.axis=2)
-    graphics::mtext(side=2,text="Cophenetic correlation coefficient",line=2.5,col=2)
+    graphics::mtext(side=2,text="Cophenetic correlation coefficient (CPCC)",line=2.5,col=2)
     graphics::par(new=T)
     plot(Q,r.squared,type="l",col=4,axes=F,xlab="",ylab="")
     graphics::text(Q,r.squared,Q)
@@ -427,5 +425,5 @@ nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=
     graphics::mtext(side=4,text="R.squared",line=2.5,col=4)
     graphics::box()
   }
-  invisible(list(Q=Q,r.squared=r.squared,correlation=correlation))
+  invisible(list(Q=Q,r.squared=r.squared,CPCC=correlation))
 }

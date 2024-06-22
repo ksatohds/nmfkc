@@ -9,7 +9,6 @@ nmfkc.rank(
   A = diag(ncol(Y)),
   Q = 2:min(5, ncol(Y), nrow(Y)),
   draw.figure = TRUE,
-  resampleit = 1000,
   hclust.method = "average",
   ...
 )
@@ -23,8 +22,6 @@ nmfkc.rank(
 
 \item{draw.figure}{draw a diagram for diagnosis}
 
-\item{resampleit}{number of parametric bootstrap iterations}
-
 \item{hclust.method}{option of hclust for calculating Cophenetic distances}
 
 \item{...}{arguments to be passed to nmfkc function.}
@@ -32,13 +29,11 @@ nmfkc.rank(
 \value{
 r.squared
 
-correlation: Cophenetic correlation coefficient
+CPCC: Cophenetic correlation coefficient based on B.prob
 }
 \description{
 \code{nmfkc.rank} provides rank selection diagnostics. The method is still under development.
 }
 \references{
 Brunet, J.P.; Tamayo, P.; Golub, T.R.; Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
-
-Fogel, P.; Geissler, C.; Morizet, N. Luta, G. (2023) On Rank Selection in Non-Negative Matrix Factorization Using Concordance. Mathematics 2023, 11, 4611. \url{https://doi.org/10.3390/math11224611}
 }

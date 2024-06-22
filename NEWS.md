@@ -1,4 +1,5 @@
-# nmfkc 0.2.6
+# nmfkc 0.2.7
+- 0.2.7 nmfkc.rank function is being implemented on a trial basis
 - 0.2.6 Zero columns and rows are removed with warnings
 - 0.2.5 Addition of source and references in help
 - 0.2.4 Name changed from nmfkcreg to nmfkc,
