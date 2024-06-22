@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 21st Jun 2024")
+  packageStartupMessage("Last update on 22nd Jun 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -416,9 +416,9 @@ nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=
       M <- M+Mh
     }
     M <- M/resampleit
-    Y.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::dist(t(Y)),method=hclust.method)))
+    M.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
     up <- upper.tri(M)
-    correlation[q] <- stats::cor(Y.dist[up],(1-M)[up])
+    correlation[q] <- stats::cor(M.dist[up],(1-M)[up])
   }
   if(draw.figure){
     graphics::par(mar=c(5,4,4,4)+0.1)
