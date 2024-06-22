@@ -75,9 +75,12 @@ colnames(Y) <- unique(d$Prefecture_name)
 rownames(Y) <- unique(d$Date)
 Y <- Y[rowSums(Y)!=0,]
 
+# Rank selection diagnostics
+nmfkc.rank(Y,Q=2:12,nstart=100)
+
 # nmf
-Q <- 7
-result <- nmfkc(Y,Q=Q)
+Q <- 6
+result <- nmfkc(Y,Q=Q,nstart=100)
 result$r.squared # goodness of fit
 
 # individual fit
