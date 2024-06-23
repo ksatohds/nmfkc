@@ -353,7 +353,6 @@ plot(res$objfunc.iter,type="o",
 
 # basis function of which sum is 1
 library(NipponMap)
-bassis_names <- c("中国","北陸","関東","東北","東海","北海道","四国","九州","関西")
 library(RColorBrewer)
 mypalette <- brewer.pal(9,"YlOrRd")
 par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=0.6)
@@ -365,7 +364,7 @@ for(j in 1:Q0){
   mycol <- mypalette[cutp]
   par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
   jmap <- JapanPrefMap(col=mycol,axes=TRUE,
-                       main=paste0("basis[",j,"] ",bassis_names[j]))
+                       main=paste0("basis[",j,"]"))
   text(jmap,pref,cex=0.5)  
 }
 
@@ -384,7 +383,7 @@ par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
 jmap <- JapanPrefMap(col=mypalette[res$B.cluster],axes=TRUE)
 text(jmap,pref,cex=0.5)  
 legend("topleft",fill=mypalette[1:Q0],
-       legend=bassis_names,title="basis")
+       legend=1:Q0,title="basis")
 title(main="Inter-prefecture flow: weekdays - operations")
 ```
 
