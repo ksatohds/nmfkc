@@ -54,8 +54,9 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 1. Longitudinal data: COVID-19 in Japan
 2. Spatiotemporal Analysis: CanadianWeather
 3. Topic model: data_corpus_inaugural
-4. Kernel ridge regression: mcycle
-5. Growth curve model: Orthodont
+4. Origin-Destination (OD) data: Japanese Inter-prefecture flow
+5. Kernel ridge regression: mcycle
+6. Growth curve model: Orthodont
 
 ## 1. Longitudinal data
 - COVID-19 in Japan
@@ -112,7 +113,7 @@ stars(x=t(result$B.prob),scale=F,
       draw.segments=T,len=0.7,labels=NULL,
       col.segments=c(1:Q)+1,add=T)
 
-# hard clustering based on B.prob
+# hard clustering based on B.cluster
 table(result$B.cluster)
 ``` 
 
@@ -316,8 +317,78 @@ par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 barplot(result$B.prob,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
 ``` 
 
+## 4. Origin-Destination (OD) data: Japanese Inter-prefecture flow
+- e-stat run by Japanese Government Statistics
+``` r
+library(nmfkc)
 
-## 4. Kernel ridge regression
+# download data and its formatting
+library(httr)
+# https://www.e-stat.go.jp/stat-search/files?stat_infid=000040170612
+url <- "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040170612&fileKind=0"
+GET(url, write_disk(tmp <- tempfile(fileext=".xlsx")))
+library(readxl)
+d <- as.data.frame(read_xlsx(tmp,sheet=1,skip=2))
+colnames(d)
+d <- d[d[,1]=="1",]
+d <- d[d[,3]=="02",]
+d <- d[d[,5]!="100",]
+d <- d[d[,7]!="100",]
+pref <- unique(d[,6])
+Y <- matrix(NA,nrow=47,ncol=47)
+colnames(Y) <- pref
+rownames(Y) <- pref
+d[,5] <- as.numeric(d[,5])
+d[,7] <- as.numeric(d[,7])
+for(i in 1:47)for(j in 1:47){
+  Y[i,j] <- d[which(d[,5]==i&d[,7]==j),9]
+}
+Y <- log(1+Y)
+
+# nmf
+Q0 <- 8
+res <- nmfkc(Y,Q=Q0)
+plot(res$objfunc.iter,type="o",
+     main=paste0("Q=",Q0,", R^2=",round(res$r.squared,3)))
+
+# basis function of which sum is 1
+library(NipponMap)
+bassis_names <- c("中国","北陸","関東","東北","東海","北海道","四国","九州","関西")
+library(RColorBrewer)
+mypalette <- brewer.pal(9,"YlOrRd")
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=0.6)
+for(j in 1:Q0){
+  cutp <- as.numeric(
+    cut(res$B.prob[j,],
+        breaks=seq(from=0,to=1,length=10),
+        include.lowest=T))
+  mycol <- mypalette[cutp]
+  par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+  jmap <- JapanPrefMap(col=mycol,axes=TRUE,
+                       main=paste0("basis[",j,"] ",bassis_names[j]))
+  text(jmap,pref,cex=0.5)  
+}
+
+# soft clustering based on B.prob
+mypalette <- brewer.pal(12,"Paired")
+tp <- t(res$B.prob)
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+jmap <- JapanPrefMap(col="white",axes=TRUE)
+stars(x=tp,scale=F,locations=jmap,key.loc =c(145,34),
+      draw.segments=TRUE,len=1,labels=NULL,
+      col.segments=mypalette[1:Q0],add=T)
+title(main="Inter-prefecture flow: weekdays - operations")
+
+# hard clustering based on B.cluster
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+jmap <- JapanPrefMap(col=mypalette[res$B.cluster],axes=TRUE)
+text(jmap,pref,cex=0.5)  
+legend("topleft",fill=mypalette[1:Q0],
+       legend=bassis_names,title="basis")
+title(main="Inter-prefecture flow: weekdays - operations")
+```
+
+## 5. Kernel ridge regression
 - mcycle
 ``` r
 library(nmfkc)
@@ -380,7 +451,7 @@ lines(as.vector(V),as.vector(XB),col=4,lwd=2)
 legend("topleft",legend=c("Gaussian","Periodic"),fill=c(2,4))
 ```
 
-## 5. Growth curve model
+## 6. Growth curve model
 - Orthodont
 ``` r
 library(nmfkc)
