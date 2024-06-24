@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 23rd Jun 2024")
+  packageStartupMessage("Last update on 24th Jun 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -122,24 +122,21 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
     }
     return(result)
   }
+  z <- function(x){
+    x[is.nan(x)] <- 0
+    x[is.infinite(x)] <- 0
+    return(x)
+  }
   set.seed(123)
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(!is.matrix(Y)) Y <- as.matrix(Y)
   if(min(A)<0){
-    warning("Minimum value of A is negative. It should be a non-negative matrix.")
+    warning("The matrix A should be a non-negative matrix.")
     stop()
   }
   if(min(Y)<0){
-    warning("Minimum value of Y is negative. It should be a non-negative matrix.")
+    warning("The matrix Y should be a non-negative matrix.")
     stop()
-  }
-  if(nrow(Y)>=2 & sum(colSums(Y)==0)>0){
-    Y <- Y[,colSums(Y)>0]
-    warning("The columns in which all components of Y are zero are removed.")
-  }
-  if(nrow(Y)>=2 & sum(rowSums(Y)==0)>0){
-    Y <- Y[rowSums(Y)>0,]
-    warning("The rows in which all components of Y are zero are removed.")
   }
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
@@ -163,20 +160,20 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   for(i in 1:maxit){
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
-      X <- X * ((Y %*% t(B)) / (XB %*% t(B)))
+      X <- z(X * ((Y %*% t(B)) / (XB %*% t(B))))
       if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-      C <- C*((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
+      C <- z(C*((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C)))
       B <- C %*% A
       XB <- X %*% B
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
-      X <- t(t(X*(Y/XB)%*%t(B))/rowSums(B))
+      X <- z(t(t(X*(Y/XB)%*%t(B))/rowSums(B)))
       if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-      C0 <- t(X)%*%(Y/XB)%*%t(A)
-      C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
+      C0 <- z(t(X)%*%(Y/XB)%*%t(A))
+      C <- z(C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C)))
       B <- C %*% A
       XB <- X %*% B
-      objfunc.iter[i] <- sum(-Y*log(XB)+XB)+gamma*sum(C^2)
+      objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
     }
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
@@ -188,15 +185,15 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   }
   if(method=="EU"){
     objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
-    #aic <- ncol(Y)*log(2*pi*sum((Y-XB)^2)/ncol(Y))+ncol(Y)+2*(ncol(X)*(nrow(X)-1)+ncol(C)*nrow(C))
   }else{
     objfunc <- sum(-Y*log(XB)+XB)+gamma*sum(C^2)
   }
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   colnames(B) <- colnames(Y)
   colnames(XB) <- colnames(Y)
-  B.prob <- t(t(B)/colSums(B))
+  B.prob <- z(t(t(B)/colSums(B)))
   B.cluster <- apply(B.prob,2,which.max)
+  B.cluster[colSums(B.prob)] <- NA
   colnames(B.prob) <- colnames(Y)
   if(epsilon.iter > abs(epsilon)) warning(paste0(
     "maximum iterations (",maxit,
@@ -294,6 +291,11 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
     }
     return(result)
   }
+  z <- function(x){
+    x[is.nan(x)] <- 0
+    x[is.infinite(x)] <- 0
+    return(x)
+  }
   optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
     X <- result$X
     C <- matrix(1,nrow=ncol(X),ncol=ncol(Y))
@@ -302,10 +304,10 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
     for(l in 1:maxit){
       XB <- X %*% C
       if(method=="EU"){
-        C <- C*((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+        C <- z(C*((t(X)%*%Y)/(t(X)%*%XB+gamma*C)))
       }else{
-        C0 <- t(X)%*%(Y/XB)%*%t(A)
-        C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
+        C0 <- z(t(X)%*%(Y/XB)%*%t(A))
+        C <- z(C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C)))
       }
       newSum <- sum(C)
       if(l>=10){
@@ -367,7 +369,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
     if(method=="EU"){
       objfunc.block[j] <- sum((Yj-XBj)^2)+gamma*sum(res_j$C^2)
     }else{
-      objfunc.block[j] <- sum(-Yj*log(XBj)+XBj)+gamma*sum(res_j$C^2)
+      objfunc.block[j] <- sum(-Yj*z(log(XBj))+XBj)+gamma*sum(res_j$C^2)
     }
     Yvec <- c(Yvec,as.vector(Yj))
     XBvec <- c(XBvec,as.vector(XBj))
