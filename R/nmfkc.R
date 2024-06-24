@@ -46,7 +46,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=1){
     return(k)}
   A <- NULL; for(m in 1:ncol(V)) A <- cbind(A,kernel(m))
   if(method=="Linear" & min(A)<0){
-    warning("Minimum value of A is negative. Linear kernel can not be applied.")
+    warning("Linear kernel should be applied to positive U.")
     stop()
   }
   return(A)
@@ -131,11 +131,11 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(!is.matrix(Y)) Y <- as.matrix(Y)
   if(min(A)<0){
-    warning("The matrix A should be a non-negative matrix.")
+    warning("The matrix A should be non-negative.")
     stop()
   }
   if(min(Y)<0){
-    warning("The matrix Y should be a non-negative matrix.")
+    warning("The matrix Y should be non-negative.")
     stop()
   }
   if(nrow(Y)>=2){
@@ -186,7 +186,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   if(method=="EU"){
     objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
   }else{
-    objfunc <- sum(-Y*log(XB)+XB)+gamma*sum(C^2)
+    objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
   }
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   colnames(B) <- colnames(Y)

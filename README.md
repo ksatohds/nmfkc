@@ -74,7 +74,6 @@ n <- length(unique(d$Prefecture_code)) # 47
 Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
 colnames(Y) <- unique(d$Prefecture_name)
 rownames(Y) <- unique(d$Date)
-Y <- Y[rowSums(Y)!=0,]
 
 # nmf
 Q <- 4
