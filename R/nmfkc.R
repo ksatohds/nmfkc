@@ -160,17 +160,17 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   for(i in 1:maxit){
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
-      X <- z(X * ((Y %*% t(B)) / (XB %*% t(B))))
+      X <- X * z((Y %*% t(B)) / (XB %*% t(B)))
       if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-      C <- z(C*((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C)))
+      C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       B <- C %*% A
       XB <- X %*% B
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
-      X <- z(t(t(X*(Y/XB)%*%t(B))/rowSums(B)))
+      X <- t(t(X*z(Y/XB)%*%t(B))/rowSums(B))
       if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-      C0 <- z(t(X)%*%(Y/XB)%*%t(A))
-      C <- z(C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C)))
+      C0 <- t(X)%*%z(Y/XB)%*%t(A)
+      C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
       B <- C %*% A
       XB <- X %*% B
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
@@ -191,7 +191,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   colnames(B) <- colnames(Y)
   colnames(XB) <- colnames(Y)
-  B.prob <- z(t(t(B)/colSums(B)))
+  B.prob <- t(z(t(B)/colSums(B)))
   B.cluster <- apply(B.prob,2,which.max)
   B.cluster[colSums(B.prob)==0] <- NA
   colnames(B.prob) <- colnames(Y)
@@ -304,10 +304,10 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
     for(l in 1:maxit){
       XB <- X %*% C
       if(method=="EU"){
-        C <- z(C*((t(X)%*%Y)/(t(X)%*%XB+gamma*C)))
+        C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
       }else{
-        C0 <- z(t(X)%*%(Y/XB)%*%t(A))
-        C <- z(C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C)))
+        C0 <- t(X)%*%z(Y/XB)%*%t(A)
+        C <- C*z(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
       }
       newSum <- sum(C)
       if(l>=10){
