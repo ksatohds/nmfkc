@@ -193,7 +193,8 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   colnames(XB) <- colnames(Y)
   B.prob <- z(t(t(B)/colSums(B)))
   B.cluster <- apply(B.prob,2,which.max)
-  B.cluster[colSums(B.prob)] <- NA
+  B.cluster[colSums(B.prob)==0] <- NA
+  B.prob[is.na(B.cluster)] <- NA
   colnames(B.prob) <- colnames(Y)
   if(epsilon.iter > abs(epsilon)) warning(paste0(
     "maximum iterations (",maxit,
