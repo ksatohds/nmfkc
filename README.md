@@ -14,6 +14,7 @@ There are three functions in **nmfkc** package.
 - **nmfkc** function optimizes the model
 - **nmfkc.cv** function is used for k-fold cross-validation
 - **nmfkc.kernel** function is used for creating kernel matrix from covariates
+- **nmfkc.rank** function is used for rank selection diagnostics using figure
 
 # Statistical model
 
@@ -74,6 +75,9 @@ n <- length(unique(d$Prefecture_code)) # 47
 Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
 colnames(Y) <- unique(d$Prefecture_name)
 rownames(Y) <- unique(d$Date)
+
+# rank selection diagnostics
+nmfkc.rank(Y,Q=2:8)
 
 # nmf
 Q <- 4
@@ -343,6 +347,9 @@ for(i in 1:47)for(j in 1:47){
   Y[i,j] <- d[which(d[,5]==i&d[,7]==j),9]
 }
 Y <- log(1+Y)
+
+# rank selection diagnostics
+nmfkc.rank(Y,Q=2:12)
 
 # nmf
 Q0 <- 8
