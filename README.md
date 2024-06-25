@@ -14,7 +14,7 @@ There are three functions in **nmfkc** package.
 - **nmfkc** function optimizes the model
 - **nmfkc.cv** function is used for k-fold cross-validation
 - **nmfkc.kernel** function is used for creating kernel matrix from covariates
-- **nmfkc.rank** function is used for rank selection diagnostics using figure
+- **nmfkc.rank** function is used to diagnose rank selection using the figure. This function is under construction.
 
 # Statistical model
 
@@ -27,7 +27,7 @@ There are three functions in **nmfkc** package.
 4. Furthermore, the coefficient $b$ can be explained by covariate $a$, i.e.,
 $b=\Theta a$ or $B=\Theta A$ where $A=[a_1,a_2,...,a_N]$ and $\Theta$ is the parameter matrix to be optimized.
 Satoh (2024) proposed Gaussian kernel function as covariates.
-Formally the model is contained in tri-NMF by Ding et al. (1964) and the update formula for optimization has been derived. The model can be described as a product of three matrices and is related to the growth curve model by Potthoff and Roy (1964). 
+Formally the model is contained in tri-NMF by Ding et al. (2006) and the update formula for optimization has been derived. The model can be described as a product of three matrices and is related to the growth curve model by Potthoff and Roy (1964). 
 
 # Matrices
 
