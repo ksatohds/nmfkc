@@ -45,8 +45,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5){
     return(k)}
   A <- NULL; for(m in 1:ncol(V)) A <- cbind(A,kernel(m))
   if(min(A)<0){
-    warning("Kernel function should be positive.")
-    stop()
+    warning("The constructed matrix is not non-negative.")
   }
   return(A)
 }
