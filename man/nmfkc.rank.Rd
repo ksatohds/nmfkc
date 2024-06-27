@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.rank}
 \alias{nmfkc.rank}
-\title{Rank selection diagnostics with figure}
+\title{Rank selection diagnostics using figure}
 \usage{
 nmfkc.rank(
   Y,
@@ -34,6 +34,16 @@ CPCC: Cophenetic correlation coefficient based on B.prob
 \description{
 \code{nmfkc.rank} provides rank selection diagnostics. The method is still under development.
 }
+\examples{
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# Example.
+library(nmfkc)
+Y <- t(iris[,-5])
+nmfkc.rank(Y,Q=2:4)
+}
 \references{
-Brunet, J.P.; Tamayo, P.; Golub, T.R.; Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
+Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
+
+Punera, K. and Ghosh, J. (2008). CONSENSUS-BASED ENSEMBLES OF SOFT CLUSTERINGS. Applied Artificial Intelligence, 22(7–8), 780–810. \url{https://doi.org/10.1080/08839510802170546}
 }

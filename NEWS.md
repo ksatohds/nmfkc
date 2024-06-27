@@ -1,4 +1,5 @@
-# nmfkc 0.2.8
+# nmfkc 0.2.9
+- 0.2.9 nmfkc.rank function is implemented
 - 0.2.8 The "nstart" option of the "kmeans" function is implemented
 - 0.2.7 nmfkc.rank function is being implemented on a trial basis
 - 0.2.6 Zero columns and rows are removed with warnings

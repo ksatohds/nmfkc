@@ -9,7 +9,7 @@
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
 #' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and the default value is U.
 #' @param method The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
-#' @param beta The default parameter of kernel function is 1.
+#' @param beta The default parameter of kernel function is 0.5.
 #' @return kernel matrix A(N,M)
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
@@ -32,7 +32,7 @@
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=1){
+nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5){
   kernel <- function(m){
     vm <- t(rep(1,ncol(U)) %o% V[,m])
     d <- colSums((U-vm)^2)^0.5
@@ -389,6 +389,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
 #' @references Punera, K. and Ghosh, J. (2008). CONSENSUS-BASED ENSEMBLES OF SOFT CLUSTERINGS. Applied Artificial Intelligence, 22(7–8), 780–810. \url{https://doi.org/10.1080/08839510802170546}
+#' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
 #' # Example.

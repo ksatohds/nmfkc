@@ -7,7 +7,7 @@
 Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 }
 \usage{
-nmfkc.kernel(U, V = U, method = "Gaussian", beta = 1)
+nmfkc.kernel(U, V = U, method = "Gaussian", beta = 0.5)
 }
 \arguments{
 \item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance}
@@ -16,7 +16,7 @@ nmfkc.kernel(U, V = U, method = "Gaussian", beta = 1)
 
 \item{method}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
 
-\item{beta}{The default parameter of kernel function is 1.}
+\item{beta}{The default parameter of kernel function is 0.5.}
 }
 \value{
 kernel matrix A(N,M)
@@ -42,9 +42,4 @@ A <- nmfkc.kernel(U,V,beta=0.031) # see, nmfkc.cv
 result <- nmfkc(Y,A,Q=1)
 plot(as.vector(V),as.vector(Y))
 lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
-}
-\references{
-Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. \url{https://doi.org/10.1145/1150402.1150420}
-
-Potthoff, R.F., and Roy, S.N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems. Biometrika, 51, 313-326. \url{https://doi.org/10.2307/2334137}
 }
