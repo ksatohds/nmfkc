@@ -41,10 +41,11 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5){
     if(method=="Exponential") k <- exp(-beta*d)
     if(method=="Periodic") k <- exp(-beta[1]*sin(beta[2]*d)^2)
     if(method=="Linear") k <- t(U) %*% V[,m]
+    if(method=="NormalizedLinear") k <- diag(1/colSums(U^2)^0.5) %*% t(U) %*% V[,m]/sum(V[,m]^2)^0.5
     return(k)}
   A <- NULL; for(m in 1:ncol(V)) A <- cbind(A,kernel(m))
-  if(method=="Linear" & min(A)<0){
-    warning("Linear kernel should be positive.")
+  if(min(A)<0){
+    warning("Kernel function should be positive.")
     stop()
   }
   return(A)
