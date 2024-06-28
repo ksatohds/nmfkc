@@ -252,6 +252,8 @@ library(nmfkc)
 #------------------
 library(quanteda)
 corp <- corpus(data_corpus_inaugural)
+head(corp,3)
+tail(corp,3)
 tok <- tokens(corp)
 tok <- tokens_remove(tok,pattern=stopwords("en",source="snowball"))
 df <- dfm(tok)
@@ -338,6 +340,10 @@ d <- d[d[,3]=="02",]
 d <- d[d[,5]!="100",]
 d <- d[d[,7]!="100",]
 pref <- unique(d[,6])
+
+#------------------
+# without covariates
+#------------------
 Y <- matrix(NA,nrow=47,ncol=47)
 colnames(Y) <- pref
 rownames(Y) <- pref
@@ -468,12 +474,14 @@ Y <- matrix(d$distance,nrow=length(t))
 colnames(Y) <- unique(d$Subject)
 rownames(Y) <- t
 
-Q <- 2
+#------------------
+# with covariates
+#------------------
 Male <- 1*(d$Sex=="Male")[d$age==8]
 table(Male)
 A <- rbind(rep(1,ncol(Y)),Male)
 print(A)
-result <- nmfkc(Y,A,Q=Q,epsilon=1e-8)
+result <- nmfkc(Y,A,Q=2,epsilon=1e-8)
 result$r.squared
 
 # parameter matrix and coefficients by gender
