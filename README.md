@@ -76,6 +76,9 @@ Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
 colnames(Y) <- unique(d$Prefecture_name)
 rownames(Y) <- unique(d$Date)
 
+# 1st prefecture - Hokkaido(北海道)
+barplot(Y[,1],las=3,main=colnames(Y)[1])
+
 # rank selection diagnostics
 nmfkc.rank(Y,Q=2:8)
 
@@ -262,12 +265,13 @@ df <- dfm_trim(df,min_termfreq=100)
 d <- as.matrix(df)
 index <- order(colSums(d),decreasing=T) 
 d <- d[,index] # document-word matrix
-colSums(d)[1:30] # Top 30 most frequent words
+paste0(colnames(d)[1:30],"(",colSums(d)[1:30],")") # Top 30 most frequent words
 
 #------------------
 # without covariates
 #------------------
 Y <- t(d)
+Y[1:20,c(1,ncol(Y))]
 Q <- 3
 result <- nmfkc(Y,Q=Q)
 result$r.squared # coefficient of determination
@@ -277,10 +281,12 @@ barplot(result$B.prob,col=1:Q+1,legend=T,las=3,
   ylab="Probabilities of topics")
 
 # basis function of which sum is 1
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
-barplot(t(result$X),col=1:Q+1,las=3,
-  ylab="Probabilities of words on each topic") 
-legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
+par(mfrow=c(Q,1),mar=c(0,0,0,0),cex=0.6)
+for(q in 1:Q){
+  barplot(result$X[,q],col=q+1,border=q+1,las=3,
+    ylim=range(result$X),ylab=paste0("topic",q)) 
+  legend("left",fill=q+1,legend=q)
+}
 
 # contribution of words to each topics
 Xp <- prop.table(result$X,1)
@@ -289,9 +295,9 @@ par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
 barplot(t(Xp),las=3,col=1:Q+1,
   ylab="Proportion of words on each topic")
 legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
-Xp[Xp[,1]>0.7,] # featured words on topic1
-Xp[Xp[,2]>0.7,] # featured words on topic2
-Xp[Xp[,3]>0.7,] # featured words on topic3
+rownames(Xp[Xp[,1]>0.6,]) # featured words on topic1
+rownames(Xp[Xp[,2]>0.6,]) # featured words on topic2
+rownames(Xp[Xp[,3]>0.6,]) # featured words on topic3
 
 #------------------
 # with covariates using covariate matrix U
@@ -353,6 +359,7 @@ for(i in 1:47)for(j in 1:47){
   Y[i,j] <- d[which(d[,5]==i&d[,7]==j),9]
 }
 Y <- log(1+Y)
+Y[1:6,1:6]
 
 # rank selection diagnostics
 nmfkc.rank(Y,Q=2:12)
