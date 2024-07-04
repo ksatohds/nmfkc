@@ -76,9 +76,6 @@ Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
 colnames(Y) <- unique(d$Prefecture_name)
 rownames(Y) <- unique(d$Date)
 
-# 1st prefecture - Hokkaido(北海道)
-barplot(Y[,1],las=3,main=colnames(Y)[1])
-
 # rank selection diagnostics
 nmfkc.rank(Y,Q=2:8)
 

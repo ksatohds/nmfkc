@@ -7,7 +7,7 @@
 Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 }
 \usage{
-nmfkc.kernel(U, V = U, method = "Gaussian", beta = 0.5)
+nmfkc.kernel(U, V = U, method = "Gaussian", beta = 0.5, degree = 2)
 }
 \arguments{
 \item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance}
@@ -17,6 +17,8 @@ nmfkc.kernel(U, V = U, method = "Gaussian", beta = 0.5)
 \item{method}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
 
 \item{beta}{The default parameter of kernel function is 0.5.}
+
+\item{degree}{The default parameter of kernel function is 2.}
 }
 \value{
 kernel matrix A(N,M)

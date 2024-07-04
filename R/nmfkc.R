@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 25th Jun 2024")
+  packageStartupMessage("Last update on 4th July 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -10,6 +10,7 @@
 #' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and the default value is U.
 #' @param method The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
 #' @param beta The default parameter of kernel function is 0.5.
+#' @param degree The default parameter of kernel function is 2.
 #' @return kernel matrix A(N,M)
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
@@ -32,7 +33,7 @@
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5){
+nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
   kernel <- function(m){
     vm <- t(rep(1,ncol(U)) %o% V[,m])
     d <- colSums((U-vm)^2)^0.5
@@ -42,6 +43,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5){
     if(method=="Periodic") k <- exp(-beta[1]*sin(beta[2]*d)^2)
     if(method=="Linear") k <- t(U) %*% V[,m]
     if(method=="NormalizedLinear") k <- diag(1/colSums(U^2)^0.5) %*% t(U) %*% V[,m]/sum(V[,m]^2)^0.5
+    if(method=="Polynomial") k <- (t(U) %*% V[,m]+beta)^degree
     return(k)}
   A <- NULL; for(m in 1:ncol(V)) A <- cbind(A,kernel(m))
   if(min(A)<0){
