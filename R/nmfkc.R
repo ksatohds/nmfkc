@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 4th July 2024")
+  packageStartupMessage("Last update on 5th July 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -70,6 +70,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @param method The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
 #' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
 #' @param nstart The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.
+#' @param hclust.method option of hclust for calculating Cophenetic distances
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
 #' @return X: basis matrix. The column sum depends on X.column.
@@ -81,6 +82,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
+#' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 #' @references Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. \url{https://doi.org/10.1145/1150402.1150420}
@@ -114,7 +116,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' plot(as.vector(A[2,]),as.vector(Y))
 #' lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",nstart=1,print.trace=FALSE,print.dims=TRUE){
+nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",nstart=1,hclust.method="average",print.trace=FALSE,print.dims=TRUE){
   is.identity.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
@@ -193,6 +195,10 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   colnames(B) <- colnames(Y)
   colnames(XB) <- colnames(Y)
   B.prob <- t(z(t(B)/colSums(B)))
+  M <- t(B.prob) %*% B.prob
+  h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
+  up <- upper.tri(M)
+  CPCC <- stats::cor(h.dist[up],(1-M)[up])
   B.cluster <- apply(B.prob,2,which.max)
   B.cluster[colSums(B.prob)==0] <- NA
   colnames(B.prob) <- colnames(Y)
@@ -209,7 +215,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)))
   }
   return(list(X=X,B=B,B.prob=B.prob,B.cluster=B.cluster,XB=XB,C=C,
-              objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2))
+              objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,CPCC=CPCC))
 }
 
 
@@ -273,6 +279,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
   X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
+  hclust.method <- ifelse("hclust.method" %in% names(arglist),arglist$hclust.method,"average")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
   is.symmetric.matrix <- function(A){
@@ -352,7 +359,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -384,7 +391,6 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q vector of ranks to be diagnosed.
 #' @param draw.figure draw a diagram for diagnosis
-#' @param hclust.method option of hclust for calculating Cophenetic distances
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
@@ -399,7 +405,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,hclust.method="average",...){
+nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,...){
   arglist=list(...)
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
@@ -407,34 +413,31 @@ nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
   X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
+  hclust.method <- ifelse("hclust.method" %in% names(arglist),arglist$hclust.method,"average")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
-  myrmultinom <- function(prob.mat) stats::rmultinom(n=1,size=1,prob=prob.mat)
   r.squared <- 0*Q
   names(r.squared) <- Q
-  correlation <- 0*Q
-  names(correlation) <- Q
+  CPCC <- 0*Q
+  names(CPCC) <- Q
   for(q in 1:length(Q)){
-    result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims)
+    result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims)
     r.squared[q] <- result$r.squared
-    M <- t(result$B.prob) %*% result$B.prob
-    up <- upper.tri(M)
-    h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
-    correlation[q] <- stats::cor(h.dist[up],(1-M)[up])
+    CPCC[q] <- result$CPCC
   }
   if(draw.figure){
     graphics::par(mar=c(5,4,4,4)+0.1)
-    plot(Q,correlation,type="l",col=2,axes=F,xlab="Rank",ylab="")
-    graphics::text(Q,correlation,Q)
+    plot(Q,CPCC,type="l",col=2,axes=F,xlab="Rank",ylab="")
+    graphics::text(Q,CPCC,Q)
     graphics::axis(side=1,at=Q)
     graphics::axis(side=2,col=2,col.axis=2)
-    graphics::mtext(side=2,text="Cophenetic correlation coefficient (CPCC)",line=2.5,col=2)
+    graphics::mtext(side=2,text="CPCC: Cophenetic correlation coefficient",line=2.5,col=2)
     graphics::par(new=T)
     plot(Q,r.squared,type="l",col=4,axes=F,xlab="",ylab="")
     graphics::text(Q,r.squared,Q)
     graphics::axis(side=4,col=4,col.axis=4)
-    graphics::mtext(side=4,text="R.squared",line=2.5,col=4)
+    graphics::mtext(side=4,text="R.squared: Coefficient of determination",line=2.5,col=4)
     graphics::box()
   }
-  invisible(list(Q=Q,r.squared=r.squared,CPCC=correlation))
+  invisible(list(Q=Q,r.squared=r.squared,CPCC=CPCC))
 }

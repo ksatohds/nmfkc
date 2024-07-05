@@ -17,6 +17,7 @@ nmfkc(
   method = "EU",
   X.column = "sum",
   nstart = 1,
+  hclust.method = "average",
   print.trace = FALSE,
   print.dims = TRUE
 )
@@ -40,6 +41,8 @@ nmfkc(
 
 \item{nstart}{The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.}
 
+\item{hclust.method}{option of hclust for calculating Cophenetic distances}
+
 \item{print.trace}{display current iteration every 10 times if print.trace=TRUE}
 
 \item{print.dims}{display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.}
@@ -62,6 +65,8 @@ objfunc: last objective function
 objfunc.iter: objective function at each iteration
 
 r.squared: coefficient of determination R^2, squared correlation between Y and XB
+
+CPCC: Cophenetic correlation coefficient based on B.prob
 }
 \description{
 \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB

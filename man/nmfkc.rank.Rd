@@ -9,7 +9,6 @@ nmfkc.rank(
   A = diag(ncol(Y)),
   Q = 2:min(5, ncol(Y), nrow(Y)),
   draw.figure = TRUE,
-  hclust.method = "average",
   ...
 )
 }
@@ -21,8 +20,6 @@ nmfkc.rank(
 \item{Q}{vector of ranks to be diagnosed.}
 
 \item{draw.figure}{draw a diagram for diagnosis}
-
-\item{hclust.method}{option of hclust for calculating Cophenetic distances}
 
 \item{...}{arguments to be passed to nmfkc function.}
 }
