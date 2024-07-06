@@ -1,3 +1,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^nmfkc\.Rcheck$
+^nmfkc.*\.tar\.gz$
+^nmfkc.*\.tgz$
