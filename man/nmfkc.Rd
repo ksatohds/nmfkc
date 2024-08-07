@@ -19,8 +19,7 @@ nmfkc(
   nstart = 1,
   hclust.method = "average",
   print.trace = FALSE,
-  print.dims = TRUE,
-  saving.memory = FALSE
+  print.dims = TRUE
 )
 }
 \arguments{
@@ -47,8 +46,6 @@ nmfkc(
 \item{print.trace}{display current iteration every 10 times if print.trace=TRUE}
 
 \item{print.dims}{display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.}
-
-\item{saving.memory}{The default is saving.memory=FALSE. If saving.memory=TRUE, some return values are not calculated and become NA.}
 }
 \value{
 X: basis matrix. The column sum depends on X.column.
