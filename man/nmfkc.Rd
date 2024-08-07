@@ -19,7 +19,8 @@ nmfkc(
   nstart = 1,
   hclust.method = "average",
   print.trace = FALSE,
-  print.dims = TRUE
+  print.dims = TRUE,
+  calc.CPCC = FALSE
 )
 }
 \arguments{
@@ -46,6 +47,8 @@ nmfkc(
 \item{print.trace}{display current iteration every 10 times if print.trace=TRUE}
 
 \item{print.dims}{display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.}
+
+\item{calc.CPCC}{The default is FALSE because calculating CPCC is time consuming.}
 }
 \value{
 X: basis matrix. The column sum depends on X.column.
