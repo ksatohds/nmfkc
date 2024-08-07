@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 5th July 2024")
+  packageStartupMessage("Last update on 8th Aug 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -156,6 +156,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
     X <- matrix(data=1,nrow=1,ncol=1)
   }
   if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
+  gc()
   C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   B <- C %*% A
   XB <- X %*% B
@@ -191,14 +192,14 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   }else{
     objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
   }
+  gc()
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   colnames(B) <- colnames(Y)
   colnames(XB) <- colnames(Y)
   B.prob <- t(z(t(B)/colSums(B)))
-  M <- t(B.prob) %*% B.prob
-  h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
-  up <- upper.tri(M)
-  CPCC <- stats::cor(h.dist[up],(1-M)[up])
+  h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-t(B.prob)%*%B.prob),method=hclust.method)))
+  up <- upper.tri(t(B.prob)%*%B.prob)
+  CPCC <- stats::cor(h.dist[up],(1-t(B.prob)%*%B.prob)[up])
   B.cluster <- apply(B.prob,2,which.max)
   B.cluster[colSums(B.prob)==0] <- NA
   colnames(B.prob) <- colnames(Y)
