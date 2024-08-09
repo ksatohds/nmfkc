@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 8th Aug 2024")
+  packageStartupMessage("Last update on 9 Aug 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -241,7 +241,6 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
 #' @return objfunc: last objective function
 #' @return objfunc.block: objective function at each block
 #' @return block: partition block index (1,...,div) assigned to each column of Y
-#' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -316,8 +315,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
       if(method=="EU"){
         C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
       }else{
-        C0 <- t(X)%*%z(Y/XB)%*%t(A)
-        C <- C*z(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
+        C <- C*z(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
       }
       newSum <- sum(C)
       if(l>=10){
@@ -345,8 +343,6 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
   block <- 0*(1:n)
   set.seed(seed)
   index <- sample(1:n,n,replace=F)
-  Yvec <- NULL
-  XBvec <- NULL
   for(i in 1:(div-1)){
     plus <- ifelse(i<=remainder,1,0)
     j <- index[1:(division+plus)]
@@ -381,12 +377,9 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
     }else{
       objfunc.block[j] <- sum(-Yj*z(log(XBj))+XBj)+gamma*sum(res_j$C^2)
     }
-    Yvec <- c(Yvec,as.vector(Yj))
-    XBvec <- c(XBvec,as.vector(XBj))
   }
   objfunc <- sum(objfunc.block)
-  r.squared <- stats::cor(XBvec,Yvec)^2
-  return(list(objfunc=objfunc,objfunc.block=objfunc.block,block=index,r.squared=r.squared))
+  return(list(objfunc=objfunc,objfunc.block=objfunc.block,block=index))
 }
 
 
