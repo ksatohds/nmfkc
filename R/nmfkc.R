@@ -173,8 +173,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
     }else{
       X <- t(t(X*z(Y/XB)%*%t(B))/rowSums(B))
       if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-      C0 <- t(X)%*%z(Y/XB)%*%t(A)
-      C <- C*(C0/(colSums(X)%o%rowSums(A)+2*gamma*C))
+      C <- C*(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
       B <- C %*% A
       XB <- X %*% B
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
