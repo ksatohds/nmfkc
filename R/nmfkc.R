@@ -206,13 +206,18 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
     colnames(XB) <- colnames(Y)
     r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   }
-  if(nrow(B.prob)>=2&save.time){
+  if(save.memory) save.time <- TRUE
+  if(save.time){
     CPCC <- NA
   }else{
-    M <- t(B.prob) %*% B.prob
-    h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
-    up <- upper.tri(M)
-    CPCC <- stats::cor(h.dist[up],(1-M)[up])
+    if(nrow(B.prob)>=2){
+      M <- t(B.prob) %*% B.prob
+      h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
+      up <- upper.tri(M)
+      CPCC <- stats::cor(h.dist[up],(1-M)[up])
+    }else{
+      CPCC <- NA
+    }
   }
   if(epsilon.iter > abs(epsilon)) warning(paste0(
     "maximum iterations (",maxit,
