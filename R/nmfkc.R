@@ -179,7 +179,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
       if(epsilon.iter <= abs(epsilon)){
-        objfunc.iter <- objfunc.iter[9:i]
+        objfunc.iter <- objfunc.iter[10:i]
         break
       }
     }
