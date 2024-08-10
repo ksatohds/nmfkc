@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 9 Aug 2024")
+  packageStartupMessage("Last update on 10 Aug 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -73,7 +73,8 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @param hclust.method option of hclust for calculating Cophenetic distances
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
-#' @param calc.CPCC The default is FALSE because calculating CPCC is time consuming.
+#' @param save.time The default is TRUE. Some calculations including CPCC are skipped to save the computation time.
+#' @param save.memory The default is FALSE. Some calculations including B, XB, etc are skipped to save memory.
 #' @return X: basis matrix. The column sum depends on X.column.
 #' @return B: coefficient matrix, B=CA
 #' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
@@ -117,7 +118,10 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' plot(as.vector(A[2,]),as.vector(Y))
 #' lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",X.column="sum",nstart=1,hclust.method="average",print.trace=FALSE,print.dims=TRUE,calc.CPCC=FALSE){
+nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
+                  X.column="sum",nstart=1,hclust.method="average",
+                  print.trace=FALSE,print.dims=TRUE,
+                  save.time=TRUE,save.memory=FALSE){
   is.identity.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
@@ -158,25 +162,19 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   }
   if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
   C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
-  B <- C %*% A
-  XB <- X %*% B
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
-      X <- X*z((Y%*%t(B))/(XB%*%t(B)))
+      X <- X*z((Y%*%t(C%*%A))/(X%*%C%*%A%*%t(C%*%A)))
       if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-      C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
-      B <- C %*% A
-      XB <- X %*% B
-      objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
+      C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%X%*%C%*%A%*%t(A)+gamma*C))
+      objfunc.iter[i] <- sum((Y-X%*%C%*%A)^2)+gamma*sum(C^2)
     }else{
-      X <- t(t(X*z(Y/XB)%*%t(B))/rowSums(B))
+      X <- t(t(X*z(Y/X%*%C%*%A)%*%t(C%*%A))/rowSums(C%*%A))
       if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-      C <- C*(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
-      B <- C %*% A
-      XB <- X %*% B
-      objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
+      C <- C*(t(X)%*%z(Y/(X%*%C%*%A))%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
+      objfunc.iter[i] <- sum(-Y*z(log(X%*%C%*%A))+X%*%C%*%A)+gamma*sum(C^2)
     }
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
@@ -187,25 +185,35 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
     }
   }
   if(method=="EU"){
-    objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
+    objfunc <- sum((Y-X%*%C%*%A)^2)+gamma*sum(C^2)
   }else{
-    objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
+    objfunc <- sum(-Y*z(log(X%*%C%*%A))+X%*%C%*%A)+gamma*sum(C^2)
   }
-  r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
-  colnames(B) <- colnames(Y)
-  colnames(XB) <- colnames(Y)
-  B.prob <- t(z(t(B)/colSums(B)))
-  if(nrow(B.prob)>=2&calc.CPCC){
+  if(save.memory){
+    B <- NA
+    B.prob <- NA
+    B.cluster <- NA
+    XB <- NA
+    r2 <- NA
+  }else{
+    B <- C %*% A
+    colnames(B) <- colnames(Y)
+    B.prob <- t(z(t(B)/colSums(B)))
+    colnames(B.prob) <- colnames(Y)
+    B.cluster <- apply(B.prob,2,which.max)
+    B.cluster[colSums(B.prob)==0] <- NA
+    XB <- X %*% B
+    colnames(XB) <- colnames(Y)
+    r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
+  }
+  if(nrow(B.prob)>=2&save.time){
+    CPCC <- NA
+  }else{
     M <- t(B.prob) %*% B.prob
     h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
     up <- upper.tri(M)
     CPCC <- stats::cor(h.dist[up],(1-M)[up])
-  }else{
-    CPCC <- NA
   }
-  B.cluster <- apply(B.prob,2,which.max)
-  B.cluster[colSums(B.prob)==0] <- NA
-  colnames(B.prob) <- colnames(Y)
   if(epsilon.iter > abs(epsilon)) warning(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet."))
@@ -285,7 +293,8 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
   hclust.method <- ifelse("hclust.method" %in% names(arglist),arglist$hclust.method,"average")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
-  calc.CPCC <- ifelse("calc.CPCC" %in% names(arglist),arglist$calc.CPCC,FALSE)
+  save.time <- TRUE
+  save.memory <- FALSE
   is.symmetric.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)){
@@ -360,7 +369,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,calc.CPCC)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time,save.memory)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -414,13 +423,14 @@ nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=
   hclust.method <- ifelse("hclust.method" %in% names(arglist),arglist$hclust.method,"average")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
-  calc.CPCC <- TRUE
+  save.time <- FALSE
+  save.memory <- FALSE
   r.squared <- 0*Q
   names(r.squared) <- Q
   CPCC <- 0*Q
   names(CPCC) <- Q
   for(q in 1:length(Q)){
-    result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,calc.CPCC)
+    result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time)
     r.squared[q] <- result$r.squared
     CPCC[q] <- result$CPCC
   }

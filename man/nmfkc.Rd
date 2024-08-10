@@ -20,7 +20,8 @@ nmfkc(
   hclust.method = "average",
   print.trace = FALSE,
   print.dims = TRUE,
-  calc.CPCC = FALSE
+  save.time = TRUE,
+  save.memory = FALSE
 )
 }
 \arguments{
@@ -48,7 +49,9 @@ nmfkc(
 
 \item{print.dims}{display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.}
 
-\item{calc.CPCC}{The default is FALSE because calculating CPCC is time consuming.}
+\item{save.time}{The default is TRUE. Some calculations including CPCC are skipped to save the computation time.}
+
+\item{save.memory}{The default is FALSE. Some calculations including B, XB, etc are skipped to save memory.}
 }
 \value{
 X: basis matrix. The column sum depends on X.column.

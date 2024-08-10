@@ -1,5 +1,5 @@
 # nmfkc 0.3.0
-- 0.3.0 The option:calc.CPCC in nmfkc function is implemented  
+- 0.3.0 save.time and save.memory option are implemented   
 - 0.2.9 nmfkc.rank function is implemented
 - 0.2.8 The "nstart" option of the "kmeans" function is implemented
 - 0.2.7 nmfkc.rank function is being implemented on a trial basis
