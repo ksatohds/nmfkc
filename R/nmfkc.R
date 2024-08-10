@@ -231,8 +231,21 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
       sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)))
   }
-  return(list(X=X,B=B,B.prob=B.prob,B.cluster=B.cluster,XB=XB,C=C,
-              objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,CPCC=CPCC))
+  result <- list(X=X,B=B,B.prob=B.prob,B.cluster=B.cluster,XB=XB,C=C,
+                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,CPCC=CPCC)
+  class(result) <- "nmfkc"
+  return(result)
+}
+
+
+#' @title plot for return value of nmfkc function
+#' @description \code{plot.nmfkc} plot for return value of nmfkc function
+#' @param x return value of nmfkc function
+#' @param ... arguments to be passed to plot function.
+#' @export
+plot.nmfkc <- function(x,...){
+  if(!is.na(x$r.squared)) main=paste0("r.squared=",round(x$r.squared,3)) else main=""
+  plot(x$objfunc.iter,xlab="iter",ylab="objfunc",main=main)
 }
 
 
