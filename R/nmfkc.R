@@ -62,7 +62,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #'  and coefficient matrix B(Q,N).
 #'  Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
 #' @param Y observation matrix
-#' @param A covariate matrix. Without covariate, identity matrix is used.
+#' @param A covariate matrix. The default is NULL if without covariate.
 #' @param Q rank of basis matrix and Q<=min(P,N)
 #' @param gamma penalty parameter for parameter matrix C
 #' @param epsilon positive convergence tolerance
@@ -117,16 +117,9 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' plot(as.vector(A[2,]),as.vector(Y))
 #' lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
+nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                   X.column="sum",nstart=1,hclust.method="average",
                   print.trace=FALSE,print.dims=TRUE,save.time=TRUE){
-  is.identity.matrix <- function(A){
-    result <- FALSE
-    if(nrow(A)==ncol(A)&min(A)==0&max(A)==1){
-      if(prod(diag(A))==1&sum(A-diag(nrow(A)))==0) result <- TRUE
-    }
-    return(result)
-  }
   z <- function(x){
     x[is.nan(x)] <- 0
     x[is.infinite(x)] <- 0
@@ -135,9 +128,11 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   set.seed(123)
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(!is.matrix(Y)) Y <- as.matrix(Y)
-  if(min(A)<0){
-    warning("The matrix A should be non-negative.")
-    stop()
+  if(!is.null(A)){
+    if(min(A)<0){
+      warning("The matrix A should be non-negative.")
+      stop()
+    }
   }
   if(min(Y)<0){
     warning("The matrix Y should be non-negative.")
@@ -159,21 +154,21 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
     X <- matrix(data=1,nrow=1,ncol=1)
   }
   if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-  C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
+  if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
-    B <- C %*% A
+    if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
       X <- X*z((Y%*%t(B))/(XB%*%t(B)))
       if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-      C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
+      if(is.null(A)) C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C)) else C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
       X <- t(t(X*z(Y/XB)%*%t(B))/rowSums(B))
       if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
-      C <- C*(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
+      if(is.null(A)) C <- C*(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else C <- C*(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
     }
     if(i>=10){
@@ -184,7 +179,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
       }
     }
   }
-  B <- C %*% A
+  if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
   if(method=="EU"){
     objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
@@ -213,7 +208,7 @@ nmfkc <- function(Y,A=diag(ncol(Y)),Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="
   if(epsilon.iter > abs(epsilon)) warning(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet."))
-  if(print.dims)if(is.identity.matrix(A)){
+  if(print.dims)if(is.null(A)){
     packageStartupMessage(
       sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y)))

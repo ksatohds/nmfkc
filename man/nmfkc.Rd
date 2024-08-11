@@ -9,7 +9,7 @@ Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to t
 \usage{
 nmfkc(
   Y,
-  A = diag(ncol(Y)),
+  A = NULL,
   Q = 2,
   gamma = 0,
   epsilon = 1e-04,
@@ -26,7 +26,7 @@ nmfkc(
 \arguments{
 \item{Y}{observation matrix}
 
-\item{A}{covariate matrix. Without covariate, identity matrix is used.}
+\item{A}{covariate matrix. The default is NULL if without covariate.}
 
 \item{Q}{rank of basis matrix and Q<=min(P,N)}
 
