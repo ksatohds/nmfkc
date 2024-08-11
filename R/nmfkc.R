@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 10 Aug 2024")
+  packageStartupMessage("Last update on 11 Aug 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -415,7 +415,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=diag(ncol(Y)),Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,...){
+nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,...){
   arglist=list(...)
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
