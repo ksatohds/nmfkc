@@ -6,7 +6,7 @@
 \usage{
 nmfkc.rank(
   Y,
-  A = diag(ncol(Y)),
+  A = NULL,
   Q = 2:min(5, ncol(Y), nrow(Y)),
   draw.figure = TRUE,
   ...
