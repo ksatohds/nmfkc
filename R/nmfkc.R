@@ -286,7 +286,7 @@ plot.nmfkc <- function(x,...){
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
+nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   arglist=list(...)
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
@@ -298,6 +298,7 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
   save.time <- TRUE
+  if(is.null(A)) A <- diag(ncol(Y))
   is.symmetric.matrix <- function(A){
     result <- FALSE
     if(nrow(A)==ncol(A)){
@@ -320,14 +321,14 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
   optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
     X <- result$X
     C <- matrix(1,nrow=ncol(X),ncol=ncol(Y))
-    A <- diag(ncol(Y))
     oldSum <- 0
     for(l in 1:maxit){
-      XB <- X %*% C
+      B <- C
+      XB <- X %*% B
       if(method=="EU"){
         C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
       }else{
-        C <- C*z(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
+        C <- C*(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C))
       }
       newSum <- sum(C)
       if(l>=10){
@@ -340,8 +341,6 @@ nmfkc.cv <- function(Y,A=diag(ncol(Y)),Q=2,div=5,seed=123,...){
     XB <- X %*% B
     colnames(B) <- colnames(Y)
     colnames(XB) <- colnames(Y)
-    colnames(C) <- rownames(A)
-    rownames(C) <- colnames(X)
     if(epsilon.iter > abs(epsilon)) warning(paste0(
       "maximum iterations (",maxit,
       ") reached and the optimization hasn't converged yet."))

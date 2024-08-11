@@ -4,7 +4,7 @@
 \alias{nmfkc.cv}
 \title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate}
 \usage{
-nmfkc.cv(Y, A = diag(ncol(Y)), Q = 2, div = 5, seed = 123, ...)
+nmfkc.cv(Y, A = NULL, Q = 2, div = 5, seed = 123, ...)
 }
 \arguments{
 \item{Y}{observation matrix}
