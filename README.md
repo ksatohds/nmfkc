@@ -58,6 +58,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 4. Origin-Destination (OD) data: Japanese Inter-prefecture flow
 5. Kernel ridge regression: mcycle
 6. Growth curve model: Orthodont
+7. Binary repeated measures: Table 6, Koch et al.(1977)
 
 ## 1. Longitudinal data
 - COVID-19 in Japan
@@ -502,6 +503,53 @@ YHAT <- result$X %*% B
 lines(t,YHAT[,1],col=4,lwd=5)
 lines(t,YHAT[,2],col=2,lwd=5)
 ```
+
+## 7. Binary repeated measures
+- Table 6, Koch et al.(1977) Biometrics, 33(1), 133–158. https://doi.org/10.2307/2529309
+- Repeated categorical outcome analysis, https://wnarifin.github.io/medstat.html
+``` r
+Id <- rep(1:340,each=3)
+Mild <- rep(c(1,0),c(150*3,190*3))
+NewDrug <- rep(c(0,1,0,1),c(80*3,70*3,100*3,90*3))
+Week <- rep(c(1,2,4),times=340)
+Normal <- unlist(c(
+  rep(list(c(1,1,1),c(1,1,0),c(1,0,1),c(1,0,0),c(0,1,1),c(0,1,0),c(0,0,1),c(0,0,0)),c(16,13,9,3,14,4,15,6)),
+  rep(list(c(1,1,1),c(1,1,0),c(1,0,1),c(1,0,0),c(0,1,1),c(0,1,0),c(0,0,1),c(0,0,0)),c(31,0,6,0,22,2,9,0)),
+  rep(list(c(1,1,1),c(1,1,0),c(1,0,1),c(1,0,0),c(0,1,1),c(0,1,0),c(0,0,1),c(0,0,0)),c(2,2,8,9,9,15,27,28)),
+  rep(list(c(1,1,1),c(1,1,0),c(1,0,1),c(1,0,0),c(0,1,1),c(0,1,0),c(0,0,1),c(0,0,0)),c(7,2,5,2,31,5,32,6))
+))
+d <- data.frame(Id,Mild,NewDrug,Week,Normal)
+ftable(xtabs(~Mild+NewDrug+Week+Normal))
+
+# observation matrix and covariate matrix
+Y <- matrix(d$Normal,nrow=3,ncol=340)
+A <- matrix(0,nrow=3,ncol=340)
+rownames(A) <- c("Const","Mild","NewDrug")
+A[1,] <- 1
+A[2,] <- d$Mild[d$Week==1]
+A[3,] <- d$NewDrug[d$Week==1]
+
+# nmf with covariates
+library(nmfkc)
+result <- nmfkc(Y,A,Q=2,epsilon=1e-8)
+plot(result)
+
+# unique covariates and coefficient matrix
+(A0 <- t(unique(t(A))))
+B <- result$C %*% A0
+
+# fitted values for coefficient matrix
+t <- unique(d$Week)
+plot(t,Y[,1],ylim=range(Y),type="n",ylab="Normal",xlab="Week")
+XB <- result$X %*% B
+mycol <- c(2,7,4,5)
+for(j in 1:ncol(XB))lines(t,XB[,j],col=mycol[j],lwd=5)
+legend("bottomright",
+       title="Diagnosis & Treatment",
+       legend=c("Mild & Standard","Mild & NewDrug","Sever & Standard","Sever & NewDrug"),
+       fill=mycol)
+```
+
 
 # Author
 -  Kenichi Satoh, [homepage](https://sites.google.com/view/ksatoh/english)
