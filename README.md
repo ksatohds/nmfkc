@@ -485,13 +485,15 @@ rownames(Y) <- t
 Male <- 1*(d$Sex=="Male")[d$age==8]
 table(Male)
 A <- rbind(rep(1,ncol(Y)),Male)
-print(A)
+rownames(A) <- c("Const","Male")
+
+# nmf with covariates
 result <- nmfkc(Y,A,Q=2,epsilon=1e-8)
 result$r.squared
 
-# parameter matrix and coefficients by gender
-result$C
-(B <- t(unique(t(result$B))))
+# unique covariates and coefficient matrix
+(A0 <- t(unique(t(A))))
+B <- result$C %*% A0
 
 # individual fit
 plot(t,Y[,1],ylim=range(Y),type="n")
@@ -499,15 +501,18 @@ mycol <- ifelse(Male==1,4,2)
 for(n in 1:ncol(Y)){
   lines(t,Y[,n],col=mycol[n])
 }
-YHAT <- result$X %*% B
-lines(t,YHAT[,1],col=4,lwd=5)
-lines(t,YHAT[,2],col=2,lwd=5)
+XB <- result$X %*% B
+lines(t,XB[,1],col=4,lwd=5)
+lines(t,XB[,2],col=2,lwd=5)
+legend("topleft",title="Sex",legend=c("Male","Female"),fill=c(4,2))
 ```
 
 ## 7. Binary repeated measures
 - Table 6, Koch et al.(1977) Biometrics, 33(1), 133–158. https://doi.org/10.2307/2529309
 - Repeated categorical outcome analysis, https://wnarifin.github.io/medstat.html
 ``` r
+library(nmfkc)
+
 Id <- rep(1:340,each=3)
 Mild <- rep(c(1,0),c(150*3,190*3))
 NewDrug <- rep(c(0,1,0,1),c(80*3,70*3,100*3,90*3))
@@ -524,13 +529,12 @@ ftable(xtabs(~Mild+NewDrug+Week+Normal))
 # observation matrix and covariate matrix
 Y <- matrix(d$Normal,nrow=3,ncol=340)
 A <- matrix(0,nrow=3,ncol=340)
-rownames(A) <- c("Const","Mild","NewDrug")
 A[1,] <- 1
 A[2,] <- d$Mild[d$Week==1]
 A[3,] <- d$NewDrug[d$Week==1]
+rownames(A) <- c("Const","Mild","NewDrug")
 
 # nmf with covariates
-library(nmfkc)
 result <- nmfkc(Y,A,Q=2,epsilon=1e-8)
 plot(result)
 
