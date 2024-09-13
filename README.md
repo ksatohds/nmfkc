@@ -288,15 +288,13 @@ for(q in 1:Q){
 
 # contribution of words to each topics
 Xp <- prop.table(result$X,1)
-head(rowSums(Xp))
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
 barplot(t(Xp),las=3,col=1:Q+1,
   ylab="Proportion of words on each topic")
 legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
 for(q in 1:Q){
   message(paste0("----- featured words on topic [",q,"] -----"))
-  prop <- Xp[,q]
-  print(paste0(rownames(Xp),round(100*prop,1),"%")[prop>=0.5])
+  print(paste0(rownames(Xp),"(",rowSums(Y),")",round(100*Xp[,q],1),"%")[Xp[,q]>=0.5])
 }
 
 #------------------
