@@ -293,9 +293,11 @@ par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
 barplot(t(Xp),las=3,col=1:Q+1,
   ylab="Proportion of words on each topic")
 legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
-rownames(Xp[Xp[,1]>0.6,]) # featured words on topic1
-rownames(Xp[Xp[,2]>0.6,]) # featured words on topic2
-rownames(Xp[Xp[,3]>0.6,]) # featured words on topic3
+for(q in 1:Q){
+  message(paste0("----- featured words on topic [",q,"] -----"))
+  prop <- Xp[,q]
+  print(paste0(rownames(Xp),round(100*prop,1),"%")[prop>=0.5])
+}
 
 #------------------
 # with covariates using covariate matrix U
