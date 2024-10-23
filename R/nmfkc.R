@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 11 Aug 2024")
+  packageStartupMessage("Last update on 23 Oct 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -437,13 +437,13 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,...)
   }
   if(draw.figure){
     graphics::par(mar=c(5,4,4,4)+0.1)
-    plot(Q,CPCC,type="l",col=2,axes=F,xlab="Rank",ylab="")
+    plot(Q,CPCC,type="l",col=2,axes=F,xlab="Rank",ylab="",ylim=c(0,1))
     graphics::text(Q,CPCC,Q)
     graphics::axis(side=1,at=Q)
     graphics::axis(side=2,col=2,col.axis=2)
     graphics::mtext(side=2,text="CPCC: Cophenetic correlation coefficient",line=2.5,col=2)
     graphics::par(new=T)
-    plot(Q,r.squared,type="l",col=4,axes=F,xlab="",ylab="")
+    plot(Q,r.squared,type="l",col=4,axes=F,xlab="",ylab="",ylim=c(0,1))
     graphics::text(Q,r.squared,Q)
     graphics::axis(side=4,col=4,col.axis=4)
     graphics::mtext(side=4,text="R.squared: Coefficient of determination",line=2.5,col=4)
