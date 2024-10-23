@@ -457,7 +457,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
     if("B.prob.sd.min" %in% criterion){
       graphics::lines(Q,B.prob.sd.min/max(B.prob.sd.min),col=3)
       graphics::text(Q,B.prob.sd.min/max(B.prob.sd.min),Q)
-      legend <- c(legend,"B.prob.sd.min")
+      legend <- c(legend,"B.prob.sd.min/max")
       fill <- c(fill,3)
     }
     graphics::legend("bottomleft",legend=legend,fill=fill)
