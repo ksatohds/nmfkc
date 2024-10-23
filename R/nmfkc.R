@@ -401,11 +401,12 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q vector of ranks to be diagnosed.
+#' @param criterion The default is c("r.squared","CPCC","B.prob.sd.min")
 #' @param draw.figure draw a diagram for diagnosis
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
-#' @return B.prob.sd.min: minimum standard deviation of row vectors of B.prob
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
+#' @return B.prob.sd.min: minimum standard deviation of row vectors of B.prob
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
 #' @references Punera, K. and Ghosh, J. (2008). CONSENSUS-BASED ENSEMBLES OF SOFT CLUSTERINGS. Applied Artificial Intelligence, 22(7–8), 780–810. \url{https://doi.org/10.1080/08839510802170546}
@@ -417,7 +418,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,...){
+nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.squared","CPCC","B.prob.sd.min"),draw.figure=TRUE,...){
   arglist=list(...)
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
@@ -428,36 +429,38 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,...)
   hclust.method <- ifelse("hclust.method" %in% names(arglist),arglist$hclust.method,"average")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
-  save.time <- FALSE
-  r.squared <- 0*Q
-  names(r.squared) <- Q
-  B.prob.sd.min <- 0*Q
-  names(B.prob.sd.min) <- Q
-  CPCC <- 0*Q
-  names(CPCC) <- Q
+  r.squared <- 0*Q; names(r.squared) <- Q
+  CPCC <- 0*Q; names(CPCC) <- Q
+  B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
   for(q in 1:length(Q)){
-    result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time)
+    if("CPCC" %in% criterion){
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time=F)
+      CPCC[q] <- result$CPCC
+    }else{
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time=T)
+    }
     r.squared[q] <- result$r.squared
     B.prob.sd.min[q] <- result$B.prob.sd.min
-    CPCC[q] <- result$CPCC
   }
   if(draw.figure){
     graphics::par(mar=c(5,4,4,4)+0.1)
-    plot(Q,CPCC,type="l",col=2,axes=F,xlab="Rank",ylab="",ylim=c(0,1))
-    graphics::text(Q,CPCC,Q)
-    graphics::axis(side=1,at=Q)
-    graphics::axis(side=2,col=2,col.axis=2)
-    graphics::mtext(side=2,text="CPCC: Cophenetic correlation coefficient",line=2.5,col=2)
-    graphics::par(new=T)
-    plot(Q,r.squared,type="l",col=4,axes=F,xlab="",ylab="",ylim=c(0,1))
+    plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1))
     graphics::text(Q,r.squared,Q)
-    graphics::axis(side=4,col=4,col.axis=4)
-    graphics::mtext(side=4,text="R.squared: Coefficient of determination",line=2.5,col=4)
-    graphics::box()
-    graphics::par(new=T)
-    plot(Q,B.prob.sd.min,type="l",col=3,axes=F,xlab="",ylab="")
-    graphics::text(Q,B.prob.sd.min,Q)
-    graphics::legend("bottomleft",legend=c("R^2","CPCC","B.prob.min.sd"),fill=c(4,2,3))
+    legend <- "r.squared"
+    fill <- 2
+    if("CPCC" %in% criterion){
+      graphics::lines(Q,CPCC,col=4)
+      graphics::text(Q,CPCC,Q)
+      legend <- c(legend,"CPCC")
+      fill <- c(fill,4)
+    }
+    if("B.prob.sd.min" %in% criterion){
+      graphics::lines(Q,B.prob.sd.min/max(B.prob.sd.min),col=3)
+      graphics::text(Q,B.prob.sd.min/max(B.prob.sd.min),Q)
+      legend <- c(legend,"B.prob.sd.min")
+      fill <- c(fill,3)
+    }
+    graphics::legend("bottomleft",legend=legend,fill=fill)
   }
   invisible(list(Q=Q,r.squared=r.squared,CPCC=CPCC,B.prob.sd.min=B.prob.sd.min))
 }

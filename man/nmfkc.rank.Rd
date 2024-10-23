@@ -8,6 +8,7 @@ nmfkc.rank(
   Y,
   A = NULL,
   Q = 2:min(5, ncol(Y), nrow(Y)),
+  criterion = c("r.squared", "CPCC", "B.prob.sd.min"),
   draw.figure = TRUE,
   ...
 )
@@ -19,6 +20,8 @@ nmfkc.rank(
 
 \item{Q}{vector of ranks to be diagnosed.}
 
+\item{criterion}{The default is c("r.squared","CPCC","B.prob.sd.min")}
+
 \item{draw.figure}{draw a diagram for diagnosis}
 
 \item{...}{arguments to be passed to nmfkc function.}
@@ -26,9 +29,9 @@ nmfkc.rank(
 \value{
 r.squared
 
-B.prob.sd.min: minimum standard deviation of row vectors of B.prob
-
 CPCC: Cophenetic correlation coefficient based on B.prob
+
+B.prob.sd.min: minimum standard deviation of row vectors of B.prob
 }
 \description{
 \code{nmfkc.rank} provides rank selection diagnostics. The method is still under development.
