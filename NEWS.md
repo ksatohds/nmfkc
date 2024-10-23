@@ -1,4 +1,5 @@
-# nmfkc 0.3.1
+# nmfkc 0.3.2
+- 0.3.2 Addition of argument "criterion" in nmfkc.rank
 - 0.3.1    
 - 0.3.0 save.time is implemented   
 - 0.2.9 nmfkc.rank function is implemented
