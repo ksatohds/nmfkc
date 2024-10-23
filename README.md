@@ -117,6 +117,9 @@ stars(x=t(result$B.prob),scale=F,
       draw.segments=T,len=0.7,labels=NULL,
       col.segments=c(1:Q)+1,add=T)
 
+# heatmap
+heatmap(t(result$B.prob))
+
 # hard clustering based on B.cluster
 table(result$B.cluster)
 ``` 
