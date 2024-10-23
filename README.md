@@ -366,7 +366,7 @@ Y[1:6,1:6]
 nmfkc.rank(Y,Q=2:12)
 
 # nmf
-Q0 <- 8
+Q0 <- 7
 res <- nmfkc(Y,Q=Q0)
 plot(res$objfunc.iter,type="o",
      main=paste0("Q=",Q0,", R^2=",round(res$r.squared,3)))
