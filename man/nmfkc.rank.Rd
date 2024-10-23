@@ -26,6 +26,8 @@ nmfkc.rank(
 \value{
 r.squared
 
+B.prob.sd.min: minimum standard deviation of row vectors of B.prob
+
 CPCC: Cophenetic correlation coefficient based on B.prob
 }
 \description{

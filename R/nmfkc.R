@@ -77,6 +77,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @return X: basis matrix. The column sum depends on X.column.
 #' @return B: coefficient matrix, B=CA
 #' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
+#' @return B.prob.sd.min: minimum standard deviation of row vectors of B.prob.
 #' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 #' @return XB: fitted values for observation matrix Y
 #' @return C: parameter matrix
@@ -187,6 +188,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
   }
   B.prob <- t(z(t(B)/colSums(B)))
+  B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
   B.cluster <- apply(B.prob,2,which.max)
   B.cluster[colSums(B.prob)==0] <- NA
   colnames(B) <- colnames(Y)
@@ -217,7 +219,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)))
   }
-  result <- list(X=X,B=B,B.prob=B.prob,B.cluster=B.cluster,XB=XB,C=C,
+  result <- list(X=X,B=B,B.prob=B.prob,B.prob.sd.min=B.prob.sd.min,B.cluster=B.cluster,XB=XB,C=C,
                  objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,CPCC=CPCC)
   class(result) <- "nmfkc"
   return(result)
@@ -402,6 +404,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param draw.figure draw a diagram for diagnosis
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
+#' @return B.prob.sd.min: minimum standard deviation of row vectors of B.prob
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
@@ -428,11 +431,14 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,...)
   save.time <- FALSE
   r.squared <- 0*Q
   names(r.squared) <- Q
+  B.prob.sd.min <- 0*Q
+  names(B.prob.sd.min) <- Q
   CPCC <- 0*Q
   names(CPCC) <- Q
   for(q in 1:length(Q)){
     result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time)
     r.squared[q] <- result$r.squared
+    B.prob.sd.min[q] <- result$B.prob.sd.min
     CPCC[q] <- result$CPCC
   }
   if(draw.figure){
@@ -448,6 +454,10 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),draw.figure=TRUE,...)
     graphics::axis(side=4,col=4,col.axis=4)
     graphics::mtext(side=4,text="R.squared: Coefficient of determination",line=2.5,col=4)
     graphics::box()
+    graphics::par(new=T)
+    plot(Q,B.prob.sd.min,type="l",col=3,axes=F,xlab="",ylab="")
+    graphics::text(Q,B.prob.sd.min,Q)
+    graphics::legend("bottomleft",legend=c("R^2","CPCC","B.prob.min.sd"),fill=c(4,2,3))
   }
-  invisible(list(Q=Q,r.squared=r.squared,CPCC=CPCC))
+  invisible(list(Q=Q,r.squared=r.squared,CPCC=CPCC,B.prob.sd.min=B.prob.sd.min))
 }
