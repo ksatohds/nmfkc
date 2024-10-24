@@ -460,7 +460,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
       legend <- c(legend,"B.prob.mean.min")
       fill <- c(fill,3)
     }
-    graphics::legend("bottomleft",legend=legend,fill=fill)
+    graphics::legend("right",legend=legend,fill=fill)
   }
   invisible(list(Q=Q,r.squared=r.squared,CPCC=CPCC,B.prob.mean.min=B.prob.mean.min))
 }
