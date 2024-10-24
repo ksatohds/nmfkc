@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 23 Oct 2024")
+  packageStartupMessage("Last update on 24 Oct 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -77,7 +77,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @return X: basis matrix. The column sum depends on X.column.
 #' @return B: coefficient matrix, B=CA
 #' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
-#' @return B.prob.sd.min: minimum standard deviation of row vectors of B.prob.
+#' @return B.prob.mean.min: minimum mean of row vectors of B.prob.
 #' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 #' @return XB: fitted values for observation matrix Y
 #' @return C: parameter matrix
@@ -188,7 +188,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
   }
   B.prob <- t(z(t(B)/colSums(B)))
-  B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
+  B.prob.mean.min <- min(apply(B.prob,1,mean))
   B.cluster <- apply(B.prob,2,which.max)
   B.cluster[colSums(B.prob)==0] <- NA
   colnames(B) <- colnames(Y)
@@ -219,7 +219,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)))
   }
-  result <- list(X=X,B=B,B.prob=B.prob,B.prob.sd.min=B.prob.sd.min,B.cluster=B.cluster,XB=XB,C=C,
+  result <- list(X=X,B=B,B.prob=B.prob,B.prob.mean.min=B.prob.mean.min,B.cluster=B.cluster,XB=XB,C=C,
                  objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,CPCC=CPCC)
   class(result) <- "nmfkc"
   return(result)
@@ -401,12 +401,12 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q vector of ranks to be diagnosed.
-#' @param criterion The default is c("r.squared","CPCC","B.prob.sd.min")
+#' @param criterion The default is c("r.squared","CPCC","B.prob.mean.min")
 #' @param draw.figure draw a diagram for diagnosis
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
-#' @return B.prob.sd.min: minimum standard deviation of row vectors of B.prob
+#' @return B.prob.mean.min: minimum mean of row vectors of B.prob
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
 #' @references Punera, K. and Ghosh, J. (2008). CONSENSUS-BASED ENSEMBLES OF SOFT CLUSTERINGS. Applied Artificial Intelligence, 22(7–8), 780–810. \url{https://doi.org/10.1080/08839510802170546}
@@ -418,7 +418,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.squared","CPCC","B.prob.sd.min"),draw.figure=TRUE,...){
+nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.squared","CPCC","B.prob.mean.min"),draw.figure=TRUE,...){
   arglist=list(...)
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
@@ -431,7 +431,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
   r.squared <- 0*Q; names(r.squared) <- Q
   CPCC <- 0*Q; names(CPCC) <- Q
-  B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
+  B.prob.mean.min <- 0*Q; names(B.prob.mean.min) <- Q
   for(q in 1:length(Q)){
     if("CPCC" %in% criterion){
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time=F)
@@ -440,7 +440,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time=T)
     }
     r.squared[q] <- result$r.squared
-    B.prob.sd.min[q] <- result$B.prob.sd.min
+    B.prob.mean.min[q] <- result$B.prob.mean.min
   }
   if(draw.figure){
     graphics::par(mar=c(5,4,4,4)+0.1)
@@ -454,13 +454,13 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
       legend <- c(legend,"CPCC")
       fill <- c(fill,4)
     }
-    if("B.prob.sd.min" %in% criterion){
-      graphics::lines(Q,B.prob.sd.min/max(B.prob.sd.min),col=3)
-      graphics::text(Q,B.prob.sd.min/max(B.prob.sd.min),Q)
-      legend <- c(legend,"B.prob.sd.min/max")
+    if("B.prob.mean.min" %in% criterion){
+      graphics::lines(Q,B.prob.mean.min/max(B.prob.mean.min),col=3)
+      graphics::text(Q,B.prob.mean.min/max(B.prob.mean.min),Q)
+      legend <- c(legend,"B.prob.mean.min/max")
       fill <- c(fill,3)
     }
     graphics::legend("bottomleft",legend=legend,fill=fill)
   }
-  invisible(list(Q=Q,r.squared=r.squared,CPCC=CPCC,B.prob.sd.min=B.prob.sd.min))
+  invisible(list(Q=Q,r.squared=r.squared,CPCC=CPCC,B.prob.mean.min=B.prob.mean.min))
 }

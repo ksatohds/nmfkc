@@ -57,7 +57,7 @@ B: coefficient matrix, B=CA
 
 B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
 
-B.prob.sd.min: minimum standard deviation of row vectors of B.prob.
+B.prob.mean.min: minimum mean of row vectors of B.prob.
 
 B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 
