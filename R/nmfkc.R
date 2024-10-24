@@ -455,9 +455,9 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
       fill <- c(fill,4)
     }
     if("B.prob.mean.min" %in% criterion){
-      graphics::lines(Q,B.prob.mean.min/max(B.prob.mean.min),col=3)
-      graphics::text(Q,B.prob.mean.min/max(B.prob.mean.min),Q)
-      legend <- c(legend,"B.prob.mean.min/max")
+      graphics::lines(Q,B.prob.mean.min,col=3)
+      graphics::text(Q,B.prob.mean.min,Q)
+      legend <- c(legend,"B.prob.mean.min")
       fill <- c(fill,3)
     }
     graphics::legend("bottomleft",legend=legend,fill=fill)
