@@ -470,13 +470,3 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
   invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,CPCC=CPCC))
 }
 
-#' @title plot for return value of nmfkc.rank function
-#' @description \code{plot.nmfkc.rank} plot for return value of nmfkc.rank function
-#' @param x return value of nmfkc.rank function
-#' @param ... arguments to be passed to plot function.
-#' @export
-plot.nmfkc.rank <- function(x,...){
-  plot(x$Q,x$BIC,xlab="Rank",ylab="BIC",type="l",col=2)
-  graphics::text(x$Q,x$BIC,x$Q)
-}
-
