@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 24 Oct 2024")
+  packageStartupMessage("Last update on 1st Nov 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -84,6 +84,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
+#' @return BIC: Bayesian Information Criterion
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
@@ -195,6 +196,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(B.prob) <- colnames(Y)
   colnames(XB) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
+  BIC <- log(objfunc)+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
   if(save.time){
     CPCC <- NA
   }else{
@@ -220,7 +222,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)))
   }
   result <- list(X=X,B=B,B.prob=B.prob,B.prob.sd.min=B.prob.sd.min,B.cluster=B.cluster,XB=XB,C=C,
-                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,CPCC=CPCC)
+                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,BIC=BIC,CPCC=CPCC)
   class(result) <- "nmfkc"
   return(result)
 }
@@ -405,6 +407,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param draw.figure draw a diagram for diagnosis
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
+#' @return BIC
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @return B.prob.sd.min: minimum sd of row vectors of B.prob
 #' @export
@@ -418,7 +421,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.squared","CPCC","B.prob.sd.min"),draw.figure=TRUE,...){
+nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.squared","B.prob.sd.min","CPCC"),draw.figure=TRUE,...){
   arglist=list(...)
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
@@ -430,6 +433,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
   r.squared <- 0*Q; names(r.squared) <- Q
+  BIC <- 0*Q; names(BIC) <- Q
   CPCC <- 0*Q; names(CPCC) <- Q
   B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
   for(q in 1:length(Q)){
@@ -440,6 +444,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time=T)
     }
     r.squared[q] <- result$r.squared
+    BIC[q] <- result$BIC
     B.prob.sd.min[q] <- result$B.prob.sd.min
   }
   if(draw.figure){
@@ -462,5 +467,5 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
     }
     graphics::legend("right",legend=legend,fill=fill)
   }
-  invisible(list(Q=Q,r.squared=r.squared,CPCC=CPCC,B.prob.sd.min=B.prob.sd.min))
+  invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,CPCC=CPCC))
 }

@@ -57,7 +57,7 @@ B: coefficient matrix, B=CA
 
 B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
 
-B.prob.mean.min: minimum mean of row vectors of B.prob.
+B.prob.sd.min: minimum sd of row vectors of B.prob.
 
 B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 
@@ -70,6 +70,8 @@ objfunc: last objective function
 objfunc.iter: objective function at each iteration
 
 r.squared: coefficient of determination R^2, squared correlation between Y and XB
+
+BIC: Bayesian Information Criterion
 
 CPCC: Cophenetic correlation coefficient based on B.prob
 }

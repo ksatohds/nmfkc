@@ -8,7 +8,7 @@ nmfkc.rank(
   Y,
   A = NULL,
   Q = 2:min(5, ncol(Y), nrow(Y)),
-  criterion = c("r.squared", "CPCC", "B.prob.sd.min"),
+  criterion = c("r.squared", "B.prob.sd.min", "CPCC"),
   draw.figure = TRUE,
   ...
 )
@@ -29,9 +29,11 @@ nmfkc.rank(
 \value{
 r.squared
 
+BIC
+
 CPCC: Cophenetic correlation coefficient based on B.prob
 
-B.prob.mean.min: minimum mean of row vectors of B.prob
+B.prob.sd.min: minimum sd of row vectors of B.prob
 }
 \description{
 \code{nmfkc.rank} provides rank selection diagnostics. The method is still under development.
