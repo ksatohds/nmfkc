@@ -77,7 +77,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @return X: basis matrix. The column sum depends on X.column.
 #' @return B: coefficient matrix, B=CA
 #' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
-#' @return B.prob.sd.min: minimum mean of row vectors of B.prob.
+#' @return B.prob.sd.min: minimum sd of row vectors of B.prob.
 #' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 #' @return XB: fitted values for observation matrix Y
 #' @return C: parameter matrix
@@ -406,7 +406,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
-#' @return B.prob.sd.min: minimum mean of row vectors of B.prob
+#' @return B.prob.sd.min: minimum sd of row vectors of B.prob
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
 #' @references Punera, K. and Ghosh, J. (2008). CONSENSUS-BASED ENSEMBLES OF SOFT CLUSTERINGS. Applied Artificial Intelligence, 22(7–8), 780–810. \url{https://doi.org/10.1080/08839510802170546}

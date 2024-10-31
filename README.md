@@ -371,6 +371,17 @@ res <- nmfkc(Y,Q=Q0)
 plot(res$objfunc.iter,type="o",
      main=paste0("Q=",Q0,", R^2=",round(res$r.squared,3)))
 
+# stability of hard clustering by 
+Q <- 6:8
+cluster <- NULL
+for(i in 1:length(Q)){
+  res <- nmfkc(Y,Q=Q[i])
+  cluster <- cbind(cluster,res$B.cluster)
+}
+library(alluvial)
+alluvial(cluster,freq=1,axis_labels=paste0("Q=",Q),
+         col=cluster[,2]+1,cex=2,border="white")
+
 # basis function of which sum is 1
 library(NipponMap)
 library(RColorBrewer)
