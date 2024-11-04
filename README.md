@@ -379,8 +379,8 @@ for(i in 1:length(Q)){
   cluster <- cbind(cluster,res$B.cluster)
 }
 library(alluvial)
-alluvial(cluster,freq=1,axis_labels=paste0("Q=",Q),
-         col=cluster[,2]+1,cex=2,border="white")
+alluvial(cluster,freq=1,axis_labels=paste0("Q=",Q),cex=2,
+         col=cluster[,2]+1,border=cluster[,2]+1)
 
 # basis function of which sum is 1
 library(NipponMap)
