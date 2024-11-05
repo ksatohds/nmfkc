@@ -492,7 +492,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
     if("ARI" %in% criterion){
       graphics::lines(Q[-1],ARI[-1],col=6)
       graphics::text(Q[-1],ARI[-1],Q[-1])
-      legend <- c(legend,"ARI(Q,Q-1)")
+      legend <- c(legend,"ARI for Q-1")
       fill <- c(fill,6)
     }
     graphics::legend("right",legend=legend,fill=fill)
