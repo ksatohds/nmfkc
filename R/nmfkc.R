@@ -408,8 +408,9 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
 #' @return BIC
-#' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @return B.prob.sd.min: minimum sd of row vectors of B.prob
+#' @return ARI: Adjusted Rand Index for small Q
+#' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
 #' @references Punera, K. and Ghosh, J. (2008). CONSENSUS-BASED ENSEMBLES OF SOFT CLUSTERINGS. Applied Artificial Intelligence, 22(7–8), 780–810. \url{https://doi.org/10.1080/08839510802170546}
@@ -421,8 +422,22 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.squared","B.prob.sd.min","CPCC"),draw.figure=TRUE,...){
+nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.squared","B.prob.sd.min","ARI","CPCC"),draw.figure=TRUE,...){
   arglist=list(...)
+  AdjustedRandIndex <- function(x){
+    nchoose <- function(n) choose(n,2)
+    a <- sum(apply(x,c(1,2),nchoose))
+    ab <- sum(sapply(rowSums(x),nchoose))
+    b <- ab-a
+    ac <- sum(sapply(colSums(x),nchoose))
+    c <- ac-a
+    total <- nchoose(sum(x))
+    d <- total-a-b-c
+    (ri <- (a+d)/total)
+    e <- ab*ac/total+(total-ab)*(total-ac)/total
+    (ari <- (a+d-e)/(total-e))
+    return(list(RI=ri,ARI=ari))
+  }
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
   maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
@@ -436,6 +451,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
   BIC <- 0*Q; names(BIC) <- Q
   CPCC <- 0*Q; names(CPCC) <- Q
   B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
+  ARI <- 0*Q; names(ARI) <- Q
   for(q in 1:length(Q)){
     if("CPCC" %in% criterion){
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time=F)
@@ -446,6 +462,14 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
     r.squared[q] <- result$r.squared
     BIC[q] <- result$BIC
     B.prob.sd.min[q] <- result$B.prob.sd.min
+    if(q==1){
+      cluster.old <- result$B.cluster
+    }else{
+      cluster <- result$B.cluster
+      f <- table(cluster.old,cluster)
+      ARI[q] <- AdjustedRandIndex(f)$ARI
+      cluster.old <- cluster
+    }
   }
   if(draw.figure){
     graphics::par(mar=c(5,4,4,4)+0.1)
@@ -465,8 +489,14 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
       legend <- c(legend,"B.prob.sd.min")
       fill <- c(fill,3)
     }
+    if("ARI" %in% criterion){
+      graphics::lines(Q[-1],ARI[-1],col=6)
+      graphics::text(Q[-1],ARI[-1],Q[-1])
+      legend <- c(legend,"ARI")
+      fill <- c(fill,6)
+    }
     graphics::legend("right",legend=legend,fill=fill)
   }
-  invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,CPCC=CPCC))
+  invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,ARI=ARI,CPCC=CPCC))
 }
 
