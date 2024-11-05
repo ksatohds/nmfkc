@@ -409,7 +409,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @return r.squared
 #' @return BIC
 #' @return B.prob.sd.min: minimum sd of row vectors of B.prob
-#' @return ARI: Adjusted Rand Index for small Q
+#' @return ARI: Adjusted Rand Index for Q-1
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
@@ -492,7 +492,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
     if("ARI" %in% criterion){
       graphics::lines(Q[-1],ARI[-1],col=6)
       graphics::text(Q[-1],ARI[-1],Q[-1])
-      legend <- c(legend,"ARI")
+      legend <- c(legend,"ARI(Q,Q-1)")
       fill <- c(fill,6)
     }
     graphics::legend("right",legend=legend,fill=fill)
