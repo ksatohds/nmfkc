@@ -425,13 +425,13 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.squared","B.prob.sd.min","ARI","CPCC"),draw.figure=TRUE,...){
   arglist=list(...)
   AdjustedRandIndex <- function(x){
-    nchoose <- function(n) choose(n,2)
-    a <- sum(apply(x,c(1,2),nchoose))
-    ab <- sum(sapply(rowSums(x),nchoose))
+    choose2 <- function(n) choose(n,2)
+    a <- sum(apply(x,c(1,2),choose2))
+    ab <- sum(sapply(rowSums(x),choose2))
     b <- ab-a
-    ac <- sum(sapply(colSums(x),nchoose))
+    ac <- sum(sapply(colSums(x),choose2))
     c <- ac-a
-    total <- nchoose(sum(x))
+    total <- choose2(sum(x))
     d <- total-a-b-c
     (ri <- (a+d)/total)
     e <- ab*ac/total+(total-ab)*(total-ac)/total
