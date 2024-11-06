@@ -276,7 +276,8 @@ Y[1:20,c(1,ncol(Y))]
 Q <- 3
 result <- nmfkc(Y,Q=Q)
 result$r.squared # coefficient of determination
-colnames(result$B.prob) <- corp$Year
+
+# topic probabilities
 par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=1)
 barplot(result$B.prob,col=1:Q+1,legend=T,las=3,
   ylab="Probabilities of topics")
