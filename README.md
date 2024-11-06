@@ -98,7 +98,7 @@ for(n in 1:ncol(Y)){
 par(mfrow=c(Q,1),mar=c(0,0,0,0),cex=1)
 for(q in 1:Q){
   barplot(result$X[,q],col=q+1,border=q+1,las=3,
-    ylim=range(result$X),ylab=paste0("topic",q)) 
+    ylim=range(result$X),ylab=paste0("topic ",q)) 
   legend("left",fill=q+1,legend=q)
 }
 
@@ -278,24 +278,23 @@ result <- nmfkc(Y,Q=Q)
 result$r.squared # coefficient of determination
 
 # topic probabilities
-par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,cex=1)
+par(mfrow=c(1,1),mar=c(10,4,4,2)+0.1,cex=1)
 barplot(result$B.prob,col=1:Q+1,legend=T,las=3,
   ylab="Probabilities of topics")
 
 # basis function of which sum is 1
-par(mfrow=c(Q,1),mar=c(0,0,0,0),cex=0.6)
+par(mfrow=c(Q,1),mar=c(8,4,1,1),cex=0.6)
 for(q in 1:Q){
   barplot(result$X[,q],col=q+1,border=q+1,las=3,
-    ylim=range(result$X),ylab=paste0("topic",q)) 
-  legend("left",fill=q+1,legend=q)
+    ylim=range(result$X),ylab=paste0("topic ",q)) 
 }
 
 # contribution of words to each topics
 Xp <- prop.table(result$X,1)
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=0.6)
+par(mfrow=c(1,1),mar=c(8,4,1,1)+0.1,cex=0.6)
 barplot(t(Xp),las=3,col=1:Q+1,
   ylab="Proportion of words on each topic")
-legend("topright",fill=1:Q+1,legend=paste0("topic",1:Q))
+legend("topleft",fill=1:Q+1,legend=paste0("topic ",1:Q))
 for(q in 1:Q){
   message(paste0("----- featured words on topic [",q,"] -----"))
   print(paste0(rownames(Xp),"(",rowSums(Y),")",round(100*Xp[,q],1),"%")[Xp[,q]>=0.5])
