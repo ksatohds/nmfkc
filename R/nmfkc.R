@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 5 Nov 2024")
+  packageStartupMessage("Last update on 8 Nov 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -403,7 +403,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q vector of ranks to be diagnosed.
-#' @param criterion The default is c("r.squared","CPCC","B.prob.sd.min")
+#' @param criterion The default is some criteria with "CPCC"
 #' @param draw.figure draw a diagram for diagnosis
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
@@ -422,7 +422,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.squared","B.prob.sd.min","ARI","CPCC"),draw.figure=TRUE,...){
+nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw.figure=TRUE,...){
   arglist=list(...)
   AdjustedRandIndex <- function(x){
     choose2 <- function(n) choose(n,2)
@@ -468,11 +468,15 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
       cluster <- result$B.cluster
       f <- table(cluster.old,cluster)
       ARI[q] <- AdjustedRandIndex(f)$ARI
-      cluster.old <- cluster
+      #cluster.old <- cluster
     }
   }
   if(draw.figure){
-    graphics::par(mar=c(5,4,4,4)+0.1)
+    if("BIC" %in% criterion){
+      graphics::par(mfrow=c(2,1),mar=c(5,4,4,4)+0.1)
+    }else{
+      graphics::par(mfrow=c(1,1),mar=c(5,4,4,4)+0.1)
+    }
     plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1))
     graphics::text(Q,r.squared,Q)
     legend <- "r.squared"
@@ -483,19 +487,22 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion=c("r.square
       legend <- c(legend,"CPCC")
       fill <- c(fill,4)
     }
-    if("B.prob.sd.min" %in% criterion){
-      graphics::lines(Q,B.prob.sd.min,col=3)
+    graphics::lines(Q,B.prob.sd.min,col=3)
       graphics::text(Q,B.prob.sd.min,Q)
       legend <- c(legend,"B.prob.sd.min")
       fill <- c(fill,3)
-    }
-    if("ARI" %in% criterion){
-      graphics::lines(Q[-1],ARI[-1],col=6)
+    graphics::lines(Q[-1],ARI[-1],col=6)
       graphics::text(Q[-1],ARI[-1],Q[-1])
-      legend <- c(legend,"ARI for Q-1")
+      legend <- c(legend,paste0("ARI for Q=",Q[1]))
       fill <- c(fill,6)
-    }
     graphics::legend("right",legend=legend,fill=fill)
+    if("BIC" %in% criterion){
+      plot(Q,BIC,type="l",col=2,xlab="Rank",ylab="Criterion")
+      graphics::text(Q,BIC,Q)
+      legend <- "BIC"
+      fill <- 2
+      graphics::legend("right",legend=legend,fill=fill)
+    }
   }
   invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,ARI=ARI,CPCC=CPCC))
 }

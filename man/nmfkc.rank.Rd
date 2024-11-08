@@ -8,7 +8,7 @@ nmfkc.rank(
   Y,
   A = NULL,
   Q = 2:min(5, ncol(Y), nrow(Y)),
-  criterion = c("r.squared", "B.prob.sd.min", "ARI", "CPCC"),
+  criterion = "CPCC",
   draw.figure = TRUE,
   ...
 )
@@ -20,7 +20,7 @@ nmfkc.rank(
 
 \item{Q}{vector of ranks to be diagnosed.}
 
-\item{criterion}{The default is c("r.squared","CPCC","B.prob.sd.min")}
+\item{criterion}{The default is some criteria with "CPCC"}
 
 \item{draw.figure}{draw a diagram for diagnosis}
 
