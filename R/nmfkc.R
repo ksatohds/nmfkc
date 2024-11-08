@@ -473,9 +473,9 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw
   }
   if(draw.figure){
     if("BIC" %in% criterion){
-      graphics::par(mfrow=c(2,1),mar=c(5,4,4,4)+0.1)
+      graphics::par(mfrow=c(1,2),mar=c(5,2,1,1)+0.1)
     }else{
-      graphics::par(mfrow=c(1,1),mar=c(5,4,4,4)+0.1)
+      graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
     }
     plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1))
     graphics::text(Q,r.squared,Q)
@@ -495,13 +495,14 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw
       graphics::text(Q[-1],ARI[-1],Q[-1])
       legend <- c(legend,"ARI for Q-1")
       fill <- c(fill,6)
-    graphics::legend("right",legend=legend,fill=fill)
+    graphics::legend("right",legend=legend,fill=fill,bg=NULL)
     if("BIC" %in% criterion){
       plot(Q,BIC,type="l",col=2,xlab="Rank",ylab="Criterion")
       graphics::text(Q,BIC,Q)
       legend <- "BIC"
       fill <- 2
-      graphics::legend("right",legend=legend,fill=fill)
+      graphics::legend("right",legend=legend,fill=fill,bg=NULL)
+      graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
     }
   }
   invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,ARI=ARI,CPCC=CPCC))
