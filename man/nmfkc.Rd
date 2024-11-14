@@ -73,6 +73,8 @@ r.squared: coefficient of determination R^2, squared correlation between Y and X
 
 BIC: Bayesian Information Criterion
 
+silhouette: silhouette coefficient and related statistics
+
 CPCC: Cophenetic correlation coefficient based on B.prob
 }
 \description{

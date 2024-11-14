@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 8 Nov 2024")
+  packageStartupMessage("Last update on 15 Nov 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -85,6 +85,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @return objfunc.iter: objective function at each iteration
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
 #' @return BIC: Bayesian Information Criterion
+#' @return silhouette: silhouette coefficient and related statistics
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
@@ -126,6 +127,46 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     x[is.nan(x)] <- 0
     x[is.infinite(x)] <- 0
     return(x)
+  }
+  mysilhouette <- function(B.prob,B.cluster){
+    Q <- nrow(B.prob)
+    cluster.means <- matrix(0,nrow=Q,ncol=Q)
+    ns <- NULL
+    cluster.list <- NULL
+    for(q in 1:Q){
+      ns <- c(ns,sum(B.cluster==q))
+      cluster.list <- c(cluster.list,list(which(B.cluster==q)))
+      cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
+    }
+    si <- 0*B.cluster
+    neighbor.cluster <- 0*B.cluster
+    for(q in 1:Q){
+      for(i in cluster.list[[q]]){
+        di <- colSums((cluster.means-B.prob[,i])^2)
+        qn <- ifelse(order(di)[1]==q,order(di)[2],order(di)[1])
+        neighbor.cluster[i] <- qn
+        if(ns[q]==1){
+          si[i] <- 0
+        }else{
+          ai <- sum(colSums((B.prob[,cluster.list[[q]],drop=F]-B.prob[,i])^2)^0.5)/(ns[q]-1)
+          bi <- sum(colSums((B.prob[,cluster.list[[qn]],drop=F]-B.prob[,i])^2)^0.5)/ns[qn]
+          si[i] <- (bi-ai)/max(ai,bi)
+        }
+      }
+    }
+    si.mean <- mean(si)
+    si.sort.cluster.means <- 0*ns
+    for(q in 1:Q){
+      si.sort.cluster.means[q] <- mean(cluster.list[[q]])
+    }
+    si.sort <- NULL
+    si.sort.cluster <- NULL
+    for(q in 1:Q){
+      si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
+      si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
+    }
+    return(list(cluster=si.sort.cluster,silhouette=si.sort,
+                silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
   }
   set.seed(123)
   if(is.vector(Y)) Y <- t(as.matrix(Y))
@@ -197,6 +238,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(XB) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   BIC <- log(objfunc)+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
+  silhouette <- mysilhouette(B.prob,B.cluster)
   if(save.time){
     CPCC <- NA
   }else{
@@ -222,7 +264,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)))
   }
   result <- list(X=X,B=B,B.prob=B.prob,B.prob.sd.min=B.prob.sd.min,B.cluster=B.cluster,XB=XB,C=C,
-                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,BIC=BIC,CPCC=CPCC)
+                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,BIC=BIC,silhouette=silhouette,CPCC=CPCC)
   class(result) <- "nmfkc"
   return(result)
 }
@@ -410,6 +452,8 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @return BIC
 #' @return B.prob.sd.min: minimum sd of row vectors of B.prob
 #' @return ARI: Adjusted Rand Index for Q-1
+#' @return ARI: Adjusted Rand Index for Q-1
+#' @return silhouette: silhouette coefficient
 #' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
@@ -449,6 +493,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
   r.squared <- 0*Q; names(r.squared) <- Q
   BIC <- 0*Q; names(BIC) <- Q
+  silhouette <- 0*Q; names(silhouette) <- Q
   CPCC <- 0*Q; names(CPCC) <- Q
   B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
   ARI <- 0*Q; names(ARI) <- Q
@@ -461,6 +506,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw
     }
     r.squared[q] <- result$r.squared
     BIC[q] <- result$BIC
+    silhouette[q] <- result$silhouette$silhouette.mean
     B.prob.sd.min[q] <- result$B.prob.sd.min
     if(q==1){
       cluster.old <- result$B.cluster
@@ -488,14 +534,18 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw
       fill <- c(fill,4)
     }
     graphics::lines(Q,B.prob.sd.min,col=3)
-      graphics::text(Q,B.prob.sd.min,Q)
+    graphics::text(Q,B.prob.sd.min,Q)
       legend <- c(legend,"B.prob.sd.min")
       fill <- c(fill,3)
     graphics::lines(Q[-1],ARI[-1],col=6)
-      graphics::text(Q[-1],ARI[-1],Q[-1])
+    graphics::text(Q[-1],ARI[-1],Q[-1])
       legend <- c(legend,"ARI for Q-1")
       fill <- c(fill,6)
-    graphics::legend("right",legend=legend,fill=fill,bg=NULL)
+    graphics::lines(Q,silhouette,col=8)
+    graphics::text(Q,silhouette,Q)
+      legend <- c(legend,"silhouette")
+      fill <- c(fill,8)
+      graphics::legend("right",legend=legend,fill=fill,bg=NULL)
     if("BIC" %in% criterion){
       plot(Q,BIC,type="l",col=2,xlab="Rank",ylab="Criterion")
       graphics::text(Q,BIC,Q)
@@ -505,6 +555,6 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw
       graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
     }
   }
-  invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,ARI=ARI,CPCC=CPCC))
+  invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,ARI=ARI,silhouette=silhouette,CPCC=CPCC))
 }
 

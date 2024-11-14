@@ -35,6 +35,10 @@ B.prob.sd.min: minimum sd of row vectors of B.prob
 
 ARI: Adjusted Rand Index for Q-1
 
+ARI: Adjusted Rand Index for Q-1
+
+silhouette: silhouette coefficient
+
 CPCC: Cophenetic correlation coefficient based on B.prob
 }
 \description{
