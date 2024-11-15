@@ -70,7 +70,6 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @param method The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
 #' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
 #' @param nstart The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.
-#' @param hclust.method option of hclust for calculating Cophenetic distances
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
 #' @param save.time The default is TRUE. Some return values including CPCC are skipped to save the computation time.
@@ -121,7 +120,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
 
 nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
-                  X.column="sum",nstart=1,hclust.method="average",
+                  X.column="sum",nstart=1,
                   print.trace=FALSE,print.dims=TRUE,save.time=TRUE){
   z <- function(x){
     x[is.nan(x)] <- 0
@@ -244,7 +243,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   }else{
     if(nrow(B.prob)>=2){
       M <- t(B.prob) %*% B.prob
-      h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M),method=hclust.method)))
+      h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M))))
       up <- upper.tri(M)
       CPCC <- stats::cor(h.dist[up],(1-M)[up])
     }else{
@@ -340,7 +339,6 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
   X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
-  hclust.method <- ifelse("hclust.method" %in% names(arglist),arglist$hclust.method,"average")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
   save.time <- TRUE
@@ -417,7 +415,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims,save.time)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -445,8 +443,6 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q vector of ranks to be diagnosed.
-#' @param criterion The default is some criteria with "CPCC"
-#' @param draw.figure draw a diagram for diagnosis
 #' @param ... arguments to be passed to nmfkc function.
 #' @return r.squared
 #' @return BIC
@@ -466,7 +462,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw.figure=TRUE,...){
+nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
   arglist=list(...)
   AdjustedRandIndex <- function(x){
     choose2 <- function(n) choose(n,2)
@@ -488,9 +484,9 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
   X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
-  hclust.method <- ifelse("hclust.method" %in% names(arglist),arglist$hclust.method,"average")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
+  save.time <- ifelse("save.time" %in% names(arglist),arglist$save.time,TRUE)
   r.squared <- 0*Q; names(r.squared) <- Q
   BIC <- 0*Q; names(BIC) <- Q
   silhouette <- 0*Q; names(silhouette) <- Q
@@ -498,11 +494,11 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw
   B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
   ARI <- 0*Q; names(ARI) <- Q
   for(q in 1:length(Q)){
-    if("CPCC" %in% criterion){
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time=F)
-      CPCC[q] <- result$CPCC
+    if(save.time){
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims,save.time=T)
     }else{
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,hclust.method,print.trace,print.dims,save.time=T)
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims,save.time=F)
+      CPCC[q] <- result$CPCC
     }
     r.squared[q] <- result$r.squared
     BIC[q] <- result$BIC
@@ -517,44 +513,38 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),criterion="CPCC",draw
       cluster.old <- cluster
     }
   }
-  if(draw.figure){
-    if("BIC" %in% criterion){
-      graphics::par(mfrow=c(1,2),mar=c(5,2,1,1)+0.1)
-    }else{
-      graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
-    }
-    plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1))
-    graphics::text(Q,r.squared,Q)
-    legend <- "r.squared"
-    fill <- 2
-    if("CPCC" %in% criterion){
-      graphics::lines(Q,CPCC,col=4)
-      graphics::text(Q,CPCC,Q)
-      legend <- c(legend,"CPCC")
-      fill <- c(fill,4)
-    }
-    graphics::lines(Q,B.prob.sd.min,col=3)
-    graphics::text(Q,B.prob.sd.min,Q)
-      legend <- c(legend,"B.prob.sd.min")
-      fill <- c(fill,3)
-    graphics::lines(Q[-1],ARI[-1],col=6)
-    graphics::text(Q[-1],ARI[-1],Q[-1])
-      legend <- c(legend,"ARI for Q-1")
-      fill <- c(fill,6)
-    graphics::lines(Q,silhouette,col=8)
-    graphics::text(Q,silhouette,Q)
-      legend <- c(legend,"silhouette")
-      fill <- c(fill,8)
-      graphics::legend("right",legend=legend,fill=fill,bg=NULL)
-    if("BIC" %in% criterion){
-      plot(Q,BIC,type="l",col=2,xlab="Rank",ylab="Criterion")
-      graphics::text(Q,BIC,Q)
-      legend <- "BIC"
-      fill <- 2
-      graphics::legend("right",legend=legend,fill=fill,bg=NULL)
-      graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
-    }
+  # BIC
+  graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+  plot(Q,BIC,type="l",col=2,xlab="Rank",ylab="Criterion",lwd=2)
+  graphics::text(Q,BIC,Q)
+  legend <- "BIC"
+  fill <- 2
+  graphics::legend("right",legend=legend,fill=fill,bg=NULL)
+  graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+  # Criterion
+  plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=2)
+  graphics::text(Q,r.squared,Q)
+  legend <- "r.squared"
+  fill <- 2
+  if(!save.time){
+    graphics::lines(Q,CPCC,col=4,lwd=2)
+    graphics::text(Q,CPCC,Q)
+    legend <- c(legend,"CPCC")
+    fill <- c(fill,4)
   }
+  graphics::lines(Q,B.prob.sd.min,col=3,lwd=2)
+  graphics::text(Q,B.prob.sd.min,Q)
+  legend <- c(legend,"B.prob.sd.min")
+  fill <- c(fill,3)
+  graphics::lines(Q[-1],ARI[-1],col=6,lwd=2)
+  graphics::text(Q[-1],ARI[-1],Q[-1])
+  legend <- c(legend,"ARI for Q-1")
+  fill <- c(fill,6)
+  graphics::lines(Q,silhouette,col=8,lwd=2)
+  graphics::text(Q,silhouette,Q)
+  legend <- c(legend,"silhouette")
+  fill <- c(fill,8)
+  graphics::legend("right",legend=legend,fill=fill,bg=NULL)
   invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,ARI=ARI,silhouette=silhouette,CPCC=CPCC))
 }
 
