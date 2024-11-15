@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 15 Nov 2024")
+  packageStartupMessage("Last update on 16 Nov 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -167,6 +167,16 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     return(list(cluster=si.sort.cluster,silhouette=si.sort,
                 silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
   }
+  if(print.dims)if(is.null(A)){
+    packageStartupMessage(
+      sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)...",
+              nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y)),appendLF=FALSE)
+  }else{
+    packageStartupMessage(
+      sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)...",
+              nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)),appendLF=FALSE)
+  }
+  start.time <- Sys.time()
   set.seed(123)
   if(is.vector(Y)) Y <- t(as.matrix(Y))
   if(!is.matrix(Y)) Y <- as.matrix(Y)
@@ -253,15 +263,11 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   if(epsilon.iter > abs(epsilon)) warning(paste0(
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet."))
-  if(print.dims)if(is.null(A)){
-    packageStartupMessage(
-      sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
-              nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y)))
-  }else{
-    packageStartupMessage(
-      sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
-              nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)))
-  }
+  end.time <- Sys.time()
+  diff.time <- as.numeric(end.time-start.time)
+  diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
+                         paste0(round(diff.time/60,1),"min"))
+  if(print.dims) packageStartupMessage(diff.time.st)
   result <- list(X=X,B=B,B.prob=B.prob,B.prob.sd.min=B.prob.sd.min,B.cluster=B.cluster,XB=XB,C=C,
                  objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,BIC=BIC,silhouette=silhouette,CPCC=CPCC)
   class(result) <- "nmfkc"
