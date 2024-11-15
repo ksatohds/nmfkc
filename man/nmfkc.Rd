@@ -66,6 +66,8 @@ objfunc: last objective function
 
 objfunc.iter: objective function at each iteration
 
+runtime: the CPU time spent for calculations (sec)
+
 r.squared: coefficient of determination R^2, squared correlation between Y and XB
 
 BIC: Bayesian Information Criterion

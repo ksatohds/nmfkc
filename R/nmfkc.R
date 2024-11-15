@@ -82,6 +82,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @return C: parameter matrix
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
+#' @return runtime: the CPU time spent for calculations (sec)
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
 #' @return BIC: Bayesian Information Criterion
 #' @return silhouette: silhouette coefficient and related statistics
@@ -269,7 +270,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                          paste0(round(diff.time/60,1),"min"))
   if(print.dims) packageStartupMessage(diff.time.st)
   result <- list(X=X,B=B,B.prob=B.prob,B.prob.sd.min=B.prob.sd.min,B.cluster=B.cluster,XB=XB,C=C,
-                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,BIC=BIC,silhouette=silhouette,CPCC=CPCC)
+                 objfunc=objfunc,objfunc.iter=objfunc.iter,runtime=diff.time,r.squared=r2,BIC=BIC,silhouette=silhouette,CPCC=CPCC)
   class(result) <- "nmfkc"
   return(result)
 }
