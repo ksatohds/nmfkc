@@ -519,32 +519,32 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
   graphics::text(Q,BIC,Q)
   legend <- "BIC"
   fill <- 2
-  graphics::legend("right",legend=legend,fill=fill,bg=NULL)
+  graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
   graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
   # Criterion
-  plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=2)
+  plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=3)
   graphics::text(Q,r.squared,Q)
   legend <- "r.squared"
   fill <- 2
-  if(!save.time){
-    graphics::lines(Q,CPCC,col=4,lwd=2)
-    graphics::text(Q,CPCC,Q)
-    legend <- c(legend,"CPCC")
-    fill <- c(fill,4)
-  }
-  graphics::lines(Q,B.prob.sd.min,col=3,lwd=2)
+  graphics::lines(Q,B.prob.sd.min,col=3,lwd=3)
   graphics::text(Q,B.prob.sd.min,Q)
   legend <- c(legend,"B.prob.sd.min")
   fill <- c(fill,3)
-  graphics::lines(Q[-1],ARI[-1],col=6,lwd=2)
+  graphics::lines(Q[-1],ARI[-1],col=4,lwd=3)
   graphics::text(Q[-1],ARI[-1],Q[-1])
   legend <- c(legend,"ARI for Q-1")
-  fill <- c(fill,6)
-  graphics::lines(Q,silhouette,col=8,lwd=2)
+  fill <- c(fill,4)
+  graphics::lines(Q,silhouette,col=7,lwd=3)
   graphics::text(Q,silhouette,Q)
   legend <- c(legend,"silhouette")
-  fill <- c(fill,8)
-  graphics::legend("right",legend=legend,fill=fill,bg=NULL)
+  fill <- c(fill,7)
+  if(!save.time){
+    graphics::lines(Q,CPCC,col=6,lwd=3)
+    graphics::text(Q,CPCC,Q)
+    legend <- c(legend,"CPCC")
+    fill <- c(fill,6)
+  }
+  graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
   invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,ARI=ARI,silhouette=silhouette,CPCC=CPCC))
 }
 
