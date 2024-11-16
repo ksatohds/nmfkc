@@ -64,7 +64,10 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 - COVID-19 in Japan
 - https://www3.nhk.or.jp/news/special/coronavirus/data/
 ``` r
-library(nmfkc)
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# install.packages("NipponMap")
+
 d <- read.csv(
   "https://www3.nhk.or.jp/n-data/opendata/coronavirus/nhk_news_covid19_prefectures_daily_data.csv")
 colnames(d) <- c(
@@ -78,6 +81,7 @@ colnames(Y) <- unique(d$Prefecture_name)
 rownames(Y) <- unique(d$Date)
 
 # rank selection diagnostics
+library(nmfkc)
 nmfkc.rank(Y,Q=2:8)
 
 # nmf
@@ -127,7 +131,10 @@ table(result$B.cluster)
 ## 2. Spatiotemporal Analysis
 -  CanadianWeather
 ``` r
-library(nmfkc)
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# install.packages("fda")
+
 library(fda)
 data(CanadianWeather)
 d <- CanadianWeather$dailyAv[,,1]
@@ -138,6 +145,7 @@ u0[,1] <- -u0[,1]
 #------------------
 # without covariate
 #------------------
+library(nmfkc)
 result <- nmfkc(Y,Q=2)
 result$r.squared # coefficient of determination
 
@@ -250,7 +258,10 @@ filled.contour(v,v,z,main="probability of basis function 2",
 - data_corpus_inaugural
 - US presidential inaugural address texts
 ``` r
-library(nmfkc)
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# install.packages("quanteda")
+
 #------------------
 # text analysis
 #------------------
@@ -274,6 +285,7 @@ paste0(colnames(d)[1:30],"(",colSums(d)[1:30],")") # Top 30 most frequent words
 Y <- t(d)
 Y[1:20,c(1,ncol(Y))]
 Q <- 3
+library(nmfkc)
 result <- nmfkc(Y,Q=Q)
 result$r.squared # coefficient of determination
 
@@ -332,7 +344,13 @@ barplot(result$B.prob,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
 ## 4. Origin-Destination (OD) data: Japanese Inter-prefecture flow
 - e-stat run by Japanese Government Statistics
 ``` r
-library(nmfkc)
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# install.packages("httr")
+# install.packages("readxl")
+# install.packages("alluvial")
+# install.packages("NipponMap")
+# install.packages("RColorBrewer")
 
 # download data and its formatting
 library(httr)
@@ -363,6 +381,7 @@ Y <- log(1+Y)
 Y[1:6,1:6]
 
 # rank selection diagnostics
+library(nmfkc)
 nmfkc.rank(Y,Q=2:12)
 
 # nmf
@@ -421,7 +440,9 @@ title(main="Inter-prefecture flow: weekdays - operations")
 ## 5. Kernel ridge regression
 - mcycle
 ``` r
-library(nmfkc)
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+
 library(MASS)
 d <- mcycle
 x <- d$times
@@ -434,6 +455,7 @@ plot(U,Y)
 
 # linear curve
 A <- rbind(1,U)
+library(nmfkc)
 result <- nmfkc(Y,A,Q=1)
 result$r.squared
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
@@ -484,7 +506,10 @@ legend("topleft",legend=c("Gaussian","Periodic"),fill=c(2,4))
 ## 6. Growth curve model
 - Orthodont
 ``` r
-library(nmfkc)
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# install.packages("nlme")
+
 library(nlme)
 d <- Orthodont
 head(d)
@@ -502,6 +527,7 @@ A <- rbind(rep(1,ncol(Y)),Male)
 rownames(A) <- c("Const","Male")
 
 # nmf with covariates
+library(nmfkc)
 result <- nmfkc(Y,A,Q=2,epsilon=1e-8)
 result$r.squared
 
@@ -525,7 +551,8 @@ legend("topleft",title="Sex",legend=c("Male","Female"),fill=c(4,2))
 - Table 6, Koch et al.(1977) Biometrics, 33(1), 133–158. https://doi.org/10.2307/2529309
 - Repeated categorical outcome analysis, https://wnarifin.github.io/medstat.html
 ``` r
-library(nmfkc)
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
 
 Id <- rep(1:340,each=3)
 Mild <- rep(c(1,0),c(150*3,190*3))
@@ -549,6 +576,7 @@ A[3,] <- d$NewDrug[d$Week==1]
 rownames(A) <- c("Const","Mild","NewDrug")
 
 # nmf with covariates
+library(nmfkc)
 result <- nmfkc(Y,A,Q=2,epsilon=1e-8)
 plot(result)
 
