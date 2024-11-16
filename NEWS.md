@@ -1,4 +1,5 @@
-# nmfkc 0.3.4
+# nmfkc 0.3.5
+- 0.3.5 several criteria are included "criterion" in nmfkc function
 - 0.3.4 Updating nmfkc.rank function
 - 0.3.3
 - 0.3.2 Addition of argument "criterion" in nmfkc.rank

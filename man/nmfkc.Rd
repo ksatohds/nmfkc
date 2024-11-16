@@ -54,8 +54,6 @@ B: coefficient matrix, B=CA
 
 B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
 
-B.prob.sd.min: minimum sd of row vectors of B.prob.
-
 B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 
 XB: fitted values for observation matrix Y
@@ -66,15 +64,9 @@ objfunc: last objective function
 
 objfunc.iter: objective function at each iteration
 
-runtime: the CPU time spent for calculations (sec)
-
 r.squared: coefficient of determination R^2, squared correlation between Y and XB
 
-BIC: Bayesian Information Criterion
-
-silhouette: silhouette coefficient and related statistics
-
-CPCC: Cophenetic correlation coefficient based on B.prob
+criterion: several criteria for selecting rank including BIC, CPCC, silhouette
 }
 \description{
 \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB
