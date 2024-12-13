@@ -511,12 +511,12 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
     }
   }
   # BIC
-  graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
-  plot(Q,BIC,type="l",col=2,xlab="Rank",ylab="Criterion",lwd=2)
-  graphics::text(Q,BIC,Q)
-  legend <- "BIC"
-  fill <- 2
-  graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
+  #graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+  #plot(Q,BIC,type="l",col=2,xlab="Rank",ylab="Criterion",lwd=2)
+  #graphics::text(Q,BIC,Q)
+  #legend <- "BIC"
+  #fill <- 2
+  #graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
   graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
   # Criterion
   plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=3)
