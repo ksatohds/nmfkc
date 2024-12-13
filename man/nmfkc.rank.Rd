@@ -15,21 +15,6 @@ nmfkc.rank(Y, A = NULL, Q = 2:min(5, ncol(Y), nrow(Y)), ...)
 
 \item{...}{arguments to be passed to nmfkc function.}
 }
-\value{
-r.squared
-
-BIC
-
-B.prob.sd.min: minimum sd of row vectors of B.prob
-
-ARI: Adjusted Rand Index for Q-1
-
-ARI: Adjusted Rand Index for Q-1
-
-silhouette: silhouette coefficient
-
-CPCC: Cophenetic correlation coefficient based on B.prob
-}
 \description{
 \code{nmfkc.rank} provides rank selection diagnostics. The method is still under development.
 }
