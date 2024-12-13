@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 13 Dec 2024")
+  packageStartupMessage("Last update on 16 Nov 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -76,16 +76,13 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @return X: basis matrix. The column sum depends on X.column.
 #' @return B: coefficient matrix, B=CA
 #' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
-#' @return B.prob.sd.min: minimum sd of row vectors of B.prob.
 #' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 #' @return XB: fitted values for observation matrix Y
 #' @return C: parameter matrix
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
-#' @return BIC: Bayesian Information Criterion
-#' @return silhouette: silhouette coefficient and related statistics
-#' @return CPCC: Cophenetic correlation coefficient based on B.prob
+#' @return criterion: several criteria for selecting rank including BIC, CPCC, silhouette
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 #' @references Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. \url{https://doi.org/10.1145/1150402.1150420}
@@ -268,8 +265,9 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                          paste0(round(diff.time/60,1),"min"))
   if(print.dims) packageStartupMessage(diff.time.st)
-  result <- list(X=X,B=B,B.prob=B.prob,B.prob.sd.min=B.prob.sd.min,B.cluster=B.cluster,XB=XB,C=C,
-                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,BIC=BIC,silhouette=silhouette,CPCC=CPCC)
+  result <- list(X=X,B=B,B.prob=B.prob,B.cluster=B.cluster,XB=XB,C=C,
+                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,
+                 criterion=list(B.prob.sd.min=B.prob.sd.min,BIC=BIC,silhouette=silhouette,CPCC=CPCC))
   class(result) <- "nmfkc"
   return(result)
 }
@@ -450,13 +448,6 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q vector of ranks to be diagnosed.
 #' @param ... arguments to be passed to nmfkc function.
-#' @return r.squared
-#' @return BIC
-#' @return B.prob.sd.min: minimum sd of row vectors of B.prob
-#' @return ARI: Adjusted Rand Index for Q-1
-#' @return ARI: Adjusted Rand Index for Q-1
-#' @return silhouette: silhouette coefficient
-#' @return CPCC: Cophenetic correlation coefficient based on B.prob
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
 #' @references Punera, K. and Ghosh, J. (2008). CONSENSUS-BASED ENSEMBLES OF SOFT CLUSTERINGS. Applied Artificial Intelligence, 22(7–8), 780–810. \url{https://doi.org/10.1080/08839510802170546}
@@ -504,12 +495,12 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims,save.time=T)
     }else{
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims,save.time=F)
-      CPCC[q] <- result$CPCC
+      CPCC[q] <- result$criterion$CPCC
     }
     r.squared[q] <- result$r.squared
-    BIC[q] <- result$BIC
-    silhouette[q] <- result$silhouette$silhouette.mean
-    B.prob.sd.min[q] <- result$B.prob.sd.min
+    BIC[q] <- result$criterion$BIC
+    silhouette[q] <- result$criterion$silhouette$silhouette.mean
+    B.prob.sd.min[q] <- result$criterion$B.prob.sd.min
     if(q==1){
       cluster.old <- result$B.cluster
     }else{
@@ -519,6 +510,13 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
       cluster.old <- cluster
     }
   }
+  # BIC
+  graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+  plot(Q,BIC,type="l",col=2,xlab="Rank",ylab="Criterion",lwd=2)
+  graphics::text(Q,BIC,Q)
+  legend <- "BIC"
+  fill <- 2
+  graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
   graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
   # Criterion
   plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=3)
@@ -544,6 +542,6 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
     fill <- c(fill,6)
   }
   graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
-  invisible(list(Q=Q,r.squared=r.squared,BIC=BIC,B.prob.sd.min=B.prob.sd.min,ARI=ARI,silhouette=silhouette,CPCC=CPCC))
+  invisible(data.frame(Q,r.squared,BIC,B.prob.sd.min,ARI,silhouette,CPCC))
 }
 
