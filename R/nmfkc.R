@@ -243,7 +243,8 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(B.prob) <- colnames(Y)
   colnames(XB) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
-  BIC <- log(objfunc)+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
+  BIC <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
+  AIC <- log(objfunc/prod(dim(Y)))+Q*2/prod(dim(Y))
   silhouette <- mysilhouette(B.prob,B.cluster)
   if(save.time){
     CPCC <- NA
@@ -267,7 +268,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   if(print.dims) packageStartupMessage(diff.time.st)
   result <- list(X=X,B=B,B.prob=B.prob,B.cluster=B.cluster,XB=XB,C=C,
                  objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,
-                 criterion=list(B.prob.sd.min=B.prob.sd.min,BIC=BIC,silhouette=silhouette,CPCC=CPCC))
+                 criterion=list(B.prob.sd.min=B.prob.sd.min,AIC=AIC,BIC=BIC,silhouette=silhouette,CPCC=CPCC))
   class(result) <- "nmfkc"
   return(result)
 }
@@ -485,6 +486,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
   save.time <- ifelse("save.time" %in% names(arglist),arglist$save.time,TRUE)
   r.squared <- 0*Q; names(r.squared) <- Q
+  AIC <- 0*Q; names(AIC) <- Q
   BIC <- 0*Q; names(BIC) <- Q
   silhouette <- 0*Q; names(silhouette) <- Q
   CPCC <- 0*Q; names(CPCC) <- Q
@@ -498,6 +500,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
       CPCC[q] <- result$criterion$CPCC
     }
     r.squared[q] <- result$r.squared
+    AIC[q] <- result$criterion$AIC
     BIC[q] <- result$criterion$BIC
     silhouette[q] <- result$criterion$silhouette$silhouette.mean
     B.prob.sd.min[q] <- result$criterion$B.prob.sd.min
@@ -510,13 +513,6 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
       cluster.old <- cluster
     }
   }
-  # BIC
-  #graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
-  #plot(Q,BIC,type="l",col=2,xlab="Rank",ylab="Criterion",lwd=2)
-  #graphics::text(Q,BIC,Q)
-  #legend <- "BIC"
-  #fill <- 2
-  #graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
   graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
   # Criterion
   plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=3)
@@ -542,6 +538,6 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
     fill <- c(fill,6)
   }
   graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
-  invisible(data.frame(Q,r.squared,BIC,B.prob.sd.min,ARI,silhouette,CPCC))
+  invisible(data.frame(Q,r.squared,AIC,BIC,B.prob.sd.min,ARI,silhouette,CPCC))
 }
 
