@@ -82,7 +82,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
-#' @return criterion: several criteria for selecting rank including BIC, CPCC, silhouette
+#' @return criterion: several criteria for selecting rank including ICp, CPCC, silhouette
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 #' @references Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. \url{https://doi.org/10.1145/1150402.1150420}
@@ -243,7 +243,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(B.prob) <- colnames(Y)
   colnames(XB) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
-  BIC <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
+  ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
   silhouette <- mysilhouette(B.prob,B.cluster)
   if(save.time){
     CPCC <- NA
@@ -267,7 +267,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   if(print.dims) packageStartupMessage(diff.time.st)
   result <- list(X=X,B=B,B.prob=B.prob,B.cluster=B.cluster,XB=XB,C=C,
                  objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,
-                 criterion=list(B.prob.sd.min=B.prob.sd.min,BIC=BIC,silhouette=silhouette,CPCC=CPCC))
+                 criterion=list(B.prob.sd.min=B.prob.sd.min,ICp=ICp,silhouette=silhouette,CPCC=CPCC))
   class(result) <- "nmfkc"
   return(result)
 }
@@ -485,7 +485,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
   save.time <- ifelse("save.time" %in% names(arglist),arglist$save.time,TRUE)
   r.squared <- 0*Q; names(r.squared) <- Q
-  BIC <- 0*Q; names(BIC) <- Q
+  ICp <- 0*Q; names(ICp) <- Q
   silhouette <- 0*Q; names(silhouette) <- Q
   CPCC <- 0*Q; names(CPCC) <- Q
   B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
@@ -498,7 +498,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
       CPCC[q] <- result$criterion$CPCC
     }
     r.squared[q] <- result$r.squared
-    BIC[q] <- result$criterion$BIC
+    ICp[q] <- result$criterion$ICp
     silhouette[q] <- result$criterion$silhouette$silhouette.mean
     B.prob.sd.min[q] <- result$criterion$B.prob.sd.min
     if(q==1){
@@ -535,6 +535,6 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
     fill <- c(fill,6)
   }
   graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
-  invisible(data.frame(Q,r.squared,BIC,B.prob.sd.min,ARI,silhouette,CPCC))
+  invisible(data.frame(Q,r.squared,ICp,B.prob.sd.min,ARI,silhouette,CPCC))
 }
 
