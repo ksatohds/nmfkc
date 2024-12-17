@@ -15,7 +15,7 @@ nmfkc(
   epsilon = 1e-04,
   maxit = 5000,
   method = "EU",
-  X.column = "sum",
+  X.restriction = "colSums",
   nstart = 1,
   print.trace = FALSE,
   print.dims = TRUE,
@@ -37,7 +37,7 @@ nmfkc(
 
 \item{method}{The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
 
-\item{X.column}{The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".}
+\item{X.restriction}{The default is X.restriction="colSums" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.restriction="colSqSums".}
 
 \item{nstart}{The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.}
 
@@ -48,7 +48,7 @@ nmfkc(
 \item{save.time}{The default is TRUE. Some return values including CPCC are skipped to save the computation time.}
 }
 \value{
-X: basis matrix. The column sum depends on X.column.
+X: basis matrix. The column sum depends on X.restriction.
 
 B: coefficient matrix, B=CA
 
@@ -66,7 +66,7 @@ objfunc.iter: objective function at each iteration
 
 r.squared: coefficient of determination R^2, squared correlation between Y and XB
 
-criterion: several criteria for selecting rank including BIC, CPCC, silhouette
+criterion: several criteria for selecting rank including ICp, CPCC, silhouette
 }
 \description{
 \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB

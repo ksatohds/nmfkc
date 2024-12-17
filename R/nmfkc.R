@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 15 Dec 2024")
+  packageStartupMessage("Last update on 18 Dec 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -68,12 +68,12 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @param epsilon positive convergence tolerance
 #' @param maxit maximum number of iterations
 #' @param method The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
-#' @param X.column The default is X.column="sum" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.column="squared".
+#' @param X.restriction The default is X.restriction="colSums" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.restriction="colSqSums".
 #' @param nstart The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
 #' @param save.time The default is TRUE. Some return values including CPCC are skipped to save the computation time.
-#' @return X: basis matrix. The column sum depends on X.column.
+#' @return X: basis matrix. The column sum depends on X.restriction.
 #' @return B: coefficient matrix, B=CA
 #' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
 #' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
@@ -117,7 +117,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
 
 nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
-                  X.column="sum",nstart=1,
+                  X.restriction="colSums",nstart=1,
                   print.trace=FALSE,print.dims=TRUE,save.time=TRUE){
   z <- function(x){
     x[is.nan(x)] <- 0
@@ -202,7 +202,9 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
   }
-  if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
+  if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
+  if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
+  if(X.restriction=="totalSum") X <- X/sum(X)
   if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
@@ -211,12 +213,16 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
       X <- X*z((Y%*%t(B))/(XB%*%t(B)))
-      if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
+      if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
+      if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
+      if(X.restriction=="totalSum") X <- X/sum(X)
       if(is.null(A)) C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C)) else C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
       X <- t(t(X*z(Y/XB)%*%t(B))/rowSums(B))
-      if(X.column=="sum") X <- t(t(X)/colSums(X)) else X <- t(t(X)/colSums(X^2)^0.5)
+      if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
+      if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
+      if(X.restriction=="totalSum") X <- X/sum(X)
       if(is.null(A)) C <- C*(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else C <- C*(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
     }
@@ -341,7 +347,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
   maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
-  X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
+  X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
@@ -419,7 +425,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims,save.time)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -479,7 +485,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
   maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
-  X.column <- ifelse("X.column" %in% names(arglist),arglist$X.column,"sum")
+  X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
@@ -492,9 +498,9 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
   ARI <- 0*Q; names(ARI) <- Q
   for(q in 1:length(Q)){
     if(save.time){
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims,save.time=T)
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time=T)
     }else{
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.column,nstart,print.trace,print.dims,save.time=F)
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time=F)
       CPCC[q] <- result$criterion$CPCC
     }
     r.squared[q] <- result$r.squared
