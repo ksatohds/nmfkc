@@ -1,6 +1,31 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 18 Dec 2024")
+  packageStartupMessage("Last update on 20 Dec 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
+}
+
+#' @title Creating observation and covariates for autoregressive model
+#' @description \code{nmfkc.ar} create observation matrix and covariate matrix according to the order of the autoregressive model
+#' @param Y Observation matrices with columns in ascending order of measurement time point
+#' @param degree order of the autoregressive model, and the default value is 1.
+#' @param intercept The default value is TRUE to add the intercept to the covariates
+#' @return Y: observation matrix according to the order of the autoregressive model
+#' @return A: covariate matrix according to the order of the autoregressive model
+#' @return A.columns: subscript matrix used to create A
+#' @export
+
+nmfkc.ar <- function(Y,degree=1,intercept=T){
+  N <- ncol(Y)
+  A.columns <- NULL
+  for(i in degree:1)A.columns <- rbind(A.columns,i:(i+ncol(Y)-degree-1))
+  A <- NULL
+  for(i in 1:nrow(A.columns))A <- rbind(A,Y[,A.columns[i,]])
+  label <- NULL
+  for(i in 1:degree)label <- c(label,paste0(rownames(Y),"_",i))
+  if(intercept){
+    A <- rbind(A,1)
+    rownames(A) <- c(label,"(Intercept)")
+  }
+  list(Y=Y[,A.columns[1,]+1],A=A,A.columns=A.columns)
 }
 
 
