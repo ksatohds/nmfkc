@@ -14,11 +14,14 @@
 #' @export
 
 nmfkc.ar <- function(Y,degree=1,intercept=T){
+  if(is.vector(Y)) Y <- matrix(Y,nrow=1)
+  if(!is.matrix(Y)) Y <- as.matrix(Y)
   N <- ncol(Y)
   A.columns <- NULL
   for(i in degree:1)A.columns <- rbind(A.columns,i:(i+ncol(Y)-degree-1))
   A <- NULL
   for(i in 1:nrow(A.columns))A <- rbind(A,Y[,A.columns[i,]])
+  if(is.null(rownames(Y))) rownames(Y) <- 1:nrow(Y)
   label <- NULL
   for(i in 1:degree)label <- c(label,paste0(rownames(Y),"_",i))
   if(intercept){
@@ -200,7 +203,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   }
   start.time <- Sys.time()
   set.seed(123)
-  if(is.vector(Y)) Y <- t(as.matrix(Y))
+  if(is.vector(Y)) Y <- matrix(Y,nrow=1)
   if(!is.matrix(Y)) Y <- as.matrix(Y)
   if(!is.null(A)){
     if(min(A)<0){
