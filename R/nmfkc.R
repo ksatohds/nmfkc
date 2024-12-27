@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 24 Dec 2024")
+  packageStartupMessage("Last update on 27 Dec 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -157,40 +157,43 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     cluster.means <- matrix(0,nrow=Q,ncol=Q)
     ns <- NULL
     cluster.list <- NULL
-    for(q in 1:Q){
-      ns <- c(ns,sum(B.cluster==q))
-      cluster.list <- c(cluster.list,list(which(B.cluster==q)))
-      cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
-    }
-    si <- 0*B.cluster
-    neighbor.cluster <- 0*B.cluster
-    for(q in 1:Q){
-      for(i in cluster.list[[q]]){
-        di <- colSums((cluster.means-B.prob[,i])^2)
-        qn <- ifelse(order(di)[1]==q,order(di)[2],order(di)[1])
-        neighbor.cluster[i] <- qn
-        if(ns[q]==1){
-          si[i] <- 0
-        }else{
-          ai <- sum(colSums((B.prob[,cluster.list[[q]],drop=F]-B.prob[,i])^2)^0.5)/(ns[q]-1)
-          bi <- sum(colSums((B.prob[,cluster.list[[qn]],drop=F]-B.prob[,i])^2)^0.5)/ns[qn]
-          si[i] <- (bi-ai)/max(ai,bi)
-        }
-      }
-    }
-    si.mean <- mean(si)
-    si.sort.cluster.means <- 0*ns
-    for(q in 1:Q){
-      si.sort.cluster.means[q] <- mean(cluster.list[[q]])
-    }
     si.sort <- NULL
     si.sort.cluster <- NULL
-    for(q in 1:Q){
-      si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
-      si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
-    }
-    return(list(cluster=si.sort.cluster,silhouette=si.sort,
-                silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
+    tryCatch({
+      for(q in 1:Q){
+        ns <- c(ns,sum(B.cluster==q))
+        cluster.list <- c(cluster.list,list(which(B.cluster==q)))
+        cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
+      }
+      si <- 0*B.cluster
+      neighbor.cluster <- 0*B.cluster
+      for(q in 1:Q){
+        for(i in cluster.list[[q]]){
+          di <- colSums((cluster.means-B.prob[,i])^2)
+          qn <- ifelse(order(di)[1]==q,order(di)[2],order(di)[1])
+          neighbor.cluster[i] <- qn
+          if(ns[q]==1){
+            si[i] <- 0
+          }else{
+            ai <- sum(colSums((B.prob[,cluster.list[[q]],drop=F]-B.prob[,i])^2)^0.5)/(ns[q]-1)
+            bi <- sum(colSums((B.prob[,cluster.list[[qn]],drop=F]-B.prob[,i])^2)^0.5)/ns[qn]
+            si[i] <- (bi-ai)/max(ai,bi)
+          }
+        }
+      }
+      si.mean <- mean(si)
+      si.sort.cluster.means <- 0*ns
+      for(q in 1:Q){
+        si.sort.cluster.means[q] <- mean(cluster.list[[q]])
+      }
+      for(q in 1:Q){
+        si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
+        si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
+      }
+    }, finally = {
+      return(list(cluster=si.sort.cluster,silhouette=si.sort,
+                  silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
+    })
   }
   if(print.dims)if(is.null(A)){
     packageStartupMessage(
