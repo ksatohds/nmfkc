@@ -536,7 +536,11 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
     }
     r.squared[q] <- result$r.squared
     ICp[q] <- result$criterion$ICp
-    silhouette[q] <- result$criterion$silhouette$silhouette.mean
+    if(sum(is.na(result$B.cluster))==0){
+      silhouette[q] <- result$criterion$silhouette$silhouette.mean
+    }else{
+      silhouette[q] <- 0
+    }
     B.prob.sd.min[q] <- result$criterion$B.prob.sd.min
     if(q==1){
       if(sum(is.na(result$B.cluster))==0){
