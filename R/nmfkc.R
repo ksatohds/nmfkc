@@ -162,41 +162,38 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     si.sort.cluster <- NULL
     si.sort.cluster.means <- NULL
     si.mean <- NULL
-    tryCatch({
-      for(q in 1:Q){
-        ns <- c(ns,sum(B.cluster==q))
-        cluster.list <- c(cluster.list,list(which(B.cluster==q)))
-        cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
-      }
-      si <- 0*B.cluster
-      neighbor.cluster <- 0*B.cluster
-      for(q in 1:Q){
-        for(i in cluster.list[[q]]){
-          di <- colSums((cluster.means-B.prob[,i])^2)
-          qn <- ifelse(order(di)[1]==q,order(di)[2],order(di)[1])
-          neighbor.cluster[i] <- qn
-          if(ns[q]==1){
-            si[i] <- 0
-          }else{
-            ai <- sum(colSums((B.prob[,cluster.list[[q]],drop=F]-B.prob[,i])^2)^0.5)/(ns[q]-1)
-            bi <- sum(colSums((B.prob[,cluster.list[[qn]],drop=F]-B.prob[,i])^2)^0.5)/ns[qn]
-            si[i] <- (bi-ai)/max(ai,bi)
-          }
+    for(q in 1:Q){
+      ns <- c(ns,sum(B.cluster==q,na.rm=T))
+      cluster.list <- c(cluster.list,list(which(B.cluster==q)))
+      cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
+    }
+    si <- 0*B.cluster
+    neighbor.cluster <- 0*B.cluster
+    for(q in 1:Q){
+      for(i in cluster.list[[q]]){
+        di <- colSums((cluster.means-B.prob[,i])^2)
+        qn <- ifelse(order(di)[1]==q,order(di)[2],order(di)[1])
+        neighbor.cluster[i] <- qn
+        if(ns[q]==1){
+          si[i] <- 0
+        }else{
+          ai <- sum(colSums((B.prob[,cluster.list[[q]],drop=F]-B.prob[,i])^2)^0.5)/(ns[q]-1)
+          bi <- sum(colSums((B.prob[,cluster.list[[qn]],drop=F]-B.prob[,i])^2)^0.5)/ns[qn]
+          si[i] <- (bi-ai)/max(ai,bi)
         }
       }
-      si.mean <- mean(si)
-      si.sort.cluster.means <- 0*ns
-      for(q in 1:Q){
-        si.sort.cluster.means[q] <- mean(cluster.list[[q]])
-      }
-      for(q in 1:Q){
-        si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
-        si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
-      }
-    }, finally = {
-      return(list(cluster=si.sort.cluster,silhouette=si.sort,
-                  silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
-    })
+    }
+    si.mean <- mean(si)
+    si.sort.cluster.means <- 0*ns
+    for(q in 1:Q){
+      si.sort.cluster.means[q] <- mean(cluster.list[[q]])
+    }
+    for(q in 1:Q){
+      si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
+      si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
+    }
+    return(list(cluster=si.sort.cluster,silhouette=si.sort,
+                silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
   }
   if(print.dims)if(is.null(A)){
     packageStartupMessage(
@@ -284,7 +281,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(XB) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
-  silhouette <- mysilhouette(B.prob,B.cluster)
+  if(sum(is.na(B.cluster))==0) silhouette <- mysilhouette(B.prob,B.cluster) else silhouette <- 0
   if(save.time){
     CPCC <- NA
   }else{
@@ -542,12 +539,21 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
     silhouette[q] <- result$criterion$silhouette$silhouette.mean
     B.prob.sd.min[q] <- result$criterion$B.prob.sd.min
     if(q==1){
-      cluster.old <- result$B.cluster
+      if(sum(is.na(result$B.cluster))==0){
+        cluster.old <- result$B.cluster
+      }else{
+        cluster.old <- 0
+      }
     }else{
-      cluster <- result$B.cluster
-      f <- table(cluster.old,cluster)
-      ARI[q] <- AdjustedRandIndex(f)$ARI
-      cluster.old <- cluster
+      if(sum(is.na(result$B.cluster))==0){
+        cluster <- result$B.cluster
+        f <- table(cluster.old,cluster)
+        ARI[q] <- AdjustedRandIndex(f)$ARI
+        cluster.old <- cluster
+      }else{
+        ARI[q] <- 0
+        cluster.old <- 0
+      }
     }
   }
   graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
