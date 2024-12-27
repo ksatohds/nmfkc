@@ -159,6 +159,9 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     cluster.list <- NULL
     si.sort <- NULL
     si.sort.cluster <- NULL
+    si.sort.cluster <- NULL
+    si.sort.cluster.means <- NULL
+    si.mean <- NULL
     tryCatch({
       for(q in 1:Q){
         ns <- c(ns,sum(B.cluster==q))
