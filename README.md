@@ -537,6 +537,9 @@ library(nmfkc)
 result <- nmfkc(Y,A,Q=2,epsilon=1e-8)
 result$r.squared
 
+# basis matrix
+print.table(round(result$X,2),zero.print="")
+
 # unique covariates and coefficient matrix
 (A0 <- t(unique(t(A))))
 B <- result$C %*% A0
