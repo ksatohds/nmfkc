@@ -540,6 +540,9 @@ result$r.squared
 # basis matrix
 print.table(round(result$X,2),zero.print="")
 
+# parameter matrix
+print.table(round(result$C,2),zero.print="")
+
 # unique covariates and coefficient matrix
 (A0 <- t(unique(t(A))))
 B <- result$C %*% A0
