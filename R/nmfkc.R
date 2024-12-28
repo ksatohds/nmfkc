@@ -536,6 +536,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   for(q in 1:length(Q)){
     if(save.time){
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time=T)
+      CPCC[q] <- NA
     }else{
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time=F)
       CPCC[q] <- result$criterion$CPCC
