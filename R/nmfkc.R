@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 27 Dec 2024")
+  packageStartupMessage("Last update on 28 Dec 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -153,47 +153,52 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     return(x)
   }
   mysilhouette <- function(B.prob,B.cluster){
-    Q <- nrow(B.prob)
-    cluster.means <- matrix(0,nrow=Q,ncol=Q)
-    ns <- NULL
-    cluster.list <- NULL
-    si.sort <- NULL
-    si.sort.cluster <- NULL
-    si.sort.cluster <- NULL
-    si.sort.cluster.means <- NULL
-    si.mean <- NULL
-    for(q in 1:Q){
-      ns <- c(ns,sum(B.cluster==q,na.rm=T))
-      cluster.list <- c(cluster.list,list(which(B.cluster==q)))
-      cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
-    }
-    si <- 0*B.cluster
-    neighbor.cluster <- 0*B.cluster
-    for(q in 1:Q){
-      for(i in cluster.list[[q]]){
-        di <- colSums((cluster.means-B.prob[,i])^2)
-        qn <- ifelse(order(di)[1]==q,order(di)[2],order(di)[1])
-        neighbor.cluster[i] <- qn
-        if(ns[q]==1){
-          si[i] <- 0
-        }else{
-          ai <- sum(colSums((B.prob[,cluster.list[[q]],drop=F]-B.prob[,i])^2)^0.5)/(ns[q]-1)
-          bi <- sum(colSums((B.prob[,cluster.list[[qn]],drop=F]-B.prob[,i])^2)^0.5)/ns[qn]
-          si[i] <- (bi-ai)/max(ai,bi)
+    if(is.matrix(B.prob)){Q <- nrow(B.prob)}else{Q <- 1}
+    if(Q==1){
+      return(list(cluster=NA,silhouette=NA,
+                  silhouette.means=NA,silhouette.mean=NA))
+    }else{
+      index <-!is.na(B.cluster)
+      B.prob <- B.prob[,index]
+      B.cluster <- B.cluster[index]
+      cluster.means <- matrix(0,nrow=Q,ncol=Q)
+      ns <- NULL
+      cluster.list <- NULL
+      for(q in 1:Q){
+        ns <- c(ns,sum(B.cluster==q,na.rm=T))
+        cluster.list <- c(cluster.list,list(which(B.cluster==q)))
+        cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
+      }
+      si <- 0*B.cluster
+      neighbor.cluster <- 0*B.cluster
+      for(q in 1:Q){
+        for(i in cluster.list[[q]]){
+          di <- colSums((cluster.means-B.prob[,i])^2)
+          qn <- ifelse(order(di)[1]==q,order(di)[2],order(di)[1])
+          neighbor.cluster[i] <- qn
+          if(ns[q]==1){
+            si[i] <- 0
+          }else{
+            ai <- sum(colSums((B.prob[,cluster.list[[q]],drop=F]-B.prob[,i])^2)^0.5)/(ns[q]-1)
+            bi <- sum(colSums((B.prob[,cluster.list[[qn]],drop=F]-B.prob[,i])^2)^0.5)/ns[qn]
+            si[i] <- (bi-ai)/max(ai,bi)
+          }
         }
       }
+      si.mean <- mean(si)
+      si.sort.cluster.means <- 0*ns
+      for(q in 1:Q){
+        si.sort.cluster.means[q] <- mean(cluster.list[[q]])
+      }
+      si.sort <- NULL
+      si.sort.cluster <- NULL
+      for(q in 1:Q){
+        si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
+        si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
+      }
+      return(list(cluster=si.sort.cluster,silhouette=si.sort,
+                  silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
     }
-    si.mean <- mean(si)
-    si.sort.cluster.means <- 0*ns
-    for(q in 1:Q){
-      si.sort.cluster.means[q] <- mean(cluster.list[[q]])
-    }
-    for(q in 1:Q){
-      si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
-      si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
-    }
-    return(list(cluster=si.sort.cluster,silhouette=si.sort,
-                silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
   }
   if(print.dims)if(is.null(A)){
     packageStartupMessage(
@@ -281,11 +286,11 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(XB) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
-  if(sum(is.na(B.cluster))==0) silhouette <- mysilhouette(B.prob,B.cluster) else silhouette <- 0
+  silhouette <- mysilhouette(B.prob,B.cluster)
   if(save.time){
     CPCC <- NA
   }else{
-    if(nrow(B.prob)>=2){
+    if(Q>=2){
       M <- t(B.prob) %*% B.prob
       h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M))))
       up <- upper.tri(M)
@@ -484,6 +489,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' @param Y observation matrix
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q vector of ranks to be diagnosed.
+#' @param plot The default is plot=TRUE and draw a graph.
 #' @param ... arguments to be passed to nmfkc function.
 #' @export
 #' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
@@ -496,7 +502,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
+nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   arglist=list(...)
   AdjustedRandIndex <- function(x){
     choose2 <- function(n) choose(n,2)
@@ -536,55 +542,46 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),...){
     }
     r.squared[q] <- result$r.squared
     ICp[q] <- result$criterion$ICp
-    if(sum(is.na(result$B.cluster))==0){
-      silhouette[q] <- result$criterion$silhouette$silhouette.mean
+    silhouette[q] <- result$criterion$silhouette$silhouette.mean
+    if(q==1){
+      ARI[q] <- NA
+      cluster.old <- result$B.cluster
     }else{
-      silhouette[q] <- 0
+      df <- data.frame(old=cluster.old,new=result$B.cluster)
+      df <- df[stats::complete.cases(df),]
+      f <- table(df$old,df$new)
+      ARI[q] <- AdjustedRandIndex(f)$ARI
+      cluster.old <- result$B.cluster
     }
     B.prob.sd.min[q] <- result$criterion$B.prob.sd.min
-    if(q==1){
-      if(sum(is.na(result$B.cluster))==0){
-        cluster.old <- result$B.cluster
-      }else{
-        cluster.old <- 0
-      }
-    }else{
-      if(sum(is.na(result$B.cluster))==0){
-        cluster <- result$B.cluster
-        f <- table(cluster.old,cluster)
-        ARI[q] <- AdjustedRandIndex(f)$ARI
-        cluster.old <- cluster
-      }else{
-        ARI[q] <- 0
-        cluster.old <- 0
-      }
+  }
+  if(plot){
+    graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+    # Criterion
+    plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=3)
+    graphics::text(Q,r.squared,Q)
+    legend <- "r.squared"
+    fill <- 2
+    graphics::lines(Q,B.prob.sd.min,col=3,lwd=3)
+    graphics::text(Q,B.prob.sd.min,Q)
+    legend <- c(legend,"B.prob.sd.min")
+    fill <- c(fill,3)
+    graphics::lines(Q[-1],ARI[-1],col=4,lwd=3)
+    graphics::text(Q[-1],ARI[-1],Q[-1])
+    legend <- c(legend,"ARI for Q-1")
+    fill <- c(fill,4)
+    graphics::lines(Q,silhouette,col=7,lwd=3)
+    graphics::text(Q,silhouette,Q)
+    legend <- c(legend,"silhouette")
+    fill <- c(fill,7)
+    if(!save.time){
+      graphics::lines(Q,CPCC,col=6,lwd=3)
+      graphics::text(Q,CPCC,Q)
+      legend <- c(legend,"CPCC")
+      fill <- c(fill,6)
     }
+    graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
   }
-  graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
-  # Criterion
-  plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=3)
-  graphics::text(Q,r.squared,Q)
-  legend <- "r.squared"
-  fill <- 2
-  graphics::lines(Q,B.prob.sd.min,col=3,lwd=3)
-  graphics::text(Q,B.prob.sd.min,Q)
-  legend <- c(legend,"B.prob.sd.min")
-  fill <- c(fill,3)
-  graphics::lines(Q[-1],ARI[-1],col=4,lwd=3)
-  graphics::text(Q[-1],ARI[-1],Q[-1])
-  legend <- c(legend,"ARI for Q-1")
-  fill <- c(fill,4)
-  graphics::lines(Q,silhouette,col=7,lwd=3)
-  graphics::text(Q,silhouette,Q)
-  legend <- c(legend,"silhouette")
-  fill <- c(fill,7)
-  if(!save.time){
-    graphics::lines(Q,CPCC,col=6,lwd=3)
-    graphics::text(Q,CPCC,Q)
-    legend <- c(legend,"CPCC")
-    fill <- c(fill,6)
-  }
-  graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
   invisible(data.frame(Q,r.squared,ICp,B.prob.sd.min,ARI,silhouette,CPCC))
 }
 

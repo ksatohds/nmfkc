@@ -4,7 +4,7 @@
 \alias{nmfkc.rank}
 \title{Rank selection diagnostics using figure}
 \usage{
-nmfkc.rank(Y, A = NULL, Q = 2:min(5, ncol(Y), nrow(Y)), ...)
+nmfkc.rank(Y, A = NULL, Q = 2:min(5, ncol(Y), nrow(Y)), plot = TRUE, ...)
 }
 \arguments{
 \item{Y}{observation matrix}
@@ -12,6 +12,8 @@ nmfkc.rank(Y, A = NULL, Q = 2:min(5, ncol(Y), nrow(Y)), ...)
 \item{A}{covariate matrix. Without covariate, identity matrix is used.}
 
 \item{Q}{vector of ranks to be diagnosed.}
+
+\item{plot}{The default is plot=TRUE and draw a graph.}
 
 \item{...}{arguments to be passed to nmfkc function.}
 }
