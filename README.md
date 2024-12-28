@@ -389,8 +389,14 @@ Q0 <- 7
 res <- nmfkc(Y,Q=Q0)
 plot(res$objfunc.iter,type="o",
      main=paste0("Q=",Q0,", R^2=",round(res$r.squared,3)))
+     
+# Silhouette: intra-cluster accumulation and inter-cluster discrepancy
+si <- res$criterion$silhouette
+barplot(si$silhouette,horiz=T,las=1,col=si$cluster+1,cex.names=0.5,xlab="")
+abline(v=si$silhouette.mean,lty=3)
+legend("bottomleft",fill=1:Q0,legend=1:Q0)
 
-# stability of hard clustering by 
+# Sankey diagram: stability of hard clustering by 
 Q <- 6:8
 cluster <- NULL
 for(i in 1:length(Q)){

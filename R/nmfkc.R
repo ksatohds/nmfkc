@@ -165,7 +165,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       ns <- NULL
       cluster.list <- NULL
       for(q in 1:Q){
-        ns <- c(ns,sum(B.cluster==q,na.rm=T))
+        ns <- c(ns,sum(B.cluster==q))
         cluster.list <- c(cluster.list,list(which(B.cluster==q)))
         cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
       }
