@@ -29,7 +29,10 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
     rownames(A) <- c(label,"(Intercept)")
   }
   Ya <- Y[,A.columns[1,]+1]
-  if(!is.matrix(Ya)) Ya <- matrix(Ya,nrow=1)
+  if(!is.matrix(Ya)){
+    Ya <- matrix(Ya,nrow=1)
+    colnames(Ya) <- colnames(Y)[A.columns[1,]+1]
+  }
   list(Y=Ya,A=A,A.columns=A.columns)
 }
 
