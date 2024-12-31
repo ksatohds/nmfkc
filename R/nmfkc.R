@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 28 Dec 2024")
+  packageStartupMessage("Last update on 31 Dec 2024")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -28,7 +28,9 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
     A <- rbind(A,1)
     rownames(A) <- c(label,"(Intercept)")
   }
-  list(Y=Y[,A.columns[1,]+1],A=A,A.columns=A.columns)
+  Ya <- Y[,A.columns[1,]+1]
+  if(!is.matrix(Ya)) Ya <- matrix(Ya,nrow=1)
+  list(Y=Ya,A=A,A.columns=A.columns)
 }
 
 
