@@ -32,6 +32,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
   if(!is.matrix(Ya)){
     Ya <- matrix(Ya,nrow=1)
     colnames(Ya) <- colnames(Y)[A.columns[1,]+1]
+    rownames(Ya) <- rownames(Y)[1]
   }
   list(Y=Ya,A=A,A.columns=A.columns)
 }
