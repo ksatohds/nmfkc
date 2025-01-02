@@ -127,21 +127,19 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' # Example 1.
 #' library(nmfkc)
 #' Y <- t(iris[,-5])
-#' Q <- 2
-#' result <- nmfkc(Y,Q=Q)
+#' Q <- 3
+#' result <- nmfkc(Y,Q=Q,epsilon=1e-5)
 #' # visualization of some results
-#' plot(result$objfunc.iter) # convergence
-#' # goodness of fit
-#' plot(as.vector(result$XB),as.vector(Y),
-#' main=paste0("r.squared=",round(result$r.squared,3)))
-#' abline(a=0,b=1,col=2)
-#' # dimension reduction based on coefficient matrix B
-#' plot(t(result$B))
+#' plot(result) # convergence
 #' # soft clustering based on coefficient matrix B
-#' plot(t(result$B),col=as.numeric(iris$Species))
-#' legend("topright",legend=1:Q,fill=1:Q+1)
-#' stars(t(result$B.prob),locations=t(result$B),scale=FALSE,
-#'   draw.segments=TRUE,col.segments=1:Q+1,len=0.2,add=TRUE)
+#' barplot(result$B.prob,col=1:Q+1,legend=TRUE,las=3,ylab="Probabilities")
+#' # hard clustering
+#' cluster.prob <- 0*1:ncol(Y)
+#' for(n in 1:ncol(Y)) cluster.prob[n] <- result$B.prob[result$B.cluster[n],n]
+#' barplot(cluster.prob,col=result$B.cluster+1,border=result$B.cluster+1,
+#' names=colnames(Y),legend=FALSE,las=3,ylab="Probability")
+#' legend("topright",fill=1:Q+1,legend=1:Q,bg="white")
+#' table(result$B.cluster,iris[,5])
 #'
 #' # Example 2.
 #' Y <- matrix(cars$dist,nrow=1)
@@ -364,7 +362,7 @@ plot.nmfkc <- function(x,...){
 #' Y <- matrix(cars$dist,nrow=1)
 #' U <- matrix(c(5,10,15,20,25),nrow=1)
 #' V <- matrix(cars$speed,nrow=1)
-#' betas <- 20:40/1000
+#' betas <- 25:35/1000
 #' objfuncs <- 0*(1:length(betas))
 #' for(i in 1:length(betas)){
 #'   print(i)

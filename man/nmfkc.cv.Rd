@@ -49,7 +49,7 @@ result$objfunc
 Y <- matrix(cars$dist,nrow=1)
 U <- matrix(c(5,10,15,20,25),nrow=1)
 V <- matrix(cars$speed,nrow=1)
-betas <- 20:40/1000
+betas <- 25:35/1000
 objfuncs <- 0*(1:length(betas))
 for(i in 1:length(betas)){
   print(i)
