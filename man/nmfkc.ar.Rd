@@ -21,5 +21,17 @@ A: covariate matrix according to the order of the autoregressive model
 A.columns: subscript matrix used to create A
 }
 \description{
-\code{nmfkc.ar} create observation matrix and covariate matrix according to the order of the autoregressive model
+\code{nmfkc.ar} create observation matrix and covariate matrix according to the degree of the autoregressive model
+}
+\examples{
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+Y0 <- matrix(as.vector(AirPassengers),nrow=1)
+rownames(Y0) <- "n"
+library(nmfkc)
+a <- nmfkc.ar(Y0,degree=12)
+result <- nmfkc(Y=a$Y,A=a$A,Q=1)
+result$C
+plot(as.vector(a$Y),type="l")
+lines(as.vector(result$XB),col=2)
 }

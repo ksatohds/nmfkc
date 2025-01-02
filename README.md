@@ -11,58 +11,55 @@ remotes::install_github("ksatohds/nmfkc")
 
 There are three functions in **nmfkc** package.
 
-- **nmfkc** function optimizes the model
-- **nmfkc.cv** function is used for k-fold cross-validation
-- **nmfkc.kernel** function is used for creating kernel matrix from covariates
-- **nmfkc.rank** function is used to diagnose rank selection using the figure. Note that this function is under construction.
+-   **nmfkc** function optimizes the model
+-   **nmfkc.cv** function is used for k-fold cross-validation
+-   **nmfkc.kernel** function is used for creating kernel matrix from covariates
+-   **nmfkc.rank** function is used to diagnose rank selection using the figure. Note that this function is under construction.
 
 # Statistical model
 
-1. An ordinary Linear Model (LM) can be written as $y \approx Xb$, where $y$ is the observation, $X=[x_1,...,x_Q]$ is the design matrix, and $b$ is a vector of regression coefficients. 
+1.  An ordinary Linear Model (LM) can be written as $y \approx Xb$, where $y$ is the observation, $X=[x_1,...,x_Q]$ is the design matrix, and $b$ is a vector of regression coefficients.
 
-2. Using the common $X$ among $N$ individual observations, $[y_1,y_2,...,y_N] \approx X[b_1,...,b_N]$，i.e. $Y \approx XB$, this is called Non-Negative Matrix Factorization (NMF). The most significant difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
+2.  Using the common $X$ among $N$ individual observations, $[y_1,y_2,...,y_N] \approx X[b_1,...,b_N]$，i.e. $Y \approx XB$, this is called Non-Negative Matrix Factorization (NMF). The most significant difference between NMF and LM is that $X$ on NMF is optimized as well as $B$.
 
-3. Since all the matrices are non-negative, the components of the regression coefficient $b=(b_1,...,b_Q)$ are also non-negative. Therefore the proportion $p_q=b_q/(b_1+...+b_Q)$, $q=1,...,Q$ can be used for soft clustering.
+3.  Since all the matrices are non-negative, the components of the regression coefficient $b=(b_1,...,b_Q)$ are also non-negative. Therefore the proportion $p_q=b_q/(b_1+...+b_Q)$, $q=1,...,Q$ can be used for soft clustering.
 
-4. Furthermore, the coefficient $b$ can be explained by covariate $a$, i.e.,
-$b=\Theta a$ or $B=\Theta A$ where $A=[a_1,a_2,...,a_N]$ and $\Theta$ is the parameter matrix to be optimized.
-Satoh (2024) proposed Gaussian kernel function as covariates.
-Formally the model is contained in tri-NMF by Ding et al. (2006) and the update formula for optimization has been derived. The model can be described as a product of three matrices and is related to the growth curve model by Potthoff and Roy (1964). 
+4.  Furthermore, the coefficient $b$ can be explained by covariate $a$, i.e., $b=\Theta a$ or $B=\Theta A$ where $A=[a_1,a_2,...,a_N]$ and $\Theta$ is the parameter matrix to be optimized. Satoh (2024) proposed Gaussian kernel function as covariates. Formally the model is contained in tri-NMF by Ding et al. (2006) and the update formula for optimization has been derived. The model can be described as a product of three matrices and is related to the growth curve model by Potthoff and Roy (1964).
 
 # Matrices
 
 The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative Matrix Factorization, $Y(P,N) \approx X(P,Q)C(Q,R)A(R,N)=XB(Q,N)$ where $Y(P,N)$ and $A(R,N)$ are given.
 
-- $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
-- $A(R,N)$: **given** covariate matrix.
-  The covariate matrix can be created by nmfkc.kernel function.
-  Note that identity matrix is used when there are no covariates.
-- $X(P,Q)$: **unknown** basis matrix. Q is the number of basis (rank) and Q<=min(P,N).
--  $C(Q,R)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2024). 
-- $B(Q,N)=C(Q,R)A(R,N)$ is coefficient matrix.
+-   $Y(P,N)=(y_1,...y_N)$: **given** observation matrix
+-   $A(R,N)$: **given** covariate matrix. The covariate matrix can be created by nmfkc.kernel function. Note that identity matrix is used when there are no covariates.
+-   $X(P,Q)$: **unknown** basis matrix. Q is the number of basis (rank) and Q\<=min(P,N).
+-   $C(Q,R)$: **unknown** parameter matrix which is described by $\Theta$ in the paper Satoh (2024).
+-   $B(Q,N)=C(Q,R)A(R,N)$ is coefficient matrix.
 
 # Source
 
-- Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. https://arxiv.org/abs/2403.05359
+-   Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. <https://arxiv.org/abs/2403.05359>
 
 # References
 
-- Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. https://doi.org/10.1145/1150402.1150420
-- Potthoff, R.F., and Roy, S.N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems. Biometrika, 51, 313-326. https://doi.org/10.2307/2334137
+-   Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. <https://doi.org/10.1145/1150402.1150420>
+-   Potthoff, R.F., and Roy, S.N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems. Biometrika, 51, 313-326. <https://doi.org/10.2307/2334137>
 
 # Examples
 
-1. Longitudinal data: COVID-19 in Japan
-2. Spatiotemporal Analysis: CanadianWeather
-3. Topic model: data_corpus_inaugural
-4. Origin-Destination (OD) data: Japanese Inter-prefecture flow
-5. Kernel ridge regression: mcycle
-6. Growth curve model: Orthodont
-7. Binary repeated measures: Table 6, Koch et al.(1977)
+1.  Longitudinal data: COVID-19 in Japan
+2.  Spatiotemporal Analysis: CanadianWeather
+3.  Topic model: data_corpus_inaugural
+4.  Origin-Destination (OD) data: Japanese Inter-prefecture flow
+5.  Kernel ridge regression: mcycle
+6.  Growth curve model: Orthodont
+7.  Binary repeated measures: Table 6, Koch et al.(1977)
 
 ## 1. Longitudinal data
-- COVID-19 in Japan
-- https://www3.nhk.or.jp/news/special/coronavirus/data/
+
+-   COVID-19 in Japan
+-   <https://www3.nhk.or.jp/news/special/coronavirus/data/>
+
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
@@ -126,10 +123,12 @@ heatmap(t(result$B.prob))
 
 # hard clustering based on B.cluster
 table(result$B.cluster)
-``` 
+```
 
 ## 2. Spatiotemporal Analysis
--  CanadianWeather
+
+-   CanadianWeather
+
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
@@ -255,8 +254,10 @@ filled.contour(v,v,z,main="probability of basis function 2",
 ```
 
 ## 3. Topic model
-- data_corpus_inaugural
-- US presidential inaugural address texts
+
+-   data_corpus_inaugural
+-   US presidential inaugural address texts
+
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
@@ -339,10 +340,12 @@ result$r.squared # less than nmf without covariates
 colnames(result$B.prob) <- corp$Year
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 barplot(result$B.prob,col=1:Q+1,legend=T,las=3,ylab="Probability of topic")
-``` 
+```
 
 ## 4. Origin-Destination (OD) data: Japanese Inter-prefecture flow
-- e-stat run by Japanese Government Statistics
+
+-   e-stat run by Japanese Government Statistics
+
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
@@ -386,7 +389,7 @@ nmfkc.rank(Y,Q=2:12)
 
 # nmf
 Q0 <- 7
-res <- nmfkc(Y,Q=Q0)
+res <- nmfkc(Y,Q=Q0,save.time=F)
 plot(res$objfunc.iter,type="o",
      main=paste0("Q=",Q0,", R^2=",round(res$r.squared,3)))
      
@@ -444,7 +447,9 @@ title(main="Inter-prefecture flow: weekdays - operations")
 ```
 
 ## 5. Kernel ridge regression
-- mcycle
+
+-   mcycle
+
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
@@ -510,7 +515,9 @@ legend("topleft",legend=c("Gaussian","Periodic"),fill=c(2,4))
 ```
 
 ## 6. Growth curve model
-- Orthodont
+
+-   Orthodont
+
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
@@ -560,8 +567,10 @@ legend("topleft",title="Sex",legend=c("Male","Female"),fill=c(4,2))
 ```
 
 ## 7. Binary repeated measures
-- Table 6, Koch et al.(1977) Biometrics, 33(1), 133–158. https://doi.org/10.2307/2529309
-- Repeated categorical outcome analysis, https://wnarifin.github.io/medstat.html
+
+-   Table 6, Koch et al.(1977) Biometrics, 33(1), 133–158. <https://doi.org/10.2307/2529309>
+-   Repeated categorical outcome analysis, <https://wnarifin.github.io/medstat.html>
+
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
@@ -608,6 +617,6 @@ legend("bottomright",
        fill=mycol)
 ```
 
-
 # Author
--  Kenichi Satoh, [homepage](https://sites.google.com/view/ksatoh/english)
+
+-   Kenichi Satoh, [homepage](https://sites.google.com/view/ksatoh/english)

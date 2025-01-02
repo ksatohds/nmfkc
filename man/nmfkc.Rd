@@ -45,7 +45,7 @@ nmfkc(
 
 \item{print.dims}{display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.}
 
-\item{save.time}{The default is TRUE. Some return values including CPCC are skipped to save the computation time.}
+\item{save.time}{The default is TRUE. Some return values including CPCC and silhouette are skipped to save the computation time.}
 }
 \value{
 X: basis matrix. The column sum depends on X.restriction.

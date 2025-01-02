@@ -1,10 +1,10 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 31 Dec 2024")
+  packageStartupMessage("Last update on 2 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
 #' @title Creating observation and covariates for autoregressive model
-#' @description \code{nmfkc.ar} create observation matrix and covariate matrix according to the order of the autoregressive model
+#' @description \code{nmfkc.ar} create observation matrix and covariate matrix according to the degree of the autoregressive model
 #' @param Y Observation matrices with columns in ascending order of measurement time point
 #' @param degree order of the autoregressive model, and the default value is 1.
 #' @param intercept The default value is TRUE to add the intercept to the covariates
@@ -12,6 +12,17 @@
 #' @return A: covariate matrix according to the order of the autoregressive model
 #' @return A.columns: subscript matrix used to create A
 #' @export
+#' @examples
+#' # install.packages("remotes")
+#' # remotes::install_github("ksatohds/nmfkc")
+#' Y0 <- matrix(as.vector(AirPassengers),nrow=1)
+#' rownames(Y0) <- "n"
+#' library(nmfkc)
+#' a <- nmfkc.ar(Y0,degree=12)
+#' result <- nmfkc(Y=a$Y,A=a$A,Q=1)
+#' result$C
+#' plot(as.vector(a$Y),type="l")
+#' lines(as.vector(result$XB),col=2)
 
 nmfkc.ar <- function(Y,degree=1,intercept=T){
   if(is.vector(Y)) Y <- matrix(Y,nrow=1)
@@ -106,7 +117,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @param nstart The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
-#' @param save.time The default is TRUE. Some return values including CPCC are skipped to save the computation time.
+#' @param save.time The default is TRUE. Some return values including CPCC and silhouette are skipped to save the computation time.
 #' @return X: basis matrix. The column sum depends on X.restriction.
 #' @return B: coefficient matrix, B=CA
 #' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
@@ -290,10 +301,11 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(XB) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
-  silhouette <- mysilhouette(B.prob,B.cluster)
   if(save.time){
+    silhouette <- NA
     CPCC <- NA
   }else{
+    silhouette <- mysilhouette(B.prob,B.cluster)
     if(Q>=2){
       M <- t(B.prob) %*% B.prob
       h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M))))
@@ -541,13 +553,14 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
     if(save.time){
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time=T)
       CPCC[q] <- NA
+      silhouette[q] <- NA
     }else{
       result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time=F)
       CPCC[q] <- result$criterion$CPCC
+      silhouette[q] <- result$criterion$silhouette$silhouette.mean
     }
     r.squared[q] <- result$r.squared
     ICp[q] <- result$criterion$ICp
-    silhouette[q] <- result$criterion$silhouette$silhouette.mean
     if(q==1){
       ARI[q] <- NA
       cluster.old <- result$B.cluster
@@ -575,11 +588,11 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
     graphics::text(Q[-1],ARI[-1],Q[-1])
     legend <- c(legend,"ARI for Q-1")
     fill <- c(fill,4)
-    graphics::lines(Q,silhouette,col=7,lwd=3)
-    graphics::text(Q,silhouette,Q)
-    legend <- c(legend,"silhouette")
-    fill <- c(fill,7)
     if(!save.time){
+      graphics::lines(Q,silhouette,col=7,lwd=3)
+      graphics::text(Q,silhouette,Q)
+      legend <- c(legend,"silhouette")
+      fill <- c(fill,7)
       graphics::lines(Q,CPCC,col=6,lwd=3)
       graphics::text(Q,CPCC,Q)
       legend <- c(legend,"CPCC")

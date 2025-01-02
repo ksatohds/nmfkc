@@ -1,4 +1,5 @@
-# nmfkc 0.3.7
+# nmfkc 0.3.8
+- 0.3.8 save.time=TRUE means CPCC and silhouette are skipped
 - 0.3.7 prototyping nmfkc.ar function 
 - 0.3.5 several criteria are included "criterion" in nmfkc function
 - 0.3.4 Updating nmfkc.rank function
