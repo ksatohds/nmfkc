@@ -622,6 +622,8 @@ legend("bottomright",
 
 ## 8.  Vector autoregressive model
 
+- AirPassengers
+
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
