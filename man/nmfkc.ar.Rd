@@ -2,21 +2,21 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.ar}
 \alias{nmfkc.ar}
-\title{Creating observation and covariates for autoregressive model}
+\title{Creating observation and covariates for the vector autoregressive model}
 \usage{
 nmfkc.ar(Y, degree = 1, intercept = T)
 }
 \arguments{
 \item{Y}{Observation matrices with columns in ascending order of measurement time point}
 
-\item{degree}{order of the autoregressive model, and the default value is 1.}
+\item{degree}{lag degree for the autoregressive model, and the default value is 1.}
 
-\item{intercept}{The default value is TRUE to add the intercept to the covariates}
+\item{intercept}{The default value is TRUE to add the intercept to the covariate matrix}
 }
 \value{
-Y: observation matrix according to the order of the autoregressive model
+Y: observation matrix according to the degree of the autoregressive model
 
-A: covariate matrix according to the order of the autoregressive model
+A: covariate matrix according to the degree of the autoregressive model
 
 A.columns: subscript matrix used to create A
 }

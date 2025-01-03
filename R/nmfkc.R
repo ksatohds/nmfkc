@@ -1,15 +1,15 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 2 JAN 2025")
+  packageStartupMessage("Last update on 3 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
-#' @title Creating observation and covariates for autoregressive model
+#' @title Creating observation and covariates for the vector autoregressive model
 #' @description \code{nmfkc.ar} create observation matrix and covariate matrix according to the degree of the autoregressive model
 #' @param Y Observation matrices with columns in ascending order of measurement time point
-#' @param degree order of the autoregressive model, and the default value is 1.
-#' @param intercept The default value is TRUE to add the intercept to the covariates
-#' @return Y: observation matrix according to the order of the autoregressive model
-#' @return A: covariate matrix according to the order of the autoregressive model
+#' @param degree lag degree for the autoregressive model, and the default value is 1.
+#' @param intercept The default value is TRUE to add the intercept to the covariate matrix
+#' @return Y: observation matrix according to the degree of the autoregressive model
+#' @return A: covariate matrix according to the degree of the autoregressive model
 #' @return A.columns: subscript matrix used to create A
 #' @export
 #' @examples
