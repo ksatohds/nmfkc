@@ -9,12 +9,13 @@ remotes::install_github("ksatohds/nmfkc")
 
 # Functions
 
-There are three functions in **nmfkc** package.
+There are five functions in **nmfkc** package. Note that **nmfkc.rank** and **nmfkc.ar** functions are under construction.
 
 -   **nmfkc** function optimizes the model
 -   **nmfkc.cv** function is used for k-fold cross-validation
+-   **nmfkc.rank** function is used to diagnose rank selection using the figure. 
 -   **nmfkc.kernel** function is used for creating kernel matrix from covariates
--   **nmfkc.rank** function is used to diagnose rank selection using the figure. Note that this function is under construction.
+-   **nmfkc.ar** function is used for creating observation and covariates for the vector autoregressive model. 
 
 # Statistical model
 
@@ -54,6 +55,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 5.  Kernel ridge regression: mcycle
 6.  Growth curve model: Orthodont
 7.  Binary repeated measures: Table 6, Koch et al.(1977)
+8.  Vector autoregressive model: AirPassengers
 
 ## 1. Longitudinal data
 
@@ -616,6 +618,49 @@ legend("bottomright",
        legend=c("Mild & Standard","Mild & NewDrug","Sever & Standard","Sever & NewDrug"),
        fill=mycol)
 ```
+
+
+## 8.  Vector autoregressive model
+
+``` r
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+
+d <- AirPassengers
+tsp(d)
+time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
+time.vec <- round(as.vector(t(time)),2)
+Y0 <- matrix(as.vector(d),nrow=1)
+colnames(Y0) <- time.vec
+rownames(Y0) <- "n"
+
+# cv for optimization of degree of autoregressive model
+degrees <- c(11,12,24,36,48,60)
+cvs <- 0*degrees
+Q <- 1
+library(nmfkc)
+for(j in 1:length(degrees)){
+  print(j)
+  a <- nmfkc.ar(Y0,degree=degrees[j],intercept=T)
+  result <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=10)
+  cvs[j] <- result$objfunc/ncol(a$Y)
+}
+(best.degree <- degrees[which.min(cvs)])
+plot(degrees,cvs,type="l",col=2,lwd=2)
+text(degrees,cvs,degrees)
+
+# regression coefficients for autoregressive model
+a <- nmfkc.ar(Y0,degree=best.degree,intercept=T)
+result <- nmfkc(Y=a$Y,A=a$A,Q=Q)
+result$r.squared
+print.table(round(result$C,2),zero.print="")
+
+# fitted curve
+plot(as.numeric(colnames(a$Y)),as.vector(a$Y),type="l",col=8,xlab="",ylab=rownames(a$Y))
+lines(as.numeric(colnames(a$Y)),as.vector(result$XB),col=2)
+legend("topleft",legend=c("obs","best"),fill=c(8,2))
+```
+
 
 # Author
 
