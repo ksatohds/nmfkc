@@ -55,7 +55,8 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 5.  Kernel ridge regression: mcycle
 6.  Growth curve model: Orthodont
 7.  Binary repeated measures: Table 6, Koch et al.(1977)
-8.  Vector autoregressive model: AirPassengers
+8.  Autoregressive model: AirPassengers
+9.  Vector autoregressive model: lap
 
 ## 1. Longitudinal data
 
@@ -620,7 +621,7 @@ legend("bottomright",
 ```
 
 
-## 8.  Vector autoregressive model
+## 8.  Autoregressive model
 
 - AirPassengers
 
@@ -664,6 +665,43 @@ plot(as.numeric(colnames(a$Y)),as.vector(a$Y),type="l",col=8,xlab="",ylab=rownam
 lines(as.numeric(colnames(a$Y)),as.vector(result$XB),col=2)
 legend("topleft",legend=c("obs","best"),fill=c(8,2))
 ```
+
+## 9.  Vector autoregressive model
+
+- lap
+
+``` r
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+
+library(astsa)
+d <- lap
+tsp(d)
+time <- time(ts(1:nrow(d),start=c(1970,1),frequency=52))
+time.vec <- round(as.vector(t(time)),2)
+r <- apply(d,2,range)
+for(j in 1:ncol(d))d[,j] <- (d[,j]-r[1,j])/(r[2,j]-r[1,j])
+original.scale <- function(y)(r[2,]-r[1,])*y+r[1,]
+Y0 <- as.matrix(t(d))
+colnames(Y0) <- time.vec
+
+# nmf
+Q <- 5
+best.degree <- 19
+library(nmfkc)
+a <- nmfkc.ar(Y0,degree=best.degree,intercept=T)
+result <- nmfkc(Y=a$Y,A=a$A,Q=Q)
+result$r.squared
+print.table(round(result$X,2),zero.print="")
+
+# fitted curve
+par(mfrow=c(3,4),mar=c(3,4,0,0)+0.1,cex=0.6)
+Y.t <- as.numeric(colnames(a$Y))
+Y.o <- apply(a$Y,2,original.scale)
+Y.fit <- apply(result$XB,2,original.scale)
+for(j in 1:nrow(a$Y)){plot(Y.t,Y.o[j,],type="l",ylab=rownames(a$Y)[j],lwd=1,xlab="",col=8)
+ lines(Y.t,Y.fit[j,],col=2,lwd=1)}
+``` 
 
 
 # Author
