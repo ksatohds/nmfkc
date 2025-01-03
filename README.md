@@ -649,10 +649,12 @@ for(j in 1:length(degrees)){
 plot(degrees,cvs,type="l",col=2,lwd=2)
 text(degrees,cvs,degrees)
 
-# regression coefficients for autoregressive model
+# nmf
 a <- nmfkc.ar(Y0,degree=best.degree,intercept=T)
 result <- nmfkc(Y=a$Y,A=a$A,Q=Q)
 result$r.squared
+
+# regression coefficients for autoregressive model
 print.table(round(result$C,2),zero.print="")
 
 # fitted curve
