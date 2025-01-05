@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 3 JAN 2025")
+  packageStartupMessage("Last update on 6 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -120,10 +120,12 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @param save.time The default is TRUE. Some return values including CPCC and silhouette are skipped to save the computation time.
 #' @return X: basis matrix. The column sum depends on X.restriction.
 #' @return B: coefficient matrix, B=CA
-#' @return B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
-#' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
 #' @return XB: fitted values for observation matrix Y
 #' @return C: parameter matrix
+#' @return B.prob: probability matrix for soft clustering based on column vector of coefficient matrix B.
+#' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
+#' @return X.prob: probability matrix for soft clustering based on row vector of basis matrix X.
+#' @return X.cluster: the number of the basis that takes the maximum value of each row of X.prob for hard clustering
 #' @return objfunc: last objective function
 #' @return objfunc.iter: objective function at each iteration
 #' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
@@ -299,6 +301,10 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(B) <- colnames(Y)
   colnames(B.prob) <- colnames(Y)
   colnames(XB) <- colnames(Y)
+  X.prob <- z(X/rowSums(X))
+  X.cluster <- apply(X.prob,1,which.max)
+  X.cluster[rowSums(X.prob)==0] <- NA
+  colnames(XB) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
   if(save.time){
@@ -323,7 +329,9 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                          paste0(round(diff.time/60,1),"min"))
   if(print.dims) packageStartupMessage(diff.time.st)
-  result <- list(X=X,B=B,B.prob=B.prob,B.cluster=B.cluster,XB=XB,C=C,
+  result <- list(X=X,B=B,XB=XB,C=C,
+                 B.prob=B.prob,B.cluster=B.cluster,
+                 X.prob=X.prob,X.cluster=X.cluster,
                  objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,
                  criterion=list(B.prob.sd.min=B.prob.sd.min,ICp=ICp,silhouette=silhouette,CPCC=CPCC))
   class(result) <- "nmfkc"

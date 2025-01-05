@@ -52,13 +52,17 @@ X: basis matrix. The column sum depends on X.restriction.
 
 B: coefficient matrix, B=CA
 
-B.prob: probability matrix for soft clustering based on coefficient matrix B. Those column sum is 1.
-
-B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
-
 XB: fitted values for observation matrix Y
 
 C: parameter matrix
+
+B.prob: probability matrix for soft clustering based on column vector of coefficient matrix B.
+
+B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
+
+X.prob: probability matrix for soft clustering based on row vector of basis matrix X.
+
+X.cluster: the number of the basis that takes the maximum value of each row of X.prob for hard clustering
 
 objfunc: last objective function
 

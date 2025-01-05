@@ -306,7 +306,7 @@ for(q in 1:Q){
 }
 
 # contribution of words to each topics
-Xp <- prop.table(result$X,1)
+Xp <- result$X.prob
 par(mfrow=c(1,1),mar=c(8,4,1,1)+0.1,cex=0.6)
 barplot(t(Xp),las=3,col=1:Q+1,
   ylab="Proportion of words on each topic")
