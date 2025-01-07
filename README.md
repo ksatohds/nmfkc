@@ -9,13 +9,12 @@ remotes::install_github("ksatohds/nmfkc")
 
 # Functions
 
-There are five functions in **nmfkc** package. Note that **nmfkc.rank** and **nmfkc.ar** functions are under construction.
+There are five functions in **nmfkc** package. Note that **nmfkc.rank** is under construction.
 
 -   **nmfkc** function optimizes the model
 -   **nmfkc.cv** function is used for k-fold cross-validation
--   **nmfkc.rank** function is used to diagnose rank selection using the figure. 
 -   **nmfkc.kernel** function is used for creating kernel matrix from covariates
--   **nmfkc.ar** function is used for creating observation and covariates for the vector autoregressive model. 
+-   **nmfkc.rank** function is used to diagnose rank selection using the figure. 
 
 # Statistical model
 
