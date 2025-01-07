@@ -55,8 +55,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 5.  Kernel ridge regression: mcycle
 6.  Growth curve model: Orthodont
 7.  Binary repeated measures: Table 6, Koch et al.(1977)
-8.  Autoregressive model: AirPassengers
-9.  Vector autoregressive model: lap
+
 
 ## 1. Longitudinal data
 
@@ -619,90 +618,6 @@ legend("bottomright",
        legend=c("Mild & Standard","Mild & NewDrug","Sever & Standard","Sever & NewDrug"),
        fill=mycol)
 ```
-
-
-## 8.  Autoregressive model
-
-- AirPassengers
-
-``` r
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
-
-d <- AirPassengers
-tsp(d)
-time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
-time.vec <- round(as.vector(t(time)),2)
-Y0 <- matrix(as.vector(d),nrow=1)
-colnames(Y0) <- time.vec
-rownames(Y0) <- "n"
-
-# cv for optimization of degree of autoregressive model
-degrees <- c(11,12,24,36,48,60)
-cvs <- 0*degrees
-Q <- 1
-library(nmfkc)
-for(j in 1:length(degrees)){
-  print(j)
-  a <- nmfkc.ar(Y0,degree=degrees[j],intercept=T)
-  result <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=10)
-  cvs[j] <- result$objfunc/ncol(a$Y)
-}
-(best.degree <- degrees[which.min(cvs)])
-plot(degrees,cvs,type="l",col=2,lwd=2)
-text(degrees,cvs,degrees)
-
-# nmf
-a <- nmfkc.ar(Y0,degree=best.degree,intercept=T)
-result <- nmfkc(Y=a$Y,A=a$A,Q=Q)
-result$r.squared
-
-# regression coefficients for autoregressive model
-print.table(round(result$C,2),zero.print="")
-
-# fitted curve
-plot(as.numeric(colnames(a$Y)),as.vector(a$Y),type="l",col=8,xlab="",ylab=rownames(a$Y))
-lines(as.numeric(colnames(a$Y)),as.vector(result$XB),col=2)
-legend("topleft",legend=c("obs","best"),fill=c(8,2))
-```
-
-## 9.  Vector autoregressive model
-
-- lap
-
-``` r
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
-
-library(astsa)
-d <- lap
-tsp(d)
-time <- time(ts(1:nrow(d),start=c(1970,1),frequency=52))
-time.vec <- round(as.vector(t(time)),2)
-r <- apply(d,2,range)
-for(j in 1:ncol(d))d[,j] <- (d[,j]-r[1,j])/(r[2,j]-r[1,j])
-original.scale <- function(y)(r[2,]-r[1,])*y+r[1,]
-Y0 <- as.matrix(t(d))
-colnames(Y0) <- time.vec
-
-# nmf
-Q <- 5
-best.degree <- 19
-library(nmfkc)
-a <- nmfkc.ar(Y0,degree=best.degree,intercept=T)
-result <- nmfkc(Y=a$Y,A=a$A,Q=Q)
-result$r.squared
-print.table(round(result$X,2),zero.print="")
-
-# fitted curve
-par(mfrow=c(3,4),mar=c(3,4,0,0)+0.1,cex=0.6)
-Y.t <- as.numeric(colnames(a$Y))
-Y.o <- apply(a$Y,2,original.scale)
-Y.fit <- apply(result$XB,2,original.scale)
-for(j in 1:nrow(a$Y)){plot(Y.t,Y.o[j,],type="l",ylab=rownames(a$Y)[j],lwd=1,xlab="",col=8)
- lines(Y.t,Y.fit[j,],col=2,lwd=1)}
-``` 
-
 
 # Author
 

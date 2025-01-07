@@ -13,17 +13,6 @@
 #' @return A.columns: subscript matrix used to create A
 #' @return degree.max: 10log10(N) according to ar function in stats package
 #' @export
-#' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
-#' Y0 <- matrix(as.vector(AirPassengers),nrow=1)
-#' rownames(Y0) <- "n"
-#' library(nmfkc)
-#' a <- nmfkc.ar(Y0,degree=12)
-#' result <- nmfkc(Y=a$Y,A=a$A,Q=1)
-#' result$C
-#' plot(as.vector(a$Y),type="l")
-#' lines(as.vector(result$XB),col=2)
 
 nmfkc.ar <- function(Y,degree=1,intercept=T){
   if(is.vector(Y)) Y <- matrix(Y,nrow=1)
