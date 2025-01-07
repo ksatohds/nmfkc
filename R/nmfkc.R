@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 6 JAN 2025")
+  packageStartupMessage("Last update on 7 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -11,6 +11,7 @@
 #' @return Y: observation matrix according to the degree of the autoregressive model
 #' @return A: covariate matrix according to the degree of the autoregressive model
 #' @return A.columns: subscript matrix used to create A
+#' @return degree.max: 10log10(N) according to ar function in stats package
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -45,7 +46,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
     colnames(Ya) <- colnames(Y)[A.columns[1,]+1]
     rownames(Ya) <- rownames(Y)[1]
   }
-  list(Y=Ya,A=A,A.columns=A.columns)
+  list(Y=Ya,A=A,A.columns=A.columns,degree.max=round(10*log10(ncol(Ya)),1))
 }
 
 

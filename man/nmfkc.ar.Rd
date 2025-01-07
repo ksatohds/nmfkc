@@ -19,6 +19,8 @@ Y: observation matrix according to the degree of the autoregressive model
 A: covariate matrix according to the degree of the autoregressive model
 
 A.columns: subscript matrix used to create A
+
+degree.max: 10log10(N) according to ar function in stats package
 }
 \description{
 \code{nmfkc.ar} create observation matrix and covariate matrix according to the degree of the autoregressive model
