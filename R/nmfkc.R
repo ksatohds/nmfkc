@@ -46,7 +46,8 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
     colnames(Ya) <- colnames(Y)[A.columns[1,]+1]
     rownames(Ya) <- rownames(Y)[1]
   }
-  list(Y=Ya,A=A,A.columns=A.columns,degree.max=round(10*log10(ncol(Ya)),1))
+  degree.max <- min(ncol(Ya),floor(10*log10(ncol(Ya))))
+  list(Y=Ya,A=A,A.columns=A.columns,degree.max=degree.max)
 }
 
 
