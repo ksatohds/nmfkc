@@ -54,7 +54,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 5.  Kernel ridge regression: mcycle
 6.  Growth curve model: Orthodont
 7.  Binary repeated measures: Table 6, Koch et al.(1977)
-
+8.  Image data: the MNIST database of handwritten digits
 
 ## 1. Longitudinal data
 
@@ -617,6 +617,52 @@ legend("bottomright",
        legend=c("Mild & Standard","Mild & NewDrug","Sever & Standard","Sever & NewDrug"),
        fill=mycol)
 ```
+
+8.  Image data: the MNIST database of handwritten digits
+
+- http://yann.lecun.com/exdb/mnist/
+
+``` r
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+
+myimage <- function(x){f <- matrix(as.matrix(x),28,28,byrow=T)
+  image(t(f)[,28:1],col=gray.colors(255,rev=T))}
+
+library(dslabs)
+d <- read_mnist()
+str(d)
+label <- d$train$labels[1:1000]
+Y <- t(d$train$images[1:1000,])
+
+# observation
+par(mfrow=c(5,5),mar=c(2,2,1,1))
+for(n in 1:25) myimage(Y[,n])
+
+#------------------
+# with covariates
+#------------------
+A <- matrix(0,nrow=length(unique(label)),ncol=ncol(Y))
+for(n in 1:ncol(Y)) A[label[n]+1,n] <- 1
+
+library(nmfkc)
+# res.rank <- nmfkc.rank(Y=Y,A=A,Q=5:15,save.time=F)
+# plot(res.rank$Q,res.rank$ICp,type="l",col=2)
+# text(res.rank$Q,res.rank$ICp,res.rank$Q)
+
+Q <- 12
+# nmf with covariates
+res <- nmfkc(Y=Y,Q=Q,A=A)
+
+# fitted values
+par(mfrow=c(4,3),mar=c(2,2,1,1))
+for(j in 0:9) myimage(res$XB[,which(label==j)[1]])
+
+# basis function of which sum is 1
+par(mfrow=c(4,3),mar=c(2,2,1,1))
+for(q in 1:Q) myimage(res$X[,q])
+```
+
 
 # Author
 
