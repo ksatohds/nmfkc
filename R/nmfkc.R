@@ -39,7 +39,6 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
   list(Y=Ya,A=A,A.columns=A.columns,degree.max=degree.max)
 }
 
-
 #' @title Creating kernel matrix from covariates
 #' @description \code{nmfkc.kernel} create kernel matrix from covariate matrix
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
