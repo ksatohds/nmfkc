@@ -650,7 +650,7 @@ library(nmfkc)
 # plot(res.rank$Q,res.rank$ICp,type="l",col=2)
 # text(res.rank$Q,res.rank$ICp,res.rank$Q)
 
-Q <- 11
+Q <- 12
 # nmf with covariates
 res <- nmfkc(Y=Y,Q=Q,A=A)
 
