@@ -618,7 +618,7 @@ legend("bottomright",
        fill=mycol)
 ```
 
-8.  Image data: the MNIST database of handwritten digits
+## 8.  Image data: the MNIST database of handwritten digits
 
 - http://yann.lecun.com/exdb/mnist/
 
@@ -650,7 +650,7 @@ library(nmfkc)
 # plot(res.rank$Q,res.rank$ICp,type="l",col=2)
 # text(res.rank$Q,res.rank$ICp,res.rank$Q)
 
-Q <- 12
+Q <- 11
 # nmf with covariates
 res <- nmfkc(Y=Y,Q=Q,A=A)
 
