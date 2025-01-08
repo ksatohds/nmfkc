@@ -645,22 +645,19 @@ for(n in 1:25) myimage(Y[,n])
 A <- matrix(0,nrow=length(unique(label)),ncol=ncol(Y))
 for(n in 1:ncol(Y)) A[label[n]+1,n] <- 1
 
-library(nmfkc)
-# res.rank <- nmfkc.rank(Y=Y,A=A,Q=5:15,save.time=F)
-# plot(res.rank$Q,res.rank$ICp,type="l",col=2)
-# text(res.rank$Q,res.rank$ICp,res.rank$Q)
-
-Q <- 12
 # nmf with covariates
-res <- nmfkc(Y=Y,Q=Q,A=A)
+Q <- 10
+library(nmfkc)
+result <- nmfkc(Y=Y,Q=Q,A=A,epsilon=1e-6)
+plot(result)
 
 # fitted values
 par(mfrow=c(4,3),mar=c(2,2,1,1))
-for(j in 0:9) myimage(res$XB[,which(label==j)[1]])
+for(j in 0:9) myimage(result$XB[,which(label==j)[1]])
 
 # basis function of which sum is 1
 par(mfrow=c(4,3),mar=c(2,2,1,1))
-for(q in 1:Q) myimage(res$X[,q])
+for(q in 1:Q) myimage(result$X[,q])
 ```
 
 
