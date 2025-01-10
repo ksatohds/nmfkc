@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 11 JAN 2025")
+  packageStartupMessage("Last update on 7 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -46,7 +46,6 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @param method The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
 #' @param beta The default parameter of kernel function is 0.5.
 #' @param degree The default parameter of kernel function is 2.
-#' @param scale The default is FALSE. V is scaled by the range of V.
 #' @return kernel matrix A(N,M)
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
@@ -69,12 +68,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2,scale=FALSE){
-  if(scale){
-    r <- apply(U,1,range)
-    for(m in 1:nrow(V)) V[m,] <- (V[m,]-r[1,m])/(r[2,m]-r[1,m]) # scaled by U
-    for(n in 1:nrow(U)) U[n,] <- (U[n,]-r[1,n])/(r[2,n]-r[1,n])
-  }
+nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
   kernel <- function(m){
     vm <- t(rep(1,ncol(U)) %o% V[,m])
     d <- colSums((U-vm)^2)^0.5
@@ -92,6 +86,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2,scale=FALSE){
   }
   return(A)
 }
+
 
 #' @title Optimizing NMF (Non-negative Matrix Factorization) with Kernel Covariate
 #' @description \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB
