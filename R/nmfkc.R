@@ -72,10 +72,8 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2,scale=FALSE){
   if(scale){
     r <- apply(U,1,range)
-    for(n in 1:nrow(U)){
-      U[n,] <- (U[n,]-r[1,n])/(r[2,n]-r[1,n])
-      V[n,] <- (V[n,]-r[1,n])/(r[2,n]-r[1,n]) # scaled by U
-    }
+    for(m in 1:nrow(V)) V[m,] <- (V[m,]-r[1,m])/(r[2,m]-r[1,m]) # scaled by U
+    for(n in 1:nrow(U)) U[n,] <- (U[n,]-r[1,n])/(r[2,n]-r[1,n])
   }
   kernel <- function(m){
     vm <- t(rep(1,ncol(U)) %o% V[,m])
