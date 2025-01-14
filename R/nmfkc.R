@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 7 JAN 2025")
+  packageStartupMessage("Last update on 14 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -284,17 +284,20 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   }else{
     objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
   }
+  rownames(C) <- paste0("Basis",1:nrow(C))
   B.prob <- t(z(t(B)/colSums(B)))
   B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
   B.cluster <- apply(B.prob,2,which.max)
   B.cluster[colSums(B.prob)==0] <- NA
+  colnames(X) <- paste0("Basis",1:ncol(X))
   colnames(B) <- colnames(Y)
+  rownames(B) <- paste0("Basis",1:nrow(B))
   colnames(B.prob) <- colnames(Y)
+  rownames(B.prob) <- paste0("Basis",1:nrow(B))
   colnames(XB) <- colnames(Y)
   X.prob <- z(X/rowSums(X))
   X.cluster <- apply(X.prob,1,which.max)
   X.cluster[rowSums(X.prob)==0] <- NA
-  colnames(XB) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
   if(save.time){
