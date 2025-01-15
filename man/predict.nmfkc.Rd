@@ -13,7 +13,7 @@
 
 \item{type}{The default is "response" given by the product of matrices X and B.
 If type is "prob", B.prob is used instead of B.
-If type is "calss", class to maximize columns in B.prob.}
+If type is "class", class to maximize columns in B.prob.}
 }
 \description{
 \code{predict.nmfkc} predict for return value of nmfkc function

@@ -349,7 +349,7 @@ plot.nmfkc <- function(x,...){
 #' @param newA optionally, a new covariate matrix.
 #' @param type The default is "response" given by the product of matrices X and B.
 #'  If type is "prob", B.prob is used instead of B.
-#'  If type is "calss", class to maximize columns in B.prob.
+#'  If type is "class", class to maximize columns in B.prob.
 #' @export
 predict.nmfkc <- function(x,newA=NULL,type="response"){
   z <- function(x){
@@ -361,10 +361,10 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
     if(type=="response"){
       result <- x$X %*% x$B
     }else{
+      XB.prob <- x$X %*% x$B.prob
       if(type=="prob"){
-        result <- x$X %*% x$B.prob
+        result <- XB.prob
       }else{
-        XB.prob <- x$X %*% x$B.prob
         result <- rownames(x$X)[apply(XB.prob,2,which.max)]
       }
     }
@@ -373,12 +373,11 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
     if(type=="response"){
       result <- x$X %*% B
     }else{
+      B.prob <- t(z(t(B)/colSums(B)))
+      XB.prob <- x$X %*% B.prob
       if(type=="prob"){
-        B.prob <- t(z(t(B)/colSums(B)))
-        result <- x$X %*% B.prob
+        result <- XB.prob
       }else{
-        B.prob <- t(z(t(B)/colSums(B)))
-        XB.prob <- x$X %*% x$B.prob
         result <- rownames(x$X)[apply(XB.prob,2,which.max)]
       }
     }
