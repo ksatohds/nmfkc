@@ -385,6 +385,28 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
   return(result)
 }
 
+
+#' @title class matrix for categorical vector
+#' @description \code{predict.nmfkc} predict for return value of nmfkc function
+#' @param x categorical vector or vector of factor
+#' @export
+#' @examples
+#' # install.packages("remotes")
+#' # remotes::install_github("ksatohds/nmfkc")
+#' # Example.
+#' Y <- nmfkc.class(iris$Species)
+#' Y[,1:6]
+nmfkc.class <- function(x){
+  if(!is.factor(x)) x <- as.factor(x)
+  unix <- levels(x)
+  X <- matrix(0,nrow=length(unix),ncol=length(x))
+  rownames(X) <- unix
+  for(j in 1:length(unix)) X[j,] <- ifelse(x==unix[j],1,0)
+  result <- X
+  return(result)
+}
+
+
 #' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate
 #' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y~XCA=XB
 #'  where observation matrix Y(P,N),
