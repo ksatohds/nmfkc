@@ -338,8 +338,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
 #' @param ... arguments to be passed to plot function.
 #' @export
 plot.nmfkc <- function(x,...){
-  if(!is.na(x$r.squared)) main=paste0("r.squared=",round(x$r.squared,3)) else main=""
-  plot(x$objfunc.iter,xlab="iter",ylab="objfunc",type="l",main=main)
+  plot(x$objfunc.iter,xlab="iter",ylab="objfunc",main=paste0("r.squared=",round(x$r.squared,3)),...)
 }
 
 
