@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 14 JAN 2025")
+  packageStartupMessage("Last update on 15 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -339,9 +339,39 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
 #' @export
 plot.nmfkc <- function(x,...){
   if(!is.na(x$r.squared)) main=paste0("r.squared=",round(x$r.squared,3)) else main=""
-  plot(x$objfunc.iter,xlab="iter",ylab="objfunc",main=main)
+  plot(x$objfunc.iter,xlab="iter",ylab="objfunc",type="l",main=main)
 }
 
+
+#' @title predict for return value of nmfkc function
+#' @description \code{predict.nmfkc} predict for return value of nmfkc function
+#' @param x return value of nmfkc function
+#' @param newA optionally, a new covariate matrix.
+#' @param type The default is "response" given by the product of matrices X and B. If type is "prob", B.prob is used instead of B.
+#' @export
+predict.nmfkc <- function(x,newA=NULL,type="response"){
+  z <- function(x){
+    x[is.nan(x)] <- 0
+    x[is.infinite(x)] <- 0
+    return(x)
+  }
+  if(is.null(newA)){
+    if(type=="response"){
+      result <- x$X %*% x$B
+    }else{
+      result <- x$X %*% x$B.prob
+    }
+  }else{
+    B <- x$C %*% newA
+    if(type=="response"){
+      result <- x$X %*% B
+    }else{
+      B.prob <- t(z(t(B)/colSums(B)))
+      result <- x$X %*% B.prob
+    }
+  }
+  return(result)
+}
 
 #' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate
 #' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y~XCA=XB
