@@ -22,7 +22,7 @@ nmfkc.kernel(
 \arguments{
 \item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance}
 
-\item{V}{covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and the default value is U.}
+\item{V}{covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.}
 
 \item{method}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
 

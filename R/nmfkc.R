@@ -42,7 +42,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @title Creating kernel matrix from covariates
 #' @description \code{nmfkc.kernel} create kernel matrix from covariate matrix
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
-#' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and the default value is U.
+#' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.
 #' @param method The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
 #' @param beta The default parameter of kernel function is 0.5.
 #' @param degree The default parameter of kernel function is 2.
