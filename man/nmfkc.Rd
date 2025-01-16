@@ -17,6 +17,7 @@ nmfkc(
   method = "EU",
   X.restriction = "colSums",
   nstart = 1,
+  seed = 123,
   print.trace = FALSE,
   print.dims = TRUE,
   save.time = TRUE
@@ -40,6 +41,8 @@ nmfkc(
 \item{X.restriction}{The default is X.restriction="colSums" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.restriction="colSqSums".}
 
 \item{nstart}{The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.}
+
+\item{seed}{integer used as argument in set.seed function}
 
 \item{print.trace}{display current iteration every 10 times if print.trace=TRUE}
 

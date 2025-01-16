@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 16 JAN 2025")
+  packageStartupMessage("Last update on 17 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -46,29 +46,33 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @param method The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
 #' @param beta The default parameter of kernel function is 0.5.
 #' @param degree The default parameter of kernel function is 2.
+#' @param centers the number of clusters in kmeans function to reduce columns of U
+#' @param maxit maximum number of iterations, "iter.max" in kmeans function
+#' @param nstart The default is one, "nstart" in kmeans function
+#' @param seed integer used as argument in "set.seed" function
 #' @return kernel matrix A(N,M)
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
-#' # Example 1.
-#' U <- matrix(1:3,nrow=1,ncol=3)
-#' print(U)
-#' A <- nmfkc.kernel(U,beta=1)
-#' print(A)
-#' print(log(A))
-#'
-#' # Example 2.
+#' # Example.
 #' Y <- matrix(cars$dist,nrow=1)
-#' U <- matrix(c(5,10,15,20,25),nrow=1)
-#' V <- matrix(cars$speed,nrow=1)
-#' A <- nmfkc.kernel(U,V,beta=0.031) # see, nmfkc.cv
+#' U <- matrix(cars$speed,nrow=1)
+#' A <- nmfkc.kernel(U,beta=0.031,centers=3)
+#' dim(A)
 #' result <- nmfkc(Y,A,Q=1)
-#' plot(as.vector(V),as.vector(Y))
-#' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
+#' plot(as.vector(U),as.vector(Y))
+#' lines(as.vector(U),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
+nmfkc.kernel <- function(U,V=NULL,method="Gaussian",beta=0.5,degree=2,centers=NULL,maxit=5000,nstart=1,seed=123){
+  if(is.null(V)==TRUE) V <- U
+  if(!is.null(centers)){
+    tU <- unique(t(U))
+    set.seed(seed)
+    cl <- stats::kmeans(tU,centers=centers,iter.max=maxit,nstart=nstart)
+    if(is.vector(cl$centers)==TRUE) U <- matrix(cl$centers,nrow=1) else U <- t(cl$centers)
+  }
   kernel <- function(m){
     vm <- t(rep(1,ncol(U)) %o% V[,m])
     d <- colSums((U-vm)^2)^0.5
@@ -105,6 +109,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' @param method The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
 #' @param X.restriction The default is X.restriction="colSums" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.restriction="colSqSums".
 #' @param nstart The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.
+#' @param seed integer used as argument in set.seed function
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
 #' @param save.time The default is TRUE. Some return values including CPCC and silhouette are skipped to save the computation time.
@@ -152,7 +157,7 @@ nmfkc.kernel <- function(U,V=U,method="Gaussian",beta=0.5,degree=2){
 #' lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
 
 nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
-                  X.restriction="colSums",nstart=1,
+                  X.restriction="colSums",nstart=1,seed=123,
                   print.trace=FALSE,print.dims=TRUE,save.time=TRUE){
   z <- function(x){
     x[is.nan(x)] <- 0
@@ -217,7 +222,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)),appendLF=FALSE)
   }
   start.time <- Sys.time()
-  set.seed(123)
+  set.seed(seed)
   if(is.vector(Y)) Y <- matrix(Y,nrow=1)
   if(!is.matrix(Y)) Y <- as.matrix(Y)
   if(!is.null(A)){
@@ -563,7 +568,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.restriction,nstart,seed,print.trace,print.dims,save.time)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -625,6 +630,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
   X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
+  seed <- ifelse("seed" %in% names(arglist),arglist$nstart,123)
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
@@ -637,11 +643,11 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   ARI <- 0*Q; names(ARI) <- Q
   for(q in 1:length(Q)){
     if(save.time){
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time=T)
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,print.trace,print.dims,save.time=T)
       CPCC[q] <- NA
       silhouette[q] <- NA
     }else{
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,print.trace,print.dims,save.time=F)
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,print.trace,print.dims,save.time=F)
       CPCC[q] <- result$criterion$CPCC
       silhouette[q] <- result$criterion$silhouette$silhouette.mean
     }
