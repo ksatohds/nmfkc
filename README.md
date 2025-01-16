@@ -15,7 +15,6 @@ There are five functions in **nmfkc** package. Note that **nmfkc.rank** is under
 -   **nmfkc.cv** function is used for k-fold cross-validation
 -   **nmfkc.kernel** function is used for creating kernel matrix from covariates
 -   **nmfkc.rank** function is used to diagnose rank selection using the figure
--   **predict.nmfkc** function is used to predict response from new covariates
 
 # Statistical model
 
