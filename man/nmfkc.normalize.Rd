@@ -14,3 +14,10 @@ nmfkc.normalize(x, ref = x)
 \description{
 \code{nmfkc.normalize} Normalize x using the minimum and maximum values of each column of the reference matrix
 }
+\examples{
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# Example.
+x <- nmfkc.normalize(iris[,-5])
+apply(x,2,range)
+}

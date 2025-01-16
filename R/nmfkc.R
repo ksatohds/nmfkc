@@ -410,6 +410,7 @@ nmfkc.class <- function(x){
 #' @param x matrix to be normalized
 #' @param ref matrix referencing minimum and maximum values.
 #' @export
+#' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
 #' # Example.
@@ -425,6 +426,7 @@ nmfkc.normalize <- function(x,ref=x){
   for(j in 1:ncol(x))y[,j] <- (x[,j]-r[1,j])/(r[2,j]-r[1,j])
   return(y)
 }
+
 
 #' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate
 #' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y~XCA=XB
