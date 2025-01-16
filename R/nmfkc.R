@@ -68,7 +68,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 nmfkc.kernel <- function(U,V=NULL,method="Gaussian",beta=0.5,degree=2,centers=NULL,maxit=5000,nstart=1,seed=123){
   if(is.null(V)==TRUE) V <- U
   if(!is.null(centers)){
-    tU <- unique(t(U))
+    tU <- t(U)
     set.seed(seed)
     cl <- stats::kmeans(tU,centers=centers,iter.max=maxit,nstart=nstart)
     if(is.vector(cl$centers)==TRUE) U <- matrix(cl$centers,nrow=1) else U <- t(cl$centers)
