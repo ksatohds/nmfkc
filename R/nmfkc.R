@@ -91,6 +91,33 @@ nmfkc.kernel <- function(U,V=NULL,method="Gaussian",beta=0.5,degree=2,centers=NU
   return(A)
 }
 
+#' @title Optimizing beta of Gauss kernel function by cross validation method
+#' @description \code{nmfkc.kernel.beta.cv} apply cross validation method for beta
+#' @param Y observation matrix
+#' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
+#' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
+#' @param beta parameter vector of kernel function for cv
+#' @param centers the number of clusters in kmeans function to reduce columns of U
+#' @param plot The default is plot=TRUE and draw a graph.
+#' @return beta: best parameter minimizes objective function
+#' @return objfunc: objective functions
+#' @export
+nmfkc.kernel.beta.cv <- function(Y,Q=2,U,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),centers=NULL,plot=TRUE){
+  objfuncs <- 0*(1:length(beta))
+  for(i in 1:length(beta)){
+    A <- nmfkc.kernel(U,beta=beta[i],centers=centers)
+    result <- nmfkc.cv(Y,A,Q=Q)
+    objfuncs[i] <- result$objfunc
+  }
+  beta.best <- beta[which.min(objfuncs)]
+  if(plot){
+    plot(beta,objfuncs,type="l",col=2,xlab="beta",ylab="objfunc",log="x")
+    graphics::text(beta,objfuncs,beta)
+  }
+  result <- list(beta=beta.best,objfunc=objfuncs)
+  return(result)
+}
+
 
 #' @title Optimizing NMF (Non-negative Matrix Factorization) with Kernel Covariate
 #' @description \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB
@@ -666,7 +693,6 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
     B.prob.sd.min[q] <- result$criterion$B.prob.sd.min
   }
   if(plot){
-    graphics::par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
     # Criterion
     plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=3)
     graphics::text(Q,r.squared,Q)
