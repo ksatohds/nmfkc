@@ -47,6 +47,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 
 # Examples
 
+0.  Simple matrix operations
 1.  Longitudinal data: COVID-19 in Japan
 2.  Spatiotemporal Analysis: CanadianWeather
 3.  Topic model: data_corpus_inaugural
@@ -55,6 +56,23 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 6.  Growth curve model: Orthodont
 7.  Binary repeated measures: Table 6, Koch et al.(1977)
 8.  Image data: the MNIST database of handwritten digits
+
+## 0.  Simple matrix operations
+
+``` r
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+X <- cbind(c(1,0,1),c(0,1,0))
+B <- cbind(c(1,0),c(0,1),c(1,1))
+Y <- X %*% B
+print(X)
+print(B)
+print(Y) 
+
+library(nmfkc)
+res <- nmfkc(Y,Q=2)
+res$X; res$B
+``` 
 
 ## 1. Longitudinal data
 
@@ -80,7 +98,9 @@ rownames(Y) <- unique(d$Date)
 
 # rank selection diagnostics
 library(nmfkc)
-nmfkc.rank(Y,Q=2:8)
+par(mfrow=c(1,1))
+result.rank <- nmfkc.rank(Y,Q=2:8,save.time=F)
+round(result.rank,2)
 
 # nmf
 Q <- 4
@@ -386,7 +406,7 @@ Y[1:6,1:6]
 
 # rank selection diagnostics
 library(nmfkc)
-nmfkc.rank(Y,Q=2:12)
+nmfkc.rank(Y,Q=2:12,save.time=F)
 
 # nmf
 Q0 <- 7
@@ -505,14 +525,6 @@ A <- nmfkc.kernel(U,V,beta=beta.best)
 XB <- result$X %*% result$C %*% A
 plot(x,as.vector(Y))
 lines(V,as.vector(XB),col=2,lwd=2)
-
-# Periodic kernel function
-A <- nmfkc.kernel(U,method="Periodic",beta=c(11,0.07))
-result <- nmfkc(Y,A,Q=1)
-A <- nmfkc.kernel(U,V,method="Periodic",beta=c(11,0.07))
-XB <- result$X %*% result$C %*% A
-lines(as.vector(V),as.vector(XB),col=4,lwd=2)
-legend("topleft",legend=c("Gaussian","Periodic"),fill=c(2,4))
 ```
 
 ## 6. Growth curve model
