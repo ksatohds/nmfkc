@@ -36,8 +36,43 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
     rownames(Ya) <- rownames(Y)[1]
   }
   degree.max <- min(ncol(Ya),floor(10*log10(ncol(Ya))))
-  list(Y=Ya,A=A,A.columns=A.columns,degree.max=degree.max)
+  list(Y=Ya,A=A,A.columns=A.columns)
 }
+
+
+#' @title Optimizing degree for the autoregressive model
+#' @description \code{nmfkc.ar.degree.cv} apply cross validation method for degree
+#' @param Y observation matrix
+#' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
+#' @param degree degree vector for cv
+#' @param intercept The default value is TRUE to add the intercept to the covariate matrix
+#' @param div number of partition usually described as "k" of k-fold
+#' @param seed integer used as argument in set.seed function
+#' @param plot The default is plot=TRUE and draw a graph.
+#' @return degree: best degree minimizes objective function
+#' @return degree.max: maximum recommended degree in ar model
+#' @return objfunc: objective functions
+#' @export
+
+nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=TRUE){
+  objfuncs <- 0*(1:length(degree))
+  for(i in 1:length(degree)){
+    a <- nmfkc.ar(Y=Y,degree=degree[i],intercept=intercept)
+    result.cv <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=div,seed=seed)
+    objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
+  }
+  i0 <- which.min(objfuncs)
+  best.degree <- degree[i0]
+  if(plot){
+    plot(degree,objfuncs,type="l",col=2,xlab="degree",ylab="objfunc")
+    graphics::points(degree[i0],objfuncs[i0],cex=3,pch=19,col=7)
+    graphics::text(degree,objfuncs,degree)
+  }
+  degree.max <- min(ncol(Y),floor(10*log10(ncol(Y))))
+  result <- list(degree=best.degree,degree.max=degree.max,objfunc=objfuncs)
+  return(result)
+}
+
 
 #' @title Creating kernel matrix from covariates
 #' @description \code{nmfkc.kernel} create kernel matrix from covariate matrix
@@ -118,9 +153,11 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
     result <- nmfkc.cv(Y=Y,A=A,Q=Q,div=div,seed=seed)
     objfuncs[i] <- result$objfunc
   }
-  beta.best <- beta[which.min(objfuncs)]
+  i0 <- which.min(objfuncs)
+  beta.best <- beta[i0]
   if(plot){
     plot(beta,objfuncs,type="l",col=2,xlab="beta",ylab="objfunc",log="x")
+    graphics::points(beta[i0],objfuncs[i0],cex=3,pch=19,col=7)
     graphics::text(beta,objfuncs,beta)
   }
   result <- list(beta=beta.best,objfunc=objfuncs)

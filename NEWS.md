@@ -1,5 +1,6 @@
-# nmfkc 0.4.0
-- 0.4.0 column names of X are Basis1, Basis2,...
+# nmfkc 0.4.2
+- 0.4.2 nmfkc.kernel.beta.cv and nmfkc.ar.degree.cv are implemented
+- 0.4.1 column names of X are Basis1, Basis2,...
 - 0.3.9 X.prob and X.cluster are appended
 - 0.3.8 save.time=TRUE means CPCC and silhouette are skipped
 - 0.3.7 prototyping nmfkc.ar function 
