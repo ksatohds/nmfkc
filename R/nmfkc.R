@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 17 JAN 2025")
+  packageStartupMessage("Last update on 18 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -43,8 +43,8 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @description \code{nmfkc.kernel} create kernel matrix from covariate matrix
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
 #' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.
-#' @param kernel The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
 #' @param beta The default parameter of kernel function is 0.5.
+#' @param kernel The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
 #' @param degree The default parameter of kernel function is 2.
 #' @return kernel matrix A(N,M)
 #' @export
@@ -56,13 +56,13 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' Y <- matrix(cars$dist,nrow=1)
 #' U <- matrix(c(5,10,15,20,25),nrow=1)
 #' V <- matrix(cars$speed,nrow=1)
-#' A <- nmfkc.kernel(U,V,beta=0.031)
+#' A <- nmfkc.kernel(U,V,beta=28/1000)
 #' dim(A)
 #' result <- nmfkc(Y,A,Q=1)
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U,V=NULL,kernel="Gaussian",beta=0.5,degree=2){
+nmfkc.kernel <- function(U,V=NULL,beta=0.5,kernel="Gaussian",degree=2){
   if(is.null(V)==TRUE) V <- U
   kvec <- function(m){
     vm <- t(rep(1,ncol(U)) %o% V[,m])
@@ -89,15 +89,33 @@ nmfkc.kernel <- function(U,V=NULL,kernel="Gaussian",beta=0.5,degree=2){
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
 #' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.
 #' @param beta parameter vector of kernel function for cv
+#' @param kernel The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
+#' @param degree The default parameter of kernel function is 2.
+#' @param div number of partition usually described as "k" of k-fold
+#' @param seed integer used as argument in set.seed function
 #' @param plot The default is plot=TRUE and draw a graph.
 #' @return beta: best parameter minimizes objective function
 #' @return objfunc: objective functions
 #' @export
-nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),plot=TRUE){
+#' @examples
+#' # install.packages("remotes")
+#' # remotes::install_github("ksatohds/nmfkc")
+#' # Example.
+#' Y <- matrix(cars$dist,nrow=1)
+#' U <- matrix(c(5,10,15,20,25),nrow=1)
+#' V <- matrix(cars$speed,nrow=1)
+#' nmfkc.kernel.beta.cv(Y,Q=1,U,V,beta=25:30/1000)
+#' A <- nmfkc.kernel(U,V,beta=28/1000)
+#' result <- nmfkc(Y,A,Q=1)
+#' plot(as.vector(V),as.vector(Y))
+#' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
+
+nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),
+                                 kernel="Gaussian",degree=2,div=5,seed=123,plot=TRUE){
   objfuncs <- 0*(1:length(beta))
   for(i in 1:length(beta)){
-    A <- nmfkc.kernel(U=U,V=V,beta=beta[i])
-    result <- nmfkc.cv(Y=Y,A=A,Q=Q)
+    A <- nmfkc.kernel(U=U,V=V,beta=beta[i],kernel=kernel,degree=degree)
+    result <- nmfkc.cv(Y=Y,A=A,Q=Q,div=div,seed=seed)
     objfuncs[i] <- result$objfunc
   }
   beta.best <- beta[which.min(objfuncs)]

@@ -7,16 +7,16 @@
 Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 }
 \usage{
-nmfkc.kernel(U, V = NULL, kernel = "Gaussian", beta = 0.5, degree = 2)
+nmfkc.kernel(U, V = NULL, beta = 0.5, kernel = "Gaussian", degree = 2)
 }
 \arguments{
 \item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance}
 
 \item{V}{covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.}
 
-\item{kernel}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
-
 \item{beta}{The default parameter of kernel function is 0.5.}
+
+\item{kernel}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
 
 \item{degree}{The default parameter of kernel function is 2.}
 }
@@ -33,7 +33,7 @@ kernel matrix A(N,M)
 Y <- matrix(cars$dist,nrow=1)
 U <- matrix(c(5,10,15,20,25),nrow=1)
 V <- matrix(cars$speed,nrow=1)
-A <- nmfkc.kernel(U,V,beta=0.031)
+A <- nmfkc.kernel(U,V,beta=28/1000)
 dim(A)
 result <- nmfkc(Y,A,Q=1)
 plot(as.vector(V),as.vector(Y))

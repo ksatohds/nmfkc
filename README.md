@@ -200,7 +200,7 @@ legend("topright",legend=c("1","2"),fill=c(2,3))
 #------------------
 # with covariates using location information
 #------------------
-U <- t(nmfkc.normalize(u0))
+U <- t(nmfkc.normalize(u0)) # normarization of covariates
 A <- rbind(1,U)
 result <- nmfkc(Y,A,Q=2)
 result$r.squared
@@ -234,11 +234,11 @@ V <- t(cbind(expand.grid(v,v)))
 plot(t(V))
 A <- nmfkc.kernel(U,V,beta=best.beta)
 B <- result$C %*% A
-P <- prop.table(B,2)
-P[,1:6]
+B.prob <- prop.table(B,2)
+B.prob[,1:6]
 
 # soft clustering based on B.prob (basis function 2) by using covariates
-z <- matrix(P[2,],nrow=length(v)) 
+z <- matrix(B.prob[2,],nrow=length(v)) 
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 filled.contour(v,v,z,main="probability of basis function 2",
   color.palette = function(n) hcl.colors(n,"Greens3",rev=TRUE),
@@ -459,36 +459,21 @@ plot(U,Y)
 lines(U,result$XB,col=2)
 
 # cv for optimization of beta
-betas <- c(1,2,5,10,20)/100
-objfuncs <- 0*(1:length(betas))
-for(i in 1:length(betas)){
-  print(i)
-  A <- nmfkc.kernel(U,beta=betas[i])
-  result <- nmfkc.cv(Y,A,Q=1,div=10)
-  objfuncs[i] <- result$objfunc
-}
-# objective function by beta
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
-plot(betas,objfuncs,type="o",log="x")
-table(result$block) # partition block of cv
-
-(beta.best <- betas[which.min(objfuncs)])  
+result.beta <- nmfkc.kernel.beta.cv(Y,Q=1,U,beta=2:5/100)
+(beta.best <- result.beta$beta)  
 A <- nmfkc.kernel(U,beta=beta.best)
 result <- nmfkc(Y,A,Q=1)
 result$r.squared
 
 # fitted curve
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
-plot(x,as.vector(Y))
-lines(x,as.vector(result$XB),col=2,lwd=2)
-
+plot(U,Y)
+lines(U,as.vector(result$XB),col=2,lwd=2)
 # fitted curve for new data
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 V <- matrix(seq(from=min(U),to=max(U),length=100),ncol=100)
 A <- nmfkc.kernel(U,V,beta=beta.best)
-XB <- result$X %*% result$C %*% A
-plot(x,as.vector(Y))
-lines(V,as.vector(XB),col=2,lwd=2)
+XB <- predict(result,newA=A)
+lines(V,as.vector(XB),col=4,lwd=2)
 ```
 
 ## 6. Growth curve model

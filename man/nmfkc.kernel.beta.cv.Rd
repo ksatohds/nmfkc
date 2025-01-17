@@ -10,6 +10,10 @@ nmfkc.kernel.beta.cv(
   U,
   V = NULL,
   beta = c(0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50),
+  kernel = "Gaussian",
+  degree = 2,
+  div = 5,
+  seed = 123,
   plot = TRUE
 )
 }
@@ -24,6 +28,14 @@ nmfkc.kernel.beta.cv(
 
 \item{beta}{parameter vector of kernel function for cv}
 
+\item{kernel}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
+
+\item{degree}{The default parameter of kernel function is 2.}
+
+\item{div}{number of partition usually described as "k" of k-fold}
+
+\item{seed}{integer used as argument in set.seed function}
+
 \item{plot}{The default is plot=TRUE and draw a graph.}
 }
 \value{
@@ -33,4 +45,17 @@ objfunc: objective functions
 }
 \description{
 \code{nmfkc.kernel.beta.cv} apply cross validation method for beta
+}
+\examples{
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# Example.
+Y <- matrix(cars$dist,nrow=1)
+U <- matrix(c(5,10,15,20,25),nrow=1)
+V <- matrix(cars$speed,nrow=1)
+nmfkc.kernel.beta.cv(Y,Q=1,U,V,beta=25:30/1000)
+A <- nmfkc.kernel(U,V,beta=28/1000)
+result <- nmfkc(Y,A,Q=1)
+plot(as.vector(V),as.vector(Y))
+lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }
