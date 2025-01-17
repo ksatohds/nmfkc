@@ -286,10 +286,17 @@ library(nmfkc)
 result <- nmfkc(Y,Q=Q)
 result$r.squared # coefficient of determination
 
-# topic probabilities
+# soft clustering
 par(mfrow=c(1,1),mar=c(10,4,4,2)+0.1,cex=1)
 barplot(result$B.prob,col=1:Q+1,legend=T,las=3,
   ylab="Probabilities of topics")
+
+# hard clustering
+par(mfrow=c(1,1),mar=c(10,4,4,2)+0.1,cex=1)
+cluster.prob <- 0*1:ncol(Y)
+for(n in 1:ncol(Y)) cluster.prob[n] <- result$B.prob[result$B.cluster[n],n]
+barplot(cluster.prob,col=result$B.cluster+1,names=colnames(Y),legend=T,
+  las=3,ylab="Probability",args.legend=list(bg="white"))
 
 # basis function of which sum is 1
 par(mfrow=c(Q,1),mar=c(8,4,1,1),cex=0.6)
