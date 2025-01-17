@@ -7,17 +7,7 @@
 Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 }
 \usage{
-nmfkc.kernel(
-  U,
-  V = NULL,
-  kernel = "Gaussian",
-  beta = 0.5,
-  degree = 2,
-  centers = NULL,
-  maxit = 5000,
-  nstart = 1,
-  seed = 123
-)
+nmfkc.kernel(U, V = NULL, kernel = "Gaussian", beta = 0.5, degree = 2)
 }
 \arguments{
 \item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance}
@@ -29,14 +19,6 @@ nmfkc.kernel(
 \item{beta}{The default parameter of kernel function is 0.5.}
 
 \item{degree}{The default parameter of kernel function is 2.}
-
-\item{centers}{the number of clusters in kmeans function to reduce columns of U}
-
-\item{maxit}{maximum number of iterations, "iter.max" in kmeans function}
-
-\item{nstart}{The default is one, "nstart" in kmeans function}
-
-\item{seed}{integer used as argument in "set.seed" function}
 }
 \value{
 kernel matrix A(N,M)
@@ -49,10 +31,11 @@ kernel matrix A(N,M)
 # remotes::install_github("ksatohds/nmfkc")
 # Example.
 Y <- matrix(cars$dist,nrow=1)
-U <- matrix(cars$speed,nrow=1)
-A <- nmfkc.kernel(U,beta=0.031,centers=3)
+U <- matrix(c(5,10,15,20,25),nrow=1)
+V <- matrix(cars$speed,nrow=1)
+A <- nmfkc.kernel(U,V,beta=0.031)
 dim(A)
 result <- nmfkc(Y,A,Q=1)
-plot(as.vector(U),as.vector(Y))
-lines(as.vector(U),as.vector(result$XB),col=2,lwd=2)
+plot(as.vector(V),as.vector(Y))
+lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }

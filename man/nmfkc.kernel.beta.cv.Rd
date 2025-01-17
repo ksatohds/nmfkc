@@ -8,9 +8,9 @@ nmfkc.kernel.beta.cv(
   Y,
   Q = 2,
   U,
+  V = NULL,
   beta = c(0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50),
-  plot = TRUE,
-  ...
+  plot = TRUE
 )
 }
 \arguments{
@@ -20,11 +20,11 @@ nmfkc.kernel.beta.cv(
 
 \item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance}
 
+\item{V}{covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.}
+
 \item{beta}{parameter vector of kernel function for cv}
 
 \item{plot}{The default is plot=TRUE and draw a graph.}
-
-\item{...}{arguments to be passed to nmfkc.kernel and nmfkc.cv functions.}
 }
 \value{
 beta: best parameter minimizes objective function

@@ -46,10 +46,6 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @param kernel The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
 #' @param beta The default parameter of kernel function is 0.5.
 #' @param degree The default parameter of kernel function is 2.
-#' @param centers the number of clusters in kmeans function to reduce columns of U
-#' @param maxit maximum number of iterations, "iter.max" in kmeans function
-#' @param nstart The default is one, "nstart" in kmeans function
-#' @param seed integer used as argument in "set.seed" function
 #' @return kernel matrix A(N,M)
 #' @export
 #' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
@@ -58,21 +54,16 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' # remotes::install_github("ksatohds/nmfkc")
 #' # Example.
 #' Y <- matrix(cars$dist,nrow=1)
-#' U <- matrix(cars$speed,nrow=1)
-#' A <- nmfkc.kernel(U,beta=0.031,centers=3)
+#' U <- matrix(c(5,10,15,20,25),nrow=1)
+#' V <- matrix(cars$speed,nrow=1)
+#' A <- nmfkc.kernel(U,V,beta=0.031)
 #' dim(A)
 #' result <- nmfkc(Y,A,Q=1)
-#' plot(as.vector(U),as.vector(Y))
-#' lines(as.vector(U),as.vector(result$XB),col=2,lwd=2)
+#' plot(as.vector(V),as.vector(Y))
+#' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U,V=NULL,kernel="Gaussian",beta=0.5,degree=2,centers=NULL,maxit=5000,nstart=1,seed=123){
+nmfkc.kernel <- function(U,V=NULL,kernel="Gaussian",beta=0.5,degree=2){
   if(is.null(V)==TRUE) V <- U
-  if(!is.null(centers)){
-    tU <- t(U)
-    set.seed(seed)
-    cl <- stats::kmeans(tU,centers=centers,iter.max=maxit,nstart=nstart)
-    if(is.vector(cl$centers)==TRUE) U <- matrix(cl$centers,nrow=1) else U <- t(cl$centers)
-  }
   kvec <- function(m){
     vm <- t(rep(1,ncol(U)) %o% V[,m])
     d <- colSums((U-vm)^2)^0.5
@@ -96,42 +87,17 @@ nmfkc.kernel <- function(U,V=NULL,kernel="Gaussian",beta=0.5,degree=2,centers=NU
 #' @param Y observation matrix
 #' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
+#' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.
 #' @param beta parameter vector of kernel function for cv
 #' @param plot The default is plot=TRUE and draw a graph.
-#' @param ... arguments to be passed to nmfkc.kernel and nmfkc.cv functions.
 #' @return beta: best parameter minimizes objective function
 #' @return objfunc: objective functions
 #' @export
-nmfkc.kernel.beta.cv <- function(Y,Q=2,U,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),plot=TRUE,...){
-  arglist=list(...)
-  # nmfkc.cv
-  div <- ifelse("div" %in% names(arglist),arglist$div,5)
-  seed <- ifelse("seed" %in% names(arglist),arglist$seed,123)
-  # nmfkc.kernel
-  V <- ifelse("V" %in% names(arglist),arglist$V,NULL)
-  kernel <- ifelse("kernel" %in% names(arglist),arglist$kernel,"Gaussian")
-  degree <- ifelse("degree" %in% names(arglist),arglist$degree,2)
-  centers <- ifelse("centers" %in% names(arglist),arglist$centers,NULL)
-  maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
-  nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
-  # nmfkc
-  gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
-  epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
-  method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
-  X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
-  nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
-  print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
-  print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
-  save.time <- TRUE
-  # nmfkc.kernel.beta.cv
+nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),plot=TRUE){
   objfuncs <- 0*(1:length(beta))
   for(i in 1:length(beta)){
-    A <- nmfkc.kernel(U,V,kernel,beta=beta[i],
-                      degree=degree,centers=centers,maxit=maxit,nstart=nstart,seed=seed)
-    result <- nmfkc.cv(Y,A,Q=Q,div=div,seed=seed,
-                       gamma=gamma,epsilon=epsilon,maxit=maxit,method=method,
-                       X.restriction=X.restriction,nstart=nstart,
-                       print.trace=print.trace,print.dims=print.dims,save.time=save.time)
+    A <- nmfkc.kernel(U=U,V=V,beta=beta[i])
+    result <- nmfkc.cv(Y=Y,A=A,Q=Q)
     objfuncs[i] <- result$objfunc
   }
   beta.best <- beta[which.min(objfuncs)]

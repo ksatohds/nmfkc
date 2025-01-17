@@ -62,16 +62,14 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
-X <- cbind(c(1,0,1),c(0,1,0))
-B <- cbind(c(1,0),c(0,1),c(1,1))
-Y <- X %*% B
-print(X)
-print(B)
-print(Y) 
+(X <- cbind(c(1,0,1),c(0,1,0)))
+(B <- cbind(c(1,0),c(0,1),c(1,1)))
+(Y <- X %*% B)
 
 library(nmfkc)
 res <- nmfkc(Y,Q=2)
-res$X; res$B
+res$X
+res$B
 ``` 
 
 ## 1. Longitudinal data
@@ -105,7 +103,7 @@ round(result.rank,2)
 # nmf
 Q <- 4
 result <- nmfkc(Y,Q=Q)
-result$r.squared # goodness of fit
+plot(result,type="l",col=2)
 
 # individual fit
 par(mfrow=c(7,7),mar=c(0,0,0,0)+0.1,cex=1)
@@ -127,8 +125,8 @@ for(q in 1:Q){
 # cluster membership probability based on coefficients
 n <- 1
 result$B[,n]
-result$B[,n]/sum(result$B[,n])
 result$B.prob[,n]
+result$B.cluster[n]
 
 # soft clustering based on B.prob
 library(NipponMap)
@@ -141,9 +139,6 @@ stars(x=t(result$B.prob),scale=F,
 
 # heatmap
 heatmap(t(result$B.prob))
-
-# hard clustering based on B.cluster
-table(result$B.cluster)
 ```
 
 ## 2. Spatiotemporal Analysis
@@ -167,11 +162,7 @@ u0[,1] <- -u0[,1]
 #------------------
 library(nmfkc)
 result <- nmfkc(Y,Q=2)
-result$r.squared # coefficient of determination
-
-# visualization of some results
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
-plot(result$objfunc.iter) # convergence
+plot(result)
 
 # individual fit
 par(mfrow=c(6,6),mar=c(0,0,0,0)+0.1,cex=1)
@@ -191,12 +182,6 @@ Q <- ncol(result$X)
 for(q in 1:Q) lines(result$X[,q],col=q+1)
 legend("topright",legend=1:Q,fill=1:Q+1)
 
-# cluster membership probability based on coefficients
-n <- 1
-result$B[,n]
-result$B[,n]/sum(result$B[,n])
-result$B.prob[,n]
-
 # soft clustering based on B.prob
 par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
 plot(u0,type="n")
@@ -207,14 +192,16 @@ stars(t(result$B.prob),
       col.segments=1:Q+1,
       len=max(u0)/30,add=T)
 
+# hard clustering based on B.cluster
+plot(u0,pch=19,cex=3,col=result$B.cluster+1)
+text(u0,colnames(Y),pos=1)
+legend("topright",legend=c("1","2"),fill=c(2,3))
+
 #------------------
 # with covariates using location information
 #------------------
-u <- t(u0)
-umin <- apply(u,1,min)
-umax <- apply(u,1,max)
-U <- (u-umin)/(umax-umin) # normalization
-A <- rbind(rep(1,ncol(Y)),U)
+U <- t(nmfkc.normalize(u0))
+A <- rbind(1,U)
 result <- nmfkc(Y,A,Q=2)
 result$r.squared
 
@@ -228,20 +215,8 @@ result$r.squared
 # K(u,v)=exp{-beta*|u-v|^2}
 
 # k-fold cross validation for beta
-betas <- c(0.5,1,2,5,10)
-objfuncs <- 0*betas
-for(i in 1:length(betas)){
-  print(i)
-  A <- nmfkc.kernel(U,beta=betas[i])
-  result <- nmfkc.cv(Y,A,Q=2,div=10)
-  objfuncs[i] <- result$objfunc
-}
-table(result$block) # partition block of cv
-
-# objective function by beta
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
-plot(betas,objfuncs,type="o",log="x")
-(best.beta <- betas[which.min(objfuncs)])
+result.beta <- nmfkc.kernel.beta.cv(Y,Q=2,U,beta=c(0.5,1,2,5,10))
+(best.beta <- result.beta$beta)
 
 # create kernel with best beta
 A <- nmfkc.kernel(U,beta=best.beta)
@@ -338,19 +313,8 @@ for(q in 1:Q){
 # with covariates using covariate matrix U
 #------------------
 U <- t(as.matrix(corp$Year))
-# k-fold cross validation for beta
-betas <- c(0.2,0.5,1,2,5)/10000
-objfuncs <- 0*betas
-for(i in 1:length(betas)){
-  print(i)
-  A <- nmfkc.kernel(U,beta=betas[i])
-  result <- nmfkc.cv(Y,A,Q,div=5)
-  objfuncs[i] <- result$objfunc
-}
-table(result$block) # partition block of cv
-par(mfrow=c(1,1),mar=c(5,4,2,2)+0.1,cex=1)
-plot(betas,objfuncs,type="o",log="x")
-(best.beta <- betas[which.min(objfuncs)])
+result.beta <- nmfkc.kernel.beta.cv(Y,Q=3,U,beta=c(0.2,0.5,1,2,5)/10000)
+(best.beta <- result.beta$beta)
 
 # create kernel with best beta
 A <- nmfkc.kernel(U,beta=best.beta)
@@ -671,7 +635,6 @@ for(j in 0:9) myimage(result$XB[,which(label==j)[1]])
 par(mfrow=c(4,3),mar=c(2,2,1,1))
 for(q in 1:Q) myimage(result$X[,q])
 ```
-
 
 # Author
 
