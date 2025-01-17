@@ -9,8 +9,8 @@ nmfkc.kernel.beta.cv(
   Q = 2,
   U,
   beta = c(0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50),
-  centers = NULL,
-  plot = TRUE
+  plot = TRUE,
+  ...
 )
 }
 \arguments{
@@ -22,9 +22,9 @@ nmfkc.kernel.beta.cv(
 
 \item{beta}{parameter vector of kernel function for cv}
 
-\item{centers}{the number of clusters in kmeans function to reduce columns of U}
-
 \item{plot}{The default is plot=TRUE and draw a graph.}
+
+\item{...}{arguments to be passed to nmfkc.kernel and nmfkc.cv functions.}
 }
 \value{
 beta: best parameter minimizes objective function

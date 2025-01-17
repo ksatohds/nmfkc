@@ -10,7 +10,7 @@ Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to t
 nmfkc.kernel(
   U,
   V = NULL,
-  method = "Gaussian",
+  kernel = "Gaussian",
   beta = 0.5,
   degree = 2,
   centers = NULL,
@@ -24,7 +24,7 @@ nmfkc.kernel(
 
 \item{V}{covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.}
 
-\item{method}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
+\item{kernel}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
 
 \item{beta}{The default parameter of kernel function is 0.5.}
 

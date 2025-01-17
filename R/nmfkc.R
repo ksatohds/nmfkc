@@ -43,7 +43,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @description \code{nmfkc.kernel} create kernel matrix from covariate matrix
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
 #' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.
-#' @param method The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
+#' @param kernel The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
 #' @param beta The default parameter of kernel function is 0.5.
 #' @param degree The default parameter of kernel function is 2.
 #' @param centers the number of clusters in kmeans function to reduce columns of U
@@ -65,7 +65,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' plot(as.vector(U),as.vector(Y))
 #' lines(as.vector(U),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U,V=NULL,method="Gaussian",beta=0.5,degree=2,centers=NULL,maxit=5000,nstart=1,seed=123){
+nmfkc.kernel <- function(U,V=NULL,kernel="Gaussian",beta=0.5,degree=2,centers=NULL,maxit=5000,nstart=1,seed=123){
   if(is.null(V)==TRUE) V <- U
   if(!is.null(centers)){
     tU <- t(U)
@@ -73,18 +73,18 @@ nmfkc.kernel <- function(U,V=NULL,method="Gaussian",beta=0.5,degree=2,centers=NU
     cl <- stats::kmeans(tU,centers=centers,iter.max=maxit,nstart=nstart)
     if(is.vector(cl$centers)==TRUE) U <- matrix(cl$centers,nrow=1) else U <- t(cl$centers)
   }
-  kernel <- function(m){
+  kvec <- function(m){
     vm <- t(rep(1,ncol(U)) %o% V[,m])
     d <- colSums((U-vm)^2)^0.5
     k <- 0
-    if(method=="Gaussian") k <- exp(-beta*d^2) # Gaussian
-    if(method=="Exponential") k <- exp(-beta*d)
-    if(method=="Periodic") k <- exp(-beta[1]*sin(beta[2]*d)^2)
-    if(method=="Linear") k <- t(U) %*% V[,m]
-    if(method=="NormalizedLinear") k <- diag(1/colSums(U^2)^0.5) %*% t(U) %*% V[,m]/sum(V[,m]^2)^0.5
-    if(method=="Polynomial") k <- (t(U) %*% V[,m]+beta)^degree
+    if(kernel=="Gaussian") k <- exp(-beta*d^2) # Gaussian
+    if(kernel=="Exponential") k <- exp(-beta*d)
+    if(kernel=="Periodic") k <- exp(-beta[1]*sin(beta[2]*d)^2)
+    if(kernel=="Linear") k <- t(U) %*% V[,m]
+    if(kernel=="NormalizedLinear") k <- diag(1/colSums(U^2)^0.5) %*% t(U) %*% V[,m]/sum(V[,m]^2)^0.5
+    if(kernel=="Polynomial") k <- (t(U) %*% V[,m]+beta)^degree
     return(k)}
-  A <- NULL; for(m in 1:ncol(V)) A <- cbind(A,kernel(m))
+  A <- NULL; for(m in 1:ncol(V)) A <- cbind(A,kvec(m))
   if(min(A)<0){
     warning("The constructed matrix is not non-negative.")
   }
@@ -97,16 +97,41 @@ nmfkc.kernel <- function(U,V=NULL,method="Gaussian",beta=0.5,degree=2,centers=NU
 #' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
 #' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
 #' @param beta parameter vector of kernel function for cv
-#' @param centers the number of clusters in kmeans function to reduce columns of U
 #' @param plot The default is plot=TRUE and draw a graph.
+#' @param ... arguments to be passed to nmfkc.kernel and nmfkc.cv functions.
 #' @return beta: best parameter minimizes objective function
 #' @return objfunc: objective functions
 #' @export
-nmfkc.kernel.beta.cv <- function(Y,Q=2,U,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),centers=NULL,plot=TRUE){
+nmfkc.kernel.beta.cv <- function(Y,Q=2,U,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),plot=TRUE,...){
+  arglist=list(...)
+  # nmfkc.cv
+  div <- ifelse("div" %in% names(arglist),arglist$div,5)
+  seed <- ifelse("seed" %in% names(arglist),arglist$seed,123)
+  # nmfkc.kernel
+  V <- ifelse("V" %in% names(arglist),arglist$V,NULL)
+  kernel <- ifelse("kernel" %in% names(arglist),arglist$kernel,"Gaussian")
+  degree <- ifelse("degree" %in% names(arglist),arglist$degree,2)
+  centers <- ifelse("centers" %in% names(arglist),arglist$centers,NULL)
+  maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
+  nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
+  # nmfkc
+  gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
+  epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
+  method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
+  X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
+  nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
+  print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
+  print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
+  save.time <- TRUE
+  # nmfkc.kernel.beta.cv
   objfuncs <- 0*(1:length(beta))
   for(i in 1:length(beta)){
-    A <- nmfkc.kernel(U,beta=beta[i],centers=centers)
-    result <- nmfkc.cv(Y,A,Q=Q)
+    A <- nmfkc.kernel(U,V,kernel,beta=beta[i],
+                      degree=degree,centers=centers,maxit=maxit,nstart=nstart,seed=seed)
+    result <- nmfkc.cv(Y,A,Q=Q,div=div,seed=seed,
+                       gamma=gamma,epsilon=epsilon,maxit=maxit,method=method,
+                       X.restriction=X.restriction,nstart=nstart,
+                       print.trace=print.trace,print.dims=print.dims,save.time=save.time)
     objfuncs[i] <- result$objfunc
   }
   beta.best <- beta[which.min(objfuncs)]
