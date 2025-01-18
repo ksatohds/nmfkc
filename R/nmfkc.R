@@ -207,27 +207,23 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
 #' # remotes::install_github("ksatohds/nmfkc")
 #' # Example 1.
 #' library(nmfkc)
-#' Y <- t(iris[,-5])
-#' Q <- 3
-#' result <- nmfkc(Y,Q=Q,epsilon=1e-5)
-#' # visualization of some results
-#' plot(result) # convergence
-#' # soft clustering based on coefficient matrix B
-#' barplot(result$B.prob,col=1:Q+1,legend=TRUE,las=3,ylab="Probabilities")
-#' # hard clustering
-#' cluster.prob <- 0*1:ncol(Y)
-#' for(n in 1:ncol(Y)) cluster.prob[n] <- result$B.prob[result$B.cluster[n],n]
-#' barplot(cluster.prob,col=result$B.cluster+1,border=result$B.cluster+1,
-#' names=colnames(Y),legend=FALSE,las=3,ylab="Probability")
-#' legend("topright",fill=1:Q+1,legend=1:Q,bg="white")
-#' table(result$B.cluster,iris[,5])
+#' X <- cbind(c(1,0,1),c(0,1,0))
+#' B <- cbind(c(1,0),c(0,1),c(1,1))
+#' Y <- X %*% B
+#' rownames(Y) <- paste0("P",1:nrow(Y))
+#' colnames(Y) <- paste0("N",1:ncol(Y))
+#' print(X); print(B); print(Y)
+#' library(nmfkc)
+#' res <- nmfkc(Y,Q=2)
+#' res$X
+#' res$B
 #'
 #' # Example 2.
 #' Y <- matrix(cars$dist,nrow=1)
 #' A <- rbind(1,cars$speed)
 #' result <- nmfkc(Y,A,Q=1)
-#' plot(as.vector(A[2,]),as.vector(Y))
-#' lines(as.vector(A[2,]),as.vector(result$XB),col=2,lwd=2)
+#' plot(cars$speed,as.vector(Y))
+#' lines(cars$speed,as.vector(result$XB),col=2,lwd=2)
 
 nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                   X.restriction="colSums",nstart=1,seed=123,
