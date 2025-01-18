@@ -64,8 +64,8 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
   i0 <- which.min(objfuncs)
   best.degree <- degree[i0]
   if(plot){
-    plot(degree,objfuncs,type="l",col=2,xlab="degree",ylab="objfunc")
-    graphics::points(degree[i0],objfuncs[i0],cex=3,pch=19,col=7)
+    plot(degree,objfuncs,type="l",col=2,xlab=paste0("degree (max=",degree.max,")"),ylab="objfunc")
+    graphics::points(degree[i0],objfuncs[i0],cex=3)
     graphics::text(degree,objfuncs,degree)
   }
   degree.max <- min(ncol(Y),floor(10*log10(ncol(Y))))
@@ -157,7 +157,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
   beta.best <- beta[i0]
   if(plot){
     plot(beta,objfuncs,type="l",col=2,xlab="beta",ylab="objfunc",log="x")
-    graphics::points(beta[i0],objfuncs[i0],cex=3,pch=19,col=7)
+    graphics::points(beta[i0],objfuncs[i0],cex=3)
     graphics::text(beta,objfuncs,beta)
   }
   result <- list(beta=beta.best,objfunc=objfuncs)
