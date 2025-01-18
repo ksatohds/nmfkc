@@ -63,12 +63,12 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
   }
   i0 <- which.min(objfuncs)
   best.degree <- degree[i0]
+  degree.max <- min(ncol(Y),floor(10*log10(ncol(Y))))
   if(plot){
     plot(degree,objfuncs,type="l",col=2,xlab=paste0("degree (max=",degree.max,")"),ylab="objfunc")
     graphics::points(degree[i0],objfuncs[i0],cex=3)
     graphics::text(degree,objfuncs,degree)
   }
-  degree.max <- min(ncol(Y),floor(10*log10(ncol(Y))))
   result <- list(degree=best.degree,degree.max=degree.max,objfunc=objfuncs)
   return(result)
 }
