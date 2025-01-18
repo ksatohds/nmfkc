@@ -5,6 +5,7 @@ You can install the development version of nmfkc from [GitHub](https://github.co
 ``` r
 #install.packages("remotes")
 remotes::install_github("ksatohds/nmfkc")
+library(nmfkc)
 ```
 
 # Functions
