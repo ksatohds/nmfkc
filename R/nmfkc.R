@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 18 JAN 2025")
+  packageStartupMessage("Last update on 21 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -183,9 +183,11 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
 #' @param X.restriction The default is X.restriction="colSums" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.restriction="colSqSums".
 #' @param nstart The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.
 #' @param seed integer used as argument in set.seed function
+#' @param prefix prefix label for column labels of basis matrix and row labels of coefficient matrix
 #' @param print.trace display current iteration every 10 times if print.trace=TRUE
 #' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
 #' @param save.time The default is TRUE. Some return values including CPCC and silhouette are skipped to save the computation time.
+#' @param save.memory The default is FALSE. If save.memory=TRUE, save.time=TRUE and only the minimum necessary calculations are performed to save memory.
 #' @return X: basis matrix. The column sum depends on X.restriction.
 #' @return B: coefficient matrix, B=CA
 #' @return XB: fitted values for observation matrix Y
@@ -227,7 +229,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
 
 nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                   X.restriction="colSums",nstart=1,seed=123,
-                  print.trace=FALSE,print.dims=TRUE,save.time=TRUE){
+                  prefix="Basis",print.trace=FALSE,print.dims=TRUE,save.time=TRUE,save.memory=FALSE){
   z <- function(x){
     x[is.nan(x)] <- 0
     x[is.infinite(x)] <- 0
@@ -358,35 +360,46 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   }else{
     objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
   }
-  rownames(C) <- paste0("Basis",1:nrow(C))
-  B.prob <- t(z(t(B)/colSums(B)))
-  B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
-  B.cluster <- apply(B.prob,2,which.max)
-  B.cluster[colSums(B.prob)==0] <- NA
-  colnames(X) <- paste0("Basis",1:ncol(X))
+  rownames(C) <- paste0(prefix,1:nrow(C))
+  colnames(X) <- paste0(prefix,1:ncol(X))
+  rownames(B) <- paste0(prefix,1:nrow(B))
   colnames(B) <- colnames(Y)
-  rownames(B) <- paste0("Basis",1:nrow(B))
-  colnames(B.prob) <- colnames(Y)
-  rownames(B.prob) <- paste0("Basis",1:nrow(B))
-  colnames(XB) <- colnames(Y)
-  X.prob <- z(X/rowSums(X))
-  X.cluster <- apply(X.prob,1,which.max)
-  X.cluster[rowSums(X.prob)==0] <- NA
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
-  if(save.time){
+  if(save.memory==FALSE){
+    B.prob <- t(z(t(B)/colSums(B)))
+    B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
+    B.cluster <- apply(B.prob,2,which.max)
+    B.cluster[colSums(B.prob)==0] <- NA
+    rownames(B.prob) <- paste0(prefix,1:nrow(B))
+    colnames(B.prob) <- colnames(Y)
+    colnames(XB) <- colnames(Y)
+    X.prob <- z(X/rowSums(X))
+    X.cluster <- apply(X.prob,1,which.max)
+    X.cluster[rowSums(X.prob)==0] <- NA
+    if(save.time){
+      silhouette <- NA
+      CPCC <- NA
+    }else{
+      silhouette <- mysilhouette(B.prob,B.cluster)
+      if(Q>=2){
+        M <- t(B.prob) %*% B.prob
+        h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M))))
+        up <- upper.tri(M)
+        CPCC <- stats::cor(h.dist[up],(1-M)[up])
+      }else{
+        CPCC <- NA
+      }
+    }
+  }else{
+    B.prob <- NA
+    B.prob.sd.min <- NA
+    B.cluster <- NA
+    XB <- NA
+    X.prob <- NA
+    X.cluster <- NA
     silhouette <- NA
     CPCC <- NA
-  }else{
-    silhouette <- mysilhouette(B.prob,B.cluster)
-    if(Q>=2){
-      M <- t(B.prob) %*% B.prob
-      h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M))))
-      up <- upper.tri(M)
-      CPCC <- stats::cor(h.dist[up],(1-M)[up])
-    }else{
-      CPCC <- NA
-    }
   }
   if(epsilon.iter > abs(epsilon)) warning(paste0(
     "maximum iterations (",maxit,
@@ -561,9 +574,11 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
   X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
+  prefix <- ifelse("prefix" %in% names(arglist),arglist$prefix,"Basis")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
   save.time <- TRUE
+  save.memory <- TRUE
   if(is.null(A)) A <- diag(ncol(Y))
   is.symmetric.matrix <- function(A){
     result <- FALSE
@@ -637,7 +652,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.restriction,nstart,seed,print.trace,print.dims,save.time)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time,save.memory)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -701,9 +716,11 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
   seed <- ifelse("seed" %in% names(arglist),arglist$nstart,123)
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
+  prefix <- ifelse("prefix" %in% names(arglist),arglist$prefix,"Basis")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
   save.time <- ifelse("save.time" %in% names(arglist),arglist$save.time,TRUE)
+  save.memory <- FALSE
   r.squared <- 0*Q; names(r.squared) <- Q
   ICp <- 0*Q; names(ICp) <- Q
   silhouette <- 0*Q; names(silhouette) <- Q
@@ -712,11 +729,11 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   ARI <- 0*Q; names(ARI) <- Q
   for(q in 1:length(Q)){
     if(save.time){
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,print.trace,print.dims,save.time=T)
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=T,save.memory)
       CPCC[q] <- NA
       silhouette[q] <- NA
     }else{
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,print.trace,print.dims,save.time=F)
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=F,save.memory)
       CPCC[q] <- result$criterion$CPCC
       silhouette[q] <- result$criterion$silhouette$silhouette.mean
     }

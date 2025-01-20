@@ -18,9 +18,11 @@ nmfkc(
   X.restriction = "colSums",
   nstart = 1,
   seed = 123,
+  prefix = "Basis",
   print.trace = FALSE,
   print.dims = TRUE,
-  save.time = TRUE
+  save.time = TRUE,
+  save.memory = FALSE
 )
 }
 \arguments{
@@ -44,11 +46,15 @@ nmfkc(
 
 \item{seed}{integer used as argument in set.seed function}
 
+\item{prefix}{prefix label for column labels of basis matrix and row labels of coefficient matrix}
+
 \item{print.trace}{display current iteration every 10 times if print.trace=TRUE}
 
 \item{print.dims}{display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.}
 
 \item{save.time}{The default is TRUE. Some return values including CPCC and silhouette are skipped to save the computation time.}
+
+\item{save.memory}{The default is FALSE. If save.memory=TRUE, save.time=TRUE and only the minimum necessary calculations are performed to save memory.}
 }
 \value{
 X: basis matrix. The column sum depends on X.restriction.
