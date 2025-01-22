@@ -1,4 +1,5 @@
-# nmfkc 0.4.2
+# nmfkc 0.4.3
+- 0.4.3 sorting the columns of X to be a unit matrix in special cases
 - 0.4.2 nmfkc.kernel.beta.cv and nmfkc.ar.degree.cv are implemented
 - 0.4.1 column names of X are Basis1, Basis2,...
 - 0.3.9 X.prob and X.cluster are appended
