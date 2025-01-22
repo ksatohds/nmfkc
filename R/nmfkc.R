@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 22 JAN 2025")
+  packageStartupMessage("Last update on 20 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -360,12 +360,6 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   }else{
     objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
   }
-  #if(ncol(X)>1){
-  #  index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% round(nrow(X)*X)/nrow(X))
-  #  X <- X[,index]
-  #  B <- B[index,]
-  #  C <- C[index,]
-  #}
   rownames(C) <- paste0(prefix,1:nrow(C))
   colnames(X) <- paste0(prefix,1:ncol(X))
   rownames(B) <- paste0(prefix,1:nrow(B))
