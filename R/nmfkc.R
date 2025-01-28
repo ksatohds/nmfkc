@@ -69,6 +69,7 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
     graphics::points(degree[i0],objfuncs[i0],cex=3,col=2)
     graphics::text(degree,objfuncs,degree)
   }
+  names(objfuncs) <- degree
   result <- list(degree=best.degree,degree.max=degree.max,objfunc=objfuncs)
   return(result)
 }
@@ -160,6 +161,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
     graphics::points(beta[i0],objfuncs[i0],cex=3,col=2)
     graphics::text(beta,objfuncs,beta)
   }
+  names(objfuncs) <- beta
   result <- list(beta=beta.best,objfunc=objfuncs)
   return(result)
 }
