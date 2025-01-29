@@ -1,5 +1,9 @@
 .onAttach <- function(...) {
+<<<<<<< HEAD
   packageStartupMessage("Last update on 29 JAN 2025")
+=======
+  packageStartupMessage("Last update on 22 JAN 2025")
+>>>>>>> fcaae0f205be29dc2360aa48ee0f526a1c44d607
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -76,6 +80,7 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
     graphics::points(degree[i0],objfuncs[i0],cex=3,col=2)
     graphics::text(degree,objfuncs,degree)
   }
+  names(objfuncs) <- degree
   result <- list(degree=best.degree,degree.max=degree.max,objfunc=objfuncs)
   return(result)
 }
@@ -174,6 +179,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
     graphics::points(beta[i0],objfuncs[i0],cex=3,col=2)
     graphics::text(beta,objfuncs,beta)
   }
+  names(objfuncs) <- beta
   result <- list(beta=beta.best,objfunc=objfuncs)
   return(result)
 }
@@ -373,6 +379,12 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
   }else{
     objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
+  }
+  if(ncol(X)>1 & sum(rowSums(X)==1)==nrow(X)){
+    index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
+    X <- X[,index]
+    B <- B[index,]
+    C <- C[index,]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
   colnames(X) <- paste0(prefix,1:ncol(X))

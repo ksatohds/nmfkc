@@ -1,7 +1,7 @@
 Package: nmfkc
 Type: Package
 Title: The Package is to Optimize Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.4.2
+Version: 0.4.3
 Author: Kenichi Satoh
 Maintainer: Kenichi Satoh <kenichi-satoh@biwako.shiga-u.ac.jp>
 Description: The goal of the package is to perform Non-negative Matrix Factorization
