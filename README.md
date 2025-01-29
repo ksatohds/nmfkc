@@ -93,7 +93,7 @@ colnames(d) <- c(
   "Number_of_deaths","Cumulative_Number_of_deaths",
   "Number_of_infected_100000_population_in_the_last_week")
 n <- length(unique(d$Prefecture_code)) # 47
-Y <- matrix(d$Number_of_infected,nrow=nrow(d)/n,ncol=n)
+Y <- matrix(log10(1+d$Number_of_infected),nrow=nrow(d)/n,ncol=n)
 colnames(Y) <- unique(d$Prefecture_name)
 rownames(Y) <- unique(d$Date)
 
@@ -101,11 +101,15 @@ rownames(Y) <- unique(d$Date)
 library(nmfkc)
 par(mfrow=c(1,1))
 result.rank <- nmfkc.rank(Y,Q=2:8,save.time=F)
-round(result.rank,2)
+round(result.rank,3)
+
+# ICp
+plot(result.rank$Q,result.rank$ICp,col=2,type="l")
+text(result.rank$Q,result.rank$ICp,result.rank$Q)
 
 # nmf
 Q <- 4
-result <- nmfkc(Y,Q=Q)
+result <- nmfkc(Y,Q=Q,epsilon=1e-5)
 plot(result,type="l",col=2)
 
 # individual fit
@@ -142,6 +146,11 @@ stars(x=t(result$B.prob),scale=F,
 
 # heatmap
 heatmap(t(result$B.prob))
+
+# hard clustering based on B.prob
+library(NipponMap)
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+jmap <- JapanPrefMap(col=result$B.cluster+1,axes=TRUE)
 ```
 
 ## 2. Spatiotemporal Analysis
