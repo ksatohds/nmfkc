@@ -58,7 +58,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
  7.  Binary repeated measures: Table 6, Koch et al.(1977)
  8.  Image data: the MNIST database of handwritten digits
  9.  Autoregression: AirPassengers
-10:  Vector Autoregression: Canada
+10.  Vector Autoregression: Canada
 
 ## 0.  Simple matrix operations
 
