@@ -644,17 +644,11 @@ time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
 time.vec <- round(as.vector(t(time)),2)
 Y0 <- matrix(as.vector(d),nrow=1)
 colnames(Y0) <- time.vec
-rownames(Y0) <- "n"
-
-d <- AirPassengers
-time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
-time.vec <- round(as.vector(t(time)),2)
-Y0 <- matrix(as.vector(d),nrow=1)
-colnames(Y0) <- time.vec
-rownames(Y0) <- "n"
+rownames(Y0) <- "t"
 
 # nmf with covariates
-Q <- 1; D=12
+Q <- 1
+D <- 12
 a <- nmfkc.ar(Y0,degree=D,intercept=T); Y <- a$Y; A <- a$A
 res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-9,maxit=20000)
 res$r.squared
