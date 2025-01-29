@@ -667,7 +667,6 @@ plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassen
 lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
 ```
  
- 
 ## 10:  Vector Autoregression: Canada
 
 ``` r
