@@ -12,10 +12,10 @@ library(nmfkc)
 
 There are five functions in **nmfkc** package. Note that **nmfkc.rank** is under construction.
 
--   **nmfkc** function optimizes the model
--   **nmfkc.cv** function is used for k-fold cross-validation
--   **nmfkc.kernel** function is used for creating kernel matrix from covariates
--   **nmfkc.rank** function is used to diagnose rank selection using the figure
+- **nmfkc** function optimizes the model
+- **nmfkc.cv** function is used for k-fold cross-validation
+- **nmfkc.kernel** function is used for creating kernel matrix from covariates
+- **nmfkc.rank** function is used to diagnose rank selection using the figure
 
 # Statistical model
 
@@ -48,15 +48,17 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 
 # Examples
 
-0.  Simple matrix operations
-1.  Longitudinal data: COVID-19 in Japan
-2.  Spatiotemporal Analysis: CanadianWeather
-3.  Topic model: data_corpus_inaugural
-4.  Origin-Destination (OD) data: Japanese Inter-prefecture flow
-5.  Kernel ridge regression: mcycle
-6.  Growth curve model: Orthodont
-7.  Binary repeated measures: Table 6, Koch et al.(1977)
-8.  Image data: the MNIST database of handwritten digits
+ 0.  Simple matrix operations
+ 1.  Longitudinal data: COVID-19 in Japan
+ 2.  Spatiotemporal Analysis: CanadianWeather
+ 3.  Topic model: data_corpus_inaugural
+ 4.  Origin-Destination (OD) data: Japanese Inter-prefecture flow
+ 5.  Kernel ridge regression: mcycle
+ 6.  Growth curve model: Orthodont
+ 7.  Binary repeated measures: Table 6, Koch et al.(1977)
+ 8.  Image data: the MNIST database of handwritten digits
+ 9.  Autoregression: AirPassengers
+10:  Vector Autoregression: Canada
 
 ## 0.  Simple matrix operations
 
@@ -627,6 +629,79 @@ for(j in 0:9) myimage(result$XB[,which(label==j)[1]])
 # basis function of which sum is 1
 par(mfrow=c(4,3),mar=c(2,2,1,1))
 for(q in 1:Q) myimage(result$X[,q])
+```
+
+## 9.  Autoregression: AirPassengers
+
+``` r
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+library(nmfkc)
+
+d <- AirPassengers
+tsp(d)
+time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
+time.vec <- round(as.vector(t(time)),2)
+Y0 <- matrix(as.vector(d),nrow=1)
+colnames(Y0) <- time.vec
+rownames(Y0) <- "n"
+
+d <- AirPassengers
+time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
+time.vec <- round(as.vector(t(time)),2)
+Y0 <- matrix(as.vector(d),nrow=1)
+colnames(Y0) <- time.vec
+rownames(Y0) <- "n"
+
+# nmf with covariates
+Q <- 1; D=12
+a <- nmfkc.ar(Y0,degree=D,intercept=T); Y <- a$Y; A <- a$A
+res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-9,maxit=20000)
+res$r.squared
+
+# coefficients
+print.table(round(res$C,2),zero.print="")
+
+# fitted curve
+plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
+lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
+```
+ 
+ 
+## 10:  Vector Autoregression: Canada
+
+``` r
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+library(nmfkc)
+
+library(vars)
+d <- Canada
+time <- as.vector(time(ts(1:nrow(d),start=c(1980,1),frequency=4)))
+Y0 <- t(nmfkc.normalize(d)); colnames(Y0) <- time
+
+# nmf with covariates
+Q <- 2
+D <- 1
+a <- nmfkc.ar(Y0,degree=D,intercept=T); Y <- a$Y; A <- a$A
+res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Condition",epsilon=1e-5)
+res$r.squared
+print.table(round(res$X,2),zero.print="")
+print.table(round(res$C,2),zero.print="")
+
+# fitted curves
+par(mfrow=c(nrow(Y),1),mar=c(2,4,0,0)+0.1)
+Y.t <- as.numeric(colnames(Y))
+for(j in 1:nrow(Y)){
+  plot(Y.t,Y[j,],type="l",ylab=rownames(Y)[j],xlab="",col=8,ylim=c(0,1))
+  lines(Y.t,res$XB[j,],col=2)
+}
+
+# Soft clustering of time trend
+par(mfrow=c(1,1),mar=c(2,2,0,0)+0.1)
+Y.t <- as.numeric(colnames(Y))
+barplot(res$B.prob,col=1:Q+1,border=1:Q+1)
+legend("topright",legend=colnames(res$X),fill=1:Q+1,bg="white")
 ```
 
 # Author
