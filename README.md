@@ -109,7 +109,7 @@ text(result.rank$Q,result.rank$ICp,result.rank$Q)
 
 # nmf
 Q <- 4
-result <- nmfkc(Y,Q=Q,epsilon=1e-5)
+result <- nmfkc(Y,Q=Q,epsilon=1e-5,prefix="Region")
 plot(result,type="l",col=2)
 
 # individual fit
@@ -126,7 +126,7 @@ par(mfrow=c(Q,1),mar=c(0,0,0,0),cex=1)
 for(q in 1:Q){
   barplot(result$X[,q],col=q+1,border=q+1,las=3,
     ylim=range(result$X),ylab=paste0("topic ",q)) 
-  legend("left",fill=q+1,legend=q)
+  legend("left",fill=q+1,legend=colnames(result$X)[q])
 }
 
 # cluster membership probability based on coefficients
