@@ -58,7 +58,7 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
   objfuncs <- 0*(1:length(degree))
   for(i in 1:length(degree)){
     start.time <- Sys.time()
-    packageStartupMessage(sprintf("degree=%d...",degree[i]),appendLF=FALSE)
+    packageStartupMessage(paste0("degree=",degree[i],"..."),appendLF=FALSE)
     a <- nmfkc.ar(Y=Y,degree=degree[i],intercept=intercept)
     result.cv <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=div,seed=seed)
     objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
@@ -158,7 +158,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
   objfuncs <- 0*(1:length(beta))
   for(i in 1:length(beta)){
     start.time <- Sys.time()
-    packageStartupMessage(sprintf("beta=%f...",beta[i]),appendLF=FALSE)
+    packageStartupMessage(paste0("beta=",beta[i],"..."),appendLF=FALSE)
     A <- nmfkc.kernel(U=U,V=V,beta=beta[i],kernel=kernel,degree=degree)
     result <- nmfkc.cv(Y=Y,A=A,Q=Q,div=div,seed=seed)
     objfuncs[i] <- result$objfunc
