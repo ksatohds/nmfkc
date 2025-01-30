@@ -40,6 +40,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 # Source
 
 -   Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. <https://arxiv.org/abs/2403.05359>
+-   Satoh, K. (2025) Applying non-negative matrix factorization with covariates to multivariate time series data as a vector autoregression model. 	arXiv:2501.17446. <https://arxiv.org/abs/2501.17446>
 
 # References
 
@@ -659,7 +660,7 @@ rownames(Y0) <- "t"
 Q <- 1
 D <- 12
 a <- nmfkc.ar(Y0,degree=D,intercept=T); Y <- a$Y; A <- a$A
-res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-9,maxit=20000)
+res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-6)
 res$r.squared
 
 # coefficients

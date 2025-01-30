@@ -25,3 +25,25 @@ degree.max: 10log10(N) according to ar function in stats package
 \description{
 \code{nmfkc.ar} create observation matrix and covariate matrix according to the degree of the autoregressive model
 }
+\examples{
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# Example.
+d <- AirPassengers
+time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
+time.vec <- round(as.vector(t(time)),2)
+Y0 <- matrix(as.vector(d),nrow=1)
+colnames(Y0) <- time.vec
+rownames(Y0) <- "t"
+# nmf with covariates
+Q <- 1
+D <- 12
+a <- nmfkc.ar(Y0,degree=D,intercept=TRUE); Y <- a$Y; A <- a$A
+res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-6)
+res$r.squared
+# coefficients
+print.table(round(res$C,2),zero.print="")
+# fitted curve
+plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
+lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
+}
