@@ -10,12 +10,21 @@ library(nmfkc)
 
 # Functions
 
-There are five functions in **nmfkc** package. Note that **nmfkc.rank** is under construction.
+The main function of the **nmfkc** package is **nmfkc**, and
 
-- **nmfkc** function optimizes the model
-- **nmfkc.cv** function is used for k-fold cross-validation
-- **nmfkc.kernel** function is used for creating kernel matrix from covariates
-- **nmfkc.rank** function is used to diagnose rank selection using the figure
+- **nmfkc.cv** function that implements k-fold cross-validation.
+- **nmfkc.rank** function that implements rank selection.
+
+The following two functions create special covariate matrix.
+
+- **nmfkc.kernel** function is used for kernel method.
+- **nmfkc.ar** function is used for vector autoregression.
+
+In addition, there are functions that simplify special parameter optimization.
+
+- **nmfkc.kernel.beta.cv** function is used for optimization of beta in Gauss kernel function.
+- **nmfkc.ar.degree.cv** function is used for optimization of lag degree in autoregression.
+
 
 # Statistical model
 
@@ -40,7 +49,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 # Source
 
 -   Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. <https://arxiv.org/abs/2403.05359>
--   Satoh, K. (2025) Applying non-negative matrix factorization with covariates to multivariate time series data as a vector autoregression model. 	arXiv:2501.17446. <https://arxiv.org/abs/2501.17446>
+-   Satoh, K. (2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model. 	arXiv:2501.17446. <https://arxiv.org/abs/2501.17446>
 
 # References
 

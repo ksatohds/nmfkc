@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 29 JAN 2025")
+  packageStartupMessage("Last update on 31 JAN 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -74,6 +74,18 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @return degree.max: maximum recommended degree in ar model
 #' @return objfunc: objective functions
 #' @export
+#' @examples
+#' # install.packages("remotes")
+#' # remotes::install_github("ksatohds/nmfkc")
+#' # Example.
+#' d <- AirPassengers
+#' time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
+#' time.vec <- round(as.vector(t(time)),2)
+#' Y0 <- matrix(as.vector(d),nrow=1)
+#' colnames(Y0) <- time.vec
+#' rownames(Y0) <- "t"
+#' # selection of degree
+#' nmfkc.ar.degree.cv(Y=Y0,Q=1,degree=11:14)
 
 nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=TRUE){
   objfuncs <- 0*(1:length(degree))
@@ -343,6 +355,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     warning("The matrix Y should be non-negative.")
     stop()
   }
+  is.X.scalar <- FALSE
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
       if(ncol(Y)==Q){
@@ -357,10 +370,13 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     }
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
+    is.X.scalar <- TRUE
   }
-  if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
-  if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
-  if(X.restriction=="totalSum") X <- X/sum(X)
+  if(!is.X.scalar){
+    if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
+    if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
+    if(X.restriction=="totalSum") X <- X/sum(X)
+  }
   if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
@@ -368,17 +384,21 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     XB <- X %*% B
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
-      X <- X*z((Y%*%t(B))/(XB%*%t(B)))
-      if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
-      if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
-      if(X.restriction=="totalSum") X <- X/sum(X)
+      if(!is.X.scalar){
+        X <- X*z((Y%*%t(B))/(XB%*%t(B)))
+        if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
+        if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
+        if(X.restriction=="totalSum") X <- X/sum(X)
+      }
       if(is.null(A)) C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C)) else C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
-      X <- t(t(X*z(Y/XB)%*%t(B))/rowSums(B))
-      if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
-      if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
-      if(X.restriction=="totalSum") X <- X/sum(X)
+      if(!is.X.scalar){
+        X <- t(t(X*z(Y/XB)%*%t(B))/rowSums(B))
+        if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
+        if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
+        if(X.restriction=="totalSum") X <- X/sum(X)
+      }
       if(is.null(A)) C <- C*(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else C <- C*(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
     }

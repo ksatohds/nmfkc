@@ -39,3 +39,16 @@ objfunc: objective functions
 \description{
 \code{nmfkc.ar.degree.cv} apply cross validation method for degree
 }
+\examples{
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# Example.
+d <- AirPassengers
+time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
+time.vec <- round(as.vector(t(time)),2)
+Y0 <- matrix(as.vector(d),nrow=1)
+colnames(Y0) <- time.vec
+rownames(Y0) <- "t"
+# selection of degree
+nmfkc.ar.degree.cv(Y=Y0,Q=1,degree=11:14)
+}
