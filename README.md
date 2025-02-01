@@ -621,7 +621,7 @@ time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
 time.vec <- round(as.vector(t(time)),2)
 Y0 <- matrix(as.vector(d),nrow=1)
 colnames(Y0) <- time.vec
-rownames(Y0) <- "t"
+rownames(Y0) <- "Y"
 
 # nmf with covariates
 Q <- 1

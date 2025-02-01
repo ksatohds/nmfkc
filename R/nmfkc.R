@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 1 FEB 2025")
+  packageStartupMessage("Last update on 2 FEB 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -79,32 +79,32 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
   rownames(C) <- gsub(".","",rownames(C),fixed=T)
   colnames(C) <- gsub(".","",colnames(C),fixed=T)
   # rankdir=RL # rankdir=TB
-  scr <- paste0('digraph XCA {graph [rankdir=',rankdir,' compound=true];')
+  scr <- paste0('digraph XCA {graph [rankdir=',rankdir,' compound=true]; \n')
   # Y
-  st <- 'subgraph cluster_Y{label="T" style="rounded";'
-  for(j in 1:nrow(X))st <- paste0(st,sprintf('%s [shape=box];',rownames(X)[j]))
-  st <- paste0(st,'};'); scr <- paste0(scr,st)
+  st <- 'subgraph cluster_Y{label="T" style="rounded"; \n'
+  for(j in 1:nrow(X))st <- paste0(st,sprintf('  %s [shape=box]; \n',rownames(X)[j]))
+  st <- paste0(st,'}; \n'); scr <- paste0(scr,st)
   # X and element
-  st <- 'subgraph cluster_X{label="Latant Variables" style="rounded";'
-  for(j in 1:ncol(X))st <- paste0(st,sprintf('%s [shape=ellipse];',colnames(X)[j]))
-  st <- paste0(st,'};'); scr <- paste0(scr,st)
+  st <- 'subgraph cluster_X{label="Latant Variables" style="rounded"; \n'
+  for(j in 1:ncol(X))st <- paste0(st,sprintf('  %s [shape=ellipse]; \n',colnames(X)[j]))
+  st <- paste0(st,'}; \n'); scr <- paste0(scr,st)
   # edge: X to Y
   for(i in 1:nrow(X))for(j in 1:ncol(X)){
     if(X[i,j]>=threshold){
-      st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"];'),
+      st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"]; \n'),
               colnames(X)[j],rownames(X)[i],X[i,j]); scr <- paste0(scr,st)}
   }
   # intercept
   if(intercept==TRUE){
     for(i in 1:ncol(X))
       if(C[i,ncol(C)]>=threshold){
-        st <- sprintf(paste0('Const%d [shape=circle label="%.',digits,'f"];'),i,C[i,ncol(C)])
-        st <- paste0(st,sprintf(paste0('Const%d -> %s;'),i,colnames(X)[i]))
+        st <- sprintf(paste0('Const%d [shape=circle label="%.',digits,'f"]; '),i,C[i,ncol(C)])
+        st <- paste0(st,sprintf(paste0('Const%d -> %s; \n'),i,colnames(X)[i]))
         scr <- paste0(scr,st)
       }
   }
   # edge: T-k to X
-  klist <- NULL
+  klist <- NULL; ktoplist <- NULL
   for(k in 1:D){
     Ck <- C[,(k-1)*nrow(X)+1:nrow(X)]
     if(is.matrix(Ck)==FALSE){
@@ -114,16 +114,23 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
     }
     if(max(Ck)>=threshold){
       klist <- c(klist,k)
-      st <- sprintf('subgraph cluster_C%d{label="T-%d" style="rounded";',k,k)
+      st <- sprintf('subgraph cluster_C%d{label="T-%d" style="rounded"; \n',k,k)
+      ktop <- NULL
       for(j in 1:ncol(Ck)){
-        st <- paste0(st,sprintf('%s [label="%s",shape=box];',
-                colnames(Ck)[j],rownames(X)[j]))
+        if(max(Ck[,j])>=threshold){
+          if(is.null(ktop)==TRUE){
+            ktop <- j
+            ktoplist <- c(ktoplist,ktop)
+          }
+          st <- paste0(st,sprintf('  %s [label="%s",shape=box]; \n',
+                                  colnames(Ck)[j],rownames(X)[j]))
+        }
       }
-      st <- paste0(st,"};");scr <- paste0(scr,st)
+      st <- paste0(st,"}; \n");scr <- paste0(scr,st)
     }
     for(i in 1:nrow(Ck))for(j in 1:ncol(Ck)){
       if(Ck[i,j]>=threshold){
-        st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"];'),
+        st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"]; \n'),
                       colnames(Ck)[j],rownames(Ck)[i],Ck[i,j])
         scr <- paste0(scr,st)
       }
@@ -131,12 +138,14 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
   }
   if(length(klist)>=2){
     for(k in 2:length(klist)){
-      st <- sprintf('%s_%d -> %s_%d [ltail=cluster_C%d lhead=cluster_C%d style=invis];',
-              rownames(X)[1],klist[k],rownames(X)[1],klist[k-1],klist[k],klist[k-1])
+      st <- sprintf('%s_%d -> %s_%d [ltail=cluster_C%d lhead=cluster_C%d style=invis]; \n',
+              rownames(X)[ktoplist[k]],klist[k],
+              rownames(X)[ktoplist[k-1]],klist[k-1],
+                          klist[k],klist[k-1])
       scr <- paste0(scr,st)
     }
   }
-  scr <- paste0(scr,"}")
+  scr <- paste0(scr,"} \n")
   return(scr)
 }
 
