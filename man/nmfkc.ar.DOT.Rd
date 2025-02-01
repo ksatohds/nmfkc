@@ -4,14 +4,27 @@
 \alias{nmfkc.ar.DOT}
 \title{DOT language script for the vector autoregressive model}
 \usage{
-nmfkc.ar.DOT(x, degree = 1, digits = 1)
+nmfkc.ar.DOT(
+  x,
+  degree = 1,
+  intercept = FALSE,
+  digits = 1,
+  threshold = 10^(-digits),
+  rankdir = "RL"
+)
 }
 \arguments{
 \item{x}{return value of nmfkc function for vector autoregressive}
 
 \item{degree}{max lag degree to visualize, and the default value is 1.}
 
-\item{digits}{integer indicating the number of decimal places for displaying edge}
+\item{intercept}{The default value is FALSE to add}
+
+\item{digits}{integer indicating the number of decimal places}
+
+\item{threshold}{display parameters that exceed the threshold value}
+
+\item{rankdir}{Direction of node placement based on DOT language, default is RL, LR, TB, BT can also be specified.}
 }
 \value{
 scripts for dot function of DOT package

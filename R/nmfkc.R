@@ -65,31 +65,43 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @description \code{nmfkc.ar.DOT} create scripts in DOT language function
 #' @param x return value of nmfkc function for vector autoregressive
 #' @param degree max lag degree to visualize, and the default value is 1.
-#' @param digits integer indicating the number of decimal places for displaying edge
+#' @param intercept The default value is FALSE to add
+#' @param digits integer indicating the number of decimal places
+#' @param threshold display parameters that exceed the threshold value
+#' @param rankdir Direction of node placement based on DOT language, default is RL, LR, TB, BT can also be specified.
 #' @return scripts for dot function of DOT package
 #' @export
 
-nmfkc.ar.DOT <- function(x,degree=1,digits=1){
+nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digits),rankdir="RL"){
   X <- x$X; C <- x$C; D <- min(ncol(C),degree)
   rownames(X) <- gsub(".","",rownames(X),fixed=T)
   colnames(X) <- gsub(".","",colnames(X),fixed=T)
   rownames(C) <- gsub(".","",rownames(C),fixed=T)
   colnames(C) <- gsub(".","",colnames(C),fixed=T)
   # rankdir=RL # rankdir=TB
-  scr <- 'digraph XCA {graph [rankdir=RL compound=true];'
+  scr <- paste0('digraph XCA {graph [rankdir=',rankdir,' compound=true];')
   # Y
-  st <- 'subgraph cluster_Y{label="Observations at T";'
+  st <- 'subgraph cluster_Y{label="T" style="rounded";'
   for(j in 1:nrow(X))st <- paste0(st,sprintf('%s [shape=box];',rownames(X)[j]))
   st <- paste0(st,'};'); scr <- paste0(scr,st)
   # X and element
-  st <- 'subgraph cluster_X{label="Latant Variables";'
+  st <- 'subgraph cluster_X{label="Latant Variables" style="rounded";'
   for(j in 1:ncol(X))st <- paste0(st,sprintf('%s [shape=ellipse];',colnames(X)[j]))
   st <- paste0(st,'};'); scr <- paste0(scr,st)
   # edge: X to Y
   for(i in 1:nrow(X))for(j in 1:ncol(X)){
-    if(X[i,j]>=10^(-digits)){
+    if(X[i,j]>=threshold){
       st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"];'),
               colnames(X)[j],rownames(X)[i],X[i,j]); scr <- paste0(scr,st)}
+  }
+  # intercept
+  if(intercept==TRUE){
+    for(i in 1:ncol(X))
+      if(C[i,ncol(C)]>=threshold){
+        st <- sprintf(paste0('Const%d [shape=circle label="%.',digits,'f"];'),i,C[i,ncol(C)])
+        st <- paste0(st,sprintf(paste0('Const%d -> %s;'),i,colnames(X)[i]))
+        scr <- paste0(scr,st)
+      }
   }
   # edge: T-k to X
   klist <- NULL
@@ -100,9 +112,9 @@ nmfkc.ar.DOT <- function(x,degree=1,digits=1){
       colnames(Ck) <- colnames(C)[k]
       rownames(Ck) <- colnames(X)[1]
     }
-    if(max(Ck)>=10^(-digits)){
+    if(max(Ck)>=threshold){
       klist <- c(klist,k)
-      st <- sprintf('subgraph cluster_C%d{label="T-%d";',k,k)
+      st <- sprintf('subgraph cluster_C%d{label="T-%d" style="rounded";',k,k)
       for(j in 1:ncol(Ck)){
         st <- paste0(st,sprintf('%s [label="%s",shape=box];',
                 colnames(Ck)[j],rownames(X)[j]))
@@ -110,7 +122,7 @@ nmfkc.ar.DOT <- function(x,degree=1,digits=1){
       st <- paste0(st,"};");scr <- paste0(scr,st)
     }
     for(i in 1:nrow(Ck))for(j in 1:ncol(Ck)){
-      if(Ck[i,j]>=10^(-digits)){
+      if(Ck[i,j]>=threshold){
         st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"];'),
                       colnames(Ck)[j],rownames(Ck)[i],Ck[i,j])
         scr <- paste0(scr,st)
