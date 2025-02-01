@@ -635,6 +635,7 @@ print.table(round(res$C,2),zero.print="")
 
 # visualize relation between variables
 script <- nmfkc.ar.DOT(res,degree=12,intercept=T)
+# cat(script)
 library(DOT)
 dot(script,file="AirPassengers_dot.ps")
 
@@ -668,6 +669,7 @@ print.table(round(res$C,2),zero.print="")
 
 # visualize relation between variables
 script <- nmfkc.ar.DOT(res)
+# cat(script)
 library(DOT)
 dot(script,file="Canada_dot.ps")
 
