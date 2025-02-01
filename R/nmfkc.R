@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 31 JAN 2025")
+  packageStartupMessage("Last update on 1 FEB 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -58,6 +58,48 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
   }
   degree.max <- min(ncol(Ya),floor(10*log10(ncol(Ya))))
   list(Y=Ya,A=A,A.columns=A.columns)
+}
+
+
+#' @title DOT language script for the vector autoregressive model
+#' @description \code{nmfkc.ar.DOT} create scripts in DOT language function
+#' @param x return value of nmfkc function
+#' @param degree max lag degree to visualize, and the default value is 1.
+#' @param digits integer indicating the number of decimal places for displaying parameters
+#' @return scripts for dot function of DOT package
+#' @export
+
+nmfkc.ar.DOT <- function(x,degree=1,digits=1){
+  X <- x$X; C <- x$C; D <- degree
+  scr <- 'digraph XCA {graph [rankdir = RL];'
+  st <- 'subgraph clusterY{label="Observations at T";'
+  for(j in 1:nrow(X))st <- paste0(st,sprintf('%s [shape=box];',
+                                             rownames(X)[j]))
+  st <- paste0(st,'};')
+  scr <- paste0(scr,st)
+  for(i in 1:nrow(X)){st <- sprintf('%s [shape=box];',
+                                    rownames(X)[i]);scr <- paste0(scr,st)}
+  st <- 'subgraph clusterX{label="Latant Variables";'
+  for(j in 1:ncol(X))st <- paste0(st,sprintf('%s [shape=ellipse];',
+                                             colnames(X)[j]))
+  st <- paste0(st,'};');scr <- paste0(scr,st)
+  for(i in 1:nrow(X))for(j in 1:ncol(X)){
+    if(X[i,j]>=10^(-digits)){st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"];'),
+                                           colnames(X)[j],rownames(X)[i],X[i,j])
+    scr <- paste0(scr,st)}}
+  for(k in 1:D){
+    st <- sprintf('subgraph clusterC%d{label="T-%d";',k,k)
+    for(j in 1:nrow(X))st <- paste0(st,sprintf('%s [label="%s",shape=box];',
+                                               colnames(C)[(k-1)*nrow(X)+j],rownames(X)[j]))
+    st <- paste0(st,'};')
+    scr <- paste0(scr,st)}
+  for(i in 1:nrow(C))for(j in 1:(ncol(C)-1)){
+    if(C[i,j]>=10^(-digits)){
+      st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"];'),
+                    colnames(C)[j],rownames(C)[i],C[i,j])
+      scr <- paste0(scr,st)}}
+  scr <- paste0(scr,"}")
+  return(scr)
 }
 
 
