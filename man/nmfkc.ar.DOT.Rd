@@ -11,7 +11,7 @@ nmfkc.ar.DOT(x, degree = 1, digits = 1)
 
 \item{degree}{max lag degree to visualize, and the default value is 1.}
 
-\item{digits}{integer indicating the number of decimal places for displaying parameters}
+\item{digits}{integer indicating the number of decimal places for displaying edge}
 }
 \value{
 scripts for dot function of DOT package

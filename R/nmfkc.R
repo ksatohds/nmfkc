@@ -65,39 +65,65 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @description \code{nmfkc.ar.DOT} create scripts in DOT language function
 #' @param x return value of nmfkc function for vector autoregressive
 #' @param degree max lag degree to visualize, and the default value is 1.
-#' @param digits integer indicating the number of decimal places for displaying parameters
+#' @param digits integer indicating the number of decimal places for displaying edge
 #' @return scripts for dot function of DOT package
 #' @export
 
 nmfkc.ar.DOT <- function(x,degree=1,digits=1){
-  X <- x$X; C <- x$C; D <- min(nrow(X),degree)
-  scr <- 'digraph XCA {graph [rankdir = RL];'
-  st <- 'subgraph clusterY{label="Observations at T";'
-  for(j in 1:nrow(X))st <- paste0(st,sprintf('%s [shape=box];',
-                                             rownames(X)[j]))
-  st <- paste0(st,'};')
-  scr <- paste0(scr,st)
-  for(i in 1:nrow(X)){st <- sprintf('%s [shape=box];',
-                                    rownames(X)[i]);scr <- paste0(scr,st)}
-  st <- 'subgraph clusterX{label="Latant Variables";'
-  for(j in 1:ncol(X))st <- paste0(st,sprintf('%s [shape=ellipse];',
-                                             colnames(X)[j]))
-  st <- paste0(st,'};');scr <- paste0(scr,st)
+  X <- x$X; C <- x$C; D <- min(ncol(C),degree)
+  rownames(X) <- gsub(".","",rownames(X),fixed=T)
+  colnames(X) <- gsub(".","",colnames(X),fixed=T)
+  rownames(C) <- gsub(".","",rownames(C),fixed=T)
+  colnames(C) <- gsub(".","",colnames(C),fixed=T)
+  # rankdir=RL # rankdir=TB
+  scr <- 'digraph XCA {graph [rankdir=RL compound=true];'
+  # Y
+  st <- 'subgraph cluster_Y{label="Observations at T";'
+  for(j in 1:nrow(X))st <- paste0(st,sprintf('%s [shape=box];',rownames(X)[j]))
+  st <- paste0(st,'};'); scr <- paste0(scr,st)
+  # X and element
+  st <- 'subgraph cluster_X{label="Latant Variables";'
+  for(j in 1:ncol(X))st <- paste0(st,sprintf('%s [shape=ellipse];',colnames(X)[j]))
+  st <- paste0(st,'};'); scr <- paste0(scr,st)
+  # edge: X to Y
   for(i in 1:nrow(X))for(j in 1:ncol(X)){
-    if(X[i,j]>=10^(-digits)){st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"];'),
-                                           colnames(X)[j],rownames(X)[i],X[i,j])
-    scr <- paste0(scr,st)}}
-  for(k in 1:D){
-    st <- sprintf('subgraph clusterC%d{label="T-%d";',k,k)
-    for(j in 1:nrow(X))st <- paste0(st,sprintf('%s [label="%s",shape=box];',
-                                               colnames(C)[(k-1)*nrow(X)+j],rownames(X)[j]))
-    st <- paste0(st,'};')
-    scr <- paste0(scr,st)}
-  for(i in 1:nrow(C))for(j in 1:(ncol(C)-1)){
-    if(C[i,j]>=10^(-digits)){
+    if(X[i,j]>=10^(-digits)){
       st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"];'),
-                    colnames(C)[j],rownames(C)[i],C[i,j])
-      scr <- paste0(scr,st)}}
+              colnames(X)[j],rownames(X)[i],X[i,j]); scr <- paste0(scr,st)}
+  }
+  # edge: T-k to X
+  klist <- NULL
+  for(k in 1:D){
+    Ck <- C[,(k-1)*nrow(X)+1:nrow(X)]
+    if(is.matrix(Ck)==FALSE){
+      Ck <- matrix(Ck,nrow=1)
+      colnames(Ck) <- colnames(C)[k]
+      rownames(Ck) <- colnames(X)[1]
+    }
+    if(max(Ck)>=10^(-digits)){
+      klist <- c(klist,k)
+      st <- sprintf('subgraph cluster_C%d{label="T-%d";',k,k)
+      for(j in 1:ncol(Ck)){
+        st <- paste0(st,sprintf('%s [label="%s",shape=box];',
+                colnames(Ck)[j],rownames(X)[j]))
+      }
+      st <- paste0(st,"};");scr <- paste0(scr,st)
+    }
+    for(i in 1:nrow(Ck))for(j in 1:ncol(Ck)){
+      if(Ck[i,j]>=10^(-digits)){
+        st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"];'),
+                      colnames(Ck)[j],rownames(Ck)[i],Ck[i,j])
+        scr <- paste0(scr,st)
+      }
+    }
+  }
+  if(length(klist)>=2){
+    for(k in 2:length(klist)){
+      st <- sprintf('%s_%d -> %s_%d [ltail=cluster_C%d lhead=cluster_C%d style=invis];',
+              rownames(X)[1],klist[k],rownames(X)[1],klist[k-1],klist[k],klist[k-1])
+      scr <- paste0(scr,st)
+    }
+  }
   scr <- paste0(scr,"}")
   return(scr)
 }
@@ -466,6 +492,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     C <- C[index,]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
+  rownames(X) <- rownames(Y)
   colnames(X) <- paste0(prefix,1:ncol(X))
   rownames(B) <- paste0(prefix,1:nrow(B))
   colnames(B) <- colnames(Y)
