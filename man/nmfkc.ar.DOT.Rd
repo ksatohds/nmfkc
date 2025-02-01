@@ -7,7 +7,7 @@
 nmfkc.ar.DOT(x, degree = 1, digits = 1)
 }
 \arguments{
-\item{x}{return value of nmfkc function}
+\item{x}{return value of nmfkc function for vector autoregressive}
 
 \item{degree}{max lag degree to visualize, and the default value is 1.}
 

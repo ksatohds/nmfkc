@@ -63,14 +63,14 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 
 #' @title DOT language script for the vector autoregressive model
 #' @description \code{nmfkc.ar.DOT} create scripts in DOT language function
-#' @param x return value of nmfkc function
+#' @param x return value of nmfkc function for vector autoregressive
 #' @param degree max lag degree to visualize, and the default value is 1.
 #' @param digits integer indicating the number of decimal places for displaying parameters
 #' @return scripts for dot function of DOT package
 #' @export
 
 nmfkc.ar.DOT <- function(x,degree=1,digits=1){
-  X <- x$X; C <- x$C; D <- degree
+  X <- x$X; C <- x$C; D <- min(nrow(X),degree)
   scr <- 'digraph XCA {graph [rankdir = RL];'
   st <- 'subgraph clusterY{label="Observations at T";'
   for(j in 1:nrow(X))st <- paste0(st,sprintf('%s [shape=box];',
