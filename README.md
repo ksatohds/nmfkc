@@ -633,6 +633,11 @@ res$r.squared
 # coefficients
 print.table(round(res$C,2),zero.print="")
 
+# visualize relation between variables
+script <- nmfkc.ar.DOT(res,degree=12,intercept=T)
+library(DOT)
+dot(script,file="AirPassengers_dot.ps")
+
 # fitted curve
 plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
 lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
@@ -643,6 +648,8 @@ lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
+# install.packages("vars")
+# install.packages("DOT")
 library(nmfkc)
 
 library(vars)
@@ -658,6 +665,11 @@ res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Condition",epsilon=1e-5)
 res$r.squared
 print.table(round(res$X,2),zero.print="")
 print.table(round(res$C,2),zero.print="")
+
+# visualize relation between variables
+script <- nmfkc.ar.DOT(res)
+library(DOT)
+dot(script,file="Canada_dot.ps")
 
 # fitted curves
 par(mfrow=c(nrow(Y),1),mar=c(2,4,0,0)+0.1)
@@ -681,6 +693,7 @@ legend("topright",legend=colnames(res$X),fill=1:Q+1,bg="white")
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
+# install.packages("dslabs")
 
 myimage <- function(x){f <- matrix(as.matrix(x),28,28,byrow=T)
   image(t(f)[,28:1],col=gray.colors(255,rev=T))}
