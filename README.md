@@ -1,12 +1,21 @@
 # Installation
 
-You can install the development version of nmfkc from [GitHub](https://github.com/) with:
+You can install the **nmfkc** package from [GitHub](https://github.com/)
 
 ``` r
 #install.packages("remotes")
 remotes::install_github("ksatohds/nmfkc")
 library(nmfkc)
 ```
+
+# Citation
+
+Please use the following to cite the **nmfkc** package
+
+``` r
+library(nmfkc)
+citation("nmfkc")
+``` 
 
 # Functions
 

@@ -13,6 +13,7 @@
 #' @return A.columns: subscript matrix used to create A
 #' @return degree.max: 10log10(N) according to ar function in stats package
 #' @export
+#' @source Satoh, K.(2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model. arXiv:2501.17446. \url{https://arxiv.org/abs/2501.17446}
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")

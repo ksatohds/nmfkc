@@ -3,6 +3,9 @@
 \name{nmfkc.ar}
 \alias{nmfkc.ar}
 \title{Creating observation and covariates for the vector autoregressive model}
+\source{
+Satoh, K.(2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model. arXiv:2501.17446. \url{https://arxiv.org/abs/2501.17446}
+}
 \usage{
 nmfkc.ar(Y, degree = 1, intercept = T)
 }

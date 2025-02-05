@@ -1,37 +1,30 @@
 bibentry(
   bibtype  = "Article",
+  title    = "Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model",
+  author   = "Kenichi Satoh",
+  journal  = "arXiv",
+  year     = "2025",
+  doi      ="https://arxiv.org/abs/2501.17446"
+)
+
+
+bibentry(
+  bibtype  = "Article",
+  title    = "Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model",
+  author   = "Kenichi Satoh",
+  journal  = "arXiv",
+  year     = "2024",
+  doi      ="https://arxiv.org/abs/2403.05359"
+)
+
+bibentry(
+  bibtype  = "Article",
   title    = "On Non-negative Matrix Factorization Using Gaussian Kernels as Covariates",
   author   = "Kenichi Satoh",
   journal  = "Japanese Journal of Applied Statistics",
   year     = "2023",
   volume   = "52",
   number   = "2",
-  pages    = 0,
-  doi      =""
+  pages    = 1-16,
+  doi      ="https://doi.org/10.5023/jappstat.52.59"
 )
-
-bibentry(
-  bibtype  = "Article",
-  title    = "Orthogonal Nonnegative Matrix T-Factorizations for Clustering",
-  author   = "Ding, Chris and Li, Tao and Peng, Wei and Park, Haesun",
-  journal  = "Proceedings of the 12th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining",
-  year     = "2006",
-  volume   = "",
-  number   = "",
-  pages    = 126-135,
-  doi      = "10.1145/1150402.1150420"
-)
-
-bibentry(
-  bibtype  = "Article",
-  title    = "A Generalized Multivariate Analysis of Variance Model Useful Especially for Growth Curve Problems",
-  author   = "Potthoff, Richard F., and Roy, S. N.",
-  journal  = "Biometrika",
-  year     = "1964",
-  volume   = "51",
-  number   = "3/4",
-  pages    = 313-326,
-  doi      = "10.2307/2334137"
-)
-
-
