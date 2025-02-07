@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 2 FEB 2025")
+  packageStartupMessage("Last update on 8 FEB 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -74,7 +74,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @export
 
 nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digits),rankdir="RL"){
-  X <- x$X; C <- x$C; D <- min(ncol(C),degree)
+  X <- x$X; C <- round(x$C,digits); D <- min(ncol(C),degree)
   rownames(X) <- gsub(".","",rownames(X),fixed=T)
   colnames(X) <- gsub(".","",colnames(X),fixed=T)
   rownames(C) <- gsub(".","",rownames(C),fixed=T)
