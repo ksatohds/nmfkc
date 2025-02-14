@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 8 FEB 2025")
+  packageStartupMessage("Last update on 14 FEB 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -186,7 +186,7 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
     result.cv <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=div,seed=seed)
     objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
     end.time <- Sys.time()
-    diff.time <- as.numeric(end.time-start.time)
+    diff.time <- difftime(end.time,start.time,units="sec")
     diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                            paste0(round(diff.time/60,1),"min"))
     packageStartupMessage(diff.time.st)
@@ -286,7 +286,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
     result <- nmfkc.cv(Y=Y,A=A,Q=Q,div=div,seed=seed)
     objfuncs[i] <- result$objfunc
     end.time <- Sys.time()
-    diff.time <- as.numeric(end.time-start.time)
+    diff.time <- difftime(end.time,start.time,units="sec")
     diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                            paste0(round(diff.time/60,1),"min"))
     packageStartupMessage(diff.time.st)
@@ -559,7 +559,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     "maximum iterations (",maxit,
     ") reached and the optimization hasn't converged yet."))
   end.time <- Sys.time()
-  diff.time <- as.numeric(end.time-start.time)
+  diff.time <- difftime(end.time,start.time,units="sec")
   diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                          paste0(round(diff.time/60,1),"min"))
   if(print.dims) packageStartupMessage(diff.time.st)
