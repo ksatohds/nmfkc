@@ -482,8 +482,6 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       }
       if(is.null(A)) C <- C*z(crossprod(X,Y)/(crossprod(X,XB)+gamma*C)) else
         C <- C*z(crossprod(X,tcrossprod(Y,A))/(crossprod(X,tcrossprod(XB,A))+gamma*C))
-      #if(is.null(A)) C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C)) else
-      #  C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
       if(!is.X.scalar){
@@ -494,8 +492,6 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       }
       if(is.null(A)) C <- C*z(crossprod(X,z(Y/XB))/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
         C <- C*z(crossprod(X,tcrossprod(z(Y/XB),A))/(colSums(X)%o%rowSums(A)+2*gamma*C))
-      #if(is.null(A)) C <- C*z(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
-      #  C <- C*z(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
     }
     if(i>=10){
