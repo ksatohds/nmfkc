@@ -493,7 +493,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
         if(X.restriction=="totalSum") X <- X/sum(X)
       }
       if(is.null(A)) C <- C*(crossprod(X,z(Y/XB))/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
-        C <- C*crossprod(X,tcrossprod(z(Y/XB),A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
+        C <- C*(crossprod(X,tcrossprod(z(Y/XB),A))/(colSums(X)%o%rowSums(A)+2*gamma*C))
       #if(is.null(A)) C <- C*(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
       #  C <- C*(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
