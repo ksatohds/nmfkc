@@ -89,7 +89,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 (Y <- X %*% B)
 
 library(nmfkc)
-res <- nmfkc(Y,Q=2)
+res <- nmfkc(Y,Q=2,epsilon=1e-6)
 res$X
 res$B
 ``` 
