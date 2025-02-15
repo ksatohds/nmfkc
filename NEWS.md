@@ -1,4 +1,5 @@
-# nmfkc 0.4.4
+# nmfkc 0.4.5
+- 0.4.5 crossprod is used
 - 0.4.4 nmfkc.ar.DOT is implemented
 - 0.4.3 sorting the columns of X to be a unit matrix in special cases
 - 0.4.2 nmfkc.kernel.beta.cv and nmfkc.ar.degree.cv are implemented

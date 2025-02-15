@@ -492,8 +492,8 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
         if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
         if(X.restriction=="totalSum") X <- X/sum(X)
       }
-      if(is.null(A)) C <- C*(crossprod(X,z(Y/XB))/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
-        C <- C*(crossprod(X,tcrossprod(z(Y/XB),A))/(colSums(X)%o%rowSums(A)+2*gamma*C))
+      if(is.null(A)) C <- C*z(crossprod(X,z(Y/XB))/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
+        C <- C*z(crossprod(X,tcrossprod(z(Y/XB),A))/(colSums(X)%o%rowSums(A)+2*gamma*C))
       #if(is.null(A)) C <- C*(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
       #  C <- C*(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
@@ -525,7 +525,11 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   rownames(B) <- paste0(prefix,1:nrow(B))
   colnames(B) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
-  ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
+  if(method=="EU"){
+    ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
+  }else{
+    ICp <- NA
+  }
   if(save.memory==FALSE){
     B.prob <- t(z(t(B)/colSums(B)))
     B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
