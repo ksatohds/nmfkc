@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 15 FEB 2025")
+  packageStartupMessage("Last update on 17 FEB 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -370,8 +370,10 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                   X.restriction="colSums",nstart=1,seed=123,
                   prefix="Basis",print.trace=FALSE,print.dims=TRUE,save.time=TRUE,save.memory=FALSE){
   z <- function(x){
-    x[is.nan(x)] <- 0
-    x[is.infinite(x)] <- 0
+    if(any(is.nan(x))|any(is.nan(x))){
+      if(any(is.nan(x))) x[is.nan(x)] <- 0
+      if(any(is.infinite(x))) x[is.infinite(x)] <- 0
+    }
     return(x)
   }
   mysilhouette <- function(B.prob,B.cluster){
@@ -599,8 +601,10 @@ plot.nmfkc <- function(x,...){
 #' @export
 predict.nmfkc <- function(x,newA=NULL,type="response"){
   z <- function(x){
-    x[is.nan(x)] <- 0
-    x[is.infinite(x)] <- 0
+    if(any(is.nan(x))|any(is.nan(x))){
+      if(any(is.nan(x))) x[is.nan(x)] <- 0
+      if(any(is.infinite(x))) x[is.infinite(x)] <- 0
+    }
     return(x)
   }
   if(is.null(newA)){
@@ -755,8 +759,10 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     return(result)
   }
   z <- function(x){
-    x[is.nan(x)] <- 0
-    x[is.infinite(x)] <- 0
+    if(any(is.nan(x))|any(is.nan(x))){
+      if(any(is.nan(x))) x[is.nan(x)] <- 0
+      if(any(is.infinite(x))) x[is.infinite(x)] <- 0
+    }
     return(x)
   }
   optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
