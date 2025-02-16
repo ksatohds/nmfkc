@@ -1,4 +1,5 @@
-# nmfkc 0.4.5
+# nmfkc 0.4.6
+- 0.4.6 z function is modified
 - 0.4.5 crossprod is used
 - 0.4.4 nmfkc.ar.DOT is implemented
 - 0.4.3 sorting the columns of X to be a unit matrix in special cases
