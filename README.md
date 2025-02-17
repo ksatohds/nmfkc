@@ -8,6 +8,8 @@ remotes::install_github("ksatohds/nmfkc")
 library(nmfkc)
 ```
 
+Package Archive File (.tar.gz) is also available on [Dropbox](https://www.dropbox.com/scl/fo/1jxzzfqz9xsl3wlzwm3pj/ACYDNzn-h54VqgAngTKVyc0?rlkey=i5bcup2qxzwqgles27ke0f9ab&st=mdbkongw&dl=0)
+
 # Citation
 
 Please use the following to cite the **nmfkc** package
