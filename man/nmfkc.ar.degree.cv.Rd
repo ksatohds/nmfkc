@@ -11,7 +11,8 @@ nmfkc.ar.degree.cv(
   intercept = T,
   div = 5,
   seed = 123,
-  plot = TRUE
+  plot = TRUE,
+  ...
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ nmfkc.ar.degree.cv(
 \item{seed}{integer used as argument in set.seed function}
 
 \item{plot}{The default is plot=TRUE and draw a graph.}
+
+\item{...}{arguments to be passed to nmfkc.cv function.}
 }
 \value{
 degree: best degree minimizes objective function

@@ -160,6 +160,7 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
 #' @param div number of partition usually described as "k" of k-fold
 #' @param seed integer used as argument in set.seed function
 #' @param plot The default is plot=TRUE and draw a graph.
+#' @param ... arguments to be passed to nmfkc.cv function.
 #' @return degree: best degree minimizes objective function
 #' @return degree.max: maximum recommended degree in ar model
 #' @return objfunc: objective functions
@@ -177,13 +178,13 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
 #' # selection of degree
 #' nmfkc.ar.degree.cv(Y=Y0,Q=1,degree=11:14)
 
-nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=TRUE){
+nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=TRUE,...){
   objfuncs <- 0*(1:length(degree))
   for(i in 1:length(degree)){
     start.time <- Sys.time()
     packageStartupMessage(paste0("degree=",degree[i],"..."),appendLF=FALSE)
     a <- nmfkc.ar(Y=Y,degree=degree[i],intercept=intercept)
-    result.cv <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=div,seed=seed)
+    result.cv <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=div,seed=seed,...)
     objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
     end.time <- Sys.time()
     diff.time <- difftime(end.time,start.time,units="sec")
@@ -260,6 +261,7 @@ nmfkc.kernel <- function(U,V=NULL,beta=0.5,kernel="Gaussian",degree=2){
 #' @param div number of partition usually described as "k" of k-fold
 #' @param seed integer used as argument in set.seed function
 #' @param plot The default is plot=TRUE and draw a graph.
+#' @param ... arguments to be passed to nmfkc.cv function.
 #' @return beta: best parameter minimizes objective function
 #' @return objfunc: objective functions
 #' @export
@@ -277,13 +279,13 @@ nmfkc.kernel <- function(U,V=NULL,beta=0.5,kernel="Gaussian",degree=2){
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
 nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),
-                                 kernel="Gaussian",degree=2,div=5,seed=123,plot=TRUE){
+                                 kernel="Gaussian",degree=2,div=5,seed=123,plot=TRUE,...){
   objfuncs <- 0*(1:length(beta))
   for(i in 1:length(beta)){
     start.time <- Sys.time()
     packageStartupMessage(paste0("beta=",beta[i],"..."),appendLF=FALSE)
     A <- nmfkc.kernel(U=U,V=V,beta=beta[i],kernel=kernel,degree=degree)
-    result <- nmfkc.cv(Y=Y,A=A,Q=Q,div=div,seed=seed)
+    result <- nmfkc.cv(Y=Y,A=A,Q=Q,div=div,seed=seed,...)
     objfuncs[i] <- result$objfunc
     end.time <- Sys.time()
     diff.time <- difftime(end.time,start.time,units="sec")
@@ -355,7 +357,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
 #' colnames(Y) <- paste0("N",1:ncol(Y))
 #' print(X); print(B); print(Y)
 #' library(nmfkc)
-#' res <- nmfkc(Y,Q=2)
+#' res <- nmfkc(Y,Q=2,epsilon=1e-6)
 #' res$X
 #' res$B
 #'
@@ -465,35 +467,41 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     is.X.scalar <- TRUE
   }
   if(!is.X.scalar){
-    if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
-    if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
-    if(X.restriction=="totalSum") X <- X/sum(X)
+    if(X.restriction=="colSums"){
+      X <- t(t(X)/colSums(X))
+    }else if(X.restriction=="colSqSums"){
+      X <- t(t(X)/colSums(X^2)^0.5)
+    }else if(X.restriction=="totalSum") X <- X/sum(X)
   }
   if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
-    if(is.null(A)) B <- C else B <- C %*% A
-    XB <- X %*% B
+    if(is.null(A)) B <- C else B <- crossprod(t(C),A)
+    XB <- crossprod(t(X),B)
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
       if(!is.X.scalar){
-        X <- X*z((Y%*%t(B))/(XB%*%t(B)))
-        if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
-        if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
-        if(X.restriction=="totalSum") X <- X/sum(X)
+        X <- X*z(tcrossprod(Y,B)/tcrossprod(XB,B))
+        if(X.restriction=="colSums"){
+          X <- t(t(X)/colSums(X))
+        }else if(X.restriction=="colSqSums"){
+          X <- t(t(X)/colSums(X^2)^0.5)
+        }else if(X.restriction=="totalSum") X <- X/sum(X)
       }
       if(is.null(A)) C <- C*z(crossprod(X,Y)/(crossprod(X,XB)+gamma*C)) else
         C <- C*z(crossprod(X,tcrossprod(Y,A))/(crossprod(X,tcrossprod(XB,A))+gamma*C))
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
       if(!is.X.scalar){
-        X <- t(t(X*z(Y/XB)%*%t(B))/rowSums(B))
-        if(X.restriction=="colSums") X <- t(t(X)/colSums(X))
-        if(X.restriction=="colSqSums") X <- t(t(X)/colSums(X^2)^0.5)
-        if(X.restriction=="totalSum") X <- X/sum(X)
+        X <- X*z(tcrossprod(Y,B)/tcrossprod(XB,B))
+        if(X.restriction=="colSums"){
+          X <- t(t(X)/colSums(X))
+        }else if(X.restriction=="colSqSums"){
+          X <- t(t(X)/colSums(X^2)^0.5)
+        }else if(X.restriction=="totalSum") X <- X/sum(X)
       }
-      if(is.null(A)) C <- C*z(crossprod(X,z(Y/XB))/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
-        C <- C*z(crossprod(X,tcrossprod(z(Y/XB),A))/(colSums(X)%o%rowSums(A)+2*gamma*C))
+      if(is.null(A)) C <- C*z(crossprod(X,z(Y/XB))/(tcrossprod(colSums(X),rep(1,ncol(Y)))+2*gamma*C)) else
+        C <- C*z(crossprod(X,tcrossprod(z(Y/XB),A))/(tcrossprod(colSums(X),rowSums(A))+2*gamma*C))
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
     }
     if(i>=10){
@@ -691,9 +699,9 @@ nmfkc.normalize <- function(x,ref=x){
 #' @param A covariate matrix. Without covariate, identity matrix is used.
 #' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
 #' @param div number of partition usually described as "k" of k-fold
+#'  which controls the reproducibility of the partition.
 #' @param seed integer used as argument in set.seed function
 #' @param ... arguments to be passed to nmfkc function.
-#'  which controls the reproducibility of the partition.
 #' @return objfunc: last objective function
 #' @return objfunc.block: objective function at each block
 #' @return block: partition block index (1,...,div) assigned to each column of Y

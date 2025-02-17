@@ -14,7 +14,8 @@ nmfkc.kernel.beta.cv(
   degree = 2,
   div = 5,
   seed = 123,
-  plot = TRUE
+  plot = TRUE,
+  ...
 )
 }
 \arguments{
@@ -37,6 +38,8 @@ nmfkc.kernel.beta.cv(
 \item{seed}{integer used as argument in set.seed function}
 
 \item{plot}{The default is plot=TRUE and draw a graph.}
+
+\item{...}{arguments to be passed to nmfkc.cv function.}
 }
 \value{
 beta: best parameter minimizes objective function

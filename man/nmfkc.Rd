@@ -102,7 +102,7 @@ rownames(Y) <- paste0("P",1:nrow(Y))
 colnames(Y) <- paste0("N",1:ncol(Y))
 print(X); print(B); print(Y)
 library(nmfkc)
-res <- nmfkc(Y,Q=2)
+res <- nmfkc(Y,Q=2,epsilon=1e-6)
 res$X
 res$B
 

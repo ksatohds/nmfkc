@@ -13,12 +13,12 @@ nmfkc.cv(Y, A = NULL, Q = 2, div = 5, seed = 123, ...)
 
 \item{Q}{rank of basis matrix and Q<=min(P,N) where Y(P,N)}
 
-\item{div}{number of partition usually described as "k" of k-fold}
+\item{div}{number of partition usually described as "k" of k-fold
+which controls the reproducibility of the partition.}
 
 \item{seed}{integer used as argument in set.seed function}
 
-\item{...}{arguments to be passed to nmfkc function.
-which controls the reproducibility of the partition.}
+\item{...}{arguments to be passed to nmfkc function.}
 }
 \value{
 objfunc: last objective function
