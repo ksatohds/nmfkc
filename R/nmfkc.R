@@ -607,10 +607,8 @@ plot.nmfkc <- function(x,...){
 #' @export
 predict.nmfkc <- function(x,newA=NULL,type="response"){
   z <- function(x){
-    if(any(is.nan(x))|any(is.nan(x))){
-      if(any(is.nan(x))) x[is.nan(x)] <- 0
-      if(any(is.infinite(x))) x[is.infinite(x)] <- 0
-    }
+    x[is.nan(x)] <- 0
+    x[is.infinite(x)] <- 0
     return(x)
   }
   if(is.null(newA)){
@@ -765,10 +763,8 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     return(result)
   }
   z <- function(x){
-    if(any(is.nan(x))|any(is.nan(x))){
-      if(any(is.nan(x))) x[is.nan(x)] <- 0
-      if(any(is.infinite(x))) x[is.infinite(x)] <- 0
-    }
+    x[is.nan(x)] <- 0
+    x[is.infinite(x)] <- 0
     return(x)
   }
   optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
