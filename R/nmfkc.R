@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 17 FEB 2025")
+  packageStartupMessage("Last update on 24 FEB 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -372,10 +372,8 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                   X.restriction="colSums",nstart=1,seed=123,
                   prefix="Basis",print.trace=FALSE,print.dims=TRUE,save.time=TRUE,save.memory=FALSE){
   z <- function(x){
-    if(any(is.nan(x))|any(is.nan(x))){
-      if(any(is.nan(x))) x[is.nan(x)] <- 0
-      if(any(is.infinite(x))) x[is.infinite(x)] <- 0
-    }
+    x[is.nan(x)] <- 0
+    x[is.infinite(x)] <- 0
     return(x)
   }
   mysilhouette <- function(B.prob,B.cluster){
@@ -476,32 +474,32 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   objfunc.iter <- 0*(1:maxit)
   for(i in 1:maxit){
-    if(is.null(A)) B <- C else B <- crossprod(t(C),A)
-    XB <- crossprod(t(X),B)
+    if(is.null(A)) B <- C else B <- C %*% A
+    XB <- X %*% B
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
       if(!is.X.scalar){
-        X <- X*z(tcrossprod(Y,B)/tcrossprod(XB,B))
+        X <- X*z((Y%*% t(B))/(XB%*%t(B)))
         if(X.restriction=="colSums"){
           X <- t(t(X)/colSums(X))
         }else if(X.restriction=="colSqSums"){
           X <- t(t(X)/colSums(X^2)^0.5)
         }else if(X.restriction=="totalSum") X <- X/sum(X)
       }
-      if(is.null(A)) C <- C*z(crossprod(X,Y)/(crossprod(X,XB)+gamma*C)) else
-        C <- C*z(crossprod(X,tcrossprod(Y,A))/(crossprod(X,tcrossprod(XB,A))+gamma*C))
+      if(is.null(A)) C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C)) else
+        C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
       if(!is.X.scalar){
-        X <- X*z(tcrossprod(Y,B)/tcrossprod(XB,B))
+        X <- X*z((Y%*%t(B))/(XB%*%t(B)))
         if(X.restriction=="colSums"){
           X <- t(t(X)/colSums(X))
         }else if(X.restriction=="colSqSums"){
           X <- t(t(X)/colSums(X^2)^0.5)
         }else if(X.restriction=="totalSum") X <- X/sum(X)
       }
-      if(is.null(A)) C <- C*z(crossprod(X,z(Y/XB))/(tcrossprod(colSums(X),rep(1,ncol(Y)))+2*gamma*C)) else
-        C <- C*z(crossprod(X,tcrossprod(z(Y/XB),A))/(tcrossprod(colSums(X),rowSums(A))+2*gamma*C))
+      if(is.null(A)) C <- C*z(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
+        C <- C*z(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
     }
     if(i>=10){
