@@ -194,7 +194,7 @@ u0[,1] <- -u0[,1]
 # without covariate
 #------------------
 library(nmfkc)
-result <- nmfkc(Y,Q=2)
+result <- nmfkc(Y,Q=2,prefix="Trend")
 plot(result)
 
 # individual fit
@@ -235,7 +235,7 @@ legend("topright",legend=c("1","2"),fill=c(2,3))
 #------------------
 U <- t(nmfkc.normalize(u0)) # normarization of covariates
 A <- rbind(1,U)
-result <- nmfkc(Y,A,Q=2)
+result <- nmfkc(Y,A,Q=2,prefix="Trend")
 result$r.squared
 
 #------------------
@@ -253,7 +253,7 @@ result.beta <- nmfkc.kernel.beta.cv(Y,Q=2,U,beta=c(0.5,1,2,5,10))
 
 # create kernel with best beta
 A <- nmfkc.kernel(U,beta=best.beta)
-result <- nmfkc(Y,A,Q=2)
+result <- nmfkc(Y,A,Q=2,prefix="Trend")
 result$r.squared # less than nmf without covariates
 
 # prediction of coefficients(b) on mesh point V
@@ -316,7 +316,7 @@ Y <- t(d)
 Y[1:20,c(1,ncol(Y))]
 Q <- 3
 library(nmfkc)
-result <- nmfkc(Y,Q=Q)
+result <- nmfkc(Y,Q=Q,prefix="Topic")
 result$r.squared # coefficient of determination
 
 # soft clustering
@@ -358,7 +358,7 @@ result.beta <- nmfkc.kernel.beta.cv(Y,Q=3,U,beta=c(0.2,0.5,1,2,5)/10000)
 
 # create kernel with best beta
 A <- nmfkc.kernel(U,beta=best.beta)
-result <- nmfkc(Y,A,Q)
+result <- nmfkc(Y,A,Q,prefix="Topic")
 result$r.squared # less than nmf without covariates
 
 # Topic probability changing over time
@@ -414,7 +414,7 @@ nmfkc.rank(Y,Q=2:12,save.time=F)
 
 # nmf
 Q0 <- 7
-res <- nmfkc(Y,Q=Q0,save.time=F)
+res <- nmfkc(Y,Q=Q0,save.time=F,prefix="Region")
 plot(res$objfunc.iter,type="o",
      main=paste0("Q=",Q0,", R^2=",round(res$r.squared,3)))
      
