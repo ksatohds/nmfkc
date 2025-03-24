@@ -624,6 +624,7 @@ legend("bottomright",
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
+# install.packages("DOT")
 library(nmfkc)
 
 d <- AirPassengers
