@@ -67,7 +67,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 -   Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. <https://doi.org/10.1145/1150402.1150420>
 -   Potthoff, R.F., and Roy, S.N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems. Biometrika, 51, 313-326. <https://doi.org/10.2307/2334137>
 
-# Examples
+# Examples: These scripts have been tested on windows 11.
 
  0.  Simple matrix operations
  1.  Longitudinal data: COVID-19 in Japan
