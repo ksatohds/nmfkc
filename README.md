@@ -10,6 +10,18 @@ library(nmfkc)
 
 Package Archive File (.tar.gz) is also available on [Dropbox](https://www.dropbox.com/scl/fo/1jxzzfqz9xsl3wlzwm3pj/ACYDNzn-h54VqgAngTKVyc0?rlkey=i5bcup2qxzwqgles27ke0f9ab&st=mdbkongw&dl=0)
 
+# Comparison with Standard NMF
+
++------------------------+----------------+--------------------+
+| Feature                | Standard NMF   | nmfkc               |
++------------------------+----------------+--------------------+
+| Handles covariates     | No             | Yes                |
+| Time series modeling   | No             | Yes (AR model)     |
+| Nonlinearity           | No             | Yes (kernel)       |
+| Clustering support     | Limited        | Yes                |
+| Cross-validation       | No             | Yes                |
++------------------------+----------------+--------------------+
+
 # Citation
 
 Please use the following to cite the **nmfkc** package
