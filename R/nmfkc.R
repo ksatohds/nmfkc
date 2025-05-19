@@ -79,6 +79,9 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
   colnames(X) <- gsub(".","",colnames(X),fixed=T)
   rownames(C) <- gsub(".","",rownames(C),fixed=T)
   colnames(C) <- gsub(".","",colnames(C),fixed=T)
+  Alabels <- unique(gsub("_([0-9]+)","",colnames(C),fixed=F))
+  index <-match("(Intercept)", Alabels)
+  if(!is.na(index)) Alabels <- Alabels[-index]
   # rankdir=RL # rankdir=TB
   scr <- paste0('digraph XCA {graph [rankdir=',rankdir,' compound=true]; \n')
   # Y
@@ -107,7 +110,7 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
   # edge: T-k to X
   klist <- NULL; ktoplist <- NULL
   for(k in 1:D){
-    Ck <- C[,(k-1)*nrow(X)+1:nrow(X)]
+    Ck <- C[,(k-1)*length(Alabels)+1:length(Alabels)]
     if(is.matrix(Ck)==FALSE){
       Ck <- matrix(Ck,nrow=1)
       colnames(Ck) <- colnames(C)[k]
@@ -123,8 +126,9 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
             ktop <- j
             ktoplist <- c(ktoplist,ktop)
           }
+          alabel <- gsub("_([0-9]+)","",colnames(Ck)[j],fixed=F)
           st <- paste0(st,sprintf('  %s [label="%s",shape=box]; \n',
-                                  colnames(Ck)[j],rownames(X)[j]))
+                                  colnames(Ck)[j],alabel))
         }
       }
       st <- paste0(st,"}; \n");scr <- paste0(scr,st)
@@ -140,8 +144,8 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
   if(length(klist)>=2){
     for(k in 2:length(klist)){
       st <- sprintf('%s_%d -> %s_%d [ltail=cluster_C%d lhead=cluster_C%d style=invis]; \n',
-              rownames(X)[ktoplist[k]],klist[k],
-              rownames(X)[ktoplist[k-1]],klist[k-1],
+                    Alabels[ktoplist[k]],klist[k],
+                    Alabels[ktoplist[k-1]],klist[k-1],
                           klist[k],klist[k-1])
       scr <- paste0(scr,st)
     }
