@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 19 MAY 2025")
+  packageStartupMessage("Last update on 5 JULY 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -186,7 +186,7 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
   objfuncs <- 0*(1:length(degree))
   for(i in 1:length(degree)){
     start.time <- Sys.time()
-    packageStartupMessage(paste0("degree=",degree[i],"..."),appendLF=FALSE)
+    message(paste0("degree=",degree[i],"..."),appendLF=FALSE)
     a <- nmfkc.ar(Y=Y,degree=degree[i],intercept=intercept)
     result.cv <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=div,seed=seed,...)
     objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
@@ -194,7 +194,7 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
     diff.time <- difftime(end.time,start.time,units="sec")
     diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                            paste0(round(diff.time/60,1),"min"))
-    packageStartupMessage(diff.time.st)
+    message(diff.time.st)
   }
   i0 <- which.min(objfuncs)
   best.degree <- degree[i0]
@@ -207,6 +207,34 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
   names(objfuncs) <- degree
   result <- list(degree=best.degree,degree.max=degree.max,objfunc=objfuncs)
   return(result)
+}
+
+#' @title Check Stationarity of NMF-VAR Model
+#' @description \code{nmfkc.ar.stationarity} evaluates the dynamic stability of VAR model
+#' based on the spectral radius of the companion matrix. It returns the spectral radius
+#' and a logical value indicating whether the VAR structure is stationary.
+#' @param x return value of nmfkc function
+#' @return spectral.radius: numeric value representing the spectral radius of the companion matrix. A value less than 1 indicates stationarity.
+#' @return stationary: Logical value: \code{TRUE} if the spectral radius is less than 1 (i.e., the system is stationary), \code{FALSE} otherwise.
+#' @export
+nmfkc.ar.stationarity <- function(x){
+  X <- x$X  # P × Q
+  Theta <- x$C  # Q × (P * D [+1] )
+  P <- nrow(X)
+  Q <- ncol(X)
+  total_cols <- ncol(Theta)
+  has_intercept <- (total_cols - 1) %% P == 0
+  D <- if (has_intercept) (total_cols - 1) %/% P else total_cols %/% P
+  message(paste0("P=",P,",Q=",Q,",D=",D,",intercept=",ifelse(has_intercept,"T","F")))
+  Theta_lags <- if (has_intercept) Theta[, 1:(total_cols - 1), drop = FALSE] else Theta
+  Xi_list <- lapply(1:D, function(d){
+    cols <- ((d - 1) * P + 1):(d * P)
+    X %*% Theta_lags[, cols, drop = FALSE]})
+  companion_matrix <- matrix(0, nrow = P * D, ncol = P * D)
+  for (d in 1:D)companion_matrix[1:P, ((d - 1) * P + 1):(d * P)] <- Xi_list[[d]]
+  if (D > 1)companion_matrix[(P + 1):(P * D), 1:(P * (D - 1))] <- diag(P * (D - 1))
+  rho <- max(Mod(eigen(companion_matrix)$values))
+  return(list(spectral.radius = rho, stationary = (rho < 1)))
 }
 
 
@@ -287,7 +315,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
   objfuncs <- 0*(1:length(beta))
   for(i in 1:length(beta)){
     start.time <- Sys.time()
-    packageStartupMessage(paste0("beta=",beta[i],"..."),appendLF=FALSE)
+    message(paste0("beta=",beta[i],"..."),appendLF=FALSE)
     A <- nmfkc.kernel(U=U,V=V,beta=beta[i],kernel=kernel,degree=degree)
     result <- nmfkc.cv(Y=Y,A=A,Q=Q,div=div,seed=seed,...)
     objfuncs[i] <- result$objfunc
@@ -295,7 +323,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
     diff.time <- difftime(end.time,start.time,units="sec")
     diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                            paste0(round(diff.time/60,1),"min"))
-    packageStartupMessage(diff.time.st)
+    message(diff.time.st)
   }
   i0 <- which.min(objfuncs)
   beta.best <- beta[i0]
@@ -429,11 +457,11 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     }
   }
   if(print.dims)if(is.null(A)){
-    packageStartupMessage(
+    message(
       sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)...",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y)),appendLF=FALSE)
   }else{
-    packageStartupMessage(
+    message(
       sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)...",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)),appendLF=FALSE)
   }
@@ -580,7 +608,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   diff.time <- difftime(end.time,start.time,units="sec")
   diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                          paste0(round(diff.time/60,1),"min"))
-  if(print.dims) packageStartupMessage(diff.time.st)
+  if(print.dims) message(diff.time.st)
   result <- list(X=X,B=B,XB=XB,C=C,
                  B.prob=B.prob,B.cluster=B.cluster,
                  X.prob=X.prob,X.cluster=X.cluster,
@@ -661,8 +689,7 @@ nmfkc.class <- function(x){
   rownames(X) <- unix
   for(j in 1:length(unix)) X[j,] <- ifelse(x==unix[j],1,0)
   result <- X
-  return(result)
-}
+  return(result)}
 
 #' @title Normalizing to a value between 0 and 1 for matrix
 #' @description \code{nmfkc.normalize} Normalize x using the minimum and maximum values of each column of the reference matrix
@@ -683,6 +710,29 @@ nmfkc.normalize <- function(x,ref=x){
   r <- apply(ref,2,range)
   y <- 0*x
   for(j in 1:ncol(x))y[,j] <- (x[,j]-r[1,j])/(r[2,j]-r[1,j])
+  return(y)
+}
+
+#' @title Denormalize a matrix from between 0 and 1 back to original scale
+#' @description \code{nmfkc.denormalize} transforms a matrix normalized between 0 and 1 back to its original scale using the column-wise minimum and maximum values of a reference matrix.
+#' @param x Matrix to be denormalized (values between 0 and 1).
+#' @param ref Matrix used to obtain original scale (same dimensions or column-wise).
+#' @return Matrix with values transformed back to original scale.
+#' @export
+#' @examples
+#' x <- nmfkc.normalize(iris[, -5])
+#' x_recovered <- nmfkc.denormalize(x, iris[, -5])
+#' apply(x_recovered - iris[, -5], 2, max)
+nmfkc.denormalize <- function(x, ref=x) {
+  if (is.vector(x)) {
+    x <- matrix(x, ncol = 1)
+    ref <- matrix(ref, ncol = 1)
+  }
+  r <- apply(ref, 2, range)
+  y <- 0 * x
+  for (j in 1:ncol(x)) {
+    y[, j] <- x[, j] * (r[2, j] - r[1, j]) + r[1, j]
+  }
   return(y)
 }
 

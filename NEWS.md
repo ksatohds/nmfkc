@@ -1,4 +1,5 @@
-# nmfkc 0.4.6
+# nmfkc 0.4.7
+- 0.4.7 nmfkc.ar.stationarity is implemented
 - 0.4.6 z function is modified
 - 0.4.5 crossprod is used
 - 0.4.4 nmfkc.ar.DOT is implemented
