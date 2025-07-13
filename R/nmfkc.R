@@ -89,7 +89,7 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
   for(j in 1:nrow(X))st <- paste0(st,sprintf('  %s [shape=box]; \n',rownames(X)[j]))
   st <- paste0(st,'}; \n'); scr <- paste0(scr,st)
   # X and element
-  st <- 'subgraph cluster_X{label="Latant Variables" style="rounded"; \n'
+  st <- 'subgraph cluster_X{label="Latent Variables" style="rounded"; \n'
   for(j in 1:ncol(X))st <- paste0(st,sprintf('  %s [shape=ellipse]; \n',colnames(X)[j]))
   st <- paste0(st,'}; \n'); scr <- paste0(scr,st)
   # edge: X to Y
