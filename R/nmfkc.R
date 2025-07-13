@@ -229,7 +229,7 @@ nmfkc.ar.stationarity <- function(x){
   Theta_lags <- if (has_intercept) Theta[, 1:(total_cols - 1), drop = FALSE] else Theta
   Xi_list <- lapply(1:D, function(d){
     cols <- ((d - 1) * P + 1):(d * P)
-    X %*% Theta_lags[, cols, drop = FALSE]})
+    X %*% Theta_lags[, cols]})
   companion_matrix <- matrix(0, nrow = P * D, ncol = P * D)
   for (d in 1:D)companion_matrix[1:P, ((d - 1) * P + 1):(d * P)] <- Xi_list[[d]]
   if (D > 1)companion_matrix[(P + 1):(P * D), 1:(P * (D - 1))] <- diag(P * (D - 1))
