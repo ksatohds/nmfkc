@@ -92,7 +92,8 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
  7.  Binary repeated measures: Table 6, Koch et al.(1977)
  8.  Autoregression: AirPassengers
  9.  Vector Autoregression: Canada
-10.  Image data: the MNIST database of handwritten digits
+10.  Vector Autoregression: COVID-19 in Japan 
+11.  Image data: the MNIST database of handwritten digits
 
 ## 0.  Simple matrix operations
 
@@ -644,7 +645,7 @@ d <- AirPassengers
 tsp(d)
 time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
 time.vec <- round(as.vector(t(time)),2)
-Y0 <- matrix(as.vector(d),nrow=1)
+Y0 <- log10(matrix(as.vector(d),nrow=1))
 colnames(Y0) <- time.vec
 rownames(Y0) <- "Y"
 
@@ -652,8 +653,11 @@ rownames(Y0) <- "Y"
 Q <- 1
 D <- 12
 a <- nmfkc.ar(Y0,degree=D,intercept=T); Y <- a$Y; A <- a$A
-res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-6)
+res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-9,maxit=300000)
 res$r.squared
+
+# spectral radius of the companion matrix 
+nmfkc.ar.stationarity(res)
 
 # coefficients
 print.table(round(res$C,2),zero.print="")
@@ -665,8 +669,8 @@ library(DOT)
 dot(script,file="AirPassengers_dot.ps")
 
 # fitted curve
-plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
-lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
+plot(as.numeric(colnames(Y)),10^(as.vector(Y)),type="l",col=1,xlab="",ylab="AirPassengers")
+lines(as.numeric(colnames(Y)),10^(as.vector(res$XB)),col=2)
 ```
  
 ## 9:  Vector Autoregression: Canada
@@ -679,41 +683,113 @@ lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
 library(nmfkc)
 
 library(vars)
-d <- Canada
-time <- as.vector(time(ts(1:nrow(d),start=c(1980,1),frequency=4)))
-Y0 <- t(nmfkc.normalize(d)); colnames(Y0) <- time
+d0 <- Canada
+time <- as.vector(time(ts(1:nrow(d0),start=c(1980,1),frequency=4)))
+rownames(d0) <- time
+dd <- apply(d0,2,diff)
+dn <- nmfkc.normalize(dd)
 
-# nmf with covariates
-Q <- 2
-D <- 1
-a <- nmfkc.ar(Y0,degree=D,intercept=T); Y <- a$Y; A <- a$A
-res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Condition",epsilon=1e-5)
+Y0 <- t(dn)
+Q <- 2; D <- 1
+a <- nmfkc.ar(Y0,degree=D,intercept=T)
+Y <- a$Y
+A <- a$A
+res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Condition",epsilon=1e-6)
 res$r.squared
-print.table(round(res$X,2),zero.print="")
-print.table(round(res$C,2),zero.print="")
+
+# spectral radius of the companion matrix 
+nmfkc.ar.stationarity(res)
 
 # visualize relation between variables
-script <- nmfkc.ar.DOT(res)
+script <- nmfkc.ar.DOT(res,intercept=T,digits=2)
 # cat(script)
 library(DOT)
 dot(script,file="Canada_dot.ps")
 
-# fitted curves
-par(mfrow=c(nrow(Y),1),mar=c(2,4,0,0)+0.1)
-Y.t <- as.numeric(colnames(Y))
-for(j in 1:nrow(Y)){
-  plot(Y.t,Y[j,],type="l",ylab=rownames(Y)[j],xlab="",col=8,ylim=c(0,1))
-  lines(Y.t,res$XB[j,],col=2)
-}
-
 # Soft clustering of time trend
-par(mfrow=c(1,1),mar=c(2,2,0,0)+0.1)
-Y.t <- as.numeric(colnames(Y))
 barplot(res$B.prob,col=1:Q+1,border=1:Q+1)
 legend("topright",legend=colnames(res$X),fill=1:Q+1,bg="white")
+
+# fitted curve
+t1 <- t(res$XB)
+dn1 <- nmfkc.denormalize(t1,dd)
+d1 <- apply(rbind(d0[1+D,],dn1),2,cumsum)
+rownames(d1)[1] <- rownames(d0)[1+D]
+for(p in 1:nrow(Y)){
+  plot(as.numeric(rownames(d0)),d0[,p],type="l",col=8,ylab=rownames(Y)[p])
+  lines(as.numeric(rownames(d1)),d1[,p],col=2,lwd=3)
+}
 ```
 
-## 10.  Image data: the MNIST database of handwritten digits
+## 10:  Vector Autoregression: COVID-19 in Japan
+``` r
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+# install.packages("NipponMap")
+# install.packages("zoo")
+d <- read.csv(
+  "https://www3.nhk.or.jp/n-data/opendata/coronavirus/nhk_news_covid19_prefectures_daily_data.csv")
+colnames(d) <- c(
+  "Date","Prefecture_code","Prefecture_name",
+  "Number_of_infected","Cumulative_Number_of_infected",
+  "Number_of_deaths","Cumulative_Number_of_deaths",
+  "Number_of_infected_100000_population_in_the_last_week")
+PN <- c("Hokkaido","Aomori","Iwate","Miyagi","Akita","Yamagata","Fukushima","Ibaraki","Tochigi","Gunma",
+        "Saitama","Chiba","Tokyo","Kanagawa","Niigata","Toyama","Ishikawa","Fukui","Yamanashi","Nagano",
+        "Gifu","Shizuoka","Aichi","Mie","Shiga","Kyoto","Osaka","Hyogo","Nara","Wakayama","Tottori","Shimane",
+        "Okayama","Hiroshima","Yamaguchi","Tokushima","Kagawa","Ehime","Kochi","Fukuoka","Saga","Nagasaki",
+        "Kumamoto","Oita","Miyazaki","Kagoshima","Okinawa")
+n <- length(unique(d$Prefecture_code)) # 47
+dn <- matrix(d$Number_of_infected,ncol=n)
+time <- time(ts(1:nrow(dn),start=c(2020,1,16),frequency=365))
+rownames(dn) <- round(time,3)
+colnames(dn) <- PN
+f <- rowSums(dn); names(f) <- unique(d$Date)
+#round(f[1:30],5)
+
+library(zoo)
+mymv <- function(x){
+  rollmean(x,k = 7, fill=NA, align = "center")
+}
+dmv <- apply(dn[-c(1:28),],2,mymv)
+index <- complete.cases(dmv)
+dmv <- dmv[index,]
+Y0 <- t(log(1+dmv)) # [29] 2020/2/13~
+library(zoo)
+mymv <- function(x){
+  rollmean(x,k = 7, fill=NA, align="center")
+}
+dmv <- apply(dn[-c(1:28),],2,mymv)
+index <- complete.cases(dmv)
+dmv <- dmv[index,]
+Y0 <- t(log(1+dmv))
+Q <- 4
+best.degree <- 7
+a <- nmfkc.ar(Y0,degree=best.degree,intercept=T)
+A <- a$A; Y <- a$Y
+res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Region",epsilon=1e-5)
+res$r.squared
+
+# spectral radius of the companion matrix 
+nmfkc.ar.stationarity(res)
+
+# soft clustering based on X
+index <- c(3,1,2,4)
+library(NipponMap)
+jmap <- JapanPrefMap(col="white",axes=TRUE)
+stars(x=res$X.prob[,index],scale=F,
+      locations=jmap,key.loc =c(145,34),
+      draw.segments=T,len=0.7,labels=NULL,
+      col.segments=c(1:Q)+1,add=T)
+
+# Soft clustering of time trend
+index <- c(3,1,2,4)
+barplot(res$B.prob[index,],col=1:Q+1,border=1:Q+1)
+legend("topright",legend=colnames(res$X)[index],fill=1:Q+1,bg="white")
+```
+
+
+## 11.  Image data: the MNIST database of handwritten digits
 
 - http://yann.lecun.com/exdb/mnist/
 
