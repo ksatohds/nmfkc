@@ -727,6 +727,8 @@ for(p in 1:nrow(Y)){
 # remotes::install_github("ksatohds/nmfkc")
 # install.packages("NipponMap")
 # install.packages("zoo")
+library(nmfkc)
+
 d <- read.csv(
   "https://www3.nhk.or.jp/n-data/opendata/coronavirus/nhk_news_covid19_prefectures_daily_data.csv")
 colnames(d) <- c(
