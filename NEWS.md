@@ -1,4 +1,5 @@
-# nmfkc 0.4.7
+# nmfkc 0.4.8
+- 0.4.8 citation("nmfkc") is updated
 - 0.4.7 nmfkc.ar.stationarity is implemented
 - 0.4.6 z function is modified
 - 0.4.5 crossprod is used
