@@ -8,8 +8,9 @@ remotes::install_github("ksatohds/nmfkc")
 library(nmfkc)
 ```
 
-Package Archive File (.tar.gz) is also available on [Dropbox](https://www.dropbox.com/scl/fo/1jxzzfqz9xsl3wlzwm3pj/ACYDNzn-h54VqgAngTKVyc0?rlkey=i5bcup2qxzwqgles27ke0f9ab&st=mdbkongw&dl=0)
-
+- Package Archive File (.tar.gz) is also available on [Dropbox](https://www.dropbox.com/scl/fo/1jxzzfqz9xsl3wlzwm3pj/ACYDNzn-h54VqgAngTKVyc0?rlkey=i5bcup2qxzwqgles27ke0f9ab&st=mdbkongw&dl=0)
+- A short video explaining the package can be found here. [YouTube](https://youtu.be/T48pPGReVu4)
+- There is also a video introducing the latest research. [YouTube](https://youtu.be/WhqwQOrc7hQ)
 
 # Citation
 
