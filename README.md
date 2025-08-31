@@ -10,6 +10,7 @@ library(nmfkc)
 
 - Package Archive File (.tar.gz) is also available on [Dropbox](https://www.dropbox.com/scl/fo/1jxzzfqz9xsl3wlzwm3pj/ACYDNzn-h54VqgAngTKVyc0?rlkey=i5bcup2qxzwqgles27ke0f9ab&st=mdbkongw&dl=0)
 - A short video explaining the package can be found here. [YouTube](https://youtu.be/T48pPGReVu4)
+- Lecture Notes on NMF. [Dropbox](https://www.dropbox.com/scl/fo/1cm6bh1p8mpa1mmutufyn/AB0nhe3QtrBpGicXnxLu_5M?rlkey=b1ggyw8cf1ud78kjddirejjvq&st=xnz78ctn&dl=0) or [https://x.gd/Rkqzo](https://x.gd/Rkqzo)
 
 # Citation
 
