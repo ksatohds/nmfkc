@@ -71,7 +71,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
 # Source
 
 -   Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. <https://arxiv.org/abs/2403.05359>
--   Satoh, K. (2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model, Japanese Journal of Statistics and Data Science, in press. http://arxiv.org/abs/2501.17446 (old version)
+-   Satoh, K. (2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model, Japanese Journal of Statistics and Data Science, in press. <https://doi.org/10.1007/s42081-025-00314-0>
 
 # References
 
