@@ -570,11 +570,11 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
     sigma2 <- sum((Y-XB)^2)/prod(dim(Y))
     AIC <- prod(dim(Y))*log(sigma2)+2*nparam
-    BIC <- prod(dim(Y))*log(sigma2)+nparam*log(prod(dim(Y)))
+    BIC <- prod(dim(Y))*log(sigma2)+nparam*log(ncol(Y))
   }else{
     ICp <- NA
     AIC <- 2*sum(-Y*z(log(XB))+XB)+2*nparam
-    BIC <- 2*sum(-Y*z(log(XB))+XB)+nparam*log(prod(dim(Y)))
+    BIC <- 2*sum(-Y*z(log(XB))+XB)+nparam*log(ncol(Y))
   }
   if(save.memory==FALSE){
     B.prob <- t(z(t(B)/colSums(B)))
