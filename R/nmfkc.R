@@ -955,6 +955,8 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   save.memory <- FALSE
   r.squared <- 0*Q; names(r.squared) <- Q
   ICp <- 0*Q; names(ICp) <- Q
+  AIC <- 0*Q; names(AIC) <- Q
+  BIC <- 0*Q; names(BIC) <- Q
   silhouette <- 0*Q; names(silhouette) <- Q
   CPCC <- 0*Q; names(CPCC) <- Q
   B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
@@ -971,6 +973,8 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
     }
     r.squared[q] <- result$r.squared
     ICp[q] <- result$criterion$ICp
+    AIC[q] <- result$criterion$AIC
+    BIC[q] <- result$criterion$BIC
     if(q==1){
       ARI[q] <- NA
       cluster.old <- result$B.cluster
@@ -1009,6 +1013,6 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
     }
     graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
   }
-  invisible(data.frame(Q,r.squared,ICp,B.prob.sd.min,ARI,silhouette,CPCC))
+  invisible(data.frame(Q,r.squared,ICp,AIC,BIC,B.prob.sd.min,ARI,silhouette,CPCC))
 }
 
