@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 5 JULY 2025")
+  packageStartupMessage("Last update on 5 SEP 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -561,10 +561,20 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   rownames(B) <- paste0(prefix,1:nrow(B))
   colnames(B) <- colnames(Y)
   r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
+  if(X.restriction=="totalSum"){
+    if(is.null(A)) nparam <- prod(dim(X))-1+prod(dim(B)) else nparam <- prod(dim(X))-1+prod(dim(A))
+  }else{
+    if(is.null(A)) nparam <- (nrow(X)-1)*ncol(X)+prod(dim(B)) else nparam <- (nrow(X)-1)*ncol(X)+prod(dim(A))
+  }
   if(method=="EU"){
     ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
+    sigma2 <- sum((Y-XB)^2)/prod(dim(Y))
+    AIC <- prod(dim(Y))*log(sigma2)+2*nparam
+    BIC <- prod(dim(Y))*log(sigma2)+nparam*log(prod(dim(Y)))
   }else{
     ICp <- NA
+    AIC <- 2*sum(-Y*z(log(XB))+XB)+2*nparam
+    BIC <- 2*sum(-Y*z(log(XB))+XB)+nparam*log(prod(dim(Y)))
   }
   if(save.memory==FALSE){
     B.prob <- t(z(t(B)/colSums(B)))
@@ -613,7 +623,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                  B.prob=B.prob,B.cluster=B.cluster,
                  X.prob=X.prob,X.cluster=X.cluster,
                  objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,
-                 criterion=list(B.prob.sd.min=B.prob.sd.min,ICp=ICp,silhouette=silhouette,CPCC=CPCC))
+                 criterion=list(B.prob.sd.min=B.prob.sd.min,ICp=ICp,AIC=AIC,BIC=BIC,silhouette=silhouette,CPCC=CPCC))
   class(result) <- "nmfkc"
   return(result)
 }
