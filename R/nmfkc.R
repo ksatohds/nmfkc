@@ -261,24 +261,34 @@ nmfkc.ar.stationarity <- function(x){
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U,V=NULL,beta=0.5,kernel="Gaussian",degree=2){
-  if(is.null(V)==TRUE) V <- U
-  kvec <- function(m){
-    vm <- t(rep(1,ncol(U)) %o% V[,m])
-    d <- colSums((U-vm)^2)^0.5
-    k <- 0
-    if(kernel=="Gaussian") k <- exp(-beta*d^2) # Gaussian
-    if(kernel=="Exponential") k <- exp(-beta*d)
-    if(kernel=="Periodic") k <- exp(-beta[1]*sin(beta[2]*d)^2)
-    if(kernel=="Linear") k <- t(U) %*% V[,m]
-    if(kernel=="NormalizedLinear") k <- diag(1/colSums(U^2)^0.5) %*% t(U) %*% V[,m]/sum(V[,m]^2)^0.5
-    if(kernel=="Polynomial") k <- (t(U) %*% V[,m]+beta)^degree
-    return(k)}
-  A <- NULL; for(m in 1:ncol(V)) A <- cbind(A,kvec(m))
-  if(min(A)<0){
+nmfkc.kernel <- function(U, V = NULL, beta = 0.5, kernel = "Gaussian", degree = 2){
+  if (is.null(V)) V <- U
+  CU <- colSums(U^2)
+  CV <- colSums(V^2)
+  G  <- crossprod(U, V)
+  D2 <- outer(CU, CV, "+") - 2 * G
+  D2[D2 < 0] <- 0
+  D  <- sqrt(D2)
+  A <- switch(
+    kernel,
+    "Gaussian"          = exp(-beta * D2),
+    "Exponential"       = exp(-beta * D),
+    "Periodic"          = {
+      if (length(beta) < 2) stop("Periodic kernel needs beta = c(beta1, beta2).")
+      exp(-beta[1] * sin(beta[2] * D)^2)
+    },
+    "Linear"            = G,
+    "NormalizedLinear"  = {
+      nU <- sqrt(CU); nV <- sqrt(CV)
+      G / (outer(nU, nV, "*"))
+    },
+    "Polynomial"        = (G + beta)^degree,
+    stop("Unknown kernel: ", kernel)
+  )
+  if (min(A) < 0) {
     warning("The constructed matrix is not non-negative.")
   }
-  return(A)
+  A
 }
 
 #' @title Optimizing beta of Gauss kernel function by cross validation method
