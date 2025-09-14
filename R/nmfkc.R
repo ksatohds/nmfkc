@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 5 SEP 2025")
+  packageStartupMessage("Last update on 14 SEP 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -414,8 +414,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                   X.restriction="colSums",nstart=1,seed=123,
                   prefix="Basis",print.trace=FALSE,print.dims=TRUE,save.time=TRUE,save.memory=FALSE){
   z <- function(x){
-    x[is.nan(x)] <- 0
-    x[is.infinite(x)] <- 0
+    x[!is.finite(x)] <- 0
     return(x)
   }
   mysilhouette <- function(B.prob,B.cluster){
@@ -508,13 +507,20 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   }
   if(!is.X.scalar){
     if(X.restriction=="colSums"){
-      X <- t(t(X)/colSums(X))
+      X <- sweep(X, 2, colSums(X), "/")
     }else if(X.restriction=="colSqSums"){
-      X <- t(t(X)/colSums(X^2)^0.5)
+      X <- sweep(X, 2, sqrt(colSums(X * X)), "/")
     }else if(X.restriction=="totalSum") X <- X/sum(X)
   }
-  if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
-  objfunc.iter <- 0*(1:maxit)
+  if(is.null(A)){
+    C <- matrix(1,nrow=ncol(X),ncol=ncol(Y))
+    tA <- NULL
+  }else{
+    C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
+    tA <- t(A)
+  }
+  objfunc.iter <- numeric(maxit)
+  epsilon.iter <- Inf
   for(i in 1:maxit){
     if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
@@ -523,25 +529,49 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       if(!is.X.scalar){
         X <- X*z((Y%*% t(B))/(XB%*%t(B)))
         if(X.restriction=="colSums"){
-          X <- t(t(X)/colSums(X))
+          X <- sweep(X, 2, colSums(X), "/")
         }else if(X.restriction=="colSqSums"){
-          X <- t(t(X)/colSums(X^2)^0.5)
+          X <- sweep(X, 2, sqrt(colSums(X * X)), "/")
         }else if(X.restriction=="totalSum") X <- X/sum(X)
       }
-      if(is.null(A)) C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C)) else
-        C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
+      if(is.null(A)){
+        #C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+        tX <- t(X)
+        num_C <- crossprod(X, Y)                   # t(X) %*% Y
+        den_C <- crossprod(X, XB) + gamma * C      # t(X) %*% XB + gamma*C
+        C <- C * z(num_C / den_C)
+      }else{
+        #C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
+        tX <- t(X)
+        num_C <- crossprod(X, Y) %*% tA            # (t(X)%*%Y) %*% t(A)
+        den_C <- (crossprod(X, XB) %*% tA) + gamma * C
+        C <- C * z(num_C / den_C)
+      }
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
       if(!is.X.scalar){
-        X <- X*z((Y%*%t(B))/(XB%*%t(B)))
+        # X <- X * z( (Y %*% t(B)) / (XB %*% t(B)) )
+        num_X <- tcrossprod(Y, B) # Y %*% t(B)
+        den_X <- XB %*% t(B)     # (X %*% B) %*% t(B)
+        X <- X * z(num_X / den_X)
         if(X.restriction=="colSums"){
           X <- t(t(X)/colSums(X))
         }else if(X.restriction=="colSqSums"){
           X <- t(t(X)/colSums(X^2)^0.5)
         }else if(X.restriction=="totalSum") X <- X/sum(X)
       }
-      if(is.null(A)) C <- C*z(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
-        C <- C*z(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
+      if(is.null(A)){
+        #C <- C*z(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C))
+        tX <- t(X)
+        num_C <- crossprod(X, Y)              # t(X) %*% Y
+        den_C <- crossprod(X, XB) + gamma * C # t(X) %*% XB + gamma*C
+        C <- C * z(num_C / den_C)
+      }else{
+        #C <- C*z(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
+        num_C <- crossprod(X, Y) %*% tA       # (t(X)%*%Y) %*% t(A)
+        den_C <- (crossprod(X, XB) %*% tA) + gamma * C
+        C <- C * z(num_C / den_C)
+        }
       objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
     }
     if(i>=10){
@@ -560,10 +590,11 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     objfunc <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
   }
   if(ncol(X)>1 & sum(rowSums(X)==1)==nrow(X)){
-    index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
-    X <- X[,index]
-    B <- B[index,]
-    C <- C[index,]
+    w <- matrix(seq_len(nrow(X))/nrow(X), nrow=1)
+    index <- order(drop(w %*% X))
+    X <- X[, index, drop=FALSE]
+    B <- B[index, , drop=FALSE]
+    C <- C[index, , drop=FALSE]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
   rownames(X) <- rownames(Y)
