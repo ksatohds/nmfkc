@@ -4,7 +4,7 @@
 \alias{predict.nmfkc}
 \title{predict for return value of nmfkc function}
 \usage{
-\method{predict}{nmfkc}(x, newA = NULL, type = "response")
+\method{predict}{nmfkc}(x, newA = NULL, type = c("response", "prob", "class"))
 }
 \arguments{
 \item{x}{return value of nmfkc function}

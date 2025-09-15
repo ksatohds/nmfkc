@@ -8,7 +8,7 @@ nmfkc.ar.degree.cv(
   Y,
   Q = 2,
   degree = 1:2,
-  intercept = T,
+  intercept = TRUE,
   div = 5,
   seed = 123,
   plot = TRUE,
@@ -30,7 +30,7 @@ nmfkc.ar.degree.cv(
 
 \item{plot}{The default is plot=TRUE and draw a graph.}
 
-\item{...}{arguments to be passed to nmfkc.cv function.}
+\item{...}{arguments to be passed to \code{nmfkc.cv} function.}
 }
 \value{
 degree: best degree minimizes objective function
@@ -38,9 +38,16 @@ degree: best degree minimizes objective function
 degree.max: maximum recommended degree in ar model
 
 objfunc: objective functions
+
+time named numeric vector of elapsed times (in seconds) for each degree
 }
 \description{
 \code{nmfkc.ar.degree.cv} apply cross validation method for degree
+}
+\details{
+Each candidate degree is fitted via \code{nmfkc.ar} and evaluated by
+\code{nmfkc.cv}. When \code{parallel=TRUE}, degrees are independent and can
+be dispatched concurrently, reducing wall-clock time on multi-core systems.
 }
 \examples{
 # install.packages("remotes")

@@ -1,4 +1,5 @@
 # nmfkc 0.4.8
+- 0.4.9 calculations inside the function and optimized them for speed 
 - 0.4.8 citation("nmfkc") is updated, AIC and BIC are appended 
 - 0.4.7 nmfkc.ar.stationarity is implemented
 - 0.4.6 z function is modified

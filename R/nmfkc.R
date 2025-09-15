@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 14 SEP 2025")
+  packageStartupMessage("Last update on 15 SEP 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -35,30 +35,31 @@
 #' # fitted curve
 #' plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
 #' lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
-
-nmfkc.ar <- function(Y,degree=1,intercept=T){
-  if(is.vector(Y)) Y <- matrix(Y,nrow=1)
-  if(!is.matrix(Y)) Y <- as.matrix(Y)
+nmfkc.ar <- function(Y, degree = 1, intercept = TRUE){
+  # 入力を行列化
+  if (is.vector(Y)) Y <- matrix(Y, nrow = 1)
+  if (!is.matrix(Y)) Y <- as.matrix(Y)
+  P <- nrow(Y)
   N <- ncol(Y)
-  A.columns <- NULL
-  for(i in degree:1)A.columns <- rbind(A.columns,i:(i+ncol(Y)-degree-1))
-  A <- NULL
-  for(i in 1:nrow(A.columns))A <- rbind(A,Y[,A.columns[i,]])
-  if(is.null(rownames(Y))) rownames(Y) <- 1:nrow(Y)
-  label <- NULL
-  for(i in 1:degree)label <- c(label,paste0(rownames(Y),"_",i))
-  if(intercept){
-    A <- rbind(A,1)
-    rownames(A) <- c(label,"(Intercept)")
+  if (degree < 1L) stop("degree must be >= 1")
+  if (degree >= N) stop("degree must be < ncol(Y)")
+  A.columns <- outer(degree:1, 0:(N - degree - 1L), `+`)
+  storage.mode(A.columns) <- "integer"
+  A <- do.call(rbind, lapply(degree:1, function(d) Y[, d:(N - degree + d - 1L), drop = FALSE]))
+  if (is.null(rownames(Y))) rownames(Y) <- as.character(1:P)
+  label <- unlist(lapply(1:degree, function(i) paste0(rownames(Y), "_", i)), use.names = FALSE)
+  if (intercept) {
+    A <- rbind(A, 1)
+    rownames(A) <- c(label, "(Intercept)")  # 元コードの挙動を踏襲
   }
-  Ya <- Y[,A.columns[1,]+1]
-  if(!is.matrix(Ya)){
-    Ya <- matrix(Ya,nrow=1)
-    colnames(Ya) <- colnames(Y)[A.columns[1,]+1]
+  Ya <- Y[, A.columns[1, ] + 1L, drop = FALSE]
+  if (!is.matrix(Ya)) {
+    Ya <- matrix(Ya, nrow = 1)
+    colnames(Ya) <- colnames(Y)[A.columns[1, ] + 1L]
     rownames(Ya) <- rownames(Y)[1]
   }
-  degree.max <- min(ncol(Ya),floor(10*log10(ncol(Ya))))
-  list(Y=Ya,A=A,A.columns=A.columns)
+  degree.max <- min(ncol(Ya), floor(10 * log10(ncol(Ya))))
+  list(Y = Ya, A = A, A.columns = A.columns)
 }
 
 
@@ -154,7 +155,6 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
   return(scr)
 }
 
-
 #' @title Optimizing degree for the autoregressive model
 #' @description \code{nmfkc.ar.degree.cv} apply cross validation method for degree
 #' @param Y observation matrix
@@ -164,10 +164,15 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
 #' @param div number of partition usually described as "k" of k-fold
 #' @param seed integer used as argument in set.seed function
 #' @param plot The default is plot=TRUE and draw a graph.
-#' @param ... arguments to be passed to nmfkc.cv function.
+#' @param ... arguments to be passed to \code{nmfkc.cv} function.
 #' @return degree: best degree minimizes objective function
 #' @return degree.max: maximum recommended degree in ar model
 #' @return objfunc: objective functions
+#' @return time named numeric vector of elapsed times (in seconds) for each degree
+#' @details
+#' Each candidate degree is fitted via \code{nmfkc.ar} and evaluated by
+#' \code{nmfkc.cv}. When \code{parallel=TRUE}, degrees are independent and can
+#' be dispatched concurrently, reducing wall-clock time on multi-core systems.
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -181,31 +186,34 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
 #' rownames(Y0) <- "t"
 #' # selection of degree
 #' nmfkc.ar.degree.cv(Y=Y0,Q=1,degree=11:14)
-
-nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=TRUE,...){
-  objfuncs <- 0*(1:length(degree))
-  for(i in 1:length(degree)){
+nmfkc.ar.degree.cv <- function(
+    Y, Q = 2, degree = 1:2, intercept = TRUE, div = 5, seed = 123,
+    plot = TRUE, ...
+){
+  run_one <- function(d){
     start.time <- Sys.time()
-    message(paste0("degree=",degree[i],"..."),appendLF=FALSE)
-    a <- nmfkc.ar(Y=Y,degree=degree[i],intercept=intercept)
-    result.cv <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=div,seed=seed,...)
-    objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
-    end.time <- Sys.time()
-    diff.time <- difftime(end.time,start.time,units="sec")
-    diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
-                           paste0(round(diff.time/60,1),"min"))
-    message(diff.time.st)
+    a <- nmfkc.ar(Y = Y, degree = d, intercept = intercept)
+    result.cv <- nmfkc.cv(Y = a$Y, A = a$A, Q = Q, div = div, seed = seed, ...)
+    obj <- result.cv$objfunc / ncol(a$Y)
+    diff.time <- difftime(Sys.time(), start.time, units = "sec")
+    list(degree = d, obj = obj, time = diff.time)
   }
+  results <- lapply(degree, run_one)
+  objfuncs <- sapply(results, `[[`, "obj")
+  times    <- sapply(results, `[[`, "time")
   i0 <- which.min(objfuncs)
   best.degree <- degree[i0]
-  degree.max <- min(ncol(Y),floor(10*log10(ncol(Y))))
+  degree.max <- min(ncol(Y), floor(10 * log10(ncol(Y))))
   if(plot){
-    plot(degree,objfuncs,type="l",col=2,xlab=paste0("degree (max=",degree.max,")"),ylab="objfunc")
-    graphics::points(degree[i0],objfuncs[i0],cex=3,col=2)
-    graphics::text(degree,objfuncs,degree)
+    plot(degree, objfuncs, type = "l", col = 2,
+         xlab = paste0("degree (max=", degree.max, ")"),
+         ylab = "objfunc")
+    graphics::points(degree[i0], objfuncs[i0], cex = 3, col = 2)
+    graphics::text(degree, objfuncs, degree)
   }
   names(objfuncs) <- degree
-  result <- list(degree=best.degree,degree.max=degree.max,objfunc=objfuncs)
+  result <- list(degree = best.degree, degree.max = degree.max,
+                 objfunc = objfuncs, time = times)
   return(result)
 }
 
@@ -225,15 +233,17 @@ nmfkc.ar.stationarity <- function(x){
   total_cols <- ncol(Theta)
   has_intercept <- (total_cols - 1) %% P == 0
   D <- if (has_intercept) (total_cols - 1) %/% P else total_cols %/% P
-  message(paste0("P=",P,",Q=",Q,",D=",D,",intercept=",ifelse(has_intercept,"T","F")))
-  Theta_lags <- if (has_intercept) Theta[, 1:(total_cols - 1), drop = FALSE] else Theta
-  Xi_list <- lapply(1:D, function(d){
-    cols <- ((d - 1) * P + 1):(d * P)
-    X %*% Theta_lags[, cols]})
+  Theta_lags <- if (has_intercept) Theta[, -total_cols, drop = FALSE] else Theta
+  Theta_arr <- array(Theta_lags, dim = c(Q, P, D))  # (Q × P × D)
+  Xi_list <- lapply(1:D, function(d) X %*% Theta_arr[, , d])
   companion_matrix <- matrix(0, nrow = P * D, ncol = P * D)
-  for (d in 1:D)companion_matrix[1:P, ((d - 1) * P + 1):(d * P)] <- Xi_list[[d]]
-  if (D > 1)companion_matrix[(P + 1):(P * D), 1:(P * (D - 1))] <- diag(P * (D - 1))
-  rho <- max(Mod(eigen(companion_matrix)$values))
+  for (d in 1:D) {
+    companion_matrix[1:P, ((d - 1) * P + 1):(d * P)] <- Xi_list[[d]]
+  }
+  if (D > 1) {
+    companion_matrix[(P + 1):(P * D), 1:(P * (D - 1))] <- diag(P * (D - 1))
+  }
+  rho <- max(Mod(eigen(companion_matrix, only.values = TRUE)$values))
   return(list(spectral.radius = rho, stationary = (rho < 1)))
 }
 
@@ -261,30 +271,40 @@ nmfkc.ar.stationarity <- function(x){
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U, V = NULL, beta = 0.5, kernel = "Gaussian", degree = 2){
+nmfkc.kernel <- function(U, V = NULL, beta = 0.5,
+                         kernel = c("Gaussian","Exponential","Periodic",
+                                    "Linear","NormalizedLinear","Polynomial"),
+                         degree = 2) {
   if (is.null(V)) V <- U
-  CU <- colSums(U^2)
-  CV <- colSums(V^2)
-  G  <- crossprod(U, V)
-  D2 <- outer(CU, CV, "+") - 2 * G
-  D2[D2 < 0] <- 0
-  D  <- sqrt(D2)
-  A <- switch(
-    kernel,
-    "Gaussian"          = exp(-beta * D2),
-    "Exponential"       = exp(-beta * D),
-    "Periodic"          = {
-      if (length(beta) < 2) stop("Periodic kernel needs beta = c(beta1, beta2).")
-      exp(-beta[1] * sin(beta[2] * D)^2)
-    },
-    "Linear"            = G,
-    "NormalizedLinear"  = {
-      nU <- sqrt(CU); nV <- sqrt(CV)
-      G / (outer(nU, nV, "*"))
-    },
-    "Polynomial"        = (G + beta)^degree,
-    stop("Unknown kernel: ", kernel)
-  )
+  kernel <- match.arg(kernel)
+  G <- crossprod(U, V)
+  if (kernel == "Linear") {
+    A <- G
+  } else if (kernel == "Polynomial") {
+    A <- (G + beta)^degree
+  } else if (kernel == "NormalizedLinear") {
+    nU <- sqrt(colSums(U^2)); nV <- sqrt(colSums(V^2))
+    A  <- G / tcrossprod(nU, nV)
+  } else {
+    CU <- colSums(U^2); CV <- colSums(V^2)
+    #D2 <- outer(CU, CV, "+") - 2 * G
+    D2 <- -2 * G
+    D2 <- sweep(D2, 1, CU, "+")
+    D2 <- sweep(D2, 2, CV, "+")
+    D2[D2 < 0] <- 0
+    if (kernel == "Gaussian") {
+      A <- exp(-beta * D2)
+    } else {
+      D <- sqrt(D2)
+      if (kernel == "Exponential") {
+        A <- exp(-beta * D)
+      } else { # Periodic
+        if (length(beta) < 2)
+          stop("Periodic kernel needs beta = c(beta1, beta2).")
+        A <- exp(-beta[1] * (sin(beta[2] * D)^2))
+      }
+    }
+  }
   if (min(A) < 0) {
     warning("The constructed matrix is not non-negative.")
   }
@@ -303,7 +323,8 @@ nmfkc.kernel <- function(U, V = NULL, beta = 0.5, kernel = "Gaussian", degree = 
 #' @param div number of partition usually described as "k" of k-fold
 #' @param seed integer used as argument in set.seed function
 #' @param plot The default is plot=TRUE and draw a graph.
-#' @param ... arguments to be passed to nmfkc.cv function.
+#' @param print.trace logical; if TRUE (default), show progress messages and computation times
+#' @param ... arguments passed to \code{nmfkc.cv}
 #' @return beta: best parameter minimizes objective function
 #' @return objfunc: objective functions
 #' @export
@@ -320,31 +341,36 @@ nmfkc.kernel <- function(U, V = NULL, beta = 0.5, kernel = "Gaussian", degree = 
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),
-                                 kernel="Gaussian",degree=2,div=5,seed=123,plot=TRUE,...){
-  objfuncs <- 0*(1:length(beta))
-  for(i in 1:length(beta)){
-    start.time <- Sys.time()
-    message(paste0("beta=",beta[i],"..."),appendLF=FALSE)
-    A <- nmfkc.kernel(U=U,V=V,beta=beta[i],kernel=kernel,degree=degree)
-    result <- nmfkc.cv(Y=Y,A=A,Q=Q,div=div,seed=seed,...)
-    objfuncs[i] <- result$objfunc
-    end.time <- Sys.time()
-    diff.time <- difftime(end.time,start.time,units="sec")
-    diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
-                           paste0(round(diff.time/60,1),"min"))
-    message(diff.time.st)
+nmfkc.kernel.beta.cv <- function(
+    Y, Q=2, U, V=NULL,
+    beta=c(0.1,0.2,0.5,1,2,5,10,20,50),
+    kernel="Gaussian", degree=2, div=5, seed=123, plot=TRUE,
+    print.trace=TRUE, ...
+){
+  n <- length(beta)
+  objfuncs <- numeric(n)
+  for(i in seq_len(n)){
+    if(print.trace){
+      start <- proc.time()[3]
+      message("beta=", beta[i], "...", appendLF=FALSE)
+    }
+    A <- nmfkc.kernel(U=U, V=V, beta=beta[i], kernel=kernel, degree=degree)
+    res <- nmfkc.cv(Y=Y, A=A, Q=Q, div=div, seed=seed, ...)
+    objfuncs[i] <- res$objfunc
+    if(print.trace){
+      dt <- proc.time()[3] - start
+      message(if(dt <= 180) paste0(round(dt,1), "sec") else paste0(round(dt/60,1), "min"))
+    }
   }
   i0 <- which.min(objfuncs)
   beta.best <- beta[i0]
   if(plot){
-    plot(beta,objfuncs,type="l",col=2,xlab="beta",ylab="objfunc",log="x")
-    graphics::points(beta[i0],objfuncs[i0],cex=3,col=2)
-    graphics::text(beta,objfuncs,beta)
+    plot(beta, objfuncs, type="l", col=2, xlab="beta", ylab="objfunc", log="x")
+    graphics::points(beta[i0], objfuncs[i0], cex=3, col=2)
+    graphics::text(beta, objfuncs, beta)
   }
-  names(objfuncs) <- beta
-  result <- list(beta=beta.best,objfunc=objfuncs)
-  return(result)
+  names(objfuncs) <- as.character(beta)
+  list(beta=beta.best, objfunc=objfuncs)
 }
 
 
@@ -527,52 +553,57 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
     if(method=="EU"){
       if(!is.X.scalar){
-        X <- X*z((Y%*% t(B))/(XB%*%t(B)))
+        # X <- X * z( (Y %*% t(B)) / ( (X %*% B) %*% t(B) ) )
+        num_X <- tcrossprod(Y, B)     # Y %*% t(B)
+        den_X <- XB %*% t(B)          # (X %*% B) %*% t(B)
+        X <- X * z(num_X / den_X)
         if(X.restriction=="colSums"){
           X <- sweep(X, 2, colSums(X), "/")
         }else if(X.restriction=="colSqSums"){
           X <- sweep(X, 2, sqrt(colSums(X * X)), "/")
-        }else if(X.restriction=="totalSum") X <- X/sum(X)
+        }else if(X.restriction=="totalSum"){
+          X <- X / sum(X)
+        }
       }
       if(is.null(A)){
-        #C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
-        tX <- t(X)
-        num_C <- crossprod(X, Y)                   # t(X) %*% Y
-        den_C <- crossprod(X, XB) + gamma * C      # t(X) %*% XB + gamma*C
+        # C <- C * z( (t(X)%*%Y) / (t(X)%*%XB + gamma*C) )
+        num_C <- crossprod(X, Y)                 # t(X) %*% Y
+        den_C <- crossprod(X, XB) + gamma * C    # t(X) %*% XB + gamma*C
         C <- C * z(num_C / den_C)
       }else{
-        #C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
-        tX <- t(X)
-        num_C <- crossprod(X, Y) %*% tA            # (t(X)%*%Y) %*% t(A)
+        # C <- C * z( (t(X)%*%Y%*%t(A)) / (t(X)%*%XB%*%t(A) + gamma*C) )
+        num_C <- crossprod(X, Y) %*% tA
         den_C <- (crossprod(X, XB) %*% tA) + gamma * C
         C <- C * z(num_C / den_C)
       }
-      objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
+      objfunc.iter[i] <- sum((Y - XB)^2) + gamma * sum(C^2)
     }else{
+      # KL
       if(!is.X.scalar){
-        # X <- X * z( (Y %*% t(B)) / (XB %*% t(B)) )
-        num_X <- tcrossprod(Y, B) # Y %*% t(B)
-        den_X <- XB %*% t(B)     # (X %*% B) %*% t(B)
+        # X <- X * z( (Y %*% t(B)) / ( (X %*% B) %*% t(B) ) )
+        num_X <- tcrossprod(Y, B)
+        den_X <- XB %*% t(B)
         X <- X * z(num_X / den_X)
         if(X.restriction=="colSums"){
-          X <- t(t(X)/colSums(X))
+          X <- sweep(X, 2, colSums(X), "/")
         }else if(X.restriction=="colSqSums"){
-          X <- t(t(X)/colSums(X^2)^0.5)
-        }else if(X.restriction=="totalSum") X <- X/sum(X)
+          X <- sweep(X, 2, sqrt(colSums(X * X)), "/")
+        }else if(X.restriction=="totalSum"){
+          X <- X / sum(X)
+        }
       }
       if(is.null(A)){
-        #C <- C*z(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C))
-        tX <- t(X)
-        num_C <- crossprod(X, Y)              # t(X) %*% Y
-        den_C <- crossprod(X, XB) + gamma * C # t(X) %*% XB + gamma*C
+        # C <- C * z( t(X)%*%z(Y/XB) / ( colSums(X) %o% rep(1,ncol(Y)) + 2*gamma*C ) )
+        num_C <- crossprod(X, z(Y / XB))
+        den_C <- matrix(colSums(X), nrow=ncol(X), ncol=ncol(Y), byrow=FALSE) + 2*gamma*C
         C <- C * z(num_C / den_C)
       }else{
-        #C <- C*z(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
-        num_C <- crossprod(X, Y) %*% tA       # (t(X)%*%Y) %*% t(A)
-        den_C <- (crossprod(X, XB) %*% tA) + gamma * C
+        # C <- C * z( t(X)%*%z(Y/XB)%*%t(A) / ( colSums(X) %o% rowSums(A) + 2*gamma*C ) )
+        num_C <- crossprod(X, z(Y / XB)) %*% tA
+        den_C <- outer(colSums(X), rowSums(A), "*") + 2*gamma*C
         C <- C * z(num_C / den_C)
-        }
-      objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
+      }
+      objfunc.iter[i] <- sum(-Y * z(log(XB)) + XB) + gamma * sum(C^2)
     }
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
@@ -677,6 +708,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
 #' @export
 plot.nmfkc <- function(x,...){
   plot(x$objfunc.iter,xlab="iter",ylab="objfunc",main=paste0("r.squared=",round(x$r.squared,3)),...)
+  invisible(x$objfunc.iter)
 }
 
 
@@ -688,38 +720,37 @@ plot.nmfkc <- function(x,...){
 #'  If type is "prob", B.prob is used instead of B.
 #'  If type is "class", class to maximize columns in B.prob.
 #' @export
-predict.nmfkc <- function(x,newA=NULL,type="response"){
-  z <- function(x){
-    x[is.nan(x)] <- 0
-    x[is.infinite(x)] <- 0
-    return(x)
-  }
-  if(is.null(newA)){
-    if(type=="response"){
-      result <- x$X %*% x$B
-    }else{
-      XB.prob <- x$X %*% x$B.prob
-      if(type=="prob"){
-        result <- XB.prob
-      }else{
-        result <- rownames(x$X)[apply(XB.prob,2,which.max)]
-      }
+predict.nmfkc <- function(x, newA = NULL, type = c("response", "prob", "class")){
+  type <- match.arg(type)
+  X <- x$X
+  if (is.null(newA)) {
+    if (type == "response") {
+      return(X %*% x$B)
+    } else if (type == "prob") {
+      return(X %*% x$B.prob)
+    } else { # class
+      XB.prob <- X %*% x$B.prob
+      idx <- max.col(t(XB.prob), ties.method = "first")
+      return(rownames(X)[idx])
     }
-  }else{
+  } else {
     B <- x$C %*% newA
-    if(type=="response"){
-      result <- x$X %*% B
-    }else{
-      B.prob <- t(z(t(B)/colSums(B)))
-      XB.prob <- x$X %*% B.prob
-      if(type=="prob"){
-        result <- XB.prob
-      }else{
-        result <- rownames(x$X)[apply(XB.prob,2,which.max)]
+    if (type == "response") {
+      return(X %*% B)
+    } else {
+      # B.prob <- t(z(t(B)/colSums(B)))
+      s <- colSums(B)
+      B.prob <- sweep(B, 2, s, "/")
+      B.prob[!is.finite(B.prob)] <- 0
+      XB.prob <- X %*% B.prob
+      if (type == "prob") {
+        return(XB.prob)
+      } else {
+        idx <- max.col(t(XB.prob), ties.method = "first")
+        return(rownames(X)[idx])
       }
     }
   }
-  return(result)
 }
 
 
@@ -733,14 +764,15 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
 #' # Example.
 #' Y <- nmfkc.class(iris$Species)
 #' Y[,1:6]
-nmfkc.class <- function(x){
-  if(!is.factor(x)) x <- as.factor(x)
+nmfkc.class <- function(x) {
+  if (!is.factor(x)) x <- as.factor(x)
   unix <- levels(x)
-  X <- matrix(0,nrow=length(unix),ncol=length(x))
+  X <- outer(unix, x, "==")
+  X <- X + 0
   rownames(X) <- unix
-  for(j in 1:length(unix)) X[j,] <- ifelse(x==unix[j],1,0)
-  result <- X
-  return(result)}
+  return(X)
+}
+
 
 #' @title Normalizing to a value between 0 and 1 for matrix
 #' @description \code{nmfkc.normalize} Normalize x using the minimum and maximum values of each column of the reference matrix
@@ -753,14 +785,18 @@ nmfkc.class <- function(x){
 #' # Example.
 #' x <- nmfkc.normalize(iris[,-5])
 #' apply(x,2,range)
-nmfkc.normalize <- function(x,ref=x){
-  if(is.vector(x)==TRUE){
-    x <- matrix(x,ncol=1)
-    ref <- matrix(ref,ncol=1)
+nmfkc.normalize <- function(x, ref = x) {
+  if (is.vector(x)) {
+    x   <- matrix(x,  ncol = 1)
+    ref <- matrix(ref, ncol = 1)
+  } else {
+    x   <- as.matrix(x)
+    ref <- as.matrix(ref)
   }
-  r <- apply(ref,2,range)
-  y <- 0*x
-  for(j in 1:ncol(x))y[,j] <- (x[,j]-r[1,j])/(r[2,j]-r[1,j])
+  mins <- apply(ref, 2, min)
+  maxs <- apply(ref, 2, max)
+  rng  <- maxs - mins
+  y <- sweep(sweep(x, 2, mins, `-`), 2, rng, `/`)
   return(y)
 }
 
@@ -774,19 +810,20 @@ nmfkc.normalize <- function(x,ref=x){
 #' x <- nmfkc.normalize(iris[, -5])
 #' x_recovered <- nmfkc.denormalize(x, iris[, -5])
 #' apply(x_recovered - iris[, -5], 2, max)
-nmfkc.denormalize <- function(x, ref=x) {
+nmfkc.denormalize <- function(x, ref = x) {
   if (is.vector(x)) {
-    x <- matrix(x, ncol = 1)
+    x   <- matrix(x,  ncol = 1)
     ref <- matrix(ref, ncol = 1)
+  } else {
+    x   <- as.matrix(x)
+    ref <- as.matrix(ref)
   }
-  r <- apply(ref, 2, range)
-  y <- 0 * x
-  for (j in 1:ncol(x)) {
-    y[, j] <- x[, j] * (r[2, j] - r[1, j]) + r[1, j]
-  }
+  mins <- apply(ref, 2, min)
+  maxs <- apply(ref, 2, max)
+  rng  <- maxs - mins
+  y <- sweep(sweep(x, 2, rng, `*`), 2, mins, `+`)
   return(y)
 }
-
 
 #' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate
 #' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y~XCA=XB
@@ -868,28 +905,36 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     return(result)
   }
   z <- function(x){
-    x[is.nan(x)] <- 0
-    x[is.infinite(x)] <- 0
+    x[!is.finite(x)] <- 0
     return(x)
   }
   optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
     X <- result$X
     C <- matrix(1,nrow=ncol(X),ncol=ncol(Y))
     oldSum <- 0
+    Xt <- t(X)
+    if(method=="EU"){
+      XtY <- Xt %*% Y
+    } else {
+      csX <- colSums(X)
+      den_const <- csX %o% rep(1,ncol(Y))
+    }
     for(l in 1:maxit){
       B <- C
       XB <- X %*% B
       if(method=="EU"){
-        C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+        #C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+        C <- C * z( XtY / (Xt %*% XB + gamma*C) )
       }else{
-        C <- C*(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C))
+        #C <- C*(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C))
+        C <- C * ( (Xt %*% z(Y/XB)) / (den_const + 2*gamma*C) )
       }
       newSum <- sum(C)
       if(l>=10){
         epsilon.iter <- abs(newSum-oldSum)/(abs(newSum)+0.1)
         if(epsilon.iter <= abs(epsilon)) break
       }
-      oldSum <- sum(C)
+      oldSum <- newSum
     }
     B <- C
     XB <- X %*% B
@@ -900,40 +945,35 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
       ") reached and the optimization hasn't converged yet."))
     return(list(B=B,XB=XB))
   }
-  is.identity <- is.identity.matrix(A)
-  is.symmetric.matrix <- is.symmetric.matrix(A)
+  is_ident <- is.identity.matrix(A)
+  is_sym   <- is.symmetric.matrix(A)
   n <- ncol(Y)
-  (remainder <- n %% div)
-  (division <- n %/% div)
+  remainder <- n %% div
+  division  <- n %/% div
   block <- 0*(1:n)
   set.seed(seed)
   index <- sample(1:n,n,replace=F)
-  for(i in 1:(div-1)){
-    plus <- ifelse(i<=remainder,1,0)
-    j <- index[1:(division+plus)]
-    block[j] <- i
-    index <- index[-(1:(division+plus))]
-  }
-  block[index] <- div
+  fold_sizes <- c(rep(division+1,remainder), rep(division,div-remainder))
+  block[index] <- rep(seq_len(div), times=fold_sizes)
   index <- block
   objfunc.block <- 0*(1:div)
   for(j in 1:div){
-    Y_j <- Y[,index!=j]
-    Yj <- Y[,index==j]
-    if(is.symmetric.matrix){
-      A_j <- A[index!=j,index!=j] # kernel matrix or identity matrix
+    Y_j <- Y[,index!=j, drop=FALSE]
+    Yj  <- Y[,index==j, drop=FALSE]
+    if(is_sym){
+      A_j <- A[index!=j,index!=j, drop=FALSE]
     }else{
-      A_j <- A[,index!=j] # ordinary design matrix
+      A_j <- A[,index!=j, drop=FALSE]
     }
     res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time,save.memory)
-    if(is.identity){
+    if(is_ident){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
     }else{
-      if(is.symmetric.matrix){
-        Aj <- A[index!=j,index==j]
+      if(is_sym){
+        Aj <- A[index!=j,index==j, drop=FALSE]
       }else{
-        Aj <- A[,index==j]
+        Aj <- A[,index==j, drop=FALSE]
       }
       XBj <- res_j$X %*% res_j$C %*% Aj
     }
@@ -969,64 +1009,65 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   arglist=list(...)
   AdjustedRandIndex <- function(x){
-    choose2 <- function(n) choose(n,2)
-    a <- sum(apply(x,c(1,2),choose2))
-    ab <- sum(sapply(rowSums(x),choose2))
-    b <- ab-a
-    ac <- sum(sapply(colSums(x),choose2))
-    c <- ac-a
-    total <- choose2(sum(x))
-    d <- total-a-b-c
-    (ri <- (a+d)/total)
-    e <- ab*ac/total+(total-ab)*(total-ac)/total
-    (ari <- (a+d-e)/(total-e))
-    return(list(RI=ri,ARI=ari))
+    choose2 <- function(v) v*(v-1)/2
+    rs <- rowSums(x)
+    cs <- colSums(x)
+    n  <- sum(x)
+    a  <- sum(choose2(x))
+    ab <- sum(choose2(rs))
+    ac <- sum(choose2(cs))
+    total <- choose2(n)
+    b <- ab - a
+    c <- ac - a
+    d <- total - a - b - c
+    ri <- (a + d) / total
+    e  <- (ab*ac + (total - ab)*(total - ac)) / total
+    ari <- (a + d - e) / (total - e)
+    list(RI=ri, ARI=ari)
   }
   gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
   epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
   maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
   method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
   X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
-  seed <- ifelse("seed" %in% names(arglist),arglist$nstart,123)
+  seed <- ifelse("seed" %in% names(arglist), arglist$seed, 123)
   nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
   prefix <- ifelse("prefix" %in% names(arglist),arglist$prefix,"Basis")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
   save.time <- ifelse("save.time" %in% names(arglist),arglist$save.time,TRUE)
   save.memory <- FALSE
-  r.squared <- 0*Q; names(r.squared) <- Q
-  ICp <- 0*Q; names(ICp) <- Q
-  AIC <- 0*Q; names(AIC) <- Q
-  BIC <- 0*Q; names(BIC) <- Q
-  silhouette <- 0*Q; names(silhouette) <- Q
-  CPCC <- 0*Q; names(CPCC) <- Q
-  B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
-  ARI <- 0*Q; names(ARI) <- Q
-  for(q in 1:length(Q)){
-    if(save.time){
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=T,save.memory)
-      CPCC[q] <- NA
-      silhouette[q] <- NA
-    }else{
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=F,save.memory)
-      CPCC[q] <- result$criterion$CPCC
-      silhouette[q] <- result$criterion$silhouette$silhouette.mean
+  k <- length(Q)
+  r.squared <- numeric(k); names(r.squared) <- Q
+  ICp <- numeric(k); names(ICp) <- Q
+  AIC <- numeric(k); names(AIC) <- Q
+  BIC <- numeric(k); names(BIC) <- Q
+  silhouette <- rep(NA_real_, k); names(silhouette) <- Q
+  CPCC <- rep(NA_real_, k); names(CPCC) <- Q
+  B.prob.sd.min <- numeric(k); names(B.prob.sd.min) <- Q
+  ARI <- rep(NA_real_, k); names(ARI) <- Q
+  cluster.old <- NULL
+  for(i in seq_len(k)){
+    q <- Q[i]
+    result <- nmfkc(Y, A, Q=q, gamma, epsilon, maxit, method,
+                    X.restriction, nstart, seed, prefix,
+                    print.trace, print.dims, save.time=save.time, save.memory)
+    r.squared[i] <- result$r.squared
+    ICp[i] <- result$criterion$ICp
+    AIC[i] <- result$criterion$AIC
+    BIC[i] <- result$criterion$BIC
+    B.prob.sd.min[i] <- result$criterion$B.prob.sd.min
+    if(!save.time){
+      CPCC[i]      <- result$criterion$CPCC
+      silhouette[i] <- result$criterion$silhouette$silhouette.mean
     }
-    r.squared[q] <- result$r.squared
-    ICp[q] <- result$criterion$ICp
-    AIC[q] <- result$criterion$AIC
-    BIC[q] <- result$criterion$BIC
-    if(q==1){
-      ARI[q] <- NA
-      cluster.old <- result$B.cluster
-    }else{
-      df <- data.frame(old=cluster.old,new=result$B.cluster)
-      df <- df[stats::complete.cases(df),]
-      f <- table(df$old,df$new)
-      ARI[q] <- AdjustedRandIndex(f)$ARI
-      cluster.old <- result$B.cluster
+    Bcl <- result$B.cluster
+    if(i > 1){
+      keep <- !is.na(cluster.old) & !is.na(Bcl)
+      f <- table(cluster.old[keep], Bcl[keep])
+      ARI[i] <- AdjustedRandIndex(f)$ARI
     }
-    B.prob.sd.min[q] <- result$criterion$B.prob.sd.min
+    cluster.old <- Bcl
   }
   if(plot){
     # Criterion
