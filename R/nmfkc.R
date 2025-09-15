@@ -523,7 +523,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
     }else{
       if(!is.X.scalar){
-        X <- X*z((Y%*%t(B))/(XB%*%t(B)))
+        X <- X*z((Y/XB)%*%t(B))/(rep(1,nrow(Y))%o%rowSums(B))
         if(X.restriction=="colSums"){
           X <- t(t(X)/colSums(X))
         }else if(X.restriction=="colSqSums"){
