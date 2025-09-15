@@ -7,7 +7,7 @@
 Satoh, K.(2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model. arXiv:2501.17446. \url{https://arxiv.org/abs/2501.17446}
 }
 \usage{
-nmfkc.ar(Y, degree = 1, intercept = TRUE)
+nmfkc.ar(Y, degree = 1, intercept = T)
 }
 \arguments{
 \item{Y}{Observation matrices with columns in ascending order of measurement time point}

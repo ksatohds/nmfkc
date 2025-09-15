@@ -15,7 +15,6 @@ nmfkc.kernel.beta.cv(
   div = 5,
   seed = 123,
   plot = TRUE,
-  print.trace = TRUE,
   ...
 )
 }
@@ -40,9 +39,7 @@ nmfkc.kernel.beta.cv(
 
 \item{plot}{The default is plot=TRUE and draw a graph.}
 
-\item{print.trace}{logical; if TRUE (default), show progress messages and computation times}
-
-\item{...}{arguments passed to \code{nmfkc.cv}}
+\item{...}{arguments to be passed to nmfkc.cv function.}
 }
 \value{
 beta: best parameter minimizes objective function
