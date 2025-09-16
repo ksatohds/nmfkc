@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.ar.degree.cv}
 \alias{nmfkc.ar.degree.cv}
-\title{Optimizing degree for the autoregressive model}
+\title{Optimize lag order for the autoregressive model}
 \usage{
 nmfkc.ar.degree.cv(
   Y,
@@ -16,31 +16,32 @@ nmfkc.ar.degree.cv(
 )
 }
 \arguments{
-\item{Y}{observation matrix}
+\item{Y}{Observation matrix \eqn{Y(P,N)}.}
 
-\item{Q}{rank of basis matrix and Q<=min(P,N) where Y(P,N)}
+\item{Q}{Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.}
 
-\item{degree}{degree vector for cv}
+\item{degree}{A vector of candidate lag orders to be evaluated.}
 
-\item{intercept}{The default value is TRUE to add the intercept to the covariate matrix}
+\item{intercept}{Logical. If TRUE (default), an intercept is added to the covariate matrix.}
 
-\item{div}{number of partition usually described as "k" of k-fold}
+\item{div}{Number of partitions for cross-validation, corresponding to \eqn{k} in k-fold CV.}
 
-\item{seed}{integer used as argument in set.seed function}
+\item{seed}{Integer seed for reproducibility, passed to \code{set.seed}.}
 
-\item{plot}{The default is plot=TRUE and draw a graph.}
+\item{plot}{Logical. If TRUE (default), a plot of the objective function values is drawn.}
 
-\item{...}{arguments to be passed to nmfkc.cv function.}
+\item{...}{Additional arguments passed to \code{nmfkc.cv}.}
 }
 \value{
-degree: best degree minimizes objective function
-
-degree.max: maximum recommended degree in ar model
-
-objfunc: objective functions
+A list with components:
+\item{degree}{The lag order that minimizes the cross-validation objective function.}
+\item{degree.max}{Maximum recommended lag order, computed as \eqn{10 \log_{10}(N)}
+following the \code{ar} function in the \pkg{stats} package.}
+\item{objfunc}{Objective function values for each candidate lag order.}
 }
 \description{
-\code{nmfkc.ar.degree.cv} apply cross validation method for degree
+\code{nmfkc.ar.degree.cv} selects the optimal lag order for an autoregressive model
+by applying cross-validation over candidate degrees.
 }
 \examples{
 # install.packages("remotes")

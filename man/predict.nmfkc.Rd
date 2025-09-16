@@ -2,19 +2,24 @@
 % Please edit documentation in R/nmfkc.R
 \name{predict.nmfkc}
 \alias{predict.nmfkc}
-\title{predict for return value of nmfkc function}
+\title{Prediction method for objects of class \code{nmfkc}}
 \usage{
 \method{predict}{nmfkc}(x, newA = NULL, type = "response")
 }
 \arguments{
-\item{x}{return value of nmfkc function}
+\item{x}{An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.}
 
-\item{newA}{optionally, a new covariate matrix.}
+\item{newA}{Optional. A new covariate matrix to be used for prediction.
+If \code{NULL} (default), the fitted covariates are used.}
 
-\item{type}{The default is "response" given by the product of matrices X and B.
-If type is "prob", B.prob is used instead of B.
-If type is "class", class to maximize columns in B.prob.}
+\item{type}{Type of prediction to return. Options are:
+\itemize{
+\item \code{"response"} (default): Returns the reconstructed matrix \eqn{X B}.
+\item \code{"prob"}: Returns probabilities using \code{B.prob} instead of \code{B}.
+\item \code{"class"}: Returns the class label corresponding to the maximum in each column of \code{B.prob}.
+}}
 }
 \description{
-\code{predict.nmfkc} predict for return value of nmfkc function
+\code{predict.nmfkc} generates predictions from an object of class \code{nmfkc},
+either using the fitted covariates or a new covariate matrix.
 }

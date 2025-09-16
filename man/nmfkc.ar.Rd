@@ -2,31 +2,32 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.ar}
 \alias{nmfkc.ar}
-\title{Creating observation and covariates for the vector autoregressive model}
+\title{Construct observation and covariate matrices for a vector autoregressive model}
 \source{
-Satoh, K.(2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model. arXiv:2501.17446. \url{https://arxiv.org/abs/2501.17446}
+Satoh, K. (2025). Applying Non-negative Matrix Factorization with Covariates
+to Multivariate Time Series Data as a Vector Autoregression Model.
+Japanese Journal of Statistics and Data Science. \url{https://doi.org/10.1007/s42081-025-00314-0}
 }
 \usage{
 nmfkc.ar(Y, degree = 1, intercept = T)
 }
 \arguments{
-\item{Y}{Observation matrices with columns in ascending order of measurement time point}
+\item{Y}{An observation matrix, where columns are ordered by measurement time points.}
 
-\item{degree}{lag degree for the autoregressive model, and the default value is 1.}
+\item{degree}{The lag order of the autoregressive model. The default is 1.}
 
-\item{intercept}{The default value is TRUE to add the intercept to the covariate matrix}
+\item{intercept}{Logical. If TRUE (default), an intercept term is added to the covariate matrix.}
 }
 \value{
-Y: observation matrix according to the degree of the autoregressive model
-
-A: covariate matrix according to the degree of the autoregressive model
-
-A.columns: subscript matrix used to create A
-
-degree.max: 10log10(N) according to ar function in stats package
+A list containing:
+\item{Y}{Observation matrix constructed according to the specified lag order.}
+\item{A}{Covariate matrix constructed according to the specified lag order.}
+\item{A.columns}{Index matrix used to generate \code{A}.}
+\item{degree.max}{Maximum lag order, set to \eqn{10 \log_{10}(N)} following the \code{ar} function in the \pkg{stats} package.}
 }
 \description{
-\code{nmfkc.ar} create observation matrix and covariate matrix according to the degree of the autoregressive model
+\code{nmfkc.ar} generates the observation matrix and covariate matrix
+corresponding to a specified autoregressive lag order.
 }
 \examples{
 # install.packages("remotes")

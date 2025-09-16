@@ -2,15 +2,16 @@
 % Please edit documentation in R/nmfkc.R
 \name{plot.nmfkc}
 \alias{plot.nmfkc}
-\title{plot for return value of nmfkc function}
+\title{Plot method for objects of class \code{nmfkc}}
 \usage{
 \method{plot}{nmfkc}(x, ...)
 }
 \arguments{
-\item{x}{return value of nmfkc function}
+\item{x}{An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.}
 
-\item{...}{arguments to be passed to plot function.}
+\item{...}{Additional arguments passed to the base \code{\link{plot}} function.}
 }
 \description{
-\code{plot.nmfkc} plot for return value of nmfkc function
+\code{plot.nmfkc} produces a diagnostic plot for the return value of
+\code{nmfkc}, showing the objective function across iterations.
 }

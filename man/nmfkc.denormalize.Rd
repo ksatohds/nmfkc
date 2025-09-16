@@ -2,20 +2,22 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.denormalize}
 \alias{nmfkc.denormalize}
-\title{Denormalize a matrix from between 0 and 1 back to original scale}
+\title{Denormalize a matrix from \eqn{[0,1]} back to its original scale}
 \usage{
 nmfkc.denormalize(x, ref = x)
 }
 \arguments{
-\item{x}{Matrix to be denormalized (values between 0 and 1).}
+\item{x}{A numeric matrix (or vector) with values in \eqn{[0,1]} to be denormalized.}
 
-\item{ref}{Matrix used to obtain original scale (same dimensions or column-wise).}
+\item{ref}{A reference matrix used to obtain the original column-wise minima
+and maxima. Must have the same number of columns as \code{x}.}
 }
 \value{
-Matrix with values transformed back to original scale.
+A numeric matrix with values transformed back to the original scale.
 }
 \description{
-\code{nmfkc.denormalize} transforms a matrix normalized between 0 and 1 back to its original scale using the column-wise minimum and maximum values of a reference matrix.
+\code{nmfkc.denormalize} rescales a matrix with values in \eqn{[0,1]} back to its
+original scale using the column-wise minima and maxima of a reference matrix.
 }
 \examples{
 x <- nmfkc.normalize(iris[, -5])

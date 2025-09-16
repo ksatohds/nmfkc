@@ -75,4 +75,7 @@ crossprod
 gz
 denormalized
 Denormalize
-
+argmax
+Graphviz
+rescaled
+rescales

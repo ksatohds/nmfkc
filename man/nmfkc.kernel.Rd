@@ -2,29 +2,38 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.kernel}
 \alias{nmfkc.kernel}
-\title{Creating kernel matrix from covariates}
+\title{Create a kernel matrix from covariates}
 \source{
-Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
+Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model.
+arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 }
 \usage{
-nmfkc.kernel(U, V = NULL, beta = 0.5, kernel = "Gaussian", degree = 2)
+nmfkc.kernel(
+  U,
+  V = NULL,
+  beta = 0.5,
+  kernel = c("Gaussian", "Exponential", "Periodic", "Linear", "NormalizedLinear",
+    "Polynomial"),
+  degree = 2
+)
 }
 \arguments{
-\item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance}
+\item{U}{Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.}
 
-\item{V}{covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.}
+\item{V}{Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.}
 
-\item{beta}{The default parameter of kernel function is 0.5.}
+\item{beta}{Kernel parameter. Default is 0.5. For the \code{"Periodic"} kernel, specify as \code{c(beta1, beta2)}.}
 
-\item{kernel}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
+\item{kernel}{Kernel function to use. Default is \code{"Gaussian"}. Options are \code{"Gaussian"}, \code{"Exponential"}, \code{"Periodic"}, \code{"Linear"}, \code{"NormalizedLinear"}, and \code{"Polynomial"}.}
 
-\item{degree}{The default parameter of kernel function is 2.}
+\item{degree}{Degree parameter for the \code{"Polynomial"} kernel. Default is 2.}
 }
 \value{
-kernel matrix A(N,M)
+Kernel matrix \eqn{A(N,M)}.
 }
 \description{
-\code{nmfkc.kernel} create kernel matrix from covariate matrix
+\code{nmfkc.kernel} constructs a kernel matrix from covariate matrices.
+It supports Gaussian, Exponential, Periodic, Linear, Normalized Linear, and Polynomial kernels.
 }
 \examples{
 # install.packages("remotes")

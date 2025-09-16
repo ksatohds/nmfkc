@@ -2,9 +2,11 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc}
 \alias{nmfkc}
-\title{Optimizing NMF (Non-negative Matrix Factorization) with Kernel Covariate}
+\title{Optimize NMF with kernel covariates}
 \source{
-Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
+Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
+to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
+\url{https://arxiv.org/abs/2403.05359}
 }
 \usage{
 nmfkc(
@@ -26,69 +28,61 @@ nmfkc(
 )
 }
 \arguments{
-\item{Y}{observation matrix}
+\item{Y}{Observation matrix.}
 
-\item{A}{covariate matrix. The default is NULL if without covariate.}
+\item{A}{Covariate matrix. Default is \code{NULL} (no covariates).}
 
-\item{Q}{rank of basis matrix and Q<=min(P,N)}
+\item{Q}{Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.}
 
-\item{gamma}{penalty parameter for parameter matrix C}
+\item{gamma}{Nonnegative penalty parameter for the parameter matrix \eqn{C}.}
 
-\item{epsilon}{positive convergence tolerance}
+\item{epsilon}{Positive convergence tolerance.}
 
-\item{maxit}{maximum number of iterations}
+\item{maxit}{Maximum number of iterations.}
 
-\item{method}{The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"}
+\item{method}{Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.}
 
-\item{X.restriction}{The default is X.restriction="colSums" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.restriction="colSqSums".}
+\item{X.restriction}{Constraint for columns of \eqn{X}:
+\code{"colSums"} (default; each column sums to 1),
+\code{"colSqSums"} (each column has unit \eqn{\ell_2} norm), or
+\code{"totalSum"} (entries sum to 1).}
 
-\item{nstart}{The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.}
+\item{nstart}{Number of random starts for \code{\link[stats]{kmeans}} when initializing \eqn{X}.}
 
-\item{seed}{integer used as argument in set.seed function}
+\item{seed}{Integer seed passed to \code{\link[base]{set.seed}}.}
 
-\item{prefix}{prefix label for column labels of basis matrix and row labels of coefficient matrix}
+\item{prefix}{Prefix for column names of \eqn{X} and row names of \eqn{B}.}
 
-\item{print.trace}{display current iteration every 10 times if print.trace=TRUE}
+\item{print.trace}{Logical. If \code{TRUE}, prints progress every 10 iterations.}
 
-\item{print.dims}{display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.}
+\item{print.dims}{Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.}
 
-\item{save.time}{The default is TRUE. Some return values including CPCC and silhouette are skipped to save the computation time.}
+\item{save.time}{Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.}
 
-\item{save.memory}{The default is FALSE. If save.memory=TRUE, save.time=TRUE and only the minimum necessary calculations are performed to save memory.}
+\item{save.memory}{Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage.}
 }
 \value{
-X: basis matrix. The column sum depends on X.restriction.
-
-B: coefficient matrix, B=CA
-
-XB: fitted values for observation matrix Y
-
-C: parameter matrix
-
-B.prob: probability matrix for soft clustering based on column vector of coefficient matrix B.
-
-B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
-
-X.prob: probability matrix for soft clustering based on row vector of basis matrix X.
-
-X.cluster: the number of the basis that takes the maximum value of each row of X.prob for hard clustering
-
-objfunc: last objective function
-
-objfunc.iter: objective function at each iteration
-
-r.squared: coefficient of determination R^2, squared correlation between Y and XB
-
-criterion: several criteria for selecting rank including ICp, CPCC, silhouette
+A list with components:
+\item{X}{Basis matrix. Column normalization depends on \code{X.restriction}.}
+\item{B}{Coefficient matrix \eqn{B = C A}.}
+\item{XB}{Fitted values for \eqn{Y}.}
+\item{C}{Parameter matrix.}
+\item{B.prob}{Soft-clustering probabilities derived from columns of \eqn{B}.}
+\item{B.cluster}{Hard-clustering labels (argmax over \eqn{B.prob} for each column).}
+\item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
+\item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
+\item{objfunc}{Final objective value.}
+\item{objfunc.iter}{Objective values by iteration.}
+\item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+\item{criterion}{A list of selection criteria, including \code{ICp}, \code{CPCC}, \code{silhouette}, \code{AIC}, and \code{BIC}.}
 }
 \description{
-\code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB
-where observation matrix Y(P,N),
-covariate matrix A(R,N),
-basis matrix X(P,Q) and Q<=min(P,N),
-parameter matrix C(Q,R)
-and coefficient matrix B(Q,N).
-Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
+\code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
+under the tri-factorization model \eqn{Y \approx X C A = X B}, where
+\eqn{Y(P,N)} is the observation matrix, \eqn{A(R,N)} is the covariate matrix,
+\eqn{X(P,Q)} is the basis matrix (\eqn{Q \le \min(P,N)}), \eqn{C(Q,R)} is the
+parameter matrix, and \eqn{B(Q,N)=C A} is the coefficient matrix.
+Given \eqn{Y} and (optionally) \eqn{A}, the algorithm estimates \eqn{X} and \eqn{C}.
 }
 \examples{
 # install.packages("remotes")
@@ -114,7 +108,9 @@ plot(cars$speed,as.vector(Y))
 lines(cars$speed,as.vector(result$XB),col=2,lwd=2)
 }
 \references{
-Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. \url{https://doi.org/10.1145/1150402.1150420}
-
-Potthoff, R.F. and Roy, S.N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems. Biometrika, 51, 313-326. \url{https://doi.org/10.2307/2334137}
+Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering.
+In \emph{Proceedings of the 12th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining} (pp. 126–135).
+\doi{10.1145/1150402.1150420}
+Potthoff, R. F., & Roy, S. N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems.
+\emph{Biometrika}, 51, 313–326. \doi{10.2307/2334137}
 }

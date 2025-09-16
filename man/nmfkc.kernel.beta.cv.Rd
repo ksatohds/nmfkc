@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.kernel.beta.cv}
 \alias{nmfkc.kernel.beta.cv}
-\title{Optimizing beta of Gauss kernel function by cross validation method}
+\title{Optimize beta of the Gaussian kernel function by cross-validation}
 \usage{
 nmfkc.kernel.beta.cv(
   Y,
@@ -19,35 +19,35 @@ nmfkc.kernel.beta.cv(
 )
 }
 \arguments{
-\item{Y}{observation matrix}
+\item{Y}{Observation matrix \eqn{Y(P,N)}.}
 
-\item{Q}{rank of basis matrix and Q<=min(P,N) where Y(P,N)}
+\item{Q}{Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.}
 
-\item{U}{covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance}
+\item{U}{Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.}
 
-\item{V}{covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.}
+\item{V}{Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.}
 
-\item{beta}{parameter vector of kernel function for cv}
+\item{beta}{A numeric vector of candidate kernel parameters to evaluate via cross-validation.}
 
-\item{kernel}{The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".}
+\item{kernel}{Kernel function to use. Default is \code{"Gaussian"}. See \code{\link{nmfkc.kernel}} for available options.}
 
-\item{degree}{The default parameter of kernel function is 2.}
+\item{degree}{Degree parameter for the \code{"Polynomial"} kernel. Default is 2.}
 
-\item{div}{number of partition usually described as "k" of k-fold}
+\item{div}{Number of partitions for cross-validation, corresponding to \eqn{k} in k-fold CV.}
 
-\item{seed}{integer used as argument in set.seed function}
+\item{seed}{Integer seed for reproducibility, passed to \code{set.seed}.}
 
-\item{plot}{The default is plot=TRUE and draw a graph.}
+\item{plot}{Logical. If TRUE (default), plots the objective function values for each candidate \code{beta}.}
 
-\item{...}{arguments to be passed to nmfkc.cv function.}
+\item{...}{Additional arguments passed to \code{nmfkc.cv}.}
 }
 \value{
-beta: best parameter minimizes objective function
-
-objfunc: objective functions
+A list with components:
+\item{beta}{The beta value that minimizes the cross-validation objective function.}
+\item{objfunc}{Objective function values for each candidate \code{beta}.}
 }
 \description{
-\code{nmfkc.kernel.beta.cv} apply cross validation method for beta
+\code{nmfkc.kernel.beta.cv} selects the optimal beta parameter of the kernel function by applying cross-validation over a set of candidate values.
 }
 \examples{
 # install.packages("remotes")

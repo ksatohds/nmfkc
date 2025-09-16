@@ -2,17 +2,22 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.normalize}
 \alias{nmfkc.normalize}
-\title{Normalizing to a value between 0 and 1 for matrix}
+\title{Normalize a matrix to the range \eqn{[0,1]}}
 \usage{
 nmfkc.normalize(x, ref = x)
 }
 \arguments{
-\item{x}{matrix to be normalized}
+\item{x}{A numeric matrix (or vector) to be normalized.}
 
-\item{ref}{matrix referencing minimum and maximum values.}
+\item{ref}{A reference matrix from which the column-wise minima and maxima are taken.
+Default is \code{x}.}
+}
+\value{
+A matrix of the same dimensions as \code{x}, with each column rescaled to the \eqn{[0,1]} range.
 }
 \description{
-\code{nmfkc.normalize} Normalize x using the minimum and maximum values of each column of the reference matrix
+\code{nmfkc.normalize} rescales the values of a matrix to lie between 0 and 1
+using the column-wise minimum and maximum values of a reference matrix.
 }
 \examples{
 # install.packages("remotes")

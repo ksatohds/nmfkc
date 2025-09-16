@@ -2,23 +2,37 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.rank}
 \alias{nmfkc.rank}
-\title{Rank selection diagnostics using figure}
+\title{Rank selection diagnostics with graphical output}
 \usage{
 nmfkc.rank(Y, A = NULL, Q = 2:min(5, ncol(Y), nrow(Y)), plot = TRUE, ...)
 }
 \arguments{
-\item{Y}{observation matrix}
+\item{Y}{Observation matrix.}
 
-\item{A}{covariate matrix. Without covariate, identity matrix is used.}
+\item{A}{Covariate matrix. If \code{NULL}, the identity matrix is used.}
 
-\item{Q}{vector of ranks to be diagnosed.}
+\item{Q}{A vector of candidate ranks to be evaluated.}
 
-\item{plot}{The default is plot=TRUE and draw a graph.}
+\item{plot}{Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.}
 
-\item{...}{arguments to be passed to nmfkc function.}
+\item{...}{Additional arguments passed to \code{\link{nmfkc}}.}
+}
+\value{
+A data frame containing rank values (\code{Q}) and the corresponding diagnostic criteria:
+\itemize{
+\item \code{r.squared}: Coefficient of determination (\eqn{R^2}).
+\item \code{ICp}, \code{AIC}, \code{BIC}: Information criteria.
+\item \code{B.prob.sd.min}: Minimum standard deviation of \code{B.prob}.
+\item \code{ARI}: Adjusted Rand Index relative to the previous rank.
+\item \code{silhouette}: Mean silhouette score (if computed).
+\item \code{CPCC}: Cophenetic correlation coefficient (if computed).
+}
 }
 \description{
-\code{nmfkc.rank} provides rank selection diagnostics. The method is still under development.
+\code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})
+in NMF with kernel covariates. Several model selection measures are computed
+(e.g., R-squared, information criteria, silhouette, CPCC, ARI), and results
+can be visualized in a plot. This function is still under development.
 }
 \examples{
 # install.packages("remotes")
@@ -29,7 +43,12 @@ Y <- t(iris[,-5])
 nmfkc.rank(Y,Q=2:4)
 }
 \references{
-Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
-
-Punera, K. and Ghosh, J. (2008). CONSENSUS-BASED ENSEMBLES OF SOFT CLUSTERINGS. Applied Artificial Intelligence, 22(7–8), 780–810. \url{https://doi.org/10.1080/08839510802170546}
+Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004).
+Metagenes and molecular pattern discovery using matrix factorization.
+\emph{Proc. Natl. Acad. Sci. USA}, 101, 4164–4169.
+\doi{10.1073/pnas.0308531101}
+Punera, K., & Ghosh, J. (2008).
+Consensus-based ensembles of soft clusterings.
+\emph{Applied Artificial Intelligence}, 22(7–8), 780–810.
+\doi{10.1080/08839510802170546}
 }

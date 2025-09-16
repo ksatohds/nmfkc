@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.ar.DOT}
 \alias{nmfkc.ar.DOT}
-\title{DOT language script for the vector autoregressive model}
+\title{Generate DOT language scripts for vector autoregressive models}
 \usage{
 nmfkc.ar.DOT(
   x,
@@ -14,21 +14,22 @@ nmfkc.ar.DOT(
 )
 }
 \arguments{
-\item{x}{return value of nmfkc function for vector autoregressive}
+\item{x}{The return value of \code{nmfkc} for a vector autoregressive model.}
 
-\item{degree}{max lag degree to visualize, and the default value is 1.}
+\item{degree}{The maximum lag order to visualize. Default is 1.}
 
-\item{intercept}{The default value is FALSE to add}
+\item{intercept}{Logical. If TRUE, an intercept node is added. Default is FALSE.}
 
-\item{digits}{integer indicating the number of decimal places}
+\item{digits}{Integer. Number of decimal places to display in edge labels.}
 
-\item{threshold}{display parameters that exceed the threshold value}
+\item{threshold}{Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.}
 
-\item{rankdir}{Direction of node placement based on DOT language, default is RL, LR, TB, BT can also be specified.}
+\item{rankdir}{Graph layout direction in DOT language. Default is "RL". Other options include "LR", "TB", and "BT".}
 }
 \value{
-scripts for dot function of DOT package
+A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
 }
 \description{
-\code{nmfkc.ar.DOT} create scripts in DOT language function
+\code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
+vector autoregressive models fitted using \code{nmfkc}.
 }

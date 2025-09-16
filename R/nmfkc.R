@@ -3,17 +3,24 @@
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
-#' @title Creating observation and covariates for the vector autoregressive model
-#' @description \code{nmfkc.ar} create observation matrix and covariate matrix according to the degree of the autoregressive model
-#' @param Y Observation matrices with columns in ascending order of measurement time point
-#' @param degree lag degree for the autoregressive model, and the default value is 1.
-#' @param intercept The default value is TRUE to add the intercept to the covariate matrix
-#' @return Y: observation matrix according to the degree of the autoregressive model
-#' @return A: covariate matrix according to the degree of the autoregressive model
-#' @return A.columns: subscript matrix used to create A
-#' @return degree.max: 10log10(N) according to ar function in stats package
+#' @title Construct observation and covariate matrices for a vector autoregressive model
+#' @description
+#' \code{nmfkc.ar} generates the observation matrix and covariate matrix
+#' corresponding to a specified autoregressive lag order.
+#'
+#' @param Y An observation matrix, where columns are ordered by measurement time points.
+#' @param degree The lag order of the autoregressive model. The default is 1.
+#' @param intercept Logical. If TRUE (default), an intercept term is added to the covariate matrix.
+#'
+#' @return A list containing:
+#' \item{Y}{Observation matrix constructed according to the specified lag order.}
+#' \item{A}{Covariate matrix constructed according to the specified lag order.}
+#' \item{A.columns}{Index matrix used to generate \code{A}.}
+#' \item{degree.max}{Maximum lag order, set to \eqn{10 \log_{10}(N)} following the \code{ar} function in the \pkg{stats} package.}
 #' @export
-#' @source Satoh, K.(2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model. arXiv:2501.17446. \url{https://arxiv.org/abs/2501.17446}
+#' @source Satoh, K. (2025). Applying Non-negative Matrix Factorization with Covariates
+#'   to Multivariate Time Series Data as a Vector Autoregression Model.
+#'    Japanese Journal of Statistics and Data Science. \url{https://doi.org/10.1007/s42081-025-00314-0}
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
@@ -62,15 +69,19 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 }
 
 
-#' @title DOT language script for the vector autoregressive model
-#' @description \code{nmfkc.ar.DOT} create scripts in DOT language function
-#' @param x return value of nmfkc function for vector autoregressive
-#' @param degree max lag degree to visualize, and the default value is 1.
-#' @param intercept The default value is FALSE to add
-#' @param digits integer indicating the number of decimal places
-#' @param threshold display parameters that exceed the threshold value
-#' @param rankdir Direction of node placement based on DOT language, default is RL, LR, TB, BT can also be specified.
-#' @return scripts for dot function of DOT package
+#' @title Generate DOT language scripts for vector autoregressive models
+#' @description
+#' \code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
+#' vector autoregressive models fitted using \code{nmfkc}.
+#'
+#' @param x The return value of \code{nmfkc} for a vector autoregressive model.
+#' @param degree The maximum lag order to visualize. Default is 1.
+#' @param intercept Logical. If TRUE, an intercept node is added. Default is FALSE.
+#' @param digits Integer. Number of decimal places to display in edge labels.
+#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
+#' @param rankdir Graph layout direction in DOT language. Default is "RL". Other options include "LR", "TB", and "BT".
+#'
+#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
 #' @export
 
 nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digits),rankdir="RL"){
@@ -155,19 +166,25 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
 }
 
 
-#' @title Optimizing degree for the autoregressive model
-#' @description \code{nmfkc.ar.degree.cv} apply cross validation method for degree
-#' @param Y observation matrix
-#' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
-#' @param degree degree vector for cv
-#' @param intercept The default value is TRUE to add the intercept to the covariate matrix
-#' @param div number of partition usually described as "k" of k-fold
-#' @param seed integer used as argument in set.seed function
-#' @param plot The default is plot=TRUE and draw a graph.
-#' @param ... arguments to be passed to nmfkc.cv function.
-#' @return degree: best degree minimizes objective function
-#' @return degree.max: maximum recommended degree in ar model
-#' @return objfunc: objective functions
+#' @title Optimize lag order for the autoregressive model
+#' @description
+#' \code{nmfkc.ar.degree.cv} selects the optimal lag order for an autoregressive model
+#' by applying cross-validation over candidate degrees.
+#'
+#' @param Y Observation matrix \eqn{Y(P,N)}.
+#' @param Q Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.
+#' @param degree A vector of candidate lag orders to be evaluated.
+#' @param intercept Logical. If TRUE (default), an intercept is added to the covariate matrix.
+#' @param div Number of partitions for cross-validation, corresponding to \eqn{k} in k-fold CV.
+#' @param seed Integer seed for reproducibility, passed to \code{set.seed}.
+#' @param plot Logical. If TRUE (default), a plot of the objective function values is drawn.
+#' @param ... Additional arguments passed to \code{nmfkc.cv}.
+#'
+#' @return A list with components:
+#' \item{degree}{The lag order that minimizes the cross-validation objective function.}
+#' \item{degree.max}{Maximum recommended lag order, computed as \eqn{10 \log_{10}(N)}
+#'   following the \code{ar} function in the \pkg{stats} package.}
+#' \item{objfunc}{Objective function values for each candidate lag order.}
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -209,14 +226,19 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
   return(result)
 }
 
-#' @title Check Stationarity of NMF-VAR Model
-#' @description \code{nmfkc.ar.stationarity} evaluates the dynamic stability of VAR model
-#' based on the spectral radius of the companion matrix. It returns the spectral radius
-#' and a logical value indicating whether the VAR structure is stationary.
-#' @param x return value of nmfkc function
-#' @return spectral.radius: numeric value representing the spectral radius of the companion matrix. A value less than 1 indicates stationarity.
-#' @return stationary: Logical value: \code{TRUE} if the spectral radius is less than 1 (i.e., the system is stationary), \code{FALSE} otherwise.
+#' @title Check stationarity of an NMF-VAR model
+#' @description
+#' \code{nmfkc.ar.stationarity} assesses the dynamic stability of a VAR model
+#' by computing the spectral radius of its companion matrix.
+#' It returns both the spectral radius and a logical indicator of stationarity.
+#'
+#' @param x The return value of \code{nmfkc} for a VAR model.
+#'
+#' @return A list with components:
+#' \item{spectral.radius}{Numeric. The spectral radius of the companion matrix. A value less than 1 indicates stationarity.}
+#' \item{stationary}{Logical. \code{TRUE} if the spectral radius is less than 1 (i.e., the system is stationary), \code{FALSE} otherwise.}
 #' @export
+
 nmfkc.ar.stationarity <- function(x){
   X <- x$X  # P × Q
   Theta <- x$C  # Q × (P * D [+1] )
@@ -238,16 +260,21 @@ nmfkc.ar.stationarity <- function(x){
 }
 
 
-#' @title Creating kernel matrix from covariates
-#' @description \code{nmfkc.kernel} create kernel matrix from covariate matrix
-#' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
-#' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.
-#' @param beta The default parameter of kernel function is 0.5.
-#' @param kernel The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
-#' @param degree The default parameter of kernel function is 2.
-#' @return kernel matrix A(N,M)
+#' @title Create a kernel matrix from covariates
+#' @description
+#' \code{nmfkc.kernel} constructs a kernel matrix from covariate matrices.
+#' It supports Gaussian, Exponential, Periodic, Linear, Normalized Linear, and Polynomial kernels.
+#'
+#' @param U Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.
+#' @param V Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.
+#' @param beta Kernel parameter. Default is 0.5. For the \code{"Periodic"} kernel, specify as \code{c(beta1, beta2)}.
+#' @param kernel Kernel function to use. Default is \code{"Gaussian"}. Options are \code{"Gaussian"}, \code{"Exponential"}, \code{"Periodic"}, \code{"Linear"}, \code{"NormalizedLinear"}, and \code{"Polynomial"}.
+#' @param degree Degree parameter for the \code{"Polynomial"} kernel. Default is 2.
+#'
+#' @return Kernel matrix \eqn{A(N,M)}.
 #' @export
-#' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
+#' @source Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model.
+#'   arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
@@ -261,41 +288,121 @@ nmfkc.ar.stationarity <- function(x){
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U,V=NULL,beta=0.5,kernel="Gaussian",degree=2){
-  if(is.null(V)==TRUE) V <- U
-  kvec <- function(m){
-    vm <- t(rep(1,ncol(U)) %o% V[,m])
-    d <- colSums((U-vm)^2)^0.5
-    k <- 0
-    if(kernel=="Gaussian") k <- exp(-beta*d^2) # Gaussian
-    if(kernel=="Exponential") k <- exp(-beta*d)
-    if(kernel=="Periodic") k <- exp(-beta[1]*sin(beta[2]*d)^2)
-    if(kernel=="Linear") k <- t(U) %*% V[,m]
-    if(kernel=="NormalizedLinear") k <- diag(1/colSums(U^2)^0.5) %*% t(U) %*% V[,m]/sum(V[,m]^2)^0.5
-    if(kernel=="Polynomial") k <- (t(U) %*% V[,m]+beta)^degree
-    return(k)}
-  A <- NULL; for(m in 1:ncol(V)) A <- cbind(A,kvec(m))
-  if(min(A)<0){
+nmfkc.kernel <- function(U, V = NULL, beta=0.5,
+                         kernel = c("Gaussian","Exponential","Periodic",
+                                    "Linear","NormalizedLinear","Polynomial"),
+                         degree=2){
+  U <- as.matrix(U); storage.mode(U) <- "double"
+  if (is.null(V)) V <- U else V <- as.matrix(V)
+  storage.mode(V) <- "double"
+  kernel <- match.arg(kernel)
+  G <- crossprod(U, V)
+  if (kernel %in% c("Gaussian","Exponential","Periodic")) {
+    u2 <- colSums(U * U)
+    v2 <- colSums(V * V)
+    D2 <- outer(u2, v2, "+") - 2 * G
+    D2 <- pmax(D2, 0)
+  }
+  K <- switch(kernel,
+              Gaussian = exp(-beta * D2),
+              Exponential = {
+                d <- sqrt(D2)
+                exp(-beta * d)
+              },
+              Periodic = {
+                if (length(beta) < 2L)
+                  stop("For 'Periodic', set beta as c(beta1, beta2).")
+                d <- sqrt(D2)
+                exp(-beta[1] * (sin(beta[2] * d)^2))
+              },
+              Linear = G,
+              NormalizedLinear = {
+                nu <- sqrt(colSums(U * U))
+                nv <- sqrt(colSums(V * V))
+                nu[nu == 0] <- .Machine$double.eps
+                nv[nv == 0] <- .Machine$double.eps
+                G / outer(nu, nv)
+              },
+              Polynomial = (G + beta)^degree
+  )
+  if (min(K) < 0) {
     warning("The constructed matrix is not non-negative.")
   }
-  return(A)
+  dimnames(K) <- list(colnames(U), colnames(V))
+  K
 }
 
-#' @title Optimizing beta of Gauss kernel function by cross validation method
-#' @description \code{nmfkc.kernel.beta.cv} apply cross validation method for beta
-#' @param Y observation matrix
-#' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
-#' @param U covariate matrix U(K,N)=(u_1,...,u_N) each row might be normalized in advance
-#' @param V covariate matrix V(K,M)=(v_1,...,v_M) usually used for prediction, and if it is NULL, the default value is U.
-#' @param beta parameter vector of kernel function for cv
-#' @param kernel The default kernel function is Gaussian kernel. For other functions, check by typing "nmfkc.kernel".
-#' @param degree The default parameter of kernel function is 2.
-#' @param div number of partition usually described as "k" of k-fold
-#' @param seed integer used as argument in set.seed function
-#' @param plot The default is plot=TRUE and draw a graph.
-#' @param ... arguments to be passed to nmfkc.cv function.
-#' @return beta: best parameter minimizes objective function
-#' @return objfunc: objective functions
+
+#' @title Estimate kernel parameter beta from covariates
+#' @description
+#' \code{nmfkc.kernel.beta.nearest.med} estimates the Gaussian kernel
+#' parameter \eqn{\beta} by computing the median of nearest-neighbor
+#' distances among covariates. This is useful for setting the scale
+#' parameter in kernel-based NMF with covariates.
+#'
+#' @param U covariate matrix \eqn{U(K,N)=(u_1,\dots,u_N)},
+#'   where each column corresponds to an individual. Each row may be
+#'   normalized in advance.
+#' @param block_size number of samples to process at once.
+#'   If \eqn{N \le 1000}, it is automatically set to \eqn{N}.
+#'
+#' @return A list with components:
+#' \item{beta}{estimated kernel parameter \eqn{\beta=1/(2 d_{med}^2)}}
+#' \item{dist_median}{the median nearest-neighbor distance}
+#' \item{block_size_used}{actual block size used in computation}
+#' @details
+#' The function computes all pairwise squared distances between columns of
+#' \eqn{U}, excludes self-distances, and takes the median of the nearest-neighbor
+#' distances (after square root). This median is then used to set \eqn{\beta}.
+#' @seealso \code{\link{nmfkc.kernel}} for creating kernel matrices from covariates.
+#' @export
+
+nmfkc.kernel.beta.nearest.med <- function(U, block_size=1000){
+  U <- as.matrix(U)
+  N <- ncol(U)
+  X <- t(U)
+  if (N <= 1000) block_size <- N
+  XX <- rowSums(X * X)
+  min_d2 <- rep(Inf, N)
+  for (i in seq(1, N, by = block_size)) {
+    i2 <- min(i + block_size - 1, N)
+    Xi <- X[i:i2, , drop = FALSE]
+    Xi_norm <- rowSums(Xi * Xi)
+    dist2 <- outer(Xi_norm, rep(1, N)) +
+      outer(rep(1, nrow(Xi)), XX) -
+      2 * Xi %*% t(X)
+    idx <- i:i2
+    dist2[cbind(seq_along(idx), idx)] <- Inf
+    dist2[dist2 < 0] <- 0
+    nn_local <- apply(dist2, 1, min)
+    min_d2[idx] <- pmin(min_d2[idx], nn_local)
+    rm(Xi, Xi_norm, dist2); gc(FALSE)
+  }
+  d_med <- stats::median(sqrt(min_d2))
+  beta  <- 1 / (2 * d_med^2)
+  list(beta = beta, dist_median = d_med, block_size_used = block_size)
+}
+
+
+#' @title Optimize beta of the Gaussian kernel function by cross-validation
+#' @description
+#' \code{nmfkc.kernel.beta.cv} selects the optimal beta parameter of the kernel function by applying cross-validation over a set of candidate values.
+#'
+#' @param Y Observation matrix \eqn{Y(P,N)}.
+#' @param Q Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.
+#' @param U Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.
+#' @param V Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.
+#' @param beta A numeric vector of candidate kernel parameters to evaluate via cross-validation.
+#' @param kernel Kernel function to use. Default is \code{"Gaussian"}. See \code{\link{nmfkc.kernel}} for available options.
+#' @param degree Degree parameter for the \code{"Polynomial"} kernel. Default is 2.
+#' @param div Number of partitions for cross-validation, corresponding to \eqn{k} in k-fold CV.
+#' @param seed Integer seed for reproducibility, passed to \code{set.seed}.
+#' @param plot Logical. If TRUE (default), plots the objective function values for each candidate \code{beta}.
+#' @param ... Additional arguments passed to \code{nmfkc.cv}.
+#'
+#' @return A list with components:
+#' \item{beta}{The beta value that minimizes the cross-validation objective function.}
+#' \item{objfunc}{Objective function values for each candidate \code{beta}.}
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -338,45 +445,57 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
 }
 
 
-#' @title Optimizing NMF (Non-negative Matrix Factorization) with Kernel Covariate
-#' @description \code{nmfkc} The goal of the package is to perform NMF (Non-negative Matrix Factorization) with Kernel Covariate described by Y~XCA=XB
-#'  where observation matrix Y(P,N),
-#'  covariate matrix A(R,N),
-#'  basis matrix X(P,Q) and Q<=min(P,N),
-#'  parameter matrix C(Q,R)
-#'  and coefficient matrix B(Q,N).
-#'  Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
-#' @param Y observation matrix
-#' @param A covariate matrix. The default is NULL if without covariate.
-#' @param Q rank of basis matrix and Q<=min(P,N)
-#' @param gamma penalty parameter for parameter matrix C
-#' @param epsilon positive convergence tolerance
-#' @param maxit maximum number of iterations
-#' @param method The default objective function is Euclid distance "EU", otherwise Kullback–Leibler divergence "KL"
-#' @param X.restriction The default is X.restriction="colSums" and the column sum of basis matrix is 1, and it is interpreted as probability. The column of basis matrix is unit vector when X.restriction="colSqSums".
-#' @param nstart The default is one. It is the "nstart" option of "kmeans" function used for the initial values of basis matrix.
-#' @param seed integer used as argument in set.seed function
-#' @param prefix prefix label for column labels of basis matrix and row labels of coefficient matrix
-#' @param print.trace display current iteration every 10 times if print.trace=TRUE
-#' @param print.dims display dimensions of matrix sizes if print.dim=TRUE. The default is set by  print.dim=FALSE.
-#' @param save.time The default is TRUE. Some return values including CPCC and silhouette are skipped to save the computation time.
-#' @param save.memory The default is FALSE. If save.memory=TRUE, save.time=TRUE and only the minimum necessary calculations are performed to save memory.
-#' @return X: basis matrix. The column sum depends on X.restriction.
-#' @return B: coefficient matrix, B=CA
-#' @return XB: fitted values for observation matrix Y
-#' @return C: parameter matrix
-#' @return B.prob: probability matrix for soft clustering based on column vector of coefficient matrix B.
-#' @return B.cluster: the number of the basis that takes the maximum value of each column of B.prob for hard clustering
-#' @return X.prob: probability matrix for soft clustering based on row vector of basis matrix X.
-#' @return X.cluster: the number of the basis that takes the maximum value of each row of X.prob for hard clustering
-#' @return objfunc: last objective function
-#' @return objfunc.iter: objective function at each iteration
-#' @return r.squared: coefficient of determination R^2, squared correlation between Y and XB
-#' @return criterion: several criteria for selecting rank including ICp, CPCC, silhouette
+#' @title Optimize NMF with kernel covariates
+#' @description
+#' \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
+#' under the tri-factorization model \eqn{Y \approx X C A = X B}, where
+#' \eqn{Y(P,N)} is the observation matrix, \eqn{A(R,N)} is the covariate matrix,
+#' \eqn{X(P,Q)} is the basis matrix (\eqn{Q \le \min(P,N)}), \eqn{C(Q,R)} is the
+#' parameter matrix, and \eqn{B(Q,N)=C A} is the coefficient matrix.
+#' Given \eqn{Y} and (optionally) \eqn{A}, the algorithm estimates \eqn{X} and \eqn{C}.
+#'
+#' @param Y Observation matrix.
+#' @param A Covariate matrix. Default is \code{NULL} (no covariates).
+#' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
+#' @param gamma Nonnegative penalty parameter for the parameter matrix \eqn{C}.
+#' @param epsilon Positive convergence tolerance.
+#' @param maxit Maximum number of iterations.
+#' @param method Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
+#' @param X.restriction Constraint for columns of \eqn{X}:
+#'   \code{"colSums"} (default; each column sums to 1),
+#'   \code{"colSqSums"} (each column has unit \eqn{\ell_2} norm), or
+#'   \code{"totalSum"} (entries sum to 1).
+#' @param nstart Number of random starts for \code{\link[stats]{kmeans}} when initializing \eqn{X}.
+#' @param seed Integer seed passed to \code{\link[base]{set.seed}}.
+#' @param prefix Prefix for column names of \eqn{X} and row names of \eqn{B}.
+#' @param print.trace Logical. If \code{TRUE}, prints progress every 10 iterations.
+#' @param print.dims Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
+#' @param save.time Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.
+#' @param save.memory Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage.
+#'
+#' @return A list with components:
+#' \item{X}{Basis matrix. Column normalization depends on \code{X.restriction}.}
+#' \item{B}{Coefficient matrix \eqn{B = C A}.}
+#' \item{XB}{Fitted values for \eqn{Y}.}
+#' \item{C}{Parameter matrix.}
+#' \item{B.prob}{Soft-clustering probabilities derived from columns of \eqn{B}.}
+#' \item{B.cluster}{Hard-clustering labels (argmax over \eqn{B.prob} for each column).}
+#' \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
+#' \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
+#' \item{objfunc}{Final objective value.}
+#' \item{objfunc.iter}{Objective values by iteration.}
+#' \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+#' \item{criterion}{A list of selection criteria, including \code{ICp}, \code{CPCC}, \code{silhouette}, \code{AIC}, and \code{BIC}.}
 #' @export
-#' @source Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
-#' @references Ding, C., Li, T., Peng, W. and Park, H. (2006) Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering, Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining, 126-135. \url{https://doi.org/10.1145/1150402.1150420}
-#' @references Potthoff, R.F. and Roy, S.N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems. Biometrika, 51, 313-326. \url{https://doi.org/10.2307/2334137}
+#' @source Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
+#'   to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
+#'   \url{https://arxiv.org/abs/2403.05359}
+#' @references
+#' Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering.
+#'   In \emph{Proceedings of the 12th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining} (pp. 126–135).
+#'   \doi{10.1145/1150402.1150420}
+#' Potthoff, R. F., & Roy, S. N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems.
+#'   \emph{Biometrika}, 51, 313–326. \doi{10.2307/2334137}
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
@@ -629,23 +748,33 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
 }
 
 
-#' @title plot for return value of nmfkc function
-#' @description \code{plot.nmfkc} plot for return value of nmfkc function
-#' @param x return value of nmfkc function
-#' @param ... arguments to be passed to plot function.
+#' @title Plot method for objects of class \code{nmfkc}
+#' @description
+#' \code{plot.nmfkc} produces a diagnostic plot for the return value of
+#' \code{nmfkc}, showing the objective function across iterations.
+#'
+#' @param x An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
+#' @param ... Additional arguments passed to the base \code{\link{plot}} function.
 #' @export
 plot.nmfkc <- function(x,...){
   plot(x$objfunc.iter,xlab="iter",ylab="objfunc",main=paste0("r.squared=",round(x$r.squared,3)),...)
 }
 
 
-#' @title predict for return value of nmfkc function
-#' @description \code{predict.nmfkc} predict for return value of nmfkc function
-#' @param x return value of nmfkc function
-#' @param newA optionally, a new covariate matrix.
-#' @param type The default is "response" given by the product of matrices X and B.
-#'  If type is "prob", B.prob is used instead of B.
-#'  If type is "class", class to maximize columns in B.prob.
+#' @title Prediction method for objects of class \code{nmfkc}
+#' @description
+#' \code{predict.nmfkc} generates predictions from an object of class \code{nmfkc},
+#' either using the fitted covariates or a new covariate matrix.
+#'
+#' @param x An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
+#' @param newA Optional. A new covariate matrix to be used for prediction.
+#'   If \code{NULL} (default), the fitted covariates are used.
+#' @param type Type of prediction to return. Options are:
+#'   \itemize{
+#'     \item \code{"response"} (default): Returns the reconstructed matrix \eqn{X B}.
+#'     \item \code{"prob"}: Returns probabilities using \code{B.prob} instead of \code{B}.
+#'     \item \code{"class"}: Returns the class label corresponding to the maximum in each column of \code{B.prob}.
+#'   }
 #' @export
 predict.nmfkc <- function(x,newA=NULL,type="response"){
   z <- function(x){
@@ -682,9 +811,15 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
 }
 
 
-#' @title class matrix for categorical vector
-#' @description \code{predict.nmfkc} predict for return value of nmfkc function
-#' @param x categorical vector or vector of factor
+#' @title Create a class (one-hot) matrix from a categorical vector
+#' @description
+#' \code{nmfkc.class} converts a categorical or factor vector into a class matrix
+#' (one-hot encoded representation), where each row corresponds to a category
+#' and each column corresponds to an observation.
+#'
+#' @param x A categorical vector or a factor.
+#'
+#' @return A binary matrix with one row per unique category and one column per observation. Each column has exactly one entry equal to 1, indicating the category of the observation.
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -701,10 +836,17 @@ nmfkc.class <- function(x){
   result <- X
   return(result)}
 
-#' @title Normalizing to a value between 0 and 1 for matrix
-#' @description \code{nmfkc.normalize} Normalize x using the minimum and maximum values of each column of the reference matrix
-#' @param x matrix to be normalized
-#' @param ref matrix referencing minimum and maximum values.
+
+#' @title Normalize a matrix to the range \eqn{[0,1]}
+#' @description
+#' \code{nmfkc.normalize} rescales the values of a matrix to lie between 0 and 1
+#' using the column-wise minimum and maximum values of a reference matrix.
+#'
+#' @param x A numeric matrix (or vector) to be normalized.
+#' @param ref A reference matrix from which the column-wise minima and maxima are taken.
+#'   Default is \code{x}.
+#'
+#' @return A matrix of the same dimensions as \code{x}, with each column rescaled to the \eqn{[0,1]} range.
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -723,11 +865,17 @@ nmfkc.normalize <- function(x,ref=x){
   return(y)
 }
 
-#' @title Denormalize a matrix from between 0 and 1 back to original scale
-#' @description \code{nmfkc.denormalize} transforms a matrix normalized between 0 and 1 back to its original scale using the column-wise minimum and maximum values of a reference matrix.
-#' @param x Matrix to be denormalized (values between 0 and 1).
-#' @param ref Matrix used to obtain original scale (same dimensions or column-wise).
-#' @return Matrix with values transformed back to original scale.
+
+#' @title Denormalize a matrix from \eqn{[0,1]} back to its original scale
+#' @description
+#' \code{nmfkc.denormalize} rescales a matrix with values in \eqn{[0,1]} back to its
+#' original scale using the column-wise minima and maxima of a reference matrix.
+#'
+#' @param x A numeric matrix (or vector) with values in \eqn{[0,1]} to be denormalized.
+#' @param ref A reference matrix used to obtain the original column-wise minima
+#'   and maxima. Must have the same number of columns as \code{x}.
+#'
+#' @return A numeric matrix with values transformed back to the original scale.
 #' @export
 #' @examples
 #' x <- nmfkc.normalize(iris[, -5])
@@ -747,24 +895,31 @@ nmfkc.denormalize <- function(x, ref=x) {
 }
 
 
-#' @title Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate
-#' @description \code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y~XCA=XB
-#'  where observation matrix Y(P,N),
-#'  covariate matrix A(R,N),
-#'  basis matrix X(P,Q) and Q<=min(P,N),
-#'  parameter matrix C(Q,R)
-#'  and coefficient matrix B(Q,N).
-#'  Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
-#' @param Y observation matrix
-#' @param A covariate matrix. Without covariate, identity matrix is used.
-#' @param Q rank of basis matrix and Q<=min(P,N) where Y(P,N)
-#' @param div number of partition usually described as "k" of k-fold
-#'  which controls the reproducibility of the partition.
-#' @param seed integer used as argument in set.seed function
-#' @param ... arguments to be passed to nmfkc function.
-#' @return objfunc: last objective function
-#' @return objfunc.block: objective function at each block
-#' @return block: partition block index (1,...,div) assigned to each column of Y
+#' @title Perform k-fold cross-validation for NMF with kernel covariates
+#' @description
+#' \code{nmfkc.cv} performs k-fold cross-validation on the model
+#' \eqn{Y \approx X C A = X B}, where
+#' \itemize{
+#'   \item \eqn{Y(P,N)} is the observation matrix,
+#'   \item \eqn{A(R,N)} is the covariate matrix,
+#'   \item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
+#'   \item \eqn{C(Q,R)} is the parameter matrix, and
+#'   \item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
+#' }
+#' Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are estimated,
+#' and the predictive performance is assessed by cross-validation.
+#'
+#' @param Y Observation matrix.
+#' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
+#' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
+#' @param div Number of folds (\eqn{k}) for cross-validation (default: 5).
+#' @param seed Integer seed for reproducibility, passed to \code{\link{set.seed}}.
+#' @param ... Additional arguments passed to \code{\link{nmfkc}}.
+#'
+#' @return A list with components:
+#' \item{objfunc}{Total objective function value across all folds.}
+#' \item{objfunc.block}{Objective function values for each fold.}
+#' \item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -907,16 +1062,38 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 }
 
 
-#' @title Rank selection diagnostics using figure
-#' @description \code{nmfkc.rank} provides rank selection diagnostics. The method is still under development.
-#' @param Y observation matrix
-#' @param A covariate matrix. Without covariate, identity matrix is used.
-#' @param Q vector of ranks to be diagnosed.
-#' @param plot The default is plot=TRUE and draw a graph.
-#' @param ... arguments to be passed to nmfkc function.
+#' @title Rank selection diagnostics with graphical output
+#' @description
+#' \code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})
+#' in NMF with kernel covariates. Several model selection measures are computed
+#' (e.g., R-squared, information criteria, silhouette, CPCC, ARI), and results
+#' can be visualized in a plot. This function is still under development.
+#'
+#' @param Y Observation matrix.
+#' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
+#' @param Q A vector of candidate ranks to be evaluated.
+#' @param plot Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.
+#' @param ... Additional arguments passed to \code{\link{nmfkc}}.
+#'
+#' @return A data frame containing rank values (\code{Q}) and the corresponding diagnostic criteria:
+#' \itemize{
+#'   \item \code{r.squared}: Coefficient of determination (\eqn{R^2}).
+#'   \item \code{ICp}, \code{AIC}, \code{BIC}: Information criteria.
+#'   \item \code{B.prob.sd.min}: Minimum standard deviation of \code{B.prob}.
+#'   \item \code{ARI}: Adjusted Rand Index relative to the previous rank.
+#'   \item \code{silhouette}: Mean silhouette score (if computed).
+#'   \item \code{CPCC}: Cophenetic correlation coefficient (if computed).
+#' }
 #' @export
-#' @references Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004) Metagenes and molecular pattern discovery using matrix factorization. Proc. Natl. Acad. Sci. USA 2004, 101, 4164–4169. \url{https://doi.org/10.1073/pnas.0308531101}
-#' @references Punera, K. and Ghosh, J. (2008). CONSENSUS-BASED ENSEMBLES OF SOFT CLUSTERINGS. Applied Artificial Intelligence, 22(7–8), 780–810. \url{https://doi.org/10.1080/08839510802170546}
+#' @references
+#' Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004).
+#' Metagenes and molecular pattern discovery using matrix factorization.
+#' \emph{Proc. Natl. Acad. Sci. USA}, 101, 4164–4169.
+#' \doi{10.1073/pnas.0308531101}
+#' Punera, K., & Ghosh, J. (2008).
+#' Consensus-based ensembles of soft clusterings.
+#' \emph{Applied Artificial Intelligence}, 22(7–8), 780–810.
+#' \doi{10.1080/08839510802170546}
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")

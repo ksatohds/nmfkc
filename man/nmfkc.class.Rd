@@ -2,15 +2,20 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.class}
 \alias{nmfkc.class}
-\title{class matrix for categorical vector}
+\title{Create a class (one-hot) matrix from a categorical vector}
 \usage{
 nmfkc.class(x)
 }
 \arguments{
-\item{x}{categorical vector or vector of factor}
+\item{x}{A categorical vector or a factor.}
+}
+\value{
+A binary matrix with one row per unique category and one column per observation. Each column has exactly one entry equal to 1, indicating the category of the observation.
 }
 \description{
-\code{predict.nmfkc} predict for return value of nmfkc function
+\code{nmfkc.class} converts a categorical or factor vector into a class matrix
+(one-hot encoded representation), where each row corresponds to a category
+and each column corresponds to an observation.
 }
 \examples{
 # install.packages("remotes")

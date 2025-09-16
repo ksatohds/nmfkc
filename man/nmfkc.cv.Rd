@@ -2,39 +2,41 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.cv}
 \alias{nmfkc.cv}
-\title{Performing k-fold cross validation on NMF (Non-negative Matrix Factorization) with Kernel Covariate}
+\title{Perform k-fold cross-validation for NMF with kernel covariates}
 \usage{
 nmfkc.cv(Y, A = NULL, Q = 2, div = 5, seed = 123, ...)
 }
 \arguments{
-\item{Y}{observation matrix}
+\item{Y}{Observation matrix.}
 
-\item{A}{covariate matrix. Without covariate, identity matrix is used.}
+\item{A}{Covariate matrix. If \code{NULL}, the identity matrix is used.}
 
-\item{Q}{rank of basis matrix and Q<=min(P,N) where Y(P,N)}
+\item{Q}{Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.}
 
-\item{div}{number of partition usually described as "k" of k-fold
-which controls the reproducibility of the partition.}
+\item{div}{Number of folds (\eqn{k}) for cross-validation (default: 5).}
 
-\item{seed}{integer used as argument in set.seed function}
+\item{seed}{Integer seed for reproducibility, passed to \code{\link{set.seed}}.}
 
-\item{...}{arguments to be passed to nmfkc function.}
+\item{...}{Additional arguments passed to \code{\link{nmfkc}}.}
 }
 \value{
-objfunc: last objective function
-
-objfunc.block: objective function at each block
-
-block: partition block index (1,...,div) assigned to each column of Y
+A list with components:
+\item{objfunc}{Total objective function value across all folds.}
+\item{objfunc.block}{Objective function values for each fold.}
+\item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
 }
 \description{
-\code{nmfkc.cv} apply cross validation method for k-partitioned columns of Y~XCA=XB
-where observation matrix Y(P,N),
-covariate matrix A(R,N),
-basis matrix X(P,Q) and Q<=min(P,N),
-parameter matrix C(Q,R)
-and coefficient matrix B(Q,N).
-Note that Y(N,P) and A(R,N) are given, and X(P,Q) and C(Q,R) are unknown.
+\code{nmfkc.cv} performs k-fold cross-validation on the model
+\eqn{Y \approx X C A = X B}, where
+\itemize{
+\item \eqn{Y(P,N)} is the observation matrix,
+\item \eqn{A(R,N)} is the covariate matrix,
+\item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
+\item \eqn{C(Q,R)} is the parameter matrix, and
+\item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
+}
+Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are estimated,
+and the predictive performance is assessed by cross-validation.
 }
 \examples{
 # install.packages("remotes")

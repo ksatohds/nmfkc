@@ -2,20 +2,20 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.ar.stationarity}
 \alias{nmfkc.ar.stationarity}
-\title{Check Stationarity of NMF-VAR Model}
+\title{Check stationarity of an NMF-VAR model}
 \usage{
 nmfkc.ar.stationarity(x)
 }
 \arguments{
-\item{x}{return value of nmfkc function}
+\item{x}{The return value of \code{nmfkc} for a VAR model.}
 }
 \value{
-spectral.radius: numeric value representing the spectral radius of the companion matrix. A value less than 1 indicates stationarity.
-
-stationary: Logical value: \code{TRUE} if the spectral radius is less than 1 (i.e., the system is stationary), \code{FALSE} otherwise.
+A list with components:
+\item{spectral.radius}{Numeric. The spectral radius of the companion matrix. A value less than 1 indicates stationarity.}
+\item{stationary}{Logical. \code{TRUE} if the spectral radius is less than 1 (i.e., the system is stationary), \code{FALSE} otherwise.}
 }
 \description{
-\code{nmfkc.ar.stationarity} evaluates the dynamic stability of VAR model
-based on the spectral radius of the companion matrix. It returns the spectral radius
-and a logical value indicating whether the VAR structure is stationary.
+\code{nmfkc.ar.stationarity} assesses the dynamic stability of a VAR model
+by computing the spectral radius of its companion matrix.
+It returns both the spectral radius and a logical indicator of stationarity.
 }
