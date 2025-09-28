@@ -9,7 +9,7 @@ nmfkc.kernel.beta.cv(
   Q = 2,
   U,
   V = NULL,
-  beta = c(0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50),
+  beta = NULL,
   kernel = "Gaussian",
   degree = 2,
   div = 5,

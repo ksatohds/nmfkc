@@ -417,8 +417,14 @@ nmfkc.kernel.beta.nearest.med <- function(U, block_size=1000){
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,50),
+nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,
                                  kernel="Gaussian",degree=2,div=5,seed=123,plot=TRUE,...){
+  if(is.null(beta)){
+    if(is.null(V)) V <- U
+    result.beta <- nmfkc.kernel.beta.nearest.med(V)
+    beta.med <- result.beta$beta
+    beta <- beta.med*10^(-2:1)
+  }
   objfuncs <- 0*(1:length(beta))
   for(i in 1:length(beta)){
     start.time <- Sys.time()
@@ -437,7 +443,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=c(0.1,0.2,0.5,1,2,5,10,20,5
   if(plot){
     plot(beta,objfuncs,type="l",col=2,xlab="beta",ylab="objfunc",log="x")
     graphics::points(beta[i0],objfuncs[i0],cex=3,col=2)
-    graphics::text(beta,objfuncs,beta)
+    graphics::text(beta,objfuncs,format(beta,scientific=TRUE,digits=5))
   }
   names(objfuncs) <- beta
   result <- list(beta=beta.best,objfunc=objfuncs)
