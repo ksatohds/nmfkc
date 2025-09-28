@@ -17,6 +17,9 @@ If \eqn{N \le 1000}, it is automatically set to \eqn{N}.}
 \value{
 A list with components:
 \item{beta}{estimated kernel parameter \eqn{\beta=1/(2 d_{med}^2)}}
+\item{beta_candidates}{a vector of candidate values obtained by varying
+the scale parameter \eqn{\sigma=d_{med}} by factors of
+\eqn{2^{-2},\dots,2^2} and converting to \eqn{\beta=1/(2\sigma^2)}}
 \item{dist_median}{the median nearest-neighbor distance}
 \item{block_size_used}{actual block size used in computation}
 }
