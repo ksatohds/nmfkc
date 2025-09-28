@@ -384,7 +384,7 @@ nmfkc.kernel.beta.nearest.med <- function(U, block_size=1000){
   }
   d_med <- stats::median(sqrt(min_d2))
   beta  <- 1 / (2 * d_med^2)
-  beta_candidates <- 1 / (2 *(d_med*c(4,2,0,2,4))^2)
+  beta_candidates <- 1 / (2 *(d_med*2^c(2,1,0,-1,-2))^2)
   list(beta = beta, beta_candidates=beta_candidates, dist_median = d_med, block_size_used = block_size)
 }
 
