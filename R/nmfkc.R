@@ -427,8 +427,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,
   if(is.null(beta)){
     if(is.null(V)) V <- U
     result.beta <- nmfkc.kernel.beta.nearest.med(V)
-    beta.med <- result.beta$beta
-    beta <- beta.med*10^(-3:1)
+    beta <- result.beta$beta_candidates
   }
   objfuncs <- 0*(1:length(beta))
   for(i in 1:length(beta)){
