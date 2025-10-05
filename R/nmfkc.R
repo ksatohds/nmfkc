@@ -350,7 +350,7 @@ nmfkc.kernel <- function(U, V = NULL, beta=0.5,
 #' \item{beta}{estimated kernel parameter \eqn{\beta=1/(2 d_{med}^2)}}
 #' \item{beta_candidates}{a numeric vector of candidate values obtained by
 #'   multiplying the estimate \eqn{\beta} by powers of 10,
-#'   i.e.\ \eqn{\{\beta \cdot 10^{-3},\,\beta \cdot 10^{-2},\,\beta \cdot 10^{-1},\,\beta,\,\beta \cdot 10^{1}\}}}
+#'   i.e.\ \eqn{\{\beta \cdot 10^{-2},\,\beta \cdot 10^{-1},\,\beta,\,\beta \cdot 10^{1}\}}}
 #' \item{dist_median}{the median nearest-neighbor distance}
 #' \item{block_size_used}{actual block size used in computation}
 #' @details
@@ -383,7 +383,7 @@ nmfkc.kernel.beta.nearest.med <- function(U, block_size=1000){
   }
   d_med <- stats::median(sqrt(min_d2))
   beta  <- 1 / (2 * d_med^2)
-  beta_candidates <- beta*10^c(-3:1)
+  beta_candidates <- beta*10^c(-2:1)
   list(beta = beta, beta_candidates=beta_candidates, dist_median = d_med, block_size_used = block_size)
 }
 

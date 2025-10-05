@@ -19,7 +19,7 @@ A list with components:
 \item{beta}{estimated kernel parameter \eqn{\beta=1/(2 d_{med}^2)}}
 \item{beta_candidates}{a numeric vector of candidate values obtained by
 multiplying the estimate \eqn{\beta} by powers of 10,
-i.e.\ \eqn{\{\beta \cdot 10^{-3},\,\beta \cdot 10^{-2},\,\beta \cdot 10^{-1},\,\beta,\,\beta \cdot 10^{1}\}}}
+i.e.\ \eqn{\{\beta \cdot 10^{-2},\,\beta \cdot 10^{-1},\,\beta,\,\beta \cdot 10^{1}\}}}
 \item{dist_median}{the median nearest-neighbor distance}
 \item{block_size_used}{actual block size used in computation}
 }
