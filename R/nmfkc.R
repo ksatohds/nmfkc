@@ -1,7 +1,6 @@
 .onAttach <- function(...) {
   packageStartupMessage("Last update on 12 OCT 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
-  packageStartupMessage("https://sites.google.com/view/ksatoh/english")
 }
 
 #' @title Construct observation and covariate matrices for a vector autoregressive model
@@ -326,6 +325,7 @@ nmfkc.kernel <- function(U, V = NULL, beta=0.5,
               },
               Polynomial = (G + beta)^degree
   )
+  K[K < 0] <- 0
   if (min(K) < 0) {
     warning("The constructed matrix is not non-negative.")
   }
@@ -482,7 +482,14 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,
 #' @param print.dims Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
 #' @param save.time Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.
 #' @param save.memory Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage.
-#'
+#' @param fast.calc Logical.
+#' If \code{TRUE}, uses an optimized computation mode for large-scale matrices.
+#' Specifically, for the Euclidean (\code{"EU"}) method with covariates \code{A},
+#' precomputes \eqn{Y A^\top} and \eqn{A A^\top} to eliminate explicit dependence on the sample size \eqn{N}
+#' during each iteration.
+#' For the Kullback–Leibler (\code{"KL"}) method, automatically applies internal column blocking
+#' to avoid constructing large \eqn{P \times N} ratio matrices.
+#' If \code{FALSE} (default), runs the reference implementation with the original update rules.
 #' @return A list with components:
 #' \item{X}{Basis matrix. Column normalization depends on \code{X.restriction}.}
 #' \item{B}{Coefficient matrix \eqn{B = C A}.}
@@ -531,11 +538,11 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,
 
 nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                   X.restriction="colSums",nstart=1,seed=123,
-                  prefix="Basis",print.trace=FALSE,print.dims=TRUE,save.time=TRUE,save.memory=FALSE){
+                  prefix="Basis",print.trace=FALSE,print.dims=TRUE,save.time=TRUE,save.memory=FALSE,fast.calc=FALSE){
   z <- function(x){
     x[is.nan(x)] <- 0
     x[is.infinite(x)] <- 0
-    x[x < .Machine$double.eps] <- 0
+    x[x < 0] <- 0
     return(x)
   }
   mysilhouette <- function(B.prob,B.cluster){
@@ -633,45 +640,236 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       X <- t(t(X)/colSums(X^2)^0.5)
     }else if(X.restriction=="totalSum") X <- X/sum(X)
   }
+  # Initialize C
   if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
+  # -------- fast.calc precomputations (internal-only) --------
+  hasA <- !is.null(A)
+  # Auto block size for KL (aim ~32MB per block: ~4e6 doubles). Internal only.
+  if (fast.calc && method!="EU") {
+    P <- nrow(Y); N <- ncol(Y)
+    target_elems <- 4e6
+    bsz <- as.integer(max(2000L, min(8000L, floor(target_elems / max(1L,P)))))
+    bsz <- min(bsz, N)
+    if (print.trace) message(sprintf("KL block size (auto): %d", bsz))
+  } # } end if (fast.calc && method!="EU")
+  # EU with A: precompute Y%*%t(A) and A%*%t(A) to eliminate N in iterations
+  if (fast.calc && hasA && method=="EU") {
+    At  <- t(A)                     # (N x R)
+    YAt <- Y %*% At                 # (P x R)
+    AAt <- A %*% At                 # (R x R)
+    YY_frob2 <- sum(Y*Y)            # constant term for objective
+  } # } end if (fast.calc && hasA && method=="EU")
+  # ---------------- Main loop ----------------
+  epsilon.iter <- Inf  # initialize for post-loop warning safety
   objfunc.iter <- 0*(1:maxit)
-  for(i in 1:maxit){
-    if(is.null(A)) B <- C else B <- C %*% A
-    XB <- X %*% B
-    if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
-    if(method=="EU"){
-      if(!is.X.scalar){
-        X <- X*z((Y%*% t(B))/(XB%*%t(B)))
-        if(X.restriction=="colSums"){
-          X <- t(t(X)/colSums(X))
-        }else if(X.restriction=="colSqSums"){
-          X <- t(t(X)/colSums(X^2)^0.5)
-        }else if(X.restriction=="totalSum") X <- X/sum(X)
-      }
-      if(is.null(A)) C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C)) else
-        C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
-      objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
-    }else{
-      if(!is.X.scalar){
-        X <- X*z((Y/XB)%*%t(B))/(rep(1,nrow(Y))%o%rowSums(B))
-        if(X.restriction=="colSums"){
-          X <- t(t(X)/colSums(X))
-        }else if(X.restriction=="colSqSums"){
-          X <- t(t(X)/colSums(X^2)^0.5)
-        }else if(X.restriction=="totalSum") X <- X/sum(X)
-      }
-      if(is.null(A)) C <- C*z(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C)) else
-        C <- C*z(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
-      objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
-    }
-    if(i>=10){
+  for(i in 1:maxit){                                                           # <-- open: main iteration loop
+
+    if (fast.calc) {                                                           # <-- open: FAST path switch
+
+      if (method=="EU") {                                                      # <-- open: FAST EU branch
+
+        if (hasA) {                                                            # <-- open: FAST EU with A
+          # Compute XB without forming full B: XB = (X %*% C) %*% A
+          XC  <- X %*% C                  # (P x R)
+          XB  <- XC %*% A                 # (P x N)
+
+          # Optional progress
+          if (print.trace && i %% 10 == 0) message(format(Sys.time(), "%X")," ",i,"...")  # trace
+
+          if(!is.X.scalar){                                                    # <-- open: update X when non-scalar
+            # X update: X <- X * ((YAt %*% t(C)) / (X %*% (C AAt C^T)))
+            numX <- YAt %*% t(C)                       # (P x Q)
+            G    <- C %*% AAt %*% t(C)                 # (Q x Q)
+            denX <- X %*% G                            # (P x Q)
+            denX <- pmax(denX, 1e-12)                  # protect division
+            X    <- X * (numX / denX); X[X<0] <- 0     # multiplicative update + clamp
+            # Re-normalize columns of X
+            if(X.restriction=="colSums"){
+              X <- sweep(X, 2, colSums(X), "/")
+            }else if(X.restriction=="colSqSums"){
+              X <- sweep(X, 2, sqrt(colSums(X^2)), "/")
+            }else if(X.restriction=="totalSum"){
+              X <- X/sum(X)
+            } # } end if X.restriction (FAST EU with A)
+          } # } end if (!is.X.scalar) (FAST EU with A)
+
+          # C update (multiplicative): C <- C * (numC / denC)
+          XtX  <- crossprod(X)                            # (Q x Q)
+          numC <- crossprod(X, YAt)                       # (Q x R)
+          denC <- (XtX %*% C) %*% AAt                     # (Q x R)
+          if (gamma!=0) denC <- denC + gamma*C            # L2 regularization on C
+          denC <- pmax(denC, 1e-12)                       # protect division by zero
+          C    <- C * (numC / denC); C[C<0] <- 0          # multiplicative update + clamp negatives
+
+          # EU objective without touching large N:
+          # ||Y||_F^2 - 2*tr(Y^T X C A) + ||X C A||_F^2 + gamma||C||_F^2
+          XC     <- X %*% C
+          CtXtXC <- crossprod(C, XtX %*% C)               # (R x R)
+          objfunc.iter[i] <- YY_frob2 - 2*sum(YAt * XC) + sum(AAt * CtXtXC) + gamma*sum(C^2)
+
+        } else {                                                              # <-- else: FAST EU without A
+          B  <- C
+          XB <- X %*% B
+          if (print.trace && i %% 10 == 0) message(format(Sys.time(), "%X")," ",i,"...")  # trace
+          if(!is.X.scalar){                                                    # <-- open: update X when non-scalar
+            # Use tcrossprod(B) for efficiency (avoids explicit t(B)%*%B)
+            GB   <- tcrossprod(B)                         # (Q x Q)
+            numX <- Y %*% t(B)                            # (P x Q)
+            denX <- X %*% GB                              # (P x Q)
+            denX <- pmax(denX, 1e-12)                     # protect division by zero
+            X    <- X * (numX/denX); X[X<0] <- 0          # multiplicative update + clamp negatives
+            # Column normalization of X
+            if(X.restriction=="colSums"){
+              X <- sweep(X, 2, colSums(X), "/")
+            }else if(X.restriction=="colSqSums"){
+              X <- sweep(X, 2, sqrt(colSums(X^2)), "/")
+            }else if(X.restriction=="totalSum"){
+              X <- X/sum(X)
+            } # } end if X.restriction (FAST EU w/o A)
+          } # } end if (!is.X.scalar) (FAST EU w/o A)
+          # C update
+          XtX  <- crossprod(X)
+          numC <- crossprod(X, Y)
+          denC <- XtX %*% XB
+          if (gamma!=0) denC <- denC + gamma*C            # L2 regularization on C
+          denC <- pmax(denC, 1e-12)                       # protect division by zero
+          C    <- C * (numC / denC); C[C<0] <- 0
+          objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
+        } # } end if (hasA) else (FAST EU)
+      }else{                                                                  # <-- else: FAST KL branch
+        if (hasA) {                                                           # <-- open: FAST KL with A
+          # Blocked accumulation to avoid building R=Y/XB as a huge matrix
+          XC <- X %*% C                    # (P x R)
+          numX <- matrix(0, nrow=nrow(Y), ncol=ncol(X))         # (P x Q) accumulator for X update
+          numC_XR <- matrix(0, nrow=ncol(X), ncol=nrow(A))      # (Q x R) accumulator for C update
+          for (j in seq(1L, ncol(Y), by=bsz)) {                               # <-- open: KL block loop
+            idx   <- j:min(j+bsz-1L, ncol(Y))
+            Ablk  <- A[, idx, drop=FALSE]          # (R x b)
+            Bblk  <- C %*% Ablk                    # (Q x b)
+            XBblk <- XC %*% Ablk                   # (P x b)
+            Yblk  <- Y[, idx, drop=FALSE]          # (P x b)
+            XBblk <- pmax(XBblk, 1e-12)            # protect division by zero
+            Rblk  <- Yblk / XBblk                  # local ratio block
+            Rblk[!is.finite(Rblk)] <- 0            # clean up Inf/NaN in block
+            # Accumulate numerators for X and C updates
+            numX     <- numX + Rblk %*% t(Bblk)              # (P x Q)
+            numC_XR  <- numC_XR + crossprod(X, Rblk) %*% t(Ablk)  # (Q x R)
+          } # } end for blocks (FAST KL with A)
+          # Denominator for X update: rowSums(B) accumulated by blocks
+          rsB <- rep(0, ncol(X))    # (Q)
+          for (j in seq(1L, ncol(Y), by=bsz)) {                               # <-- open: accumulate rowSums(B)
+            idx  <- j:min(j+bsz-1L, ncol(Y))
+            Ablk <- A[, idx, drop=FALSE]
+            rsB  <- rsB + rowSums(C %*% Ablk)
+          } # } end for blocks (rowSums(B))
+          # X multiplicative update with blocking results
+          X <- sweep(X * pmax(0, numX), 2, pmax(rsB, 1e-12), "/"); X[X<0] <- 0
+          # Column normalization of X
+          if(X.restriction=="colSums"){
+            X <- sweep(X, 2, colSums(X), "/")
+          }else if(X.restriction=="colSqSums"){
+            X <- sweep(X, 2, sqrt(colSums(X^2)), "/")
+          }else if(X.restriction=="totalSum"){
+            X <- X/sum(X)
+          } # } end if X.restriction (FAST KL with A)
+          # C multiplicative update (blocked numerator, small-matrix denominator)
+          cX   <- colSums(X)                           # (Q)
+          denC <- outer(cX, rowSums(A))                # (Q x R)
+          if (gamma!=0) denC <- denC + 2*gamma*C       # L2 regularization on C in KL (factor 2)
+          denC <- pmax(denC, 1e-12)
+          C    <- C * (numC_XR / denC); C[C<0] <- 0
+          # KL objective (full evaluation; log protected)
+          B  <- C %*% A
+          XB <- X %*% B
+          objfunc.iter[i] <- sum(-Y*pmax(log(pmax(XB,1e-12)),0) + XB) + gamma*sum(C^2)
+        } else {                                                              # <-- else: FAST KL without A
+          B  <- C
+          XB <- pmax(X %*% B, 1e-12)
+
+          if (print.trace && i %% 10 == 0) message(format(Sys.time(), "%X")," ",i,"...")  # trace
+
+          if(!is.X.scalar){                                                    # <-- open: update X when non-scalar
+            R    <- Y / XB; R[!is.finite(R)] <- 0
+            numX <- R %*% t(B)
+            rsB  <- rowSums(B)
+            X    <- sweep(X * numX, 2, pmax(rsB,1e-12), "/"); X[X<0] <- 0
+
+            if(X.restriction=="colSums"){
+              X <- sweep(X, 2, colSums(X), "/")
+            }else if(X.restriction=="colSqSums"){
+              X <- sweep(X, 2, sqrt(colSums(X^2)), "/")
+            }else if(X.restriction=="totalSum"){
+              X <- X/sum(X)
+            } # } end if X.restriction (FAST KL w/o A)
+          } # } end if (!is.X.scalar) (FAST KL w/o A)
+
+          R    <- Y / XB; R[!is.finite(R)] <- 0
+          numC <- crossprod(X, R)
+          denC <- matrix(colSums(X), nrow=nrow(C), ncol=ncol(C))
+          if (gamma!=0) denC <- denC + 2*gamma*C
+          denC <- pmax(denC, 1e-12)
+          C    <- C * (numC / denC); C[C<0] <- 0
+
+          objfunc.iter[i] <- sum(-Y*pmax(log(XB),0)+XB) + gamma*sum(C^2)
+        } # } end if (hasA) else (FAST KL)
+      } # } end if (method=="EU") else (FAST KL)
+
+    }else{                                                                       # <-- else: REFERENCE path
+
+      # --- Original (reference) implementation below (kept for compatibility) ---
+
+      if(is.null(A)) B <- C else B <- C %*% A
+      XB <- X %*% B
+      if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
+
+      if(method=="EU"){                                                          # <-- open: REF EU
+        if(!is.X.scalar){                                                        # <-- open: REF EU update X
+          X <- X*z((Y%*% t(B))/(XB%*%t(B)))
+          if(X.restriction=="colSums"){
+            X <- t(t(X)/colSums(X))
+          }else if(X.restriction=="colSqSums"){
+            X <- t(t(X)/colSums(X^2)^0.5)
+          }else if(X.restriction=="totalSum") X <- X/sum(X)
+        } # } end if (!is.X.scalar) (REF EU)
+
+        if(is.null(A)) {
+          C <- C*z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+        } else {
+          C <- C*z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
+        } # } end if (is.null(A)) else (REF EU C-update)
+
+        objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
+
+      }else{                                                                     # <-- else: REF KL
+        if(!is.X.scalar){                                                        # <-- open: REF KL update X
+          X <- X*z((Y/XB)%*%t(B))/(rep(1,nrow(Y))%o%rowSums(B))
+          if(X.restriction=="colSums"){
+            X <- t(t(X)/colSums(X))
+          }else if(X.restriction=="colSqSums"){
+            X <- t(t(X)/colSums(X^2)^0.5)
+          }else if(X.restriction=="totalSum") X <- X/sum(X)
+        } # } end if (!is.X.scalar) (REF KL)
+
+        if(is.null(A)) {
+          C <- C*z(t(X)%*%z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C))
+        } else {
+          C <- C*z(t(X)%*%z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
+        } # } end if (is.null(A)) else (REF KL C-update)
+
+        objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
+      } # } end if (method=="EU") else (REF)
+    } # } end if (fast.calc) else (REFERENCE)
+
+    # Convergence check (shared)
+    if(i>=10){                                                                   # <-- open: convergence guard
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
-      if(epsilon.iter <= abs(epsilon)){
+      if(epsilon.iter <= abs(epsilon)){                                          # <-- open: converged?
         objfunc.iter <- objfunc.iter[10:i]
         break
-      }
-    }
-  }
+      } # } end if (converged)
+    } # } end if (i >= 10)
+  } # } end for (main iteration loop)
+
   if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
   if(method=="EU"){
@@ -791,7 +989,7 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
   z <- function(x){
     x[is.nan(x)] <- 0
     x[is.infinite(x)] <- 0
-    x[x < .Machine$double.eps] <- 0
+    x[x < 0] <- 0
     return(x)
   }
   if(is.null(newA)){
@@ -976,6 +1174,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   prefix <- ifelse("prefix" %in% names(arglist),arglist$prefix,"Basis")
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
+  fast.calc <- ifelse("fast.calc" %in% names(arglist),arglist$fast.calc,FALSE)
   save.time <- TRUE
   save.memory <- TRUE
   if(is.null(A)) A <- diag(ncol(Y))
@@ -996,7 +1195,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   z <- function(x){
     x[is.nan(x)] <- 0
     x[is.infinite(x)] <- 0
-    x[x < .Machine$double.eps] <- 0
+    x[x < 0] <- 0
     return(x)
   }
   optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
@@ -1052,7 +1251,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time,save.memory)
+    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time,save.memory,fast.calc)
     if(is.identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -1142,6 +1341,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
   print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
   save.time <- ifelse("save.time" %in% names(arglist),arglist$save.time,TRUE)
+  fast.calc <- ifelse("fast.calc" %in% names(arglist),arglist$fast.calc,FALSE)
   save.memory <- FALSE
   r.squared <- 0*Q; names(r.squared) <- Q
   ICp <- 0*Q; names(ICp) <- Q
@@ -1153,11 +1353,11 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
   ARI <- 0*Q; names(ARI) <- Q
   for(q in 1:length(Q)){
     if(save.time){
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=T,save.memory)
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=T,save.memory,fast.calc)
       CPCC[q] <- NA
       silhouette[q] <- NA
     }else{
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=F,save.memory)
+      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=F,save.memory,fast.calc)
       CPCC[q] <- result$criterion$CPCC
       silhouette[q] <- result$criterion$silhouette$silhouette.mean
     }
