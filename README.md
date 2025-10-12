@@ -95,6 +95,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
  8.  Autoregression: AirPassengers
  9.  Vector Autoregression: Canada
 10.  Classification: Iris 
+11.  Classification: penguins
 
 ## 0.  Simple matrix operations
 
@@ -726,8 +727,6 @@ for(p in 1:nrow(Y)){
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
-# install.packages("NipponMap")
-# install.packages("zoo")
 library(nmfkc)
 
 label <- iris$Species
@@ -753,6 +752,43 @@ fitted.label <- predict(res,type="class")
 (f <- table(fitted.label,label))
 100*sum(diag(f))/sum(f)
 ```
+
+
+## 11: Classification: penguins
+``` r
+# install.packages("remotes")
+# remotes::install_github("ksatohds/nmfkc")
+library(nmfkc)
+
+library(palmerpenguins)
+d <- penguins
+index <- complete.cases(d)
+d <- d[index,]
+label <- d$species
+table(label)
+Y <- nmfkc.class(label)
+U <- t(nmfkc.normalize(d[,3:6]))
+dim(U)
+range(U)
+
+Q <- length(unique(label))
+res.beta <- nmfkc.kernel.beta.nearest.med(U)
+beta.med <- res.beta$dist_median
+betas <- beta.med*10^(-2:1)
+
+res.cv <- nmfkc.kernel.beta.cv(Y,Q,U)
+best.beta <- res.cv$beta
+A <- nmfkc.kernel(U,beta=best.beta)
+res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Class")
+res$r.squared
+res$X
+
+fitted.label <- predict(res,type="class")
+(f <- table(fitted.label,label))
+100*sum(diag(f))/sum(f)
+```
+
+
 
 # Author
 
