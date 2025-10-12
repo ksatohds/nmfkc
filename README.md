@@ -26,7 +26,8 @@ citation("nmfkc")
 | Feature               | Standard NMF | nmfkc           |
 |-----------------------|--------------|------------------|
 | Handles covariates    | No           | Yes              |
-| Time series modeling  | No           | Yes (AR model)   |
+| Classification        | No           | Yes (NMF-LAB)    |
+| Time series modeling  | No           | Yes (NMF-VAR)    |
 | Nonlinearity          | No           | Yes (kernel)     |
 | Clustering support    | Limited      | Yes              |
 | Cross-validation      | No           | Yes              |
@@ -93,8 +94,7 @@ The goal of **nmfkc** is to optimize $X(P,Q)$ and $C(Q,R)$ on the Non-negative M
  7.  Binary repeated measures: Table 6, Koch et al.(1977)
  8.  Autoregression: AirPassengers
  9.  Vector Autoregression: Canada
-10.  Vector Autoregression: COVID-19 in Japan 
-11.  Image data: the MNIST database of handwritten digits
+10.  Classification: Iris 
 
 ## 0.  Simple matrix operations
 
@@ -722,7 +722,7 @@ for(p in 1:nrow(Y)){
 }
 ```
 
-## 10:  Vector Autoregression: COVID-19 in Japan
+## 10: Classification: Iris
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
@@ -730,109 +730,28 @@ for(p in 1:nrow(Y)){
 # install.packages("zoo")
 library(nmfkc)
 
-d <- read.csv(
-  "https://www3.nhk.or.jp/n-data/opendata/coronavirus/nhk_news_covid19_prefectures_daily_data.csv")
-colnames(d) <- c(
-  "Date","Prefecture_code","Prefecture_name",
-  "Number_of_infected","Cumulative_Number_of_infected",
-  "Number_of_deaths","Cumulative_Number_of_deaths",
-  "Number_of_infected_100000_population_in_the_last_week")
-PN <- c("Hokkaido","Aomori","Iwate","Miyagi","Akita","Yamagata","Fukushima","Ibaraki","Tochigi","Gunma",
-        "Saitama","Chiba","Tokyo","Kanagawa","Niigata","Toyama","Ishikawa","Fukui","Yamanashi","Nagano",
-        "Gifu","Shizuoka","Aichi","Mie","Shiga","Kyoto","Osaka","Hyogo","Nara","Wakayama","Tottori","Shimane",
-        "Okayama","Hiroshima","Yamaguchi","Tokushima","Kagawa","Ehime","Kochi","Fukuoka","Saga","Nagasaki",
-        "Kumamoto","Oita","Miyazaki","Kagoshima","Okinawa")
-n <- length(unique(d$Prefecture_code)) # 47
-dn <- matrix(d$Number_of_infected,ncol=n)
-time <- time(ts(1:nrow(dn),start=c(2020,1,16),frequency=365))
-rownames(dn) <- round(time,3)
-colnames(dn) <- PN
-f <- rowSums(dn); names(f) <- unique(d$Date)
-#round(f[1:30],5)
+label <- iris$Species
+table(label)
+Y <- nmfkc.class(label)
+U <- t(nmfkc.normalize(iris[,-5]))
+dim(U)
+range(U)
 
-library(zoo)
-mymv <- function(x){
-  rollmean(x,k = 7, fill=NA, align = "center")
-}
-dmv <- apply(dn[-c(1:28),],2,mymv)
-index <- complete.cases(dmv)
-dmv <- dmv[index,]
-Y0 <- t(log(1+dmv)) # [29] 2020/2/13~
-library(zoo)
-mymv <- function(x){
-  rollmean(x,k = 7, fill=NA, align="center")
-}
-dmv <- apply(dn[-c(1:28),],2,mymv)
-index <- complete.cases(dmv)
-dmv <- dmv[index,]
-Y0 <- t(log(1+dmv))
-Q <- 4
-best.degree <- 7
-a <- nmfkc.ar(Y0,degree=best.degree,intercept=T)
-A <- a$A; Y <- a$Y
-res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Region",epsilon=1e-5)
+Q <- length(unique(label))
+res.beta <- nmfkc.kernel.beta.nearest.med(U)
+beta.med <- res.beta$dist_median
+betas <- beta.med*10^(-2:1)
+
+res.cv <- nmfkc.kernel.beta.cv(Y,Q,U)
+best.beta <- res.cv$beta
+A <- nmfkc.kernel(U,beta=best.beta)
+res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Class")
 res$r.squared
+res$X
 
-# spectral radius of the companion matrix 
-nmfkc.ar.stationarity(res)
-
-# soft clustering based on X
-index <- c(3,1,2,4)
-library(NipponMap)
-jmap <- JapanPrefMap(col="white",axes=TRUE)
-stars(x=res$X.prob[,index],scale=F,
-      locations=jmap,key.loc =c(145,34),
-      draw.segments=T,len=0.7,labels=NULL,
-      col.segments=c(1:Q)+1,add=T)
-
-# Soft clustering of time trend
-index <- c(3,1,2,4)
-barplot(res$B.prob[index,],col=1:Q+1,border=1:Q+1)
-legend("topright",legend=colnames(res$X)[index],fill=1:Q+1,bg="white")
-```
-
-
-## 11.  Image data: the MNIST database of handwritten digits
-
-- http://yann.lecun.com/exdb/mnist/
-
-``` r
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
-# install.packages("dslabs")
-
-myimage <- function(x){f <- matrix(as.matrix(x),28,28,byrow=T)
-  image(t(f)[,28:1],col=gray.colors(255,rev=T))}
-
-library(dslabs)
-d <- read_mnist()
-str(d)
-label <- d$train$labels[1:1000]
-Y <- t(d$train$images[1:1000,])
-
-# observation
-par(mfrow=c(5,5),mar=c(2,2,1,1))
-for(n in 1:25) myimage(Y[,n])
-
-#------------------
-# with covariates
-#------------------
-A <- matrix(0,nrow=length(unique(label)),ncol=ncol(Y))
-for(n in 1:ncol(Y)) A[label[n]+1,n] <- 1
-
-# nmf with covariates
-Q <- 10
-library(nmfkc)
-result <- nmfkc(Y=Y,Q=Q,A=A,epsilon=1e-6)
-plot(result)
-
-# fitted values
-par(mfrow=c(4,3),mar=c(2,2,1,1))
-for(j in 0:9) myimage(result$XB[,which(label==j)[1]])
-
-# basis function of which sum is 1
-par(mfrow=c(4,3),mar=c(2,2,1,1))
-for(q in 1:Q) myimage(result$X[,q])
+fitted.label <- predict(res,type="class")
+(f <- table(fitted.label,label))
+100*sum(diag(f))/sum(f)
 ```
 
 # Author
