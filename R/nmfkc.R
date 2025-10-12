@@ -1,6 +1,7 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 5 SEP 2025")
+  packageStartupMessage("Last update on 12 OCT 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
+  packageStartupMessage("https://sites.google.com/view/ksatoh/english")
 }
 
 #' @title Construct observation and covariate matrices for a vector autoregressive model
@@ -534,6 +535,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   z <- function(x){
     x[is.nan(x)] <- 0
     x[is.infinite(x)] <- 0
+    x[x < .Machine$double.eps] <- 0
     return(x)
   }
   mysilhouette <- function(B.prob,B.cluster){
@@ -789,6 +791,7 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
   z <- function(x){
     x[is.nan(x)] <- 0
     x[is.infinite(x)] <- 0
+    x[x < .Machine$double.eps] <- 0
     return(x)
   }
   if(is.null(newA)){
@@ -993,6 +996,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   z <- function(x){
     x[is.nan(x)] <- 0
     x[is.infinite(x)] <- 0
+    x[x < .Machine$double.eps] <- 0
     return(x)
   }
   optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){

@@ -1,13 +1,18 @@
 Package: nmfkc
 Type: Package
 Title: The Package is to Optimize Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.4.9
-Author: Kenichi Satoh
+Version: 0.5.0
+Authors@R: 
+    person("Kenichi", "Satoh", 
+           email = "kenichi-satoh@biwako.shiga-u.ac.jp", 
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-4436-9347"))
 Maintainer: Kenichi Satoh <kenichi-satoh@biwako.shiga-u.ac.jp>
-Description: The goal of the package is to perform Non-negative Matrix Factorization
- with Kernel Covariates. It optimizes basis matrix and parameter matrix
- where observation matrix and kernel covariates are given.
- In particular, if the kernel matrix is a unit matrix, it can be used as an ordinary Non-negative Matrix Factorization.
+Description: This package performs Non-negative Matrix Factorization (NMF) 
+    with Kernel Covariates. Given an observation matrix and kernel 
+    covariates, it optimizes both a basis matrix and a parameter matrix. 
+    Notably, if the kernel matrix is an identity matrix, the method 
+    simplifies to standard NMF.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-US
