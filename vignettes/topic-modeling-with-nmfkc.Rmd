@@ -1,0 +1,94 @@
+---
+title: "Topic Modeling with nmfkc"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Topic Modeling with nmfkc}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+Non-negative Matrix Factorization (NMF) is a popular technique for topic modeling in text analysis. This vignette demonstrates how to use the `nmfkc` package to discover topics from a collection of documents, using the U.S. presidential inaugural address texts from the `quanteda` package.
+
+First, let's load the necessary packages.
+
+```{r load-packages}
+library(nmfkc)
+library(quanteda)
+```
+
+## 1. Data Preparation: Document-Word Matrix
+
+The first step in topic modeling is to convert the text documents into a numerical matrix. We will create a document-feature matrix (DFM), where rows are documents and columns are words (features), and the values are the word counts.
+
+We use the `quanteda` package for this preprocessing.
+
+```{r data-prep}
+# Load the corpus of inaugural addresses
+corp <- corpus(data_corpus_inaugural)
+
+# Preprocessing: tokenize, remove stopwords, and select words with min 3 characters
+tok <- tokens(corp)
+tok <- tokens_remove(tok, pattern = stopwords("en", source = "snowball"))
+df <- dfm(tok)
+df <- dfm_select(df, min_nchar = 3)
+
+# Trim the DFM to include only words that appear at least 100 times
+df <- dfm_trim(df, min_termfreq = 100)
+d <- as.matrix(df)
+
+# For NMF, we need a word-document matrix, so we transpose the DFM
+Y <- t(d)
+```
+
+## 2. Fitting the NMF Topic Model
+
+Now we apply the `nmfkc()` function to our word-document matrix `Y`. The rank `Q` corresponds to the number of topics we want to discover. Let's find 3 topics.
+
+```{r model-fit}
+Q <- 3
+result <- nmfkc(Y, Q = Q, prefix = "Topic")
+
+# Check the coefficient of determination
+result$r.squared
+```
+
+## 3. Interpreting the Results
+
+The NMF model gives us two key matrices for interpretation: the basis matrix `X` (word-topic distribution) and the coefficient matrix `B` (topic-document distribution).
+
+### Topic Proportions over Time
+
+The `B.prob` matrix shows the proportion of each topic within each document (inaugural address). We can visualize this as a bar plot to see how topic prevalence has changed over time.
+
+```{r plot-topic-prob, fig.width=8, fig.height=5}
+# Soft clustering of documents (time)
+par(mar = c(10, 4, 4, 2) + 0.1) # Adjust margins for long labels
+barplot(result$B.prob, col = 1:Q + 1, legend = TRUE, las = 3,
+        ylab = "Topic Probabilities", main = "Topic Proportions in Inaugural Addresses")
+```
+
+### Word Composition of Topics
+
+The basis matrix `X` tells us which words are most important for each topic. We can visualize this to understand the theme of each topic.
+
+```{r plot-basis, fig.width=7, fig.height=6}
+# Basis vectors (word contributions to topics)
+par(mfrow = c(Q, 1), mar = c(8, 4, 1, 1), cex = 0.7)
+for (q in 1:Q) {
+  # Get the top 15 words for the topic for better visualization
+  top_words <- sort(result$X[, q], decreasing = TRUE)[1:15]
+  barplot(top_words, col = q + 1, border = q + 1, las = 3,
+          ylab = paste0("Topic ", q))
+}
+```
+
+This visualization helps us interpret what each discovered "topic" is about based on its most prominent words.

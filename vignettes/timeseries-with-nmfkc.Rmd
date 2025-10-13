@@ -1,0 +1,114 @@
+---
+title: "Time Series Analysis with NMF-VAR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Time Series Analysis with NMF-VAR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+This vignette demonstrates how to apply the `nmfkc` package to time series data using the NMF-VAR (Non-negative Matrix Factorization - Vector Autoregression) framework. This approach models the coefficient matrix of NMF as a VAR process, allowing for both dimensionality reduction and temporal modeling. We will cover both a univariate example (`AirPassengers`) and a multivariate example (`Canada`).
+
+First, let's load the necessary packages.
+
+```{r load-packages}
+library(nmfkc)
+library(vars)
+```
+
+## Example 1: Univariate Autoregression with AirPassengers
+
+The `AirPassengers` dataset contains monthly international airline passenger numbers. We will model this univariate time series using an autoregressive (AR) model within the NMF framework.
+
+### 1. Data Preparation
+
+We first log-transform the data. **Crucially, we also create a time vector and assign it as the column names of our initial matrix.** This is used later for plotting. The `nmfkc.ar()` function then creates the observation matrix `Y` and the covariate matrix `A` (which contains lagged values).
+
+```{r air-data-prep}
+d_air <- AirPassengers
+
+# Create a time vector for the x-axis
+time_air <- time(ts(1:length(d_air), start = c(1949, 1), frequency = 12))
+time_vec_air <- round(as.vector(t(time_air)), 2)
+
+# Create the initial data matrix with column names
+Y0_air <- log10(matrix(as.vector(d_air), nrow = 1))
+colnames(Y0_air) <- time_vec_air
+rownames(Y0_air) <- "Passengers"
+
+# Create matrices for the AR(12) model
+a_air <- nmfkc.ar(Y0_air, degree = 12, intercept = TRUE)
+Y_air <- a_air$Y
+A_air <- a_air$A
+```
+
+### 2. Model Fitting and Evaluation
+
+Since this is a univariate series, we set the rank `Q=1`. We then fit the model using `nmfkc()`.
+
+```{r air-model-fit, fig.width=7, fig.height=4}
+# Fit the NMF-AR model
+res_air <- nmfkc(Y = Y_air, A = A_air, Q = 1, epsilon = 1e-9)
+
+# Check the model's R-squared
+res_air$r.squared
+
+# Check for stationarity (spectral radius < 1)
+nmfkc.ar.stationarity(res_air)
+
+# Plot the observed vs. fitted values
+plot(as.numeric(colnames(Y_air)), 10^(as.vector(Y_air)), type = "l", col = "gray",
+     xlab = "Year", ylab = "Air Passengers", main = "AirPassengers: Observed vs. Fitted")
+lines(as.numeric(colnames(Y_air)), 10^(as.vector(res_air$XB)), col = 2, lwd = 2)
+legend("topleft", legend = c("Observed", "Fitted"), col = c("gray", "red"), lty = 1, lwd = 2)
+```
+
+## Example 2: Vector Autoregression with Canada Dataset
+
+The `Canada` dataset contains four quarterly macroeconomic variables for the Canadian economy. We'll use a VAR(1) model to capture the dynamics between these variables.
+
+### 1. Data Preparation
+
+We first-difference the series to achieve stationarity and then normalize the data. The `nmfkc.ar()` function is used to prepare the data for a VAR model with a lag of `D=1`.
+
+```{r canada-data-prep}
+# Load, difference, and normalize the data
+d0_canada <- Canada
+dd_canada <- apply(d0_canada, 2, diff)
+dn_canada <- nmfkc.normalize(dd_canada)
+Y0_canada <- t(dn_canada)
+
+# Create matrices for the VAR(1) model
+a_canada <- nmfkc.ar(Y0_canada, degree = 1, intercept = TRUE)
+Y_canada <- a_canada$Y
+A_canada <- a_canada$A
+```
+
+### 2. Model Fitting and Evaluation
+
+We fit a model with a rank of `Q=2` to find two latent economic "conditions".
+
+```{r canada-model-fit, fig.width=7, fig.height=4}
+# Fit the NMF-VAR model
+res_canada <- nmfkc(Y = Y_canada, A = A_canada, Q = 2, prefix = "Condition", epsilon = 1e-6)
+
+# Check R-squared and stationarity
+res_canada$r.squared
+nmfkc.ar.stationarity(res_canada)
+
+# Visualize the soft clustering of time trends
+barplot(res_canada$B.prob, col = 1:2 + 1, border = 1:2 + 1,
+        main = "Soft Clustering of Economic Conditions",
+        xlab = "Time (Quarters since 1980)")
+legend("topright", legend = colnames(res_canada$X), fill = 1:2 + 1, bg = "white")
+```
+This plot shows how the Canadian economy transitions between the two latent conditions over time, as captured by the NMF-VAR model.

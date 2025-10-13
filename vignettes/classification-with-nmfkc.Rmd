@@ -1,0 +1,122 @@
+---
+title: "Classification with NMF-LAB"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Classification with NMF-LAB}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+This vignette demonstrates how to use the `nmfkc` package for multi-class classification tasks. [cite_start]The approach, termed NMF-LAB, formulates classification as an inverse problem of Non-negative Matrix Factorization (NMF)[cite: 390]. We will walk through two examples using the well-known `iris` and `palmerpenguins` datasets.
+
+First, let's load the required packages.
+
+```{r load-packages}
+library(nmfkc)
+library(palmerpenguins)
+```
+
+## Example 1: The Iris Dataset
+
+The iris dataset contains measurements for 3 species of iris flowers. Our goal is to classify the species based on these measurements.
+
+### 1. Data Preparation
+
+We start by preparing the data. The response matrix `Y` is created by converting the species labels into a one-hot encoded matrix using `nmfkc.class()`. The feature matrix `U` is created by normalizing the measurement columns to a [0, 1] range.
+
+```{r iris-data-prep}
+# Get the labels
+label_iris <- iris$Species
+table(label_iris)
+
+# Create the one-hot encoded observation matrix Y
+Y_iris <- nmfkc.class(label_iris)
+
+# Create the normalized feature matrix U
+U_iris <- t(nmfkc.normalize(iris[, -5]))
+```
+
+### 2. Model Fitting and Evaluation
+
+Next, we find the optimal `beta` for the Gaussian kernel, create the kernel covariate matrix `A`, and fit the NMF-LAB model using `nmfkc()`.
+
+```{r iris-model-fit}
+# Set the rank Q to the number of classes
+Q_iris <- length(unique(label_iris))
+
+# Find the optimal beta (we use a pre-calculated value here to speed up the vignette build)
+# In a real analysis, you would run:
+# res.cv <- nmfkc.kernel.beta.cv(Y_iris, Q_iris, U_iris)
+# best.beta_iris <- res.cv$beta
+best.beta_iris <- 0.0818 # A pre-calculated value
+
+# Create the kernel matrix A
+A_iris <- nmfkc.kernel(U_iris, beta = best.beta_iris)
+
+# Fit the model
+res_iris <- nmfkc(Y = Y_iris, A = A_iris, Q = Q_iris, prefix = "Class")
+
+# Use the predict() method to get class predictions
+fitted.label_iris <- predict(res_iris, type = "class")
+
+# Create a confusion matrix and calculate accuracy
+(f_iris <- table(fitted.label_iris, label_iris))
+cat("Iris Dataset Accuracy:", 100 * sum(diag(f_iris)) / sum(f_iris), "%\n")
+```
+
+## Example 2: The Palmer Penguins Dataset
+
+Let's apply the same workflow to the `penguins` dataset to classify penguin species.
+
+### 1. Data Preparation
+
+We remove rows with missing values and then prepare the `Y` and `U` matrices as before.
+
+```{r penguins-data-prep}
+# Load and clean the data
+d_penguins <- penguins
+d_penguins <- d_penguins[complete.cases(d_penguins), ]
+
+# Get the labels
+label_penguins <- d_penguins$species
+table(label_penguins)
+
+# Create Y and U matrices
+Y_penguins <- nmfkc.class(label_penguins)
+U_penguins <- t(nmfkc.normalize(d_penguins[, 3:6]))
+```
+
+### 2. Model Fitting and Evaluation
+
+Again, we determine the best `beta`, fit the model, and evaluate its performance.
+
+```{r penguins-model-fit}
+# Set the rank Q
+Q_penguins <- length(unique(label_penguins))
+
+# Find the optimal beta
+# best.beta_penguins <- nmfkc.kernel.beta.cv(Y_penguins, Q_penguins, U_penguins)$beta
+best.beta_penguins <- 0.17 # A pre-calculated value
+
+# Create the kernel matrix A
+A_penguins <- nmfkc.kernel(U_penguins, beta = best.beta_penguins)
+
+# Fit the model
+res_penguins <- nmfkc(Y = Y_penguins, A = A_penguins, Q = Q_penguins, prefix = "Class")
+
+# Predict and evaluate
+fitted.label_penguins <- predict(res_penguins, type = "class")
+(f_penguins <- table(fitted.label_penguins, label_penguins))
+cat("Penguins Dataset Accuracy:", 100 * sum(diag(f_penguins)) / sum(f_penguins), "%\n")
+
+```
+This demonstrates the consistent workflow for applying NMF-LAB to different classification problems.

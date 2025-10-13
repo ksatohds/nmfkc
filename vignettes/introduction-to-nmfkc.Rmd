@@ -1,0 +1,72 @@
+---
+title: "Introduction to nmfkc"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to nmfkc}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+Welcome to the `nmfkc` package! This vignette provides a basic introduction to the core function of the package, `nmfkc()`.
+
+Non-negative Matrix Factorization (NMF) is a method to approximate an observation matrix `Y` as a product of a basis matrix `X` and a coefficient matrix `B`, such that $Y \approx XB$. A key feature of NMF is that all matrices must have non-negative elements.
+
+The `nmfkc` package extends this idea by allowing for covariates, modeling the data as $Y \approx XCA$, where `A` is a known covariate matrix.
+
+This example demonstrates the most fundamental use case: decomposing a given non-negative matrix `Y` into `X` and `B` without any covariates.
+
+## A Simple Example
+
+First, let's load the `nmfkc` package.
+
+```{r load-package}
+library(nmfkc)
+```
+
+### 1. Creating the Data
+
+We will create a simple observation matrix `Y` (3x3) which is a product of a basis matrix `X` (3x2) and a coefficient matrix `B` (2x3).
+
+```{r create-data}
+# Define the original basis and coefficient matrices
+(X_orig <- cbind(c(1, 0, 1), c(0, 1, 0)))
+(B_orig <- cbind(c(1, 0), c(0, 1), c(1, 1)))
+
+# Create the observation matrix Y
+(Y <- X_orig %*% B_orig)
+```
+
+Our goal is to see if `nmfkc()` can recover the original `X_orig` and `B_orig` matrices just from the observation `Y`.
+
+### 2. Running NMF
+
+Now, we use the `nmfkc()` function to perform the factorization. We need to specify the observation matrix `Y` and the desired rank `Q` (which is 2 in this case).
+
+```{r run-nmfkc}
+# Perform NMF with a rank of 2
+res <- nmfkc(Y, Q = 2, epsilon = 1e-6)
+```
+
+### 3. Checking the Results
+
+Let's examine the estimated basis matrix `res$X` and coefficient matrix `res$B`.
+
+```{r check-results}
+# Estimated basis matrix
+# Note: The column order may be different from the original
+res$X
+
+# Estimated coefficient matrix
+res$B
+```
+
+As you can see, `nmfkc()` successfully recovered the original matrices, although the order of columns in `X` (and corresponding rows in `B`) might be swapped. This demonstrates the basic capability of the package to perform non-negative matrix factorization.

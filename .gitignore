@@ -5,3 +5,4 @@
 nmfkc.Rcheck/
 nmfkc*.tar.gz
 nmfkc*.tgz
+inst/doc
