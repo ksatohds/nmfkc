@@ -33,3 +33,6 @@ A character string containing a DOT script, suitable for use with the \pkg{DOT} 
 \code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
 vector autoregressive models fitted using \code{nmfkc}.
 }
+\seealso{
+\code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+}

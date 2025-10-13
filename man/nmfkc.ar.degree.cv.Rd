@@ -56,3 +56,6 @@ rownames(Y0) <- "t"
 # selection of degree
 nmfkc.ar.degree.cv(Y=Y0,Q=1,degree=11:14)
 }
+\seealso{
+\code{\link{nmfkc.ar}}, \code{\link{nmfkc.cv}}
+}

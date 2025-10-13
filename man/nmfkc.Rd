@@ -124,3 +124,6 @@ In \emph{Proceedings of the 12th ACM SIGKDD International Conference on Knowledg
 Potthoff, R. F., & Roy, S. N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems.
 \emph{Biometrika}, 51, 313–326. \doi{10.2307/2334137}
 }
+\seealso{
+\code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
+}

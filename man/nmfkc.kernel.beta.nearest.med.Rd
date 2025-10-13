@@ -35,5 +35,5 @@ The function computes all pairwise squared distances between columns of
 distances (after square root). This median is then used to set \eqn{\beta}.
 }
 \seealso{
-\code{\link{nmfkc.kernel}} for creating kernel matrices from covariates.
+\code{\link{nmfkc.kernel}}, \code{\link{nmfkc.kernel.beta.cv}}
 }

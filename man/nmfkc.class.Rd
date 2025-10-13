@@ -24,3 +24,6 @@ and each column corresponds to an observation.
 Y <- nmfkc.class(iris$Species)
 Y[,1:6]
 }
+\seealso{
+\code{\link{nmfkc}}
+}

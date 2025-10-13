@@ -17,6 +17,7 @@
 #' \item{A}{Covariate matrix constructed according to the specified lag order.}
 #' \item{A.columns}{Index matrix used to generate \code{A}.}
 #' \item{degree.max}{Maximum lag order, set to \eqn{10 \log_{10}(N)} following the \code{ar} function in the \pkg{stats} package.}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar.degree.cv}}, \code{\link{nmfkc.ar.stationarity}}, \code{\link{nmfkc.ar.DOT}}
 #' @export
 #' @source Satoh, K. (2025). Applying Non-negative Matrix Factorization with Covariates
 #'   to Multivariate Time Series Data as a Vector Autoregression Model.
@@ -82,6 +83,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 #' @param rankdir Graph layout direction in DOT language. Default is "RL". Other options include "LR", "TB", and "BT".
 #'
 #' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
 #' @export
 
 nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digits),rankdir="RL"){
@@ -185,6 +187,7 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
 #' \item{degree.max}{Maximum recommended lag order, computed as \eqn{10 \log_{10}(N)}
 #'   following the \code{ar} function in the \pkg{stats} package.}
 #' \item{objfunc}{Objective function values for each candidate lag order.}
+#' @seealso \code{\link{nmfkc.ar}}, \code{\link{nmfkc.cv}}
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -237,6 +240,7 @@ nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=
 #' @return A list with components:
 #' \item{spectral.radius}{Numeric. The spectral radius of the companion matrix. A value less than 1 indicates stationarity.}
 #' \item{stationary}{Logical. \code{TRUE} if the spectral radius is less than 1 (i.e., the system is stationary), \code{FALSE} otherwise.}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
 #' @export
 
 nmfkc.ar.stationarity <- function(x){
@@ -272,6 +276,7 @@ nmfkc.ar.stationarity <- function(x){
 #' @param degree Degree parameter for the \code{"Polynomial"} kernel. Default is 2.
 #'
 #' @return Kernel matrix \eqn{A(N,M)}.
+#' @seealso \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.cv}}
 #' @export
 #' @source Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model.
 #'   arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
@@ -358,7 +363,7 @@ nmfkc.kernel <- function(U, V = NULL, beta=0.5,
 #' The function computes all pairwise squared distances between columns of
 #' \eqn{U}, excludes self-distances, and takes the median of the nearest-neighbor
 #' distances (after square root). This median is then used to set \eqn{\beta}.
-#' @seealso \code{\link{nmfkc.kernel}} for creating kernel matrices from covariates.
+#' @seealso \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.kernel.beta.cv}}
 #' @export
 
 nmfkc.kernel.beta.nearest.med <- function(U, block_size=1000){
@@ -503,6 +508,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,
 #' \item{objfunc.iter}{Objective values by iteration.}
 #' \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
 #' \item{criterion}{A list of selection criteria, including \code{ICp}, \code{CPCC}, \code{silhouette}, \code{AIC}, and \code{BIC}.}
+#' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @source Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
 #'   to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
@@ -633,13 +639,14 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     X <- matrix(data=1,nrow=1,ncol=1)
     is.X.scalar <- TRUE
   }
-  if(!is.X.scalar){
-    if(X.restriction=="colSums"){
-      X <- t(t(X)/colSums(X))
-    }else if(X.restriction=="colSqSums"){
-      X <- t(t(X)/colSums(X^2)^0.5)
-    }else if(X.restriction=="totalSum") X <- X/sum(X)
-  }
+  # Re-normalize columns of X
+  if(X.restriction=="colSums"){
+    X <- sweep(X, 2, colSums(X), "/")
+  }else if(X.restriction=="colSqSums"){
+    X <- sweep(X, 2, sqrt(colSums(X^2)), "/")
+  }else if(X.restriction=="totalSum"){
+    X <- X/sum(X)
+  } # } end if X.restriction (FAST EU with A)
   # Initialize C
   if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   # -------- fast.calc precomputations (internal-only) --------
@@ -822,13 +829,15 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
       if(method=="EU"){                                                          # <-- open: REF EU
-        if(!is.X.scalar){                                                        # <-- open: REF EU update X
-          X <- X*z((Y%*% t(B))/(XB%*%t(B)))
+        if(!is.X.scalar){
+          # Re-normalize columns of X
           if(X.restriction=="colSums"){
-            X <- t(t(X)/colSums(X))
+            X <- sweep(X, 2, colSums(X), "/")
           }else if(X.restriction=="colSqSums"){
-            X <- t(t(X)/colSums(X^2)^0.5)
-          }else if(X.restriction=="totalSum") X <- X/sum(X)
+            X <- sweep(X, 2, sqrt(colSums(X^2)), "/")
+          }else if(X.restriction=="totalSum"){
+            X <- X/sum(X)
+          } # } end if X.restriction (FAST EU with A)
         } # } end if (!is.X.scalar) (REF EU)
 
         if(is.null(A)) {
@@ -842,11 +851,13 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       }else{                                                                     # <-- else: REF KL
         if(!is.X.scalar){                                                        # <-- open: REF KL update X
           X <- X*z((Y/XB)%*%t(B))/(rep(1,nrow(Y))%o%rowSums(B))
-          if(X.restriction=="colSums"){
-            X <- t(t(X)/colSums(X))
+                    if(X.restriction=="colSums"){
+            X <- sweep(X, 2, colSums(X), "/")
           }else if(X.restriction=="colSqSums"){
-            X <- t(t(X)/colSums(X^2)^0.5)
-          }else if(X.restriction=="totalSum") X <- X/sum(X)
+            X <- sweep(X, 2, sqrt(colSums(X^2)), "/")
+          }else if(X.restriction=="totalSum"){
+            X <- X/sum(X)
+          } # } end if X.restriction (FAST EU with A)
         } # } end if (!is.X.scalar) (REF KL)
 
         if(is.null(A)) {
@@ -983,6 +994,7 @@ plot.nmfkc <- function(x,...){
 #'     \item \code{"prob"}: Returns probabilities using \code{B.prob} instead of \code{B}.
 #'     \item \code{"class"}: Returns the class label corresponding to the maximum in each column of \code{B.prob}.
 #'   }
+#' @seealso \code{\link{nmfkc}}
 #' @export
 predict.nmfkc <- function(x,newA=NULL,type="response"){
   z <- function(x){
@@ -1029,6 +1041,7 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
 #' @param x A categorical vector or a factor.
 #'
 #' @return A binary matrix with one row per unique category and one column per observation. Each column has exactly one entry equal to 1, indicating the category of the observation.
+#' @seealso \code{\link{nmfkc}}
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -1056,6 +1069,7 @@ nmfkc.class <- function(x){
 #'   Default is \code{x}.
 #'
 #' @return A matrix of the same dimensions as \code{x}, with each column rescaled to the \eqn{[0,1]} range.
+#' @seealso \code{\link{nmfkc.denormalize}}
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -1085,6 +1099,7 @@ nmfkc.normalize <- function(x,ref=x){
 #'   and maxima. Must have the same number of columns as \code{x}.
 #'
 #' @return A numeric matrix with values transformed back to the original scale.
+#' @seealso \code{\link{nmfkc.normalize}}
 #' @export
 #' @examples
 #' x <- nmfkc.normalize(iris[, -5])
@@ -1129,6 +1144,7 @@ nmfkc.denormalize <- function(x, ref=x) {
 #' \item{objfunc}{Total objective function value across all folds.}
 #' \item{objfunc.block}{Objective function values for each fold.}
 #' \item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
 #' @export
 #' @examples
 #' # install.packages("remotes")
@@ -1295,6 +1311,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #'   \item \code{silhouette}: Mean silhouette score (if computed).
 #'   \item \code{CPCC}: Cophenetic correlation coefficient (if computed).
 #' }
+#' @seealso \code{\link{nmfkc}}
 #' @export
 #' @references
 #' Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004).

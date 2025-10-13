@@ -52,3 +52,6 @@ Consensus-based ensembles of soft clusterings.
 \emph{Applied Artificial Intelligence}, 22(7–8), 780–810.
 \doi{10.1080/08839510802170546}
 }
+\seealso{
+\code{\link{nmfkc}}
+}

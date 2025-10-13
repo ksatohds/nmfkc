@@ -116,23 +116,16 @@ res$B
 ## 1. Longitudinal data
 
 -   COVID-19 in Japan
--   <https://www3.nhk.or.jp/news/special/coronavirus/data/>
+-   https://www.mhlw.go.jp/stf/covid-19/open-data.html
 
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
 # install.packages("NipponMap")
 
-d <- read.csv(
-  "https://www3.nhk.or.jp/n-data/opendata/coronavirus/nhk_news_covid19_prefectures_daily_data.csv")
-colnames(d) <- c(
-  "Date","Prefecture_code","Prefecture_name",
-  "Number_of_infected","Cumulative_Number_of_infected",
-  "Number_of_deaths","Cumulative_Number_of_deaths",
-  "Number_of_infected_100000_population_in_the_last_week")
-n <- length(unique(d$Prefecture_code)) # 47
-Y <- matrix(log10(1+d$Number_of_infected),nrow=nrow(d)/n,ncol=n)
-colnames(Y) <- unique(d$Prefecture_name)
+d <- read.csv("https://covid19.mhlw.go.jp/public/opendata/newly_confirmed_cases_daily.csv")
+n <- dim(d)
+Y <- log10(1+d[,2+1:47])
 rownames(Y) <- unique(d$Date)
 
 # rank selection diagnostics
@@ -146,7 +139,7 @@ plot(result.rank$Q,result.rank$ICp,col=2,type="l")
 text(result.rank$Q,result.rank$ICp,result.rank$Q)
 
 # nmf
-Q <- 4
+Q <- 3
 result <- nmfkc(Y,Q=Q,epsilon=1e-5,prefix="Region")
 plot(result,type="l",col=2)
 

@@ -23,3 +23,6 @@ If \code{NULL} (default), the fitted covariates are used.}
 \code{predict.nmfkc} generates predictions from an object of class \code{nmfkc},
 either using the fitted covariates or a new covariate matrix.
 }
+\seealso{
+\code{\link{nmfkc}}
+}

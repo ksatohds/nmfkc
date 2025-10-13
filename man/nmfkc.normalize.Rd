@@ -26,3 +26,6 @@ using the column-wise minimum and maximum values of a reference matrix.
 x <- nmfkc.normalize(iris[,-5])
 apply(x,2,range)
 }
+\seealso{
+\code{\link{nmfkc.denormalize}}
+}

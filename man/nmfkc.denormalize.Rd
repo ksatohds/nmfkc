@@ -24,3 +24,6 @@ x <- nmfkc.normalize(iris[, -5])
 x_recovered <- nmfkc.denormalize(x, iris[, -5])
 apply(x_recovered - iris[, -5], 2, max)
 }
+\seealso{
+\code{\link{nmfkc.normalize}}
+}

@@ -70,3 +70,6 @@ result <- nmfkc(Y,A,Q=1)
 plot(as.vector(V),as.vector(Y))
 lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }
+\seealso{
+\code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
+}

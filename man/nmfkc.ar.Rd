@@ -51,3 +51,6 @@ print.table(round(res$C,2),zero.print="")
 plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
 lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
 }
+\seealso{
+\code{\link{nmfkc}}, \code{\link{nmfkc.ar.degree.cv}}, \code{\link{nmfkc.ar.stationarity}}, \code{\link{nmfkc.ar.DOT}}
+}

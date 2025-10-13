@@ -19,3 +19,6 @@ A list with components:
 by computing the spectral radius of its companion matrix.
 It returns both the spectral radius and a logical indicator of stationarity.
 }
+\seealso{
+\code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+}
