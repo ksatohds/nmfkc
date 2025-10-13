@@ -1,7 +1,6 @@
 .onAttach <- function(...) {
   packageStartupMessage("Last update on 13 OCT 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
-  packageStartupMessage('browseVignettes("nmfkc")')
 }
 
 #' @title Construct observation and covariate matrices for a vector autoregressive model
