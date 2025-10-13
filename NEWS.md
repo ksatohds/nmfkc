@@ -1,5 +1,5 @@
 # nmfkc 0.5.0
-0.5.0: Set values smaller than `.Machine$double.eps` to 0 to avoid negative results in `z()`.
+0.5.0: Added the fast.calc option to the `nmfkc()` function.
 0.4.9: Optimized internal calculations for improved performance.
 0.4.8: Updated `citation("nmfkc")` and added AIC/BIC to the output.
 0.4.7: Implemented the `nmfkc.ar.stationarity()` function.
