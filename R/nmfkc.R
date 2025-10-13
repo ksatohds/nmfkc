@@ -730,7 +730,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
           # C update
           XtX  <- crossprod(X)
           numC <- crossprod(X, Y)
-          denC <- XtX %*% XB
+          denC <- XtX %*% C
           if (gamma!=0) denC <- denC + gamma*C            # L2 regularization on C
           denC <- pmax(denC, 1e-12)                       # protect division by zero
           C    <- C * (numC / denC); C[C<0] <- 0
@@ -781,7 +781,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
           # KL objective (full evaluation; log protected)
           B  <- C %*% A
           XB <- X %*% B
-          objfunc.iter[i] <- sum(-Y*pmax(log(pmax(XB,1e-12)),0) + XB) + gamma*sum(C^2)
+          objfunc.iter[i] <- sum(-Y*z(log(XB)) + XB) + gamma*sum(C^2)
         } else {                                                              # <-- else: FAST KL without A
           B  <- C
           XB <- pmax(X %*% B, 1e-12)
@@ -809,8 +809,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
           if (gamma!=0) denC <- denC + 2*gamma*C
           denC <- pmax(denC, 1e-12)
           C    <- C * (numC / denC); C[C<0] <- 0
-
-          objfunc.iter[i] <- sum(-Y*pmax(log(XB),0)+XB) + gamma*sum(C^2)
+          objfunc.iter[i] <- sum(-Y*z(log(XB))+XB)+gamma*sum(C^2)
         } # } end if (hasA) else (FAST KL)
       } # } end if (method=="EU") else (FAST KL)
 
