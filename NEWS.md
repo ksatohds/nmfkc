@@ -1,4 +1,5 @@
-# nmfkc 0.5.0
+# nmfkc 0.5.1
+0.5.1: Implemented the internal `.z` and `xnorm` functions.
 0.5.0: Added the fast.calc option to the `nmfkc()` function.
 0.4.9: Optimized internal calculations for improved performance.
 0.4.8: Updated `citation("nmfkc")` and added AIC/BIC to the output.

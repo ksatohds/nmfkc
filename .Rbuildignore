@@ -4,3 +4,5 @@
 ^nmfkc\.Rcheck$
 ^nmfkc.*\.tar\.gz$
 ^nmfkc.*\.tgz$
+^doc$
+^Meta$

@@ -1,7 +1,7 @@
 Package: nmfkc
 Type: Package
 Title: The Package is to Optimize Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.5.0
+Version: 0.5.1
 Authors@R: 
     person("Kenichi", "Satoh", 
            email = "kenichi-satoh@biwako.shiga-u.ac.jp", 

@@ -1,4 +1,14 @@
 bibentry(
+  bibtype  = "Misc",
+  title    = "Applying non-negative matrix factorization with covariates to label matrix for classification",
+  author   = "Kenichi Satoh",
+  journal  = "arXiv",
+  year     = "2025",
+  doi      ="https://arxiv.org/abs/2510.10375"
+)
+
+
+bibentry(
   bibtype  = "Article",
   title    = "Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model",
   author   = "Kenichi Satoh",
