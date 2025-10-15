@@ -4,19 +4,7 @@
 \alias{nmfkc.kernel.beta.cv}
 \title{Optimize beta of the Gaussian kernel function by cross-validation}
 \usage{
-nmfkc.kernel.beta.cv(
-  Y,
-  Q = 2,
-  U,
-  V = NULL,
-  beta = NULL,
-  kernel = "Gaussian",
-  degree = 2,
-  div = 5,
-  seed = 123,
-  plot = TRUE,
-  ...
-)
+nmfkc.kernel.beta.cv(Y, Q = 2, U, V = NULL, beta = NULL, plot = TRUE, ...)
 }
 \arguments{
 \item{Y}{Observation matrix \eqn{Y(P,N)}.}
@@ -28,14 +16,6 @@ nmfkc.kernel.beta.cv(
 \item{V}{Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.}
 
 \item{beta}{A numeric vector of candidate kernel parameters to evaluate via cross-validation.}
-
-\item{kernel}{Kernel function to use. Default is \code{"Gaussian"}. See \code{\link{nmfkc.kernel}} for available options.}
-
-\item{degree}{Degree parameter for the \code{"Polynomial"} kernel. Default is 2.}
-
-\item{div}{Number of partitions for cross-validation, corresponding to \eqn{k} in k-fold CV.}
-
-\item{seed}{Integer seed for reproducibility, passed to \code{set.seed}.}
 
 \item{plot}{Logical. If TRUE (default), plots the objective function values for each candidate \code{beta}.}
 

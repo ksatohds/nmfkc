@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 14 OCT 2025")
+  packageStartupMessage("Last update on 15 OCT 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -187,8 +187,6 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
 #' @param Q Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.
 #' @param degree A vector of candidate lag orders to be evaluated.
 #' @param intercept Logical. If TRUE (default), an intercept is added to the covariate matrix.
-#' @param div Number of partitions for cross-validation, corresponding to \eqn{k} in k-fold CV.
-#' @param seed Integer seed for reproducibility, passed to \code{set.seed}.
 #' @param plot Logical. If TRUE (default), a plot of the objective function values is drawn.
 #' @param ... Additional arguments passed to \code{nmfkc.cv}.
 #'
@@ -212,13 +210,16 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
 #' # selection of degree
 #' nmfkc.ar.degree.cv(Y=Y0,Q=1,degree=11:14)
 
-nmfkc.ar.degree.cv <- function(Y,Q=2,degree=1:2,intercept=T,div=5,seed=123,plot=TRUE,...){
+nmfkc.ar.degree.cv <- function(Y,Q=1,degree=1:2,intercept=T,plot=TRUE,...){
+  extra_args <- list(...)
   objfuncs <- 0*(1:length(degree))
   for(i in 1:length(degree)){
     start.time <- Sys.time()
     message(paste0("degree=",degree[i],"..."),appendLF=FALSE)
     a <- nmfkc.ar(Y=Y,degree=degree[i],intercept=intercept)
-    result.cv <- nmfkc.cv(Y=a$Y,A=a$A,Q=Q,div=div,seed=seed,...)
+    main_args <- list(Y = a$Y,A = a$A,Q = Q)
+    all_args <- c(extra_args, main_args)
+    result.cv <- do.call("nmfkc.cv", all_args)
     objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
     end.time <- Sys.time()
     diff.time <- difftime(end.time,start.time,units="sec")
@@ -281,9 +282,8 @@ nmfkc.ar.stationarity <- function(x){
 #'
 #' @param U Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.
 #' @param V Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.
-#' @param beta Kernel parameter. Default is 0.5. For the \code{"Periodic"} kernel, specify as \code{c(beta1, beta2)}.
 #' @param kernel Kernel function to use. Default is \code{"Gaussian"}. Options are \code{"Gaussian"}, \code{"Exponential"}, \code{"Periodic"}, \code{"Linear"}, \code{"NormalizedLinear"}, and \code{"Polynomial"}.
-#' @param degree Degree parameter for the \code{"Polynomial"} kernel. Default is 2.
+#' @param ... Additional arguments passed to the specific kernel function (e.g., \code{beta}, \code{degree}).
 #'
 #' @return Kernel matrix \eqn{A(N,M)}.
 #' @seealso \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.cv}}
@@ -303,10 +303,10 @@ nmfkc.ar.stationarity <- function(x){
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel <- function(U, V = NULL, beta=0.5,
+nmfkc.kernel <- function(U, V = NULL,
                          kernel = c("Gaussian","Exponential","Periodic",
-                                    "Linear","NormalizedLinear","Polynomial"),
-                         degree=2){
+                                    "Linear","NormalizedLinear","Polynomial"),...){
+  k_params <- list(...)
   U <- as.matrix(U); storage.mode(U) <- "double"
   if (is.null(V)) V <- U else V <- as.matrix(V)
   storage.mode(V) <- "double"
@@ -319,12 +319,17 @@ nmfkc.kernel <- function(U, V = NULL, beta=0.5,
     D2 <- pmax(D2, 0)
   }
   K <- switch(kernel,
-              Gaussian = exp(-beta * D2),
+              Gaussian ={
+                beta <- if (!is.null(k_params$beta)) k_params$beta else 0.5
+                exp(-beta * D2)
+              },
               Exponential = {
+                beta <- if (!is.null(k_params$beta)) k_params$beta else 0.5
                 d <- sqrt(D2)
                 exp(-beta * d)
               },
               Periodic = {
+                beta <- if (!is.null(k_params$beta)) k_params$beta else c(1,1)
                 if (length(beta) < 2L)
                   stop("For 'Periodic', set beta as c(beta1, beta2).")
                 d <- sqrt(D2)
@@ -338,7 +343,11 @@ nmfkc.kernel <- function(U, V = NULL, beta=0.5,
                 nv[nv == 0] <- .Machine$double.eps
                 G / outer(nu, nv)
               },
-              Polynomial = (G + beta)^degree
+              Polynomial = {
+                beta <- if (!is.null(k_params$beta)) k_params$beta else 0
+                degree <- if (!is.null(k_params$degree)) k_params$degree else 2
+                (G + beta)^degree
+              }
   )
   K[K < 0] <- 0
   dimnames(K) <- list(colnames(U), colnames(V))
@@ -410,10 +419,6 @@ nmfkc.kernel.beta.nearest.med <- function(U, block_size=1000){
 #' @param U Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.
 #' @param V Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.
 #' @param beta A numeric vector of candidate kernel parameters to evaluate via cross-validation.
-#' @param kernel Kernel function to use. Default is \code{"Gaussian"}. See \code{\link{nmfkc.kernel}} for available options.
-#' @param degree Degree parameter for the \code{"Polynomial"} kernel. Default is 2.
-#' @param div Number of partitions for cross-validation, corresponding to \eqn{k} in k-fold CV.
-#' @param seed Integer seed for reproducibility, passed to \code{set.seed}.
 #' @param plot Logical. If TRUE (default), plots the objective function values for each candidate \code{beta}.
 #' @param ... Additional arguments passed to \code{nmfkc.cv}.
 #'
@@ -434,19 +439,36 @@ nmfkc.kernel.beta.nearest.med <- function(U, block_size=1000){
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,
-                                 kernel="Gaussian",degree=2,div=5,seed=123,plot=TRUE,...){
+nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
+  extra_args <- list(...)
+  kernel_arg_names <- names(formals(nmfkc.kernel))
+  cv_arg_names <- names(formals(nmfkc.cv))
+  kernel_args_for_call <- extra_args[names(extra_args) %in% kernel_arg_names]
+  cv_args_for_call <- extra_args[names(extra_args) %in% cv_arg_names]
+
   if(is.null(beta)){
     if(is.null(V)) V <- U
-    result.beta <- nmfkc.kernel.beta.nearest.med(V)
+    med_args <- c(list(U = V), extra_args[names(extra_args) %in% names(formals(nmfkc.kernel.beta.nearest.med))])
+    result.beta <- do.call("nmfkc.kernel.beta.nearest.med", med_args)
     beta <- result.beta$beta_candidates
   }
-  objfuncs <- 0*(1:length(beta))
+  objfuncs <- numeric(length(beta))
   for(i in 1:length(beta)){
     start.time <- Sys.time()
     message(paste0("beta=",beta[i],"..."),appendLF=FALSE)
-    A <- nmfkc.kernel(U=U,V=V,beta=beta[i],kernel=kernel,degree=degree)
-    result <- nmfkc.cv(Y=Y,A=A,Q=Q,div=div,seed=seed,...)
+
+    kernel_args <- c(
+      list(U = U, V = V, beta = beta[i]),
+      kernel_args_for_call
+    )
+    A <- do.call("nmfkc.kernel", kernel_args)
+
+    cv_args <- c(
+      list(Y = Y, A = A, Q = Q),
+      cv_args_for_call
+    )
+    result <- do.call("nmfkc.cv", cv_args)
+
     objfuncs[i] <- result$objfunc
     end.time <- Sys.time()
     diff.time <- difftime(end.time,start.time,units="sec")
@@ -558,7 +580,17 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                  colSqSums = function(X) sweep(X, 2, sqrt(colSums(X^2)), "/"),
                  totalSum  = function(X) X / sum(X)
   )
-  mysilhouette <- function(B.prob,B.cluster){
+  # simplified silhouette coefficient
+  # This internal function computes an approximate version of the silhouette coefficient.
+  # Unlike the standard definition (e.g., cluster::silhouette), it does not require
+  # pairwise distances among all samples. Instead, it estimates the silhouette by using
+  # Euclidean distances between each sample and the mean vectors of clusters.
+  # The nearest neighboring cluster is determined from centroid distances rather than
+  # all pairwise sample distances.
+  # This approximation greatly reduces computational cost (O(N^2) → O(NQ)) and
+  # generally preserves the relative tendencies of silhouette values, though
+  # the results may differ from the exact definition.
+  silhouette.simple <- function(B.prob,B.cluster){
     if(is.matrix(B.prob)){Q <- nrow(B.prob)}else{Q <- 1}
     if(Q==1){
       return(list(cluster=NA,silhouette=NA,
@@ -616,7 +648,6 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
               nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)),appendLF=FALSE)
   }
   start.time <- Sys.time()
-  set.seed(seed)
   if(is.vector(Y)) Y <- matrix(Y,nrow=1)
   if(!is.matrix(Y)) Y <- as.matrix(Y)
   if(!is.null(A)){
@@ -635,6 +666,9 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       if(ncol(Y)==Q){
         X <- Y
       }else{
+        if (!is.null(seed)) {
+          set.seed(seed)
+        }
         res.kmeans <- stats::kmeans(t(Y),centers=Q,iter.max=maxit,nstart=nstart)
         X <- t(res.kmeans$centers)
       }
@@ -890,7 +924,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       silhouette <- NA
       CPCC <- NA
     }else{
-      silhouette <- mysilhouette(B.prob,B.cluster)
+      silhouette <- silhouette.simple(B.prob,B.cluster)
       if(Q>=2){
         M <- t(B.prob) %*% B.prob
         h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M))))
@@ -937,7 +971,13 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
 #' @param ... Additional arguments passed to the base \code{\link{plot}} function.
 #' @export
 plot.nmfkc <- function(x,...){
-  plot(x$objfunc.iter,xlab="iter",ylab="objfunc",main=paste0("r.squared=",round(x$r.squared,3)),...)
+  extra_args <- list(...)
+  args <- list(x = x$objfunc.iter)
+  if(is.null(extra_args$main)) args$main <- paste0("r.squared=",round(x$r.squared,3))
+  if(is.null(extra_args$xlab)) args$xlab <- "iter"
+  if(is.null(extra_args$xlab)) args$ylab <- "objfunc"
+  all_args <- c(args, extra_args)
+  do.call("plot",all_args)
 }
 
 
@@ -1136,19 +1176,11 @@ nmfkc.denormalize <- function(x, ref=x) {
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
 nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
-  arglist=list(...)
-  gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
-  epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
-  maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
-  method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
-  X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
-  nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
-  prefix <- ifelse("prefix" %in% names(arglist),arglist$prefix,"Basis")
-  print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
-  print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,FALSE)
-  fast.calc <- ifelse("fast.calc" %in% names(arglist),arglist$fast.calc,FALSE)
-  save.time <- TRUE
-  save.memory <- TRUE
+  extra_args <- list(...)
+  gamma <- if (!is.null(extra_args$gamma)) extra_args$gamma else 0
+  epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
+  maxit   <- if (!is.null(extra_args$maxit))   extra_args$maxit   else 5000
+  method  <- if (!is.null(extra_args$method))  extra_args$method  else "EU"
   if(is.null(A)) A <- diag(ncol(Y))
   is.identity.matrix <- function(A, tol = 1e-12) {
     if (nrow(A) != ncol(A)) return(FALSE)
@@ -1207,7 +1239,15 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     }else{
       A_j <- A[,index!=j] # ordinary design matrix
     }
-    res_j <- nmfkc(Y_j,A_j,Q,gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time,save.memory,fast.calc)
+    nmfkc_args <- c(
+      list(...),
+      list(Y = Y_j, A = A_j, Q = Q, seed=NULL,
+           print.trace = FALSE,
+           print.dims = FALSE,
+           save.time = TRUE,
+           save.memory = TRUE)
+    )
+    res_j <- do.call("nmfkc", nmfkc_args)
     if(is_identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
@@ -1271,8 +1311,10 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #' Y <- t(iris[,-5])
 #' nmfkc.rank(Y,Q=2:4)
 
-nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
-  arglist=list(...)
+nmfkc.rank <- function(Y,A=NULL,Q=1:2,plot=TRUE,...){
+
+  extra_args <- list(...)
+
   AdjustedRandIndex <- function(x){
     choose2 <- function(n) choose(n,2)
     a <- sum(apply(x,c(1,2),choose2))
@@ -1287,80 +1329,98 @@ nmfkc.rank <- function(Y,A=NULL,Q=2:min(5,ncol(Y),nrow(Y)),plot=TRUE,...){
     (ari <- (a+d-e)/(total-e))
     return(list(RI=ri,ARI=ari))
   }
-  gamma <- ifelse("gamma" %in% names(arglist),arglist$gamma,0)
-  epsilon <- ifelse("epsilon" %in% names(arglist),arglist$epsilon,1e-4)
-  maxit <- ifelse("maxit" %in% names(arglist),arglist$maxit,5000)
-  method <- ifelse("method" %in% names(arglist),arglist$method,"EU")
-  X.restriction <- ifelse("X.restriction" %in% names(arglist),arglist$X.restriction,"colSums")
-  seed   <- ifelse("seed"   %in% names(arglist), arglist$seed,   123)
-  nstart <- ifelse("nstart" %in% names(arglist), arglist$nstart, 1)
-  nstart <- ifelse("nstart" %in% names(arglist),arglist$nstart,1)
-  prefix <- ifelse("prefix" %in% names(arglist),arglist$prefix,"Basis")
-  print.trace <- ifelse("print.trace" %in% names(arglist),arglist$print.trace,FALSE)
-  print.dims <- ifelse("print.dims" %in% names(arglist),arglist$print.dims,TRUE)
-  save.time <- ifelse("save.time" %in% names(arglist),arglist$save.time,TRUE)
-  fast.calc <- ifelse("fast.calc" %in% names(arglist),arglist$fast.calc,FALSE)
-  save.memory <- FALSE
-  r.squared <- 0*Q; names(r.squared) <- Q
-  ICp <- 0*Q; names(ICp) <- Q
-  AIC <- 0*Q; names(AIC) <- Q
-  BIC <- 0*Q; names(BIC) <- Q
-  silhouette <- 0*Q; names(silhouette) <- Q
-  CPCC <- 0*Q; names(CPCC) <- Q
-  B.prob.sd.min <- 0*Q; names(B.prob.sd.min) <- Q
-  ARI <- 0*Q; names(ARI) <- Q
-  for(q in 1:length(Q)){
-    if(save.time){
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=T,save.memory,fast.calc)
-      CPCC[q] <- NA
-      silhouette[q] <- NA
-    }else{
-      result <- nmfkc(Y,A,Q=Q[q],gamma,epsilon,maxit,method,X.restriction,nstart,seed,prefix,print.trace,print.dims,save.time=F,save.memory,fast.calc)
-      CPCC[q] <- result$criterion$CPCC
-      silhouette[q] <- result$criterion$silhouette$silhouette.mean
-    }
-    r.squared[q] <- result$r.squared
-    ICp[q] <- result$criterion$ICp
-    AIC[q] <- result$criterion$AIC
-    BIC[q] <- result$criterion$BIC
-    if(q==1){
-      ARI[q] <- NA
-      cluster.old <- result$B.cluster
-    }else{
-      df <- data.frame(old=cluster.old,new=result$B.cluster)
-      df <- df[stats::complete.cases(df),]
-      f <- table(df$old,df$new)
-      ARI[q] <- AdjustedRandIndex(f)$ARI
-      cluster.old <- result$B.cluster
-    }
-    B.prob.sd.min[q] <- result$criterion$B.prob.sd.min
-  }
-  if(plot){
-    # Criterion
-    plot(Q,r.squared,type="l",col=2,xlab="Rank",ylab="Criterion",ylim=c(0,1),lwd=3)
-    graphics::text(Q,r.squared,Q)
-    legend <- "r.squared"
-    fill <- 2
-    graphics::lines(Q,B.prob.sd.min,col=3,lwd=3)
-    graphics::text(Q,B.prob.sd.min,Q)
-    legend <- c(legend,"B.prob.sd.min")
-    fill <- c(fill,3)
-    graphics::lines(Q[-1],ARI[-1],col=4,lwd=3)
-    graphics::text(Q[-1],ARI[-1],Q[-1])
-    legend <- c(legend,"ARI for Q-1")
-    fill <- c(fill,4)
-    if(!save.time){
-      graphics::lines(Q,silhouette,col=7,lwd=3)
-      graphics::text(Q,silhouette,Q)
-      legend <- c(legend,"silhouette")
-      fill <- c(fill,7)
-      graphics::lines(Q,CPCC,col=6,lwd=3)
-      graphics::text(Q,CPCC,Q)
-      legend <- c(legend,"CPCC")
-      fill <- c(fill,6)
-    }
-    graphics::legend("bottomleft",legend=legend,fill=fill,bg=NULL)
-  }
-  invisible(data.frame(Q,r.squared,ICp,AIC,BIC,B.prob.sd.min,ARI,silhouette,CPCC))
-}
 
+  num_q <- length(Q)
+  results_df <- data.frame(
+    Q = Q,
+    r.squared = numeric(num_q),
+    ICp = numeric(num_q),
+    AIC = numeric(num_q),
+    BIC = numeric(num_q),
+    B.prob.sd.min = numeric(num_q),
+    ARI = numeric(num_q),
+    silhouette = numeric(num_q),
+    CPCC = numeric(num_q)
+  )
+
+  cluster.old <- NULL
+  for(q_idx in 1:num_q){
+    current_Q <- Q[q_idx]
+    save_time_for_this_run <- if (is.null(extra_args$save.time)) TRUE else extra_args$save.time
+    extra_args$save.memory <- NULL
+    nmfkc_args <- c(
+      list(Y = Y,
+           A = A,
+           Q = current_Q,
+           save.memory = FALSE
+      ),
+      extra_args
+    )
+    result <- do.call("nmfkc", nmfkc_args)
+    results_df$r.squared[q_idx] <- result$r.squared
+    results_df$ICp[q_idx] <- result$criterion$ICp
+    results_df$AIC[q_idx] <- result$criterion$AIC
+    results_df$BIC[q_idx] <- result$criterion$BIC
+    results_df$B.prob.sd.min[q_idx] <- result$criterion$B.prob.sd.min
+
+    if(save_time_for_this_run){
+      results_df$CPCC[q_idx] <- NA
+      results_df$silhouette[q_idx] <- NA
+    } else {
+      results_df$CPCC[q_idx] <- result$criterion$CPCC
+      results_df$silhouette[q_idx] <- result$criterion$silhouette$silhouette.mean
+    }
+
+    if(is.null(cluster.old)){
+      results_df$ARI[q_idx] <- NA
+    } else {
+      df <- data.frame(old=cluster.old, new=result$B.cluster)
+      df <- df[stats::complete.cases(df),]
+      if (nrow(df) > 0 && length(unique(df$old)) > 1 && length(unique(df$new)) > 1) {
+        f <- table(df$old, df$new)
+        results_df$ARI[q_idx] <- AdjustedRandIndex(f)$ARI
+      } else {
+        results_df$ARI[q_idx] <- NA
+      }
+    }
+    cluster.old <- result$B.cluster
+  }
+
+  if(plot){
+    plot(results_df$Q, results_df$r.squared, type="l", col=2, xlab="Rank", ylab="Criterion", ylim=c(0,1), lwd=3)
+    graphics::text(results_df$Q, results_df$r.squared, results_df$Q)
+
+    legend_text <- "r.squared"
+    legend_cols <- 2
+
+    graphics::lines(results_df$Q, results_df$B.prob.sd.min, col=3, lwd=3)
+    graphics::text(results_df$Q, results_df$B.prob.sd.min, results_df$Q)
+    legend_text <- c(legend_text, "B.prob.sd.min")
+    legend_cols <- c(legend_cols, 3)
+
+    if (any(!is.na(results_df$ARI))) {
+      graphics::lines(results_df$Q, results_df$ARI, col=4, lwd=3)
+      graphics::text(results_df$Q, results_df$ARI, results_df$Q)
+      legend_text <- c(legend_text, "ARI vs Q-1")
+      legend_cols <- c(legend_cols, 4)
+    }
+
+    if (any(!is.na(results_df$silhouette))) {
+      graphics::lines(results_df$Q, results_df$silhouette, col=7, lwd=3)
+      graphics::text(results_df$Q, results_df$silhouette, results_df$Q)
+      legend_text <- c(legend_text, "silhouette")
+      legend_cols <- c(legend_cols, 7)
+    }
+
+    if (any(!is.na(results_df$CPCC))) {
+      graphics::lines(results_df$Q, results_df$CPCC, col=6, lwd=3)
+      graphics::text(results_df$Q, results_df$CPCC, results_df$Q)
+      legend_text <- c(legend_text, "CPCC")
+      legend_cols <- c(legend_cols, 6)
+    }
+
+    graphics::legend("bottomleft", legend=legend_text, fill=legend_cols, bg="white")
+  }
+
+  invisible(results_df)
+}

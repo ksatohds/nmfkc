@@ -11,10 +11,9 @@ arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 nmfkc.kernel(
   U,
   V = NULL,
-  beta = 0.5,
   kernel = c("Gaussian", "Exponential", "Periodic", "Linear", "NormalizedLinear",
     "Polynomial"),
-  degree = 2
+  ...
 )
 }
 \arguments{
@@ -22,11 +21,9 @@ nmfkc.kernel(
 
 \item{V}{Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.}
 
-\item{beta}{Kernel parameter. Default is 0.5. For the \code{"Periodic"} kernel, specify as \code{c(beta1, beta2)}.}
-
 \item{kernel}{Kernel function to use. Default is \code{"Gaussian"}. Options are \code{"Gaussian"}, \code{"Exponential"}, \code{"Periodic"}, \code{"Linear"}, \code{"NormalizedLinear"}, and \code{"Polynomial"}.}
 
-\item{degree}{Degree parameter for the \code{"Polynomial"} kernel. Default is 2.}
+\item{...}{Additional arguments passed to the specific kernel function (e.g., \code{beta}, \code{degree}).}
 }
 \value{
 Kernel matrix \eqn{A(N,M)}.

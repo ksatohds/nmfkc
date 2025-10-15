@@ -4,7 +4,7 @@
 \alias{nmfkc.rank}
 \title{Rank selection diagnostics with graphical output}
 \usage{
-nmfkc.rank(Y, A = NULL, Q = 2:min(5, ncol(Y), nrow(Y)), plot = TRUE, ...)
+nmfkc.rank(Y, A = NULL, Q = 1:2, plot = TRUE, ...)
 }
 \arguments{
 \item{Y}{Observation matrix.}

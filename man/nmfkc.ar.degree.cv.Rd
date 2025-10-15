@@ -4,16 +4,7 @@
 \alias{nmfkc.ar.degree.cv}
 \title{Optimize lag order for the autoregressive model}
 \usage{
-nmfkc.ar.degree.cv(
-  Y,
-  Q = 2,
-  degree = 1:2,
-  intercept = T,
-  div = 5,
-  seed = 123,
-  plot = TRUE,
-  ...
-)
+nmfkc.ar.degree.cv(Y, Q = 1, degree = 1:2, intercept = T, plot = TRUE, ...)
 }
 \arguments{
 \item{Y}{Observation matrix \eqn{Y(P,N)}.}
@@ -23,10 +14,6 @@ nmfkc.ar.degree.cv(
 \item{degree}{A vector of candidate lag orders to be evaluated.}
 
 \item{intercept}{Logical. If TRUE (default), an intercept is added to the covariate matrix.}
-
-\item{div}{Number of partitions for cross-validation, corresponding to \eqn{k} in k-fold CV.}
-
-\item{seed}{Integer seed for reproducibility, passed to \code{set.seed}.}
 
 \item{plot}{Logical. If TRUE (default), a plot of the objective function values is drawn.}
 
