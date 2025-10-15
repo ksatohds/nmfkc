@@ -117,6 +117,9 @@ library(nmfkc)
 res <- nmfkc(Y,Q=2,epsilon=1e-6)
 res$X
 res$B
+
+plot(res)
+summary(res)
 ``` 
 
 ## 1. Longitudinal data

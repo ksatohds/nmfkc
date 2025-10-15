@@ -73,6 +73,8 @@ If \code{FALSE} (default), runs the reference implementation with the original u
 }
 \value{
 A list with components:
+\item{call}{The matched call, as captured by \code{match.call()}.}
+\item{dims}{A character string summarizing the matrix dimensions of the model.}
 \item{X}{Basis matrix. Column normalization depends on \code{X.restriction}.}
 \item{B}{Coefficient matrix \eqn{B = C A}.}
 \item{XB}{Fitted values for \eqn{Y}.}
@@ -84,6 +86,7 @@ A list with components:
 \item{objfunc}{Final objective value.}
 \item{objfunc.iter}{Objective values by iteration.}
 \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+\item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 \item{criterion}{A list of selection criteria, including \code{ICp}, \code{CPCC}, \code{silhouette}, \code{AIC}, and \code{BIC}.}
 }
 \description{

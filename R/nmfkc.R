@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 15 OCT 2025")
+  packageStartupMessage("Last update on 16 OCT 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -525,6 +525,8 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' to avoid constructing large \eqn{P \times N} ratio matrices.
 #' If \code{FALSE} (default), runs the reference implementation with the original update rules.
 #' @return A list with components:
+#' \item{call}{The matched call, as captured by `match.call()`.}
+#' \item{dims}{A character string summarizing the matrix dimensions of the model.}
 #' \item{X}{Basis matrix. Column normalization depends on \code{X.restriction}.}
 #' \item{B}{Coefficient matrix \eqn{B = C A}.}
 #' \item{XB}{Fitted values for \eqn{Y}.}
@@ -536,6 +538,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
 #' \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+#' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{criterion}{A list of selection criteria, including \code{ICp}, \code{CPCC}, \code{silhouette}, \code{AIC}, and \code{BIC}.}
 #' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
@@ -638,15 +641,14 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                   silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
     }
   }
-  if(print.dims)if(is.null(A)){
-    message(
-      sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)...",
-              nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y)),appendLF=FALSE)
+  if(is.null(A)){
+    dims <- sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
+                    nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y))
   }else{
-    message(
-      sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)...",
-              nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y)),appendLF=FALSE)
+    dims <- sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
+                    nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y))
   }
+  if(print.dims) message(paste0(dims,"..."),appendLF=FALSE)
   start.time <- Sys.time()
   if(is.vector(Y)) Y <- matrix(Y,nrow=1)
   if(!is.matrix(Y)) Y <- as.matrix(Y)
@@ -892,7 +894,6 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(X) <- paste0(prefix,1:ncol(X))
   rownames(B) <- paste0(prefix,1:nrow(B))
   colnames(B) <- colnames(Y)
-  r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
   if(X.restriction=="totalSum"){
     if(is.null(A)) nparam <- prod(dim(X))-1+prod(dim(B)) else nparam <- prod(dim(X))-1+prod(dim(A))
   }else{
@@ -909,9 +910,10 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     BIC <- 2*sum(-Y*.z(log(XB))+XB)+nparam*log(ncol(Y))
   }
   if(save.memory==FALSE){
+    r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
+    sigma <- stats::sd(as.vector(Y)-as.vector(XB))
     B.prob <- t(.z(t(B)/colSums(B)))
     B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
-    #B.prob.sd.min <- mean(apply(B.prob,1,stats::sd))
     B.cluster <- apply(B.prob,2,which.max)
     B.cluster[colSums(B.prob)==0] <- NA
     rownames(B.prob) <- paste0(prefix,1:nrow(B))
@@ -935,6 +937,8 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       }
     }
   }else{
+    r2 <- NA
+    sigma <- NA
     B.prob <- NA
     B.prob.sd.min <- NA
     B.cluster <- NA
@@ -952,10 +956,11 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                          paste0(round(diff.time/60,1),"min"))
   if(print.dims) message(diff.time.st)
-  result <- list(X=X,B=B,XB=XB,C=C,
+  result <- list(call=match.call(),dims=dims,
+                 X=X,B=B,XB=XB,C=C,
                  B.prob=B.prob,B.cluster=B.cluster,
                  X.prob=X.prob,X.cluster=X.cluster,
-                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,
+                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,sigma=sigma,
                  criterion=list(B.prob.sd.min=B.prob.sd.min,ICp=ICp,AIC=AIC,BIC=BIC,silhouette=silhouette,CPCC=CPCC))
   class(result) <- "nmfkc"
   return(result)
@@ -975,10 +980,55 @@ plot.nmfkc <- function(x,...){
   args <- list(x = x$objfunc.iter)
   if(is.null(extra_args$main)) args$main <- paste0("r.squared=",round(x$r.squared,3))
   if(is.null(extra_args$xlab)) args$xlab <- "iter"
-  if(is.null(extra_args$xlab)) args$ylab <- "objfunc"
+  if(is.null(extra_args$ylab)) args$ylab <- "objfunc"
   all_args <- c(args, extra_args)
   do.call("plot",all_args)
 }
+
+
+
+
+#' @export
+summary.nmfkc <- function(object, ...) {
+  ans <- list()
+  ans$call <- object$call
+  ans$dims <- object$dims
+  ans$objfunc.iter.length <- length(object$objfunc.iter)
+  ans$r.squared <- object$r.squared
+  ans$sigma <- object$sigma
+  ans$B.prob.min.max.dist <- NULL
+  if (!is.null(object$B.prob) && is.matrix(object$B.prob)) {
+    ans$B.prob.sd.dist <- summary(apply(object$B.prob,1,stats::sd))
+  } else {
+    ans$B.prob.sd.dist <- "B.prob not available (run with save.memory=FALSE)"
+  }
+  class(ans) <- "summary.nmfkc"
+  return(ans)
+}
+
+
+#' @export
+print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
+  cat("\nCall: ", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n", sep = "")
+  cat("dims: ", x$dims, "\n\n")
+
+  cat("Number of iterations:", x$objfunc.iter.length, "\n")
+  cat("Multiple R-squared:", format(x$r.squared, digits = digits), "\n")
+  cat("Residual standard error:", format(x$sigma, digits = digits), "\n\n")
+
+  cat("Distribution of row-wise standard deviations of B.prob:\n")
+  if (is.character(x$B.prob.sd.dist)) {
+      cat(x$B.prob.sd.dist, "\n")
+  } else {
+      print(x$B.prob.sd.dist, digits = digits)
+  }
+  cat("\n")
+  invisible(x)
+}
+
+
+
+
 
 
 #' @title Prediction method for objects of class \code{nmfkc}
