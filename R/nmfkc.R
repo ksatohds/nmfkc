@@ -987,27 +987,20 @@ plot.nmfkc <- function(x,...){
 
 
 
-
 #' @export
 summary.nmfkc <- function(object, ...) {
   extra_args <- list(...)
-  threshold <- if (!is.null(extra_args$threshold)) extra_args$threshold else 1e-8
+  threshold <- if (!is.null(extra_args$threshold)) extra_args$threshold else 1e-3
   ans <- list()
   ans$call <- object$call
   ans$dims <- object$dims
   ans$objfunc.iter.length <- length(object$objfunc.iter)
   ans$r.squared <- object$r.squared
   ans$sigma <- object$sigma
-  ans$B.prob.min.max.dist <- NULL
   ans$threshold <- threshold
   ans$sparsity.X <- 100*sum(object$X < threshold) / length(object$X)
   ans$sparsity.B <- 100*sum(object$B < threshold) / length(object$B)
   ans$sparsity.C <- 100*sum(object$C < threshold) / length(object$C)
-  if (!is.null(object$B.prob) && is.matrix(object$B.prob)) {
-    ans$B.prob.sd.dist <- summary(apply(object$B.prob,1,stats::sd))
-  } else {
-    ans$B.prob.sd.dist <- "B.prob not available (run with save.memory=FALSE)"
-  }
   class(ans) <- "summary.nmfkc"
   return(ans)
 }
@@ -1026,20 +1019,9 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat(paste0("X: ",format(x$sparsity.X, digits = digits),"%,"),
       paste0("B: ",format(x$sparsity.B, digits = digits),"%,"),
       paste0("C: ",format(x$sparsity.C, digits = digits),"%"),"\n\n")
-
-  cat("Distribution of row-wise standard deviations of B.prob:\n")
-  if (is.character(x$B.prob.sd.dist)) {
-      cat(x$B.prob.sd.dist, "\n")
-  } else {
-      print(x$B.prob.sd.dist, digits = digits)
-  }
   cat("\n")
   invisible(x)
 }
-
-
-
-
 
 
 #' @title Prediction method for objects of class \code{nmfkc}
