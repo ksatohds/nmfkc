@@ -1000,13 +1000,15 @@ summary.nmfkc <- function(object, ...) {
   ans$sigma <- object$sigma
   ans$B.prob.min.max.dist <- NULL
   ans$threshold <- threshold
-  ans$sparsity.X <- 100*sum(object$X < threshold) / length(object$X)
-  ans$sparsity.B <- 100*sum(object$B < threshold) / length(object$B)
-  ans$sparsity.C <- 100*sum(object$C < threshold) / length(object$C)
-  if (!is.null(object$B.prob) && is.matrix(object$B.prob)) {
-    ans$B.prob.sd.dist <- summary(apply(object$B.prob,1,stats::sd))
+  if (!is.null(object$X) && is.matrix(object$X)) {
+    ans$X.dist <- summary(as.vector(object$X))
   } else {
-    ans$B.prob.sd.dist <- "B.prob not available (run with save.memory=FALSE)"
+    ans$X.dist <- NULL
+  }
+  if (!is.null(object$B.prob) && is.matrix(object$B.prob)) {
+    ans$B.prob.dist <- summary(as.vector(object$B.prob))
+  } else {
+    ans$B.prob.dist <- NULL
   }
   class(ans) <- "summary.nmfkc"
   return(ans)
@@ -1022,16 +1024,13 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("Multiple R-squared:", format(x$r.squared, digits = digits), "\n")
   cat("Residual standard error:", format(x$sigma, digits = digits), "\n\n")
 
-  cat("Sparsity < threshold =", x$threshold, "\n")
-  cat(paste0("X: ",format(x$sparsity.X, digits = digits),"%,"),
-      paste0("B: ",format(x$sparsity.B, digits = digits),"%,"),
-      paste0("C: ",format(x$sparsity.C, digits = digits),"%"),"\n\n")
-
-  cat("Distribution of row-wise standard deviations of B.prob:\n")
-  if (is.character(x$B.prob.sd.dist)) {
-      cat(x$B.prob.sd.dist, "\n")
-  } else {
-      print(x$B.prob.sd.dist, digits = digits)
+  if (!is.null(x$X.dist)) {
+    cat("Distribution of X:\n")
+    print(x$X.dist, digits = digits)
+  }
+  if (!is.null(x$B.prob.dist)) {
+    cat("Distribution of B.prob:\n")
+    print(x$B.prob.dist, digits = digits)
   }
   cat("\n")
   invisible(x)
