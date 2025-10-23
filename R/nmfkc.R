@@ -1244,8 +1244,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
   maxit   <- if (!is.null(extra_args$maxit))   extra_args$maxit   else 5000
   method  <- if (!is.null(extra_args$method))  extra_args$method  else "EU"
-  if(is.null(A)) A <- diag(ncol(Y))
-  is.identity.matrix <- function(A, tol = 1e-12) {
+  is.identity.matrix <- function(A, tol = 1e-8) {
     if (nrow(A) != ncol(A)) return(FALSE)
     isTRUE(all.equal(A, diag(nrow(A)), tolerance = tol))
   }
@@ -1253,6 +1252,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     X <- result$X
     C <- matrix(1,nrow=ncol(X),ncol=ncol(Y))
     oldSum <- 0
+    epsilon.iter <- Inf
     for(l in 1:maxit){
       B <- C
       XB <- X %*% B
@@ -1277,8 +1277,13 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
       ") reached and the optimization hasn't converged yet."))
     return(list(B=B,XB=XB))
   }
-  is_identity <- is.identity.matrix(A)
-  is_symmetric.matrix <- isSymmetric(A, tol=1e-12)
+  if(is.null(A)){
+    is_identity <- TRUE
+    is_symmetric.matrix <- TRUE
+  }else{
+    is_identity <- is.identity.matrix(A)
+    is_symmetric.matrix <- isSymmetric(A, tol=1e-8)
+  }
   n <- ncol(Y)
   remainder <- n %% div
   division <- n %/% div
@@ -1297,10 +1302,14 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   for(j in 1:div){
     Y_j <- Y[,index!=j]
     Yj <- Y[,index==j]
-    if(is_symmetric.matrix){
-      A_j <- A[index!=j,index!=j] # kernel matrix or identity matrix
+    if(is_identity){
+      A_j <- NULL
     }else{
-      A_j <- A[,index!=j] # ordinary design matrix
+      if(is_symmetric.matrix){
+        A_j <- A[index!=j,index!=j] # kernel matrix or identity matrix
+      }else{
+        A_j <- A[,index!=j] # ordinary design matrix
+      }
     }
     nmfkc_args <- c(
       list(...),
@@ -1323,12 +1332,12 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
       XBj <- res_j$X %*% res_j$C %*% Aj
     }
     if(method=="EU"){
-      objfunc.block[j] <- sum((Yj-XBj)^2)+gamma*sum(res_j$C^2)
+      objfunc.block[j] <- sum((Yj-XBj)^2)
     }else{
-      objfunc.block[j] <- sum(-Yj*.z(log(XBj))+XBj)+gamma*sum(res_j$C^2)
+      objfunc.block[j] <- sum(-Yj*.z(log(XBj))+XBj)
     }
   }
-  objfunc <- sum(objfunc.block)
+  objfunc <- sum(objfunc.block)/n
   return(list(objfunc=objfunc,objfunc.block=objfunc.block,block=index))
 }
 
