@@ -26,6 +26,7 @@ A data frame containing rank values (\code{Q}) and the corresponding diagnostic 
 \item \code{ARI}: Adjusted Rand Index relative to the previous rank.
 \item \code{silhouette}: Mean silhouette score (if computed).
 \item \code{CPCC}: Cophenetic correlation coefficient (if computed).
+\item \code{dist.cor}: Distance between Y and B (if computed).
 }
 }
 \description{

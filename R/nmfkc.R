@@ -925,8 +925,10 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     if(save.time){
       silhouette <- NA
       CPCC <- NA
+      dist.cor <- NA
     }else{
       silhouette <- silhouette.simple(B.prob,B.cluster)
+      dist.cor <- stats::cor(as.vector(stats::dist(t(Y))),as.vector(stats::dist(t(B))))
       if(Q>=2){
         M <- t(B.prob) %*% B.prob
         h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M))))
@@ -947,6 +949,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     X.cluster <- NA
     silhouette <- NA
     CPCC <- NA
+    dist.cor <- NA
   }
   if(epsilon.iter > abs(epsilon)) warning(paste0(
     "maximum iterations (",maxit,
@@ -961,7 +964,9 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                  B.prob=B.prob,B.cluster=B.cluster,
                  X.prob=X.prob,X.cluster=X.cluster,
                  objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,sigma=sigma,
-                 criterion=list(B.prob.sd.min=B.prob.sd.min,ICp=ICp,AIC=AIC,BIC=BIC,silhouette=silhouette,CPCC=CPCC))
+                 criterion=list(B.prob.sd.min=B.prob.sd.min,
+                                ICp=ICp,AIC=AIC,BIC=BIC,
+                                silhouette=silhouette,CPCC=CPCC,dist.cor=dist.cor))
   class(result) <- "nmfkc"
   return(result)
 }
@@ -998,8 +1003,6 @@ summary.nmfkc <- function(object, ...) {
   ans$objfunc.iter.length <- length(object$objfunc.iter)
   ans$r.squared <- object$r.squared
   ans$sigma <- object$sigma
-  ans$B.prob.min.max.dist <- NULL
-  ans$threshold <- threshold
   if (!is.null(object$X) && is.matrix(object$X)) {
     ans$X.dist <- summary(as.vector(object$X))
   } else {
@@ -1351,6 +1354,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
 #'   \item \code{ARI}: Adjusted Rand Index relative to the previous rank.
 #'   \item \code{silhouette}: Mean silhouette score (if computed).
 #'   \item \code{CPCC}: Cophenetic correlation coefficient (if computed).
+#'   \item \code{dist.cor}: Distance between Y and B (if computed).
 #' }
 #' @seealso \code{\link{nmfkc}}
 #' @export
@@ -1400,7 +1404,8 @@ nmfkc.rank <- function(Y,A=NULL,Q=1:2,plot=TRUE,...){
     B.prob.sd.min = numeric(num_q),
     ARI = numeric(num_q),
     silhouette = numeric(num_q),
-    CPCC = numeric(num_q)
+    CPCC = numeric(num_q),
+    dist.cor = numeric(num_q)
   )
 
   cluster.old <- NULL
@@ -1425,9 +1430,11 @@ nmfkc.rank <- function(Y,A=NULL,Q=1:2,plot=TRUE,...){
 
     if(save_time_for_this_run){
       results_df$CPCC[q_idx] <- NA
+      results_df$dist.cor[q_idx] <- NA
       results_df$silhouette[q_idx] <- NA
     } else {
       results_df$CPCC[q_idx] <- result$criterion$CPCC
+      results_df$dist.cor[q_idx] <- result$criterion$dist.cor
       results_df$silhouette[q_idx] <- result$criterion$silhouette$silhouette.mean
     }
 
@@ -1477,6 +1484,13 @@ nmfkc.rank <- function(Y,A=NULL,Q=1:2,plot=TRUE,...){
       graphics::text(results_df$Q, results_df$CPCC, results_df$Q)
       legend_text <- c(legend_text, "CPCC")
       legend_cols <- c(legend_cols, 6)
+    }
+
+    if (any(!is.na(results_df$dist.cor))) {
+      graphics::lines(results_df$Q, results_df$dist.cor, col=5, lwd=3)
+      graphics::text(results_df$Q, results_df$dist.cor, results_df$Q)
+      legend_text <- c(legend_text, "dist.cor")
+      legend_cols <- c(legend_cols, 5)
     }
 
     graphics::legend("bottomleft", legend=legend_text, fill=legend_cols, bg="white")
