@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 16 OCT 2025")
+  packageStartupMessage("Last update on 24 OCT 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -488,7 +488,6 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   return(result)
 }
 
-
 #' @title Optimize NMF with kernel covariates
 #' @description
 #' \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
@@ -498,10 +497,24 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' parameter matrix, and \eqn{B(Q,N)=C A} is the coefficient matrix.
 #' Given \eqn{Y} and (optionally) \eqn{A}, the algorithm estimates \eqn{X} and \eqn{C}.
 #'
+#' The estimation is based on minimizing a penalized objective function:
+#' \deqn{
+#'   J(X,C) =
+#'   \begin{cases}
+#'     \|Y - XCA\|_F^2 + \gamma\,\mathrm{tr}(C A A^\top C^\top), & \text{for method = "EU"},\\[6pt]
+#'     \sum_{p,n}\!\bigl[-Y_{pn}\log(XCA)_{pn} + (XCA)_{pn}\bigr]
+#'       + \gamma\,\mathrm{tr}(C A A^\top C^\top), & \text{for method = "KL"}.
+#'   \end{cases}
+#' }
+#' When \code{A = NULL}, the penalty reduces to \eqn{\gamma\,\mathrm{tr}(C C^\top)}.
+#' This ridge-type regularization on \eqn{C} (or \eqn{CA}) improves stability
+#' and generalization by shrinking coefficient vectors toward zero.
+#'
 #' @param Y Observation matrix.
 #' @param A Covariate matrix. Default is \code{NULL} (no covariates).
 #' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
-#' @param gamma Nonnegative penalty parameter for the parameter matrix \eqn{C}.
+#' @param gamma Nonnegative penalty parameter controlling
+#'   the ridge regularization term \eqn{\gamma\,\mathrm{tr}(C A A^\top C^\top)}.
 #' @param epsilon Positive convergence tolerance.
 #' @param maxit Maximum number of iterations.
 #' @param method Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
@@ -696,12 +709,17 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     if (print.trace) message(sprintf("KL block size (auto): %d", bsz))
   } # } end if (fast.calc && method!="EU")
   # EU with A: precompute Y%*%t(A) and A%*%t(A) to eliminate N in iterations
-  if (fast.calc && hasA && method=="EU") {
+  if (hasA) {
     At  <- t(A)                     # (N x R)
     YAt <- Y %*% At                 # (P x R)
     AAt <- A %*% At                 # (R x R)
-    YY_frob2 <- sum(Y*Y)            # constant term for objective
-  } # } end if (fast.calc && hasA && method=="EU")
+  }
+  if(method=="EU"){
+    if (fast.calc) YY_frob2 <- sum(Y*Y)            # constant term for objective
+  }else{
+    if (hasA) rowSumsA <- rowSums(A)
+    rep1ncolY <- rep(1,ncol(Y))
+  }
   # ---------------- Main loop ----------------
   epsilon.iter <- Inf  # initialize for post-loop warning safety
   objfunc.iter <- 0*(1:maxit)
@@ -733,7 +751,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
           XtX  <- crossprod(X)                            # (Q x Q)
           numC <- crossprod(X, YAt)                       # (Q x R)
           denC <- (XtX %*% C) %*% AAt                     # (Q x R)
-          if (gamma!=0) denC <- denC + gamma*C            # L2 regularization on C
+          if (gamma!=0) denC <- denC + gamma*C %*% AAt    # L2 regularization on C
           denC <- pmax(denC, 1e-12)                       # protect division by zero
           C    <- C * (numC / denC); C[C<0] <- 0          # multiplicative update + clamp negatives
 
@@ -741,7 +759,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
           # ||Y||_F^2 - 2*tr(Y^T X C A) + ||X C A||_F^2 + gamma||C||_F^2
           XC     <- X %*% C
           CtXtXC <- crossprod(C, XtX %*% C)               # (R x R)
-          objfunc.iter[i] <- YY_frob2 - 2*sum(YAt * XC) + sum(AAt * CtXtXC) + gamma*sum(C^2)
+          objfunc.iter[i] <- YY_frob2 - 2*sum(YAt * XC) + sum(AAt * CtXtXC) + gamma*sum(diag(C%*% AAt %*% t(C)))
 
         } else {                                                              # <-- else: FAST EU without A
           B  <- C
@@ -797,13 +815,13 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
           # C multiplicative update (blocked numerator, small-matrix denominator)
           cX   <- colSums(X)                           # (Q)
           denC <- outer(cX, rowSums(A))                # (Q x R)
-          if (gamma!=0) denC <- denC + 2*gamma*C       # L2 regularization on C in KL (factor 2)
+          if (gamma!=0) denC <- denC+2*gamma*(C %*% AAt) # L2 regularization on C in KL (factor 2)
           denC <- pmax(denC, 1e-12)
           C    <- C * (numC_XR / denC); C[C<0] <- 0
           # KL objective (full evaluation; log protected)
           B  <- C %*% A
           XB <- X %*% B
-          objfunc.iter[i] <- sum(-Y*.z(log(XB)) + XB) + gamma*sum(C^2)
+          objfunc.iter[i] <- sum(-Y*.z(log(XB)) + XB) +gamma*sum(diag(C%*% AAt %*% t(C)))
         } else {                                                              # <-- else: FAST KL without A
           B  <- C
           XB <- pmax(X %*% B, 1e-12)
@@ -843,12 +861,28 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
         } # } end if (!is.X.scalar) (REF EU)
 
         if(is.null(A)) {
-          C <- C*.z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+          if(gamma!=0){
+            C <- C*.z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+          }else{
+            C <- C*.z((t(X)%*%Y)/(t(X)%*%XB))
+          }
         } else {
-          C <- C*.z((t(X)%*%Y%*%t(A))/(t(X)%*%XB%*%t(A)+gamma*C))
+          if(gamma!=0){
+            C <- C*.z((t(X)%*% YAt)/(t(X)%*%XB%*%At+gamma*(C %*% AAt)))
+          }else{
+            C <- C*.z((t(X)%*% YAt)/(t(X)%*%XB%*%At))
+          }
         } # } end if (is.null(A)) else (REF EU C-update)
 
-        objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
+        if(gamma!=0){
+          if(is.null(A)) {
+            objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
+          }else{
+            objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(diag(C%*% AAt %*% t(C)))
+          }
+        }else{
+          objfunc.iter[i] <- sum((Y-XB)^2)
+        }
 
       }else{                                                                     # <-- else: REF KL
         if(!is.X.scalar){
@@ -857,12 +891,28 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
         } # } end if (!is.X.scalar) (REF KL)
 
         if(is.null(A)) {
-          C <- C*.z(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C))
+          if(gamma!=0){
+            C <- C*.z(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep1ncolY+2*gamma*C))
+          }else{
+            C <- C*.z(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep1ncolY))
+          }
         } else {
-          C <- C*.z(t(X)%*%.z(Y/XB)%*%t(A)/(colSums(X)%o%rowSums(A)+2*gamma*C))
+          if(gamma!=0){
+            C <- C*.z(t(X)%*%.z(Y/XB)%*%At/(colSums(X)%o%rowSumsA+2*gamma*(C %*% AAt)))
+          }else{
+            C <- C*.z(t(X)%*%.z(Y/XB)%*%At/(colSums(X)%o%rowSumsA))
+          }
         } # } end if (is.null(A)) else (REF KL C-update)
 
-        objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
+        if(gamma!=0){
+          if(is.null(A)) {
+            objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
+          }else{
+            objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)+gamma*sum(diag(C%*% AAt %*% t(C)))
+          }
+        }else{
+          objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)
+        }
       } # } end if (method=="EU") else (REF)
     } # } end if (fast.calc) else (REFERENCE)
 
@@ -879,9 +929,17 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
   if(method=="EU"){
-    objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
+    if(is.null(A)) {
+      objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
+    }else{
+      objfunc <- sum((Y-XB)^2)+gamma*sum(diag(C%*% AAt %*% t(C)))
+    }
   }else{
-    objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
+    if(is.null(A)) {
+      objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
+    }else{
+      objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(diag(C%*% AAt %*% t(C)))
+    }
   }
   if(ncol(X)>1 & sum(rowSums(X)==1)==nrow(X)){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
@@ -996,7 +1054,6 @@ plot.nmfkc <- function(x,...){
 #' @export
 summary.nmfkc <- function(object, ...) {
   extra_args <- list(...)
-  threshold <- if (!is.null(extra_args$threshold)) extra_args$threshold else 1e-8
   ans <- list()
   ans$call <- object$call
   ans$dims <- object$dims
@@ -1244,7 +1301,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
   maxit   <- if (!is.null(extra_args$maxit))   extra_args$maxit   else 5000
   method  <- if (!is.null(extra_args$method))  extra_args$method  else "EU"
-  is.identity.matrix <- function(A, tol = 1e-8) {
+  is.identity.matrix <- function(A, tol = 1e-12) {
     if (nrow(A) != ncol(A)) return(FALSE)
     isTRUE(all.equal(A, diag(nrow(A)), tolerance = tol))
   }
@@ -1282,7 +1339,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     is_symmetric.matrix <- TRUE
   }else{
     is_identity <- is.identity.matrix(A)
-    is_symmetric.matrix <- isSymmetric(A, tol=1e-8)
+    is_symmetric.matrix <- isSymmetric(A, tol=1e-12)
   }
   n <- ncol(Y)
   remainder <- n %% div

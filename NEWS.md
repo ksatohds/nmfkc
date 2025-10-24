@@ -1,4 +1,5 @@
-# nmfkc 0.5.1
+# nmfkc 0.5.2
+0.5.2: The penalty term has been changed from `tr(CC')` to `tr(BB')` = `tr(CAA'C')`
 0.5.1: Implemented the internal `.z` and `xnorm` functions.
 0.5.0: Added the fast.calc option to the `nmfkc()` function.
 0.4.9: Optimized internal calculations for improved performance.

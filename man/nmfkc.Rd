@@ -35,7 +35,8 @@ nmfkc(
 
 \item{Q}{Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.}
 
-\item{gamma}{Nonnegative penalty parameter for the parameter matrix \eqn{C}.}
+\item{gamma}{Nonnegative penalty parameter controlling
+the ridge regularization term \eqn{\gamma\,\mathrm{tr}(C A A^\top C^\top)}.}
 
 \item{epsilon}{Positive convergence tolerance.}
 
@@ -96,6 +97,19 @@ under the tri-factorization model \eqn{Y \approx X C A = X B}, where
 \eqn{X(P,Q)} is the basis matrix (\eqn{Q \le \min(P,N)}), \eqn{C(Q,R)} is the
 parameter matrix, and \eqn{B(Q,N)=C A} is the coefficient matrix.
 Given \eqn{Y} and (optionally) \eqn{A}, the algorithm estimates \eqn{X} and \eqn{C}.
+
+The estimation is based on minimizing a penalized objective function:
+\deqn{
+  J(X,C) =
+  \begin{cases}
+    \|Y - XCA\|_F^2 + \gamma\,\mathrm{tr}(C A A^\top C^\top), & \text{for method = "EU"},\\[6pt]
+    \sum_{p,n}\!\bigl[-Y_{pn}\log(XCA)_{pn} + (XCA)_{pn}\bigr]
+      + \gamma\,\mathrm{tr}(C A A^\top C^\top), & \text{for method = "KL"}.
+  \end{cases}
+}
+When \code{A = NULL}, the penalty reduces to \eqn{\gamma\,\mathrm{tr}(C C^\top)}.
+This ridge-type regularization on \eqn{C} (or \eqn{CA}) improves stability
+and generalization by shrinking coefficient vectors toward zero.
 }
 \examples{
 # install.packages("remotes")
