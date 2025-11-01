@@ -540,6 +540,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @return A list with components:
 #' \item{call}{The matched call, as captured by `match.call()`.}
 #' \item{dims}{A character string summarizing the matrix dimensions of the model.}
+#' \item{runtime}{A character string summarizing the computation time.}
 #' \item{X}{Basis matrix. Column normalization depends on \code{X.restriction}.}
 #' \item{B}{Coefficient matrix \eqn{B = C A}.}
 #' \item{XB}{Fitted values for \eqn{Y}.}
@@ -1017,7 +1018,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                          paste0(round(diff.time/60,1),"min"))
   if(print.dims) message(diff.time.st)
-  result <- list(call=match.call(),dims=dims,
+  result <- list(call=match.call(),dims=dims,runtime=diff.time.st,
                  X=X,B=B,XB=XB,C=C,
                  B.prob=B.prob,B.cluster=B.cluster,
                  X.prob=X.prob,X.cluster=X.cluster,
@@ -1057,6 +1058,7 @@ summary.nmfkc <- function(object, ...) {
   ans <- list()
   ans$call <- object$call
   ans$dims <- object$dims
+  ans$runtime <- object$runtime
   ans$objfunc.iter.length <- length(object$objfunc.iter)
   ans$r.squared <- object$r.squared
   ans$sigma <- object$sigma
@@ -1080,6 +1082,7 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("\nCall: ", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n", sep = "")
   cat("dims: ", x$dims, "\n\n")
 
+  cat("Runtime:", x$runtime, "\n")
   cat("Number of iterations:", x$objfunc.iter.length, "\n")
   cat("Multiple R-squared:", format(x$r.squared, digits = digits), "\n")
   cat("Residual standard error:", format(x$sigma, digits = digits), "\n\n")

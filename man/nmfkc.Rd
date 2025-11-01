@@ -76,6 +76,7 @@ If \code{FALSE} (default), runs the reference implementation with the original u
 A list with components:
 \item{call}{The matched call, as captured by \code{match.call()}.}
 \item{dims}{A character string summarizing the matrix dimensions of the model.}
+\item{runtime}{A character string summarizing the computation time.}
 \item{X}{Basis matrix. Column normalization depends on \code{X.restriction}.}
 \item{B}{Coefficient matrix \eqn{B = C A}.}
 \item{XB}{Fitted values for \eqn{Y}.}
