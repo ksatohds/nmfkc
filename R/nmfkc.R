@@ -722,7 +722,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   start.time <- Sys.time()
   if(is.vector(Y)) Y <- matrix(Y,nrow=1)
   if(!is.matrix(Y)) Y <- as.matrix(Y)
-  if(!is.null(A) & min(A)<0)stop("The matrix A should be non-negative.")
+  if(!is.null(A))if(min(A)<0) stop("The matrix A should be non-negative.")
   if(min(Y)<0) stop("The matrix Y should be non-negative.")
   is.X.scalar <- FALSE
   if(nrow(Y)>=2){
@@ -771,7 +771,6 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
-
     if(method=="EU"){
       if(!is.X.scalar){
         if(!is.X.scalar & X.restriction!="fixed"){
@@ -843,7 +842,6 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       } # } end if (converged)
     } # } end if (i >= 10)
   } # } end for (main iteration loop)
-
   if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
   if(method=="EU"){
