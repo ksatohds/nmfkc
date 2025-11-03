@@ -509,21 +509,22 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     U <- s$u[, idx, drop = FALSE]
     V <- s$v[, idx, drop = FALSE]
     D_sqrt <- sqrt(s$d[idx])
-    U_p <- U; U_p[U_p < 0] <- 0
-    U_n <- U; U_n[U_n > 0] <- 0; U_n <- -U_n
-    V_p <- V; V_p[V_p < 0] <- 0
-    V_n <- V; V_n[V_n > 0] <- 0; V_n <- -V_n
+    U_p <- pmax(U, 0)
+    U_n <- pmax(-U, 0)
+    V_p <- pmax(V, 0)
+    V_n <- pmax(-V, 0)
     norm_Up <- sqrt(colSums(U_p^2))
     norm_Un <- sqrt(colSums(U_n^2))
     norm_Vp <- sqrt(colSums(V_p^2))
     norm_Vn <- sqrt(colSums(V_n^2))
     Mp <- norm_Up * norm_Vp
     Mn <- norm_Un * norm_Vn
-    use_pos <- (Mp > Mn)
-    norm_Up_safe <- norm_Up; norm_Up_safe[norm_Up == 0] <- 1e-12
-    norm_Un_safe <- norm_Un; norm_Un_safe[norm_Un == 0] <- 1e-12
+    eps <- .Machine$double.eps
+    norm_Up_safe <- norm_Up; norm_Up_safe[norm_Up == 0] <- eps
+    norm_Un_safe <- norm_Un; norm_Un_safe[norm_Un == 0] <- eps
     W_pos <- sweep(U_p, 2, (D_sqrt * Mp / norm_Up_safe), FUN = "*")
     W_neg <- sweep(U_n, 2, (D_sqrt * Mn / norm_Un_safe), FUN = "*")
+    use_pos <- (Mp > Mn)
     W_combined <- W_pos
     W_combined[, !use_pos] <- W_neg[, !use_pos]
     W[, idx] <- W_combined
@@ -1218,7 +1219,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
   maxit   <- if (!is.null(extra_args$maxit))   extra_args$maxit   else 5000
   method  <- if (!is.null(extra_args$method))  extra_args$method  else "EU"
-  is.identity.matrix <- function(A, tol = 1e-12) {
+  is.identity.matrix <- function(A, tol = .Machine$double.eps) {
     if (nrow(A) != ncol(A)) return(FALSE)
     isTRUE(all.equal(A, diag(nrow(A)), tolerance = tol))
   }
@@ -1256,7 +1257,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
     is_symmetric.matrix <- TRUE
   }else{
     is_identity <- is.identity.matrix(A)
-    is_symmetric.matrix <- isSymmetric(A, tol=1e-12)
+    is_symmetric.matrix <- isSymmetric(A, tol=.Machine$double.eps)
   }
   n <- ncol(Y)
   remainder <- n %% div
