@@ -18,6 +18,7 @@ nmfkc(
   maxit = 5000,
   method = "EU",
   X.restriction = "colSums",
+  X.init = "kmeans",
   nstart = 1,
   seed = 123,
   prefix = "Basis",
@@ -48,6 +49,11 @@ the ridge regularization term \eqn{\gamma\,\mathrm{tr}(C A A^\top C^\top)}.}
 \code{"colSums"} (default; each column sums to 1),
 \code{"colSqSums"} (each column has unit \eqn{\ell_2} norm), or
 \code{"totalSum"} (entries sum to 1).}
+
+\item{X.init}{Method for initializing the basis matrix \eqn{X}.
+Default is \code{"kmeans"}.
+\code{"nndsvd"} (Nonnegative Double SVD) can also be specified
+for a deterministic, often faster, initialization.}
 
 \item{nstart}{Number of random starts for \code{\link[stats]{kmeans}} when initializing \eqn{X}.}
 

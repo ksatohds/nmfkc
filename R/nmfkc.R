@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 24 OCT 2025")
+  packageStartupMessage("Last update on 03 NOV 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -488,6 +488,52 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   return(result)
 }
 
+
+#' @title Initialize W (X) matrix using NNDSVD (Vectorized)
+#' @description
+#'   Internal function to compute the NNDSVD initialization for the basis matrix X.
+#'   This version is fully vectorized and removes the for-loop over Q.
+#' @param Y Input matrix (P x N)
+#' @param Q Rank (number of components)
+#' @return X (P x Q) non-negative initial basis matrix
+#' @keywords internal
+#' @noRd
+.nndsvd <- function(Y, Q) {
+  P <- nrow(Y)
+  N <- ncol(Y)
+  s <- svd(Y, nu = Q, nv = Q)
+  W <- matrix(0, P, Q)
+  W[, 1] <- sqrt(s$d[1]) * abs(s$u[, 1])
+  if (Q > 1) {
+    idx <- 2:Q
+    U <- s$u[, idx, drop = FALSE]
+    V <- s$v[, idx, drop = FALSE]
+    D_sqrt <- sqrt(s$d[idx])
+    U_p <- U; U_p[U_p < 0] <- 0
+    U_n <- U; U_n[U_n > 0] <- 0; U_n <- -U_n
+    V_p <- V; V_p[V_p < 0] <- 0
+    V_n <- V; V_n[V_n > 0] <- 0; V_n <- -V_n
+    norm_Up <- sqrt(colSums(U_p^2))
+    norm_Un <- sqrt(colSums(U_n^2))
+    norm_Vp <- sqrt(colSums(V_p^2))
+    norm_Vn <- sqrt(colSums(V_n^2))
+    Mp <- norm_Up * norm_Vp
+    Mn <- norm_Un * norm_Vn
+    use_pos <- (Mp > Mn)
+    norm_Up_safe <- norm_Up; norm_Up_safe[norm_Up == 0] <- 1e-12
+    norm_Un_safe <- norm_Un; norm_Un_safe[norm_Un == 0] <- 1e-12
+    W_pos <- sweep(U_p, 2, (D_sqrt * Mp / norm_Up_safe), FUN = "*")
+    W_neg <- sweep(U_n, 2, (D_sqrt * Mn / norm_Un_safe), FUN = "*")
+    W_combined <- W_pos
+    W_combined[, !use_pos] <- W_neg[, !use_pos]
+    W[, idx] <- W_combined
+  }
+  W[is.nan(W)] <- 0
+  W[W < 0] <- 0
+  return(W)
+}
+
+
 #' @title Optimize NMF with kernel covariates
 #' @description
 #' \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
@@ -522,6 +568,10 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   \code{"colSums"} (default; each column sums to 1),
 #'   \code{"colSqSums"} (each column has unit \eqn{\ell_2} norm), or
 #'   \code{"totalSum"} (entries sum to 1).
+#' @param X.init Method for initializing the basis matrix \eqn{X}.
+#'   Default is \code{"kmeans"}.
+#'   \code{"nndsvd"} (Nonnegative Double SVD) can also be specified
+#'   for a deterministic, often faster, initialization.
 #' @param nstart Number of random starts for \code{\link[stats]{kmeans}} when initializing \eqn{X}.
 #' @param seed Integer seed passed to \code{\link[base]{set.seed}}.
 #' @param prefix Prefix for column names of \eqn{X} and row names of \eqn{B}.
@@ -589,7 +639,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' lines(cars$speed,as.vector(result$XB),col=2,lwd=2)
 
 nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
-                  X.restriction="colSums",nstart=1,seed=123,
+                  X.restriction="colSums",X.init="kmeans",nstart=1,seed=123,
                   prefix="Basis",print.trace=FALSE,print.dims=TRUE,save.time=TRUE,save.memory=FALSE,fast.calc=FALSE){
   X.restriction <- match.arg(X.restriction, c("colSums", "colSqSums", "totalSum"))
   xnorm <- switch(X.restriction,
@@ -685,8 +735,12 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
         if (!is.null(seed)) {
           set.seed(seed)
         }
-        res.kmeans <- stats::kmeans(t(Y),centers=Q,iter.max=maxit,nstart=nstart)
-        X <- t(res.kmeans$centers)
+        if(X.init=="kmeans"){
+          res.kmeans <- stats::kmeans(t(Y),centers=Q,iter.max=maxit,nstart=nstart)
+          X <- t(res.kmeans$centers)
+        }else{
+          X <- .nndsvd(Y,Q)
+        }
       }
     }else{
       warning("It does not hold Q<=min(P,N) where dim(Y)=(P,N).")
