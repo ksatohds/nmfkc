@@ -648,7 +648,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                  colSums   = function(X) sweep(X, 2, colSums(X), "/"),
                  colSqSums = function(X) sweep(X, 2, sqrt(colSums(X^2)), "/"),
                  totalSum  = function(X) X / sum(X),
-                 fixed = X
+                 fixed = function(X) X
   )
   # simplified silhouette coefficient
   # This internal function computes an approximate version of the silhouette coefficient.
@@ -918,8 +918,10 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
 
       if(method=="EU"){                                                          # <-- open: REF EU
         if(!is.X.scalar){
-          X <- X*.z((Y%*% t(B))/(XB%*%t(B)))
-          X <- xnorm(X)
+          if(!is.X.scalar & X.restriction!="fixed"){
+            X <- X*.z((Y%*% t(B))/(XB%*%t(B)))
+            X <- xnorm(X)
+          }
         } # } end if (!is.X.scalar) (REF EU)
 
         if(is.null(A)) {
@@ -947,7 +949,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
         }
 
       }else{                                                                     # <-- else: REF KL
-        if(!is.X.scalar){
+        if(!is.X.scalar & X.restriction!="fixed"){
           X <- X*.z((Y/XB)%*%t(B))/(rep(1,nrow(Y))%o%rowSums(B))
           X <- xnorm(X)
         } # } end if (!is.X.scalar) (REF KL)

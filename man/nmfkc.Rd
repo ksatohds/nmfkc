@@ -46,14 +46,16 @@ the ridge regularization term \eqn{\gamma\,\mathrm{tr}(C A A^\top C^\top)}.}
 \item{method}{Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.}
 
 \item{X.restriction}{Constraint for columns of \eqn{X}:
-\code{"colSums"} (default; each column sums to 1),
-\code{"colSqSums"} (each column has unit \eqn{\ell_2} norm), or
-\code{"totalSum"} (entries sum to 1).}
+\code{"colSums"} (default; each column sums to 1, \eqn{\ell_1} norm),
+\code{"colSqSums"} (each column has unit \eqn{\ell_2} norm),
+\code{"totalSum"} (all entries in \eqn{X} sum to 1), or
+\code{"fixed"} (no normalization applied).}
 
 \item{X.init}{Method for initializing the basis matrix \eqn{X}.
-Default is \code{"kmeans"}.
-\code{"nndsvd"} (Nonnegative Double SVD) can also be specified
-for a deterministic, often faster, initialization.}
+Can be:
+\code{"kmeans"} (default; uses \code{\link[stats]{kmeans}} on \eqn{t(Y)}),
+\code{"nndsvd"} (uses Nonnegative Double SVD; specify any string other than "kmeans"),
+or a user-specified \strong{matrix} to use as the initial \eqn{X}.}
 
 \item{nstart}{Number of random starts for \code{\link[stats]{kmeans}} when initializing \eqn{X}.}
 
