@@ -50,15 +50,18 @@ the ridge regularization term \eqn{\gamma\,\mathrm{tr}(C A A^\top C^\top)}.}
 \code{"totalSum"} (all entries in \eqn{X} sum to 1), or
 \code{"fixed"} (no normalization applied).}
 
-\item{X.init}{Method for initializing the basis matrix \eqn{X}.
+\item{X.init}{Method for initializing the basis matrix \eqn{X}. \strong{Default is \code{"kmeans"}}.
 Can be:
-\code{"kmeans"} (default; uses \code{\link[stats]{kmeans}} on \eqn{t(Y)}),
-\code{"nndsvd"} (uses Nonnegative Double SVD; specify any string other than "kmeans"),
-or a user-specified \strong{matrix} to use as the initial \eqn{X}.}
+\itemize{
+\item \code{"kmeans"}: Uses \code{\link[stats]{kmeans}} on \eqn{t(Y)} to find cluster centers.
+\item \code{"runif"}: Initializes \eqn{X} with non-negative uniform random numbers.
+\item \code{"nndsvd"} (or any other string): Uses the \strong{NNDSVDar} (Nonnegative Double SVD with small random fill) method for stable initialization.
+\item A user-specified \strong{matrix} to use as the initial \eqn{X}.
+}}
 
 \item{nstart}{Number of random starts for \code{\link[stats]{kmeans}} when initializing \eqn{X}.}
 
-\item{seed}{Integer seed passed to \code{\link[base]{set.seed}}.}
+\item{seed}{Integer seed passed to \code{\link[base]{set.seed}}. Note that \code{"kmeans"}, \code{"runif"}, and \code{"nndsvd"} (NNDSVDar) initialization methods are affected by this seed.}
 
 \item{prefix}{Prefix for column names of \eqn{X} and row names of \eqn{B}.}
 
