@@ -1,10 +1,10 @@
 # Installation
 
-You can install the **nmfkc** package from [GitHub](https://github.com/)
+You can install the **nmfkc** package from [GitHub](https://github.com/ksatohds/nmfkc)
 
 ``` r
 #install.packages("remotes")
-remotes::install_github("ksatohds/nmfkc")
+remotes::install_github("ksatohds/nmfkc", build_vignettes = TRUE)
 library(nmfkc)
 ```
 
