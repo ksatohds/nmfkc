@@ -565,13 +565,15 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @param maxit Maximum number of iterations.
 #' @param method Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 #' @param X.restriction Constraint for columns of \eqn{X}:
-#'   \code{"colSums"} (default; each column sums to 1),
-#'   \code{"colSqSums"} (each column has unit \eqn{\ell_2} norm), or
-#'   \code{"totalSum"} (entries sum to 1).
+#'   \code{"colSums"} (default; each column sums to 1, \eqn{\ell_1} norm),
+#'   \code{"colSqSums"} (each column has unit \eqn{\ell_2} norm),
+#'   \code{"totalSum"} (all entries in \eqn{X} sum to 1), or
+#'   \code{"fixed"} (no normalization applied).
 #' @param X.init Method for initializing the basis matrix \eqn{X}.
-#'   Default is \code{"kmeans"}.
-#'   \code{"nndsvd"} (Nonnegative Double SVD) can also be specified
-#'   for a deterministic, often faster, initialization.
+#'   Can be:
+#'   \code{"kmeans"} (default; uses \code{\link[stats]{kmeans}} on \eqn{t(Y)}),
+#'   \code{"nndsvd"} (uses Nonnegative Double SVD; specify any string other than "kmeans"),
+#'   or a user-specified \strong{matrix} to use as the initial \eqn{X}.
 #' @param nstart Number of random starts for \code{\link[stats]{kmeans}} when initializing \eqn{X}.
 #' @param seed Integer seed passed to \code{\link[base]{set.seed}}.
 #' @param prefix Prefix for column names of \eqn{X} and row names of \eqn{B}.
@@ -641,11 +643,12 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                   X.restriction="colSums",X.init="kmeans",nstart=1,seed=123,
                   prefix="Basis",print.trace=FALSE,print.dims=TRUE,save.time=TRUE,save.memory=FALSE,fast.calc=FALSE){
-  X.restriction <- match.arg(X.restriction, c("colSums", "colSqSums", "totalSum"))
+  X.restriction <- match.arg(X.restriction, c("colSums", "colSqSums", "totalSum","fixed"))
   xnorm <- switch(X.restriction,
                  colSums   = function(X) sweep(X, 2, colSums(X), "/"),
                  colSqSums = function(X) sweep(X, 2, sqrt(colSums(X^2)), "/"),
-                 totalSum  = function(X) X / sum(X)
+                 totalSum  = function(X) X / sum(X),
+                 fixed = X
   )
   # simplified silhouette coefficient
   # This internal function computes an approximate version of the silhouette coefficient.
@@ -735,11 +738,15 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
         if (!is.null(seed)) {
           set.seed(seed)
         }
-        if(X.init=="kmeans"){
-          res.kmeans <- stats::kmeans(t(Y),centers=Q,iter.max=maxit,nstart=nstart)
-          X <- t(res.kmeans$centers)
-        }else{
-          X <- .nndsvd(Y,Q)
+        if (is.matrix(X.init)) {
+          X <- X.init
+        } else if (is.character(X.init)) {
+          if(X.init=="kmeans"){
+            res.kmeans <- stats::kmeans(t(Y),centers=Q,iter.max=maxit,nstart=nstart)
+            X <- t(res.kmeans$centers)
+          }else{
+            X <- .nndsvd(Y,Q)
+          }
         }
       }
     }else{
