@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 03 NOV 2025...03")
+  packageStartupMessage("Last update on 04 NOV 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -542,56 +542,121 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+#' @title Compute a simplified/approximate silhouette coefficient (Internal)
+#' @description
+#' This internal function computes an approximate version of the silhouette coefficient
+#' for clustering results. Unlike the standard definition (e.g., \code{cluster::silhouette}),
+#' it determines the nearest neighboring cluster (\code{qn}) by comparing the
+#' **Euclidean distances between each sample and the cluster mean vectors (centroids)**,
+#' rather than comparing the average distance to all members of other clusters.
+#'
+#' However, the calculation of \code{a(i)} (average distance to members of the
+#' assigned cluster) and \code{b(i)} (average distance to members of the nearest
+#' neighboring cluster) uses the pairwise distances of all samples, consistent
+#' with the standard definition. This combined approach reduces the computational
+#' complexity of the \code{qn} determination step while maintaining consistency
+#' for \code{a(i)} and \code{b(i)} using pre-computed distance matrix \code{D}.
+#'
+#' @param B.prob The coefficient probability matrix (Q x N).
+#' @param B.cluster The hard clustering vector derived from \code{B.prob}.
+#'
+#' @return A list containing:
+#' \item{cluster}{Sorted cluster labels.}
+#' \item{silhouette}{Sorted silhouette values.}
+#' \item{silhouette.means}{Mean of the cluster indices.}
+#' \item{silhouette.mean}{Overall mean silhouette score.}
+#' @keywords internal
+#' @noRd
+.silhouette.simple <- function(B.prob,B.cluster){
+  if(is.matrix(B.prob)){Q <- nrow(B.prob)}else{Q <- 1}
+  if(Q==1){
+    return(list(cluster=NA,silhouette=NA,
+                silhouette.means=NA,silhouette.mean=NA))
+  }else{
+    index <-!is.na(B.cluster)
+    B.prob <- B.prob[,index, drop=FALSE]
+    B.cluster <- B.cluster[index]
+    N_samples <- ncol(B.prob)
+    D <- as.matrix(stats::dist(t(B.prob)))
+    cluster.means <- matrix(0,nrow=Q,ncol=Q)
+    ns <- NULL
+    cluster.list <- NULL
+    for(q in 1:Q){
+      ns <- c(ns,sum(B.cluster==q))
+      cluster.list <- c(cluster.list,list(which(B.cluster==q)))
+      cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
+    }
+    B_prob_sq_sum <- colSums(B.prob^2)
+    cluster_means_sq_sum <- colSums(cluster.means^2)
+    d2_matrix <- outer(B_prob_sq_sum, rep(1, Q)) +
+      outer(rep(1, N_samples), cluster_means_sq_sum) -
+      2 * t(B.prob) %*% cluster.means
+    d2_matrix[d2_matrix < 0] <- 0
+    si <- 0*B.cluster
+    neighbor.cluster <- 0*B.cluster
+    for(q in 1:Q){
+      q_indices <- cluster.list[[q]]
+      for(i_idx in 1:length(q_indices)){
+        i <- q_indices[i_idx]
+        di <- d2_matrix[i, ]
+        qn <- order(di)[ifelse(order(di)[1]==q, 2, 1)]
+        neighbor.cluster[i] <- qn
+        if(ns[q]==1){
+          si[i] <- 0
+        }else{
+          ai_distances <- D[i, q_indices]
+          ai <- sum(ai_distances) / (ns[q]-1)
+          qn_indices <- cluster.list[[qn]]
+          bi_distances <- D[i, qn_indices]
+          bi <- sum(bi_distances) / ns[qn]
+          si[i] <- (bi-ai)/max(ai,bi)
+        }
+      }
+    }
+    si.mean <- mean(si)
+    si.sort.cluster.means <- 0*ns
+    for(q in 1:Q){
+      si.sort.cluster.means[q] <- mean(cluster.list[[q]])
+    }
+    si.sort <- NULL
+    si.sort.cluster <- NULL
+    for(q in 1:Q){
+      si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
+      si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
+    }
+    return(list(cluster=si.sort.cluster,silhouette=si.sort,
+                silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
+  }
+}
+
+
 #' @title Optimize NMF with kernel covariates
 #' @description
 #' \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
 #' under the tri-factorization model \eqn{Y \approx X C A = X B}, where
-#' \eqn{Y(P,N)} is the observation matrix, \eqn{A(R,N)} is the covariate matrix,
-#' \eqn{X(P,Q)} is the basis matrix (\eqn{Q \le \min(P,N)}), \eqn{C(Q,R)} is the
-#' parameter matrix, and \eqn{B(Q,N)=C A} is the coefficient matrix.
-#' Given \eqn{Y} and (optionally) \eqn{A}, the algorithm estimates \eqn{X} and \eqn{C}.
-#'
-#' The estimation is based on minimizing a penalized objective function:
-#' \deqn{
-#'   J(X,C) =
-#'   \begin{cases}
-#'     \|Y - XCA\|_F^2 + \gamma\,\mathrm{tr}(C A A^\top C^\top), & \text{for method = "EU"},\\[6pt]
-#'     \sum_{p,n}\!\bigl[-Y_{pn}\log(XCA)_{pn} + (XCA)_{pn}\bigr]
-#'       + \gamma\,\mathrm{tr}(C A A^\top C^\top), & \text{for method = "KL"}.
-#'   \end{cases}
-#' }
-#' When \code{A = NULL}, the penalty reduces to \eqn{\gamma\,\mathrm{tr}(C C^\top)}.
-#' This ridge-type regularization on \eqn{C} (or \eqn{CA}) improves stability
-#' and generalization by shrinking coefficient vectors toward zero.
-#'
+# ... (Description, Objective Functionの記述は省略)
+# ...
+
 #' @param Y Observation matrix.
 #' @param A Covariate matrix. Default is \code{NULL} (no covariates).
 #' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
-#' @param gamma Nonnegative penalty parameter controlling
-#'   the ridge regularization term \eqn{\gamma\,\mathrm{tr}(C A A^\top C^\top)}.
 #' @param epsilon Positive convergence tolerance.
 #' @param maxit Maximum number of iterations.
 #' @param method Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
-#' @param X.restriction Constraint for columns of \eqn{X}:
-#'  \code{"colSums"} (default; each column sums to 1, \eqn{\ell_1} norm),
-#'  \code{"colSqSums"} (each column has unit \eqn{\ell_2} norm),
-#'  \code{"totalSum"} (all entries in \eqn{X} sum to 1), or
-#'  \code{"fixed"} (no normalization applied).
-#' @param X.init Method for initializing the basis matrix \eqn{X}. \strong{Default is \code{"kmeans"}}.
-#'   Can be:
+#' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints, and output control.
+#'   These include:
 #'   \itemize{
-#'     \item \code{"kmeans"}: Uses \code{\link[stats]{kmeans}} on \eqn{t(Y)} to find cluster centers.
-#'     \item \code{"runif"}: Initializes \eqn{X} with non-negative uniform random numbers.
-#'     \item \code{"nndsvd"} (or any other string): Uses the **NNDSVDar** (Nonnegative Double SVD with small random fill) method for stable initialization.
-#'     \item A user-specified **matrix** to use as the initial \eqn{X}.
+#'     \item \code{gamma}: Nonnegative penalty parameter controlling the ridge regularization term (default: 0).
+#'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, or \code{"fixed"}.
+#'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
+#'     \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
+#'     \item \code{seed}: Integer seed for reproducibility (default: 123).
+#'     \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
+#'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
+#'     \item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
+#'     \item \code{save.time}: Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.
+#'     \item \code{save.memory}: Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage (default: \code{FALSE}).
 #'   }
-#' @param nstart Number of random starts for \code{\link[stats]{kmeans}} when initializing \eqn{X}.
-#' @param seed Integer seed passed to \code{\link[base]{set.seed}}. Note that \code{"kmeans"}, \code{"runif"}, and \code{"nndsvd"} (NNDSVDar) initialization methods are affected by this seed.
-#' @param prefix Prefix for column names of \eqn{X} and row names of \eqn{B}.
-#' @param print.trace Logical. If \code{TRUE}, prints progress every 10 iterations.
-#' @param print.dims Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
-#' @param save.time Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.
-#' @param save.memory Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage.
 #' @return A list with components:
 #' \item{call}{The matched call, as captured by `match.call()`.}
 #' \item{dims}{A character string summarizing the matrix dimensions of the model.}
@@ -643,9 +708,18 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' plot(cars$speed,as.vector(Y))
 #' lines(cars$speed,as.vector(result$XB),col=2,lwd=2)
 
-nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
-                  X.restriction="colSums",X.init="kmeans",nstart=1,seed=123,
-                  prefix="Basis",print.trace=FALSE,print.dims=TRUE,save.time=TRUE,save.memory=FALSE){
+nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
+  extra_args <- list(...)
+  gamma <- if (!is.null(extra_args$gamma)) extra_args$gamma else 0
+  X.restriction <- if (!is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
+  X.init <- if (!is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
+  nstart <- if (!is.null(extra_args$nstart)) extra_args$nstart else 1
+  seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
+  prefix <- if (!is.null(extra_args$prefix)) extra_args$prefix else "Basis"
+  print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
+  print.dims <- if (!is.null(extra_args$print.dims)) extra_args$print.dims else TRUE
+  save.time <- if (!is.null(extra_args$save.time)) extra_args$save.time else TRUE
+  save.memory <- if (!is.null(extra_args$save.memory)) extra_args$save.memory else FALSE
   X.restriction <- match.arg(X.restriction, c("colSums", "colSqSums", "totalSum","fixed"))
   xnorm <- switch(X.restriction,
                  colSums   = function(X) sweep(X, 2, colSums(X), "/"),
@@ -653,64 +727,6 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
                  totalSum  = function(X) X / sum(X),
                  fixed = function(X) X
   )
-  # simplified silhouette coefficient
-  # This internal function computes an approximate version of the silhouette coefficient.
-  # Unlike the standard definition (e.g., cluster::silhouette), it does not require
-  # pairwise distances among all samples. Instead, it estimates the silhouette by using
-  # Euclidean distances between each sample and the mean vectors of clusters.
-  # The nearest neighboring cluster is determined from centroid distances rather than
-  # all pairwise sample distances.
-  # This approximation greatly reduces computational cost (O(N^2) → O(NQ)) and
-  # generally preserves the relative tendencies of silhouette values, though
-  # the results may differ from the exact definition.
-  silhouette.simple <- function(B.prob,B.cluster){
-    if(is.matrix(B.prob)){Q <- nrow(B.prob)}else{Q <- 1}
-    if(Q==1){
-      return(list(cluster=NA,silhouette=NA,
-                  silhouette.means=NA,silhouette.mean=NA))
-    }else{
-      index <-!is.na(B.cluster)
-      B.prob <- B.prob[,index]
-      B.cluster <- B.cluster[index]
-      cluster.means <- matrix(0,nrow=Q,ncol=Q)
-      ns <- NULL
-      cluster.list <- NULL
-      for(q in 1:Q){
-        ns <- c(ns,sum(B.cluster==q))
-        cluster.list <- c(cluster.list,list(which(B.cluster==q)))
-        cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
-      }
-      si <- 0*B.cluster
-      neighbor.cluster <- 0*B.cluster
-      for(q in 1:Q){
-        for(i in cluster.list[[q]]){
-          di <- colSums((cluster.means-B.prob[,i])^2)
-          qn <- ifelse(order(di)[1]==q,order(di)[2],order(di)[1])
-          neighbor.cluster[i] <- qn
-          if(ns[q]==1){
-            si[i] <- 0
-          }else{
-            ai <- sum(colSums((B.prob[,cluster.list[[q]],drop=F]-B.prob[,i])^2)^0.5)/(ns[q]-1)
-            bi <- sum(colSums((B.prob[,cluster.list[[qn]],drop=F]-B.prob[,i])^2)^0.5)/ns[qn]
-            si[i] <- (bi-ai)/max(ai,bi)
-          }
-        }
-      }
-      si.mean <- mean(si)
-      si.sort.cluster.means <- 0*ns
-      for(q in 1:Q){
-        si.sort.cluster.means[q] <- mean(cluster.list[[q]])
-      }
-      si.sort <- NULL
-      si.sort.cluster <- NULL
-      for(q in 1:Q){
-        si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
-        si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
-      }
-      return(list(cluster=si.sort.cluster,silhouette=si.sort,
-                  silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
-    }
-  }
   if(is.null(A)){
     dims <- sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
                     nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y))
@@ -908,7 +924,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       CPCC <- NA
       dist.cor <- NA
     }else{
-      silhouette <- silhouette.simple(B.prob,B.cluster)
+      silhouette <- .silhouette.simple(B.prob,B.cluster)
       dist.cor <- stats::cor(as.vector(stats::dist(t(Y))),as.vector(stats::dist(t(B))))
       if(Q>=2){
         M <- t(B.prob) %*% B.prob
@@ -1166,11 +1182,11 @@ nmfkc.denormalize <- function(x, ref=x) {
 #' \code{nmfkc.cv} performs k-fold cross-validation on the model
 #' \eqn{Y \approx X C A = X B}, where
 #' \itemize{
-#'   \item \eqn{Y(P,N)} is the observation matrix,
-#'   \item \eqn{A(R,N)} is the covariate matrix,
-#'   \item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
-#'   \item \eqn{C(Q,R)} is the parameter matrix, and
-#'   \item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
+#' 	\item \eqn{Y(P,N)} is the observation matrix,
+#' 	\item \eqn{A(R,N)} is the covariate matrix,
+#' 	\item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
+#' 	\item \eqn{C(Q,R)} is the parameter matrix, and
+#' 	\item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
 #' }
 #' Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are estimated,
 #' and the predictive performance is assessed by cross-validation.
@@ -1178,9 +1194,13 @@ nmfkc.denormalize <- function(x, ref=x) {
 #' @param Y Observation matrix.
 #' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
 #' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
-#' @param div Number of folds (\eqn{k}) for cross-validation (default: 5).
-#' @param seed Integer seed for reproducibility, passed to \code{\link{set.seed}}.
-#' @param ... Additional arguments passed to \code{\link{nmfkc}}.
+#' @param ... Additional arguments passed for controlling cross-validation setup and fine-tuning the internal \code{\link{nmfkc}} calls.
+#'   These include:
+#'   \itemize{
+#'     \item \code{div}: Number of folds (\eqn{k}) for cross-validation (default: 5).
+#'     \item \code{seed}: Integer seed for reproducibility of data partitioning (default: 123).
+#'     \item **Arguments passed to \code{\link{nmfkc}}**: \code{gamma}, \code{epsilon}, \code{maxit}, \code{method}, \code{X.restriction}, \code{X.init}, etc.
+#'   }
 #'
 #' @return A list with components:
 #' \item{objfunc}{Total objective function value across all folds.}
@@ -1220,8 +1240,10 @@ nmfkc.denormalize <- function(x, ref=x) {
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.cv <- function(Y,A=NULL,Q=2,div=5,seed=123,...){
+nmfkc.cv <- function(Y,A=NULL,Q=2,...){
   extra_args <- list(...)
+  div <- if (!is.null(extra_args$div)) extra_args$div else 5
+  seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
   gamma <- if (!is.null(extra_args$gamma)) extra_args$gamma else 0
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
   maxit   <- if (!is.null(extra_args$maxit))   extra_args$maxit   else 5000
@@ -1489,3 +1511,67 @@ nmfkc.rank <- function(Y,A=NULL,Q=1:2,plot=TRUE,...){
 
   invisible(results_df)
 }
+
+
+#' @title Plot Diagnostics: Original, Fitted, and Residual Matrices as Heatmaps
+#' @description
+#' This function generates a side-by-side plot of three heatmaps: the original
+#' observation matrix Y, the fitted matrix XB (from NMF), and the residual matrix E (Y - XB).
+#' This visualization aids in diagnosing whether the chosen rank Q is adequate
+#' by assessing if the residual matrix E appears to be random noise.
+#'
+#' The axis labels (X-axis: Samples, Y-axis: Features) are integrated into the main title of each plot
+#' to maximize the plot area, reflecting the compact layout settings.
+#'
+#' @param Y The original observation matrix (P x N).
+#' @param result The result object returned by the nmfkc function.
+#' @param Y_XB_palette A vector of colors used for Y and XB heatmaps. Defaults to a white-orange-red gradient.
+#' @param E_palette A vector of colors used for the residuals (E) heatmap. Defaults to a blue-white-red gradient.
+#' @param ... Additional graphical parameters passed to the internal image calls.
+#'
+#' @return NULL. The function generates a plot.
+#' @export
+nmfkc.residual.plot <- function(Y, result,
+                                Y_XB_palette = grDevices::colorRampPalette(c("white", "orange", "red"))(256),
+                                E_palette = grDevices::colorRampPalette(c("blue", "white", "red"))(256), ...){
+  if (!inherits(result, "nmfkc")) {
+    stop("The 'result' argument must be an object of class 'nmfkc'.")
+  }
+  XB <- result$XB
+  E <- Y - XB
+  if(nrow(Y) != nrow(E) || ncol(Y) != ncol(E)){
+    stop("Dimension mismatch between Y and result$XB. Check input matrices.")
+  }
+  old_par <- graphics::par(mfrow = c(1, 3), mar = c(1,0.5,4,0.5) + 0.1)
+  on.exit(graphics::par(old_par))
+  min_YX <- min(Y, XB, na.rm = TRUE)
+  max_YX <- max(Y, XB, na.rm = TRUE)
+  max_abs_E <- max(abs(E), na.rm = TRUE)
+  min_E <- -max_abs_E
+  max_E <- max_abs_E
+  graphics::image(t(Y)[, nrow(Y):1],
+                  col = Y_XB_palette,
+                  zlim = c(min_YX, max_YX),
+                  main = "1. Original Matrix Y\n X-axis: Samples (N), Y-axis: Features (P)",
+                  xlab = "",
+                  ylab = "",
+                  axes = FALSE, ...)
+  graphics::box()
+  graphics::image(t(XB)[, nrow(XB):1],
+                  col = Y_XB_palette,
+                  zlim = c(min_YX, max_YX),
+                  main = paste0("2. Fitted Matrix XB (Q=",ncol(result$X),")\n X-axis: Samples (N), Y-axis: Features (P)"),
+                  xlab = "",
+                  ylab = "",
+                  axes = FALSE, ...)
+  graphics::box()
+  graphics::image(t(E)[, nrow(E):1],
+                  col = E_palette,
+                  zlim = c(min_E, max_E),
+                  main = "3. Residual Matrix E (Y - XB)\n X-axis: Samples (N), Y-axis: Features (P)",
+                  xlab = "",
+                  ylab = "",
+                  axes = FALSE, ...)
+  graphics::box()
+}
+

@@ -4,7 +4,7 @@
 \alias{nmfkc.cv}
 \title{Perform k-fold cross-validation for NMF with kernel covariates}
 \usage{
-nmfkc.cv(Y, A = NULL, Q = 2, div = 5, seed = 123, ...)
+nmfkc.cv(Y, A = NULL, Q = 2, ...)
 }
 \arguments{
 \item{Y}{Observation matrix.}
@@ -13,11 +13,13 @@ nmfkc.cv(Y, A = NULL, Q = 2, div = 5, seed = 123, ...)
 
 \item{Q}{Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.}
 
-\item{div}{Number of folds (\eqn{k}) for cross-validation (default: 5).}
-
-\item{seed}{Integer seed for reproducibility, passed to \code{\link{set.seed}}.}
-
-\item{...}{Additional arguments passed to \code{\link{nmfkc}}.}
+\item{...}{Additional arguments passed for controlling cross-validation setup and fine-tuning the internal \code{\link{nmfkc}} calls.
+These include:
+\itemize{
+\item \code{div}: Number of folds (\eqn{k}) for cross-validation (default: 5).
+\item \code{seed}: Integer seed for reproducibility of data partitioning (default: 123).
+\item \strong{Arguments passed to \code{\link{nmfkc}}}: \code{gamma}, \code{epsilon}, \code{maxit}, \code{method}, \code{X.restriction}, \code{X.init}, etc.
+}}
 }
 \value{
 A list with components:

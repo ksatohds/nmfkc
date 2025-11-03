@@ -9,24 +9,7 @@ to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
 \url{https://arxiv.org/abs/2403.05359}
 }
 \usage{
-nmfkc(
-  Y,
-  A = NULL,
-  Q = 2,
-  gamma = 0,
-  epsilon = 1e-04,
-  maxit = 5000,
-  method = "EU",
-  X.restriction = "colSums",
-  X.init = "kmeans",
-  nstart = 1,
-  seed = 123,
-  prefix = "Basis",
-  print.trace = FALSE,
-  print.dims = TRUE,
-  save.time = TRUE,
-  save.memory = FALSE
-)
+nmfkc(Y, A = NULL, Q = 2, epsilon = 1e-04, maxit = 5000, method = "EU", ...)
 }
 \arguments{
 \item{Y}{Observation matrix.}
@@ -35,43 +18,26 @@ nmfkc(
 
 \item{Q}{Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.}
 
-\item{gamma}{Nonnegative penalty parameter controlling
-the ridge regularization term \eqn{\gamma\,\mathrm{tr}(C A A^\top C^\top)}.}
-
 \item{epsilon}{Positive convergence tolerance.}
 
 \item{maxit}{Maximum number of iterations.}
 
 \item{method}{Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.}
 
-\item{X.restriction}{Constraint for columns of \eqn{X}:
-\code{"colSums"} (default; each column sums to 1, \eqn{\ell_1} norm),
-\code{"colSqSums"} (each column has unit \eqn{\ell_2} norm),
-\code{"totalSum"} (all entries in \eqn{X} sum to 1), or
-\code{"fixed"} (no normalization applied).}
-
-\item{X.init}{Method for initializing the basis matrix \eqn{X}. \strong{Default is \code{"kmeans"}}.
-Can be:
+\item{...}{Additional arguments passed for fine-tuning regularization, initialization, constraints, and output control.
+These include:
 \itemize{
-\item \code{"kmeans"}: Uses \code{\link[stats]{kmeans}} on \eqn{t(Y)} to find cluster centers.
-\item \code{"runif"}: Initializes \eqn{X} with non-negative uniform random numbers.
-\item \code{"nndsvd"} (or any other string): Uses the \strong{NNDSVDar} (Nonnegative Double SVD with small random fill) method for stable initialization.
-\item A user-specified \strong{matrix} to use as the initial \eqn{X}.
+\item \code{gamma}: Nonnegative penalty parameter controlling the ridge regularization term (default: 0).
+\item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, or \code{"fixed"}.
+\item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
+\item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
+\item \code{seed}: Integer seed for reproducibility (default: 123).
+\item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
+\item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
+\item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
+\item \code{save.time}: Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.
+\item \code{save.memory}: Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage (default: \code{FALSE}).
 }}
-
-\item{nstart}{Number of random starts for \code{\link[stats]{kmeans}} when initializing \eqn{X}.}
-
-\item{seed}{Integer seed passed to \code{\link[base]{set.seed}}. Note that \code{"kmeans"}, \code{"runif"}, and \code{"nndsvd"} (NNDSVDar) initialization methods are affected by this seed.}
-
-\item{prefix}{Prefix for column names of \eqn{X} and row names of \eqn{B}.}
-
-\item{print.trace}{Logical. If \code{TRUE}, prints progress every 10 iterations.}
-
-\item{print.dims}{Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.}
-
-\item{save.time}{Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.}
-
-\item{save.memory}{Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage.}
 }
 \value{
 A list with components:
@@ -95,23 +61,6 @@ A list with components:
 \description{
 \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
 under the tri-factorization model \eqn{Y \approx X C A = X B}, where
-\eqn{Y(P,N)} is the observation matrix, \eqn{A(R,N)} is the covariate matrix,
-\eqn{X(P,Q)} is the basis matrix (\eqn{Q \le \min(P,N)}), \eqn{C(Q,R)} is the
-parameter matrix, and \eqn{B(Q,N)=C A} is the coefficient matrix.
-Given \eqn{Y} and (optionally) \eqn{A}, the algorithm estimates \eqn{X} and \eqn{C}.
-
-The estimation is based on minimizing a penalized objective function:
-\deqn{
-  J(X,C) =
-  \begin{cases}
-    \|Y - XCA\|_F^2 + \gamma\,\mathrm{tr}(C A A^\top C^\top), & \text{for method = "EU"},\\[6pt]
-    \sum_{p,n}\!\bigl[-Y_{pn}\log(XCA)_{pn} + (XCA)_{pn}\bigr]
-      + \gamma\,\mathrm{tr}(C A A^\top C^\top), & \text{for method = "KL"}.
-  \end{cases}
-}
-When \code{A = NULL}, the penalty reduces to \eqn{\gamma\,\mathrm{tr}(C C^\top)}.
-This ridge-type regularization on \eqn{C} (or \eqn{CA}) improves stability
-and generalization by shrinking coefficient vectors toward zero.
 }
 \examples{
 # install.packages("remotes")

@@ -1,7 +1,6 @@
-# nmfkc (development version)
-
-
-# nmfkc 0.5.3
+# nmfkc 0.5.4
+* Function Signature Simplification:** Many less-frequently used arguments in `nmfkc()` (e.g., `gamma`, `X.restriction`, `X.init`) and in `nmfkc.cv()` (e.g., `div`, `seed`) have been moved into the ellipsis (`...`) for a cleaner function signature.
+* Performance Improvement: The internal function `.silhouette.simple` was vectorized and optimized to reduce computational cost, particularly for the calculation of `a(i)` and `b(i)`.
 * Removed the `fast.calc` option from the `nmfkc()` function.
 * Added the `X.init` argument to the `nmfkc()` function, allowing selection between `'kmeans'` and `'nndsvd'` initialization methods.
 * The penalty term has been changed from `tr(CC')` to `tr(BB')` = `tr(CAA'C')`.
