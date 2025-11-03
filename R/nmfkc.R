@@ -972,9 +972,10 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
     } # } end if (fast.calc) else (REFERENCE)
 
     # Convergence check (shared)
-    if(i>=10){                                                                   # <-- open: convergence guard
-      epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
-      if(epsilon.iter <= abs(epsilon)){                                          # <-- open: converged?
+    if(i>=10){
+      #epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
+      epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/max(abs(objfunc.iter[i]),1e-10)
+      if(epsilon.iter <= abs(epsilon)){
         objfunc.iter <- objfunc.iter[10:i]
         break
       } # } end if (converged)
