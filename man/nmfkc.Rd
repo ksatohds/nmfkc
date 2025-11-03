@@ -25,8 +25,7 @@ nmfkc(
   print.trace = FALSE,
   print.dims = TRUE,
   save.time = TRUE,
-  save.memory = FALSE,
-  fast.calc = FALSE
+  save.memory = FALSE
 )
 }
 \arguments{
@@ -70,15 +69,6 @@ or a user-specified \strong{matrix} to use as the initial \eqn{X}.}
 \item{save.time}{Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.}
 
 \item{save.memory}{Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage.}
-
-\item{fast.calc}{Logical.
-If \code{TRUE}, uses an optimized computation mode for large-scale matrices.
-Specifically, for the Euclidean (\code{"EU"}) method with covariates \code{A},
-precomputes \eqn{Y A^\top} and \eqn{A A^\top} to eliminate explicit dependence on the sample size \eqn{N}
-during each iteration.
-For the Kullback–Leibler (\code{"KL"}) method, automatically applies internal column blocking
-to avoid constructing large \eqn{P \times N} ratio matrices.
-If \code{FALSE} (default), runs the reference implementation with the original update rules.}
 }
 \value{
 A list with components:

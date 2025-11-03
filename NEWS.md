@@ -2,7 +2,7 @@
 
 
 # nmfkc 0.5.3
-
+* Removed the `fast.calc` option from the `nmfkc()` function.
 * Added the `X.init` argument to the `nmfkc()` function, allowing selection between `'kmeans'` and `'nndsvd'` initialization methods.
 * The penalty term has been changed from `tr(CC')` to `tr(BB')` = `tr(CAA'C')`.
 * Implemented the internal `.z` and `xnorm` functions.
