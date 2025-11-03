@@ -711,16 +711,8 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   start.time <- Sys.time()
   if(is.vector(Y)) Y <- matrix(Y,nrow=1)
   if(!is.matrix(Y)) Y <- as.matrix(Y)
-  if(!is.null(A)){
-    if(min(A)<0){
-      warning("The matrix A should be non-negative.")
-      stop()
-    }
-  }
-  if(min(Y)<0){
-    warning("The matrix Y should be non-negative.")
-    stop()
-  }
+  if(!is.null(A) & min(A)<0)stop("The matrix A should be non-negative.")
+  if(min(Y)<0) stop("The matrix Y should be non-negative.")
   is.X.scalar <- FALSE
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
@@ -857,7 +849,7 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
       objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(diag(C%*% AAt %*% t(C)))
     }
   }
-  if(ncol(X)>1 & sum(rowSums(X)==1)==nrow(X)){
+  if(ncol(X) > 1 & X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
     X <- X[,index]
     B <- B[index,]
@@ -868,10 +860,17 @@ nmfkc <- function(Y,A=NULL,Q=2,gamma=0,epsilon=1e-4,maxit=5000,method="EU",
   colnames(X) <- paste0(prefix,1:ncol(X))
   rownames(B) <- paste0(prefix,1:nrow(B))
   colnames(B) <- colnames(Y)
-  if(X.restriction=="totalSum"){
-    if(is.null(A)) nparam <- prod(dim(X))-1+prod(dim(B)) else nparam <- prod(dim(X))-1+prod(dim(A))
-  }else{
-    if(is.null(A)) nparam <- (nrow(X)-1)*ncol(X)+prod(dim(B)) else nparam <- (nrow(X)-1)*ncol(X)+prod(dim(A))
+  if(X.restriction=="fixed"){
+    nparam.X <- 0
+  } else if(X.restriction=="totalSum"){
+    nparam.X <- prod(dim(X)) - 1
+  } else {
+    nparam.X <- (nrow(X)-1)*ncol(X)
+  }
+  if(is.null(A)){
+    nparam <- nparam.X + prod(dim(B))
+  } else {
+    nparam <- nparam.X + prod(dim(C))
   }
   if(method=="EU"){
     ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
