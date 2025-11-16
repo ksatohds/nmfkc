@@ -1,4 +1,9 @@
 # nmfkc 0.5.4
+* Regularization Update:  
+  The regularization scheme has been revised from **L2 (ridge)** to **L1 (lasso-type)** penalties.  
+  - `gamma` now controls the **L1 penalty on the coefficient matrix** \( B = C A \), promoting sparsity in sample-wise coefficients.  
+  - A new argument `lambda` has been added to control the **L1 penalty on the parameter matrix** \( C \), encouraging sparsity in the shared template structure.  
+  Both parameters can be passed through the ellipsis (`...`) to `nmfkc()` and related functions.  
 * Function Signature Simplification:** Many less-frequently used arguments in `nmfkc()` (e.g., `gamma`, `X.restriction`, `X.init`) and in `nmfkc.cv()` (e.g., `div`, `seed`) have been moved into the ellipsis (`...`) for a cleaner function signature.
 * Performance Improvement: The internal function `.silhouette.simple` was vectorized and optimized to reduce computational cost, particularly for the calculation of `a(i)` and `b(i)`.
 * Removed the `fast.calc` option from the `nmfkc()` function.

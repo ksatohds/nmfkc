@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 04 NOV 2025")
+  packageStartupMessage("Last update on 17 NOV 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -646,7 +646,10 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints, and output control.
 #'   These include:
 #'   \itemize{
-#'     \item \code{gamma}: Nonnegative penalty parameter controlling the ridge regularization term (default: 0).
+#'     \item \code{gamma}: Nonnegative penalty parameter controlling the L1 regularization on the coefficient matrix
+#'       \eqn{B = C A} (default: 0). A larger value encourages sparsity in each sample’s coefficients.
+#'     \item \code{lambda}: Nonnegative penalty parameter controlling the L1 regularization on the parameter matrix
+#'       \eqn{C} (default: 0). A larger value encourages sparsity in the shared template structure.
 #'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, or \code{"fixed"}.
 #'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
 #'     \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
@@ -711,6 +714,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
   extra_args <- list(...)
   gamma <- if (!is.null(extra_args$gamma)) extra_args$gamma else 0
+  lambda <- if (!is.null(extra_args$lambda)) extra_args$lambda else 0
   X.restriction <- if (!is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
   X.init <- if (!is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
   nstart <- if (!is.null(extra_args$nstart)) extra_args$nstart else 1
@@ -776,6 +780,9 @@ nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
     At  <- t(A)                     # (N x R)
     YAt <- Y %*% At                 # (P x R)
     AAt <- A %*% At                 # (R x R)
+    ones_QN_At <- matrix(1, nrow=Q, ncol=ncol(Y)) %*% At
+  }else{
+    ones_QN <- matrix(1, nrow=Q, ncol=ncol(Y))
   }
   if(method!="EU"){
     if (hasA) rowSumsA <- rowSums(A)
@@ -794,31 +801,40 @@ nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
           X <- xnorm(X)
         }
       } # } end if (!is.X.scalar) (REF EU)
-
       if(is.null(A)) {
-        if(gamma!=0){
-          C <- C*.z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
-        }else{
-          C <- C*.z((t(X)%*%Y)/(t(X)%*%XB))
-        }
+        #if(gamma!=0){
+        #  C <- C*.z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+        #}else{
+        #  C <- C*.z((t(X)%*%Y)/(t(X)%*%XB))
+        #}
+        den_EU <- t(X) %*% XB
+        if (lambda != 0) den_EU <- den_EU + (lambda/2) * matrix(1, nrow=Q, ncol=ncol(Y))
+        if (gamma  != 0) den_EU <- den_EU + (gamma/2)  * ones_QN
+        C <- C * .z( (t(X) %*% Y) / den_EU )
       } else {
-        if(gamma!=0){
-          C <- C*.z((t(X)%*% YAt)/(t(X)%*%XB%*%At+gamma*(C %*% AAt)))
-        }else{
-          C <- C*.z((t(X)%*% YAt)/(t(X)%*%XB%*%At))
-        }
+        #if(gamma!=0){
+        #  C <- C*.z((t(X)%*% YAt)/(t(X)%*%XB%*%At+gamma*(C %*% AAt)))
+        #}else{
+        #  C <- C*.z((t(X)%*% YAt)/(t(X)%*%XB%*%At))
+        #}
+        den_EU <- t(X) %*% XB %*% At
+        if (lambda != 0) den_EU <- den_EU + (lambda/2) * matrix(1, nrow=Q, ncol=nrow(A))
+        if (gamma  != 0) den_EU <- den_EU + (gamma/2)  * ones_QN_At
+        C <- C * .z( (t(X) %*% YAt) / den_EU )
       } # } end if (is.null(A)) else (REF EU C-update)
-
-      if(gamma!=0){
-        if(is.null(A)) {
-          objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
-        }else{
-          objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(diag(C%*% AAt %*% t(C)))
-        }
-      }else{
-        objfunc.iter[i] <- sum((Y-XB)^2)
-      }
-
+      #if(gamma!=0){
+      #  if(is.null(A)) {
+      #    objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
+      #  }else{
+      #    objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(diag(C%*% AAt %*% t(C)))
+      #  }
+      #}else{
+      #  objfunc.iter[i] <- sum((Y-XB)^2)
+      #}
+      obj <- sum((Y - XB)^2)
+      if (lambda != 0) obj <- obj + lambda * sum(C)
+      if (gamma  != 0) obj <- obj + if (hasA) gamma * sum(C %*% A) else gamma * sum(C)
+      objfunc.iter[i] <- obj
     }else{                                                                     # <-- else: REF KL
       if(!is.X.scalar & X.restriction!="fixed"){
         X <- X*.z((Y/XB)%*%t(B))/(rep(1,nrow(Y))%o%rowSums(B))
@@ -826,28 +842,39 @@ nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
       } # } end if (!is.X.scalar) (REF KL)
 
       if(is.null(A)) {
-        if(gamma!=0){
-          C <- C*.z(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep1ncolY+2*gamma*C))
-        }else{
-          C <- C*.z(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep1ncolY))
-        }
+        #if(gamma!=0){
+        #  C <- C*.z(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep1ncolY+2*gamma*C))
+        #}else{
+        #  C <- C*.z(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep1ncolY))
+        #
+        den_KL <- (colSums(X) %o% rep1ncolY)
+        if (lambda != 0) den_KL <- den_KL + lambda * matrix(1, nrow=Q, ncol=ncol(Y))
+        if (gamma  != 0) den_KL <- den_KL + gamma  * ones_QN
+        C <- C * .z( (t(X) %*% .z(Y/XB)) / den_KL )
       } else {
-        if(gamma!=0){
-          C <- C*.z(t(X)%*%.z(Y/XB)%*%At/(colSums(X)%o%rowSumsA+2*gamma*(C %*% AAt)))
-        }else{
-          C <- C*.z(t(X)%*%.z(Y/XB)%*%At/(colSums(X)%o%rowSumsA))
-        }
+        #if(gamma!=0){
+        #  C <- C*.z(t(X)%*%.z(Y/XB)%*%At/(colSums(X)%o%rowSumsA+2*gamma*(C %*% AAt)))
+        #}else{
+        #  C <- C*.z(t(X)%*%.z(Y/XB)%*%At/(colSums(X)%o%rowSumsA))
+        #}
+        den_KL <- (colSums(X) %o% rowSumsA)
+        if (lambda != 0) den_KL <- den_KL + lambda * matrix(1, nrow=Q, ncol=nrow(A))
+        if (gamma  != 0) den_KL <- den_KL + gamma  * ones_QN_At
+        C <- C * .z( (t(X) %*% .z(Y/XB) %*% At) / den_KL )
       } # } end if (is.null(A)) else (REF KL C-update)
-
-      if(gamma!=0){
-        if(is.null(A)) {
-          objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
-        }else{
-          objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)+gamma*sum(diag(C%*% AAt %*% t(C)))
-        }
-      }else{
-        objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)
-      }
+      #if(gamma!=0){
+      #  if(is.null(A)) {
+      #    objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
+      #  }else{
+      #    objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)+gamma*sum(diag(C%*% AAt %*% t(C)))
+      #  }
+      #}else{
+      #  objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)
+      #}
+      obj <- sum(-Y*.z(log(XB)) + XB)
+      if (lambda != 0) obj <- obj + lambda * sum(C)
+      if (gamma  != 0) obj <- obj + if (hasA) gamma * sum(C %*% A) else gamma * sum(C)
+      objfunc.iter[i] <- obj
     }
     # Convergence check (shared)
     if(i>=10){
@@ -861,17 +888,27 @@ nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
   if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
   if(method=="EU"){
-    if(is.null(A)) {
-      objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
-    }else{
-      objfunc <- sum((Y-XB)^2)+gamma*sum(diag(C%*% AAt %*% t(C)))
-    }
+    #if(is.null(A)) {
+    #  objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
+    #}else{
+    #  objfunc <- sum((Y-XB)^2)+gamma*sum(diag(C%*% AAt %*% t(C)))
+    #}
+    obj <- sum((Y - XB)^2)
+    if (lambda != 0) obj <- obj + lambda * sum(C)
+    if (gamma  != 0) obj <- obj + if (hasA) gamma * sum(C %*% A) else gamma * sum(C)
+    objfunc.iter[i] <- obj
+    objfunc <- obj
   }else{
-    if(is.null(A)) {
-      objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
-    }else{
-      objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(diag(C%*% AAt %*% t(C)))
-    }
+    #if(is.null(A)) {
+    #  objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
+    #}else{
+    #  objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(diag(C%*% AAt %*% t(C)))
+    #}
+    obj <- sum(-Y*.z(log(XB)) + XB)
+    if (lambda != 0) obj <- obj + lambda * sum(C)
+    if (gamma  != 0) obj <- obj + if (hasA) gamma * sum(C %*% A) else gamma * sum(C)
+    objfunc.iter[i] <- obj
+    objfunc <- obj
   }
   if(ncol(X) > 1 & X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)

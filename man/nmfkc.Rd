@@ -27,7 +27,10 @@ nmfkc(Y, A = NULL, Q = 2, epsilon = 1e-04, maxit = 5000, method = "EU", ...)
 \item{...}{Additional arguments passed for fine-tuning regularization, initialization, constraints, and output control.
 These include:
 \itemize{
-\item \code{gamma}: Nonnegative penalty parameter controlling the ridge regularization term (default: 0).
+\item \code{gamma}: Nonnegative penalty parameter controlling the L1 regularization on the coefficient matrix
+\eqn{B = C A} (default: 0). A larger value encourages sparsity in each sample’s coefficients.
+\item \code{lambda}: Nonnegative penalty parameter controlling the L1 regularization on the parameter matrix
+\eqn{C} (default: 0). A larger value encourages sparsity in the shared template structure.
 \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, or \code{"fixed"}.
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
 \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
