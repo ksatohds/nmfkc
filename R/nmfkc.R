@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 17 NOV 2025")
+  packageStartupMessage("Last update on 18 NOV 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -1135,9 +1135,9 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
 #' @param type Character string specifying the visualization type.
 #'   Options are:
 #'   \itemize{
-#'     \item \code{"XCA"} (Default): Full visualization of the tri-factorization \eqn{A \to C \to X \to Y}.
+#'     \item \code{"YX"} (Default): Standard NMF view: \eqn{B \to X \to Y}.
+#'     \item \code{"YXA"} : Full visualization of the tri-factorization \eqn{A \to C \to X \to Y}.
 #'     \item \code{"YA"}: Direct regression view: \eqn{A \to Y}, where coefficients are from \eqn{X C}.
-#'     \item \code{"YX"}: Standard NMF view: \eqn{B \to X \to Y}.
 #'   }
 #' @param digits Integer. Number of decimal places to display in edge labels. Default is 2.
 #' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
@@ -1154,7 +1154,7 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
 #' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
 #' @seealso \code{\link{nmfkc}}
 #' @export
-nmfkc.DOT <- function(x, type = c("XCA", "YA", "YX"), digits = 2, threshold = 10^(-digits), rankdir = "LR",
+nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(-digits), rankdir = "LR",
                       Y.label = NULL, X.label = NULL, A.label = NULL,
                       Y.title = "Observation (Y)", X.title = "Basis (X)", A.title = "Covariates (A)",
                       min.penwidth = 1.0, max.penwidth = 5.0) {
@@ -1185,7 +1185,7 @@ nmfkc.DOT <- function(x, type = c("XCA", "YA", "YX"), digits = 2, threshold = 10
     A_labels_node <- NULL
     XC_mat <- NULL
   } else {
-    stop("The model structure (A is missing) is incompatible with the selected type ('XCA' or 'YA').")
+    stop("The model structure (A is missing) is incompatible with the selected type ('YXA' or 'YA').")
   }
   # --- 2. Graph Initialization ---
   scr <- paste0('digraph NMF {graph [rankdir=', rankdir, ' compound=true]; \n')
@@ -1198,7 +1198,7 @@ nmfkc.DOT <- function(x, type = c("XCA", "YA", "YX"), digits = 2, threshold = 10
   }
   st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
   # --- 4. Draw Paths based on 'type' ---
-  if (type == "XCA") {
+  if (type == "YXA") {
     # 4.1. Define A Nodes (Covariates/Input)
     st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
     for (j in 1:A_cols_NMF) {

@@ -6,7 +6,7 @@
 \usage{
 nmfkc.DOT(
   x,
-  type = c("XCA", "YA", "YX"),
+  type = c("YX", "YA", "YXA"),
   digits = 2,
   threshold = 10^(-digits),
   rankdir = "LR",
@@ -26,9 +26,9 @@ nmfkc.DOT(
 \item{type}{Character string specifying the visualization type.
 Options are:
 \itemize{
-\item \code{"XCA"} (Default): Full visualization of the tri-factorization \eqn{A \to C \to X \to Y}.
+\item \code{"YX"} (Default): Standard NMF view: \eqn{B \to X \to Y}.
+\item \code{"YXA"} : Full visualization of the tri-factorization \eqn{A \to C \to X \to Y}.
 \item \code{"YA"}: Direct regression view: \eqn{A \to Y}, where coefficients are from \eqn{X C}.
-\item \code{"YX"}: Standard NMF view: \eqn{B \to X \to Y}.
 }}
 
 \item{digits}{Integer. Number of decimal places to display in edge labels. Default is 2.}
