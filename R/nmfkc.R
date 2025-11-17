@@ -1126,6 +1126,160 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
 }
 
 
+#' @title Generate DOT language scripts for NMF models
+#' @description
+#' \code{nmfkc.DOT} generates scripts in the DOT language for visualizing
+#' the NMF model structure (\eqn{Y \approx X C A}) or its simplified forms.
+#'
+#' @param x The return value of \code{nmfkc}.
+#' @param type Character string specifying the visualization type.
+#'   Options are:
+#'   \itemize{
+#'     \item \code{"XCA"} (Default): Full visualization of the tri-factorization \eqn{A \to C \to X \to Y}.
+#'     \item \code{"YA"}: Direct regression view: \eqn{A \to Y}, where coefficients are from \eqn{X C}.
+#'     \item \code{"YX"}: Standard NMF view: \eqn{B \to X \to Y}.
+#'   }
+#' @param digits Integer. Number of decimal places to display in edge labels. Default is 2.
+#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
+#' @param rankdir Graph layout direction in DOT language. Default is "LR".
+#' @param Y.label Character vector for row names of Y/X (features). If NULL, uses \code{rownames(x$X)}.
+#' @param X.label Character vector for column names of X/rows of B (latent factors). If NULL, uses \code{colnames(x$X)}.
+#' @param A.label Character vector for row names of A/columns of C (covariates). If NULL, uses \code{colnames(x$C)}.
+#' @param Y.title Title for the Y node cluster. Default is "Observation (Y)".
+#' @param X.title Title for the X node cluster. Default is "Basis (X)".
+#' @param A.title Title for the A node cluster. Default is "Covariates (A)".
+#' @param min.penwidth Numeric. Minimum line thickness for the path (default: 1.0).
+#' @param max.penwidth Numeric. Maximum line thickness for the path (default: 5.0).
+#'
+#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
+#' @seealso \code{\link{nmfkc}}
+#' @export
+nmfkc.DOT <- function(x, type = c("XCA", "YA", "YX"), digits = 2, threshold = 10^(-digits), rankdir = "LR",
+                      Y.label = NULL, X.label = NULL, A.label = NULL,
+                      Y.title = "Observation (Y)", X.title = "Basis (X)", A.title = "Covariates (A)",
+                      min.penwidth = 1.0, max.penwidth = 5.0) {
+  type <- match.arg(type)
+  X <- x$X
+  B <- x$B
+  hasA <- !is.null(x$C) && ncol(x$C) != ncol(B)
+  P <- nrow(X)
+  Q <- ncol(X)
+  calculate_penwidth <- function(coeff_matrix, value) {
+    if (is.null(coeff_matrix)) return(min.penwidth)
+    max_coeff <- max(coeff_matrix, na.rm = TRUE)
+    if (max_coeff <= threshold) return(min.penwidth)
+    penwidth <- min.penwidth +
+      (max.penwidth - min.penwidth) * (value - threshold) / (max_coeff - threshold)
+    return(max(min.penwidth, penwidth))
+  }
+  # --- 1. Label Assignment & Coefficient Setup ---
+  Y_labels_node <- if (is.null(Y.label)) rownames(X) else Y.label
+  X_labels_node <- if (is.null(X.label)) colnames(X) else X.label
+  if (hasA) {
+    C <- round(x$C, digits)
+    A_cols_NMF <- ncol(C)
+    A_labels_node <- if (is.null(A.label)) colnames(C) else A.label
+    XC_mat <- X %*% C
+  } else if (type == "YX") {
+    C <- B
+    A_labels_node <- NULL
+    XC_mat <- NULL
+  } else {
+    stop("The model structure (A is missing) is incompatible with the selected type ('XCA' or 'YA').")
+  }
+  # --- 2. Graph Initialization ---
+  scr <- paste0('digraph NMF {graph [rankdir=', rankdir, ' compound=true]; \n')
+  # --- 3. Define Y Nodes (Observation/Output) ---
+  # Y.title
+  st <- paste0('subgraph cluster_Y{label="', Y.title, '" style="rounded"; \n')
+  for (j in 1:P) {
+    # Y.label
+    st <- paste0(st, sprintf('  Y%d [label="%s", shape=box]; \n', j, Y_labels_node[j]))
+  }
+  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+  # --- 4. Draw Paths based on 'type' ---
+  if (type == "XCA") {
+    # 4.1. Define A Nodes (Covariates/Input)
+    st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
+    for (j in 1:A_cols_NMF) {
+      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n', j, A_labels_node[j]))
+    }
+    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+    # 4.2. Define X Nodes (Latent Variables/Basis)
+    st <- paste0('subgraph cluster_X{label="', X.title, '" style="rounded"; \n')
+    for (j in 1:Q) {
+      st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n', j, X_labels_node[j]))
+    }
+    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+    # 4.3. Edges from A to X (via C)
+    max_C <- max(C, na.rm = TRUE)
+    for (i in 1:Q) {
+      for (j in 1:A_cols_NMF) {
+        coeff_val <- C[i, j]
+        if (coeff_val >= threshold) {
+          penwidth <- calculate_penwidth(C, coeff_val)
+          st <- sprintf(paste0('A%d -> X%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'), j, i, coeff_val)
+          scr <- paste0(scr, st)
+        }
+      }
+    }
+    # 4.4. Edges from X to Y (Basis contribution)
+    max_X <- max(X, na.rm = TRUE)
+    for (i in 1:P) {
+      for (j in 1:Q) {
+        coeff_val <- X[i, j]
+        if (coeff_val >= threshold) {
+          penwidth <- calculate_penwidth(X, coeff_val)
+          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'), j, i, coeff_val)
+          scr <- paste0(scr, st)
+        }
+      }
+    }
+  } else if (type == "YA") {
+    # 4.1. Define A Nodes (Covariates/Input)
+    st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
+    for (j in 1:A_cols_NMF) {
+      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n', j, A_labels_node[j]))
+    }
+    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+    # 4.2. Edges from A to Y (via XC)
+    max_XC <- max(XC_mat, na.rm = TRUE)
+    for (i in 1:P) {
+      for (j in 1:A_cols_NMF) {
+        coeff_val <- XC_mat[i, j]
+        if (coeff_val >= threshold) {
+          penwidth <- calculate_penwidth(XC_mat, coeff_val)
+          st <- sprintf(paste0('A%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'), j, i, coeff_val)
+          scr <- paste0(scr, st)
+        }
+      }
+    }
+  } else if (type == "YX") {
+    # 4.1. Define X Nodes (Latent Variables/Basis)
+    st <- paste0('subgraph cluster_X{label="', X.title, '" style="rounded"; \n')
+    for (j in 1:Q) {
+      st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n', j, X_labels_node[j]))
+    }
+    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+    # 4.2. Edges from X to Y (Basis contribution)
+    max_X <- max(X, na.rm = TRUE)
+    for (i in 1:P) {
+      for (j in 1:Q) {
+        coeff_val <- X[i, j]
+        if (coeff_val >= threshold) {
+          penwidth <- calculate_penwidth(X, coeff_val)
+          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'), j, i, coeff_val)
+          scr <- paste0(scr, st)
+        }
+      }
+    }
+  }
+  # --- 5. Graph Finalization ---
+  scr <- paste0(scr, "} \n")
+  return(scr)
+}
+
+
 #' @title Create a class (one-hot) matrix from a categorical vector
 #' @description
 #' \code{nmfkc.class} converts a categorical or factor vector into a class matrix
