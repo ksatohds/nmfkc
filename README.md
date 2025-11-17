@@ -1,15 +1,46 @@
 # Installation
 
-You can install the **nmfkc** package from [GitHub](https://github.com/ksatohds/nmfkc)
+## You can install the **nmfkc** package from [GitHub](https://github.com/ksatohds/nmfkc)
+
+## Quick Installation (No Vignettes)
+For the fastest installation without building the package vignettes (tutorials), use the following commands.
 
 ``` r
-#install.packages("remotes")
-remotes::install_github("ksatohds/nmfkc", build_vignettes = TRUE)
+# If you don't have the 'remotes' package installed, uncomment the line below:
+# install.packages("remotes")
+
+# Install the package without building vignettes (default behavior)
+remotes::install_github("ksatohds/nmfkc")
+
+# Load the package
 library(nmfkc)
 ```
 
-- Package Archive File (.tar.gz) is also available on [Dropbox](https://www.dropbox.com/scl/fo/1jxzzfqz9xsl3wlzwm3pj/ACYDNzn-h54VqgAngTKVyc0?rlkey=i5bcup2qxzwqgles27ke0f9ab&st=mdbkongw&dl=0)
-- A short video explaining the package can be found here. [YouTube](https://youtu.be/T48pPGReVu4)
+
+## Detailed Installation (With Vignettes)
+
+
+``` r
+# If you don't have the 'remotes' package installed, uncomment the line below:
+# install.packages("remotes")
+
+# Install the package and build the vignettes
+remotes::install_github("ksatohds/nmfkc", build_vignettes = TRUE)
+
+# Load the package
+library(nmfkc)
+
+# You can view the vignettes with:
+browseVignettes("nmfkc")
+```
+
+## Alternative Download (Source Archive)
+
+Package Archive File (.tar.gz) is also available on [Dropbox](https://www.dropbox.com/scl/fo/1jxzzfqz9xsl3wlzwm3pj/ACYDNzn-h54VqgAngTKVyc0?rlkey=i5bcup2qxzwqgles27ke0f9ab&st=mdbkongw&dl=0)
+
+## Package Explanation Video
+
+A short video explaining the package can be found here. [YouTube](https://youtu.be/T48pPGReVu4)
 
 # Help and Usage
 
