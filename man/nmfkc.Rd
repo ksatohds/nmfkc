@@ -9,24 +9,26 @@ to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
 \url{https://arxiv.org/abs/2403.05359}
 }
 \usage{
-nmfkc(Y, A = NULL, Q = 2, epsilon = 1e-04, maxit = 5000, method = "EU", ...)
+nmfkc(Y, A = NULL, rank = NULL, data, epsilon = 1e-04, maxit = 5000, ...)
 }
 \arguments{
-\item{Y}{Observation matrix.}
+\item{Y}{Observation matrix, OR a formula object if \code{data} is supplied.}
 
 \item{A}{Covariate matrix. Default is \code{NULL} (no covariates).}
 
-\item{Q}{Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.}
+\item{rank}{Integer. The rank of the basis matrix \eqn{X} (Q). Preferred over \code{Q}.}
+
+\item{data}{Optional. A data frame from which variables in the formula should be taken.}
 
 \item{epsilon}{Positive convergence tolerance.}
 
 \item{maxit}{Maximum number of iterations.}
 
-\item{method}{Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.}
-
-\item{...}{Additional arguments passed for fine-tuning regularization, initialization, constraints, and output control.
-These include:
+\item{...}{Additional arguments passed for fine-tuning regularization, initialization, constraints,
+and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 \itemize{
+\item \code{Q}: Backward-compatible name for the rank of the basis matrix (Q).
+\item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 \item \code{gamma}: Nonnegative penalty parameter controlling the L1 regularization on the coefficient matrix
 \eqn{B = C A} (default: 0). A larger value encourages sparsity in each sample’s coefficients.
 \item \code{lambda}: Nonnegative penalty parameter controlling the L1 regularization on the parameter matrix
@@ -63,12 +65,21 @@ A list with components:
 }
 \description{
 \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
-under the tri-factorization model \eqn{Y \approx X C A = X B}, where
+under the tri-factorization model \eqn{Y \approx X C A = X B}.
+
+This function supports two major input modes:
+\enumerate{
+\item \strong{Matrix Mode (Existing)}: \code{nmfkc(Y=matrix, A=matrix, ...)}
+\item \strong{Formula Mode (New)}: \code{nmfkc(formula=Y_vars ~ A_vars, data=df, rank=Q, ...)}
+}
+
+The rank of the basis matrix can be specified using either the \code{rank} argument
+(preferred for formula mode) or the hidden \code{Q} argument (for backward compatibility).
 }
 \examples{
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
-# Example 1.
+# Example 1. Matrix Mode (Existing)
 library(nmfkc)
 X <- cbind(c(1,0,1),c(0,1,0))
 B <- cbind(c(1,0),c(0,1),c(1,1))
@@ -81,12 +92,10 @@ res <- nmfkc(Y,Q=2,epsilon=1e-6)
 res$X
 res$B
 
-# Example 2.
-Y <- matrix(cars$dist,nrow=1)
-A <- rbind(1,cars$speed)
-result <- nmfkc(Y,A,Q=1)
-plot(cars$speed,as.vector(Y))
-lines(cars$speed,as.vector(result$XB),col=2,lwd=2)
+# Example 2. Formula Mode (New)
+# dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10), A1=1:10, A2=rnorm(10,5))
+# res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
+
 }
 \references{
 Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering.

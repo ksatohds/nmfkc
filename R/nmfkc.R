@@ -630,22 +630,190 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+
+#' @title Parse formula and prepare Y and A matrices
+#' @description
+#' Internal function to handle formula input, parse variables, and generate
+#' the transposed Y and A matrices (features/covariates in rows, samples in columns)
+#' as required by the core \code{nmfkc} function. Supports 'data' mode
+#' (variable names and dot notation) and direct expression evaluation mode.
+#' @param formula A formula object.
+#' @param data Optional data frame or environment.
+#' @return A list containing the prepared matrices: \code{Y} (P x N) and \code{A} (R x N or NULL).
+#' @keywords internal
+#' @noRd
+.nmfkc_parse_formula <- function(formula, data) {
+
+  # Helper function to abbreviate column messages (shows max_show columns)
+  .abbreviate_msg <- function(cols, prefix, max_show = 5) {
+    total_len <- base::length(cols)
+    if (total_len > max_show) {
+      msg <- base::paste0(base::paste(cols[1:max_show], collapse = ", "),
+                          base::sprintf("... (Total: %d)", total_len))
+    } else {
+      msg <- base::paste(cols, collapse = ", ")
+    }
+    base::message(base::paste(prefix, "created using columns:", msg))
+  }
+
+  # Capture the formula object and set the environment
+  f <- formula
+  f_env <- if (base::missing(data)) base::environment(f) else base::environment()
+
+  # Extract the expressions for Y and A
+  Y_expr <- f[[2]]
+  A_expr <- f[[3]]
+
+  # --- Input Mode Branching ---
+
+  if (!base::missing(data)) {
+    # MODE 1: data provided (Variable names and dot notation)
+    data <- base::as.data.frame(data)
+    all_cols <- base::names(data)
+
+    # Check if A_expr is structurally present in the formula object.
+    A_is_structurally_present <- base::length(f) >= 3
+
+    # Extract Y and A expressions as clean strings using deparse
+    Y_expr_str <- base::paste(base::deparse(Y_expr), collapse = " ")
+
+    A_expr_str <- if (A_is_structurally_present) {
+      base::paste(base::deparse(A_expr), collapse = " ")
+    } else {
+      NA # Use simple NA for missing structural part
+    }
+
+    # Determine dot notation and missing status based on the safe string A_expr_str
+    Y_is_dot <- (Y_expr_str == ".")
+    A_is_missing <- base::is.na(A_expr_str)
+    A_is_dot <- (!A_is_missing && A_expr_str == ".")
+
+    # --- Check for explicit A omission symbols (0 or -1) ---
+    A_is_explicitly_omitted <- (!A_is_missing &&
+                                  (A_expr_str == "0" || A_expr_str == "-1" ||
+                                     A_expr_str == "0 + ." || A_expr_str == "-1 + ." ||
+                                     A_expr_str == ". + 0" || A_expr_str == ". + -1"))
+
+    # Update A_is_missing status if explicitly omitted
+    A_is_missing <- A_is_missing || A_is_explicitly_omitted
+
+    Y_cols <- NULL
+    A_cols <- NULL
+
+    # Helper to clean and split variable names from expression string
+    .extract_cols <- function(expr_str) {
+      # Split by '+', '~', ' ' and remove empty elements. This handles "A1 + A2" structure.
+      cols <- base::unlist(base::strsplit(expr_str, "[ +~]", fixed = FALSE))
+      cols <- cols[cols != ""]
+      # Remove explicit omission symbols if they were part of the split result
+      cols <- cols[!(cols %in% base::c("0", "-1"))]
+      return(cols)
+    }
+
+    if (!Y_is_dot) { Y_cols <- .extract_cols(Y_expr_str) }
+
+    # A_cols is only extracted if A is NOT missing and NOT explicitly omitted (and not dot)
+    if (!A_is_missing && !A_is_dot) {
+      A_cols <- .extract_cols(A_expr_str)
+    }
+
+    # Error Check: Both sides cannot be '.'
+    if (Y_is_dot && A_is_dot) {
+      base::stop("Formula error: '.' cannot be used on both the left (Y) and right (A) sides simultaneously when 'data' is provided.")
+    }
+
+    used_cols <- base::unique(base::c(Y_cols, A_cols))
+    remaining_cols <- base::setdiff(all_cols, used_cols)
+
+    # Assign dot notation variables
+    if (Y_is_dot) {
+      Y_cols <- remaining_cols
+      if (base::length(Y_cols) == 0) { base::stop("Formula error: '.' for Y resulted in no remaining variables.") }
+      .abbreviate_msg(Y_cols, "Y")
+    } else if (A_is_dot) {
+      A_cols <- remaining_cols
+      if (base::length(A_cols) == 0) { base::stop("Formula error: '.' for A resulted in no remaining variables.") }
+      # NOTE: Message output for A is suppressed here to avoid duplication
+      #       and is handled in the A_mat creation block below.
+    }
+
+    # Matrix Creation
+    Y_mat <- data[, Y_cols, drop = FALSE]
+
+    # --- A Matrix Finalization and Message Output ---
+    if (A_is_missing) { # Catches structural omission, NA, or explicit 0/-1
+      A_mat <- NULL
+      base::message("A (covariate matrix) is omitted. Performing standard NMF (Y ~ X B).")
+    } else {
+      # This block now runs if A is explicitly defined with variables or is dot notation
+      A_mat <- data[, A_cols, drop = FALSE]
+      .abbreviate_msg(A_cols, "A") # Message output for A is performed here ONCE
+    }
+
+  } else {
+    # MODE 2: data omitted (Direct matrix expression evaluation)
+
+    if (base::is.symbol(Y_expr) && base::as.character(Y_expr) == ".") {
+      base::stop("Formula error: '.' is not supported for direct matrix evaluation mode (without 'data' argument).")
+    }
+
+    Y_mat <- base::tryCatch({ base::as.matrix(base::eval(Y_expr, envir = f_env)) },
+                            error = function(e) { base::stop(base::paste("Error evaluating Y expression:", base::conditionMessage(e))) })
+
+    A_mat <- base::tryCatch({
+      # Check if A_expr exists (length >= 3) or is explicitly 0/-1
+      A_is_structurally_present <- base::length(f) >= 3
+      if (!A_is_structurally_present || (base::is.numeric(A_expr) && A_expr == 0) || (base::is.numeric(A_expr) && A_expr == -1)) { NULL
+      } else { base::as.matrix(base::eval(A_expr, envir = f_env)) }
+    }, error = function(e) { base::stop(base::paste("Error evaluating A expression:", base::conditionMessage(e))) })
+
+    if (base::is.null(A_mat)) {
+      base::message("A (covariate matrix) is omitted. Performing standard NMF (Y ~ X B).")
+    }
+    # NOTE: No column abbreviation message needed for Mode 2 as matrices are evaluated directly.
+  }
+
+  # Transpose: R rows=samples -> nmfkc columns=samples (P x N or R x N)
+  # NOTE: R data frames/matrices are typically samples x variables. nmfkc requires variables x samples.
+  Y <- base::t(Y_mat)
+
+  if (!base::is.null(A_mat)) {
+    A <- base::t(A_mat)
+    if (base::ncol(Y) != base::ncol(A)) {
+      base::stop(base::paste0("Dimension error: Number of columns (samples) in Y (", base::ncol(Y), ") must match number of columns (samples) in A (", base::ncol(A), ")."))
+    }
+  } else {
+    A <- NULL
+  }
+
+  return(base::list(Y = Y, A = A))
+}
+
+
+
 #' @title Optimize NMF with kernel covariates
 #' @description
 #' \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
-#' under the tri-factorization model \eqn{Y \approx X C A = X B}, where
-# ... (Description, Objective Functionの記述は省略)
-# ...
-
-#' @param Y Observation matrix.
+#' under the tri-factorization model \eqn{Y \approx X C A = X B}.
+#'
+#' This function supports two major input modes:
+#' 1. **Matrix Mode (Existing)**: \code{nmfkc(Y=matrix, A=matrix, ...)}
+#' 2. **Formula Mode (New)**: \code{nmfkc(formula=Y_vars ~ A_vars, data=df, rank=Q, ...)}
+#'
+#' The rank of the basis matrix can be specified using either the \code{rank} argument
+#' (preferred for formula mode) or the hidden \code{Q} argument (for backward compatibility).
+#'
+#' @param Y Observation matrix, OR a formula object if \code{data} is supplied.
 #' @param A Covariate matrix. Default is \code{NULL} (no covariates).
-#' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
+#' @param rank Integer. The rank of the basis matrix \eqn{X} (Q). Preferred over \code{Q}.
+#' @param data Optional. A data frame from which variables in the formula should be taken.
 #' @param epsilon Positive convergence tolerance.
 #' @param maxit Maximum number of iterations.
-#' @param method Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
-#' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints, and output control.
-#'   These include:
+#' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints,
+#'   and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 #'   \itemize{
+#'     \item \code{Q}: Backward-compatible name for the rank of the basis matrix (Q).
+#'     \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 #'     \item \code{gamma}: Nonnegative penalty parameter controlling the L1 regularization on the coefficient matrix
 #'       \eqn{B = C A} (default: 0). A larger value encourages sparsity in each sample’s coefficients.
 #'     \item \code{lambda}: Nonnegative penalty parameter controlling the L1 regularization on the parameter matrix
@@ -691,7 +859,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
-#' # Example 1.
+#' # Example 1. Matrix Mode (Existing)
 #' library(nmfkc)
 #' X <- cbind(c(1,0,1),c(0,1,0))
 #' B <- cbind(c(1,0),c(0,1),c(1,1))
@@ -704,46 +872,78 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' res$X
 #' res$B
 #'
-#' # Example 2.
-#' Y <- matrix(cars$dist,nrow=1)
-#' A <- rbind(1,cars$speed)
-#' result <- nmfkc(Y,A,Q=1)
-#' plot(cars$speed,as.vector(Y))
-#' lines(cars$speed,as.vector(result$XB),col=2,lwd=2)
+#' # Example 2. Formula Mode (New)
+#' # dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10), A1=1:10, A2=rnorm(10,5))
+#' # res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
+#'
+nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
 
-nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
-  extra_args <- list(...)
-  gamma <- if (!is.null(extra_args$gamma)) extra_args$gamma else 0
-  lambda <- if (!is.null(extra_args$lambda)) extra_args$lambda else 0
-  X.restriction <- if (!is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
-  X.init <- if (!is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
-  nstart <- if (!is.null(extra_args$nstart)) extra_args$nstart else 1
-  seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
-  prefix <- if (!is.null(extra_args$prefix)) extra_args$prefix else "Basis"
-  print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
-  print.dims <- if (!is.null(extra_args$print.dims)) extra_args$print.dims else TRUE
-  save.time <- if (!is.null(extra_args$save.time)) extra_args$save.time else TRUE
-  save.memory <- if (!is.null(extra_args$save.memory)) extra_args$save.memory else FALSE
-  X.restriction <- match.arg(X.restriction, c("colSums", "colSqSums", "totalSum","fixed"))
-  xnorm <- switch(X.restriction,
-                 colSums   = function(X) sweep(X, 2, colSums(X), "/"),
-                 colSqSums = function(X) sweep(X, 2, sqrt(colSums(X^2)), "/"),
-                 totalSum  = function(X) X / sum(X),
-                 fixed = function(X) X
-  )
-  if(is.null(A)){
-    dims <- sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
-                    nrow(Y),ncol(Y),nrow(Y),Q,Q,ncol(Y))
-  }else{
-    dims <- sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
-                    nrow(Y),ncol(Y),nrow(Y),Q,Q,nrow(A),nrow(A),ncol(Y),Q,ncol(Y))
+  extra_args <- base::list(...)
+
+  # 1. Determine Q (rank) and method (Q and method are handled via '...' for backward compatibility)
+  Q_hidden <- if (!base::is.null(extra_args$Q)) extra_args$Q else NULL
+  method <- if (!base::is.null(extra_args$method)) extra_args$method else "EU"
+
+  if (!base::is.null(rank)) {
+    Q_val <- rank # Rank argument is preferred
+  } else if (!base::is.null(Q_hidden)) {
+    Q_val <- Q_hidden # Fall back to hidden Q argument
+  } else {
+    Q_val <- 2 # Default value
   }
-  if(print.dims) message(paste0(dims,"..."),appendLF=FALSE)
-  start.time <- Sys.time()
-  if(is.vector(Y)) Y <- matrix(Y,nrow=1)
-  if(!is.matrix(Y)) Y <- as.matrix(Y)
-  if(!is.null(A))if(min(A)<0) stop("The matrix A should be non-negative.")
-  if(min(Y)<0) stop("The matrix Y should be non-negative.")
+
+  # 2. Input type branching and data preparation
+  if (base::inherits(Y, "formula")) {
+    # If Y is a formula, call the external helper function to prepare Y and A
+    data_list <- .nmfkc_parse_formula(formula = Y, data = data)
+    Y <- data_list$Y
+    A <- data_list$A # A is overwritten by the matrix generated from the formula
+
+  } else {
+    # If Y is a matrix (existing call pattern), perform initial matrix checks
+
+    # Continue existing matrix checks and pre-processing
+    if(base::is.vector(Y)) Y <- base::matrix(Y,nrow=1)
+    if(!base::is.matrix(Y)) Y <- base::as.matrix(Y)
+
+    # A is used as provided
+  }
+
+  # 3. Set Q for internal calculations
+  Q <- Q_val
+
+  # The remaining body of the function continues the core NMF algorithm.
+  gamma <- if (!base::is.null(extra_args$gamma)) extra_args$gamma else 0
+  lambda <- if (!base::is.null(extra_args$lambda)) extra_args$lambda else 0
+  X.restriction <- if (!base::is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
+  X.init <- if (!base::is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
+  nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
+  seed <- if (!base::is.null(extra_args$seed)) extra_args$seed else 123
+  prefix <- if (!base::is.null(extra_args$prefix)) extra_args$prefix else "Basis"
+  print.trace <- if (!base::is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
+  print.dims <- if (!base::is.null(extra_args$print.dims)) extra_args$print.dims else TRUE
+  save.time <- if (!base::is.null(extra_args$save.time)) extra_args$save.time else TRUE
+  save.memory <- if (!base::is.null(extra_args$save.memory)) extra_args$save.memory else FALSE
+  X.restriction <- base::match.arg(X.restriction, base::c("colSums", "colSqSums", "totalSum","fixed"))
+  xnorm <- base::switch(X.restriction,
+                        colSums   = function(X) base::sweep(X, 2, base::colSums(X), "/"),
+                        colSqSums = function(X) base::sweep(X, 2, base::sqrt(base::colSums(X^2)), "/"),
+                        totalSum  = function(X) X / base::sum(X),
+                        fixed = function(X) X
+  )
+  if(base::is.null(A)){
+    dims <- base::sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
+                          base::nrow(Y),base::ncol(Y),base::nrow(Y),Q,Q,base::ncol(Y))
+  }else{
+    dims <- base::sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
+                          base::nrow(Y),base::ncol(Y),base::nrow(Y),Q,Q,base::nrow(A),base::nrow(A),base::ncol(Y),Q,base::ncol(Y))
+  }
+  if(print.dims) base::message(base::paste0(dims,"..."),appendLF=FALSE)
+  start.time <- base::Sys.time()
+  if(base::is.vector(Y)) Y <- base::matrix(Y,nrow=1)
+  if(!base::is.matrix(Y)) Y <- base::as.matrix(Y)
+  if(!base::is.null(A))if(base::min(A)<0) base::stop("The matrix A should be non-negative.")
+  if(base::min(Y)<0) base::stop("The matrix Y should be non-negative.")
   is.X.scalar <- FALSE
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
@@ -790,6 +990,7 @@ nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
   }
   epsilon.iter <- Inf  # initialize for post-loop warning safety
   objfunc.iter <- 0*(1:maxit)
+  i_end <- NULL
   for(i in 1:maxit){                                                           # <-- open: main iteration loop
     if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
@@ -880,7 +1081,7 @@ nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
       if(epsilon.iter <= abs(epsilon)){
-        objfunc.iter <- objfunc.iter[10:i]
+        i_end <- i
         break
       } # } end if (converged)
     } # } end if (i >= 10)
@@ -909,6 +1110,14 @@ nmfkc <- function(Y, A=NULL, Q=2, epsilon=1e-4, maxit=5000, method="EU", ...){
     if (gamma  != 0) obj <- obj + if (hasA) gamma * sum(C %*% A) else gamma * sum(C)
     objfunc.iter[i] <- obj
     objfunc <- obj
+  }
+  objfunc.iter[i] <- objfunc
+  if(!is.null(i_end)){
+    objfunc.iter <- objfunc.iter[10:i_end]
+  } else if (i >= 10){
+    objfunc.iter <- objfunc.iter[10:i]
+  } else {
+    objfunc.iter <- objfunc.iter[1:i]
   }
   if(ncol(X) > 1 & X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
@@ -1124,6 +1333,10 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
   }
   return(result)
 }
+
+
+
+
 
 
 #' @title Generate DOT language scripts for NMF models
