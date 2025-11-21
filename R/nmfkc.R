@@ -1,5 +1,5 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 18 NOV 2025")
+  packageStartupMessage("Last update on 21 NOV 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
@@ -812,12 +812,14 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints,
 #'   and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 #'   \itemize{
+#'     \item \code{X.L2.ortho}: Nonnegative penalty parameter for the orthogonality of \eqn{X} (default: 0).
+#'       Enforces columns of \eqn{X} to be orthogonal (conceptually \eqn{X^\top X \to I}). (Formerly \code{lambda.ortho}).
+#'     \item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).
+#'       Promotes **sparsity in the coefficients**. (Formerly \code{gamma}).
+#'     \item \code{C.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{C} (default: 0).
+#'       Promotes **sparsity in the parameter matrix**. (Formerly \code{lambda}).
 #'     \item \code{Q}: Backward-compatible name for the rank of the basis matrix (Q).
 #'     \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
-#'     \item \code{gamma}: Nonnegative penalty parameter controlling the L1 regularization on the coefficient matrix
-#'       \eqn{B = C A} (default: 0). A larger value encourages sparsity in each sample’s coefficients.
-#'     \item \code{lambda}: Nonnegative penalty parameter controlling the L1 regularization on the parameter matrix
-#'       \eqn{C} (default: 0). A larger value encourages sparsity in the shared template structure.
 #'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, or \code{"fixed"}.
 #'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
 #'     \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
@@ -880,41 +882,25 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
 
   extra_args <- base::list(...)
 
-  # 1. Determine Q (rank) and method (Q and method are handled via '...' for backward compatibility)
+  # --- 1. Parameter Extraction & Backward Compatibility ---
+
+  # Rank: rank (new) > Q (old) > 2 (default)
   Q_hidden <- if (!base::is.null(extra_args$Q)) extra_args$Q else NULL
-  method <- if (!base::is.null(extra_args$method)) extra_args$method else "EU"
-
-  if (!base::is.null(rank)) {
-    Q_val <- rank # Rank argument is preferred
-  } else if (!base::is.null(Q_hidden)) {
-    Q_val <- Q_hidden # Fall back to hidden Q argument
-  } else {
-    Q_val <- 2 # Default value
-  }
-
-  # 2. Input type branching and data preparation
-  if (base::inherits(Y, "formula")) {
-    # If Y is a formula, call the external helper function to prepare Y and A
-    data_list <- .nmfkc_parse_formula(formula = Y, data = data)
-    Y <- data_list$Y
-    A <- data_list$A # A is overwritten by the matrix generated from the formula
-
-  } else {
-    # If Y is a matrix (existing call pattern), perform initial matrix checks
-
-    # Continue existing matrix checks and pre-processing
-    if(base::is.vector(Y)) Y <- base::matrix(Y,nrow=1)
-    if(!base::is.matrix(Y)) Y <- base::as.matrix(Y)
-
-    # A is used as provided
-  }
-
-  # 3. Set Q for internal calculations
+  Q_val <- if (!base::is.null(rank)) rank else if (!base::is.null(Q_hidden)) Q_hidden else 2
   Q <- Q_val
 
-  # The remaining body of the function continues the core NMF algorithm.
-  gamma <- if (!base::is.null(extra_args$gamma)) extra_args$gamma else 0
-  lambda <- if (!base::is.null(extra_args$lambda)) extra_args$lambda else 0
+  # Extract Regularization Parameters (Default: 0)
+  C.L1 <- if (!base::is.null(extra_args$C.L1)) extra_args$C.L1 else 0
+  B.L1 <- if (!base::is.null(extra_args$B.L1)) extra_args$B.L1 else 0
+  X.L2.ortho <- if (!base::is.null(extra_args$X.L2.ortho)) extra_args$X.L2.ortho else 0
+
+  # Backward Compatibility Mapping (Old names overwrite defaults if new names aren't used)
+  if (C.L1 == 0 && !base::is.null(extra_args$lambda)) C.L1 <- extra_args$lambda
+  if (B.L1 == 0 && !base::is.null(extra_args$gamma)) B.L1 <- extra_args$gamma
+  if (X.L2.ortho == 0 && !base::is.null(extra_args$lambda.ortho)) X.L2.ortho <- extra_args$lambda.ortho
+
+  # Other parameters
+  method <- if (!base::is.null(extra_args$method)) extra_args$method else "EU"
   X.restriction <- if (!base::is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
   X.init <- if (!base::is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
   nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
@@ -924,6 +910,20 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   print.dims <- if (!base::is.null(extra_args$print.dims)) extra_args$print.dims else TRUE
   save.time <- if (!base::is.null(extra_args$save.time)) extra_args$save.time else TRUE
   save.memory <- if (!base::is.null(extra_args$save.memory)) extra_args$save.memory else FALSE
+
+  # --- 2. Input Data Preparation ---
+
+  if (base::inherits(Y, "formula")) {
+    data_list <- .nmfkc_parse_formula(formula = Y, data = data)
+    Y <- data_list$Y
+    A <- data_list$A
+  } else {
+    if(base::is.vector(Y)) Y <- base::matrix(Y,nrow=1)
+    if(!base::is.matrix(Y)) Y <- base::as.matrix(Y)
+  }
+
+  # --- 3. Algorithm Setup ---
+
   X.restriction <- base::match.arg(X.restriction, base::c("colSums", "colSqSums", "totalSum","fixed"))
   xnorm <- base::switch(X.restriction,
                         colSums   = function(X) base::sweep(X, 2, base::colSums(X), "/"),
@@ -931,6 +931,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
                         totalSum  = function(X) X / base::sum(X),
                         fixed = function(X) X
   )
+
   if(base::is.null(A)){
     dims <- base::sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
                           base::nrow(Y),base::ncol(Y),base::nrow(Y),Q,Q,base::ncol(Y))
@@ -940,10 +941,13 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   }
   if(print.dims) base::message(base::paste0(dims,"..."),appendLF=FALSE)
   start.time <- base::Sys.time()
+
   if(base::is.vector(Y)) Y <- base::matrix(Y,nrow=1)
   if(!base::is.matrix(Y)) Y <- base::as.matrix(Y)
-  if(!base::is.null(A))if(base::min(A)<0) base::stop("The matrix A should be non-negative.")
+  if(!base::is.null(A)) if(base::min(A)<0) base::stop("The matrix A should be non-negative.")
   if(base::min(Y)<0) base::stop("The matrix Y should be non-negative.")
+
+  # Initialize X
   is.X.scalar <- FALSE
   if(nrow(Y)>=2){
     if(min(nrow(Y),ncol(Y))>=Q){
@@ -975,7 +979,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # Initialize C
   if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   hasA <- !is.null(A)
-  # EU with A: precompute Y%*%t(A) and A%*%t(A) to eliminate N in iterations
+
+  # Precompute for EU
   if (hasA) {
     At  <- t(A)                     # (N x R)
     YAt <- Y %*% At                 # (P x R)
@@ -984,134 +989,139 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   }else{
     ones_QN <- matrix(1, nrow=Q, ncol=ncol(Y))
   }
+  # Precompute for KL
   if(method!="EU"){
     if (hasA) rowSumsA <- rowSums(A)
     rep1ncolY <- rep(1,ncol(Y))
   }
+
   epsilon.iter <- Inf  # initialize for post-loop warning safety
   objfunc.iter <- 0*(1:maxit)
   i_end <- NULL
-  for(i in 1:maxit){                                                           # <-- open: main iteration loop
+
+  # --- 4. Main Loop ---
+  for(i in 1:maxit){
     if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
+
+    # === Euclidean Update ===
     if(method=="EU"){
+      # Update X
       if(!is.X.scalar){
         if(!is.X.scalar & X.restriction!="fixed"){
-          X <- X*.z((Y%*% t(B))/(XB%*%t(B)))
+          num_X <- Y %*% t(B)
+          den_X <- XB %*% t(B)
+
+          # Penalty: X.L2.ortho (L2-like orthogonality on X)
+          if (X.L2.ortho > 0) {
+            XtX <- crossprod(X)
+            diag(XtX) <- 0
+            den_X <- den_X + X.L2.ortho * (X %*% XtX)
+          }
+          X <- X * .z(num_X / den_X)
           X <- xnorm(X)
         }
-      } # } end if (!is.X.scalar) (REF EU)
+      }
+
+      # Update C
       if(is.null(A)) {
-        #if(gamma!=0){
-        #  C <- C*.z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
-        #}else{
-        #  C <- C*.z((t(X)%*%Y)/(t(X)%*%XB))
-        #}
         den_EU <- t(X) %*% XB
-        if (lambda != 0) den_EU <- den_EU + (lambda/2) * matrix(1, nrow=Q, ncol=ncol(Y))
-        if (gamma  != 0) den_EU <- den_EU + (gamma/2)  * ones_QN
+        # Penalty: C.L1
+        if (C.L1 != 0) den_EU <- den_EU + (C.L1/2) * matrix(1, nrow=Q, ncol=ncol(Y))
+        # Penalty: B.L1
+        if (B.L1 != 0) den_EU <- den_EU + (B.L1/2) * ones_QN
         C <- C * .z( (t(X) %*% Y) / den_EU )
       } else {
-        #if(gamma!=0){
-        #  C <- C*.z((t(X)%*% YAt)/(t(X)%*%XB%*%At+gamma*(C %*% AAt)))
-        #}else{
-        #  C <- C*.z((t(X)%*% YAt)/(t(X)%*%XB%*%At))
-        #}
         den_EU <- t(X) %*% XB %*% At
-        if (lambda != 0) den_EU <- den_EU + (lambda/2) * matrix(1, nrow=Q, ncol=nrow(A))
-        if (gamma  != 0) den_EU <- den_EU + (gamma/2)  * ones_QN_At
+        # Penalty: C.L1
+        if (C.L1 != 0) den_EU <- den_EU + (C.L1/2) * matrix(1, nrow=Q, ncol=nrow(A))
+        # Penalty: B.L1
+        if (B.L1 != 0) den_EU <- den_EU + (B.L1/2) * ones_QN_At
         C <- C * .z( (t(X) %*% YAt) / den_EU )
-      } # } end if (is.null(A)) else (REF EU C-update)
-      #if(gamma!=0){
-      #  if(is.null(A)) {
-      #    objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(C^2)
-      #  }else{
-      #    objfunc.iter[i] <- sum((Y-XB)^2)+gamma*sum(diag(C%*% AAt %*% t(C)))
-      #  }
-      #}else{
-      #  objfunc.iter[i] <- sum((Y-XB)^2)
-      #}
+      }
+      # Objective Function (EU)
       obj <- sum((Y - XB)^2)
-      if (lambda != 0) obj <- obj + lambda * sum(C)
-      if (gamma  != 0) obj <- obj + if (hasA) gamma * sum(C %*% A) else gamma * sum(C)
+      if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
+      if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
+      if (X.L2.ortho != 0) {
+        XtX <- crossprod(X); diag(XtX) <- 0
+        obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
+      }
       objfunc.iter[i] <- obj
-    }else{                                                                     # <-- else: REF KL
-      if(!is.X.scalar & X.restriction!="fixed"){
-        X <- X*.z((Y/XB)%*%t(B))/(rep(1,nrow(Y))%o%rowSums(B))
-        X <- xnorm(X)
-      } # } end if (!is.X.scalar) (REF KL)
 
+    # === KL Divergence Update ===
+    }else{
+      # Update X
+      if(!is.X.scalar & X.restriction!="fixed"){
+        den_KL_X <- (rep(1,nrow(Y))%o%rowSums(B))
+        # Penalty: X.L2.ortho
+        if (X.L2.ortho > 0) {
+          XtX <- crossprod(X); diag(XtX) <- 0
+          den_KL_X <- den_KL_X + X.L2.ortho * (X %*% XtX)
+        }
+        X <- X*.z((Y/XB)%*%t(B))/den_KL_X
+        X <- xnorm(X)
+      }
+
+      # Update C
       if(is.null(A)) {
-        #if(gamma!=0){
-        #  C <- C*.z(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep1ncolY+2*gamma*C))
-        #}else{
-        #  C <- C*.z(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep1ncolY))
-        #
         den_KL <- (colSums(X) %o% rep1ncolY)
-        if (lambda != 0) den_KL <- den_KL + lambda * matrix(1, nrow=Q, ncol=ncol(Y))
-        if (gamma  != 0) den_KL <- den_KL + gamma  * ones_QN
+        # Penalty: C.L1
+        if (C.L1 != 0) den_KL <- den_KL + C.L1 * matrix(1, nrow=Q, ncol=ncol(Y))
+        # Penalty: B.L1
+        if (B.L1 != 0) den_KL <- den_KL + B.L1 * ones_QN
         C <- C * .z( (t(X) %*% .z(Y/XB)) / den_KL )
       } else {
-        #if(gamma!=0){
-        #  C <- C*.z(t(X)%*%.z(Y/XB)%*%At/(colSums(X)%o%rowSumsA+2*gamma*(C %*% AAt)))
-        #}else{
-        #  C <- C*.z(t(X)%*%.z(Y/XB)%*%At/(colSums(X)%o%rowSumsA))
-        #}
         den_KL <- (colSums(X) %o% rowSumsA)
-        if (lambda != 0) den_KL <- den_KL + lambda * matrix(1, nrow=Q, ncol=nrow(A))
-        if (gamma  != 0) den_KL <- den_KL + gamma  * ones_QN_At
+        # Penalty: C.L1
+        if (C.L1 != 0) den_KL <- den_KL + C.L1 * matrix(1, nrow=Q, ncol=nrow(A))
+        # Penalty: B.L1
+        if (B.L1 != 0) den_KL <- den_KL + B.L1 * ones_QN_At
         C <- C * .z( (t(X) %*% .z(Y/XB) %*% At) / den_KL )
-      } # } end if (is.null(A)) else (REF KL C-update)
-      #if(gamma!=0){
-      #  if(is.null(A)) {
-      #    objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
-      #  }else{
-      #    objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)+gamma*sum(diag(C%*% AAt %*% t(C)))
-      #  }
-      #}else{
-      #  objfunc.iter[i] <- sum(-Y*.z(log(XB))+XB)
-      #}
+      }
+
+      # Objective Function (KL)
       obj <- sum(-Y*.z(log(XB)) + XB)
-      if (lambda != 0) obj <- obj + lambda * sum(C)
-      if (gamma  != 0) obj <- obj + if (hasA) gamma * sum(C %*% A) else gamma * sum(C)
+      if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
+      if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
+      if (X.L2.ortho != 0) {
+        XtX <- crossprod(X); diag(XtX) <- 0
+        obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
+      }
       objfunc.iter[i] <- obj
     }
-    # Convergence check (shared)
+
+    # Convergence Check
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
       if(epsilon.iter <= abs(epsilon)){
         i_end <- i
         break
-      } # } end if (converged)
-    } # } end if (i >= 10)
-  } # } end for (main iteration loop)
+      }
+    }
+  }# End Loop
+
+  # --- 5. Post-Processing ---
   if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
+
+  # Final ObjCalc (ensure consistency with last iteration)
   if(method=="EU"){
-    #if(is.null(A)) {
-    #  objfunc <- sum((Y-XB)^2)+gamma*sum(C^2)
-    #}else{
-    #  objfunc <- sum((Y-XB)^2)+gamma*sum(diag(C%*% AAt %*% t(C)))
-    #}
     obj <- sum((Y - XB)^2)
-    if (lambda != 0) obj <- obj + lambda * sum(C)
-    if (gamma  != 0) obj <- obj + if (hasA) gamma * sum(C %*% A) else gamma * sum(C)
-    objfunc.iter[i] <- obj
-    objfunc <- obj
-  }else{
-    #if(is.null(A)) {
-    #  objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(C^2)
-    #}else{
-    #  objfunc <- sum(-Y*.z(log(XB))+XB)+gamma*sum(diag(C%*% AAt %*% t(C)))
-    #}
+  } else {
     obj <- sum(-Y*.z(log(XB)) + XB)
-    if (lambda != 0) obj <- obj + lambda * sum(C)
-    if (gamma  != 0) obj <- obj + if (hasA) gamma * sum(C %*% A) else gamma * sum(C)
-    objfunc.iter[i] <- obj
-    objfunc <- obj
   }
+  if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
+  if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
+  if (X.L2.ortho != 0) {
+    XtX <- crossprod(X); diag(XtX) <- 0
+    obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
+  }
+  objfunc <- obj
   objfunc.iter[i] <- objfunc
+
+
   if(!is.null(i_end)){
     objfunc.iter <- objfunc.iter[10:i_end]
   } else if (i >= 10){
@@ -1119,6 +1129,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   } else {
     objfunc.iter <- objfunc.iter[1:i]
   }
+
+  # Sorting
   if(ncol(X) > 1 & X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
     X <- X[,index]
@@ -1130,6 +1142,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   colnames(X) <- paste0(prefix,1:ncol(X))
   rownames(B) <- paste0(prefix,1:nrow(B))
   colnames(B) <- colnames(Y)
+
+  # AIC/BIC Calculation
   if(X.restriction=="fixed"){
     nparam.X <- 0
   } else if(X.restriction=="totalSum"){
@@ -1142,6 +1156,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   } else {
     nparam <- nparam.X + prod(dim(C))
   }
+
   if(method=="EU"){
     ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
     sigma2 <- sum((Y-XB)^2)/prod(dim(Y))
@@ -1152,6 +1167,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     AIC <- 2*sum(-Y*.z(log(XB))+XB)+2*nparam
     BIC <- 2*sum(-Y*.z(log(XB))+XB)+nparam*log(ncol(Y))
   }
+
+  # Statistics & Metrics
   if(save.memory==FALSE){
     r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
     sigma <- stats::sd(as.vector(Y)-as.vector(XB))

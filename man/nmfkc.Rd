@@ -27,12 +27,14 @@ nmfkc(Y, A = NULL, rank = NULL, data, epsilon = 1e-04, maxit = 5000, ...)
 \item{...}{Additional arguments passed for fine-tuning regularization, initialization, constraints,
 and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 \itemize{
+\item \code{X.L2.ortho}: Nonnegative penalty parameter for the orthogonality of \eqn{X} (default: 0).
+Enforces columns of \eqn{X} to be orthogonal (conceptually \eqn{X^\top X \to I}). (Formerly \code{lambda.ortho}).
+\item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).
+Promotes \strong{sparsity in the coefficients}. (Formerly \code{gamma}).
+\item \code{C.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{C} (default: 0).
+Promotes \strong{sparsity in the parameter matrix}. (Formerly \code{lambda}).
 \item \code{Q}: Backward-compatible name for the rank of the basis matrix (Q).
 \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
-\item \code{gamma}: Nonnegative penalty parameter controlling the L1 regularization on the coefficient matrix
-\eqn{B = C A} (default: 0). A larger value encourages sparsity in each sample’s coefficients.
-\item \code{lambda}: Nonnegative penalty parameter controlling the L1 regularization on the parameter matrix
-\eqn{C} (default: 0). A larger value encourages sparsity in the shared template structure.
 \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, or \code{"fixed"}.
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
 \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
