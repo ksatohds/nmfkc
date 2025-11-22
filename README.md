@@ -86,6 +86,7 @@ In addition, there are functions that simplify special parameter optimization.
 
 - **nmfkc.kernel.beta.cv** function is used for optimization of beta in Gauss kernel function.
 - **nmfkc.ar.degree.cv** function is used for optimization of lag degree in autoregression.
+- **nmfkc.ar.predict** function is used for multi-step ahead forecasting in autoregression.
 
 
 # Statistical model
@@ -671,42 +672,96 @@ legend("bottomright",
 
 ## 8.  Autoregression: AirPassengers
 
+This example demonstrates how to apply the NMF-VAR (Vector Autoregression) model to the famous "AirPassengers" dataset. We will train the model on historical data and forecast future passenger numbers for the next 2 years.
+
 ``` r
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
 # install.packages("DOT")
 library(nmfkc)
 
+# --- 1. Data Preparation ---
+# Load the AirPassengers dataset
+data(AirPassengers)
 d <- AirPassengers
-tsp(d)
-time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
-time.vec <- round(as.vector(t(time)),2)
-Y0 <- log10(matrix(as.vector(d),nrow=1))
+
+# Create a time vector for column names
+time <- time(ts(1:length(d), start = c(1949, 1), frequency = 12))
+time.vec <- round(as.vector(t(time)), 2)
+
+# Convert to a matrix (1 x N) and apply log10 transformation
+Y0 <- log10(matrix(as.vector(d), nrow = 1))
 colnames(Y0) <- time.vec
-rownames(Y0) <- "Y"
+rownames(Y0) <- "Passengers (log10)"
 
-# nmf with covariates
-Q <- 1
-D <- 12
-a <- nmfkc.ar(Y0,degree=D,intercept=T); Y <- a$Y; A <- a$A
-res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-9,maxit=300000)
-res$r.squared
+# --- 2. Model Selection (Lag Order) ---
+# Determine the optimal lag order (degree) using Cross-Validation.
+# We evaluate degrees from 1 to 16 with Q=1 basis.
+cv_res <- nmfkc.ar.degree.cv(Y0, Q = 1, degree = 1:16)
 
-# spectral radius of the companion matrix 
-nmfkc.ar.stationarity(res)
+# Use the optimal degree found (or manually set D=12 for monthly seasonality)
+D <- cv_res$degree
+# D <- 12 
 
-# coefficients
-print.table(round(res$C,2),zero.print="")
+# --- 3. Model Fitting (NMF-VAR) ---
+# Set parameters
+Q <- 1    # Number of latent bases (Rank)
 
-# visualize relation between variables
-script <- nmfkc.ar.DOT(res,degree=12,intercept=T)
-# cat(script)
-library(DOT)
-dot(script,file="AirPassengers_dot.ps")
+# Construct matrices for the AR model (Y and A)
+ar_data <- nmfkc.ar(Y0, degree = D, intercept = TRUE)
+Y <- ar_data$Y
+A <- ar_data$A
 
-# fitted curve
-plot(as.numeric(colnames(Y)),10^(as.vector(Y)),type="l",col=1,xlab="",ylab="AirPassengers")
-lines(as.numeric(colnames(Y)),10^(as.vector(res$XB)),col=2)
+# Fit the NMF model
+res <- nmfkc(Y = Y, A = A, rank = Q, prefix = "Factor", epsilon = 1e-9, maxit = 300000)
+
+# Check the goodness of fit (R-squared)
+print(paste("R-squared:", round(res$r.squared, 4)))
+
+# Check stationarity (Spectral radius < 1 indicates a stationary process)
+print(nmfkc.ar.stationarity(res))
+
+# --- 4. Forecasting ---
+# Forecast 24 steps (2 years) ahead
+h <- 24
+pred_res <- nmfkc.ar.predict(x = res, Y = Y0, n.ahead = h)
+
+# Back-transform predicted values from log10 scale to original scale
+pred_val <- 10^as.vector(pred_res$pred)
+
+# --- 5. Visualization ---
+# Create the time axis for the forecast period manually
+start_year <- 1949
+freq <- 12
+total_len <- length(d)
+pred_time <- seq(from = start_year + total_len/freq, by = 1/freq, length.out = h)
+
+# Prepare data for smooth plotting (connect the lines)
+last_obs_time <- tail(as.numeric(colnames(Y0)), 1)
+last_obs_val  <- tail(10^as.vector(Y0), 1)
+
+plot_pred_time <- c(last_obs_time, pred_time)
+plot_pred_val  <- c(last_obs_val, pred_val)
+
+# Set plot limits
+xlim_range <- range(c(as.numeric(colnames(Y0)), pred_time))
+ylim_range <- range(c(10^as.vector(Y0), pred_val))
+
+# Draw the plot
+# 1. Observed data (Black)
+plot(as.numeric(colnames(Y0)), 10^as.vector(Y0), type = "l", col = "black",
+     xlim = xlim_range, ylim = ylim_range, lwd = 1,
+     xlab = "Time", ylab = "AirPassengers", main = "NMF-VAR Forecast (h=24)")
+
+# 2. Fitted values during training (Red)
+lines(as.numeric(colnames(Y)), 10^as.vector(res$XB), col = "red", lwd = 2)
+
+# 3. Future forecast (Blue)
+lines(plot_pred_time, plot_pred_val, col = "blue", lwd = 2)
+
+# Add legend
+legend("topleft", legend = c("Observed", "Fitted", "Forecast"),
+       col = c("black", "red", "blue"), lty = 1, lwd = c(1, 2, 2))
 ```
  
 ## 9:  Vector Autoregression: Canada

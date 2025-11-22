@@ -18,6 +18,7 @@ These include:
 \itemize{
 \item \code{div}: Number of folds (\eqn{k}) for cross-validation (default: 5).
 \item \code{seed}: Integer seed for reproducibility of data partitioning (default: 123).
+\item \code{shuffle}: Logical. If \code{TRUE} (default), samples are shuffled randomly (Standard CV). If \code{FALSE}, samples are split sequentially (Block CV), recommended for time series.
 \item \strong{Arguments passed to \code{\link{nmfkc}}}: \code{gamma}, \code{epsilon}, \code{maxit}, \code{method}, \code{X.restriction}, \code{X.init}, etc.
 }}
 }
@@ -26,8 +27,25 @@ A list with components:
 \item{objfunc}{Total objective function value across all folds.}
 \item{objfunc.block}{Objective function values for each fold.}
 \item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
+
+A list with components:
+\item{objfunc}{Total objective function value across all folds.}
+\item{objfunc.block}{Objective function values for each fold.}
+\item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
 }
 \description{
+\code{nmfkc.cv} performs k-fold cross-validation on the model
+\eqn{Y \approx X C A = X B}, where
+\itemize{
+\item \eqn{Y(P,N)} is the observation matrix,
+\item \eqn{A(R,N)} is the covariate matrix,
+\item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
+\item \eqn{C(Q,R)} is the parameter matrix, and
+\item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
+}
+Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are estimated,
+and the predictive performance is assessed by cross-validation.
+
 \code{nmfkc.cv} performs k-fold cross-validation on the model
 \eqn{Y \approx X C A = X B}, where
 \itemize{
@@ -73,5 +91,7 @@ plot(as.vector(V),as.vector(Y))
 lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }
 \seealso{
+\code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
+
 \code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
 }

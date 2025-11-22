@@ -1,10 +1,11 @@
-# A small constant for numerical stability to prevent division by zero and log(0).
-.eps <- 1e-10
-
 .onAttach <- function(...) {
   packageStartupMessage("Last update on 22 NOV 2025")
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
+
+# A small constant for numerical stability to prevent division by zero and log(0).
+.eps <- 1e-10
+
 
 #' @title Construct observation and covariate matrices for a vector autoregressive model
 #' @description
@@ -70,6 +71,114 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
   }
   degree.max <- min(ncol(Ya),floor(10*log10(ncol(Ya))))
   list(Y = Ya, A = A, A.columns = A.columns, degree.max = degree.max)
+}
+
+#' @title Forecast future values for NMF-VAR model
+#' @description
+#' \code{nmfkc.ar.predict} computes multi-step ahead forecasts for a fitted NMF-VAR model
+#' using recursive forecasting strategies.
+#'
+#' @param x An object of class \code{nmfkc} (the fitted model).
+#' @param Y The historical observation matrix used for fitting (or at least the last \code{degree} columns).
+#' @param degree The lag order (D) used in the model. If \code{NULL} (default), it is automatically inferred from the dimensions of \code{x$X} and \code{x$C}.
+#' @param n.ahead Integer. The number of steps ahead to forecast.
+#'
+#' @return A list containing:
+#' \item{pred}{A matrix of predicted values with \code{n.ahead} columns.}
+#' \item{time}{A numeric vector of future time points, if \code{colnames(Y)} are numeric time values. Otherwise \code{NULL}.}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+#' @export
+nmfkc.ar.predict <- function(x, Y, degree=NULL, n.ahead=1){
+  if(!is.matrix(Y)) Y <- as.matrix(Y)
+
+  # --- 1. Automatic Degree & Intercept Detection ---
+  X <- x$X
+  C <- x$C
+  P <- nrow(X)
+  R <- ncol(C)
+
+  is_intercept_model <- ((R - 1) %% P == 0)
+  is_no_intercept_model <- (R %% P == 0)
+
+  if (is.null(degree)) {
+    if (P == 1) {
+      has_intercept <- TRUE
+      degree <- (R - 1) / P
+      if(R == 1) { has_intercept <- FALSE; degree <- 1 }
+    } else {
+      if (is_intercept_model && !is_no_intercept_model) {
+        has_intercept <- TRUE
+        degree <- (R - 1) / P
+      } else if (!is_intercept_model && is_no_intercept_model) {
+        has_intercept <- FALSE
+        degree <- R / P
+      } else {
+        has_intercept <- TRUE
+        degree <- (R - 1) / P
+      }
+    }
+  } else {
+    if (R == P * degree + 1) {
+      has_intercept <- TRUE
+    } else if (R == P * degree) {
+      has_intercept <- FALSE
+    } else {
+      stop(paste0("Dimension mismatch: ncol(C)=", R,
+                  " does not match P*degree+1 (", P*degree+1,
+                  ") or P*degree (", P*degree, "). Check 'degree' argument."))
+    }
+  }
+
+  # --- 2. Forecasting Loop ---
+  preds <- matrix(0, nrow=P, ncol=n.ahead)
+  colnames(preds) <- paste0("t+", 1:n.ahead)
+  rownames(preds) <- rownames(Y)
+
+  current_Y <- Y
+
+  for(step in 1:n.ahead){
+    idx_start <- ncol(current_Y) - degree + 1
+    if(idx_start < 1) stop("Not enough historical data for the specified lag degree.")
+
+    a_vec <- numeric(0)
+    for(k in 1:degree){
+      col_idx <- ncol(current_Y) - k + 1
+      a_vec <- c(a_vec, current_Y[, col_idx])
+    }
+
+    if(has_intercept) a_vec <- c(a_vec, 1)
+    newA <- matrix(a_vec, ncol=1)
+
+    pred_step <- x$X %*% x$C %*% newA
+    preds[, step] <- pred_step
+    current_Y <- cbind(current_Y, pred_step)
+  }
+
+  # --- 3. Time Inference ---
+  future_times <- NULL
+  if(!is.null(colnames(Y))){
+    times <- suppressWarnings(as.numeric(colnames(Y)))
+
+    if(!any(is.na(times)) && length(times) >= 2){
+      n_check <- min(length(times), 10)
+
+      # 【修正箇所1】 utils::tail を使用
+      recent_times <- utils::tail(times, n_check)
+
+      diffs <- diff(recent_times)
+
+      if(all(abs(diffs - mean(diffs)) < 1e-5 * abs(mean(diffs)) + 1e-8)){
+        dt <- mean(diffs)
+
+        # 【修正箇所2】 utils::tail を使用
+        last_time <- utils::tail(times, 1)
+
+        future_times <- last_time + (1:n.ahead) * dt
+      }
+    }
+  }
+
+  return(list(pred = preds, time = future_times))
 }
 
 
@@ -211,7 +320,7 @@ nmfkc.ar.degree.cv <- function(Y,Q=1,degree=1:2,intercept=T,plot=TRUE,...){
     message(paste0("degree=",degree[i],"..."),appendLF=FALSE)
     a <- nmfkc.ar(Y=Y,degree=degree[i],intercept=intercept)
     main_args <- list(Y = a$Y,A = a$A,Q = Q)
-    all_args <- c(extra_args, main_args)
+    all_args <- c(extra_args, main_args, list(shuffle = FALSE))
     result.cv <- do.call("nmfkc.cv", all_args)
     objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
     end.time <- Sys.time()
@@ -1612,6 +1721,7 @@ nmfkc.denormalize <- function(x, ref=x) {
 #'   \itemize{
 #'     \item \code{div}: Number of folds (\eqn{k}) for cross-validation (default: 5).
 #'     \item \code{seed}: Integer seed for reproducibility of data partitioning (default: 123).
+#'     \item \code{shuffle}: Logical. If \code{TRUE} (default), samples are shuffled randomly (Standard CV). If \code{FALSE}, samples are split sequentially (Block CV), recommended for time series.
 #'     \item **Arguments passed to \code{\link{nmfkc}}**: \code{gamma}, \code{epsilon}, \code{maxit}, \code{method}, \code{X.restriction}, \code{X.init}, etc.
 #'   }
 #'
@@ -1653,31 +1763,74 @@ nmfkc.denormalize <- function(x, ref=x) {
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
+#' @title Perform k-fold cross-validation for NMF with kernel covariates
+#' @description
+#' \code{nmfkc.cv} performs k-fold cross-validation on the model
+#' \eqn{Y \approx X C A = X B}, where
+#' \itemize{
+#' 	\item \eqn{Y(P,N)} is the observation matrix,
+#' 	\item \eqn{A(R,N)} is the covariate matrix,
+#' 	\item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
+#' 	\item \eqn{C(Q,R)} is the parameter matrix, and
+#' 	\item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
+#' }
+#' Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are estimated,
+#' and the predictive performance is assessed by cross-validation.
+#'
+#' @param Y Observation matrix.
+#' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
+#' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
+#' @param ... Additional arguments passed for controlling cross-validation setup and fine-tuning the internal \code{\link{nmfkc}} calls.
+#'   These include:
+#'   \itemize{
+#'     \item \code{div}: Number of folds (\eqn{k}) for cross-validation (default: 5).
+#'     \item \code{seed}: Integer seed for reproducibility of data partitioning (default: 123).
+#'     \item \code{shuffle}: Logical. If \code{TRUE} (default), samples are shuffled randomly (Standard CV). If \code{FALSE}, samples are split sequentially (Block CV), recommended for time series.
+#'     \item **Arguments passed to \code{\link{nmfkc}}**: \code{gamma}, \code{epsilon}, \code{maxit}, \code{method}, \code{X.restriction}, \code{X.init}, etc.
+#'   }
+#'
+#' @return A list with components:
+#' \item{objfunc}{Total objective function value across all folds.}
+#' \item{objfunc.block}{Objective function values for each fold.}
+#' \item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
+#' @export
 nmfkc.cv <- function(Y,A=NULL,Q=2,...){
   extra_args <- list(...)
   div <- if (!is.null(extra_args$div)) extra_args$div else 5
   seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
-  gamma <- if (!is.null(extra_args$gamma)) extra_args$gamma else 0
+  shuffle <- if (!is.null(extra_args$shuffle)) extra_args$shuffle else TRUE
+  gamma <- if (!is.null(extra_args$B.L1)) extra_args$B.L1 else if (!is.null(extra_args$gamma)) extra_args$gamma else 0
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
   maxit   <- if (!is.null(extra_args$maxit))   extra_args$maxit   else 5000
   method  <- if (!is.null(extra_args$method))  extra_args$method  else "EU"
+
   is.identity.matrix <- function(A, tol = .Machine$double.eps) {
     if (nrow(A) != ncol(A)) return(FALSE)
     isTRUE(all.equal(A, diag(nrow(A)), tolerance = tol))
   }
+
   optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
     X <- result$X
     C <- matrix(1,nrow=ncol(X),ncol=ncol(Y))
+    ones_QN <- matrix(1, nrow=ncol(X), ncol=ncol(Y))
+
     oldSum <- 0
     epsilon.iter <- Inf
     for(l in 1:maxit){
       B <- C
       XB <- X %*% B
+
       if(method=="EU"){
-        C <- C * ( (t(X) %*% Y) / (t(X) %*% XB + gamma * C + .eps) )
-      }else{
-        C <- C * ( ( t(X) %*% (Y / (XB + .eps)) ) / (colSums(X) %o% rep(1,ncol(Y)) + 2 * gamma * C + .eps) )
+        den <- t(X) %*% XB
+        if(gamma != 0) den <- den + (gamma/2) * ones_QN
+        C <- C * ( (t(X) %*% Y) / (den + .eps) )
+      }else{ # KL
+        den <- (colSums(X) %o% rep(1,ncol(Y)))
+        if(gamma != 0) den <- den + gamma * ones_QN
+        C <- C * ( ( t(X) %*% (Y / (XB + .eps)) ) / (den + .eps) )
       }
+
       newSum <- sum(C)
       if(l>=10){
         epsilon.iter <- abs(newSum-oldSum)/(abs(newSum)+0.1)
@@ -1694,6 +1847,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,...){
       ") reached and the optimization hasn't converged yet."))
     return(list(B=B,XB=XB))
   }
+
   if(is.null(A)){
     is_identity <- TRUE
     is_symmetric.matrix <- TRUE
@@ -1701,33 +1855,47 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,...){
     is_identity <- is.identity.matrix(A)
     is_symmetric.matrix <- isSymmetric(A, tol=.Machine$double.eps)
   }
+
   n <- ncol(Y)
   remainder <- n %% div
   division <- n %/% div
   block <- 0*(1:n)
-  set.seed(seed)
-  index <- sample(1:n,n,replace=F)
-  for(i in 1:(div-1)){
-    plus <- ifelse(i<=remainder,1,0)
-    j <- index[1:(division+plus)]
-    block[j] <- i
-    index <- index[-(1:(division+plus))]
+
+  # Block CV
+  if(shuffle){
+    set.seed(seed)
+    perm_index <- sample(1:n, n, replace=FALSE)
+  } else {
+    perm_index <- 1:n
   }
-  block[index] <- div
+
+  processed_count <- 0
+  for(i in 1:(div-1)){
+    plus <- ifelse(i <= remainder, 1, 0)
+    chunk_size <- division + plus
+    target_indices <- perm_index[(processed_count + 1):(processed_count + chunk_size)]
+    block[target_indices] <- i
+    processed_count <- processed_count + chunk_size
+  }
+  target_indices <- perm_index[(processed_count + 1):n]
+  block[target_indices] <- div
+
+  objfunc.block <- numeric(div)
   index <- block
-  objfunc.block <- 0*(1:div)
+
   for(j in 1:div){
-    Y_j <- Y[,index!=j]
-    Yj <- Y[,index==j]
+    Y_j <- Y[,index!=j, drop=FALSE]
+    Yj <- Y[,index==j, drop=FALSE]
     if(is_identity){
       A_j <- NULL
     }else{
       if(is_symmetric.matrix){
-        A_j <- A[index!=j,index!=j] # kernel matrix or identity matrix
+        A_j <- A[index!=j,index!=j, drop=FALSE]
       }else{
-        A_j <- A[,index!=j] # ordinary design matrix
+        A_j <- A[,index!=j, drop=FALSE]
       }
     }
+
     nmfkc_args <- c(
       list(...),
       list(Y = Y_j, A = A_j, Q = Q, seed=NULL,
@@ -1736,18 +1904,22 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,...){
            save.time = TRUE,
            save.memory = TRUE)
     )
+    nmfkc_args$shuffle <- NULL
+
     res_j <- do.call("nmfkc", nmfkc_args)
+
     if(is_identity){
       resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
       XBj <- resj$XB
     }else{
       if(is_symmetric.matrix){
-        Aj <- A[index!=j,index==j]
+        Aj <- A[index!=j,index==j, drop=FALSE]
       }else{
-        Aj <- A[,index==j]
+        Aj <- A[,index==j, drop=FALSE]
       }
       XBj <- res_j$X %*% res_j$C %*% Aj
     }
+
     if(method=="EU"){
       objfunc.block[j] <- sum((Yj-XBj)^2)
     }else{
