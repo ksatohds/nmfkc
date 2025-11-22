@@ -1,16 +1,9 @@
-.onAttach <- function(...) {
-  packageStartupMessage("Last update on 21 NOV 2025")
-  packageStartupMessage("https://github.com/ksatohds/nmfkc")
-}
+# A small constant for numerical stability to prevent division by zero and log(0).
+.eps <- 1e-10
 
-# internal-utils.R
-#' @keywords internal
-#' @noRd
-.z <- function(x){
-  x[is.nan(x)] <- 0
-  x[is.infinite(x)] <- 0
-  x[x < 0] <- 0
-  x
+.onAttach <- function(...) {
+  packageStartupMessage("Last update on 22 NOV 2025")
+  packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
 #' @title Construct observation and covariate matrices for a vector autoregressive model
@@ -1019,7 +1012,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
             diag(XtX) <- 0
             den_X <- den_X + X.L2.ortho * (X %*% XtX)
           }
-          X <- X * .z(num_X / den_X)
+          X <- X * (num_X / (den_X + .eps))
           X <- xnorm(X)
         }
       }
@@ -1031,14 +1024,14 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         if (C.L1 != 0) den_EU <- den_EU + (C.L1/2) * matrix(1, nrow=Q, ncol=ncol(Y))
         # Penalty: B.L1
         if (B.L1 != 0) den_EU <- den_EU + (B.L1/2) * ones_QN
-        C <- C * .z( (t(X) %*% Y) / den_EU )
+        C <- C * ( (t(X) %*% Y) / (den_EU + .eps) )
       } else {
         den_EU <- t(X) %*% XB %*% At
         # Penalty: C.L1
         if (C.L1 != 0) den_EU <- den_EU + (C.L1/2) * matrix(1, nrow=Q, ncol=nrow(A))
         # Penalty: B.L1
         if (B.L1 != 0) den_EU <- den_EU + (B.L1/2) * ones_QN_At
-        C <- C * .z( (t(X) %*% YAt) / den_EU )
+        C <- C * ( (t(X) %*% YAt) / (den_EU + .eps) )
       }
       # Objective Function (EU)
       obj <- sum((Y - XB)^2)
@@ -1060,7 +1053,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
           XtX <- crossprod(X); diag(XtX) <- 0
           den_KL_X <- den_KL_X + X.L2.ortho * (X %*% XtX)
         }
-        X <- X*.z((Y/XB)%*%t(B))/den_KL_X
+        X <- X * ( ( (Y / (XB + .eps)) %*% t(B) ) / (den_KL_X + .eps) )
         X <- xnorm(X)
       }
 
@@ -1071,18 +1064,18 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         if (C.L1 != 0) den_KL <- den_KL + C.L1 * matrix(1, nrow=Q, ncol=ncol(Y))
         # Penalty: B.L1
         if (B.L1 != 0) den_KL <- den_KL + B.L1 * ones_QN
-        C <- C * .z( (t(X) %*% .z(Y/XB)) / den_KL )
+        C <- C * ( ( t(X) %*% (Y / (XB + .eps)) ) / (den_KL + .eps) )
       } else {
         den_KL <- (colSums(X) %o% rowSumsA)
         # Penalty: C.L1
         if (C.L1 != 0) den_KL <- den_KL + C.L1 * matrix(1, nrow=Q, ncol=nrow(A))
         # Penalty: B.L1
         if (B.L1 != 0) den_KL <- den_KL + B.L1 * ones_QN_At
-        C <- C * .z( (t(X) %*% .z(Y/XB) %*% At) / den_KL )
+        C <- C * ( ( t(X) %*% (Y / (XB + .eps)) %*% At ) / (den_KL + .eps) )
       }
 
       # Objective Function (KL)
-      obj <- sum(-Y*.z(log(XB)) + XB)
+      obj <- sum(-Y * log(XB + .eps) + XB)
       if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
       if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
       if (X.L2.ortho != 0) {
@@ -1110,7 +1103,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   if(method=="EU"){
     obj <- sum((Y - XB)^2)
   } else {
-    obj <- sum(-Y*.z(log(XB)) + XB)
+    obj <- sum(-Y * log(XB + .eps) + XB)
   }
   if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
   if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
@@ -1164,22 +1157,22 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     BIC <- prod(dim(Y))*log(sigma2)+nparam*log(ncol(Y))
   }else{
     ICp <- NA
-    AIC <- 2*sum(-Y*.z(log(XB))+XB)+2*nparam
-    BIC <- 2*sum(-Y*.z(log(XB))+XB)+nparam*log(ncol(Y))
+    AIC <- 2*sum(-Y * log(XB + .eps) + XB) + 2*nparam
+    BIC <- 2*sum(-Y * log(XB + .eps) + XB) + nparam*log(ncol(Y))
   }
 
   # Statistics & Metrics
   if(save.memory==FALSE){
     r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
     sigma <- stats::sd(as.vector(Y)-as.vector(XB))
-    B.prob <- t(.z(t(B)/colSums(B)))
+    B.prob <- t( t(B) / (colSums(B) + .eps) )
     B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
     B.cluster <- apply(B.prob,2,which.max)
     B.cluster[colSums(B.prob)==0] <- NA
     rownames(B.prob) <- paste0(prefix,1:nrow(B))
     colnames(B.prob) <- colnames(Y)
     colnames(XB) <- colnames(Y)
-    X.prob <- .z(X/rowSums(X))
+    X.prob <- X / (rowSums(X) + .eps)
     X.cluster <- apply(X.prob,1,which.max)
     X.cluster[rowSums(X.prob)==0] <- NA
     if(save.time){
@@ -1338,8 +1331,7 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
     if(type=="response"){
       result <- x$X %*% B
     }else{
-      B.prob <- sweep(B, 2, colSums(B), "/")
-      B.prob <- .z(B.prob)
+      B.prob <- sweep(B, 2, colSums(B) + .eps, "/")
       XB.prob <- x$X %*% B.prob
       if(type=="prob"){
         result <- XB.prob
@@ -1682,9 +1674,9 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,...){
       B <- C
       XB <- X %*% B
       if(method=="EU"){
-        C <- C*.z((t(X)%*%Y)/(t(X)%*%XB+gamma*C))
+        C <- C * ( (t(X) %*% Y) / (t(X) %*% XB + gamma * C + .eps) )
       }else{
-        C <- C*(t(X)%*%.z(Y/XB)/(colSums(X)%o%rep(1,ncol(Y))+2*gamma*C))
+        C <- C * ( ( t(X) %*% (Y / (XB + .eps)) ) / (colSums(X) %o% rep(1,ncol(Y)) + 2 * gamma * C + .eps) )
       }
       newSum <- sum(C)
       if(l>=10){
@@ -1759,7 +1751,7 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,...){
     if(method=="EU"){
       objfunc.block[j] <- sum((Yj-XBj)^2)
     }else{
-      objfunc.block[j] <- sum(-Yj*.z(log(XBj))+XBj)
+      objfunc.block[j] <- sum(-Yj * log(XBj + .eps) + XBj)
     }
   }
   objfunc <- sum(objfunc.block)/n
