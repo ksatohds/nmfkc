@@ -1,6 +1,7 @@
 # nmfkc: Non-negative Matrix Factorization with Kernel Covariates
 
-[](https://www.google.com/search?q=https://lifecycle.r-lib.org/articles/stages.html%23experimental)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![GitHub version](https://img.shields.io/github/r-package/v/ksatohds/nmfkc)](https://github.com/ksatohds/nmfkc)
 **nmfkc** is an R package that extends Non-negative Matrix Factorization (NMF) by incorporating **covariates** using kernel methods. It supports advanced features like rank selection via cross-validation, time-series modeling (NMF-VAR), and supervised classification (NMF-LAB).
 
 # Installation
