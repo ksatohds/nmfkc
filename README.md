@@ -1335,6 +1335,7 @@ D <- cv_res$degree
 Q <- 1    # Number of latent bases (Rank)
 
 # Construct matrices for the AR model (Y and A)
+# Y is the target, A contains lagged Y (predictors)
 ar_data <- nmfkc.ar(Y0, degree = D, intercept = TRUE)
 Y <- ar_data$Y
 A <- ar_data$A
@@ -1361,14 +1362,15 @@ pred_val <- 10^as.vector(pred_res$pred)
 start_year <- 1949
 freq <- 12
 total_len <- length(d)
+# Calculate time points, ensuring length is exactly h
 pred_time <- seq(from = start_year + total_len/freq, by = 1/freq, length.out = h)
 
-# Prepare data for smooth plotting (connect the lines)
+# Prepare data for smooth plotting (connect the last observation to the forecast)
 last_obs_time <- tail(as.numeric(colnames(Y0)), 1)
 last_obs_val  <- tail(10^as.vector(Y0), 1)
 
 plot_pred_time <- c(last_obs_time, pred_time)
-plot_pred_val  <- c(last_obs_val, pred_val)
+plot_pred_val  <- c(last_obs_val, pred_val) # Total length N+1
 
 # Set plot limits
 xlim_range <- range(c(as.numeric(colnames(Y0)), pred_time))
@@ -1383,7 +1385,7 @@ plot(as.numeric(colnames(Y0)), 10^as.vector(Y0), type = "l", col = "black",
 # 2. Fitted values during training (Red)
 lines(as.numeric(colnames(Y)), 10^as.vector(res$XB), col = "red", lwd = 2)
 
-# 3. Future forecast (Blue)
+# 3. Future forecast (Blue) - Uses the robust concatenated vectors
 lines(plot_pred_time, plot_pred_val, col = "blue", lwd = 2)
 
 # Add legend
