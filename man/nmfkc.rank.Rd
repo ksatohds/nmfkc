@@ -4,36 +4,43 @@
 \alias{nmfkc.rank}
 \title{Rank selection diagnostics with graphical output}
 \usage{
-nmfkc.rank(Y, A = NULL, Q = 1:2, plot = TRUE, ...)
+nmfkc.rank(Y, A = NULL, rank = 1:2, save.time = FALSE, plot = TRUE, ...)
 }
 \arguments{
 \item{Y}{Observation matrix.}
 
 \item{A}{Covariate matrix. If \code{NULL}, the identity matrix is used.}
 
-\item{Q}{A vector of candidate ranks to be evaluated.}
+\item{rank}{A vector of candidate ranks to be evaluated.}
+
+\item{save.time}{Logical. If \code{TRUE}, skips heavy computations like Element-wise CV.
+Default is \code{FALSE} (computes everything).}
 
 \item{plot}{Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.}
 
-\item{...}{Additional arguments passed to \code{\link{nmfkc}}.}
+\item{...}{Additional arguments passed to \code{\link{nmfkc}} and \code{\link{nmfkc.ecv}}.
+\itemize{
+\item \code{Q}: (Deprecated) Alias for \code{rank}.
+}}
 }
 \value{
-A data frame containing rank values (\code{Q}) and the corresponding diagnostic criteria:
-\itemize{
-\item \code{r.squared}: Coefficient of determination (\eqn{R^2}).
-\item \code{ICp}, \code{AIC}, \code{BIC}: Information criteria.
-\item \code{B.prob.sd.min}: Minimum standard deviation of \code{B.prob}.
-\item \code{ARI}: Adjusted Rand Index relative to the previous rank.
-\item \code{silhouette}: Mean silhouette score (if computed).
-\item \code{CPCC}: Cophenetic correlation coefficient (if computed).
-\item \code{dist.cor}: Distance between Y and B (if computed).
-}
+A list containing:
+\item{rank.best}{The estimated optimal rank. Prioritizes ECV minimum if available, otherwise R-squared Elbow.}
+\item{criteria}{A data frame containing diagnostic metrics for each rank.}
 }
 \description{
 \code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})
 in NMF with kernel covariates. Several model selection measures are computed
-(e.g., R-squared, information criteria, silhouette, CPCC, ARI), and results
-can be visualized in a plot. This function is still under development.
+(e.g., R-squared, silhouette, CPCC, ARI), and results can be visualized in a plot.
+
+By default (\code{save.time = FALSE}), this function also computes the
+Element-wise Cross-Validation error (Wold's CV Sigma) using \code{\link{nmfkc.ecv}}.
+
+The plot explicitly marks the "BEST" rank based on two criteria:
+\enumerate{
+\item \strong{Elbow Method (Red)}: Based on the curvature of the R-squared values (always computed if Q > 2).
+\item \strong{Min RMSE (Blue)}: Based on the minimum Element-wise CV Sigma (only if \code{save.time=FALSE}).
+}
 }
 \examples{
 # install.packages("remotes")
@@ -41,7 +48,10 @@ can be visualized in a plot. This function is still under development.
 # Example.
 library(nmfkc)
 Y <- t(iris[,-5])
-nmfkc.rank(Y,Q=2:4)
+# Full run (default)
+nmfkc.rank(Y, rank=1:4)
+# Fast run (skip ECV)
+nmfkc.rank(Y, rank=1:4, save.time=TRUE)
 }
 \references{
 Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004).
@@ -54,5 +64,5 @@ Consensus-based ensembles of soft clusterings.
 \doi{10.1080/08839510802170546}
 }
 \seealso{
-\code{\link{nmfkc}}
+\code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
 }

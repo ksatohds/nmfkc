@@ -30,6 +30,7 @@ A list with components:
 
 A list with components:
 \item{objfunc}{Total objective function value across all folds.}
+\item{sigma}{Residual standard error (RMSE). Only available if method="EU". Matches the scale of Y and is consistent with \code{nmfkc()} output.}
 \item{objfunc.block}{Objective function values for each fold.}
 \item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
 }

@@ -3,9 +3,6 @@
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
 
-# A small constant for numerical stability to prevent division by zero and log(0).
-.eps <- 1e-10
-
 
 #' @title Construct observation and covariate matrices for a vector autoregressive model
 #' @description
@@ -51,6 +48,12 @@
 nmfkc.ar <- function(Y,degree=1,intercept=T){
   if(is.vector(Y)) Y <- matrix(Y,nrow=1)
   if(!is.matrix(Y)) Y <- as.matrix(Y)
+
+  # --- NA Check ---
+  if(any(is.na(Y))){
+    stop("Y contains missing values (NA). In NMF-VAR, lagged Y is used to construct the covariate matrix A, which cannot contain missing values. Please impute Y (e.g., using zoo::na.approx) before calling nmfkc.ar().")
+  }
+
   N <- ncol(Y)
   A.columns <- NULL
   for(i in degree:1)A.columns <- rbind(A.columns,i:(i+ncol(Y)-degree-1))
@@ -72,6 +75,7 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
   degree.max <- min(ncol(Ya),floor(10*log10(ncol(Ya))))
   list(Y = Ya, A = A, A.columns = A.columns, degree.max = degree.max)
 }
+
 
 #' @title Forecast future values for NMF-VAR model
 #' @description
@@ -161,8 +165,6 @@ nmfkc.ar.predict <- function(x, Y, degree=NULL, n.ahead=1){
 
     if(!any(is.na(times)) && length(times) >= 2){
       n_check <- min(length(times), 10)
-
-      # 【修正箇所1】 utils::tail を使用
       recent_times <- utils::tail(times, n_check)
 
       diffs <- diff(recent_times)
@@ -170,7 +172,6 @@ nmfkc.ar.predict <- function(x, Y, degree=NULL, n.ahead=1){
       if(all(abs(diffs - mean(diffs)) < 1e-5 * abs(mean(diffs)) + 1e-8)){
         dt <- mean(diffs)
 
-        # 【修正箇所2】 utils::tail を使用
         last_time <- utils::tail(times, 1)
 
         future_times <- last_time + (1:n.ahead) * dt
@@ -893,7 +894,8 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 
 
-#' @title Optimize NMF with kernel covariates
+
+#' @title Optimize NMF with kernel covariates (Full Support for Missing Values)
 #' @description
 #' \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
 #' under the tri-factorization model \eqn{Y \approx X C A = X B}.
@@ -914,6 +916,9 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints,
 #'   and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 #'   \itemize{
+#'     \item \code{Y.weights}: Optional numeric matrix (P x N) or vector (length N).
+#'       0 indicates missing/ignored values. If NULL (default), weights are automatically
+#'       set to 0 for NAs in Y, and 1 otherwise.
 #'     \item \code{X.L2.ortho}: Nonnegative penalty parameter for the orthogonality of \eqn{X} (default: 0).
 #'       Enforces columns of \eqn{X} to be orthogonal (conceptually \eqn{X^\top X \to I}). (Formerly \code{lambda.ortho}).
 #'     \item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).
@@ -981,27 +986,30 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' # res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 #'
 nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
+  # A small constant for numerical stability to prevent division by zero and log(0).
+  .eps <- 1e-10
 
   extra_args <- base::list(...)
 
-  # --- 1. Parameter Extraction & Backward Compatibility ---
+  if(!base::is.null(A)) {
+    if(any(is.na(A))) base::stop("Covariate matrix A contains NAs. Please impute or remove them.")
+    if(base::min(A, na.rm=TRUE)<0) base::stop("The matrix A should be non-negative.")
+  }
+  if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
 
-  # Rank: rank (new) > Q (old) > 2 (default)
+  # --- 1. Parameter Extraction ---
   Q_hidden <- if (!base::is.null(extra_args$Q)) extra_args$Q else NULL
   Q_val <- if (!base::is.null(rank)) rank else if (!base::is.null(Q_hidden)) Q_hidden else 2
   Q <- Q_val
 
-  # Extract Regularization Parameters (Default: 0)
   C.L1 <- if (!base::is.null(extra_args$C.L1)) extra_args$C.L1 else 0
   B.L1 <- if (!base::is.null(extra_args$B.L1)) extra_args$B.L1 else 0
   X.L2.ortho <- if (!base::is.null(extra_args$X.L2.ortho)) extra_args$X.L2.ortho else 0
 
-  # Backward Compatibility Mapping (Old names overwrite defaults if new names aren't used)
   if (C.L1 == 0 && !base::is.null(extra_args$lambda)) C.L1 <- extra_args$lambda
   if (B.L1 == 0 && !base::is.null(extra_args$gamma)) B.L1 <- extra_args$gamma
   if (X.L2.ortho == 0 && !base::is.null(extra_args$lambda.ortho)) X.L2.ortho <- extra_args$lambda.ortho
 
-  # Other parameters
   method <- if (!base::is.null(extra_args$method)) extra_args$method else "EU"
   X.restriction <- if (!base::is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
   X.init <- if (!base::is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
@@ -1013,8 +1021,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   save.time <- if (!base::is.null(extra_args$save.time)) extra_args$save.time else TRUE
   save.memory <- if (!base::is.null(extra_args$save.memory)) extra_args$save.memory else FALSE
 
-  # --- 2. Input Data Preparation ---
+  Y.weights <- if (!base::is.null(extra_args$Y.weights)) extra_args$Y.weights else NULL
 
+  # --- 2. Input Data Preparation ---
   if (base::inherits(Y, "formula")) {
     data_list <- .nmfkc_parse_formula(formula = Y, data = data)
     Y <- data_list$Y
@@ -1024,8 +1033,38 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     if(!base::is.matrix(Y)) Y <- base::as.matrix(Y)
   }
 
-  # --- 3. Algorithm Setup ---
+  # === Weights Handling ===
+  # 1. Vector Expansion (Column-wise weights)
+  if (!is.null(Y.weights) && is.vector(Y.weights)) {
+    if (length(Y.weights) == ncol(Y)) {
+      # Expand vector to matrix: each row gets the same weight vector
+      Y.weights <- matrix(Y.weights, nrow = nrow(Y), ncol = ncol(Y), byrow = TRUE)
+    } else if (length(Y.weights) == 1) {
+      Y.weights <- matrix(Y.weights, nrow = nrow(Y), ncol = ncol(Y))
+    } else {
+      stop("Length of Y.weights vector must match ncol(Y) (or be 1).")
+    }
+  }
 
+  # 2. Check Dimensions & Handle NAs
+  if (is.null(Y.weights)) {
+    if (any(is.na(Y))) {
+      Y.weights <- matrix(1, nrow=nrow(Y), ncol=ncol(Y))
+      Y.weights[is.na(Y)] <- 0
+      Y[is.na(Y)] <- 0
+      if(print.dims) message("Notice: Missing values (NA) in Y were treated as weights=0.")
+    } else {
+      Y.weights <- 1
+    }
+  } else {
+    if (!is.matrix(Y.weights)) Y.weights <- as.matrix(Y.weights)
+    if (!all(dim(Y.weights) == dim(Y))) stop("Dimension mismatch between Y and Y.weights.")
+    Y.weights[is.na(Y.weights)] <- 0
+    Y[is.na(Y)] <- 0
+    Y <- Y * Y.weights
+  }
+
+  # --- 3. Algorithm Setup ---
   X.restriction <- base::match.arg(X.restriction, base::c("colSums", "colSqSums", "totalSum","fixed"))
   xnorm <- base::switch(X.restriction,
                         colSums   = function(X) base::sweep(X, 2, base::colSums(X), "/"),
@@ -1044,10 +1083,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   if(print.dims) base::message(base::paste0(dims,"..."),appendLF=FALSE)
   start.time <- base::Sys.time()
 
-  if(base::is.vector(Y)) Y <- base::matrix(Y,nrow=1)
-  if(!base::is.matrix(Y)) Y <- base::as.matrix(Y)
   if(!base::is.null(A)) if(base::min(A)<0) base::stop("The matrix A should be non-negative.")
-  if(base::min(Y)<0) base::stop("The matrix Y should be non-negative.")
+
+  # [Fix 1] Added na.rm=TRUE to min(Y) check
+  if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
 
   # Initialize X
   is.X.scalar <- FALSE
@@ -1056,238 +1095,192 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
       if(ncol(Y)==Q){
         X <- Y
       }else{
+        # [Fix 2] Create Y_init for initialization (impute NAs with row means)
+        Y_init <- Y
+        if (is.matrix(Y.weights) && any(Y.weights == 0)) {
+          # Calculate weighted mean (Since Y is zero-filled, sum(Y) is equivalent to sum(Y*W))
+          row_means <- rowSums(Y) / (rowSums(Y.weights) + .eps)
+          mask_binary <- (Y.weights > 0)
+          idx_missing <- which(!mask_binary, arr.ind = TRUE)
+          if (nrow(idx_missing) > 0) {
+            Y_init[idx_missing] <- row_means[idx_missing[,1]]
+          }
+        }
+
         if (is.matrix(X.init)) {
           X <- X.init
         } else if (is.character(X.init)) {
           if (!is.null(seed)) set.seed(seed)
           if (X.init == "kmeans") {
-            res.kmeans <- stats::kmeans(t(Y), centers = Q, iter.max = maxit, nstart = nstart)
-            X <- t(res.kmeans$centers)
+            # Use Y_init
+            res.kmeans <- tryCatch(stats::kmeans(t(Y_init), centers = Q, iter.max = maxit, nstart = nstart),
+                                   error = function(e) NULL)
+            if(!is.null(res.kmeans)) X <- t(res.kmeans$centers) else X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
           } else if (X.init == "runif") {
             X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
           } else {
-            X <- .nndsvdar(Y, Q)
+            # Use Y_init
+            X <- .nndsvdar(Y_init, Q)
           }
         }
       }
     }else{
-      stop("It does not hold Q<=min(P,N) where dim(Y)=(P,N).")
+      stop("It does not hold Q<=min(P,N).")
     }
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
     is.X.scalar <- TRUE
   }
   X <- xnorm(X)
-  # Initialize C
+
   if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   hasA <- !is.null(A)
 
-  # Precompute for EU
-  if (hasA) {
-    At  <- t(A)                     # (N x R)
-    YAt <- Y %*% At                 # (P x R)
-    AAt <- A %*% At                 # (R x R)
-    ones_QN_At <- matrix(1, nrow=Q, ncol=ncol(Y)) %*% At
-  }else{
-    ones_QN <- matrix(1, nrow=Q, ncol=ncol(Y))
-  }
-  # Precompute for KL
-  if(method!="EU"){
-    if (hasA) rowSumsA <- rowSums(A)
-    rep1ncolY <- rep(1,ncol(Y))
+  ones_QN <- matrix(1, nrow=Q, ncol=ncol(Y))
+  if(hasA) {
+    At <- t(A)
+    ones_QN_At <- ones_QN %*% At
   }
 
-  epsilon.iter <- Inf  # initialize for post-loop warning safety
+  epsilon.iter <- Inf
   objfunc.iter <- 0*(1:maxit)
   i_end <- NULL
 
-  # --- 4. Main Loop ---
+  # --- 4. Main Loop (Weighted) ---
   for(i in 1:maxit){
     if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
     if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
-    # === Euclidean Update ===
     if(method=="EU"){
-      # Update X
-      if(!is.X.scalar){
-        if(!is.X.scalar & X.restriction!="fixed"){
-          num_X <- Y %*% t(B)
-          den_X <- XB %*% t(B)
-
-          # Penalty: X.L2.ortho (L2-like orthogonality on X)
-          if (X.L2.ortho > 0) {
-            XtX <- crossprod(X)
-            diag(XtX) <- 0
-            den_X <- den_X + X.L2.ortho * (X %*% XtX)
-          }
-          X <- X * (num_X / (den_X + .eps))
-          X <- xnorm(X)
-        }
-      }
-
-      # Update C
-      if(is.null(A)) {
-        den_EU <- t(X) %*% XB
-        # Penalty: C.L1
-        if (C.L1 != 0) den_EU <- den_EU + (C.L1/2) * matrix(1, nrow=Q, ncol=ncol(Y))
-        # Penalty: B.L1
-        if (B.L1 != 0) den_EU <- den_EU + (B.L1/2) * ones_QN
-        C <- C * ( (t(X) %*% Y) / (den_EU + .eps) )
-      } else {
-        den_EU <- t(X) %*% XB %*% At
-        # Penalty: C.L1
-        if (C.L1 != 0) den_EU <- den_EU + (C.L1/2) * matrix(1, nrow=Q, ncol=nrow(A))
-        # Penalty: B.L1
-        if (B.L1 != 0) den_EU <- den_EU + (B.L1/2) * ones_QN_At
-        C <- C * ( (t(X) %*% YAt) / (den_EU + .eps) )
-      }
-      # Objective Function (EU)
-      obj <- sum((Y - XB)^2)
-      if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
-      if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
-      if (X.L2.ortho != 0) {
-        XtX <- crossprod(X); diag(XtX) <- 0
-        obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
-      }
-      objfunc.iter[i] <- obj
-
-    # === KL Divergence Update ===
-    }else{
-      # Update X
       if(!is.X.scalar & X.restriction!="fixed"){
-        den_KL_X <- (rep(1,nrow(Y))%o%rowSums(B))
-        # Penalty: X.L2.ortho
+        num_X <- (Y.weights * Y) %*% t(B)
+        den_X <- (Y.weights * XB) %*% t(B)
         if (X.L2.ortho > 0) {
           XtX <- crossprod(X); diag(XtX) <- 0
-          den_KL_X <- den_KL_X + X.L2.ortho * (X %*% XtX)
+          den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
-        X <- X * ( ( (Y / (XB + .eps)) %*% t(B) ) / (den_KL_X + .eps) )
+        X <- X * (num_X / (den_X + .eps))
         X <- xnorm(X)
       }
-
-      # Update C
       if(is.null(A)) {
-        den_KL <- (colSums(X) %o% rep1ncolY)
-        # Penalty: C.L1
-        if (C.L1 != 0) den_KL <- den_KL + C.L1 * matrix(1, nrow=Q, ncol=ncol(Y))
-        # Penalty: B.L1
-        if (B.L1 != 0) den_KL <- den_KL + B.L1 * ones_QN
-        C <- C * ( ( t(X) %*% (Y / (XB + .eps)) ) / (den_KL + .eps) )
+        num_C <- t(X) %*% (Y.weights * Y)
+        den_C <- t(X) %*% (Y.weights * XB)
+        if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QN
+        if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN
+        C <- C * (num_C / (den_C + .eps))
       } else {
-        den_KL <- (colSums(X) %o% rowSumsA)
-        # Penalty: C.L1
-        if (C.L1 != 0) den_KL <- den_KL + C.L1 * matrix(1, nrow=Q, ncol=nrow(A))
-        # Penalty: B.L1
-        if (B.L1 != 0) den_KL <- den_KL + B.L1 * ones_QN_At
-        C <- C * ( ( t(X) %*% (Y / (XB + .eps)) %*% At ) / (den_KL + .eps) )
+        num_C <- t(X) %*% (Y.weights * Y) %*% At
+        den_C <- t(X) %*% (Y.weights * XB) %*% At
+        if (C.L1 != 0) den_C <- den_C + (C.L1/2) * matrix(1, nrow=Q, ncol=nrow(A))
+        if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN_At
+        C <- C * (num_C / (den_C + .eps))
       }
+      resid <- Y.weights * (Y - XB)
+      obj <- sum(resid^2)
 
-      # Objective Function (KL)
-      obj <- sum(-Y * log(XB + .eps) + XB)
-      if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
-      if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
-      if (X.L2.ortho != 0) {
-        XtX <- crossprod(X); diag(XtX) <- 0
-        obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
+    }else{ # KL
+      if(!is.X.scalar & X.restriction!="fixed"){
+        ratio <- Y.weights * (Y / (XB + .eps))
+        num_X <- ratio %*% t(B)
+        den_X <- Y.weights %*% t(B)
+        if (X.L2.ortho > 0) {
+          XtX <- crossprod(X); diag(XtX) <- 0
+          den_X <- den_X + X.L2.ortho * (X %*% XtX)
+        }
+        X <- X * (num_X / (den_X + .eps))
+        X <- xnorm(X)
       }
-      objfunc.iter[i] <- obj
+      if(is.null(A)) {
+        ratio <- Y.weights * (Y / (XB + .eps))
+        num_C <- t(X) %*% ratio
+        den_C <- t(X) %*% Y.weights
+        if (C.L1 != 0) den_C <- den_C + C.L1 * ones_QN
+        if (B.L1 != 0) den_C <- den_C + B.L1 * ones_QN
+        C <- C * (num_C / (den_C + .eps))
+      } else {
+        ratio <- Y.weights * (Y / (XB + .eps))
+        num_C <- t(X) %*% ratio %*% At
+        den_C <- t(X) %*% Y.weights %*% At
+        if (C.L1 != 0) den_C <- den_C + C.L1 * matrix(1, nrow=Q, ncol=nrow(A))
+        if (B.L1 != 0) den_C <- den_C + B.L1 * ones_QN_At
+        C <- C * (num_C / (den_C + .eps))
+      }
+      term1 <- - (Y.weights * Y) * log(XB + .eps)
+      term2 <- Y.weights * XB
+      obj <- sum(term1 + term2)
     }
 
-    # Convergence Check
+    if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
+    if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
+    if (X.L2.ortho != 0) {
+      XtX <- crossprod(X); diag(XtX) <- 0
+      obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
+    }
+    objfunc.iter[i] <- obj
+
     if(i>=10){
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
-      if(epsilon.iter <= abs(epsilon)){
-        i_end <- i
-        break
-      }
+      if(epsilon.iter <= abs(epsilon)){ i_end <- i; break }
     }
-  }# End Loop
+  }
 
-  # --- 5. Post-Processing ---
   if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
 
-  # Final ObjCalc (ensure consistency with last iteration)
   if(method=="EU"){
-    obj <- sum((Y - XB)^2)
+    resid <- Y.weights * (Y - XB)
+    objfunc <- sum(resid^2)
   } else {
-    obj <- sum(-Y * log(XB + .eps) + XB)
-  }
-  if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
-  if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
-  if (X.L2.ortho != 0) {
-    XtX <- crossprod(X); diag(XtX) <- 0
-    obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
-  }
-  objfunc <- obj
-  objfunc.iter[i] <- objfunc
-
-
-  if(!is.null(i_end)){
-    objfunc.iter <- objfunc.iter[10:i_end]
-  } else if (i >= 10){
-    objfunc.iter <- objfunc.iter[10:i]
-  } else {
-    objfunc.iter <- objfunc.iter[1:i]
+    term1 <- - (Y.weights * Y) * log(XB + .eps)
+    term2 <- Y.weights * XB
+    objfunc <- sum(term1 + term2)
   }
 
-  # Sorting
+  if(!is.null(i_end)){ objfunc.iter <- objfunc.iter[10:i_end]
+  } else if (i >= 10){ objfunc.iter <- objfunc.iter[10:i]
+  } else { objfunc.iter <- objfunc.iter[1:i] }
+
   if(ncol(X) > 1 & X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
-    X <- X[,index]
-    B <- B[index,]
-    C <- C[index,]
+    X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]; C <- C[index,,drop=FALSE]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
-  rownames(X) <- rownames(Y)
-  colnames(X) <- paste0(prefix,1:ncol(X))
-  rownames(B) <- paste0(prefix,1:nrow(B))
-  colnames(B) <- colnames(Y)
+  rownames(X) <- rownames(Y); colnames(X) <- paste0(prefix,1:ncol(X))
+  rownames(B) <- paste0(prefix,1:nrow(B)); colnames(B) <- colnames(Y)
 
-  # AIC/BIC Calculation
-  if(X.restriction=="fixed"){
-    nparam.X <- 0
-  } else if(X.restriction=="totalSum"){
-    nparam.X <- prod(dim(X)) - 1
-  } else {
-    nparam.X <- (nrow(X)-1)*ncol(X)
-  }
-  if(is.null(A)){
-    nparam <- nparam.X + prod(dim(B))
-  } else {
-    nparam <- nparam.X + prod(dim(C))
-  }
+  N_obs <- sum(Y.weights > 0)
+
+  if(X.restriction=="fixed") nparam.X <- 0 else if(X.restriction=="totalSum") nparam.X <- prod(dim(X)) - 1 else nparam.X <- (nrow(X)-1)*ncol(X)
+  if(is.null(A)) nparam <- nparam.X + prod(dim(B)) else nparam <- nparam.X + prod(dim(C))
 
   if(method=="EU"){
-    ICp <- log(objfunc/prod(dim(Y)))+Q*sum(dim(Y))/prod(dim(Y))*log(prod(dim(Y))/sum(dim(Y)))
-    sigma2 <- sum((Y-XB)^2)/prod(dim(Y))
-    AIC <- prod(dim(Y))*log(sigma2)+2*nparam
-    BIC <- prod(dim(Y))*log(sigma2)+nparam*log(ncol(Y))
+    sigma2 <- objfunc / N_obs
+    ICp <- log(objfunc/N_obs) + nparam * log(N_obs)
+    AIC <- N_obs * log(sigma2) + 2*nparam
+    BIC <- N_obs * log(sigma2) + nparam * log(N_obs)
   }else{
-    ICp <- NA
-    AIC <- 2*sum(-Y * log(XB + .eps) + XB) + 2*nparam
-    BIC <- 2*sum(-Y * log(XB + .eps) + XB) + nparam*log(ncol(Y))
+    ICp <- NA; AIC <- 2*objfunc + 2*nparam; BIC <- 2*objfunc + nparam*log(N_obs)
   }
 
-  # Statistics & Metrics
   if(save.memory==FALSE){
-    r2 <- stats::cor(as.vector(XB),as.vector(Y))^2
-    sigma <- stats::sd(as.vector(Y)-as.vector(XB))
+    # [Fix 3] Calculate statistics using valid data only
+    valid_idx <- (Y.weights > 0)
+    if(any(valid_idx)) {
+      r2 <- stats::cor(XB[valid_idx], Y[valid_idx])^2
+      sigma <- stats::sd(Y[valid_idx] - XB[valid_idx])
+    } else { r2 <- NA; sigma <- NA }
+
     B.prob <- t( t(B) / (colSums(B) + .eps) )
     B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
     B.cluster <- apply(B.prob,2,which.max)
     B.cluster[colSums(B.prob)==0] <- NA
-    rownames(B.prob) <- paste0(prefix,1:nrow(B))
-    colnames(B.prob) <- colnames(Y)
-    colnames(XB) <- colnames(Y)
     X.prob <- X / (rowSums(X) + .eps)
     X.cluster <- apply(X.prob,1,which.max)
-    X.cluster[rowSums(X.prob)==0] <- NA
-    if(save.time){
-      silhouette <- NA
-      CPCC <- NA
-      dist.cor <- NA
+
+    # [Fix 4] Skip dist.cor if there are missing values
+    if(save.time || any(Y.weights == 0)){
+      silhouette <- NA; CPCC <- NA; dist.cor <- NA
     }else{
       silhouette <- .silhouette.simple(B.prob,B.cluster)
       dist.cor <- stats::cor(as.vector(stats::dist(t(Y))),as.vector(stats::dist(t(B))))
@@ -1296,42 +1289,35 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M))))
         up <- upper.tri(M)
         CPCC <- stats::cor(h.dist[up],(1-M)[up])
-      }else{
-        CPCC <- NA
-      }
+      }else{ CPCC <- NA }
     }
   }else{
-    r2 <- NA
-    sigma <- NA
-    B.prob <- NA
-    B.prob.sd.min <- NA
-    B.cluster <- NA
-    XB <- NA
-    X.prob <- NA
-    X.cluster <- NA
-    silhouette <- NA
-    CPCC <- NA
-    dist.cor <- NA
+    r2 <- NA; sigma <- NA; B.prob <- NA; B.prob.sd.min <- NA; B.cluster <- NA
+    XB <- NA; X.prob <- NA; X.cluster <- NA; silhouette <- NA; CPCC <- NA; dist.cor <- NA
   }
-  if(epsilon.iter > abs(epsilon)) warning(paste0(
-    "maximum iterations (",maxit,
-    ") reached and the optimization hasn't converged yet."))
+
+  if(epsilon.iter > abs(epsilon)) warning(paste0("maximum iterations (",maxit,") reached..."))
   end.time <- Sys.time()
-  diff.time <- difftime(end.time,start.time,units="sec")
-  diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
-                         paste0(round(diff.time/60,1),"min"))
+  diff.time.st <- paste0(round(difftime(end.time,start.time,units="sec"),1),"sec")
   if(print.dims) message(diff.time.st)
-  result <- list(call=match.call(),dims=dims,runtime=diff.time.st,
-                 X=X,B=B,XB=XB,C=C,
-                 B.prob=B.prob,B.cluster=B.cluster,
-                 X.prob=X.prob,X.cluster=X.cluster,
-                 objfunc=objfunc,objfunc.iter=objfunc.iter,r.squared=r2,sigma=sigma,
-                 criterion=list(B.prob.sd.min=B.prob.sd.min,
-                                ICp=ICp,AIC=AIC,BIC=BIC,
-                                silhouette=silhouette,CPCC=CPCC,dist.cor=dist.cor))
+
+  n.missing <- sum(Y.weights == 0)
+  n.total <- prod(dim(Y))
+
+  result <- list(call=match.call(), dims=dims, runtime=diff.time.st,
+                 X=X, B=B, XB=XB, C=C,
+                 B.prob=B.prob, B.cluster=B.cluster, X.prob=X.prob, X.cluster=X.cluster,
+                 n.missing = n.missing,n.total = n.total,rank = Q,
+                 objfunc=objfunc, objfunc.iter=objfunc.iter, r.squared=r2, sigma=sigma,
+                 criterion=list(B.prob.sd.min=B.prob.sd.min, ICp=ICp, AIC=AIC, BIC=BIC,
+                                silhouette=silhouette, CPCC=CPCC, dist.cor=dist.cor))
   class(result) <- "nmfkc"
   return(result)
 }
+
+
+
+
 
 
 #' @title Plot method for objects of class \code{nmfkc}
@@ -1357,51 +1343,101 @@ plot.nmfkc <- function(x,...){
 
 #' @export
 summary.nmfkc <- function(object, ...) {
-  extra_args <- list(...)
   ans <- list()
   ans$call <- object$call
   ans$dims <- object$dims
+  ans$rank <- object$rank
   ans$runtime <- object$runtime
-  ans$objfunc.iter.length <- length(object$objfunc.iter)
+
+  # Missing values
+  if(!is.null(object$n.missing) && !is.null(object$n.total)){
+    ans$n.missing <- object$n.missing
+    ans$prop.missing <- object$n.missing / object$n.total * 100
+  } else {
+    ans$n.missing <- NULL
+  }
+
+  ans$iter <- length(object$objfunc.iter)
+  ans$objfunc <- object$objfunc
   ans$r.squared <- object$r.squared
   ans$sigma <- object$sigma
+
+  if(!is.null(object$criterion)){
+    ans$aic <- object$criterion$AIC
+    ans$bic <- object$criterion$BIC
+  } else {
+    ans$aic <- NULL; ans$bic <- NULL
+  }
+
+  # --- Diagnostics (Sparsity & Clustering Quality) ---
+
+  # 1. Basis (X)
   if (!is.null(object$X) && is.matrix(object$X)) {
-    ans$X.dist <- summary(as.vector(object$X))
-  } else {
-    ans$X.dist <- NULL
+    # Sparsity: Proportion of elements close to zero (< 1e-4)
+    ans$X.sparsity <- mean(object$X < 1e-4)
   }
+
+  # 2. Probabilities (B.prob)
   if (!is.null(object$B.prob) && is.matrix(object$B.prob)) {
-    ans$B.prob.dist <- summary(as.vector(object$B.prob))
-  } else {
-    ans$B.prob.dist <- NULL
+    # Sparsity
+    ans$B.prob.sparsity <- mean(object$B.prob < 1e-4)
+
+    # Entropy (Normalized): 0=Crisp, 1=Uniform
+    Q <- nrow(object$B.prob)
+    if(Q > 1){
+      p <- object$B.prob + 1e-10 # avoid log(0)
+      entropies <- -colSums(p * log(p)) / log(Q)
+      ans$B.prob.entropy <- mean(entropies)
+      # Crispness: Mean Maximum Probability (Closer to 1 is better)
+      ans$B.prob.crispness <- mean(apply(object$B.prob, 2, max))
+    } else {
+      ans$B.prob.entropy <- 0
+      ans$B.prob.crispness <- 1
+    }
   }
+
   class(ans) <- "summary.nmfkc"
   return(ans)
 }
 
-
 #' @export
 print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
-  cat("\nCall: ", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n", sep = "")
-  cat("dims: ", x$dims, "\n\n")
+  cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n\n", sep = "")
 
-  cat("Runtime:", x$runtime, "\n")
-  cat("Number of iterations:", x$objfunc.iter.length, "\n")
-  cat("Multiple R-squared:", format(x$r.squared, digits = digits), "\n")
-  cat("Residual standard error:", format(x$sigma, digits = digits), "\n\n")
+  cat("Dimensions:", x$dims, "\n")
+  if(!is.null(x$rank)) cat("Rank (Q):   ", x$rank, "\n")
+  cat("Runtime:    ", x$runtime, "\n")
+  cat("Iterations: ", x$iter, "\n")
 
-  if (!is.null(x$X.dist)) {
-    cat("Distribution of X:\n")
-    print(x$X.dist, digits = digits)
+  if (!is.null(x$n.missing)) {
+    cat("Missing:    ", x$n.missing,
+        sprintf("(%.1f%%)", x$prop.missing), "\n")
   }
-  if (!is.null(x$B.prob.dist)) {
-    cat("Distribution of B.prob:\n")
-    print(x$B.prob.dist, digits = digits)
+
+  cat("\nStatistics:\n")
+  cat("  Objective function: ", format(x$objfunc, digits = digits), "\n")
+  cat("  Multiple R-squared: ", format(x$r.squared, digits = digits), "\n")
+  cat("  Residual Std Error: ", format(x$sigma, digits = digits), "\n")
+
+  if (!is.null(x$aic)) {
+    cat("  AIC:                ", format(x$aic, digits = digits), "\n")
+    cat("  BIC:                ", format(x$bic, digits = digits), "\n")
+  }
+
+  cat("\nStructure Diagnostics:\n")
+  if (!is.null(x$X.sparsity)) {
+    cat("  Basis (X) Sparsity:   ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
+  }
+  if (!is.null(x$B.prob.sparsity)) {
+    cat("  Coef (B) Sparsity:    ", sprintf("%.1f%%", x$B.prob.sparsity * 100), "(< 1e-4)\n")
+    if(!is.null(x$B.prob.entropy)){
+      cat("  Clustering Entropy:   ", format(x$B.prob.entropy, digits = 3), "(0=Crisp, 1=Ambiguous)\n")
+      cat("  Clustering Crispness: ", format(x$B.prob.crispness, digits = 3), "(Mean Max Prob, >0.8 is good)\n")
+    }
   }
   cat("\n")
   invisible(x)
 }
-
 
 
 
@@ -1424,6 +1460,9 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 #' @seealso \code{\link{nmfkc}}
 #' @export
 predict.nmfkc <- function(x,newA=NULL,type="response"){
+  # A small constant for numerical stability to prevent division by zero and log(0).
+  .eps <- 1e-10
+
   if(is.null(newA)){
     if(type=="response"){
       result <- x$X %*% x$B
@@ -1719,6 +1758,7 @@ nmfkc.denormalize <- function(x, ref=x) {
 #' @param ... Additional arguments passed for controlling cross-validation setup and fine-tuning the internal \code{\link{nmfkc}} calls.
 #'   These include:
 #'   \itemize{
+#'     \item \code{Y.weights}: Optional numeric matrix or vector. 0 indicates missing/ignored values.
 #'     \item \code{div}: Number of folds (\eqn{k}) for cross-validation (default: 5).
 #'     \item \code{seed}: Integer seed for reproducibility of data partitioning (default: 123).
 #'     \item \code{shuffle}: Logical. If \code{TRUE} (default), samples are shuffled randomly (Standard CV). If \code{FALSE}, samples are split sequentially (Block CV), recommended for time series.
@@ -1791,44 +1831,94 @@ nmfkc.denormalize <- function(x, ref=x) {
 #'
 #' @return A list with components:
 #' \item{objfunc}{Total objective function value across all folds.}
+#' \item{sigma}{Residual standard error (RMSE). Only available if method="EU". Matches the scale of Y and is consistent with `nmfkc()` output.}
 #' \item{objfunc.block}{Objective function values for each fold.}
 #' \item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
 #' @export
-nmfkc.cv <- function(Y,A=NULL,Q=2,...){
+nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
+  # A small constant for numerical stability to prevent division by zero and log(0).
+  .eps <- 1e-10
+
   extra_args <- list(...)
+
   div <- if (!is.null(extra_args$div)) extra_args$div else 5
   seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
   shuffle <- if (!is.null(extra_args$shuffle)) extra_args$shuffle else TRUE
+
   gamma <- if (!is.null(extra_args$B.L1)) extra_args$B.L1 else if (!is.null(extra_args$gamma)) extra_args$gamma else 0
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
   maxit   <- if (!is.null(extra_args$maxit))   extra_args$maxit   else 5000
   method  <- if (!is.null(extra_args$method))  extra_args$method  else "EU"
+  Y.weights <- if (!is.null(extra_args$Y.weights)) extra_args$Y.weights else NULL
 
-  is.identity.matrix <- function(A, tol = .Machine$double.eps) {
-    if (nrow(A) != ncol(A)) return(FALSE)
-    isTRUE(all.equal(A, diag(nrow(A)), tolerance = tol))
+  if(!is.matrix(Y)) Y <- as.matrix(Y)
+  P <- nrow(Y)
+  N <- ncol(Y)
+
+  # === Weights Preparation (Same as nmfkc) ===
+  # Expand vector to matrix for easier slicing
+  if (!is.null(Y.weights) && is.vector(Y.weights)) {
+    if (length(Y.weights) == N) {
+      Y.weights <- matrix(Y.weights, nrow = P, ncol = N, byrow = TRUE)
+    } else if (length(Y.weights) == 1) {
+      Y.weights <- matrix(Y.weights, nrow = P, ncol = N)
+    } else {
+      stop("Length of Y.weights vector must match ncol(Y) (or be 1).")
+    }
+  }
+  # Handle NAs
+  if (is.null(Y.weights)) {
+    if (any(is.na(Y))) {
+      Y.weights <- matrix(1, nrow=P, ncol=N)
+      Y.weights[is.na(Y)] <- 0
+      Y[is.na(Y)] <- 0
+    } else {
+      Y.weights <- matrix(1, nrow=P, ncol=N) # Full 1s for easier slicing logic
+    }
+  } else {
+    if (!is.matrix(Y.weights)) Y.weights <- as.matrix(Y.weights)
+    Y.weights[is.na(Y.weights)] <- 0
+    Y[is.na(Y)] <- 0
+    Y <- Y * Y.weights
   }
 
-  optimize.B.from.Y <- function(result,Y,gamma,epsilon,maxit,method){
+  # --- Helper: Weighted Optimization of B given fixed X and Y_test ---
+  optimize.B.from.Y <- function(result, Y_test, W_test, gamma, epsilon, maxit, method){
     X <- result$X
-    C <- matrix(1,nrow=ncol(X),ncol=ncol(Y))
-    ones_QN <- matrix(1, nrow=ncol(X), ncol=ncol(Y))
+    # Initialize C (which acts as B here)
+    C <- matrix(1, nrow=ncol(X), ncol=ncol(Y_test))
+
+    # Precompute ones for penalty (must match test dimension)
+    ones_QN <- matrix(1, nrow=ncol(X), ncol=ncol(Y_test))
 
     oldSum <- 0
     epsilon.iter <- Inf
+
     for(l in 1:maxit){
       B <- C
       XB <- X %*% B
 
       if(method=="EU"){
-        den <- t(X) %*% XB
+        # Weighted Update for B (EU)
+        # Num: X^T (W * Y)
+        num <- t(X) %*% (W_test * Y_test)
+        # Den: X^T (W * XB)
+        den <- t(X) %*% (W_test * XB)
+
         if(gamma != 0) den <- den + (gamma/2) * ones_QN
-        C <- C * ( (t(X) %*% Y) / (den + .eps) )
+        C <- C * ( num / (den + .eps) )
+
       }else{ # KL
-        den <- (colSums(X) %o% rep(1,ncol(Y)))
+        # Weighted Update for B (KL)
+        # Num: X^T (W * (Y/XB))
+        ratio <- W_test * (Y_test / (XB + .eps))
+        num <- t(X) %*% ratio
+        # Den: X^T W
+        den <- t(X) %*% W_test
+
         if(gamma != 0) den <- den + gamma * ones_QN
-        C <- C * ( ( t(X) %*% (Y / (XB + .eps)) ) / (den + .eps) )
+        C <- C * ( num / (den + .eps) )
       }
 
       newSum <- sum(C)
@@ -1838,14 +1928,16 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,...){
       }
       oldSum <- sum(C)
     }
+
     B <- C
     XB <- X %*% B
-    colnames(B) <- colnames(Y)
-    colnames(XB) <- colnames(Y)
-    if(epsilon.iter > abs(epsilon)) warning(paste0(
-      "maximum iterations (",maxit,
-      ") reached and the optimization hasn't converged yet."))
-    return(list(B=B,XB=XB))
+    # Note: colnames handling omitted for speed in CV
+    return(list(B=B, XB=XB))
+  }
+
+  is.identity.matrix <- function(A, tol = .Machine$double.eps) {
+    if (nrow(A) != ncol(A)) return(FALSE)
+    isTRUE(all.equal(A, diag(nrow(A)), tolerance = tol))
   }
 
   if(is.null(A)){
@@ -1856,17 +1948,16 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,...){
     is_symmetric.matrix <- isSymmetric(A, tol=.Machine$double.eps)
   }
 
-  n <- ncol(Y)
-  remainder <- n %% div
-  division <- n %/% div
-  block <- 0*(1:n)
+  # Create Folds
+  remainder <- N %% div
+  division <- N %/% div
+  block <- 0*(1:N)
 
-  # Block CV
   if(shuffle){
     set.seed(seed)
-    perm_index <- sample(1:n, n, replace=FALSE)
+    perm_index <- sample(1:N, N, replace=FALSE)
   } else {
-    perm_index <- 1:n
+    perm_index <- 1:N
   }
 
   processed_count <- 0
@@ -1877,84 +1968,332 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,...){
     block[target_indices] <- i
     processed_count <- processed_count + chunk_size
   }
-  target_indices <- perm_index[(processed_count + 1):n]
+  target_indices <- perm_index[(processed_count + 1):N]
   block[target_indices] <- div
 
   objfunc.block <- numeric(div)
-  index <- block
+  total_valid_obs <- 0 # Denominator for weighted mean error
 
   for(j in 1:div){
-    Y_j <- Y[,index!=j, drop=FALSE]
-    Yj <- Y[,index==j, drop=FALSE]
+    # Slice Y and Weights
+    # Train
+    Y_train <- Y[,block!=j, drop=FALSE]
+    W_train <- Y.weights[,block!=j, drop=FALSE]
+
+    # Test
+    Y_test <- Y[,block==j, drop=FALSE]
+    W_test <- Y.weights[,block==j, drop=FALSE]
+
+    # Slice A
     if(is_identity){
-      A_j <- NULL
+      A_train <- NULL
     }else{
       if(is_symmetric.matrix){
-        A_j <- A[index!=j,index!=j, drop=FALSE]
+        A_train <- A[block!=j,block!=j, drop=FALSE]
+        A_test  <- A[block!=j,block==j, drop=FALSE] # Asymmetric slice for prediction
       }else{
-        A_j <- A[,index!=j, drop=FALSE]
+        A_train <- A[,block!=j, drop=FALSE]
+        A_test  <- A[,block==j, drop=FALSE]
       }
     }
 
+    # Run NMF on Training set (passing W_train)
     nmfkc_args <- c(
       list(...),
-      list(Y = Y_j, A = A_j, Q = Q, seed=NULL,
-           print.trace = FALSE,
-           print.dims = FALSE,
-           save.time = TRUE,
-           save.memory = TRUE)
+      list(Y = Y_train, A = A_train, Q = Q, Y.weights = W_train, # Pass weights!
+           seed=NULL, print.trace = FALSE, print.dims = FALSE,
+           save.time = TRUE, save.memory = TRUE)
     )
     nmfkc_args$shuffle <- NULL
 
-    res_j <- do.call("nmfkc", nmfkc_args)
+    # Suppress messages from inner nmfkc calls
+    res_j <- suppressMessages(do.call("nmfkc", nmfkc_args))
 
+    # Predict on Test set
     if(is_identity){
-      resj <- optimize.B.from.Y(res_j,Yj,gamma,epsilon,maxit,method)
-      XBj <- resj$XB
+      # Standard NMF: Optimize B for test set using weights
+      resj <- optimize.B.from.Y(res_j, Y_test, W_test, gamma, epsilon, maxit, method)
+      XB_test <- resj$XB
     }else{
-      if(is_symmetric.matrix){
-        Aj <- A[index!=j,index==j, drop=FALSE]
-      }else{
-        Aj <- A[,index==j, drop=FALSE]
-      }
-      XBj <- res_j$X %*% res_j$C %*% Aj
+      # Covariate NMF: Predict using A_test
+      # XB = X * C * A_test
+      XB_test <- res_j$X %*% res_j$C %*% A_test
     }
 
+    # Evaluate Error (Weighted)
     if(method=="EU"){
-      objfunc.block[j] <- sum((Yj-XBj)^2)
+      resid <- W_test * (Y_test - XB_test)
+      objfunc.block[j] <- sum(resid^2)
     }else{
-      objfunc.block[j] <- sum(-Yj * log(XBj + .eps) + XBj)
+      term1 <- - (W_test * Y_test) * log(XB_test + .eps)
+      term2 <- W_test * XB_test
+      objfunc.block[j] <- sum(term1 + term2)
     }
+
+    total_valid_obs <- total_valid_obs + sum(W_test > 0)
   }
-  objfunc <- sum(objfunc.block)/n
-  return(list(objfunc=objfunc,objfunc.block=objfunc.block,block=index))
+
+  # Mean error per valid observation
+  # (Avoid division by zero if all weights are 0, though unlikely)
+  objfunc <- sum(objfunc.block) / max(total_valid_obs, 1)
+
+  # Calculate RMSE for EU (This corresponds to 'sigma')
+  sigma <- if(method == "EU") sqrt(objfunc) else NA
+
+  return(list(objfunc=objfunc, sigma=sigma, objfunc.block=objfunc.block, block=block))
 }
+
+
+
+
+#' @title Perform Element-wise Cross-Validation (Wold's CV)
+#' @description
+#' \code{nmfkc.ecv} performs k-fold cross-validation by randomly holding out
+#' individual elements of the data matrix (element-wise), assigning them a
+#' weight of 0 via `Y.weights`, and evaluating the reconstruction error on
+#' those held-out elements.
+#'
+#' This method (also known as Wold's CV) is theoretically robust for determining
+#' the optimal rank (Q) in NMF. This function supports vector input for `Q`,
+#' allowing simultaneous evaluation of multiple ranks on the same folds.
+#'
+#' @param Y Observation matrix.
+#' @param A Covariate matrix.
+#' @param Q Vector of ranks to evaluate (e.g., 1:5).
+#' @param div Number of folds (default: 5).
+#' @param seed Integer seed for reproducibility.
+#' @param ... Additional arguments passed to \code{\link{nmfkc}} (e.g., \code{method="EU"}).
+#'
+#' @return A list with components:
+#' \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
+#' \item{sigma}{Numeric vector containing the Residual Standard Error (RMSE) for each Q. Only available if method="EU".}
+#' \item{objfunc.fold}{List of length equal to Q. Each element contains the MSE values for the k folds.}
+#' \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
+#' @export
+nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
+
+  if(!is.matrix(Y)) Y <- as.matrix(Y)
+  P <- nrow(Y)
+  N <- ncol(Y)
+
+  # 1. Create Folds (Shared across all Q for fair comparison)
+  if (!is.null(seed)) set.seed(seed)
+
+  # Indices of observed values (non-NA)
+  valid_indices <- which(!is.na(Y))
+  n_valid <- length(valid_indices)
+
+  perm_indices <- sample(valid_indices)
+  folds <- vector("list", div)
+
+  # Divide indices into chunks
+  chunk_size <- n_valid %/% div
+  remainder <- n_valid %% div
+
+  start_idx <- 1
+  for(k in 1:div){
+    current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
+    end_idx <- start_idx + current_size - 1
+    folds[[k]] <- perm_indices[start_idx:end_idx]
+    start_idx <- end_idx + 1
+  }
+
+  # Retrieve method to check if RMSE is appropriate
+  extra_args <- list(...)
+  method <- if(!is.null(extra_args$method)) extra_args$method else "EU"
+
+  # 2. Loop over Q vectors
+  num_Q <- length(Q)
+  result_objfunc <- numeric(num_Q)
+  result_sigma   <- numeric(num_Q)
+  result_fold    <- vector("list", num_Q)
+
+  names(result_objfunc) <- paste0("Q=", Q)
+  names(result_sigma)   <- paste0("Q=", Q)
+  names(result_fold)    <- paste0("Q=", Q)
+
+  message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
+
+  for(i in 1:num_Q){
+    q_curr <- Q[i]
+    # message(paste0("  Evaluating Q=", q_curr, "..."), appendLF = FALSE)
+
+    objfunc.fold <- numeric(div)
+
+    for(k in 1:div){
+      test_idx <- folds[[k]]
+
+      # Create Weights for Training
+      weights_train <- matrix(1, nrow=P, ncol=N)
+      if(any(is.na(Y))) weights_train[is.na(Y)] <- 0
+      weights_train[test_idx] <- 0 # Mask current fold
+
+      # Fit NMF
+      fit <- suppressMessages(nmfkc(Y=Y, A=A, Q=q_curr, Y.weights=weights_train, ...))
+
+      # Evaluate on Test Indices ONLY
+      pred <- fit$XB
+      residuals <- Y[test_idx] - pred[test_idx]
+
+      # MSE Calculation
+      objfunc.fold[k] <- mean(residuals^2)
+    }
+
+    # Store results for this Q
+    result_fold[[i]]  <- objfunc.fold
+    result_objfunc[i] <- mean(objfunc.fold)
+    result_sigma[i]   <- if(method == "EU") sqrt(result_objfunc[i]) else NA
+
+    # message(" Done.")
+  }
+
+  return(list(objfunc = result_objfunc,
+              sigma = result_sigma,
+              objfunc.fold = result_fold,
+              folds = folds))
+}
+
+
+#' @title Perform Element-wise Cross-Validation (Wold's CV)
+#' @description
+#' \code{nmfkc.ecv} performs k-fold cross-validation by randomly holding out
+#' individual elements of the data matrix (element-wise), assigning them a
+#' weight of 0 via `Y.weights`, and evaluating the reconstruction error on
+#' those held-out elements.
+#'
+#' This method (also known as Wold's CV) is theoretically robust for determining
+#' the optimal rank (Q) in NMF. This function supports vector input for `Q`,
+#' allowing simultaneous evaluation of multiple ranks on the same folds.
+#'
+#' @param Y Observation matrix.
+#' @param A Covariate matrix.
+#' @param Q Vector of ranks to evaluate (e.g., 1:5).
+#' @param div Number of folds (default: 5).
+#' @param seed Integer seed for reproducibility.
+#' @param ... Additional arguments passed to \code{\link{nmfkc}} (e.g., \code{method="EU"}).
+#'
+#' @return A list with components:
+#' \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
+#' \item{sigma}{Numeric vector containing the Residual Standard Error (RMSE) for each Q. Only available if method="EU".}
+#' \item{objfunc.fold}{List of length equal to Q vector. Each element contains the MSE values for the k folds.}
+#' \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
+#' @export
+nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
+
+  if(!is.matrix(Y)) Y <- as.matrix(Y)
+  P <- nrow(Y)
+  N <- ncol(Y)
+
+  # --- Argument Handling ---
+  extra_args <- list(...)
+
+  # If user mistakenly passed 'rank' in ..., treat it as Q
+  if (!is.null(extra_args$rank)) {
+    Q <- extra_args$rank
+  }
+
+  # 1. Create Folds
+  if (!is.null(seed)) set.seed(seed)
+  valid_indices <- which(!is.na(Y))
+  n_valid <- length(valid_indices)
+
+  perm_indices <- sample(valid_indices)
+  folds <- vector("list", div)
+  chunk_size <- n_valid %/% div
+  remainder <- n_valid %% div
+
+  start_idx <- 1
+  for(k in 1:div){
+    current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
+    end_idx <- start_idx + current_size - 1
+    folds[[k]] <- perm_indices[start_idx:end_idx]
+    start_idx <- end_idx + 1
+  }
+
+  method <- if(!is.null(extra_args$method)) extra_args$method else "EU"
+
+  # 2. Loop over Q vectors
+  num_Q <- length(Q)
+  result_objfunc <- numeric(num_Q)
+  result_sigma   <- numeric(num_Q)
+  result_fold    <- vector("list", num_Q)
+
+  names(result_objfunc) <- paste0("Q=", Q)
+  names(result_sigma)   <- paste0("Q=", Q)
+  names(result_fold)    <- paste0("Q=", Q)
+
+  message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
+
+  for(i in 1:num_Q){
+    q_curr <- Q[i]
+    objfunc.fold <- numeric(div)
+
+    for(k in 1:div){
+      test_idx <- folds[[k]]
+      weights_train <- matrix(1, nrow=P, ncol=N)
+      if(any(is.na(Y))) weights_train[is.na(Y)] <- 0
+      weights_train[test_idx] <- 0
+
+      # Prepare arguments for nmfkc
+      # Remove 'Q' and 'rank' from extra_args to avoid conflicts
+      nmfkc_clean_args <- extra_args
+      nmfkc_clean_args$Q <- NULL
+      nmfkc_clean_args$rank <- NULL
+
+      nmfkc_args <- c(list(Y=Y, A=A, Q=q_curr, Y.weights=weights_train), nmfkc_clean_args)
+
+      fit <- suppressMessages(do.call("nmfkc", nmfkc_args))
+
+      pred <- fit$XB
+      residuals <- Y[test_idx] - pred[test_idx]
+      objfunc.fold[k] <- mean(residuals^2)
+    }
+
+    result_fold[[i]]  <- objfunc.fold
+    result_objfunc[i] <- mean(objfunc.fold)
+    result_sigma[i]   <- if(method == "EU") sqrt(result_objfunc[i]) else NA
+  }
+
+  return(list(objfunc = result_objfunc,
+              sigma = result_sigma,
+              objfunc.fold = result_fold,
+              folds = folds))
+}
+
 
 
 #' @title Rank selection diagnostics with graphical output
 #' @description
 #' \code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})
 #' in NMF with kernel covariates. Several model selection measures are computed
-#' (e.g., R-squared, information criteria, silhouette, CPCC, ARI), and results
-#' can be visualized in a plot. This function is still under development.
+#' (e.g., R-squared, silhouette, CPCC, ARI), and results can be visualized in a plot.
+#'
+#' By default (\code{save.time = FALSE}), this function also computes the
+#' Element-wise Cross-Validation error (Wold's CV Sigma) using \code{\link{nmfkc.ecv}}.
+#'
+#' The plot explicitly marks the "BEST" rank based on two criteria:
+#' \enumerate{
+#'   \item **Elbow Method (Red)**: Based on the curvature of the R-squared values (always computed if Q > 2).
+#'   \item **Min RMSE (Blue)**: Based on the minimum Element-wise CV Sigma (only if \code{save.time=FALSE}).
+#' }
 #'
 #' @param Y Observation matrix.
 #' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
-#' @param Q A vector of candidate ranks to be evaluated.
+#' @param rank A vector of candidate ranks to be evaluated.
+#' @param save.time Logical. If \code{TRUE}, skips heavy computations like Element-wise CV.
+#'   Default is \code{FALSE} (computes everything).
 #' @param plot Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.
-#' @param ... Additional arguments passed to \code{\link{nmfkc}}.
+#' @param ... Additional arguments passed to \code{\link{nmfkc}} and \code{\link{nmfkc.ecv}}.
+#'   \itemize{
+#'     \item \code{Q}: (Deprecated) Alias for \code{rank}.
+#'   }
 #'
-#' @return A data frame containing rank values (\code{Q}) and the corresponding diagnostic criteria:
-#' \itemize{
-#'   \item \code{r.squared}: Coefficient of determination (\eqn{R^2}).
-#'   \item \code{ICp}, \code{AIC}, \code{BIC}: Information criteria.
-#'   \item \code{B.prob.sd.min}: Minimum standard deviation of \code{B.prob}.
-#'   \item \code{ARI}: Adjusted Rand Index relative to the previous rank.
-#'   \item \code{silhouette}: Mean silhouette score (if computed).
-#'   \item \code{CPCC}: Cophenetic correlation coefficient (if computed).
-#'   \item \code{dist.cor}: Distance between Y and B (if computed).
-#' }
-#' @seealso \code{\link{nmfkc}}
+#' @return A list containing:
+#' \item{rank.best}{The estimated optimal rank. Prioritizes ECV minimum if available, otherwise R-squared Elbow.}
+#' \item{criteria}{A data frame containing diagnostic metrics for each rank.}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @references
 #' Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004).
@@ -1971,12 +2310,28 @@ nmfkc.cv <- function(Y,A=NULL,Q=2,...){
 #' # Example.
 #' library(nmfkc)
 #' Y <- t(iris[,-5])
-#' nmfkc.rank(Y,Q=2:4)
+#' # Full run (default)
+#' nmfkc.rank(Y, rank=1:4)
+#' # Fast run (skip ECV)
+#' nmfkc.rank(Y, rank=1:4, save.time=TRUE)
 
-nmfkc.rank <- function(Y,A=NULL,Q=1:2,plot=TRUE,...){
+nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
 
   extra_args <- list(...)
 
+  # Backward Compatibility for Q
+  if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  Q <- rank
+  max_rank <- min(nrow(Y), ncol(Y))
+  if (any(Q > max_rank)) {
+    invalid_Q <- Q[Q > max_rank]
+    warning(paste0("Rank(s) ", paste(invalid_Q, collapse=", "),
+                   " exceed min(nrow(Y), ncol(Y)) = ", max_rank,
+                   ". They have been removed."))
+    Q <- Q[Q <= max_rank]
+    if(length(Q) == 0) stop("No valid ranks specified (all exceed matrix dimensions).")
+  }
+  # ---------------------------------------------
   AdjustedRandIndex <- function(x){
     choose2 <- function(n) choose(n,2)
     a <- sum(apply(x,c(1,2),choose2))
@@ -1994,7 +2349,7 @@ nmfkc.rank <- function(Y,A=NULL,Q=1:2,plot=TRUE,...){
 
   num_q <- length(Q)
   results_df <- data.frame(
-    Q = Q,
+    rank = Q,
     r.squared = numeric(num_q),
     ICp = numeric(num_q),
     AIC = numeric(num_q),
@@ -2003,30 +2358,31 @@ nmfkc.rank <- function(Y,A=NULL,Q=1:2,plot=TRUE,...){
     ARI = numeric(num_q),
     silhouette = numeric(num_q),
     CPCC = numeric(num_q),
-    dist.cor = numeric(num_q)
+    dist.cor = numeric(num_q),
+    sigma.ecv = numeric(num_q)
   )
 
   cluster.old <- NULL
+
+  # --- Main Loop for Standard Metrics ---
   for(q_idx in 1:num_q){
     current_Q <- Q[q_idx]
-    save_time_for_this_run <- if (is.null(extra_args$save.time)) TRUE else extra_args$save.time
-    extra_args$save.memory <- NULL
-    nmfkc_args <- c(
-      list(Y = Y,
-           A = A,
-           Q = current_Q,
-           save.memory = FALSE
-      ),
-      extra_args
-    )
+
+    extra_args_nmfkc <- extra_args
+    extra_args_nmfkc$save.memory <- FALSE
+    extra_args_nmfkc$save.time <- save.time
+    extra_args_nmfkc$Q <- NULL
+
+    nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
     result <- do.call("nmfkc", nmfkc_args)
+
     results_df$r.squared[q_idx] <- result$r.squared
     results_df$ICp[q_idx] <- result$criterion$ICp
     results_df$AIC[q_idx] <- result$criterion$AIC
     results_df$BIC[q_idx] <- result$criterion$BIC
     results_df$B.prob.sd.min[q_idx] <- result$criterion$B.prob.sd.min
 
-    if(save_time_for_this_run){
+    if(save.time){
       results_df$CPCC[q_idx] <- NA
       results_df$dist.cor[q_idx] <- NA
       results_df$silhouette[q_idx] <- NA
@@ -2051,51 +2407,125 @@ nmfkc.rank <- function(Y,A=NULL,Q=1:2,plot=TRUE,...){
     cluster.old <- result$B.cluster
   }
 
-  if(plot){
-    plot(results_df$Q, results_df$r.squared, type="l", col=2, xlab="Rank", ylab="Criterion", ylim=c(0,1), lwd=3)
-    graphics::text(results_df$Q, results_df$r.squared, results_df$Q)
+  # --- Element-wise CV (Wold's CV) ---
+  rank.best.ecv <- NA
+  if(!save.time){
+    ecv_args <- list(Y = Y, A = A, rank = Q)
+    extra_args_ecv <- extra_args
+    extra_args_ecv$save.time <- NULL
+    extra_args_ecv$save.memory <- NULL
+    extra_args_ecv$Q <- NULL
 
-    legend_text <- "r.squared"
-    legend_cols <- 2
+    ecv_full_args <- c(ecv_args, extra_args_ecv)
 
-    graphics::lines(results_df$Q, results_df$B.prob.sd.min, col=3, lwd=3)
-    graphics::text(results_df$Q, results_df$B.prob.sd.min, results_df$Q)
-    legend_text <- c(legend_text, "B.prob.sd.min")
-    legend_cols <- c(legend_cols, 3)
+    message("Running Element-wise CV (this may take time)...")
+    ecv_res <- do.call("nmfkc.ecv", ecv_full_args)
+    results_df$sigma.ecv <- ecv_res$sigma
 
-    if (any(!is.na(results_df$ARI))) {
-      graphics::lines(results_df$Q, results_df$ARI, col=4, lwd=3)
-      graphics::text(results_df$Q, results_df$ARI, results_df$Q)
-      legend_text <- c(legend_text, "ARI vs Q-1")
-      legend_cols <- c(legend_cols, 4)
-    }
-
-    if (any(!is.na(results_df$silhouette))) {
-      graphics::lines(results_df$Q, results_df$silhouette, col=7, lwd=3)
-      graphics::text(results_df$Q, results_df$silhouette, results_df$Q)
-      legend_text <- c(legend_text, "silhouette")
-      legend_cols <- c(legend_cols, 7)
-    }
-
-    if (any(!is.na(results_df$CPCC))) {
-      graphics::lines(results_df$Q, results_df$CPCC, col=6, lwd=3)
-      graphics::text(results_df$Q, results_df$CPCC, results_df$Q)
-      legend_text <- c(legend_text, "CPCC")
-      legend_cols <- c(legend_cols, 6)
-    }
-
-    if (any(!is.na(results_df$dist.cor))) {
-      graphics::lines(results_df$Q, results_df$dist.cor, col=5, lwd=3)
-      graphics::text(results_df$Q, results_df$dist.cor, results_df$Q)
-      legend_text <- c(legend_text, "dist.cor")
-      legend_cols <- c(legend_cols, 5)
-    }
-
-    graphics::legend("bottomleft", legend=legend_text, fill=legend_cols, bg="white")
+    # Determine best rank by ECV
+    idx_best_ecv <- which.min(results_df$sigma.ecv)
+    rank.best.ecv <- results_df$rank[idx_best_ecv]
+  } else {
+    results_df$sigma.ecv <- NA
   }
 
-  invisible(results_df)
+  # --- Determine R-squared Best Rank (Elbow) ---
+  rank.best.r2 <- NA
+  if(num_q > 2){
+    x <- 1:num_q
+    y <- results_df$r.squared
+    y_norm <- (y - min(y)) / (max(y) - min(y))
+    x_norm <- (x - min(x)) / (max(x) - min(x))
+    x1 <- x_norm[1]; y1 <- y_norm[1]
+    x2 <- x_norm[num_q]; y2 <- y_norm[num_q]
+
+    distances <- numeric(num_q)
+    for(i in 1:num_q){
+      distances[i] <- abs((y2-y1)*x_norm[i] - (x2-x1)*y_norm[i] + x2*y1 - y2*x1) / sqrt((y2-y1)^2 + (x2-x1)^2)
+    }
+    idx_best_r2 <- which.max(distances)
+    rank.best.r2 <- results_df$rank[idx_best_r2]
+  }
+
+  # Decide final recommended rank (Prioritize ECV)
+  rank.final <- if(!is.na(rank.best.ecv)) rank.best.ecv else rank.best.r2
+
+  # --- Plotting ---
+  if(plot){
+    old_par <- graphics::par(mar = c(5, 4, 4, 5) + 0.1)
+    on.exit(graphics::par(old_par))
+
+    # 1. Left Axis Plot: 0-1 Metrics
+    plot(results_df$rank, results_df$r.squared, type="l", col=2, lwd=3,
+         xlab="Rank (Q)", ylab="Fit / Stability (0-1)", ylim=c(0,1),
+         main="Rank Selection Diagnostics")
+    graphics::points(results_df$rank, results_df$r.squared, pch=16, col=2, cex=0.8)
+    graphics::text(results_df$rank, results_df$r.squared, results_df$rank, pos=3, col=2, cex=0.8)
+
+    # Always mark R2 Elbow BEST if found
+    if(!is.na(rank.best.r2)){
+      idx_r2 <- which(results_df$rank == rank.best.r2)
+      graphics::points(rank.best.r2, results_df$r.squared[idx_r2], pch=16, col="red", cex=1.5)
+      graphics::text(rank.best.r2, results_df$r.squared[idx_r2], "Best (Elbow)", pos=1, col="red", cex=0.8)
+    }
+
+    legend_txt <- c("r.squared")
+    legend_col <- c(2)
+    legend_lty <- c(1)
+
+    graphics::lines(results_df$rank, results_df$B.prob.sd.min, col=3, lwd=2)
+    legend_txt <- c(legend_txt, "B.prob.sd.min"); legend_col <- c(legend_col, 3); legend_lty <- c(legend_lty, 1)
+
+    if (any(!is.na(results_df$ARI))) {
+      graphics::lines(results_df$rank, results_df$ARI, col=4, lwd=2)
+      legend_txt <- c(legend_txt, "ARI"); legend_col <- c(legend_col, 4); legend_lty <- c(legend_lty, 1)
+    }
+    if (any(!is.na(results_df$silhouette))) {
+      graphics::lines(results_df$rank, results_df$silhouette, col=7, lwd=2)
+      legend_txt <- c(legend_txt, "Silhouette"); legend_col <- c(legend_col, 7); legend_lty <- c(legend_lty, 1)
+    }
+    if (any(!is.na(results_df$CPCC))) {
+      graphics::lines(results_df$rank, results_df$CPCC, col=6, lwd=2)
+      legend_txt <- c(legend_txt, "CPCC"); legend_col <- c(legend_col, 6); legend_lty <- c(legend_lty, 1)
+    }
+    if (any(!is.na(results_df$dist.cor))) {
+      graphics::lines(results_df$rank, results_df$dist.cor, col=5, lwd=2)
+      legend_txt <- c(legend_txt, "dist.cor"); legend_col <- c(legend_col, 5); legend_lty <- c(legend_lty, 1)
+    }
+
+    # 2. Right Axis Plot: Sigma ECV (RMSE)
+    if (any(!is.na(results_df$sigma.ecv))) {
+      graphics::par(new = TRUE)
+      graphics::plot(results_df$rank, results_df$sigma.ecv, type="l", col="blue", lwd=3,
+                     axes=FALSE, xlab="", ylab="")
+
+      graphics::points(results_df$rank, results_df$sigma.ecv, pch=16, col="blue", cex=0.8)
+      graphics::text(results_df$rank, results_df$sigma.ecv, results_df$rank, pos=3, col="blue", cex=0.8)
+
+      # Always mark ECV Min BEST
+      if(!is.na(rank.best.ecv)){
+        idx_ecv <- which(results_df$rank == rank.best.ecv)
+        graphics::points(results_df$rank, results_df$sigma.ecv, pch=1, col="blue")
+        graphics::points(rank.best.ecv, results_df$sigma.ecv[idx_ecv], pch=16, col="blue", cex=1.5)
+        graphics::text(rank.best.ecv, results_df$sigma.ecv[idx_ecv], "Best (Min)", pos=1, col="blue", cex=0.8)
+      }
+
+      graphics::axis(side=4, col="blue", col.axis="blue")
+      graphics::mtext("ECV Sigma (RMSE)", side=4, line=3, col="blue")
+
+      legend_txt <- c(legend_txt, "ECV Sigma")
+      legend_col <- c(legend_col, "blue")
+      legend_lty <- c(legend_lty, 1)
+    }
+
+    graphics::legend("bottomright", legend=legend_txt, col=legend_col, lty=legend_lty, lwd=2, bg="white", cex=0.7)
+  }
+
+  return(list(rank.best = rank.final, criteria = results_df))
 }
+
+
+
 
 
 #' @title Plot Diagnostics: Original, Fitted, and Residual Matrices as Heatmaps
@@ -2127,7 +2557,7 @@ nmfkc.residual.plot <- function(Y, result,
   if(nrow(Y) != nrow(E) || ncol(Y) != ncol(E)){
     stop("Dimension mismatch between Y and result$XB. Check input matrices.")
   }
-  old_par <- graphics::par(mfrow = c(1, 3), mar = c(1,0.5,4,0.5) + 0.1)
+  old_par <- graphics::par(mfrow = c(1, 3), mar = c(1,0.5,5,0.5) + 0.1)
   on.exit(graphics::par(old_par))
   min_YX <- min(Y, XB, na.rm = TRUE)
   max_YX <- max(Y, XB, na.rm = TRUE)

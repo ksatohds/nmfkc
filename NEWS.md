@@ -1,4 +1,30 @@
-# nmfkc 0.5.4
+# nmfkc 0.6.0
+* **New Function:** Implemented `nmfkc.ecv()` for Element-wise Cross-Validation (Wold's CV).
+  - This function randomly masks elements of the observation matrix to evaluate structural reconstruction error.
+  - It provides a statistically robust criterion for rank selection, avoiding the monotonic error decrease often seen in standard column-wise CV.
+  - Supports vector input for `rank` to evaluate multiple ranks simultaneously.
+* **Missing Value & Weight Support:**
+  - `nmfkc()` and `nmfkc.cv()` now fully support missing values (`NA`) and observation weights via the hidden argument `Y.weights` (passed through `...`).
+  - If `Y` contains `NA`s, they are automatically detected and masked (assigned a weight of 0) during optimization.
+* **Rank Selection Diagnostics (`nmfkc.rank`):**
+  - **Dual-Axis Visualization:** The plot now displays fitting metrics ($R^2$, etc.) on the left axis and ECV Sigma (RMSE) on the right axis (blue line).
+  - **Automatic Best Rank labeling:** The plot explicitly marks the "Best" rank based on two criteria:
+    - **Elbow:** Geometric elbow point of the $R^2$ curve.
+    - **Min:** Minimum error point of the Element-wise CV.
+  - `save.time` defaults to `FALSE`, enabling the robust Element-wise CV calculation by default.
+* **Argument Standardization:**
+  - Unified the rank argument name to `rank` across all functions (`nmfkc`, `nmfkc.cv`, `nmfkc.ecv`, `nmfkc.rank`).
+  - The legacy argument `Q` is still supported for backward compatibility but internally mapped to `rank`.
+* **Summary Improvements:**
+  - Updated `summary()` and `print()` methods to report:
+    - Sparsity of Basis ($X$) and Coefficients ($B$).
+    - Clustering Entropy (indicating "Crisp" vs "Ambiguous" clustering).
+    - Clustering Crispness (Mean Max Probability).
+    - Number and percentage of missing values in $Y$.
+* **Other Improvements:**
+  - Added a validation check in `nmfkc.ar()` to ensure the input `Y` has no missing values (as they cannot be propagated to the covariate matrix `A` in VAR models).
+  - Refined `nmfkc.residual.plot()` layout margins for better visibility of titles.
+  - Updated documentation to reflect all changes.
 * Regularization Update:  
   The regularization scheme has been revised from **L2 (ridge)** to **L1 (lasso-type)** penalties.  
   - `gamma` now controls the **L1 penalty on the coefficient matrix** \( B = C A \), promoting sparsity in sample-wise coefficients.  

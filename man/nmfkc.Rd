@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc}
 \alias{nmfkc}
-\title{Optimize NMF with kernel covariates}
+\title{Optimize NMF with kernel covariates (Full Support for Missing Values)}
 \source{
 Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
 to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
@@ -27,6 +27,9 @@ nmfkc(Y, A = NULL, rank = NULL, data, epsilon = 1e-04, maxit = 5000, ...)
 \item{...}{Additional arguments passed for fine-tuning regularization, initialization, constraints,
 and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 \itemize{
+\item \code{Y.weights}: Optional numeric matrix (P x N) or vector (length N).
+0 indicates missing/ignored values. If NULL (default), weights are automatically
+set to 0 for NAs in Y, and 1 otherwise.
 \item \code{X.L2.ortho}: Nonnegative penalty parameter for the orthogonality of \eqn{X} (default: 0).
 Enforces columns of \eqn{X} to be orthogonal (conceptually \eqn{X^\top X \to I}). (Formerly \code{lambda.ortho}).
 \item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).

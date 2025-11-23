@@ -10,21 +10,31 @@ vignette: >
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width = 6,
+  fig.height = 4
 )
 ```
 
 ## Introduction
 
-Welcome to the `nmfkc` package! This vignette provides a basic introduction to the core function of the package, `nmfkc()`.
+Welcome to the `nmfkc` package\! This vignette provides a basic introduction to the core function of the package, `nmfkc()`.
 
-Non-negative Matrix Factorization (NMF) is a method to approximate an observation matrix `Y` as a product of a basis matrix `X` and a coefficient matrix `B`, such that $Y \approx XB$. A key feature of NMF is that all matrices must have non-negative elements.
+Non-negative Matrix Factorization (NMF) is a method to approximate an observation matrix $Y$ as a product of a basis matrix $X$ and a coefficient matrix $B$:
+$$Y \approx X B$$
+A key feature of NMF is that all matrices must have non-negative elements, making the result parts-based and easily interpretable.
 
-The `nmfkc` package extends this idea by allowing for covariates, modeling the data as $Y \approx XCA$, where `A` is a known covariate matrix.
+The `nmfkc` package extends this framework by allowing for **covariates** ($Y \approx XCA$) and supporting **missing values**.
 
-This example demonstrates the most fundamental use case: decomposing a given non-negative matrix `Y` into `X` and `B` without any covariates.
+This vignette covers:
 
-## A Simple Example
+1.  **Basic NMF**: Decomposing a matrix without covariates.
+2.  **Visualization**: Checking convergence and results.
+3.  **Handling Missing Values**: Demonstrating robustness against `NA`s.
+
+-----
+
+## 1\. A Simple Example (Basic NMF)
 
 First, let's load the `nmfkc` package.
 
@@ -32,9 +42,9 @@ First, let's load the `nmfkc` package.
 library(nmfkc)
 ```
 
-### 1. Creating the Data
+### Creating the Data
 
-We will create a simple observation matrix `Y` (3x3) which is a product of a basis matrix `X` (3x2) and a coefficient matrix `B` (2x3).
+We create a simple observation matrix `Y` ($3 \times 3$) which is a product of a basis matrix `X` ($3 \times 2$) and a coefficient matrix `B` ($2 \times 3$).
 
 ```{r create-data}
 # Define the original basis and coefficient matrices
@@ -45,28 +55,86 @@ We will create a simple observation matrix `Y` (3x3) which is a product of a bas
 (Y <- X_orig %*% B_orig)
 ```
 
-Our goal is to see if `nmfkc()` can recover the original `X_orig` and `B_orig` matrices just from the observation `Y`.
+Our goal is to recover the structure of `X` and `B` from `Y`.
 
-### 2. Running NMF
+### Running NMF
 
-Now, we use the `nmfkc()` function to perform the factorization. We need to specify the observation matrix `Y` and the desired rank `Q` (which is 2 in this case).
+We use the `nmfkc()` function. We specify the observation matrix `Y` and the desired **rank** (number of bases, formerly `Q`).
 
 ```{r run-nmfkc}
-# Perform NMF with a rank of 2
-res <- nmfkc(Y, Q = 2, epsilon = 1e-6)
+# Perform NMF with rank = 2
+res <- nmfkc(Y, rank = 2, epsilon = 1e-6)
 ```
 
-### 3. Checking the Results
+### Checking the Results
 
-Let's examine the estimated basis matrix `res$X` and coefficient matrix `res$B`.
+We can examine the estimated basis matrix `res$X` and coefficient matrix `res$B`.
 
 ```{r check-results}
 # Estimated basis matrix
-# Note: The column order may be different from the original
 res$X
 
 # Estimated coefficient matrix
 res$B
 ```
 
-As you can see, `nmfkc()` successfully recovered the original matrices, although the order of columns in `X` (and corresponding rows in `B`) might be swapped. This demonstrates the basic capability of the package to perform non-negative matrix factorization.
+The `nmfkc()` function successfully recovered the pattern (note that the order of columns in `X` may differ from the original, which is normal in NMF).
+
+### Visualization
+
+We can plot the result object to see the convergence of the objective function (residual sum of squares).
+
+```{r plot-convergence}
+# Plot optimization history
+plot(res, main = "Convergence of NMF")
+```
+
+We can also visualize the fitted matrix using a heatmap.
+
+```{r plot-heatmap, fig.width=7, fig.height=3}
+# Compare Original Y and Fitted XB
+par(mfrow = c(1, 2))
+image(t(Y)[,nrow(Y):1], main = "Original Y", axes = FALSE, col = hcl.colors(12, "YlOrRd", rev = TRUE))
+image(t(res$XB)[,nrow(res$XB):1], main = "Fitted XB", axes = FALSE, col = hcl.colors(12, "YlOrRd", rev = TRUE))
+```
+
+-----
+
+## 2\. Handling Missing Values
+
+One of the powerful features of `nmfkc` is its ability to handle missing values (`NA`). The algorithm automatically detects `NA`s and ignores them during optimization (conceptually assigning them a weight of 0).
+
+### Creating Data with Missing Values
+
+Let's introduce a missing value into our matrix `Y`.
+
+```{r create-na-data}
+Y_missing <- Y
+Y_missing[1, 2] <- NA # Introduce a missing value
+print(Y_missing)
+```
+
+### Running NMF with NAs
+
+We simply pass the matrix with `NA`s to `nmfkc`. No extra arguments are needed.
+
+```{r run-nmfkc-na}
+# Run NMF on data with missing values
+res_na <- nmfkc(Y_missing, rank = 2, seed = 123)
+```
+
+### Reconstruction / Imputation
+
+The model estimates the latent structure ($X$ and $B$) using only the observed data. The fitted matrix ($XB$) effectively provides an **imputation** for the missing value.
+
+```{r check-imputation}
+# The fitted value for the missing entry [1, 2]
+predicted_val <- res_na$XB[1, 2]
+actual_val <- Y[1, 2]
+
+cat(paste("Original Value: ", actual_val, "\n"))
+cat(paste("Imputed Value:  ", round(predicted_val, 4), "\n"))
+```
+
+The model successfully reconstructed the missing value using the latent structure learned from the rest of the data.
+

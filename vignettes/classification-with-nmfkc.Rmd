@@ -10,13 +10,26 @@ vignette: >
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
 )
 ```
 
 ## Introduction
 
-This vignette demonstrates how to use the `nmfkc` package for multi-class classification tasks. [cite_start]The approach, termed NMF-LAB, formulates classification as an inverse problem of Non-negative Matrix Factorization (NMF)[cite: 390]. We will walk through two examples using the well-known `iris` and `palmerpenguins` datasets.
+This vignette demonstrates how to use the `nmfkc` package for **Supervised Classification**, a technique referred to as **NMF-LAB** (Label-based NMF).
+
+### How it works
+
+The NMF-LAB approach treats multi-class classification as a matrix factorization task:
+$$Y \approx X C A$$
+
+  - **$Y$ (Target):** One-hot encoded matrix of class labels (Classes $\times$ Samples).
+  - **$A$ (Input):** Kernel matrix constructed from feature variables.
+  - **$X$ (Learned Basis):** Represents the class prototypes. If classification is successful, this matrix approaches a diagonal form, indicating clean separation.
+
+We will walk through two examples using the `iris` and `palmerpenguins` datasets.
 
 First, let's load the required packages.
 
@@ -25,98 +38,130 @@ library(nmfkc)
 library(palmerpenguins)
 ```
 
+-----
+
 ## Example 1: The Iris Dataset
 
-The iris dataset contains measurements for 3 species of iris flowers. Our goal is to classify the species based on these measurements.
+Our goal is to classify 3 species of iris flowers based on 4 measurements.
 
-### 1. Data Preparation
+### 1\. Data Preparation
 
-We start by preparing the data. The response matrix `Y` is created by converting the species labels into a one-hot encoded matrix using `nmfkc.class()`. The feature matrix `U` is created by normalizing the measurement columns to a [0, 1] range.
+We convert the species labels into a binary class matrix $Y$ (`nmfkc.class`) and normalize the features $U$ (`nmfkc.normalize`).
 
 ```{r iris-data-prep}
-# Get the labels
+# 1. Prepare Labels (Y)
 label_iris <- iris$Species
-table(label_iris)
+Y_iris <- nmfkc.class(label_iris) # One-hot encoding (Classes x Samples)
 
-# Create the one-hot encoded observation matrix Y
-Y_iris <- nmfkc.class(label_iris)
-
-# Create the normalized feature matrix U
+# 2. Prepare Features (U)
+# Normalize features to [0, 1] range
 U_iris <- t(nmfkc.normalize(iris[, -5]))
 ```
 
-### 2. Model Fitting and Evaluation
+### 2\. Hyperparameter Tuning (Kernel Width)
 
-Next, we find the optimal `beta` for the Gaussian kernel, create the kernel covariate matrix `A`, and fit the NMF-LAB model using `nmfkc()`.
+The performance depends on the Gaussian kernel width ($\beta$). We use a two-step approach: Heuristic estimation followed by Cross-Validation.
+
+```{r iris-tuning}
+# Set rank equal to the number of classes
+rank_iris <- length(unique(label_iris))
+
+# Step 1: Heuristic estimation of beta (for defining a good search range)
+res_beta <- nmfkc.kernel.beta.nearest.med(U_iris)
+beta_med <- res_beta$beta
+
+# Step 2: Cross-Validation around the heuristic value
+# We test 5 candidates: 0.1x, 0.5x, 1x, 2x, 10x of the median beta
+beta_candidates <- beta_med * c(0.1, 0.5, 1, 2, 10)
+
+# Run CV (plot=FALSE to save space)
+cv_res <- nmfkc.kernel.beta.cv(Y_iris, rank = rank_iris, U = U_iris, 
+                               beta = beta_candidates, plot = FALSE)
+
+(best_beta_iris <- cv_res$beta)
+```
+
+### 3\. Model Fitting and Evaluation
+
+We fit the model using the optimal $\beta$ and evaluate its ability to classify the samples.
 
 ```{r iris-model-fit}
-# Set the rank Q to the number of classes
-Q_iris <- length(unique(label_iris))
-
-# Find the optimal beta (we use a pre-calculated value here to speed up the vignette build)
-# In a real analysis, you would run:
-# res.cv <- nmfkc.kernel.beta.cv(Y_iris, Q_iris, U_iris)
-# best.beta_iris <- res.cv$beta
-best.beta_iris <- 0.0818 # A pre-calculated value
-
 # Create the kernel matrix A
-A_iris <- nmfkc.kernel(U_iris, beta = best.beta_iris)
+A_iris <- nmfkc.kernel(U_iris, beta = best_beta_iris)
 
-# Fit the model
-res_iris <- nmfkc(Y = Y_iris, A = A_iris, Q = Q_iris, prefix = "Class")
+# Fit NMF-LAB
+res_iris <- nmfkc(Y = Y_iris, A = A_iris, rank = rank_iris, prefix = "Class")
 
-# Use the predict() method to get class predictions
-fitted.label_iris <- predict(res_iris, type = "class")
+# 1. Prediction and Confusion Matrix
+fitted_label_iris <- predict(res_iris, type = "class")
+(conf_mat <- table(Predicted = fitted_label_iris, Actual = label_iris))
 
-# Create a confusion matrix and calculate accuracy
-(f_iris <- table(fitted.label_iris, label_iris))
-cat("Iris Dataset Accuracy:", 100 * sum(diag(f_iris)) / sum(f_iris), "%\n")
+# 2. Accuracy
+accuracy <- sum(diag(conf_mat)) / sum(conf_mat)
+cat(paste0("Iris Dataset Accuracy: ", round(accuracy * 100, 2), "%\n"))
 ```
+
+### 4\. Interpretation: Class Prototypes
+
+The basis matrix $X$ represents the **Learned Class Prototypes**. For perfect classification, $X$ should be diagonally dominant (Factor 1 corresponds only to Class 1, etc.).
+
+```{r iris-plot-X, fig.height=4}
+# Visualize X (Basis Matrix) using a heatmap
+image(t(res_iris$X)[, nrow(res_iris$X):1], 
+      main = "Basis Matrix X (Learned Class Prototypes)",
+      axes = FALSE, col = hcl.colors(12, "YlOrRd", rev = TRUE))
+# Add axis labels for interpretation
+axis(1, at = seq(0, 1, length.out = rank_iris), labels = paste("Factor", 1:rank_iris))
+axis(2, at = seq(0, 1, length.out = rank_iris), labels = rev(levels(label_iris)), las = 2)
+```
+
+-----
 
 ## Example 2: The Palmer Penguins Dataset
 
-Let's apply the same workflow to the `penguins` dataset to classify penguin species.
+Let's apply the same robust workflow to classify penguin species, ensuring we handle the dataset's inherent missing values.
 
-### 1. Data Preparation
+### 1\. Data Preparation
 
-We remove rows with missing values and then prepare the `Y` and `U` matrices as before.
+We must remove rows with missing values (`NA`) as the kernel matrix $A$ (based on features $U$) cannot contain missing entries.
 
 ```{r penguins-data-prep}
-# Load and clean the data
-d_penguins <- penguins
-d_penguins <- d_penguins[complete.cases(d_penguins), ]
+# Load and clean data (remove rows with NAs in features/labels)
+d_penguins <- na.omit(palmerpenguins::penguins)
 
-# Get the labels
+# Prepare Y (Labels)
 label_penguins <- d_penguins$species
-table(label_penguins)
-
-# Create Y and U matrices
 Y_penguins <- nmfkc.class(label_penguins)
+
+# Prepare U (Features)
+# Select measurement columns and normalize
 U_penguins <- t(nmfkc.normalize(d_penguins[, 3:6]))
 ```
 
-### 2. Model Fitting and Evaluation
+### 2\. Model Fitting and Evaluation
 
-Again, we determine the best `beta`, fit the model, and evaluate its performance.
+We use the heuristic $\beta$ as a starting point for a fast demonstration.
 
 ```{r penguins-model-fit}
-# Set the rank Q
-Q_penguins <- length(unique(label_penguins))
+rank_penguins <- length(unique(label_penguins))
 
-# Find the optimal beta
-# best.beta_penguins <- nmfkc.kernel.beta.cv(Y_penguins, Q_penguins, U_penguins)$beta
-best.beta_penguins <- 0.17 # A pre-calculated value
+# 1. Heuristic beta estimation
+best_beta_penguins <- nmfkc.kernel.beta.nearest.med(U_penguins)$beta
 
-# Create the kernel matrix A
-A_penguins <- nmfkc.kernel(U_penguins, beta = best.beta_penguins)
+# 2. Optimization
+A_penguins <- nmfkc.kernel(U_penguins, beta = best_beta_penguins)
+res_penguins <- nmfkc(Y = Y_penguins, A = A_penguins, rank = rank_penguins, prefix = "Class")
 
-# Fit the model
-res_penguins <- nmfkc(Y = Y_penguins, A = A_penguins, Q = Q_penguins, prefix = "Class")
+# 3. Evaluation
+fitted_label_p <- predict(res_penguins, type = "class")
+(conf_mat_p <- table(Predicted = fitted_label_p, Actual = label_penguins))
 
-# Predict and evaluate
-fitted.label_penguins <- predict(res_penguins, type = "class")
-(f_penguins <- table(fitted.label_penguins, label_penguins))
-cat("Penguins Dataset Accuracy:", 100 * sum(diag(f_penguins)) / sum(f_penguins), "%\n")
-
+acc_p <- sum(diag(conf_mat_p)) / sum(conf_mat_p)
+cat(paste0("Penguins Accuracy: ", round(acc_p * 100, 2), "%\n"))
 ```
-This demonstrates the consistent workflow for applying NMF-LAB to different classification problems.
+
+This demonstrates the consistent and powerful nature of the NMF-LAB framework for multi-class classification.
+
+
+
+

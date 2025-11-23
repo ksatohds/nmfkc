@@ -10,13 +10,21 @@ vignette: >
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width = 7, 
+  fig.height = 5
 )
 ```
 
 ## Introduction
 
-Non-negative Matrix Factorization (NMF) is a popular technique for topic modeling in text analysis. This vignette demonstrates how to use the `nmfkc` package to discover topics from a collection of documents, using the U.S. presidential inaugural address texts from the `quanteda` package.
+Non-negative Matrix Factorization (NMF) is a powerful technique for topic modeling. This vignette demonstrates how to use the `nmfkc` package to discover latent topics in the U.S. presidential inaugural addresses using the `quanteda` package.
+
+We will cover:
+
+1.  **Standard NMF**: Basic topic extraction.
+2.  **Rank Selection**: Determining the optimal number of topics.
+3.  **Kernel NMF**: Modeling temporal topic evolution using covariates.
 
 First, let's load the necessary packages.
 
@@ -25,70 +33,122 @@ library(nmfkc)
 library(quanteda)
 ```
 
-## 1. Data Preparation: Document-Word Matrix
+## 1\. Data Preparation
 
-The first step in topic modeling is to convert the text documents into a numerical matrix. We will create a document-feature matrix (DFM), where rows are documents and columns are words (features), and the values are the word counts.
-
-We use the `quanteda` package for this preprocessing.
+We create a Document-Feature Matrix (DFM) where rows represent documents and columns represent words.
 
 ```{r data-prep}
-# Load the corpus of inaugural addresses
+# Load the corpus
 corp <- corpus(data_corpus_inaugural)
 
-# Preprocessing: tokenize, remove stopwords, and select words with min 3 characters
+# Preprocessing: tokenize, remove stopwords, select meaningful words
 tok <- tokens(corp)
 tok <- tokens_remove(tok, pattern = stopwords("en", source = "snowball"))
 df <- dfm(tok)
-df <- dfm_select(df, min_nchar = 3)
+df <- dfm_select(df, min_nchar = 3) # Remove short words
+df <- dfm_trim(df, min_termfreq = 50) # Remove rare words (appearing < 50 times)
 
-# Trim the DFM to include only words that appear at least 100 times
-df <- dfm_trim(df, min_termfreq = 100)
+# Convert to matrix and transpose for NMF (Features x Samples)
 d <- as.matrix(df)
-
-# For NMF, we need a word-document matrix, so we transpose the DFM
 Y <- t(d)
+
+dim(Y) # Features (Words) x Samples (Documents)
 ```
 
-## 2. Fitting the NMF Topic Model
+## 2\. Rank Selection (Determining Number of Topics)
 
-Now we apply the `nmfkc()` function to our word-document matrix `Y`. The rank `Q` corresponds to the number of topics we want to discover. Let's find 3 topics.
+Before fitting the model, we need to decide the number of topics ($rank$). The `nmfkc.rank()` function helps us choose an appropriate rank by evaluating indices like **Element-wise Cross-Validation (ECV)** and **R-squared (Elbow)**.
+
+```{r rank-selection, fig.width=7, fig.height=6}
+# Evaluate ranks from 2 to 6
+# save.time=FALSE enables Element-wise CV (Robust but slower)
+# Here we use save.time=TRUE for speed in this vignette
+nmfkc.rank(Y, rank = 2:6, save.time = TRUE)
+```
+
+Based on the diagnostics (e.g., the elbow of R-squared or high Cophenetic Correlation), let's assume **Rank = 3** is a reasonable choice for this example.
+
+## 3\. Standard NMF
+
+We fit the standard NMF model with `rank = 3`.
 
 ```{r model-fit}
-Q <- 3
-result <- nmfkc(Y, Q = Q, prefix = "Topic")
+rank <- 3
+res_std <- nmfkc(Y, rank = rank, prefix = "Topic")
 
-# Check the coefficient of determination
-result$r.squared
+# Check R-squared
+res_std$r.squared
 ```
 
-## 3. Interpreting the Results
+### Interpreting Topics (Top Words)
 
-The NMF model gives us two key matrices for interpretation: the basis matrix `X` (word-topic distribution) and the coefficient matrix `B` (topic-document distribution).
+We can identify the meaning of each topic by looking at the words with the highest weights in the basis matrix `X`.
 
-### Topic Proportions over Time
-
-The `B.prob` matrix shows the proportion of each topic within each document (inaugural address). We can visualize this as a bar plot to see how topic prevalence has changed over time.
-
-```{r plot-topic-prob, fig.width=8, fig.height=5}
-# Soft clustering of documents (time)
-par(mar = c(10, 4, 4, 2) + 0.1) # Adjust margins for long labels
-barplot(result$B.prob, col = 1:Q + 1, legend = TRUE, las = 3,
-        ylab = "Topic Probabilities", main = "Topic Proportions in Inaugural Addresses")
-```
-
-### Word Composition of Topics
-
-The basis matrix `X` tells us which words are most important for each topic. We can visualize this to understand the theme of each topic.
-
-```{r plot-basis, fig.width=7, fig.height=6}
-# Basis vectors (word contributions to topics)
-par(mfrow = c(Q, 1), mar = c(8, 4, 1, 1), cex = 0.7)
-for (q in 1:Q) {
-  # Get the top 15 words for the topic for better visualization
-  top_words <- sort(result$X[, q], decreasing = TRUE)[1:15]
-  barplot(top_words, col = q + 1, border = q + 1, las = 3,
-          ylab = paste0("Topic ", q))
+```{r interpret-topics}
+# Extract top 10 words for each topic
+Xp <- res_std$X.prob
+for(k in 1:rank){
+  top_words <- names(sort(Xp[,k], decreasing = TRUE)[1:10])
+  cat(paste0("Topic ", k, ": ", paste(top_words, collapse = ", "), "\n"))
 }
 ```
 
-This visualization helps us interpret what each discovered "topic" is about based on its most prominent words.
+## 4\. Kernel NMF: Temporal Topic Evolution
+
+One of the unique features of `nmfkc` is **Kernel NMF**.
+In standard NMF, the order of documents is ignored. However, inaugural addresses have a strong temporal component. By using the "Year" as a covariate, we can extract **smoothly evolving topics**.
+
+### optimizing the Kernel Parameter
+
+We construct a covariate matrix `U` using the year of the address. We then find the optimal kernel bandwidth (`beta`) using Cross-Validation.
+
+```{r kernel-prep}
+# Covariate: Year of the address
+years <- as.numeric(substring(names(data_corpus_inaugural), 1, 4))
+U <- t(as.matrix(years))
+
+# Optimize beta (Gaussian Kernel width)
+# We test a range of betas around a heuristic median distance
+beta_med <- nmfkc.kernel.beta.nearest.med(U)$beta
+beta_candidates <- beta_med * c(0.1, 0.5, 1, 2, 10)
+
+cv_res <- nmfkc.kernel.beta.cv(Y, rank = rank, U = U, beta = beta_candidates, plot = FALSE)
+best_beta <- cv_res$beta
+```
+
+### Fitting Kernel NMF
+
+Now we fit the model using the kernel matrix `A`.
+
+```{r kernel-fit}
+# Create Kernel Matrix
+A <- nmfkc.kernel(U, beta = best_beta)
+
+# Fit NMF with Kernel Covariates
+res_ker <- nmfkc(Y, A = A, rank = rank, prefix = "Topic")
+```
+
+### Visualization: Standard vs Kernel NMF
+
+Let's compare how topic proportions change over time.
+**Standard NMF** (Top) shows noisy fluctuations, while **Kernel NMF** (Bottom) reveals smooth historical trends.
+
+```{r plot-comparison, fig.width=8, fig.height=8}
+par(mfrow = c(2, 1), mar = c(4, 4, 2, 1))
+
+# 1. Standard NMF (Noisy)
+barplot(res_std$B.prob, col = 2:(rank+1), border = NA, xaxt='n',
+        main = "Standard NMF: Topic Proportions", ylab = "Probability")
+axis(1, at = seq(1, ncol(Y), length.out = 10), labels = seq(min(years), max(years), length.out = 10))
+
+# 2. Kernel NMF (Smooth trend)
+barplot(res_ker$B.prob, col = 2:(rank+1), border = NA, xaxt='n',
+        main = "Kernel NMF: Temporal Topic Evolution", ylab = "Probability")
+axis(1, at = seq(1, ncol(Y), length.out = 10), labels = seq(min(years), max(years), length.out = 10))
+
+# Legend
+legend("topright", legend = paste("Topic", 1:rank), fill = 2:(rank+1), bg="white", cex=0.8)
+```
+
+The Kernel NMF results clearly show how political themes have shifted smoothly over American history (e.g., from early nation-building to modern global issues).
+
