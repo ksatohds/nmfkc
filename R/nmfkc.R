@@ -50,136 +50,74 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
   if(!is.matrix(Y)) Y <- as.matrix(Y)
 
   # --- NA Check ---
+  # Y must not contain missing values before generating the lagged matrix A.
   if(any(is.na(Y))){
-    stop("Y contains missing values (NA). In NMF-VAR, lagged Y is used to construct the covariate matrix A, which cannot contain missing values. Please impute Y (e.g., using zoo::na.approx) before calling nmfkc.ar().")
+    stop("Y contains missing values (NA). In NMF-VAR, lagged Y is used to construct the covariate matrix A, which cannot contain missing values. Please impute Y before calling nmfkc.ar().")
   }
 
-  N <- ncol(Y)
-  A.columns <- NULL
-  for(i in degree:1)A.columns <- rbind(A.columns,i:(i+ncol(Y)-degree-1))
-  A <- NULL
-  for(i in 1:nrow(A.columns))A <- rbind(A,Y[,A.columns[i,]])
-  if(is.null(rownames(Y))) rownames(Y) <- 1:nrow(Y)
-  label <- NULL
-  for(i in 1:degree)label <- c(label,paste0(rownames(Y),"_",i))
+  P <- nrow(Y) # Features/Variables
+  N <- ncol(Y) # Time points
+
+  # --- 1. Degree Validity Check (Guardrail) ---
+  # Check if the lag order is valid with respect to the time series length N.
+  if (degree < 1) {
+    stop("The 'degree' (lag order) must be 1 or greater.")
+  }
+  if (degree >= N) {
+    stop(paste0("The 'degree' (", degree, ") must be strictly less than the number of time points in Y (", N, ")."))
+  }
+  # -------------------------------------------------
+
+  # Length of the time series after lagging (N_A)
+  N_A <- N - degree
+  t_start <- degree + 1
+
+  # --- 2. A.columns.index: Construct index matrix for lagged Y (Fast) ---
+  # A.columns.index: Index matrix for Y columns (degree rows x N_A columns)
+  A.columns.index <- matrix(0, nrow = degree, ncol = N_A)
+  for(i in 1:degree) {
+    # Column indices corresponding to lag t-i for times t_start to N
+    A.columns.index[i, ] <- (t_start - i) : (N - i)
+  }
+
+  # --- 3. A: Construct covariate matrix A in one operation (Fast) ---
+  # 1. Slice the necessary data from Y using the vectorized indices
+  A_data <- Y[, as.vector(A.columns.index)]
+
+  # 2. Reshape A_data into the final A shape (P*degree rows x N_A columns)
+  A <- matrix(A_data, nrow = P * degree, ncol = N_A, byrow = FALSE)
+
+  # --- 4. Set row labels ---
+  if(is.null(rownames(Y))) rownames(Y) <- 1:P
+  label <- unlist(lapply(1:degree, function(i) paste0(rownames(Y), "_", i)))
+  rownames(A) <- label
+
+  # --- 5. Add Intercept (Safe Implementation) ---
   if(intercept){
-    A <- rbind(A,1)
+    # Use matrix(1, ...) to safely add the intercept row, avoiding recycling dependence
+    A <- rbind(A, matrix(1, nrow=1, ncol=ncol(A)))
     rownames(A) <- c(label,"(Intercept)")
   }
-  Ya <- Y[,A.columns[1,]+1]
-  if(!is.matrix(Ya)){
-    Ya <- matrix(Ya,nrow=1)
-    colnames(Ya) <- colnames(Y)[A.columns[1,]+1]
-    rownames(Ya) <- rownames(Y)[1]
-  }
+
+  # --- 6. Ya (Non-lagged Observation Matrix) ---
+  # Y matrix for time points t_start to N
+  Ya <- Y[, t_start : N, drop=FALSE]
+
+  # --- 7. Metadata Calculation and Attribute Storage (Changed key to 'function') ---
+  # Calculate degree.max based on R's stats::ar() empirical rule (10 * log10(N))
   degree.max <- min(ncol(Ya),floor(10*log10(ncol(Ya))))
-  list(Y = Ya, A = A, A.columns = A.columns, degree.max = degree.max)
-}
 
+  # Store AR parameters as attributes of A for simple model passing
+  # These attributes ensure robust parameter transfer to nmfkc() and nmfkc.ar.predict().
+  attr(A, "degree") <- degree
+  attr(A, "intercept") <- intercept
+  attr(A, "function.name") <- "nmfkc.ar" # Identifier for the model type (MODIFIED)
 
-#' @title Forecast future values for NMF-VAR model
-#' @description
-#' \code{nmfkc.ar.predict} computes multi-step ahead forecasts for a fitted NMF-VAR model
-#' using recursive forecasting strategies.
-#'
-#' @param x An object of class \code{nmfkc} (the fitted model).
-#' @param Y The historical observation matrix used for fitting (or at least the last \code{degree} columns).
-#' @param degree The lag order (D) used in the model. If \code{NULL} (default), it is automatically inferred from the dimensions of \code{x$X} and \code{x$C}.
-#' @param n.ahead Integer. The number of steps ahead to forecast.
-#'
-#' @return A list containing:
-#' \item{pred}{A matrix of predicted values with \code{n.ahead} columns.}
-#' \item{time}{A numeric vector of future time points, if \code{colnames(Y)} are numeric time values. Otherwise \code{NULL}.}
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
-#' @export
-nmfkc.ar.predict <- function(x, Y, degree=NULL, n.ahead=1){
-  if(!is.matrix(Y)) Y <- as.matrix(Y)
-
-  # --- 1. Automatic Degree & Intercept Detection ---
-  X <- x$X
-  C <- x$C
-  P <- nrow(X)
-  R <- ncol(C)
-
-  is_intercept_model <- ((R - 1) %% P == 0)
-  is_no_intercept_model <- (R %% P == 0)
-
-  if (is.null(degree)) {
-    if (P == 1) {
-      has_intercept <- TRUE
-      degree <- (R - 1) / P
-      if(R == 1) { has_intercept <- FALSE; degree <- 1 }
-    } else {
-      if (is_intercept_model && !is_no_intercept_model) {
-        has_intercept <- TRUE
-        degree <- (R - 1) / P
-      } else if (!is_intercept_model && is_no_intercept_model) {
-        has_intercept <- FALSE
-        degree <- R / P
-      } else {
-        has_intercept <- TRUE
-        degree <- (R - 1) / P
-      }
-    }
-  } else {
-    if (R == P * degree + 1) {
-      has_intercept <- TRUE
-    } else if (R == P * degree) {
-      has_intercept <- FALSE
-    } else {
-      stop(paste0("Dimension mismatch: ncol(C)=", R,
-                  " does not match P*degree+1 (", P*degree+1,
-                  ") or P*degree (", P*degree, "). Check 'degree' argument."))
-    }
-  }
-
-  # --- 2. Forecasting Loop ---
-  preds <- matrix(0, nrow=P, ncol=n.ahead)
-  colnames(preds) <- paste0("t+", 1:n.ahead)
-  rownames(preds) <- rownames(Y)
-
-  current_Y <- Y
-
-  for(step in 1:n.ahead){
-    idx_start <- ncol(current_Y) - degree + 1
-    if(idx_start < 1) stop("Not enough historical data for the specified lag degree.")
-
-    a_vec <- numeric(0)
-    for(k in 1:degree){
-      col_idx <- ncol(current_Y) - k + 1
-      a_vec <- c(a_vec, current_Y[, col_idx])
-    }
-
-    if(has_intercept) a_vec <- c(a_vec, 1)
-    newA <- matrix(a_vec, ncol=1)
-
-    pred_step <- x$X %*% x$C %*% newA
-    preds[, step] <- pred_step
-    current_Y <- cbind(current_Y, pred_step)
-  }
-
-  # --- 3. Time Inference ---
-  future_times <- NULL
-  if(!is.null(colnames(Y))){
-    times <- suppressWarnings(as.numeric(colnames(Y)))
-
-    if(!any(is.na(times)) && length(times) >= 2){
-      n_check <- min(length(times), 10)
-      recent_times <- utils::tail(times, n_check)
-
-      diffs <- diff(recent_times)
-
-      if(all(abs(diffs - mean(diffs)) < 1e-5 * abs(mean(diffs)) + 1e-8)){
-        dt <- mean(diffs)
-
-        last_time <- utils::tail(times, 1)
-
-        future_times <- last_time + (1:n.ahead) * dt
-      }
-    }
-  }
-
-  return(list(pred = preds, time = future_times))
+  # A.columns is returned for backward compatibility/diagnostics
+  list(Y = Ya,
+       A = A,
+       A.columns = A.columns.index,
+       degree.max = degree.max)
 }
 
 
@@ -199,48 +137,99 @@ nmfkc.ar.predict <- function(x, Y, degree=NULL, n.ahead=1){
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
 #' @export
 
+#' @title Generate DOT language scripts for vector autoregressive models
+#' @description
+#' \code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
+#' vector autoregressive models fitted using \code{nmfkc}.
+#'
+#' @param x The return value of \code{nmfkc} for a vector autoregressive model.
+#' @param degree The maximum lag order to visualize. Default is 1.
+#' @param intercept Logical. If TRUE, an intercept node is added. Default is FALSE.
+#' @param digits Integer. Number of decimal places to display in edge labels.
+#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
+#' @param rankdir Graph layout direction in DOT language. Default is "RL". Other options include "LR", "TB", and "BT".
+#'
+#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+#' @export
+
 nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digits),rankdir="RL"){
   X <- x$X; C <- round(x$C,digits); D <- min(ncol(C),degree)
+
+  # --- MODIFIED: Sanitize Names for DOT Node IDs ---
+  # Replace spaces, hyphens, and other non-alphanumeric chars (except .) with '_'
+  # The original gsub('.', '', fixed=T) for dot removal is kept, but expanded.
+  sanitize_dot_id <- function(names) {
+    names <- gsub("[^[:alnum:]_.]", "_", names, perl=TRUE)
+    return(names)
+  }
+
+  # Sanitize names for use as internal DOT Node IDs
+  X_names <- sanitize_dot_id(colnames(X))
+  Y_names <- sanitize_dot_id(rownames(X))
+  C_col_names <- sanitize_dot_id(colnames(C))
+
+  # Original label processing for display purposes
   rownames(X) <- gsub(".","",rownames(X),fixed=T)
   colnames(X) <- gsub(".","",colnames(X),fixed=T)
   rownames(C) <- gsub(".","",rownames(C),fixed=T)
   colnames(C) <- gsub(".","",colnames(C),fixed=T)
+  # ---------------------------------------------------
+
   Alabels <- unique(gsub("_([0-9]+)","",colnames(C),fixed=F))
   index <-match("(Intercept)", Alabels)
   if(!is.na(index)) Alabels <- Alabels[-index]
-  # rankdir=RL # rankdir=TB
+
+  # --- 1. Graph Initialization ---
   scr <- paste0('digraph XCA {graph [rankdir=',rankdir,' compound=true]; \n')
-  # Y
+
+  # --- 2. Y Nodes (Observation/Output) ---
   st <- 'subgraph cluster_Y{label="T" style="rounded"; \n'
-  for(j in 1:nrow(X))st <- paste0(st,sprintf('  %s [shape=box]; \n',rownames(X)[j]))
+  for(j in 1:nrow(X)){
+    # Use sanitized Y_names as Node ID, and original rownames(X) as display label
+    st <- paste0(st,sprintf('  %s [label="%s", shape=box]; \n',
+                            Y_names[j],            # Safe Node ID
+                            rownames(X)[j]))        # Display Label
+  }
   st <- paste0(st,'}; \n'); scr <- paste0(scr,st)
-  # X and element
+
+  # --- 3. X Nodes (Latent Variables) ---
   st <- 'subgraph cluster_X{label="Latent Variables" style="rounded"; \n'
-  for(j in 1:ncol(X))st <- paste0(st,sprintf('  %s [shape=ellipse]; \n',colnames(X)[j]))
+  for(j in 1:ncol(X)){
+    # Use sanitized X_names as Node ID, and original colnames(X) as display label
+    st <- paste0(st,sprintf('  %s [label="%s", shape=ellipse]; \n',
+                            X_names[j],            # Safe Node ID
+                            colnames(X)[j]))        # Display Label
+  }
   st <- paste0(st,'}; \n'); scr <- paste0(scr,st)
-  # edge: X to Y
+
+  # --- 4. Edge: X to Y ---
   for(i in 1:nrow(X))for(j in 1:ncol(X)){
     if(X[i,j]>=threshold){
+      # Use sanitized IDs for edges
       st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"]; \n'),
-              colnames(X)[j],rownames(X)[i],X[i,j]); scr <- paste0(scr,st)}
+                    X_names[j],Y_names[i],X[i,j]); scr <- paste0(scr,st)}
   }
-  # intercept
+
+  # --- 5. Intercept ---
   if(intercept==TRUE){
     for(i in 1:ncol(X))
       if(C[i,ncol(C)]>=threshold){
+        # Use sanitized X_names for target node
         st <- sprintf(paste0('Const%d [shape=circle label="%.',digits,'f"]; '),i,C[i,ncol(C)])
-        st <- paste0(st,sprintf(paste0('Const%d -> %s; \n'),i,colnames(X)[i]))
+        st <- paste0(st,sprintf(paste0('Const%d -> %s; \n'),i,X_names[i])) # Safe Node ID
         scr <- paste0(scr,st)
       }
   }
-  # edge: T-k to X
+
+  # --- 6. Edge: T-k to X (Covariates) ---
   klist <- NULL; ktoplist <- NULL
   for(k in 1:D){
     Ck <- C[,(k-1)*length(Alabels)+1:length(Alabels)]
     if(is.matrix(Ck)==FALSE){
       Ck <- matrix(Ck,nrow=1)
-      colnames(Ck) <- colnames(C)[k]
-      rownames(Ck) <- colnames(X)[1]
+      colnames(Ck) <- C_col_names[k] # Use sanitized name
+      rownames(Ck) <- X_names[1]      # Use sanitized name
     }
     if(max(Ck)>=threshold){
       klist <- c(klist,k)
@@ -252,33 +241,223 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
             ktop <- j
             ktoplist <- c(ktoplist,ktop)
           }
-          alabel <- gsub("_([0-9]+)","",colnames(Ck)[j],fixed=F)
+          # Extract display label and sanitize Node ID
+          alabel <- gsub("_([0-9]+)","",colnames(C)[j],fixed=F)
+          node_id <- C_col_names[(k-1)*length(Alabels)+j] # Safe Node ID
+
+          # QUOTE LABEL: Protect A label in DOT
           st <- paste0(st,sprintf('  %s [label="%s",shape=box]; \n',
-                                  colnames(Ck)[j],alabel))
+                                  node_id,         # Safe Node ID
+                                  alabel))          # Display Label
         }
       }
       st <- paste0(st,"}; \n");scr <- paste0(scr,st)
     }
     for(i in 1:nrow(Ck))for(j in 1:ncol(Ck)){
       if(Ck[i,j]>=threshold){
+        # Use sanitized IDs for edges
         st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"]; \n'),
-                      colnames(Ck)[j],rownames(Ck)[i],Ck[i,j])
+                      C_col_names[(k-1)*length(Alabels)+j], X_names[i], Ck[i,j]) # Safe IDs
         scr <- paste0(scr,st)
       }
     }
   }
+
+  # --- 7. Invisible Edges for Cluster Ordering ---
   if(length(klist)>=2){
     for(k in 2:length(klist)){
-      st <- sprintf('%s_%d -> %s_%d [ltail=cluster_C%d lhead=cluster_C%d style=invis]; \n',
-                    Alabels[ktoplist[k]],klist[k],
-                    Alabels[ktoplist[k-1]],klist[k-1],
-                          klist[k],klist[k-1])
+      # Note: This block uses the original, unsanitized Alabels for label consistency,
+      # but should use sanitized IDs for the nodes themselves.
+      # Since Alabels are derived from sanitized names previously, we rely on the node IDs being safe.
+
+      # We use the sanitized C_col_names for the actual node IDs:
+      start_node_id <- C_col_names[(klist[k]-1)*length(Alabels)+ktoplist[k]]
+      end_node_id <- C_col_names[(klist[k-1]-1)*length(Alabels)+ktoplist[k-1]]
+
+      st <- sprintf('%s -> %s [ltail=cluster_C%d lhead=cluster_C%d style=invis]; \n',
+                    start_node_id, end_node_id, # Safe Node IDs
+                    klist[k], klist[k-1])
       scr <- paste0(scr,st)
     }
   }
+
   scr <- paste0(scr,"} \n")
   return(scr)
 }
+
+
+
+#' @title Forecast future values for NMF-VAR model
+#' @description
+#' \code{nmfkc.ar.predict} computes multi-step ahead forecasts for a fitted NMF-VAR model
+#' using recursive forecasting strategies.
+#'
+#' @param x An object of class \code{nmfkc} (the fitted model).
+#' @param Y The historical observation matrix used for fitting (or at least the last \code{degree} columns).
+#' @param degree The lag order (D) used in the model. If \code{NULL} (default), it is automatically inferred from the dimensions of \code{x$X} and \code{x$C}.
+#' @param n.ahead Integer. The number of steps ahead to forecast.
+#'
+#' @return A list containing:
+#' \item{pred}{A matrix of predicted values with \code{n.ahead} columns.}
+#' \item{time}{A numeric vector of future time points, if \code{colnames(Y)} are numeric time values. Otherwise \code{NULL}.}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+#' @export
+
+nmfkc.ar.predict <- function(x, Y, degree=NULL, n.ahead=1){
+  if(!is.matrix(Y)) Y <- as.matrix(Y)
+
+  # --- Initial Class Check ---
+  if (!inherits(x, "nmfkc")) {
+    stop("Argument 'x' must be an object of class 'nmfkc'.")
+  }
+
+  C <- x$C
+  P <- nrow(Y) # The number of observed variables/features
+
+  # --- 1. Degree & Intercept Detection (Robust, Accessing x$A.attr) ---
+
+  # 1.1. Read parameters from x$A.attr (Prioritized check)
+  A.attributes <- x$A.attr
+
+  # Check if A.attr exists and contains VAR metadata
+  is_metadata_available <- !is.null(A.attributes) &&
+    !is.null(A.attributes$function.name) &&
+    A.attributes$function.name == "nmfkc.ar"
+
+  if (is_metadata_available) {
+    # CASE A: VAR Metadata found in x$A.attr (Robust)
+    degree_from_attr <- A.attributes$degree
+    intercept_from_attr <- A.attributes$intercept
+
+    if (is.null(degree_from_attr) || is.null(intercept_from_attr)) {
+      stop("VAR model metadata (degree or intercept status) is missing in x$A.attr.")
+    }
+    degree_final <- degree_from_attr
+    has_intercept_final <- intercept_from_attr
+
+    # Check for user-provided 'degree' argument which overrides A's metadata.
+    if (!is.null(degree) && degree != degree_final) {
+      warning(paste0("The 'degree' argument (", degree, ") provided by the user contradicts the degree stored in the model (", degree_final, "). Using user-provided degree for prediction."))
+      degree_final <- degree
+
+      # Fallback to dimension check for the intercept status based on user's degree
+      R <- ncol(C)
+      if (R == P * degree_final + 1) {
+        has_intercept_final <- TRUE
+      } else if (R == P * degree_final) {
+        has_intercept_final <- FALSE
+      } else {
+        stop(paste0("Dimension mismatch: ncol(C)=", R,
+                    " does not match P*degree+1 (", P*degree_final+1,
+                    ") or P*degree (", P*degree_final, ") for the user-provided 'degree'."))
+      }
+    }
+
+  } else if (!is.null(degree)) {
+    # CASE B: Metadata not found or not VAR, but user explicitly provided 'degree'.
+    # Fallback to dimension check based on user input.
+    degree_final <- degree
+    R <- ncol(C)
+
+    if (R == P * degree_final + 1) {
+      has_intercept_final <- TRUE
+    } else if (R == P * degree_final) {
+      has_intercept_final <- FALSE
+    } else {
+      stop(paste0("Dimension mismatch: ncol(C)=", R,
+                  " does not match P*degree+1 (", P*degree_final+1,
+                  ") or P*degree (", P*degree_final, "). Check 'degree' argument."))
+    }
+  } else {
+    # CASE C: No metadata and no user input. Fallback to the original dimension check.
+
+    R <- ncol(C)
+    P_fit <- nrow(x$X)
+
+    is_intercept_model <- ((R - 1) %% P_fit == 0)
+    is_no_intercept_model <- (R %% P_fit == 0)
+
+    if (P_fit == 1) {
+      has_intercept_final <- TRUE
+      degree_final <- (R - 1) / P_fit
+      if(R == 1) { has_intercept_final <- FALSE; degree_final <- 1 }
+    } else {
+      if (is_intercept_model && !is_no_intercept_model) {
+        has_intercept_final <- TRUE
+        degree_final <- (R - 1) / P_fit
+      } else if (!is_intercept_model && is_no_intercept_model) {
+        has_intercept_final <- FALSE
+        degree_final <- R / P_fit
+      } else {
+        # Ambiguous or non-VAR case
+        stop("The model dimensions lead to an ambiguous lag order and intercept status. Please ensure the model 'x' was created using nmfkc.ar() and nmfkc(), or manually specify the 'degree' argument.")
+      }
+    }
+  }
+
+  degree <- degree_final
+  has_intercept <- has_intercept_final
+
+  # --- 2. Historical Data Check ---
+  if(ncol(Y) < degree){
+    stop(paste0("Not enough historical data in Y (", ncol(Y), " columns) for the model's lag degree (", degree, "). Y must contain at least ", degree, " columns for the first forecast step."))
+  }
+
+  # --- 3. Forecasting Loop (Recursive Prediction) ---
+  preds <- matrix(0, nrow=P, ncol=n.ahead)
+  colnames(preds) <- paste0("t+", 1:n.ahead)
+  rownames(preds) <- rownames(Y)
+
+  current_Y <- Y
+
+  for(step in 1:n.ahead){
+
+    a_vec <- numeric(0)
+    # Collect lagged values (A matrix rows)
+    for(k in 1:degree){
+      col_idx <- ncol(current_Y) - k + 1
+      a_vec <- c(a_vec, current_Y[, col_idx])
+    }
+
+    if(has_intercept) a_vec <- c(a_vec, 1)
+    newA <- matrix(a_vec, ncol=1) # Covariate vector for prediction time t+step
+
+    # Predict next step: X * C * A(t+step)
+    pred_step <- x$X %*% x$C %*% newA
+    preds[, step] <- pred_step
+
+    # Add predicted value to the history for the next recursive step
+    current_Y <- cbind(current_Y, pred_step)
+  }
+
+  # --- 4. Time Inference ---
+  future_times <- NULL
+  if(!is.null(colnames(Y))){
+    times <- suppressWarnings(as.numeric(colnames(Y)))
+
+    if(!any(is.na(times)) && length(times) >= 2){
+      n_check <- min(length(times), 10)
+      recent_times <- utils::tail(times, n_check)
+
+      diffs <- diff(recent_times)
+
+      # Check if time points are equally spaced (tolerance: 1e-5 relative error)
+      if(all(abs(diffs - mean(diffs)) < 1e-5 * abs(mean(diffs)) + 1e-8)){
+        dt <- mean(diffs)
+
+        last_time <- utils::tail(times, 1)
+
+        future_times <- last_time + (1:n.ahead) * dt
+        colnames(preds) <- future_times
+      }
+    }
+  }
+
+  return(list(pred = preds, time = future_times))
+}
+
+
+
 
 
 #' @title Optimize lag order for the autoregressive model
@@ -315,33 +494,80 @@ nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digi
 
 nmfkc.ar.degree.cv <- function(Y,Q=1,degree=1:2,intercept=T,plot=TRUE,...){
   extra_args <- list(...)
-  objfuncs <- 0*(1:length(degree))
+  objfuncs <- numeric(length(degree)) # Use numeric(length(degree)) for clean initialization
+
+  # --- FIX 1: Initialize status variable outside the loop ---
+  success_status <- logical(length(degree))
+
   for(i in 1:length(degree)){
     start.time <- Sys.time()
-    message(paste0("degree=",degree[i],"..."),appendLF=FALSE)
-    a <- nmfkc.ar(Y=Y,degree=degree[i],intercept=intercept)
-    main_args <- list(Y = a$Y,A = a$A,Q = Q)
-    all_args <- c(extra_args, main_args, list(shuffle = FALSE))
-    result.cv <- do.call("nmfkc.cv", all_args)
-    objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
-    end.time <- Sys.time()
-    diff.time <- difftime(end.time,start.time,units="sec")
-    diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
-                           paste0(round(diff.time/60,1),"min"))
-    message(diff.time.st)
+    # --- FIX 1: Define current_degree inside the loop ---
+    current_degree <- degree[i]
+
+    message(paste0("degree=",current_degree,"..."),appendLF=FALSE)
+
+    tryCatch({
+      # 1. Execute nmfkc.ar (Construct Y and A)
+      a <- nmfkc.ar(Y=Y,degree=current_degree,intercept=intercept)
+
+      # 2. Setup arguments for nmfkc.cv
+      main_args <- list(Y = a$Y,A = a$A,Q = Q)
+      # Use shuffle=FALSE for block CV, suitable for time series data
+      all_args <- c(extra_args, main_args, list(shuffle = FALSE))
+
+      # 3. Execute nmfkc.cv
+      # Note: We suppress messages from inner calls to keep the log clean
+      result.cv <- suppressMessages(do.call("nmfkc.cv", all_args))
+
+      # 4. Record successful results
+      objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
+      success_status[i] <- TRUE
+
+      # 5. Log processing time
+      end.time <- Sys.time()
+      diff.time <- difftime(end.time,start.time,units="sec")
+      diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
+                             paste0(round(diff.time/60,1),"min"))
+      message(diff.time.st)
+
+    }, error = function(e) {
+      # Handle error: Record NA, issue a warning, and continue the loop
+      warning(paste0("Skipping degree=", current_degree, " due to error: ", e$message), call. = FALSE)
+      objfuncs[i] <- NA
+      success_status[i] <- FALSE
+      message("Skipped (Error)")
+    })
   }
-  i0 <- which.min(objfuncs)
+
+  # --- FIX 2: Post-Processing executed ONCE outside the loop ---
+  valid_indices <- which(success_status)
+  if (length(valid_indices) == 0) {
+    stop("Cross-validation failed for all candidate degrees.")
+  }
+
+  # Find the minimum objective function among successful runs
+  i0 <- valid_indices[which.min(objfuncs[valid_indices])]
   best.degree <- degree[i0]
+
+  # Calculate degree.max (empirical rule)
   degree.max <- min(ncol(Y),floor(10*log10(ncol(Y))))
+
+  # Plotting (Only successful runs are plotted/labeled)
   if(plot){
+    # Plot objective function values
     plot(degree,objfuncs,type="l",col=2,xlab=paste0("degree (max=",degree.max,")"),ylab="objfunc")
+    graphics::points(degree[valid_indices],objfuncs[valid_indices],cex=1,col=2)
+
+    # Highlight the best degree
     graphics::points(degree[i0],objfuncs[i0],cex=3,col=2)
-    graphics::text(degree,objfuncs,degree)
+    graphics::text(degree,objfuncs,degree, pos=3)
   }
+
   names(objfuncs) <- degree
   result <- list(degree=best.degree,degree.max=degree.max,objfunc=objfuncs)
   return(result)
 }
+
 
 #' @title Check stationarity of an NMF-VAR model
 #' @description
@@ -415,12 +641,27 @@ nmfkc.kernel <- function(U, V = NULL,
   storage.mode(V) <- "double"
   kernel <- match.arg(kernel)
   G <- crossprod(U, V)
+
+  # Determine the specific parameter used for the kernel (e.g., beta or degree)
+  # This section extracts the effective parameter value to store in attributes.
+  effective_param <- NULL
+  if (kernel %in% c("Gaussian", "Exponential")) {
+    effective_param <- if (!is.null(k_params$beta)) k_params$beta else 0.5
+  } else if (kernel == "Periodic") {
+    effective_param <- if (!is.null(k_params$beta)) k_params$beta else c(1,1)
+  } else if (kernel == "Polynomial") {
+    # For Polynomial, the effective param is (beta, degree) pair
+    effective_param <- list(beta = if (!is.null(k_params$beta)) k_params$beta else 0,
+                            degree = if (!is.null(k_params$degree)) k_params$degree else 2)
+  }
+
   if (kernel %in% c("Gaussian","Exponential","Periodic")) {
     u2 <- colSums(U * U)
     v2 <- colSums(V * V)
     D2 <- outer(u2, v2, "+") - 2 * G
     D2 <- pmax(D2, 0)
   }
+
   K <- switch(kernel,
               Gaussian ={
                 beta <- if (!is.null(k_params$beta)) k_params$beta else 0.5
@@ -454,8 +695,17 @@ nmfkc.kernel <- function(U, V = NULL,
   )
   K[K < 0] <- 0
   dimnames(K) <- list(colnames(U), colnames(V))
-  K
+
+  # --- Store Kernel Metadata as Attributes (NEW BLOCK) ---
+  # These attributes allow nmfkc to identify the kernel type and parameters used.
+  attr(K, "params") <- effective_param
+  attr(K, "kernel") <- kernel
+  attr(K, "function") <- "nmfkc.kernel"
+  # ------------------------------------------------------
+
+  return(K)
 }
+
 
 
 #' @title Estimate kernel parameter beta from covariates
@@ -949,6 +1199,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{B.cluster}{Hard-clustering labels (argmax over \eqn{B.prob} for each column).}
 #' \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
 #' \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
+#' \item{A.attr}{List of attributes of the input covariate matrix \code{A}, containing metadata like lag order and intercept status if created by \code{nmfkc.ar} or \code{nmfkc.kernel}.}
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
 #' \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
@@ -1303,10 +1554,14 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
 
   n.missing <- sum(Y.weights == 0)
   n.total <- prod(dim(Y))
+  A.attr <- NULL
+  if (!is.null(A)) A.attr <- attributes(A)
 
   result <- list(call=match.call(), dims=dims, runtime=diff.time.st,
                  X=X, B=B, XB=XB, C=C,
-                 B.prob=B.prob, B.cluster=B.cluster, X.prob=X.prob, X.cluster=X.cluster,
+                 B.prob=B.prob, B.cluster=B.cluster,
+                 X.prob=X.prob, X.cluster=X.cluster,
+                 A.attr=A.attr,
                  n.missing = n.missing,n.total = n.total,rank = Q,
                  objfunc=objfunc, objfunc.iter=objfunc.iter, r.squared=r2, sigma=sigma,
                  criterion=list(B.prob.sd.min=B.prob.sd.min, ICp=ICp, AIC=AIC, BIC=BIC,
@@ -1495,7 +1750,6 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
 
 
 
-
 #' @title Generate DOT language scripts for NMF models
 #' @description
 #' \code{nmfkc.DOT} generates scripts in the DOT language for visualizing
@@ -1534,6 +1788,7 @@ nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(
   hasA <- !is.null(x$C) && ncol(x$C) != ncol(B)
   P <- nrow(X)
   Q <- ncol(X)
+
   calculate_penwidth <- function(coeff_matrix, value) {
     if (is.null(coeff_matrix)) return(min.penwidth)
     max_coeff <- max(coeff_matrix, na.rm = TRUE)
@@ -1542,65 +1797,95 @@ nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(
       (max.penwidth - min.penwidth) * (value - threshold) / (max_coeff - threshold)
     return(max(min.penwidth, penwidth))
   }
+
+  # --- NEW: Sanitize Names for DOT Node IDs (Problem 7 Fix) ---
+  # Replace non-alphanumeric chars (except underscore and dot) with '_'
+  sanitize_dot_id <- function(names) {
+    names <- gsub("[^[:alnum:]_.]", "_", names, perl=TRUE)
+    return(names)
+  }
+
+  # Sanitize names for use as internal DOT Node IDs
+  Y_names_id <- sanitize_dot_id(if (is.null(Y.label)) rownames(X) else Y.label)
+  X_names_id <- sanitize_dot_id(if (is.null(X.label)) colnames(X) else X.label)
+
+  # Use user-provided labels or matrix names for *display*
+  Y_labels_display <- if (is.null(Y.label)) rownames(X) else Y.label
+  X_labels_display <- if (is.null(X.label)) colnames(X) else X.label
+  # ---------------------------------------------------
+
   # --- 1. Label Assignment & Coefficient Setup ---
-  Y_labels_node <- if (is.null(Y.label)) rownames(X) else Y.label
-  X_labels_node <- if (is.null(X.label)) colnames(X) else X.label
   if (hasA) {
     C <- round(x$C, digits)
     A_cols_NMF <- ncol(C)
-    A_labels_node <- if (is.null(A.label)) colnames(C) else A.label
+    A_labels_display <- if (is.null(A.label)) colnames(C) else A.label
+    A_names_id <- sanitize_dot_id(A_labels_display) # Sanitize A names too
     XC_mat <- X %*% C
   } else if (type == "YX") {
     C <- B
-    A_labels_node <- NULL
+    A_cols_NMF <- ncol(C) # Set A_cols_NMF to prevent error later
+    A_labels_display <- NULL
     XC_mat <- NULL
+    A_names_id <- NULL
   } else {
     stop("The model structure (A is missing) is incompatible with the selected type ('YXA' or 'YA').")
   }
+
   # --- 2. Graph Initialization ---
   scr <- paste0('digraph NMF {graph [rankdir=', rankdir, ' compound=true]; \n')
+
   # --- 3. Define Y Nodes (Observation/Output) ---
   # Y.title
   st <- paste0('subgraph cluster_Y{label="', Y.title, '" style="rounded"; \n')
   for (j in 1:P) {
-    # Y.label
-    st <- paste0(st, sprintf('  Y%d [label="%s", shape=box]; \n', j, Y_labels_node[j]))
+    # Use Y%d as Node ID and Y_labels_display[j] as display label
+    st <- paste0(st, sprintf('  Y%d [label="%s", shape=box]; \n',
+                             j,                   # Numerical Node ID
+                             Y_labels_display[j])) # Display Label
   }
   st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
+  # --- 3. Define X Nodes (Latent Variables/Basis) ---
+  st <- paste0('subgraph cluster_X{label="', X.title, '" style="rounded"; \n')
+  for (j in 1:Q) {
+    st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n',
+                             j,                   # Numerical Node ID
+                             X_labels_display[j])) # Display Label
+  }
+  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
   # --- 4. Draw Paths based on 'type' ---
   if (type == "YXA") {
     # 4.1. Define A Nodes (Covariates/Input)
     st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
     for (j in 1:A_cols_NMF) {
-      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n', j, A_labels_node[j]))
+      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n',
+                               j,                   # Numerical Node ID
+                               A_labels_display[j])) # Display Label
     }
     st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-    # 4.2. Define X Nodes (Latent Variables/Basis)
-    st <- paste0('subgraph cluster_X{label="', X.title, '" style="rounded"; \n')
-    for (j in 1:Q) {
-      st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n', j, X_labels_node[j]))
-    }
-    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-    # 4.3. Edges from A to X (via C)
-    max_C <- max(C, na.rm = TRUE)
+
+    # 4.2. Edges from A to X (via C) - Using numerical IDs
     for (i in 1:Q) {
       for (j in 1:A_cols_NMF) {
         coeff_val <- C[i, j]
         if (coeff_val >= threshold) {
           penwidth <- calculate_penwidth(C, coeff_val)
-          st <- sprintf(paste0('A%d -> X%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'), j, i, coeff_val)
+          st <- sprintf(paste0('A%d -> X%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
+                        j, i, coeff_val)
           scr <- paste0(scr, st)
         }
       }
     }
-    # 4.4. Edges from X to Y (Basis contribution)
+    # 4.3. Edges from X to Y (Basis contribution)
     max_X <- max(X, na.rm = TRUE)
     for (i in 1:P) {
       for (j in 1:Q) {
         coeff_val <- X[i, j]
         if (coeff_val >= threshold) {
           penwidth <- calculate_penwidth(X, coeff_val)
-          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'), j, i, coeff_val)
+          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
+                        j, i, coeff_val)
           scr <- paste0(scr, st)
         }
       }
@@ -1609,9 +1894,12 @@ nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(
     # 4.1. Define A Nodes (Covariates/Input)
     st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
     for (j in 1:A_cols_NMF) {
-      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n', j, A_labels_node[j]))
+      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n',
+                               j,                   # Numerical Node ID
+                               A_labels_display[j])) # Display Label
     }
     st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
     # 4.2. Edges from A to Y (via XC)
     max_XC <- max(XC_mat, na.rm = TRUE)
     for (i in 1:P) {
@@ -1619,7 +1907,8 @@ nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(
         coeff_val <- XC_mat[i, j]
         if (coeff_val >= threshold) {
           penwidth <- calculate_penwidth(XC_mat, coeff_val)
-          st <- sprintf(paste0('A%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'), j, i, coeff_val)
+          st <- sprintf(paste0('A%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
+                        j, i, coeff_val)
           scr <- paste0(scr, st)
         }
       }
@@ -1628,9 +1917,12 @@ nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(
     # 4.1. Define X Nodes (Latent Variables/Basis)
     st <- paste0('subgraph cluster_X{label="', X.title, '" style="rounded"; \n')
     for (j in 1:Q) {
-      st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n', j, X_labels_node[j]))
+      st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n',
+                               j,                   # Numerical Node ID
+                               X_labels_display[j])) # Display Label
     }
     st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
     # 4.2. Edges from X to Y (Basis contribution)
     max_X <- max(X, na.rm = TRUE)
     for (i in 1:P) {
@@ -1638,7 +1930,8 @@ nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(
         coeff_val <- X[i, j]
         if (coeff_val >= threshold) {
           penwidth <- calculate_penwidth(X, coeff_val)
-          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'), j, i, coeff_val)
+          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
+                        j, i, coeff_val)
           scr <- paste0(scr, st)
         }
       }
@@ -1942,10 +2235,12 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
 
   if(is.null(A)){
     is_identity <- TRUE
-    is_symmetric.matrix <- TRUE
+    is_symmetric.matrix <- FALSE
   }else{
     is_identity <- is.identity.matrix(A)
     is_symmetric.matrix <- isSymmetric(A, tol=.Machine$double.eps)
+    A.function <- attr(A, "function")
+    is_kernel_matrix <- !is.null(A.function) && A.function == "nmfkc.kernel"
   }
 
   # Create Folds
@@ -1988,9 +2283,9 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
     if(is_identity){
       A_train <- NULL
     }else{
-      if(is_symmetric.matrix){
+      if(is_symmetric.matrix && is_kernel_matrix){
         A_train <- A[block!=j,block!=j, drop=FALSE]
-        A_test  <- A[block!=j,block==j, drop=FALSE] # Asymmetric slice for prediction
+        A_test  <- A[block!=j,block==j, drop=FALSE]
       }else{
         A_train <- A[,block!=j, drop=FALSE]
         A_test  <- A[,block==j, drop=FALSE]
