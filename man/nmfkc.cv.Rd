@@ -13,86 +13,59 @@ nmfkc.cv(Y, A = NULL, Q = 2, ...)
 
 \item{Q}{Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.}
 
-\item{...}{Additional arguments passed for controlling cross-validation setup and fine-tuning the internal \code{\link{nmfkc}} calls.
-These include:
-\itemize{
-\item \code{div}: Number of folds (\eqn{k}) for cross-validation (default: 5).
-\item \code{seed}: Integer seed for reproducibility of data partitioning (default: 123).
-\item \code{shuffle}: Logical. If \code{TRUE} (default), samples are shuffled randomly (Standard CV). If \code{FALSE}, samples are split sequentially (Block CV), recommended for time series.
-\item \strong{Arguments passed to \code{\link{nmfkc}}}: \code{gamma}, \code{epsilon}, \code{maxit}, \code{method}, \code{X.restriction}, \code{X.init}, etc.
+\item{...}{Additional arguments controlling CV and the internal \code{\link{nmfkc}} call:
+\describe{
+\item{\code{Y.weights}}{Optional numeric matrix or vector; 0 indicates missing/ignored values.}
+\item{\code{div}}{Number of folds (\eqn{k}); default: \code{5}.}
+\item{\code{seed}}{Integer seed for reproducible partitioning; default: \code{123}.}
+\item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);
+if \code{FALSE}, splits sequentially (block CV; recommended for time series).}
+\item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{gamma} (\code{B.L1}), \code{epsilon},
+\code{maxit}, \code{method} (\code{"EU"} or \code{"KL"}), \code{X.restriction}, \code{X.init}, etc.}
 }}
 }
 \value{
 A list with components:
-\item{objfunc}{Total objective function value across all folds.}
-\item{objfunc.block}{Objective function values for each fold.}
-\item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
-
-A list with components:
-\item{objfunc}{Total objective function value across all folds.}
-\item{sigma}{Residual standard error (RMSE). Only available if method="EU". Matches the scale of Y and is consistent with \code{nmfkc()} output.}
-\item{objfunc.block}{Objective function values for each fold.}
-\item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
+\describe{
+\item{\code{objfunc}}{Mean loss per valid entry over all folds (MSE for \code{method="EU"}).}
+\item{\code{sigma}}{Residual standard error (RMSE). Available only if \code{method="EU"}; on the same scale as \code{Y}.}
+\item{\code{objfunc.block}}{Loss for each fold.}
+\item{\code{block}}{Vector of fold indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
+}
 }
 \description{
-\code{nmfkc.cv} performs k-fold cross-validation on the model
+\code{nmfkc.cv} performs k-fold cross-validation for the tri-factorization model
 \eqn{Y \approx X C A = X B}, where
 \itemize{
 \item \eqn{Y(P,N)} is the observation matrix,
-\item \eqn{A(R,N)} is the covariate matrix,
-\item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
+\item \eqn{A(R,N)} is the covariate (or kernel) matrix,
+\item \eqn{X(P,Q)} is the basis matrix (with \eqn{Q \le \min(P,N)}),
 \item \eqn{C(Q,R)} is the parameter matrix, and
 \item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
 }
-Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are estimated,
-and the predictive performance is assessed by cross-validation.
-
-\code{nmfkc.cv} performs k-fold cross-validation on the model
-\eqn{Y \approx X C A = X B}, where
-\itemize{
-\item \eqn{Y(P,N)} is the observation matrix,
-\item \eqn{A(R,N)} is the covariate matrix,
-\item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
-\item \eqn{C(Q,R)} is the parameter matrix, and
-\item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
-}
-Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are estimated,
-and the predictive performance is assessed by cross-validation.
+Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are fitted on each
+training split and predictive performance is evaluated on the held-out split.
 }
 \examples{
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
-# Example 1.
-Y <- matrix(cars$dist,nrow=1)
-A <- rbind(1,cars$speed)
-result <- nmfkc.cv(Y,A,Q=1)
-result$objfunc
+# Example 1 (with explicit covariates):
+Y <- matrix(cars$dist, nrow = 1)
+A <- rbind(1, cars$speed)
+res <- nmfkc.cv(Y, A, Q = 1)
+res$objfunc
 
-# Example 2.
-Y <- matrix(cars$dist,nrow=1)
-U <- matrix(c(5,10,15,20,25),nrow=1)
-V <- matrix(cars$speed,nrow=1)
+# Example 2 (kernel A and beta sweep):
+Y <- matrix(cars$dist, nrow = 1)
+U <- matrix(c(5, 10, 15, 20, 25), nrow = 1)
+V <- matrix(cars$speed, nrow = 1)
 betas <- 25:35/1000
-objfuncs <- 0*(1:length(betas))
-for(i in 1:length(betas)){
-  print(i)
-  A <- nmfkc.kernel(U,V,beta=betas[i])
-  result <- nmfkc.cv(Y,A,Q=1,div=10)
-  objfuncs[i] <- result$objfunc
+obj <- numeric(length(betas))
+for (i in seq_along(betas)) {
+  A <- nmfkc.kernel(U, V, beta = betas[i])
+  obj[i] <- nmfkc.cv(Y, A, Q = 1, div = 10)$objfunc
 }
-min(objfuncs)
-(beta.best <- betas[which.min(objfuncs)])
-# objective function by beta
-plot(betas,objfuncs,type="o",log="x")
-table(result$block) # partition block of cv
-# fitted curve
-A <- nmfkc.kernel(U,V,beta=beta.best)
-result <- nmfkc(Y,A,Q=1)
-plot(as.vector(V),as.vector(Y))
-lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
+betas[which.min(obj)]
+
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
-
 \code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
 }

@@ -1,7 +1,12 @@
 .onAttach <- function(...) {
-  packageStartupMessage("Last update on 22 NOV 2025")
+  release_date <- "2025-11-22"  # 固定のリリース日
+  packageStartupMessage(
+    paste("Package: nmfkc (Version", as.character(utils::packageVersion("nmfkc")),
+          ", released on", format(as.Date(release_date), "%d %b %Y"), ")")
+  )
   packageStartupMessage("https://github.com/ksatohds/nmfkc")
 }
+
 
 
 #' @title Construct observation and covariate matrices for a vector autoregressive model
@@ -40,7 +45,7 @@
 #' res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-6)
 #' res$r.squared
 #' # coefficients
-#' print.table(round(res$C,2),zero.print="")
+#' print(round(res$C,2))
 #' # fitted curve
 #' plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
 #' lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
@@ -121,270 +126,459 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
 }
 
 
-#' @title Generate DOT language scripts for vector autoregressive models
-#' @description
-#' \code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
-#' vector autoregressive models fitted using \code{nmfkc}.
-#'
-#' @param x The return value of \code{nmfkc} for a vector autoregressive model.
-#' @param degree The maximum lag order to visualize. Default is 1.
-#' @param intercept Logical. If TRUE, an intercept node is added. Default is FALSE.
-#' @param digits Integer. Number of decimal places to display in edge labels.
-#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
-#' @param rankdir Graph layout direction in DOT language. Default is "RL". Other options include "LR", "TB", and "BT".
-#'
-#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
-#' @export
 
-#' @title Generate DOT language scripts for vector autoregressive models
-#' @description
-#' \code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
-#' vector autoregressive models fitted using \code{nmfkc}.
-#'
-#' @param x The return value of \code{nmfkc} for a vector autoregressive model.
-#' @param degree The maximum lag order to visualize. Default is 1.
-#' @param intercept Logical. If TRUE, an intercept node is added. Default is FALSE.
-#' @param digits Integer. Number of decimal places to display in edge labels.
-#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
-#' @param rankdir Graph layout direction in DOT language. Default is "RL". Other options include "LR", "TB", and "BT".
-#'
-#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
-#' @export
+nmfkc.ar.DOT <- function(x, degree = 1, intercept = FALSE,
+                         digits = 1, threshold = 10^(-digits), rankdir = "RL") {
+  X <- x$X
+  C_raw <- x$C
+  if (is.null(X) || is.null(C_raw)) stop("x must contain X and C.")
 
-nmfkc.ar.DOT <- function(x,degree=1,intercept=FALSE,digits=1,threshold=10^(-digits),rankdir="RL"){
-  X <- x$X; C <- round(x$C,digits); D <- min(ncol(C),degree)
+  # Round C for display purposes only
+  C <- round(C_raw, digits)
 
-  # --- MODIFIED: Sanitize Names for DOT Node IDs ---
-  # Replace spaces, hyphens, and other non-alphanumeric chars (except .) with '_'
-  # The original gsub('.', '', fixed=T) for dot removal is kept, but expanded.
-  sanitize_dot_id <- function(names) {
-    names <- gsub("[^[:alnum:]_.]", "_", names, perl=TRUE)
-    return(names)
-  }
+  # --- Sanitize Node IDs and Separate Display Labels ---
+  sanitize_dot_id <- function(nm) gsub("[^[:alnum:]_.]", "_", nm, perl = TRUE)
 
-  # Sanitize names for use as internal DOT Node IDs
-  X_names <- sanitize_dot_id(colnames(X))
-  Y_names <- sanitize_dot_id(rownames(X))
-  C_col_names <- sanitize_dot_id(colnames(C))
+  # Assign default names if missing
+  if (is.null(rownames(X))) rownames(X) <- paste0("Y", seq_len(nrow(X)))
+  if (is.null(colnames(X))) colnames(X) <- paste0("X", seq_len(ncol(X)))
+  if (is.null(colnames(C))) colnames(C) <- colnames(C_raw) <- paste0("A_", seq_len(ncol(C)))
 
-  # Original label processing for display purposes
-  rownames(X) <- gsub(".","",rownames(X),fixed=T)
-  colnames(X) <- gsub(".","",colnames(X),fixed=T)
-  rownames(C) <- gsub(".","",rownames(C),fixed=T)
-  colnames(C) <- gsub(".","",colnames(C),fixed=T)
-  # ---------------------------------------------------
+  # Safe Node IDs
+  X_ids <- sanitize_dot_id(colnames(X))
+  Y_ids <- sanitize_dot_id(rownames(X))
+  C_ids <- sanitize_dot_id(colnames(C))
 
-  Alabels <- unique(gsub("_([0-9]+)","",colnames(C),fixed=F))
-  index <-match("(Intercept)", Alabels)
-  if(!is.na(index)) Alabels <- Alabels[-index]
+  # Display Labels (for human readability)
+  X_lab <- colnames(X)
+  Y_lab <- rownames(X)
+  C_lab <- colnames(C_raw)
 
-  # --- 1. Graph Initialization ---
-  scr <- paste0('digraph XCA {graph [rankdir=',rankdir,' compound=true]; \n')
+  # --- Determine number of lags D accurately (considering intercept column) ---
+  base_from_name <- function(nm) sub("_([0-9]+)$", "", nm)
+  has_intercept_col <- any(C_lab == "(Intercept)")
+  A_labels_raw <- unique(base_from_name(C_lab))
+  A_labels_raw <- setdiff(A_labels_raw, "(Intercept)")
+  A_per_lag <- length(A_labels_raw)
+  if (A_per_lag == 0) stop("Could not identify covariate base names in C columns.")
 
-  # --- 2. Y Nodes (Observation/Output) ---
+  total_cols <- ncol(C)
+  total_cols_no_int <- if (has_intercept_col) total_cols - 1L else total_cols
+  Dmax <- floor(total_cols_no_int / A_per_lag)
+  if (Dmax < 1) stop("Inconsistent C: not enough columns to form at least one lag block.")
+  D <- min(Dmax, as.integer(degree))
+
+  # --- Initialize Graph ---
+  scr <- paste0('digraph XCA {graph [rankdir=', rankdir, ' compound=true]; \n')
+
+  # --- Define Y Nodes (Output) ---
   st <- 'subgraph cluster_Y{label="T" style="rounded"; \n'
-  for(j in 1:nrow(X)){
-    # Use sanitized Y_names as Node ID, and original rownames(X) as display label
-    st <- paste0(st,sprintf('  %s [label="%s", shape=box]; \n',
-                            Y_names[j],            # Safe Node ID
-                            rownames(X)[j]))        # Display Label
+  for (i in seq_len(nrow(X))) {
+    st <- paste0(st, sprintf('  %s [label="%s", shape=box]; \n', Y_ids[i], Y_lab[i]))
   }
-  st <- paste0(st,'}; \n'); scr <- paste0(scr,st)
+  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
 
-  # --- 3. X Nodes (Latent Variables) ---
+  # --- Define X Nodes (Latent Variables) ---
   st <- 'subgraph cluster_X{label="Latent Variables" style="rounded"; \n'
-  for(j in 1:ncol(X)){
-    # Use sanitized X_names as Node ID, and original colnames(X) as display label
-    st <- paste0(st,sprintf('  %s [label="%s", shape=ellipse]; \n',
-                            X_names[j],            # Safe Node ID
-                            colnames(X)[j]))        # Display Label
+  for (j in seq_len(ncol(X))) {
+    st <- paste0(st, sprintf('  %s [label="%s", shape=ellipse]; \n', X_ids[j], X_lab[j]))
   }
-  st <- paste0(st,'}; \n'); scr <- paste0(scr,st)
+  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
 
-  # --- 4. Edge: X to Y ---
-  for(i in 1:nrow(X))for(j in 1:ncol(X)){
-    if(X[i,j]>=threshold){
-      # Use sanitized IDs for edges
-      st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"]; \n'),
-                    X_names[j],Y_names[i],X[i,j]); scr <- paste0(scr,st)}
-  }
-
-  # --- 5. Intercept ---
-  if(intercept==TRUE){
-    for(i in 1:ncol(X))
-      if(C[i,ncol(C)]>=threshold){
-        # Use sanitized X_names for target node
-        st <- sprintf(paste0('Const%d [shape=circle label="%.',digits,'f"]; '),i,C[i,ncol(C)])
-        st <- paste0(st,sprintf(paste0('Const%d -> %s; \n'),i,X_names[i])) # Safe Node ID
-        scr <- paste0(scr,st)
+  # --- Draw Edges: X → Y ---
+  for (i in seq_len(nrow(X))) {
+    for (j in seq_len(ncol(X))) {
+      val <- X[i, j]
+      if (is.finite(val) && val >= threshold) {
+        st <- sprintf(paste0('%s -> %s [label="%.', digits, 'f"]; \n'), X_ids[j], Y_ids[i], val)
+        scr <- paste0(scr, st)
       }
+    }
   }
 
-  # --- 6. Edge: T-k to X (Covariates) ---
-  klist <- NULL; ktoplist <- NULL
-  for(k in 1:D){
-    Ck <- C[,(k-1)*length(Alabels)+1:length(Alabels)]
-    if(is.matrix(Ck)==FALSE){
-      Ck <- matrix(Ck,nrow=1)
-      colnames(Ck) <- C_col_names[k] # Use sanitized name
-      rownames(Ck) <- X_names[1]      # Use sanitized name
+  # --- Add Intercept Nodes (optional) ---
+  if (isTRUE(intercept) && has_intercept_col) {
+    last_col <- ncol(C)
+    for (i in seq_len(ncol(X))) {
+      val <- C[i, last_col]
+      if (is.finite(val) && val >= threshold) {
+        st <- sprintf(paste0('Const%d [shape=circle label="%.', digits, 'f"]; '), i, val)
+        st <- paste0(st, sprintf('Const%d -> %s; \n', i, X_ids[i]))
+        scr <- paste0(scr, st)
+      }
     }
-    if(max(Ck)>=threshold){
-      klist <- c(klist,k)
-      st <- sprintf('subgraph cluster_C%d{label="T-%d" style="rounded"; \n',k,k)
-      ktop <- NULL
-      for(j in 1:ncol(Ck)){
-        if(max(Ck[,j])>=threshold){
-          if(is.null(ktop)==TRUE){
-            ktop <- j
-            ktoplist <- c(ktoplist,ktop)
-          }
-          # Extract display label and sanitize Node ID
-          alabel <- gsub("_([0-9]+)","",colnames(C)[j],fixed=F)
-          node_id <- C_col_names[(k-1)*length(Alabels)+j] # Safe Node ID
+  }
 
-          # QUOTE LABEL: Protect A label in DOT
-          st <- paste0(st,sprintf('  %s [label="%s",shape=box]; \n',
-                                  node_id,         # Safe Node ID
-                                  alabel))          # Display Label
+  # --- Draw Edges: T−k → X for each lag block ---
+  klist <- integer(0); ktoplist <- integer(0)
+  for (k in seq_len(D)) {
+    start <- (k - 1L) * A_per_lag
+    cols <- (start + 1L):(start + A_per_lag)  # Fixed range calculation
+
+    Ck <- C[, cols, drop = FALSE]
+    Ck_ids <- C_ids[cols]
+    Ck_lab <- base_from_name(C_lab[cols])
+
+    if (max(Ck, na.rm = TRUE) >= threshold) {
+      klist <- c(klist, k)
+      st <- sprintf('subgraph cluster_C%d{label="T-%d" style="rounded"; \n', k, k)
+      ktop <- NA_integer_
+
+      for (j in seq_len(ncol(Ck))) {
+        if (max(Ck[, j], na.rm = TRUE) >= threshold) {
+          if (is.na(ktop)) {
+            ktop <- j
+            ktoplist <- c(ktoplist, ktop)
+          }
+          # Node ID (safe) vs Label (display)
+          st <- paste0(st, sprintf('  %s [label="%s", shape=box]; \n', Ck_ids[j], Ck_lab[j]))
         }
       }
-      st <- paste0(st,"}; \n");scr <- paste0(scr,st)
+      st <- paste0(st, "}; \n"); scr <- paste0(scr, st)
     }
-    for(i in 1:nrow(Ck))for(j in 1:ncol(Ck)){
-      if(Ck[i,j]>=threshold){
-        # Use sanitized IDs for edges
-        st <- sprintf(paste0('%s -> %s [label="%.',digits,'f"]; \n'),
-                      C_col_names[(k-1)*length(Alabels)+j], X_names[i], Ck[i,j]) # Safe IDs
-        scr <- paste0(scr,st)
+
+    # Draw edges from each covariate node to corresponding X node
+    for (i in seq_len(nrow(Ck))) for (j in seq_len(ncol(Ck))) {
+      val <- Ck[i, j]
+      if (is.finite(val) && val >= threshold) {
+        st <- sprintf(paste0('%s -> %s [label="%.', digits, 'f"]; \n'),
+                      Ck_ids[j], X_ids[i], val)
+        scr <- paste0(scr, st)
       }
     }
   }
 
-  # --- 7. Invisible Edges for Cluster Ordering ---
-  if(length(klist)>=2){
-    for(k in 2:length(klist)){
-      # Note: This block uses the original, unsanitized Alabels for label consistency,
-      # but should use sanitized IDs for the nodes themselves.
-      # Since Alabels are derived from sanitized names previously, we rely on the node IDs being safe.
-
-      # We use the sanitized C_col_names for the actual node IDs:
-      start_node_id <- C_col_names[(klist[k]-1)*length(Alabels)+ktoplist[k]]
-      end_node_id <- C_col_names[(klist[k-1]-1)*length(Alabels)+ktoplist[k-1]]
-
+  # --- Add Invisible Edges for Cluster Ordering ---
+  if (length(klist) >= 2) {
+    for (t in 2:length(klist)) {
+      start_id <- C_ids[(klist[t] - 1L) * A_per_lag + ktoplist[t]]
+      end_id   <- C_ids[(klist[t - 1L] - 1L) * A_per_lag + ktoplist[t - 1L]]
       st <- sprintf('%s -> %s [ltail=cluster_C%d lhead=cluster_C%d style=invis]; \n',
-                    start_node_id, end_node_id, # Safe Node IDs
-                    klist[k], klist[k-1])
-      scr <- paste0(scr,st)
+                    start_id, end_id, klist[t], klist[t - 1L])
+      scr <- paste0(scr, st)
     }
   }
 
-  scr <- paste0(scr,"} \n")
+  scr <- paste0(scr, "}\n")
   return(scr)
 }
 
 
+#' @title Generate DOT language scripts for vector autoregressive models
+#' @description
+#' \code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
+#' vector autoregressive models fitted using \code{nmfkc}.
+#'
+#' @param x The return value of \code{nmfkc} for a vector autoregressive model.
+#' @param degree The maximum lag order to visualize. Default is 1.
+#' @param intercept Logical. If TRUE, an intercept node is added. Default is FALSE.
+#' @param digits Integer. Number of decimal places to display in edge labels.
+#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
+#' @param rankdir Graph layout direction in DOT language. Default is "RL". Other options include "LR", "TB", and "BT".
+#'
+#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+#' @export
+
+nmfkc.ar.DOT <- function(x, degree = 1, intercept = FALSE,
+                         digits = 1, threshold = 10^(-digits), rankdir = "RL") {
+  X <- x$X
+  C_raw <- x$C
+  if (is.null(X) || is.null(C_raw)) stop("x must contain X and C.")
+
+  # Round C for display purposes only
+  C <- round(C_raw, digits)
+
+  # --- Sanitize Node IDs and Separate Display Labels ---
+  sanitize_dot_id <- function(nm) gsub("[^[:alnum:]_.]", "_", nm, perl = TRUE)
+
+  # Assign default names if missing
+  if (is.null(rownames(X))) rownames(X) <- paste0("Y", seq_len(nrow(X)))
+  if (is.null(colnames(X))) colnames(X) <- paste0("X", seq_len(ncol(X)))
+  if (is.null(colnames(C))) colnames(C) <- colnames(C_raw) <- paste0("A_", seq_len(ncol(C)))
+
+  # Safe Node IDs
+  X_ids <- sanitize_dot_id(colnames(X))
+  Y_ids <- sanitize_dot_id(rownames(X))
+  C_ids <- sanitize_dot_id(colnames(C))
+
+  # Display Labels (for human readability)
+  X_lab <- colnames(X)
+  Y_lab <- rownames(X)
+  C_lab <- colnames(C_raw)
+
+  # --- Determine number of lags D accurately (considering intercept column) ---
+  base_from_name <- function(nm) sub("_([0-9]+)$", "", nm)
+  has_intercept_col <- any(C_lab == "(Intercept)")
+  A_labels_raw <- unique(base_from_name(C_lab))
+  A_labels_raw <- setdiff(A_labels_raw, "(Intercept)")
+  A_per_lag <- length(A_labels_raw)
+  if (A_per_lag == 0) stop("Could not identify covariate base names in C columns.")
+
+  total_cols <- ncol(C)
+  total_cols_no_int <- if (has_intercept_col) total_cols - 1L else total_cols
+  Dmax <- floor(total_cols_no_int / A_per_lag)
+  if (Dmax < 1) stop("Inconsistent C: not enough columns to form at least one lag block.")
+  D <- min(Dmax, as.integer(degree))
+
+  # --- Initialize Graph ---
+  scr <- paste0('digraph XCA {graph [rankdir=', rankdir, ' compound=true]; \n')
+
+  # --- Define Y Nodes (Output) ---
+  st <- 'subgraph cluster_Y{label="T" style="rounded"; \n'
+  for (i in seq_len(nrow(X))) {
+    st <- paste0(st, sprintf('  %s [label="%s", shape=box]; \n', Y_ids[i], Y_lab[i]))
+  }
+  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
+  # --- Define X Nodes (Latent Variables) ---
+  st <- 'subgraph cluster_X{label="Latent Variables" style="rounded"; \n'
+  for (j in seq_len(ncol(X))) {
+    st <- paste0(st, sprintf('  %s [label="%s", shape=ellipse]; \n', X_ids[j], X_lab[j]))
+  }
+  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
+  # --- Draw Edges: X → Y ---
+  for (i in seq_len(nrow(X))) {
+    for (j in seq_len(ncol(X))) {
+      val <- X[i, j]
+      if (is.finite(val) && val >= threshold) {
+        st <- sprintf(paste0('%s -> %s [label="%.', digits, 'f"]; \n'), X_ids[j], Y_ids[i], val)
+        scr <- paste0(scr, st)
+      }
+    }
+  }
+
+  # --- Add Intercept Nodes (optional) ---
+  if (isTRUE(intercept) && has_intercept_col) {
+    last_col <- ncol(C)
+    for (i in seq_len(ncol(X))) {
+      val <- C[i, last_col]
+      if (is.finite(val) && val >= threshold) {
+        st <- sprintf(paste0('Const%d [shape=circle label="%.', digits, 'f"]; '), i, val)
+        st <- paste0(st, sprintf('Const%d -> %s; \n', i, X_ids[i]))
+        scr <- paste0(scr, st)
+      }
+    }
+  }
+
+  # --- Draw Edges: T−k → X for each lag block ---
+  klist <- integer(0); ktoplist <- integer(0)
+  for (k in seq_len(D)) {
+    start <- (k - 1L) * A_per_lag
+    cols <- (start + 1L):(start + A_per_lag)  # Fixed range calculation
+
+    Ck <- C[, cols, drop = FALSE]
+    Ck_ids <- C_ids[cols]
+    Ck_lab <- base_from_name(C_lab[cols])
+
+    if (max(Ck, na.rm = TRUE) >= threshold) {
+      klist <- c(klist, k)
+      st <- sprintf('subgraph cluster_C%d{label="T-%d" style="rounded"; \n', k, k)
+      ktop <- NA_integer_
+
+      for (j in seq_len(ncol(Ck))) {
+        if (max(Ck[, j], na.rm = TRUE) >= threshold) {
+          if (is.na(ktop)) {
+            ktop <- j
+            ktoplist <- c(ktoplist, ktop)
+          }
+          # Node ID (safe) vs Label (display)
+          st <- paste0(st, sprintf('  %s [label="%s", shape=box]; \n', Ck_ids[j], Ck_lab[j]))
+        }
+      }
+      st <- paste0(st, "}; \n"); scr <- paste0(scr, st)
+    }
+
+    # Draw edges from each covariate node to corresponding X node
+    for (i in seq_len(nrow(Ck))) for (j in seq_len(ncol(Ck))) {
+      val <- Ck[i, j]
+      if (is.finite(val) && val >= threshold) {
+        st <- sprintf(paste0('%s -> %s [label="%.', digits, 'f"]; \n'),
+                      Ck_ids[j], X_ids[i], val)
+        scr <- paste0(scr, st)
+      }
+    }
+  }
+
+  # --- Add Invisible Edges for Cluster Ordering ---
+  if (length(klist) >= 2) {
+    for (t in 2:length(klist)) {
+      start_id <- C_ids[(klist[t] - 1L) * A_per_lag + ktoplist[t]]
+      end_id   <- C_ids[(klist[t - 1L] - 1L) * A_per_lag + ktoplist[t - 1L]]
+      st <- sprintf('%s -> %s [ltail=cluster_C%d lhead=cluster_C%d style=invis]; \n',
+                    start_id, end_id, klist[t], klist[t - 1L])
+      scr <- paste0(scr, st)
+    }
+  }
+
+  scr <- paste0(scr, "}\n")
+  return(scr)
+}
+
+
+
+
+
+
 #' @title Forecast future values for NMF-VAR model
 #' @description
-#' \code{nmfkc.ar.predict} computes multi-step ahead forecasts for a fitted NMF-VAR model
-#' using recursive forecasting strategies.
+#' \code{nmfkc.ar.predict} computes multi-step-ahead forecasts for a fitted NMF-VAR model
+#' using recursive forecasting.
 #'
 #' @param x An object of class \code{nmfkc} (the fitted model).
 #' @param Y The historical observation matrix used for fitting (or at least the last \code{degree} columns).
-#' @param degree The lag order (D) used in the model. If \code{NULL} (default), it is automatically inferred from the dimensions of \code{x$X} and \code{x$C}.
-#' @param n.ahead Integer. The number of steps ahead to forecast.
+#' @param degree Optional integer. Lag order (D). If \code{NULL} (default), it is inferred
+#'   from \code{x$A.attr} (when available) or from the dimensions of \code{x$C}.
+#' @param n.ahead Integer (>=1). Number of steps ahead to forecast.
 #'
-#' @return A list containing:
-#' \item{pred}{A matrix of predicted values with \code{n.ahead} columns.}
-#' \item{time}{A numeric vector of future time points, if \code{colnames(Y)} are numeric time values and are equally spaced. Otherwise \code{NULL}.}
+#' @return A list with components:
+#' \item{pred}{A \eqn{P \times n.ahead} matrix of predicted values.}
+#' \item{time}{A numeric vector of future time points if \code{colnames(Y)} are numeric
+#'   and (approximately) equally spaced; otherwise \code{NULL}.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
 #' @export
-#'
-nmfkc.ar.predict <- function(x, Y, degree=NULL, n.ahead=1){
-if(!is.matrix(Y)) Y <- as.matrix(Y)
-if (!inherits(x, "nmfkc")) {
-  stop("Argument 'x' must be an object of class 'nmfkc'.")
-}
-C <- x$C
-P <- nrow(Y)
+nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
+  # --- Basic checks ---
+  if (!inherits(x, "nmfkc")) stop("Argument 'x' must be an object of class 'nmfkc'.")
+  if (is.vector(Y)) Y <- matrix(Y, nrow = 1)
+  if (!is.matrix(Y)) Y <- as.matrix(Y)
+  if (!is.numeric(Y)) stop("'Y' must be numeric.")
+  if (length(n.ahead) != 1 || !is.finite(n.ahead) || n.ahead < 1) {
+    stop("'n.ahead' must be a positive integer.")
+  }
+  n.ahead <- as.integer(n.ahead)
 
-# [Logic 1: Degree & Intercept Detection] (Omitted for brevity, assuming standard logic works)
-A.attributes <- x$A.attr
-is_metadata_available <- !is.null(A.attributes) && !is.null(A.attributes$function.name) && A.attributes$function.name == "nmfkc.ar"
+  # Fit objects & dims
+  Xfit <- x$X
+  Cfit <- x$C
+  if (is.null(Xfit) || is.null(Cfit)) stop("The fitted object 'x' must contain 'X' and 'C'.")
+  P_fit <- nrow(Xfit)
+  Q_fit <- ncol(Xfit)
+  R_fit <- ncol(Cfit)
 
-if (is_metadata_available) {
-  degree_final <- A.attributes$degree
-  has_intercept_final <- A.attributes$intercept
-} else {
-  # Fallback/Dimension check logic (omitted details)
-  R <- ncol(C)
-  P_fit <- nrow(x$X)
-  if ((R - 1) %% P_fit == 0 && (R - 1) / P_fit >= 1) {
-    has_intercept_final <- TRUE
-    degree_final <- (R - 1) / P_fit
-  } else if (R %% P_fit == 0 && R / P_fit >= 1) {
-    has_intercept_final <- FALSE
-    degree_final <- R / P_fit
+  P <- nrow(Y)
+  if (P != P_fit) {
+    stop(sprintf("Row dimension mismatch: nrow(Y)=%d but nrow(x$X)=%d.", P, P_fit))
+  }
+
+  # --- Degree & intercept detection ---
+  A.attributes <- x$A.attr
+  has_meta <- !is.null(A.attributes) &&
+    !is.null(A.attributes$`function.name`) &&
+    A.attributes$`function.name` == "nmfkc.ar"
+
+  # 1) user-specified degree has the highest priority
+  if (!is.null(degree)) {
+    if (length(degree) != 1 || !is.finite(degree) || degree < 1) {
+      stop("'degree' must be a positive integer.")
+    }
+    degree_final <- as.integer(degree)
+    # intercept: if metadata available, trust it; otherwise infer by dimension
+    if (has_meta && !is.null(A.attributes$intercept)) {
+      has_intercept_final <- isTRUE(A.attributes$intercept)
+    } else {
+      # Infer from C dimensions: R_fit == P*D (+1 if intercept)
+      if ((R_fit - 1) %% P_fit == 0 && (R_fit - 1) / P_fit >= 1) {
+        # ambiguous if user degree doesn't match dims; check and warn/stop
+        if ((R_fit - 1) / P_fit == degree_final) {
+          has_intercept_final <- TRUE
+        } else if (R_fit %% P_fit == 0 && R_fit / P_fit == degree_final) {
+          has_intercept_final <- FALSE
+        } else {
+          stop(sprintf("Dimension mismatch for supplied degree=%d with C (ncol=%d).", degree_final, R_fit))
+        }
+      } else if (R_fit %% P_fit == 0 && R_fit / P_fit >= 1) {
+        if (R_fit / P_fit == degree_final) {
+          has_intercept_final <- FALSE
+        } else {
+          stop(sprintf("Dimension mismatch for supplied degree=%d with C (ncol=%d).", degree_final, R_fit))
+        }
+      } else {
+        stop("Could not reconcile 'degree' with the dimensions of 'C'.")
+      }
+    }
+  } else if (has_meta) {
+    degree_final <- as.integer(A.attributes$degree)
+    has_intercept_final <- isTRUE(A.attributes$intercept)
   } else {
-    stop("Could not infer lag order and intercept status. Please specify 'degree'.")
-  }
-}
-
-degree <- degree_final
-has_intercept <- has_intercept_final
-
-if(ncol(Y) < degree){
-  stop(paste0("Not enough historical data in Y (", ncol(Y), " columns) for the model's lag degree (", degree, ")."))
-}
-
-# [Logic 3: Forecasting Loop]
-preds <- matrix(0, nrow=P, ncol=n.ahead)
-colnames(preds) <- paste0("t+", 1:n.ahead)
-rownames(preds) <- rownames(Y)
-current_Y <- Y
-
-for(step in 1:n.ahead){
-  a_vec <- numeric(0)
-  for(k in 1:degree){
-    col_idx <- ncol(current_Y) - k + 1
-    a_vec <- c(a_vec, current_Y[, col_idx])
-  }
-  if(has_intercept) a_vec <- c(a_vec, 1)
-  newA <- matrix(a_vec, ncol=1)
-  pred_step <- x$X %*% x$C %*% newA
-  preds[, step] <- pred_step
-  current_Y <- cbind(current_Y, pred_step)
-}
-
-# [Logic 4: Time Inference (Fix for AirPassengers)]
-future_times <- NULL
-if(!is.null(colnames(Y))){
-  times <- suppressWarnings(as.numeric(colnames(Y)))
-
-  if(!any(is.na(times)) && length(times) >= 2){
-    n_check <- min(length(times), 10)
-    recent_times <- utils::tail(times, n_check)
-    diffs <- diff(recent_times)
-
-    # FIX: Use a wider tolerance (0.01 = 1%) for floating point differences
-    #      to handle R's 'round(time(d), 2)' for monthly data (1/12).
-    max_diff <- max(diffs)
-    min_diff <- min(diffs)
-    tolerance <- 0.01 * abs(mean(diffs)) + 1e-8
-
-    if(abs(max_diff - min_diff) < tolerance){
-      dt <- mean(diffs)
-      last_time <- utils::tail(times, 1)
-      future_times <- last_time + (1:n.ahead) * dt
-      colnames(preds) <- future_times
+    # 3) fall back to dimension inference from C
+    if ((R_fit - 1) %% P_fit == 0 && (R_fit - 1) / P_fit >= 1) {
+      has_intercept_final <- TRUE
+      degree_final <- as.integer((R_fit - 1) / P_fit)
+    } else if (R_fit %% P_fit == 0 && R_fit / P_fit >= 1) {
+      has_intercept_final <- FALSE
+      degree_final <- as.integer(R_fit / P_fit)
+    } else {
+      stop("Could not infer lag order and intercept status. Please supply 'degree'.")
     }
   }
+
+  # --- Data sufficiency check ---
+  if (ncol(Y) < degree_final) {
+    stop(sprintf("Not enough historical data in Y (%d columns) for degree=%d.", ncol(Y), degree_final))
+  }
+
+  # --- Forecast loop ---
+  preds <- matrix(0, nrow = P, ncol = n.ahead)
+  rownames(preds) <- rownames(Y)
+  colnames(preds) <- paste0("t+", seq_len(n.ahead))
+
+  current_Y <- Y
+  # Expected length of newA
+  expected_R <- P_fit * degree_final + if (has_intercept_final) 1L else 0L
+  if (expected_R != R_fit) {
+    stop(sprintf("Internal check failed: expected R=%d (from degree/intercept) but ncol(C)=%d.", expected_R, R_fit))
+  }
+
+  for (step in seq_len(n.ahead)) {
+    # Build lag vector: [Y_t-1; Y_t-2; ...; Y_t-degree] stacked by rows (P each)
+    a_vec <- numeric(P * degree_final + if (has_intercept_final) 1L else 0L)
+    pos <- 0L
+    for (k in 1:degree_final) {
+      col_idx <- ncol(current_Y) - k + 1L
+      yk <- current_Y[, col_idx, drop = FALSE]
+      a_vec[(pos + 1L):(pos + P)] <- as.numeric(yk)
+      pos <- pos + P
+    }
+    if (has_intercept_final) a_vec[length(a_vec)] <- 1
+
+    # Safety check for newA length
+    if (length(a_vec) != R_fit) {
+      stop(sprintf("Length of constructed lag vector (%d) != ncol(C) (%d).", length(a_vec), R_fit))
+    }
+
+    newA <- matrix(a_vec, ncol = 1)
+    pred_step <- Xfit %*% (Cfit %*% newA)  # (P x Q) %*% (Q x R) %*% (R x 1) = (P x 1)
+    preds[, step] <- as.numeric(pred_step)
+    current_Y <- cbind(current_Y, pred_step)
+  }
+
+  # --- Time inference (numeric & almost-equally spaced colnames) ---
+  future_times <- NULL
+  if (!is.null(colnames(Y))) {
+    times <- suppressWarnings(as.numeric(colnames(Y)))
+    if (!any(is.na(times)) && length(times) >= 2) {
+      n_check <- min(length(times), 10L)
+      recent_times <- utils::tail(times, n_check)
+      diffs <- diff(recent_times)
+      if (length(diffs) > 0) {
+        tol <- 0.01 * abs(mean(diffs)) + 1e-8  # ~1% tolerance
+        if (max(diffs) - min(diffs) < tol) {
+          dt <- mean(diffs)
+          last_time <- utils::tail(times, 1)
+          future_times <- last_time + seq_len(n.ahead) * dt
+          colnames(preds) <- future_times
+        }
+      }
+    }
+  }
+
+  return(list(pred = preds, time = future_times))
 }
 
-return(list(pred = preds, time = future_times))
-}
+
+
 
 
 
@@ -449,7 +643,7 @@ nmfkc.ar.degree.cv <- function(Y,Q=1,degree=1:2,intercept=T,plot=TRUE,...){
       result.cv <- suppressMessages(do.call("nmfkc.cv", all_args))
 
       # 4. Record successful results
-      objfuncs[i] <- result.cv$objfunc/ncol(a$Y)
+      objfuncs[i] <- result.cv$objfunc
       success_status[i] <- TRUE
 
       # 5. Log processing time
@@ -520,7 +714,6 @@ nmfkc.ar.stationarity <- function(x){
   total_cols <- ncol(Theta)
   has_intercept <- (total_cols - 1) %% P == 0
   D <- if (has_intercept) (total_cols - 1) %/% P else total_cols %/% P
-  message(paste0("P=",P,",Q=",Q,",D=",D,",intercept=",ifelse(has_intercept,"T","F")))
   Theta_lags <- if (has_intercept) Theta[, 1:(total_cols - 1), drop = FALSE] else Theta
   Xi_list <- lapply(1:D, function(d){
     cols <- ((d - 1) * P + 1):(d * P)
@@ -629,7 +822,7 @@ nmfkc.kernel <- function(U, V = NULL,
   # These attributes allow nmfkc to identify the kernel type and parameters used.
   attr(K, "params") <- effective_param
   attr(K, "kernel") <- kernel
-  attr(K, "function") <- "nmfkc.kernel"
+  attr(K, "function.name") <- "nmfkc.kernel"
   # ------------------------------------------------------
 
   return(K)
@@ -1074,6 +1267,17 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 #' @title Optimize NMF with kernel covariates (Full Support for Missing Values)
 #' @description
 #' \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
@@ -1234,7 +1438,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
       Y[is.na(Y)] <- 0
       if(print.dims) message("Notice: Missing values (NA) in Y were treated as weights=0.")
     } else {
-      Y.weights <- 1
+      Y.weights <- matrix(1, nrow = nrow(Y), ncol = ncol(Y))
     }
   } else {
     if (!is.matrix(Y.weights)) Y.weights <- as.matrix(Y.weights)
@@ -1313,6 +1517,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   }
   X <- xnorm(X)
 
+  # [FIX: Initialization of tX]
+  # Initialize tX here so it exists even if the X update loop is skipped (e.g., scalar X)
+  tX <- t(X)
+
   if(is.null(A)) C <- matrix(1,nrow=ncol(X),ncol=ncol(Y)) else C <- matrix(1,nrow=ncol(X),ncol=nrow(A))
   hasA <- !is.null(A)
 
@@ -1342,16 +1550,17 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         }
         X <- X * (num_X / (den_X + .eps))
         X <- xnorm(X)
+        tX <- t(X)
       }
       if(is.null(A)) {
-        num_C <- t(X) %*% (Y.weights * Y)
-        den_C <- t(X) %*% (Y.weights * XB)
+        num_C <- tX %*% (Y.weights * Y)
+        den_C <- tX %*% (Y.weights * XB)
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QN
         if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
-        num_C <- t(X) %*% (Y.weights * Y) %*% At
-        den_C <- t(X) %*% (Y.weights * XB) %*% At
+        num_C <- tX %*% (Y.weights * Y) %*% At
+        den_C <- tX %*% (Y.weights * XB) %*% At
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * matrix(1, nrow=Q, ncol=nrow(A))
         if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN_At
         C <- C * (num_C / (den_C + .eps))
@@ -1370,18 +1579,19 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         }
         X <- X * (num_X / (den_X + .eps))
         X <- xnorm(X)
+        tX <- t(X)
       }
       if(is.null(A)) {
         ratio <- Y.weights * (Y / (XB + .eps))
-        num_C <- t(X) %*% ratio
-        den_C <- t(X) %*% Y.weights
+        num_C <- tX %*% ratio
+        den_C <- tX %*% Y.weights
         if (C.L1 != 0) den_C <- den_C + C.L1 * ones_QN
         if (B.L1 != 0) den_C <- den_C + B.L1 * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
         ratio <- Y.weights * (Y / (XB + .eps))
-        num_C <- t(X) %*% ratio %*% At
-        den_C <- t(X) %*% Y.weights %*% At
+        num_C <- tX %*% ratio %*% At
+        den_C <- tX %*% Y.weights %*% At
         if (C.L1 != 0) den_C <- den_C + C.L1 * matrix(1, nrow=Q, ncol=nrow(A))
         if (B.L1 != 0) den_C <- den_C + B.L1 * ones_QN_At
         C <- C * (num_C / (den_C + .eps))
@@ -1400,7 +1610,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     objfunc.iter[i] <- obj
 
     if(i>=10){
-      epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
+      #epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
+      epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1]) / pmax(abs(objfunc.iter[i]), 1)
       if(epsilon.iter <= abs(epsilon)){ i_end <- i; break }
     }
   }
@@ -1434,13 +1645,24 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   if(X.restriction=="fixed") nparam.X <- 0 else if(X.restriction=="totalSum") nparam.X <- prod(dim(X)) - 1 else nparam.X <- (nrow(X)-1)*ncol(X)
   if(is.null(A)) nparam <- nparam.X + prod(dim(B)) else nparam <- nparam.X + prod(dim(C))
 
-  if(method=="EU"){
+  # Bai, J., & Ng, S. (2002). Determining the number of factors in approximate factor models. Econometrica, 70(1), 191-221.
+  if (method == "EU") {
     sigma2 <- objfunc / N_obs
-    ICp <- log(objfunc/N_obs) + nparam * log(N_obs)
-    AIC <- N_obs * log(sigma2) + 2*nparam
+    P <- nrow(Y)
+    T <- ncol(Y)
+    g_icp1 <- (P + T) / (P * T) * log(P * T)
+    g_icp2 <- (P + T) / (P * T) * log(min(P, T))
+    g_icp3 <- log(min(P, T)) / min(P, T)
+    ICp1 <- log(sigma2) + nparam * g_icp1
+    ICp2 <- log(sigma2) + nparam * g_icp2
+    ICp3 <- log(sigma2) + nparam * g_icp3
+    ICp <- min(ICp1, ICp2, ICp3)
+    AIC <- N_obs * log(sigma2) + 2 * nparam
     BIC <- N_obs * log(sigma2) + nparam * log(N_obs)
-  }else{
-    ICp <- NA; AIC <- 2*objfunc + 2*nparam; BIC <- 2*objfunc + nparam*log(N_obs)
+  } else {
+    ICp <- NA;ICp1 <- NA;ICp2 <-NA;ICp3 <- NA;
+    AIC <- NA
+    BIC <- NA
   }
 
   if(save.memory==FALSE){
@@ -1486,18 +1708,53 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   A.attr <- NULL
   if (!is.null(A)) A.attr <- attributes(A)
 
-  result <- list(call=match.call(), dims=dims, runtime=diff.time.st,
-                 X=X, B=B, XB=XB, C=C,
-                 B.prob=B.prob, B.cluster=B.cluster,
-                 X.prob=X.prob, X.cluster=X.cluster,
-                 A.attr=A.attr,
-                 n.missing = n.missing,n.total = n.total,rank = Q,
-                 objfunc=objfunc, objfunc.iter=objfunc.iter, r.squared=r2, sigma=sigma,
-                 criterion=list(B.prob.sd.min=B.prob.sd.min, ICp=ICp, AIC=AIC, BIC=BIC,
-                                silhouette=silhouette, CPCC=CPCC, dist.cor=dist.cor))
+  result <- list(
+    call      = match.call(),
+    dims      = dims,
+    runtime   = diff.time.st,
+    method    = method,              # ← 目的関数を明示
+    X         = X,
+    B         = B,
+    XB        = XB,
+    C         = C,
+    B.prob    = B.prob,
+    B.cluster = B.cluster,
+    X.prob    = X.prob,
+    X.cluster = X.cluster,
+    A.attr    = A.attr,
+    n.missing = n.missing,
+    n.total   = n.total,
+    rank      = Q,
+    objfunc   = objfunc,
+    objfunc.iter = objfunc.iter,
+    r.squared = r2,
+    sigma     = sigma,
+    criterion = list(
+      B.prob.sd.min = B.prob.sd.min,
+      ICp1 = ICp1, ICp2 = ICp2, ICp3 = ICp3, ICp = ICp,
+      AIC  = AIC,  BIC  = BIC,
+      silhouette = silhouette,
+      CPCC       = CPCC,
+      dist.cor   = dist.cor
+    )
+  )
   class(result) <- "nmfkc"
   return(result)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1541,6 +1798,7 @@ summary.nmfkc <- function(object, ...) {
     ans$n.missing <- NULL
   }
 
+  ans$method <- object$method
   ans$iter <- length(object$objfunc.iter)
   ans$objfunc <- object$objfunc
   ans$r.squared <- object$r.squared
@@ -1591,6 +1849,7 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("Dimensions:", x$dims, "\n")
   if(!is.null(x$rank)) cat("Rank (Q):   ", x$rank, "\n")
   cat("Runtime:    ", x$runtime, "\n")
+  if (!is.null(x$method)) cat("Method:     ", x$method, "\n")
   cat("Iterations: ", x$iter, "\n")
 
   if (!is.null(x$n.missing)) {
@@ -1655,7 +1914,7 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
       if(type=="prob"){
         result <- XB.prob
       }else{
-        result <- rownames(x$X)[apply(XB.prob,2,which.max)]
+        result <- colnames(x$X)[apply(XB.prob,2,which.max)]
       }
     }
   }else{
@@ -1668,7 +1927,7 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
       if(type=="prob"){
         result <- XB.prob
       }else{
-        result <- rownames(x$X)[apply(XB.prob,2,which.max)]
+        result <- colnames(x$X)[apply(XB.prob,2,which.max)]
       }
     }
   }
@@ -1843,8 +2102,6 @@ nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(
       }
     }
   } else if (type == "YX") {
-    # 4.1. Define X Nodes (Latent Variables/Basis)
-    st <- paste0('subgraph cluster_X{label="', X.title, '" style="rounded"; \n')
     for (j in 1:Q) {
       st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n',
                                j,                   # Numerical Node ID
@@ -1895,7 +2152,7 @@ nmfkc.class <- function(x){
   X <- outer(lev, x, "==")
   mode(X) <- "numeric"
   rownames(X) <- lev
-  colnames(X) <- NULL
+  if(!is.null(names(x))) colnames(X) <- names(x) else colnames(X) <- 1:length(x)
   X
 }
 
@@ -1960,104 +2217,68 @@ nmfkc.denormalize <- function(x, ref=x) {
 }
 
 
-#' @title Perform k-fold cross-validation for NMF with kernel covariates
-#' @description
-#' \code{nmfkc.cv} performs k-fold cross-validation on the model
-#' \eqn{Y \approx X C A = X B}, where
-#' \itemize{
-#' 	\item \eqn{Y(P,N)} is the observation matrix,
-#' 	\item \eqn{A(R,N)} is the covariate matrix,
-#' 	\item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
-#' 	\item \eqn{C(Q,R)} is the parameter matrix, and
-#' 	\item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
-#' }
-#' Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are estimated,
-#' and the predictive performance is assessed by cross-validation.
-#'
-#' @param Y Observation matrix.
-#' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
-#' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
-#' @param ... Additional arguments passed for controlling cross-validation setup and fine-tuning the internal \code{\link{nmfkc}} calls.
-#'   These include:
-#'   \itemize{
-#'     \item \code{Y.weights}: Optional numeric matrix or vector. 0 indicates missing/ignored values.
-#'     \item \code{div}: Number of folds (\eqn{k}) for cross-validation (default: 5).
-#'     \item \code{seed}: Integer seed for reproducibility of data partitioning (default: 123).
-#'     \item \code{shuffle}: Logical. If \code{TRUE} (default), samples are shuffled randomly (Standard CV). If \code{FALSE}, samples are split sequentially (Block CV), recommended for time series.
-#'     \item **Arguments passed to \code{\link{nmfkc}}**: \code{gamma}, \code{epsilon}, \code{maxit}, \code{method}, \code{X.restriction}, \code{X.init}, etc.
-#'   }
-#'
-#' @return A list with components:
-#' \item{objfunc}{Total objective function value across all folds.}
-#' \item{objfunc.block}{Objective function values for each fold.}
-#' \item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
-#' @export
-#' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
-#' # Example 1.
-#' Y <- matrix(cars$dist,nrow=1)
-#' A <- rbind(1,cars$speed)
-#' result <- nmfkc.cv(Y,A,Q=1)
-#' result$objfunc
-#'
-#' # Example 2.
-#' Y <- matrix(cars$dist,nrow=1)
-#' U <- matrix(c(5,10,15,20,25),nrow=1)
-#' V <- matrix(cars$speed,nrow=1)
-#' betas <- 25:35/1000
-#' objfuncs <- 0*(1:length(betas))
-#' for(i in 1:length(betas)){
-#'   print(i)
-#'   A <- nmfkc.kernel(U,V,beta=betas[i])
-#'   result <- nmfkc.cv(Y,A,Q=1,div=10)
-#'   objfuncs[i] <- result$objfunc
-#' }
-#' min(objfuncs)
-#' (beta.best <- betas[which.min(objfuncs)])
-#' # objective function by beta
-#' plot(betas,objfuncs,type="o",log="x")
-#' table(result$block) # partition block of cv
-#' # fitted curve
-#' A <- nmfkc.kernel(U,V,beta=beta.best)
-#' result <- nmfkc(Y,A,Q=1)
-#' plot(as.vector(V),as.vector(Y))
-#' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
+
 
 #' @title Perform k-fold cross-validation for NMF with kernel covariates
+#'
 #' @description
-#' \code{nmfkc.cv} performs k-fold cross-validation on the model
+#' \code{nmfkc.cv} performs k-fold cross-validation for the tri-factorization model
 #' \eqn{Y \approx X C A = X B}, where
 #' \itemize{
-#' 	\item \eqn{Y(P,N)} is the observation matrix,
-#' 	\item \eqn{A(R,N)} is the covariate matrix,
-#' 	\item \eqn{X(P,Q)} is the basis matrix with \eqn{Q \le \min(P,N)},
-#' 	\item \eqn{C(Q,R)} is the parameter matrix, and
-#' 	\item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
+#'   \item \eqn{Y(P,N)} is the observation matrix,
+#'   \item \eqn{A(R,N)} is the covariate (or kernel) matrix,
+#'   \item \eqn{X(P,Q)} is the basis matrix (with \eqn{Q \le \min(P,N)}),
+#'   \item \eqn{C(Q,R)} is the parameter matrix, and
+#'   \item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
 #' }
-#' Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are estimated,
-#' and the predictive performance is assessed by cross-validation.
+#' Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are fitted on each
+#' training split and predictive performance is evaluated on the held-out split.
 #'
 #' @param Y Observation matrix.
 #' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
 #' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
-#' @param ... Additional arguments passed for controlling cross-validation setup and fine-tuning the internal \code{\link{nmfkc}} calls.
-#'   These include:
-#'   \itemize{
-#'     \item \code{div}: Number of folds (\eqn{k}) for cross-validation (default: 5).
-#'     \item \code{seed}: Integer seed for reproducibility of data partitioning (default: 123).
-#'     \item \code{shuffle}: Logical. If \code{TRUE} (default), samples are shuffled randomly (Standard CV). If \code{FALSE}, samples are split sequentially (Block CV), recommended for time series.
-#'     \item **Arguments passed to \code{\link{nmfkc}}**: \code{gamma}, \code{epsilon}, \code{maxit}, \code{method}, \code{X.restriction}, \code{X.init}, etc.
+#' @param ... Additional arguments controlling CV and the internal \code{\link{nmfkc}} call:
+#'   \describe{
+#'     \item{\code{Y.weights}}{Optional numeric matrix or vector; 0 indicates missing/ignored values.}
+#'     \item{\code{div}}{Number of folds (\eqn{k}); default: \code{5}.}
+#'     \item{\code{seed}}{Integer seed for reproducible partitioning; default: \code{123}.}
+#'     \item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);
+#'       if \code{FALSE}, splits sequentially (block CV; recommended for time series).}
+#'     \item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{gamma} (\code{B.L1}), \code{epsilon},
+#'       \code{maxit}, \code{method} (\code{"EU"} or \code{"KL"}), \code{X.restriction}, \code{X.init}, etc.}
 #'   }
 #'
 #' @return A list with components:
-#' \item{objfunc}{Total objective function value across all folds.}
-#' \item{sigma}{Residual standard error (RMSE). Only available if method="EU". Matches the scale of Y and is consistent with `nmfkc()` output.}
-#' \item{objfunc.block}{Objective function values for each fold.}
-#' \item{block}{Vector of block indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
+#'   \describe{
+#'     \item{\code{objfunc}}{Mean loss per valid entry over all folds (MSE for \code{method="EU"}).}
+#'     \item{\code{sigma}}{Residual standard error (RMSE). Available only if \code{method="EU"}; on the same scale as \code{Y}.}
+#'     \item{\code{objfunc.block}}{Loss for each fold.}
+#'     \item{\code{block}}{Vector of fold indices (1, …, \code{div}) assigned to each column of \eqn{Y}.}
+#'   }
+#'
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.ar.degree.cv}}
+#'
+#' @examples
+#' # Example 1 (with explicit covariates):
+#' Y <- matrix(cars$dist, nrow = 1)
+#' A <- rbind(1, cars$speed)
+#' res <- nmfkc.cv(Y, A, Q = 1)
+#' res$objfunc
+#'
+#' # Example 2 (kernel A and beta sweep):
+#' Y <- matrix(cars$dist, nrow = 1)
+#' U <- matrix(c(5, 10, 15, 20, 25), nrow = 1)
+#' V <- matrix(cars$speed, nrow = 1)
+#' betas <- 25:35/1000
+#' obj <- numeric(length(betas))
+#' for (i in seq_along(betas)) {
+#'   A <- nmfkc.kernel(U, V, beta = betas[i])
+#'   obj[i] <- nmfkc.cv(Y, A, Q = 1, div = 10)$objfunc
+#' }
+#' betas[which.min(obj)]
+#'
 #' @export
+
 nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
   # A small constant for numerical stability to prevent division by zero and log(0).
   .eps <- 1e-10
@@ -2145,7 +2366,8 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
 
       newSum <- sum(C)
       if(l>=10){
-        epsilon.iter <- abs(newSum-oldSum)/(abs(newSum)+0.1)
+        #epsilon.iter <- abs(newSum-oldSum)/(abs(newSum)+0.1)
+        epsilon.iter <- abs(newSum-oldSum) / pmax(abs(newSum), 1)
         if(epsilon.iter <= abs(epsilon)) break
       }
       oldSum <- sum(C)
@@ -2168,7 +2390,7 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
   }else{
     is_identity <- is.identity.matrix(A)
     is_symmetric.matrix <- isSymmetric(A, tol=.Machine$double.eps)
-    A.function <- attr(A, "function")
+    A.function <- attr(A, "function.name")
     is_kernel_matrix <- !is.null(A.function) && A.function == "nmfkc.kernel"
   }
 
@@ -2268,115 +2490,6 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
 }
 
 
-
-
-#' @title Perform Element-wise Cross-Validation (Wold's CV)
-#' @description
-#' \code{nmfkc.ecv} performs k-fold cross-validation by randomly holding out
-#' individual elements of the data matrix (element-wise), assigning them a
-#' weight of 0 via `Y.weights`, and evaluating the reconstruction error on
-#' those held-out elements.
-#'
-#' This method (also known as Wold's CV) is theoretically robust for determining
-#' the optimal rank (Q) in NMF. This function supports vector input for `Q`,
-#' allowing simultaneous evaluation of multiple ranks on the same folds.
-#'
-#' @param Y Observation matrix.
-#' @param A Covariate matrix.
-#' @param Q Vector of ranks to evaluate (e.g., 1:5).
-#' @param div Number of folds (default: 5).
-#' @param seed Integer seed for reproducibility.
-#' @param ... Additional arguments passed to \code{\link{nmfkc}} (e.g., \code{method="EU"}).
-#'
-#' @return A list with components:
-#' \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
-#' \item{sigma}{Numeric vector containing the Residual Standard Error (RMSE) for each Q. Only available if method="EU".}
-#' \item{objfunc.fold}{List of length equal to Q. Each element contains the MSE values for the k folds.}
-#' \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
-#' @export
-nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
-
-  if(!is.matrix(Y)) Y <- as.matrix(Y)
-  P <- nrow(Y)
-  N <- ncol(Y)
-
-  # 1. Create Folds (Shared across all Q for fair comparison)
-  if (!is.null(seed)) set.seed(seed)
-
-  # Indices of observed values (non-NA)
-  valid_indices <- which(!is.na(Y))
-  n_valid <- length(valid_indices)
-
-  perm_indices <- sample(valid_indices)
-  folds <- vector("list", div)
-
-  # Divide indices into chunks
-  chunk_size <- n_valid %/% div
-  remainder <- n_valid %% div
-
-  start_idx <- 1
-  for(k in 1:div){
-    current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-    end_idx <- start_idx + current_size - 1
-    folds[[k]] <- perm_indices[start_idx:end_idx]
-    start_idx <- end_idx + 1
-  }
-
-  # Retrieve method to check if RMSE is appropriate
-  extra_args <- list(...)
-  method <- if(!is.null(extra_args$method)) extra_args$method else "EU"
-
-  # 2. Loop over Q vectors
-  num_Q <- length(Q)
-  result_objfunc <- numeric(num_Q)
-  result_sigma   <- numeric(num_Q)
-  result_fold    <- vector("list", num_Q)
-
-  names(result_objfunc) <- paste0("Q=", Q)
-  names(result_sigma)   <- paste0("Q=", Q)
-  names(result_fold)    <- paste0("Q=", Q)
-
-  message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
-
-  for(i in 1:num_Q){
-    q_curr <- Q[i]
-    # message(paste0("  Evaluating Q=", q_curr, "..."), appendLF = FALSE)
-
-    objfunc.fold <- numeric(div)
-
-    for(k in 1:div){
-      test_idx <- folds[[k]]
-
-      # Create Weights for Training
-      weights_train <- matrix(1, nrow=P, ncol=N)
-      if(any(is.na(Y))) weights_train[is.na(Y)] <- 0
-      weights_train[test_idx] <- 0 # Mask current fold
-
-      # Fit NMF
-      fit <- suppressMessages(nmfkc(Y=Y, A=A, Q=q_curr, Y.weights=weights_train, ...))
-
-      # Evaluate on Test Indices ONLY
-      pred <- fit$XB
-      residuals <- Y[test_idx] - pred[test_idx]
-
-      # MSE Calculation
-      objfunc.fold[k] <- mean(residuals^2)
-    }
-
-    # Store results for this Q
-    result_fold[[i]]  <- objfunc.fold
-    result_objfunc[i] <- mean(objfunc.fold)
-    result_sigma[i]   <- if(method == "EU") sqrt(result_objfunc[i]) else NA
-
-    # message(" Done.")
-  }
-
-  return(list(objfunc = result_objfunc,
-              sigma = result_sigma,
-              objfunc.fold = result_fold,
-              folds = folds))
-}
 
 
 #' @title Perform Element-wise Cross-Validation (Wold's CV)

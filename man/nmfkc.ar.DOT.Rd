@@ -28,18 +28,11 @@ nmfkc.ar.DOT(
 }
 \value{
 A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
-
-A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
 }
 \description{
 \code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
 vector autoregressive models fitted using \code{nmfkc}.
-
-\code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
-vector autoregressive models fitted using \code{nmfkc}.
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
-
 \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
 }

@@ -11,18 +11,20 @@ nmfkc.ar.predict(x, Y, degree = NULL, n.ahead = 1)
 
 \item{Y}{The historical observation matrix used for fitting (or at least the last \code{degree} columns).}
 
-\item{degree}{The lag order (D) used in the model. If \code{NULL} (default), it is automatically inferred from the dimensions of \code{x$X} and \code{x$C}.}
+\item{degree}{Optional integer. Lag order (D). If \code{NULL} (default), it is inferred
+from \code{x$A.attr} (when available) or from the dimensions of \code{x$C}.}
 
-\item{n.ahead}{Integer. The number of steps ahead to forecast.}
+\item{n.ahead}{Integer (>=1). Number of steps ahead to forecast.}
 }
 \value{
-A list containing:
-\item{pred}{A matrix of predicted values with \code{n.ahead} columns.}
-\item{time}{A numeric vector of future time points, if \code{colnames(Y)} are numeric time values and are equally spaced. Otherwise \code{NULL}.}
+A list with components:
+\item{pred}{A \eqn{P \times n.ahead} matrix of predicted values.}
+\item{time}{A numeric vector of future time points if \code{colnames(Y)} are numeric
+and (approximately) equally spaced; otherwise \code{NULL}.}
 }
 \description{
-\code{nmfkc.ar.predict} computes multi-step ahead forecasts for a fitted NMF-VAR model
-using recursive forecasting strategies.
+\code{nmfkc.ar.predict} computes multi-step-ahead forecasts for a fitted NMF-VAR model
+using recursive forecasting.
 }
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}

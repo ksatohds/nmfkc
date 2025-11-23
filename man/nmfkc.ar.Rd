@@ -46,7 +46,7 @@ a <- nmfkc.ar(Y0,degree=D,intercept=TRUE); Y <- a$Y; A <- a$A
 res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-6)
 res$r.squared
 # coefficients
-print.table(round(res$C,2),zero.print="")
+print(round(res$C,2))
 # fitted curve
 plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
 lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)

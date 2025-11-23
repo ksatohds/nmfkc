@@ -5,8 +5,6 @@
 \title{Perform Element-wise Cross-Validation (Wold's CV)}
 \usage{
 nmfkc.ecv(Y, A = NULL, Q = 1:3, div = 5, seed = 123, ...)
-
-nmfkc.ecv(Y, A = NULL, Q = 1:3, div = 5, seed = 123, ...)
 }
 \arguments{
 \item{Y}{Observation matrix.}
@@ -25,12 +23,6 @@ nmfkc.ecv(Y, A = NULL, Q = 1:3, div = 5, seed = 123, ...)
 A list with components:
 \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
 \item{sigma}{Numeric vector containing the Residual Standard Error (RMSE) for each Q. Only available if method="EU".}
-\item{objfunc.fold}{List of length equal to Q. Each element contains the MSE values for the k folds.}
-\item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
-
-A list with components:
-\item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
-\item{sigma}{Numeric vector containing the Residual Standard Error (RMSE) for each Q. Only available if method="EU".}
 \item{objfunc.fold}{List of length equal to Q vector. Each element contains the MSE values for the k folds.}
 \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
 }
@@ -43,18 +35,7 @@ those held-out elements.
 This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for \code{Q},
 allowing simultaneous evaluation of multiple ranks on the same folds.
-
-\code{nmfkc.ecv} performs k-fold cross-validation by randomly holding out
-individual elements of the data matrix (element-wise), assigning them a
-weight of 0 via \code{Y.weights}, and evaluating the reconstruction error on
-those held-out elements.
-
-This method (also known as Wold's CV) is theoretically robust for determining
-the optimal rank (Q) in NMF. This function supports vector input for \code{Q},
-allowing simultaneous evaluation of multiple ranks on the same folds.
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
-
 \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
 }

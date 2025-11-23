@@ -1,4 +1,4 @@
-# nmfkc 0.6.0
+# nmfkc 0.5.5
 * **New Function:** Implemented `nmfkc.ecv()` for Element-wise Cross-Validation (Wold's CV).
   - This function randomly masks elements of the observation matrix to evaluate structural reconstruction error.
   - It provides a statistically robust criterion for rank selection, avoiding the monotonic error decrease often seen in standard column-wise CV.
