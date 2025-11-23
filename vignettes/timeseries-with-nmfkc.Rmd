@@ -81,7 +81,7 @@ Y_air <- a_air$Y
 A_air <- a_air$A
 
 # Fit the NMF-AR model (Rank=1 for univariate)
-res_air <- nmfkc(Y = Y_air, A = A_air, rank = 1, epsilon = 1e-9)
+res_air <- nmfkc(Y = Y_air, A = A_air, rank = 1, epsilon = 1e-9, maxit=500000)
 
 # Check goodness of fit
 res_air$r.squared

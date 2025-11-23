@@ -18,7 +18,7 @@ nmfkc.ar.predict(x, Y, degree = NULL, n.ahead = 1)
 \value{
 A list containing:
 \item{pred}{A matrix of predicted values with \code{n.ahead} columns.}
-\item{time}{A numeric vector of future time points, if \code{colnames(Y)} are numeric time values. Otherwise \code{NULL}.}
+\item{time}{A numeric vector of future time points, if \code{colnames(Y)} are numeric time values and are equally spaced. Otherwise \code{NULL}.}
 }
 \description{
 \code{nmfkc.ar.predict} computes multi-step ahead forecasts for a fitted NMF-VAR model
