@@ -11,32 +11,33 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.width = 6,
-  fig.height = 4
+  fig.width = 7,
+  fig.height = 5
 )
 ```
 
 ## Introduction
 
-Welcome to the `nmfkc` package\! This vignette provides a basic introduction to the core function of the package, `nmfkc()`.
+Welcome to the `nmfkc` package\!
+This vignette provides a beginner-friendly introduction to the core function, `nmfkc()`.
 
-Non-negative Matrix Factorization (NMF) is a method to approximate an observation matrix $Y$ as a product of a basis matrix $X$ and a coefficient matrix $B$:
+**Non-negative Matrix Factorization (NMF)** is a technique that decomposes a large data matrix $Y$ into two smaller matrices, $X$ and $B$:
 $$Y \approx X B$$
-A key feature of NMF is that all matrices must have non-negative elements, making the result parts-based and easily interpretable.
+The key feature of NMF is that all elements must be **non-negative** ($\ge 0$). This makes the results intuitive, as the original data can be understood as an additive combination of parts.
 
-The `nmfkc` package extends this framework by allowing for **covariates** ($Y \approx XCA$) and supporting **missing values**.
+In this guide, we will cover:
 
-This vignette covers:
-
-1.  **Basic NMF**: Decomposing a matrix without covariates.
-2.  **Visualization**: Checking convergence and results.
-3.  **Handling Missing Values**: Demonstrating robustness against `NA`s.
+1.  **Basic NMF**: Extracting latent topics using a Movie Ratings example.
+2.  **Interpretation**: Understanding what the decomposed matrices represent.
+3.  **Missing Values**: How to handle and predict missing data (e.g., for recommendations).
 
 -----
 
-## 1\. A Simple Example (Basic NMF)
+## 1\. Basic Usage: Analyzing Movie Ratings
 
-First, let's load the `nmfkc` package.
+To understand NMF, let's imagine a scenario with **5 Users** rating **4 Movies** on a scale of 1 to 5.
+
+First, load the package.
 
 ```{r load-package}
 library(nmfkc)
@@ -44,97 +45,142 @@ library(nmfkc)
 
 ### Creating the Data
 
-We create a simple observation matrix `Y` ($3 \times 3$) which is a product of a basis matrix `X` ($3 \times 2$) and a coefficient matrix `B` ($2 \times 3$).
+We create a rating matrix `Y`.
+The dataset contains two hidden genres: "Action" (Movies 1 & 2) and "Romance" (Movies 3 & 4).
 
 ```{r create-data}
-# Define the original basis and coefficient matrices
-(X_orig <- cbind(c(1, 0, 1), c(0, 1, 0)))
-(B_orig <- cbind(c(1, 0), c(0, 1), c(1, 1)))
+# Rows: Users (U1-U5), Cols: Movies (M1-M4)
+# U1, U2, U3 prefer Action movies.
+# U4, U5 prefer Romance movies.
+Y <- matrix(
+  c(5, 4, 1, 1,
+    4, 5, 1, 2,
+    5, 5, 2, 2,
+    1, 2, 5, 4,
+    1, 1, 4, 5),
+  nrow = 5, byrow = TRUE
+)
 
-# Create the observation matrix Y
-(Y <- X_orig %*% B_orig)
+# Assign names for better interpretation
+rownames(Y) <- paste0("User", 1:5)
+colnames(Y) <- c("Action1", "Action2", "Romance1", "Romance2")
+
+# Check the data
+print(Y)
 ```
-
-Our goal is to recover the structure of `X` and `B` from `Y`.
 
 ### Running NMF
 
-We use the `nmfkc()` function. We specify the observation matrix `Y` and the desired **rank** (number of bases, formerly `Q`).
+We use the `nmfkc()` function to decompose this matrix.
+Since we assume there are 2 genres (Action and Romance), we set **rank = 2**.
 
 ```{r run-nmfkc}
-# Perform NMF with rank = 2
-res <- nmfkc(Y, rank = 2, epsilon = 1e-6)
+# Run NMF with rank = 2
+res <- nmfkc(Y, rank = 2, seed = 123)
 ```
 
-### Checking the Results
+### Interpretation
 
-We can examine the estimated basis matrix `res$X` and coefficient matrix `res$B`.
+NMF decomposes $Y$ into $X$ (Basis) and $B$ (Coefficient).
+*(Note: The order of bases may vary depending on the random seed. In this example with seed=123, Basis 1 corresponds to Action and Basis 2 to Romance.)*
 
-```{r check-results}
-# Estimated basis matrix
+#### 1\. Basis Matrix X: User Preferences
+
+The matrix $X$ represents **"How much each User likes each Genre (Basis)."**
+
+```{r interpret-X}
+# Each column represents a latent factor (Basis)
 res$X
+```
 
-# Estimated coefficient matrix
+  * **Basis1**: High values for **User1, User2, and User3** (Action fans).
+  * **Basis2**: High values for **User4 and User5** (Romance fans).
+
+#### 2\. Coefficient Matrix B: Movie Genres
+
+The matrix $B$ represents **"Which Genre each Movie belongs to."**
+
+```{r interpret-B}
+# Each row represents a latent factor
 res$B
 ```
 
-The `nmfkc()` function successfully recovered the pattern (note that the order of columns in `X` may differ from the original, which is normal in NMF).
+  * **Basis1**: High weights on **Action1 and Action2**.
+  * **Basis2**: High weights on **Romance1 and Romance2**.
 
-### Visualization
-
-We can plot the result object to see the convergence of the objective function (residual sum of squares).
-
-```{r plot-convergence}
-# Plot optimization history
-plot(res, main = "Convergence of NMF")
-```
-
-We can also visualize the fitted matrix using a heatmap.
-
-```{r plot-heatmap, fig.width=7, fig.height=3}
-# Compare Original Y and Fitted XB
-par(mfrow = c(1, 2))
-image(t(Y)[,nrow(Y):1], main = "Original Y", axes = FALSE, col = hcl.colors(12, "YlOrRd", rev = TRUE))
-image(t(res$XB)[,nrow(res$XB):1], main = "Fitted XB", axes = FALSE, col = hcl.colors(12, "YlOrRd", rev = TRUE))
-```
+As you can see, NMF automatically discovered the hidden structures ("Action" vs "Romance") and user preferences without being explicitly told.
 
 -----
 
-## 2\. Handling Missing Values
+## 2\. Visualization
 
-One of the powerful features of `nmfkc` is its ability to handle missing values (`NA`). The algorithm automatically detects `NA`s and ignores them during optimization (conceptually assigning them a weight of 0).
+`nmfkc` provides tools to visually diagnose your model.
+
+### Convergence Plot
+
+Use the `plot()` function to check if the error minimized properly during iterations.
+
+```{r plot-convergence}
+plot(res, main = "Convergence Plot")
+```
+
+### Visualizing the Reconstruction
+
+The `nmfkc.residual.plot()` function allows you to compare the **Original Matrix ($Y$)**, the **Fitted Matrix ($XB$)**, and the **Residuals ($E$)** side-by-side.
+
+```{r plot-residual, fig.width=9, fig.height=4}
+# Visualize Original vs Fitted vs Residuals
+nmfkc.residual.plot(Y, res)
+```
+
+The middle plot (Fitted Matrix) successfully captures the block structure of the original data.
+
+-----
+
+## 3\. Handling Missing Values (Imputation)
+
+A powerful feature of `nmfkc` is its robustness to **Missing Values (`NA`)**. This is useful for tasks like **Recommendation Systems**, where you want to predict how a user would rate a movie they haven't seen yet.
 
 ### Creating Data with Missing Values
 
-Let's introduce a missing value into our matrix `Y`.
+Let's assume **User1** has not seen **Action1** yet. We set this value to `NA`.
 
-```{r create-na-data}
+```{r create-na}
 Y_missing <- Y
-Y_missing[1, 2] <- NA # Introduce a missing value
+Y_missing["User1", "Action1"] <- NA # Introduce missing value
 print(Y_missing)
 ```
 
 ### Running NMF with NAs
 
-We simply pass the matrix with `NA`s to `nmfkc`. No extra arguments are needed.
+Simply pass the matrix with `NA`s to `nmfkc()`. The algorithm automatically handles them by ignoring the missing entries during optimization.
 
-```{r run-nmfkc-na}
-# Run NMF on data with missing values
+```{r run-na}
 res_na <- nmfkc(Y_missing, rank = 2, seed = 123)
 ```
 
-### Reconstruction / Imputation
+### Predicting the Unknown Rating
 
-The model estimates the latent structure ($X$ and $B$) using only the observed data. The fitted matrix ($XB$) effectively provides an **imputation** for the missing value.
+The fitted model ($X \times B$) provides an estimate for the missing entry.
 
-```{r check-imputation}
-# The fitted value for the missing entry [1, 2]
-predicted_val <- res_na$XB[1, 2]
-actual_val <- Y[1, 2]
+```{r impute-na}
+# Extract the predicted value from the fitted matrix XB
+predicted_rating <- res_na$XB["User1", "Action1"]
+actual_rating <- Y["User1", "Action1"] # The original hidden value (5)
 
-cat(paste("Original Value: ", actual_val, "\n"))
-cat(paste("Imputed Value:  ", round(predicted_val, 4), "\n"))
+cat(paste0("Actual Rating:    ", actual_rating, "\n"))
+cat(paste0("Predicted Rating: ", round(predicted_rating, 2), "\n"))
 ```
 
-The model successfully reconstructed the missing value using the latent structure learned from the rest of the data.
+Because User1 liked other Action movies, the model predicted a **reasonably high rating (3.62)** for the missing Action movie, closer to the actual rating (5) than to a low rating.
+
+## Summary
+
+With the `nmfkc` package, you can easily:
+
+1.  **Decompose** complex data into interpretable parts ($X$ and $B$).
+2.  **Handle missing values** robustly for imputation and prediction.
+3.  **Visualize** the results to verify the fit.
+
+For more advanced topics, such as Time Series Analysis or Covariate-assisted NMF, please refer to the other vignettes (`Topic Modeling` and `Time Series Analysis`).
 

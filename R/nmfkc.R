@@ -1,5 +1,4 @@
 .onAttach <- function(...) {
-  release_date <- "2025-11-22"  # 固定のリリース日
   packageStartupMessage(
     paste("Package: nmfkc (Version", as.character(utils::packageVersion("nmfkc")),
           ", released on", format(as.Date(release_date), "%d %b %Y"), ")")
@@ -290,6 +289,12 @@ nmfkc.ar.DOT <- function(x, degree = 1, intercept = FALSE,
 }
 
 
+
+
+
+
+
+
 #' @title Generate DOT language scripts for vector autoregressive models
 #' @description
 #' \code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
@@ -441,6 +446,9 @@ nmfkc.ar.DOT <- function(x, degree = 1, intercept = FALSE,
   scr <- paste0(scr, "}\n")
   return(scr)
 }
+
+
+
 
 
 
@@ -649,6 +657,9 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 
 
 
+
+
+
 #' @title Optimize lag order for the autoregressive model
 #' @description
 #' \code{nmfkc.ar.degree.cv} selects the optimal lag order for an autoregressive model
@@ -759,6 +770,9 @@ nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ..
 
 
 
+
+
+
 #' @title Check stationarity of an NMF-VAR model
 #' @description
 #' \code{nmfkc.ar.stationarity} assesses the dynamic stability of a VAR model
@@ -791,6 +805,21 @@ nmfkc.ar.stationarity <- function(x){
   rho <- max(Mod(eigen(companion_matrix)$values))
   return(list(spectral.radius = rho, stationary = (rho < 1)))
 }
+
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+
+
 
 
 #' @title Create a kernel matrix from covariates
@@ -897,6 +926,9 @@ nmfkc.kernel <- function(U, V = NULL,
 
 
 
+
+
+
 #' @title Estimate kernel parameter beta from covariates
 #' @description
 #' \code{nmfkc.kernel.beta.nearest.med} estimates the Gaussian kernel
@@ -950,6 +982,9 @@ nmfkc.kernel.beta.nearest.med <- function(U, block_size=1000){
   beta_candidates <- beta*10^c(-2:1)
   list(beta = beta, beta_candidates=beta_candidates, dist_median = d_med, block_size_used = block_size)
 }
+
+
+
 
 
 #' @title Optimize beta of the Gaussian kernel function by cross-validation
@@ -1031,6 +1066,24 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+
+
+
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+
+
+
 #' @title Initialize W (X) matrix using NNDSVDar (Vectorized)
 #' @description
 #'   Internal function to compute the NNDSVDar (Nonnegative Double SVD and Random)
@@ -1082,6 +1135,9 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   W[idx_zero] <- fill_values
   return(W)
 }
+
+
+
 
 
 #' @title Compute a simplified/approximate silhouette coefficient (Internal)
@@ -1170,6 +1226,8 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
                 silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
   }
 }
+
+
 
 
 
@@ -1330,9 +1388,6 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
   return(base::list(Y = Y, A = A))
 }
-
-
-
 
 
 
@@ -1823,11 +1878,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
 
 
 
-
-
-
-
-
 #' @title Plot method for objects of class \code{nmfkc}
 #' @description
 #' \code{plot.nmfkc} produces a diagnostic plot for the return value of
@@ -1951,6 +2001,121 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 
 
 
+
+
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+
+
+
+
+#' @title Normalize a matrix to the range \eqn{[0,1]}
+#' @description
+#' \code{nmfkc.normalize} rescales the values of a matrix to lie between 0 and 1
+#' using the column-wise minimum and maximum values of a reference matrix.
+#'
+#' @param x A numeric matrix (or vector) to be normalized.
+#' @param ref A reference matrix from which the column-wise minima and maxima are taken.
+#'   Default is \code{x}.
+#'
+#' @return A matrix of the same dimensions as \code{x}, with each column rescaled to the \eqn{[0,1]} range.
+#' @seealso \code{\link{nmfkc.denormalize}}
+#' @export
+#' @examples
+#' # install.packages("remotes")
+#' # remotes::install_github("ksatohds/nmfkc")
+#' # Example.
+#' x <- nmfkc.normalize(iris[,-5])
+#' apply(x,2,range)
+nmfkc.normalize <- function(x,ref=x){
+  if(is.vector(x)==TRUE){
+    x <- matrix(x,ncol=1)
+    ref <- matrix(ref,ncol=1)
+  }
+  r <- apply(ref,2,range)
+  denom <- r[2, ] - r[1, ]
+  denom[denom == 0] <- 1   # 0幅列はそのままにする（全0返しが嫌なら別方針に）
+  y <- sweep(x, 2, r[1, ], FUN = "-")
+  y <- sweep(y, 2, denom,   FUN = "/")
+  return(y)
+}
+
+
+
+
+#' @title Denormalize a matrix from \eqn{[0,1]} back to its original scale
+#' @description
+#' \code{nmfkc.denormalize} rescales a matrix with values in \eqn{[0,1]} back to its
+#' original scale using the column-wise minima and maxima of a reference matrix.
+#'
+#' @param x A numeric matrix (or vector) with values in \eqn{[0,1]} to be denormalized.
+#' @param ref A reference matrix used to obtain the original column-wise minima
+#'   and maxima. Must have the same number of columns as \code{x}.
+#'
+#' @return A numeric matrix with values transformed back to the original scale.
+#' @seealso \code{\link{nmfkc.normalize}}
+#' @export
+#' @examples
+#' x <- nmfkc.normalize(iris[, -5])
+#' x_recovered <- nmfkc.denormalize(x, iris[, -5])
+#' apply(x_recovered - iris[, -5], 2, max)
+nmfkc.denormalize <- function(x, ref=x) {
+  if (is.vector(x)) {
+    x <- matrix(x, ncol = 1)
+    ref <- matrix(ref, ncol = 1)
+  }
+  r <- apply(ref, 2, range)
+  y <- sweep(x, 2, r[2, ] - r[1, ], FUN = "*")
+  y <- sweep(y, 2, r[1, ], FUN = "+")
+  return(y)
+}
+
+
+
+
+
+
+#' @title Create a class (one-hot) matrix from a categorical vector
+#' @description
+#' \code{nmfkc.class} converts a categorical or factor vector into a class matrix
+#' (one-hot encoded representation), where each row corresponds to a category
+#' and each column corresponds to an observation.
+#'
+#' @param x A categorical vector or a factor.
+#'
+#' @return A binary matrix with one row per unique category and one column per observation. Each column has exactly one entry equal to 1, indicating the category of the observation.
+#' @seealso \code{\link{nmfkc}}
+#' @export
+#' @examples
+#' # install.packages("remotes")
+#' # remotes::install_github("ksatohds/nmfkc")
+#' # Example.
+#' Y <- nmfkc.class(iris$Species)
+#' Y[,1:6]
+nmfkc.class <- function(x){
+  if(!is.factor(x)) x <- as.factor(x)
+  lev <- levels(x)
+  X <- outer(lev, x, "==")
+  mode(X) <- "numeric"
+  rownames(X) <- lev
+  if(!is.null(names(x))) colnames(X) <- names(x) else colnames(X) <- 1:length(x)
+  X
+}
+
+
+
+
+
 #' @title Prediction method for objects of class \code{nmfkc}
 #' @description
 #' \code{predict.nmfkc} generates predictions from an object of class \code{nmfkc},
@@ -2002,284 +2167,6 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
 
 
 
-
-#' @title Generate DOT language scripts for NMF models
-#' @description
-#' \code{nmfkc.DOT} generates scripts in the DOT language for visualizing
-#' the NMF model structure (\eqn{Y \approx X C A}) or its simplified forms.
-#'
-#' @param x The return value of \code{nmfkc}.
-#' @param type Character string specifying the visualization type.
-#'   Options are:
-#'   \itemize{
-#'     \item \code{"YX"} (Default): Standard NMF view: \eqn{B \to X \to Y}.
-#'     \item \code{"YXA"} : Full visualization of the tri-factorization \eqn{A \to C \to X \to Y}.
-#'     \item \code{"YA"}: Direct regression view: \eqn{A \to Y}, where coefficients are from \eqn{X C}.
-#'   }
-#' @param digits Integer. Number of decimal places to display in edge labels. Default is 2.
-#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
-#' @param rankdir Graph layout direction in DOT language. Default is "LR".
-#' @param Y.label Character vector for row names of Y/X (features). If NULL, uses \code{rownames(x$X)}.
-#' @param X.label Character vector for column names of X/rows of B (latent factors). If NULL, uses \code{colnames(x$X)}.
-#' @param A.label Character vector for row names of A/columns of C (covariates). If NULL, uses \code{colnames(x$C)}.
-#' @param Y.title Title for the Y node cluster. Default is "Observation (Y)".
-#' @param X.title Title for the X node cluster. Default is "Basis (X)".
-#' @param A.title Title for the A node cluster. Default is "Covariates (A)".
-#' @param min.penwidth Numeric. Minimum line thickness for the path (default: 1.0).
-#' @param max.penwidth Numeric. Maximum line thickness for the path (default: 5.0).
-#'
-#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
-#' @seealso \code{\link{nmfkc}}
-#' @export
-nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(-digits), rankdir = "LR",
-                      Y.label = NULL, X.label = NULL, A.label = NULL,
-                      Y.title = "Observation (Y)", X.title = "Basis (X)", A.title = "Covariates (A)",
-                      min.penwidth = 1.0, max.penwidth = 5.0) {
-  type <- match.arg(type)
-  X <- x$X
-  B <- x$B
-  hasA <- !is.null(x$C) && ncol(x$C) != ncol(B)
-  P <- nrow(X)
-  Q <- ncol(X)
-
-  calculate_penwidth <- function(coeff_matrix, value) {
-    if (is.null(coeff_matrix)) return(min.penwidth)
-    max_coeff <- max(coeff_matrix, na.rm = TRUE)
-    if (max_coeff <= threshold) return(min.penwidth)
-    penwidth <- min.penwidth +
-      (max.penwidth - min.penwidth) * (value - threshold) / (max_coeff - threshold)
-    return(max(min.penwidth, penwidth))
-  }
-
-  # --- NEW: Sanitize Names for DOT Node IDs (Problem 7 Fix) ---
-  # Replace non-alphanumeric chars (except underscore and dot) with '_'
-  sanitize_dot_id <- function(names) {
-    names <- gsub("[^[:alnum:]_.]", "_", names, perl=TRUE)
-    return(names)
-  }
-
-  # Sanitize names for use as internal DOT Node IDs
-  Y_names_id <- sanitize_dot_id(if (is.null(Y.label)) rownames(X) else Y.label)
-  X_names_id <- sanitize_dot_id(if (is.null(X.label)) colnames(X) else X.label)
-
-  # Use user-provided labels or matrix names for *display*
-  Y_labels_display <- if (is.null(Y.label)) rownames(X) else Y.label
-  X_labels_display <- if (is.null(X.label)) colnames(X) else X.label
-  # ---------------------------------------------------
-
-  # --- 1. Label Assignment & Coefficient Setup ---
-  if (hasA) {
-    C <- round(x$C, digits)
-    A_cols_NMF <- ncol(C)
-    A_labels_display <- if (is.null(A.label)) colnames(C) else A.label
-    A_names_id <- sanitize_dot_id(A_labels_display) # Sanitize A names too
-    XC_mat <- X %*% C
-  } else if (type == "YX") {
-    C <- B
-    A_cols_NMF <- ncol(C) # Set A_cols_NMF to prevent error later
-    A_labels_display <- NULL
-    XC_mat <- NULL
-    A_names_id <- NULL
-  } else {
-    stop("The model structure (A is missing) is incompatible with the selected type ('YXA' or 'YA').")
-  }
-
-  # --- 2. Graph Initialization ---
-  scr <- paste0('digraph NMF {graph [rankdir=', rankdir, ' compound=true]; \n')
-
-  # --- 3. Define Y Nodes (Observation/Output) ---
-  # Y.title
-  st <- paste0('subgraph cluster_Y{label="', Y.title, '" style="rounded"; \n')
-  for (j in 1:P) {
-    # Use Y%d as Node ID and Y_labels_display[j] as display label
-    st <- paste0(st, sprintf('  Y%d [label="%s", shape=box]; \n',
-                             j,                   # Numerical Node ID
-                             Y_labels_display[j])) # Display Label
-  }
-  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-  # --- 3. Define X Nodes (Latent Variables/Basis) ---
-  st <- paste0('subgraph cluster_X{label="', X.title, '" style="rounded"; \n')
-  for (j in 1:Q) {
-    st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n',
-                             j,                   # Numerical Node ID
-                             X_labels_display[j])) # Display Label
-  }
-  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-  # --- 4. Draw Paths based on 'type' ---
-  if (type == "YXA") {
-    # 4.1. Define A Nodes (Covariates/Input)
-    st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
-    for (j in 1:A_cols_NMF) {
-      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n',
-                               j,                   # Numerical Node ID
-                               A_labels_display[j])) # Display Label
-    }
-    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-    # 4.2. Edges from A to X (via C) - Using numerical IDs
-    for (i in 1:Q) {
-      for (j in 1:A_cols_NMF) {
-        coeff_val <- C[i, j]
-        if (coeff_val >= threshold) {
-          penwidth <- calculate_penwidth(C, coeff_val)
-          st <- sprintf(paste0('A%d -> X%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
-                        j, i, coeff_val)
-          scr <- paste0(scr, st)
-        }
-      }
-    }
-    # 4.3. Edges from X to Y (Basis contribution)
-    max_X <- max(X, na.rm = TRUE)
-    for (i in 1:P) {
-      for (j in 1:Q) {
-        coeff_val <- X[i, j]
-        if (coeff_val >= threshold) {
-          penwidth <- calculate_penwidth(X, coeff_val)
-          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
-                        j, i, coeff_val)
-          scr <- paste0(scr, st)
-        }
-      }
-    }
-  } else if (type == "YA") {
-    # 4.1. Define A Nodes (Covariates/Input)
-    st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
-    for (j in 1:A_cols_NMF) {
-      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n',
-                               j,                   # Numerical Node ID
-                               A_labels_display[j])) # Display Label
-    }
-    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-    # 4.2. Edges from A to Y (via XC)
-    max_XC <- max(XC_mat, na.rm = TRUE)
-    for (i in 1:P) {
-      for (j in 1:A_cols_NMF) {
-        coeff_val <- XC_mat[i, j]
-        if (coeff_val >= threshold) {
-          penwidth <- calculate_penwidth(XC_mat, coeff_val)
-          st <- sprintf(paste0('A%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
-                        j, i, coeff_val)
-          scr <- paste0(scr, st)
-        }
-      }
-    }
-  } else if (type == "YX") {
-    for (j in 1:Q) {
-      st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n',
-                               j,                   # Numerical Node ID
-                               X_labels_display[j])) # Display Label
-    }
-    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-    # 4.2. Edges from X to Y (Basis contribution)
-    max_X <- max(X, na.rm = TRUE)
-    for (i in 1:P) {
-      for (j in 1:Q) {
-        coeff_val <- X[i, j]
-        if (coeff_val >= threshold) {
-          penwidth <- calculate_penwidth(X, coeff_val)
-          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
-                        j, i, coeff_val)
-          scr <- paste0(scr, st)
-        }
-      }
-    }
-  }
-  # --- 5. Graph Finalization ---
-  scr <- paste0(scr, "} \n")
-  return(scr)
-}
-
-
-#' @title Create a class (one-hot) matrix from a categorical vector
-#' @description
-#' \code{nmfkc.class} converts a categorical or factor vector into a class matrix
-#' (one-hot encoded representation), where each row corresponds to a category
-#' and each column corresponds to an observation.
-#'
-#' @param x A categorical vector or a factor.
-#'
-#' @return A binary matrix with one row per unique category and one column per observation. Each column has exactly one entry equal to 1, indicating the category of the observation.
-#' @seealso \code{\link{nmfkc}}
-#' @export
-#' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
-#' # Example.
-#' Y <- nmfkc.class(iris$Species)
-#' Y[,1:6]
-nmfkc.class <- function(x){
-  if(!is.factor(x)) x <- as.factor(x)
-  lev <- levels(x)
-  X <- outer(lev, x, "==")
-  mode(X) <- "numeric"
-  rownames(X) <- lev
-  if(!is.null(names(x))) colnames(X) <- names(x) else colnames(X) <- 1:length(x)
-  X
-}
-
-
-#' @title Normalize a matrix to the range \eqn{[0,1]}
-#' @description
-#' \code{nmfkc.normalize} rescales the values of a matrix to lie between 0 and 1
-#' using the column-wise minimum and maximum values of a reference matrix.
-#'
-#' @param x A numeric matrix (or vector) to be normalized.
-#' @param ref A reference matrix from which the column-wise minima and maxima are taken.
-#'   Default is \code{x}.
-#'
-#' @return A matrix of the same dimensions as \code{x}, with each column rescaled to the \eqn{[0,1]} range.
-#' @seealso \code{\link{nmfkc.denormalize}}
-#' @export
-#' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
-#' # Example.
-#' x <- nmfkc.normalize(iris[,-5])
-#' apply(x,2,range)
-nmfkc.normalize <- function(x,ref=x){
-  if(is.vector(x)==TRUE){
-    x <- matrix(x,ncol=1)
-    ref <- matrix(ref,ncol=1)
-  }
-  r <- apply(ref,2,range)
-  denom <- r[2, ] - r[1, ]
-  denom[denom == 0] <- 1   # 0幅列はそのままにする（全0返しが嫌なら別方針に）
-  y <- sweep(x, 2, r[1, ], FUN = "-")
-  y <- sweep(y, 2, denom,   FUN = "/")
-  return(y)
-}
-
-
-#' @title Denormalize a matrix from \eqn{[0,1]} back to its original scale
-#' @description
-#' \code{nmfkc.denormalize} rescales a matrix with values in \eqn{[0,1]} back to its
-#' original scale using the column-wise minima and maxima of a reference matrix.
-#'
-#' @param x A numeric matrix (or vector) with values in \eqn{[0,1]} to be denormalized.
-#' @param ref A reference matrix used to obtain the original column-wise minima
-#'   and maxima. Must have the same number of columns as \code{x}.
-#'
-#' @return A numeric matrix with values transformed back to the original scale.
-#' @seealso \code{\link{nmfkc.normalize}}
-#' @export
-#' @examples
-#' x <- nmfkc.normalize(iris[, -5])
-#' x_recovered <- nmfkc.denormalize(x, iris[, -5])
-#' apply(x_recovered - iris[, -5], 2, max)
-nmfkc.denormalize <- function(x, ref=x) {
-  if (is.vector(x)) {
-    x <- matrix(x, ncol = 1)
-    ref <- matrix(ref, ncol = 1)
-  }
-  r <- apply(ref, 2, range)
-  y <- sweep(x, 2, r[2, ] - r[1, ], FUN = "*")
-  y <- sweep(y, 2, r[1, ], FUN = "+")
-  return(y)
-}
 
 
 
@@ -2553,6 +2440,7 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
 
   return(list(objfunc=objfunc, sigma=sigma, objfunc.block=objfunc.block, block=block))
 }
+
 
 
 
@@ -2925,6 +2813,223 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
 
   return(list(rank.best = rank.final, criteria = results_df))
 }
+
+
+
+
+
+
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+#' @title Generate DOT language scripts for NMF models
+#' @description
+#' \code{nmfkc.DOT} generates scripts in the DOT language for visualizing
+#' the NMF model structure (\eqn{Y \approx X C A}) or its simplified forms.
+#'
+#' @param x The return value of \code{nmfkc}.
+#' @param type Character string specifying the visualization type.
+#'   Options are:
+#'   \itemize{
+#'     \item \code{"YX"} (Default): Standard NMF view: \eqn{B \to X \to Y}.
+#'     \item \code{"YXA"} : Full visualization of the tri-factorization \eqn{A \to C \to X \to Y}.
+#'     \item \code{"YA"}: Direct regression view: \eqn{A \to Y}, where coefficients are from \eqn{X C}.
+#'   }
+#' @param digits Integer. Number of decimal places to display in edge labels. Default is 2.
+#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
+#' @param rankdir Graph layout direction in DOT language. Default is "LR".
+#' @param Y.label Character vector for row names of Y/X (features). If NULL, uses \code{rownames(x$X)}.
+#' @param X.label Character vector for column names of X/rows of B (latent factors). If NULL, uses \code{colnames(x$X)}.
+#' @param A.label Character vector for row names of A/columns of C (covariates). If NULL, uses \code{colnames(x$C)}.
+#' @param Y.title Title for the Y node cluster. Default is "Observation (Y)".
+#' @param X.title Title for the X node cluster. Default is "Basis (X)".
+#' @param A.title Title for the A node cluster. Default is "Covariates (A)".
+#' @param min.penwidth Numeric. Minimum line thickness for the path (default: 1.0).
+#' @param max.penwidth Numeric. Maximum line thickness for the path (default: 5.0).
+#'
+#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
+#' @seealso \code{\link{nmfkc}}
+#' @export
+nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(-digits), rankdir = "LR",
+                      Y.label = NULL, X.label = NULL, A.label = NULL,
+                      Y.title = "Observation (Y)", X.title = "Basis (X)", A.title = "Covariates (A)",
+                      min.penwidth = 1.0, max.penwidth = 5.0) {
+  type <- match.arg(type)
+  X <- x$X
+  B <- x$B
+  hasA <- !is.null(x$C) && ncol(x$C) != ncol(B)
+  P <- nrow(X)
+  Q <- ncol(X)
+
+  calculate_penwidth <- function(coeff_matrix, value) {
+    if (is.null(coeff_matrix)) return(min.penwidth)
+    max_coeff <- max(coeff_matrix, na.rm = TRUE)
+    if (max_coeff <= threshold) return(min.penwidth)
+    penwidth <- min.penwidth +
+      (max.penwidth - min.penwidth) * (value - threshold) / (max_coeff - threshold)
+    return(max(min.penwidth, penwidth))
+  }
+
+  # --- NEW: Sanitize Names for DOT Node IDs (Problem 7 Fix) ---
+  # Replace non-alphanumeric chars (except underscore and dot) with '_'
+  sanitize_dot_id <- function(names) {
+    names <- gsub("[^[:alnum:]_.]", "_", names, perl=TRUE)
+    return(names)
+  }
+
+  # Sanitize names for use as internal DOT Node IDs
+  Y_names_id <- sanitize_dot_id(if (is.null(Y.label)) rownames(X) else Y.label)
+  X_names_id <- sanitize_dot_id(if (is.null(X.label)) colnames(X) else X.label)
+
+  # Use user-provided labels or matrix names for *display*
+  Y_labels_display <- if (is.null(Y.label)) rownames(X) else Y.label
+  X_labels_display <- if (is.null(X.label)) colnames(X) else X.label
+  # ---------------------------------------------------
+
+  # --- 1. Label Assignment & Coefficient Setup ---
+  if (hasA) {
+    C <- round(x$C, digits)
+    A_cols_NMF <- ncol(C)
+    A_labels_display <- if (is.null(A.label)) colnames(C) else A.label
+    A_names_id <- sanitize_dot_id(A_labels_display) # Sanitize A names too
+    XC_mat <- X %*% C
+  } else if (type == "YX") {
+    C <- B
+    A_cols_NMF <- ncol(C) # Set A_cols_NMF to prevent error later
+    A_labels_display <- NULL
+    XC_mat <- NULL
+    A_names_id <- NULL
+  } else {
+    stop("The model structure (A is missing) is incompatible with the selected type ('YXA' or 'YA').")
+  }
+
+  # --- 2. Graph Initialization ---
+  scr <- paste0('digraph NMF {graph [rankdir=', rankdir, ' compound=true]; \n')
+
+  # --- 3. Define Y Nodes (Observation/Output) ---
+  # Y.title
+  st <- paste0('subgraph cluster_Y{label="', Y.title, '" style="rounded"; \n')
+  for (j in 1:P) {
+    # Use Y%d as Node ID and Y_labels_display[j] as display label
+    st <- paste0(st, sprintf('  Y%d [label="%s", shape=box]; \n',
+                             j,                   # Numerical Node ID
+                             Y_labels_display[j])) # Display Label
+  }
+  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
+  # --- 3. Define X Nodes (Latent Variables/Basis) ---
+  st <- paste0('subgraph cluster_X{label="', X.title, '" style="rounded"; \n')
+  for (j in 1:Q) {
+    st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n',
+                             j,                   # Numerical Node ID
+                             X_labels_display[j])) # Display Label
+  }
+  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
+  # --- 4. Draw Paths based on 'type' ---
+  if (type == "YXA") {
+    # 4.1. Define A Nodes (Covariates/Input)
+    st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
+    for (j in 1:A_cols_NMF) {
+      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n',
+                               j,                   # Numerical Node ID
+                               A_labels_display[j])) # Display Label
+    }
+    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
+    # 4.2. Edges from A to X (via C) - Using numerical IDs
+    for (i in 1:Q) {
+      for (j in 1:A_cols_NMF) {
+        coeff_val <- C[i, j]
+        if (coeff_val >= threshold) {
+          penwidth <- calculate_penwidth(C, coeff_val)
+          st <- sprintf(paste0('A%d -> X%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
+                        j, i, coeff_val)
+          scr <- paste0(scr, st)
+        }
+      }
+    }
+    # 4.3. Edges from X to Y (Basis contribution)
+    max_X <- max(X, na.rm = TRUE)
+    for (i in 1:P) {
+      for (j in 1:Q) {
+        coeff_val <- X[i, j]
+        if (coeff_val >= threshold) {
+          penwidth <- calculate_penwidth(X, coeff_val)
+          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
+                        j, i, coeff_val)
+          scr <- paste0(scr, st)
+        }
+      }
+    }
+  } else if (type == "YA") {
+    # 4.1. Define A Nodes (Covariates/Input)
+    st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
+    for (j in 1:A_cols_NMF) {
+      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n',
+                               j,                   # Numerical Node ID
+                               A_labels_display[j])) # Display Label
+    }
+    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
+    # 4.2. Edges from A to Y (via XC)
+    max_XC <- max(XC_mat, na.rm = TRUE)
+    for (i in 1:P) {
+      for (j in 1:A_cols_NMF) {
+        coeff_val <- XC_mat[i, j]
+        if (coeff_val >= threshold) {
+          penwidth <- calculate_penwidth(XC_mat, coeff_val)
+          st <- sprintf(paste0('A%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
+                        j, i, coeff_val)
+          scr <- paste0(scr, st)
+        }
+      }
+    }
+  } else if (type == "YX") {
+    for (j in 1:Q) {
+      st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n',
+                               j,                   # Numerical Node ID
+                               X_labels_display[j])) # Display Label
+    }
+    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
+
+    # 4.2. Edges from X to Y (Basis contribution)
+    max_X <- max(X, na.rm = TRUE)
+    for (i in 1:P) {
+      for (j in 1:Q) {
+        coeff_val <- X[i, j]
+        if (coeff_val >= threshold) {
+          penwidth <- calculate_penwidth(X, coeff_val)
+          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
+                        j, i, coeff_val)
+          scr <- paste0(scr, st)
+        }
+      }
+    }
+  }
+  # --- 5. Graph Finalization ---
+  scr <- paste0(scr, "} \n")
+  return(scr)
+}
+
+
 
 
 

@@ -696,9 +696,6 @@ legend("topleft", legend = c("Observed", "Fitted", "Forecast"),
 Multivariate NMF-VAR example. It also demonstrates how to visualize Granger causality using **DOT graphs**.
 
 ```r
-# ===============================================
-# NMF-VAR Smart Script (Leveraging nmfkc.ar improvements)
-# ===============================================
 library(nmfkc)
 library(vars)
 
