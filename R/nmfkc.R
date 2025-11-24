@@ -9,53 +9,57 @@
 
 
 
+
+
 #' @title Construct observation and covariate matrices for a vector autoregressive model
 #' @description
 #' \code{nmfkc.ar} generates the observation matrix and covariate matrix
 #' corresponding to a specified autoregressive lag order.
 #'
-#' @param Y An observation matrix, where columns are ordered by measurement time points.
+#' If the input \code{Y} is a \code{ts} object, its time properties are preserved
+#' in the \code{"tsp_info"} attribute, adjusted for the lag.
+#' Additionally, the column names of \code{Y} and \code{A} are set to the corresponding time points.
+#'
+#' @param Y An observation matrix (P x N) or a \code{ts} object.
+#'   If \code{Y} is a \code{ts} object (typically N x P), it is automatically transposed to match the (P x N) format.
 #' @param degree The lag order of the autoregressive model. The default is 1.
 #' @param intercept Logical. If TRUE (default), an intercept term is added to the covariate matrix.
 #'
 #' @return A list containing:
-#' \item{Y}{Observation matrix constructed according to the specified lag order.}
-#' \item{A}{Covariate matrix constructed according to the specified lag order.}
+#' \item{Y}{Observation matrix (P x N_A) used for NMF. Includes adjusted \code{"tsp_info"} attribute and time-based column names.}
+#' \item{A}{Covariate matrix (R x N_A) constructed according to the specified lag order. Includes adjusted \code{"tsp_info"} attribute and time-based column names.}
 #' \item{A.columns}{Index matrix used to generate \code{A}.}
-#' \item{degree.max}{Maximum lag order, set to \eqn{10 \log_{10}(N)} following the \code{ar} function in the \pkg{stats} package.}
+#' \item{degree.max}{Maximum lag order.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar.degree.cv}}, \code{\link{nmfkc.ar.stationarity}}, \code{\link{nmfkc.ar.DOT}}
 #' @export
-#' @source Satoh, K. (2025). Applying Non-negative Matrix Factorization with Covariates
-#'   to Multivariate Time Series Data as a Vector Autoregression Model.
-#'    Japanese Journal of Statistics and Data Science. \url{https://doi.org/10.1007/s42081-025-00314-0}
-#' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
-#' # Example.
-#' d <- AirPassengers
-#' time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
-#' time.vec <- round(as.vector(t(time)),2)
-#' Y0 <- matrix(as.vector(d),nrow=1)
-#' colnames(Y0) <- time.vec
-#' rownames(Y0) <- "t"
-#' # nmf with covariates
-#' Q <- 1
-#' D <- 12
-#' a <- nmfkc.ar(Y0,degree=D,intercept=TRUE); Y <- a$Y; A <- a$A
-#' res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-6)
-#' res$r.squared
-#' # coefficients
-#' print(round(res$C,2))
-#' # fitted curve
-#' plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
-#' lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
+nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
 
-nmfkc.ar <- function(Y,degree=1,intercept=T){
-  if(is.vector(Y)) Y <- matrix(Y,nrow=1)
-  if(!is.matrix(Y)) Y <- as.matrix(Y)
+  # --- 1. Time Series Object Handling & Standardization ---
+  # Initialize basic tsp info
+  tsp_start <- 1
+  tsp_freq <- 1
 
-  # --- NA Check ---
-  # Y must not contain missing values before generating the lagged matrix A.
+  if(stats::is.ts(Y)){
+    # Capture original time properties BEFORE transforming Y
+    y_tsp_orig <- stats::tsp(Y)
+    tsp_start <- y_tsp_orig[1]
+    tsp_freq <- y_tsp_orig[3]
+
+    # Standard 'ts' objects are Time(rows) x Variables(cols).
+    # 'nmfkc' requires Variables(rows) x Time(cols).
+    # So we MUST transpose 'ts' objects to match the expected Y format.
+    Y <- t(as.matrix(Y))
+
+  } else {
+    # Handle vector input (not ts) -> 1 x N matrix
+    if(is.vector(Y)) Y <- matrix(Y, nrow=1)
+    if(!is.matrix(Y)) Y <- as.matrix(Y)
+
+    # If Y is a regular matrix, we assume it is already Variables x Time.
+    # Default tsp (Start=1, Freq=1) is used.
+  }
+
+  # --- 2. NA Check ---
   if(any(is.na(Y))){
     stop("Y contains missing values (NA). In NMF-VAR, lagged Y is used to construct the covariate matrix A, which cannot contain missing values. Please impute Y before calling nmfkc.ar().")
   }
@@ -63,67 +67,89 @@ nmfkc.ar <- function(Y,degree=1,intercept=T){
   P <- nrow(Y) # Features/Variables
   N <- ncol(Y) # Time points
 
-  # --- 1. Degree Validity Check (Guardrail) ---
-  # Check if the lag order is valid with respect to the time series length N.
+  # --- 3. Degree Validity Check ---
   if (degree < 1) {
     stop("The 'degree' (lag order) must be 1 or greater.")
   }
   if (degree >= N) {
     stop(paste0("The 'degree' (", degree, ") must be strictly less than the number of time points in Y (", N, ")."))
   }
-  # -------------------------------------------------
 
   # Length of the time series after lagging (N_A)
   N_A <- N - degree
-  t_start <- degree + 1
+  t_start_idx <- degree + 1
 
-  # --- 2. A.columns.index: Construct index matrix for lagged Y (Fast) ---
-  # A.columns.index: Index matrix for Y columns (degree rows x N_A columns)
+  # --- 4. Calculate Adjusted tsp for Y and A ---
+  # The new series starts 'degree' steps later than the original
+  # New Start = Old Start + (degree * (1/Frequency))
+  tsp_start_new <- tsp_start + (degree / tsp_freq)
+
+  # Calculate new End based on the new length N_A
+  # End = Start + (N_A - 1) / Frequency
+  tsp_end_new <- tsp_start_new + (N_A - 1) / tsp_freq
+
+  # Construct the new tsp info vector: c(Start, End, Frequency)
+  y_tsp_new <- c(tsp_start_new, tsp_end_new, tsp_freq)
+
+  # --- 5. Generate Time Sequence for Column Names (NEW) ---
+  # Create a sequence of time points based on the calculated tsp
+  time_seq <- seq(from = tsp_start_new, by = 1/tsp_freq, length.out = N_A)
+  # Format as character to ensure they can be used as colnames.
+  # Rounding is recommended to avoid floating point display issues (e.g. 1949.0833333).
+  time_names <- as.character(round(time_seq, 5))
+
+  # --- 6. A.columns.index ---
   A.columns.index <- matrix(0, nrow = degree, ncol = N_A)
   for(i in 1:degree) {
-    # Column indices corresponding to lag t-i for times t_start to N
-    A.columns.index[i, ] <- (t_start - i) : (N - i)
+    A.columns.index[i, ] <- (t_start_idx - i) : (N - i)
   }
 
-  # --- 3. A: Construct covariate matrix A in one operation (Fast) ---
-  # 1. Slice the necessary data from Y using the vectorized indices
+  # --- 7. A: Construct covariate matrix A ---
   A_data <- Y[, as.vector(A.columns.index)]
-
-  # 2. Reshape A_data into the final A shape (P*degree rows x N_A columns)
   A <- matrix(A_data, nrow = P * degree, ncol = N_A, byrow = FALSE)
 
-  # --- 4. Set row labels ---
+  # Set row labels
   if(is.null(rownames(Y))) rownames(Y) <- 1:P
   label <- unlist(lapply(1:degree, function(i) paste0(rownames(Y), "_", i)))
   rownames(A) <- label
 
-  # --- 5. Add Intercept (Safe Implementation) ---
+  # Add Intercept
   if(intercept){
-    # Use matrix(1, ...) to safely add the intercept row, avoiding recycling dependence
     A <- rbind(A, matrix(1, nrow=1, ncol=ncol(A)))
     rownames(A) <- c(label,"(Intercept)")
   }
 
-  # --- 6. Ya (Non-lagged Observation Matrix) ---
-  # Y matrix for time points t_start to N
-  Ya <- Y[, t_start : N, drop=FALSE]
+  # --- 8. Ya (Non-lagged Observation Matrix) ---
+  Ya <- Y[, t_start_idx : N, drop=FALSE]
 
-  # --- 7. Metadata Calculation and Attribute Storage (Changed key to 'function') ---
-  # Calculate degree.max based on R's stats::ar() empirical rule (10 * log10(N))
-  degree.max <- min(ncol(Ya),floor(10*log10(ncol(Ya))))
+  # --- 9. Set Column Names (NEW) ---
+  colnames(Ya) <- time_names
+  colnames(A) <- time_names
 
-  # Store AR parameters as attributes of A for simple model passing
-  # These attributes ensure robust parameter transfer to nmfkc() and nmfkc.ar.predict().
+  # --- 10. Metadata Calculation and Attribute Storage ---
+  degree.max <- min(ncol(Ya), floor(10*log10(ncol(Ya))))
+
+  # Store AR parameters
   attr(A, "degree") <- degree
   attr(A, "intercept") <- intercept
-  attr(A, "function.name") <- "nmfkc.ar" # Identifier for the model type (MODIFIED)
+  attr(A, "function.name") <- "nmfkc.ar"
 
-  # A.columns is returned for backward compatibility/diagnostics
+  # Store Adjusted Time Properties as "tsp_info" to avoid R's dimension check error
+  attr(A, "tsp_info") <- y_tsp_new
+  attr(Ya, "tsp_info") <- y_tsp_new
+
   list(Y = Ya,
        A = A,
        A.columns = A.columns.index,
        degree.max = degree.max)
 }
+
+
+
+
+
+
+
 
 
 
@@ -419,12 +445,13 @@ nmfkc.ar.DOT <- function(x, degree = 1, intercept = FALSE,
 
 
 
-
-
 #' @title Forecast future values for NMF-VAR model
 #' @description
 #' \code{nmfkc.ar.predict} computes multi-step-ahead forecasts for a fitted NMF-VAR model
 #' using recursive forecasting.
+#'
+#' If the fitted model contains time series property information (from \code{nmfkc.ar}),
+#' the forecasted values will have appropriate time-based column names.
 #'
 #' @param x An object of class \code{nmfkc} (the fitted model).
 #' @param Y The historical observation matrix used for fitting (or at least the last \code{degree} columns).
@@ -433,9 +460,8 @@ nmfkc.ar.DOT <- function(x, degree = 1, intercept = FALSE,
 #' @param n.ahead Integer (>=1). Number of steps ahead to forecast.
 #'
 #' @return A list with components:
-#' \item{pred}{A \eqn{P \times n.ahead} matrix of predicted values.}
-#' \item{time}{A numeric vector of future time points if \code{colnames(Y)} are numeric
-#'   and (approximately) equally spaced; otherwise \code{NULL}.}
+#' \item{pred}{A \eqn{P \times n.ahead} matrix of predicted values. Column names are future time points if time information is available.}
+#' \item{time}{A numeric vector of future time points corresponding to the columns of \code{pred}.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
 #' @export
 nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
@@ -522,7 +548,7 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
   # --- Forecast loop ---
   preds <- matrix(0, nrow = P, ncol = n.ahead)
   rownames(preds) <- rownames(Y)
-  colnames(preds) <- paste0("t+", seq_len(n.ahead))
+  colnames(preds) <- paste0("t+", seq_len(n.ahead)) # Default names
 
   current_Y <- Y
   # Expected length of newA
@@ -554,9 +580,44 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
     current_Y <- cbind(current_Y, pred_step)
   }
 
-  # --- Time inference (numeric & almost-equally spaced colnames) ---
+  # --- Time inference logic ---
   future_times <- NULL
-  if (!is.null(colnames(Y))) {
+
+  # Strategy 1: Use "tsp_info" from attributes (Robust method)
+  if (has_meta && !is.null(A.attributes$tsp_info)) {
+    # tsp_info = c(start, end, freq)
+    t_info <- A.attributes$tsp_info
+    last_time <- t_info[2]
+    freq <- t_info[3]
+
+    # If user passed a subset Y (not the full training Y), last_time in attribute might be old.
+    # We should check if colnames(Y) can be parsed to sync with Y's actual end time.
+    # However, if Y is just the tail of training data, we can try to infer dt from freq.
+
+    dt <- 1 / freq
+
+    # Try to find the last time point of current Y to start prediction from
+    last_time_Y <- NULL
+    if (!is.null(colnames(Y))) {
+      num_cols <- suppressWarnings(as.numeric(colnames(Y)))
+      if (!any(is.na(num_cols))) {
+        last_time_Y <- utils::tail(num_cols, 1)
+      }
+    }
+
+    # If Y colnames are not numeric, fallback to the model's last_time (assuming prediction continues from training)
+    # OR if Y seems to be the full training set.
+    if (is.null(last_time_Y)) {
+      start_time_pred <- last_time + dt
+    } else {
+      start_time_pred <- last_time_Y + dt
+    }
+
+    future_times <- seq(from = start_time_pred, by = dt, length.out = n.ahead)
+
+  }
+  # Strategy 2: Infer from numeric colnames of Y (Fallback method)
+  else if (!is.null(colnames(Y))) {
     times <- suppressWarnings(as.numeric(colnames(Y)))
     if (!any(is.na(times)) && length(times) >= 2) {
       n_check <- min(length(times), 10L)
@@ -568,10 +629,15 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
           dt <- mean(diffs)
           last_time <- utils::tail(times, 1)
           future_times <- last_time + seq_len(n.ahead) * dt
-          colnames(preds) <- future_times
         }
       }
     }
+  }
+
+  if (!is.null(future_times)) {
+    # Rounding to keep colnames clean (consistent with nmfkc.ar)
+    time_names <- as.character(round(future_times, 5))
+    colnames(preds) <- time_names
   }
 
   return(list(pred = preds, time = future_times))
@@ -588,7 +654,10 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 #' \code{nmfkc.ar.degree.cv} selects the optimal lag order for an autoregressive model
 #' by applying cross-validation over candidate degrees.
 #'
-#' @param Y Observation matrix \eqn{Y(P,N)}.
+#' This function accepts both standard matrices (Variables x Time) and \code{ts} objects
+#' (Time x Variables). \code{ts} objects are automatically transposed internally.
+#'
+#' @param Y Observation matrix \eqn{Y(P,N)} or a \code{ts} object.
 #' @param Q Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.
 #' @param degree A vector of candidate lag orders to be evaluated.
 #' @param intercept Logical. If TRUE (default), an intercept is added to the covariate matrix.
@@ -605,17 +674,26 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 #' @examples
 #' # install.packages("remotes")
 #' # remotes::install_github("ksatohds/nmfkc")
-#' # Example.
+#' # Example using ts object directly
 #' d <- AirPassengers
-#' time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
-#' time.vec <- round(as.vector(t(time)),2)
-#' Y0 <- matrix(as.vector(d),nrow=1)
-#' colnames(Y0) <- time.vec
-#' rownames(Y0) <- "t"
-#' # selection of degree
-#' nmfkc.ar.degree.cv(Y=Y0,Q=1,degree=11:14)
+#'
+#' # Selection of degree (using ts object)
+#' # Note: Y is automatically transposed if it is a ts object
+#' nmfkc.ar.degree.cv(Y=d, Q=1, degree=11:14)
 
 nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ...){
+
+  # --- 1. Time Series Object Handling & Standardization ---
+  # Ensure Y is (P x N) matrix before processing
+  if(stats::is.ts(Y)){
+    # ts objects are Time x Var (N x P) -> Transpose to Var x Time (P x N)
+    Y <- t(as.matrix(Y))
+  } else {
+    if(is.vector(Y)) Y <- matrix(Y, nrow=1)
+    if(!is.matrix(Y)) Y <- as.matrix(Y)
+  }
+
+  # --- 2. Main Processing ---
   extra_args <- list(...)
   objfuncs <- numeric(length(degree))
   success_status <- logical(length(degree))
@@ -627,6 +705,7 @@ nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ..
 
     res <- tryCatch({
       # 1) build lagged Y & A
+      # Y is already standardized to (P x N), so nmfkc.ar handles it as a matrix
       a <- nmfkc.ar(Y = Y, degree = current_degree, intercept = intercept)
 
       # 2) prepare args for CV (block CV for time series)
@@ -643,11 +722,9 @@ nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ..
       list(ok = FALSE, obj = NA_real_, err = e)
     })
 
-    # 一箇所で代入（スコープ安全）
     objfuncs[i] <- res$obj
     success_status[i] <- res$ok
 
-    # ログ
     end.time <- Sys.time()
     diff.time <- difftime(end.time, start.time, units = "sec")
     diff.time.st <- ifelse(diff.time <= 180, paste0(round(diff.time, 1), "sec"),
@@ -661,6 +738,7 @@ nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ..
   i0 <- valid_indices[which.min(objfuncs[valid_indices])]
   best.degree <- degree[i0]
 
+  # Calculate degree.max based on the standardized Y (ncol = Time points N)
   degree.max <- min(ncol(Y), floor(10 * log10(ncol(Y))))
 
   if(plot){
@@ -675,6 +753,9 @@ nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ..
   names(objfuncs) <- degree
   list(degree = best.degree, degree.max = degree.max, objfunc = objfuncs)
 }
+
+
+
 
 
 

@@ -622,103 +622,68 @@ legend("topleft", title="Sex", legend=c("Male", "Female"), fill=c(4,2))
 **nmfkc** can perform Vector Autoregression (NMF-VAR). This example includes **Lag Order Selection** and **Future Forecasting**.
 
 ```r
-# ===================================================
-# NMF-VAR forecasting example using AirPassengers data
-# ---------------------------------------------------
-# Required packages:
-#   remotes::install_github("ksatohds/nmfkc")
-#   install.packages("DOT")
-# ===================================================
+# --- 1. Lag Order Selection ---
+# Perform cross-validation to select the optimal lag order (degree).
+# We evaluate degrees 1 to 15 to capture potential seasonality (e.g., lag 12).
+nmfkc.ar.degree.cv(Y=d, degree=1:15, epsilon=1e-5, maxit=50000)
 
-library(nmfkc)
-library(DOT)
+# --- 2. Model Construction (NMF-VAR) ---
+# Construct the observation matrix (Y) and covariate matrix (A) for NMF-VAR.
+# We use degree=12 to account for the annual seasonality of the monthly data.
+# 'intercept=TRUE' adds an intercept term to the covariate matrix.
+a <- nmfkc.ar(d, degree = 12, intercept = TRUE)
+Y <- a$Y
+A <- a$A
 
-# ---- 1) Data Preparation ----
-d_air <- AirPassengers
+# --- 3. Model Fitting ---
+# Fit the NMF-VAR model (Y approx X * C * A).
+# We use Rank (Q) = 1 for this univariate time series.
+# Stricter convergence criteria (epsilon, maxit) are used for precision.
+res <- nmfkc(Y=Y, A=A, Q=1, epsilon=1e-6, maxit=50000)
 
-# Generate a time vector for labeling
-time_air <- time(ts(1:length(d_air), start = c(1949, 1), frequency = 12))
-time_vec_air <- round(as.vector(t(time_air)), 2)
+# Display the summary of the fitted model (R-squared, sparsity, etc.).
+summary(res)
 
-# Convert the AirPassengers series to a 1×N log-transformed matrix
-Y0_air <- log10(matrix(as.vector(d_air), nrow = 1))
-colnames(Y0_air) <- time_vec_air
-rownames(Y0_air) <- "Passengers"
+# --- 4. Forecasting ---
+# Compute multi-step-ahead forecasts (recursive forecasting).
+# We predict for the next 24 time points (2 years).
+pred_res <- nmfkc.ar.predict(res, Y = Y, n.ahead = 24)
 
-# ---- 2) Lag Order Selection (Cross-Validation) ----
-# Evaluate lag degrees from 1 to 25
-cv_res <- nmfkc.ar.degree.cv(Y0_air, Q = 1, degree = 1:25)
+# --- 5. Data Preparation for Plotting ---
+# Extract time points from column names (automatically handled by nmfkc.ar).
+time_obs <- as.numeric(colnames(Y))
 
-# Print the optimal lag degree
-cat("Optimal lag degree:", cv_res$degree, "\n")
+# Back-transform values from log10 scale to original scale.
+vals_obs <- 10^as.vector(Y)        # Observed values
+vals_fit <- 10^as.vector(res$XB)   # Fitted values (Learning phase)
 
-# For this demo, use D = 12 (monthly seasonality)
-D <- 12
+# Prepare forecast data (time and values).
+time_pred <- as.numeric(colnames(pred_res$pred))
+vals_pred <- 10^as.vector(pred_res$pred)
 
-# ---- 3) Construct AR(12) Matrices ----
-a_air <- nmfkc.ar(Y0_air, degree = D, intercept = TRUE)
-Y_air <- a_air$Y
-A_air <- a_air$A
+# Determine plot limits to include both observed and predicted data.
+xlim <- range(c(time_obs, time_pred))
+ylim <- range(c(vals_obs, vals_pred))
 
-# ---- 4) Fit NMF-AR Model ----
-# Rank = 1 for a univariate series
-res_air <- nmfkc(Y = Y_air, A = A_air,
-                 rank = 1, epsilon = 1e-9, maxit = 500000)
+# --- 6. Visualization ---
+# Plot the observed data (Gray line).
+plot(time_obs, vals_obs, type = "l", col = "gray", lwd = 2,
+     xlim = xlim, ylim = ylim,
+     main = "AirPassengers: NMF-VAR Forecast",
+     xlab = "Year", ylab = "Passengers (Thousands)")
 
-# Display model performance
-cat("R-squared:", round(res_air$r.squared, 5), "\n")
+# Add the fitted values (Blue line).
+lines(time_obs, vals_fit, col = "blue", lwd = 1.5)
 
-# Check dynamic stability (spectral radius < 1 indicates stationarity)
-nmfkc.ar.stationarity(res_air)
+# Add the forecast values (Red line).
+lines(time_pred, vals_pred, col = "red", lwd = 2, lty = 1)
 
-# ---- 5) Forecast Generation ----
-h <- 24  # Forecast horizon (24 months ahead)
-pred_res <- nmfkc.ar.predict(x = res_air, Y = Y0_air, n.ahead = h)
-pred_val <- 10^as.vector(pred_res$pred)  # Convert from log10 scale back to original
+# Add a vertical line indicating the start of the forecast period.
+abline(v = min(time_pred), col = "black", lty = 3)
 
-# ---- 6) Generate Future Time Points ----
-# Retrieve time settings from the original time series
-total_len <- length(d_air)
-start_time <- start(d_air)
-freq <- frequency(d_air)
-
-# Compute start time for forecasts (immediately after the last observation)
-pred_start_time <- start_time[1] + (start_time[2] + total_len) / freq
-pred_time <- seq(from = pred_start_time, by = 1 / freq, length.out = h)
-
-# ---- 7) Combine Observed and Forecast Series ----
-# Last observed point
-last_obs_time <- tail(as.numeric(colnames(Y0_air)), 1)
-last_obs_val  <- tail(10^as.vector(Y0_air), 1)
-
-# Concatenate the end of observed data with the forecast start point
-plot_pred_time <- c(last_obs_time, pred_time)
-plot_pred_val  <- c(last_obs_val, pred_val)
-
-# Define plot axis ranges
-xlim_range <- range(c(as.numeric(colnames(Y0_air)), pred_time))
-ylim_range <- range(c(10^as.vector(Y0_air), pred_val))
-
-# ---- 8) Visualization ----
-# Plot observed, fitted, and forecasted values
-plot(as.numeric(colnames(Y0_air)), 10^(as.vector(Y0_air)),
-     type = "l", col = "black", lwd = 1,
-     xlim = xlim_range, ylim = ylim_range,
-     xlab = "Year", ylab = "Air Passengers",
-     main = "NMF-VAR Forecast (h = 24)")
-
-# Add fitted values (red)
-lines(as.numeric(colnames(Y_air)), 10^as.vector(res_air$XB),
-      col = "red", lwd = 2)
-
-# Add forecasts (blue dashed)
-lines(plot_pred_time, plot_pred_val, col = "blue", lwd = 2, lty = 2)
-
-# Add legend
-legend("topleft",
-       legend = c("Observed", "Fitted", "Forecast"),
-       col = c("black", "red", "blue"),
-       lty = c(1, 1, 2), lwd = 2)
+# Add a legend.
+legend("topleft", legend = c("Observed", "Fitted", "Forecast"),
+       col = c("gray", "blue", "red"), lty = c(1, 1, 1), lwd = 2)
 ```
 
 ## 8\. Vector Autoregression: Canada (Multivariate)
@@ -727,105 +692,62 @@ Multivariate NMF-VAR example. It also demonstrates how to visualize Granger caus
 
 ```r
 # ===============================================
-# NMF with VAR structure (nmfkc) × Canada dataset (vars) demo
-# -----------------------------------------------
-# Required packages:
-#   remotes::install_github("ksatohds/nmfkc")
-#   install.packages(c("vars", "DOT"))
+# NMF-VAR Smart Script (Leveraging nmfkc.ar improvements)
 # ===============================================
+library(nmfkc)
+library(vars)
 
-# ---- 0) Packages ----
-suppressPackageStartupMessages({
-  library(nmfkc)
-  library(vars)
-  library(DOT)   # dot() renders the Graphviz output (viewable in RStudio or browser)
-})
+# 1. Data Preparation (Keep 'ts' class!)
+d0 <- Canada  # ts object
 
-# ---- 1) Data Preparation ----
-# Canada: Quarterly ts data from 'vars' (1980Q1–2000Q4, 4 variables)
-d0 <- Canada                # ts: multivariate time series (time × variables)
-stopifnot(is.ts(d0))
+# Difference and Normalize
+# apply() strips 'ts' class, so we must restore it to use nmfkc.ar's feature
+dd_mat <- apply(d0, 2, diff)
+dd_ts  <- ts(dd_mat, start = time(d0)[2], frequency = frequency(d0))
 
-# First difference (to model growth or change rates)
-dd <- apply(d0, 2, diff)    # matrix (T-1) × P
-# Normalize each column to [0,1] (for stability)
-dn <- nmfkc.normalize(dd)   # (T-1) × P
-# nmfkc expects variables in rows, samples in columns
-Y0 <- t(dn)                 # P × N
+# Normalize (returns matrix, so restore 'ts' again)
+dn_mat <- nmfkc.normalize(dd_ts)
+dn_ts  <- ts(dn_mat, start = start(dd_ts), frequency = frequency(dd_ts))
 
-# ---- 2) Build matrices for the VAR model (nmfkc.ar) ----
-Q <- 2       # Rank (number of latent bases)
-D <- 1       # Lag order (VAR(1))
-ar_set <- nmfkc.ar(Y0, degree = D, intercept = TRUE)
-Y  <- ar_set$Y   # P × (N-D)
-A  <- ar_set$A   # (P*D + 1) × (N-D)
+# 2. NMF-VAR Matrix Construction
+# [Point] Pass the 'ts' object (Time x Var) DIRECTLY!
+# nmfkc.ar will detect it, transpose it to (Var x Time), and preserve time info.
+Q <- 2
+D <- 1
+ar_set <- nmfkc.ar(dn_ts, degree = D, intercept = TRUE)
 
-# Quick consistency check
-if (ncol(Y) != ncol(A)) stop("Y and A must have the same number of columns (samples).")
+Y <- ar_set$Y # Has time-based colnames!
+A <- ar_set$A # Has time-based colnames!
 
-# ---- 3) Fit NMF model (nmfkc) ----
-# Objective: Euclidean distance (default). Use method="KL" for Kullback–Leibler divergence.
+# 3. Fit Model
 res <- nmfkc(Y = Y, A = A, Q = Q, prefix = "Condition", epsilon = 1e-6)
-# Key metrics
-cat("\n--- Fit summary ---\n",
-    "r.squared  :", round(res$r.squared, 4), "\n",
-    "method     :", res$method, "\n",
-    "rank (Q)   :", res$rank, "\n",
-    "runtime    :", res$runtime, "\n", sep="")
 
-# Check dynamic stability (VAR stationarity)
-st <- nmfkc.ar.stationarity(res)
-cat("\n--- Stationarity (VAR) ---\n",
-    "spectral radius :", round(st$spectral.radius, 4), "\n",
-    "stationary      :", st$stationary, "\n", sep="")
+# 4. Visualization (Using preserved time info)
+# No need to manually reconstruct 'ts' objects or calculate time axes.
+# The colnames of Y and res$XB are already "1980.25", "1980.50", etc.
 
-# ---- 4) Causality visualization (DOT graph) ----
-#   X (latent) → Y (observed), T−k → X connections grouped by lag
-script <- nmfkc.ar.DOT(res, degree = D, intercept = TRUE, digits = 2, rankdir = "RL")
-# Render to screen (display method depends on your environment)
-dot(script)
+time_vec <- as.numeric(colnames(Y)) # Extract time from colnames
 
-# Optionally save DOT script to file:
-# writeLines(script, "nmf_var_graph.dot")
+# Plot Condition 1 (e.g., Employment/Productivity factor)
+# res$B.prob contains soft clustering probabilities
+par(mfrow = c(2, 1), mar = c(4, 4, 2, 1))
+barplot(res$B.prob, 
+        col = c("tomato", "turquoise"), 
+        border = NA, 
+        names.arg = time_vec, # Use time directly!
+        las = 2, cex.names = 0.6,
+        main = "Economic Conditions (Soft Clustering)",
+        ylab = "Probability")
+legend("bottomright", legend = rownames(res$B.prob), 
+       fill = c("tomato", "turquoise"), bty = "n")
 
-# ---- 5) Transform fitted differences back to levels (denormalization + integration) ----
-# res$XB is the fitted values of Y (P × (N-D)), still in diff-normalized scale
-xb_diff_norm <- res$XB           # P × (N-D)
-stopifnot(all(dim(xb_diff_norm) == dim(t(dn)[, -(1:D), drop=FALSE])))
-
-# Denormalize using original differenced data (dd)
-xb_diff <- nmfkc.denormalize(t(xb_diff_norm), dd)  # (N-D) × P (back to diff scale)
-
-# Integrate differences to reconstruct level series:
-# rbind(initial level, fitted differences) → cumulative sum
-# Drop the first row (the initial point itself)
-d1_mat <- apply(rbind(d0[1 + D, ], xb_diff), 2, cumsum)
-d1     <- d1_mat[-1, , drop = FALSE]  # (N-D) × P
-
-# ---- 6) Align time axis using ts objects ----
-# Convert d1 to a ts with the same frequency as d0, starting D periods later
-d1_ts <- ts(d1,
-            start     = start(d0) + c(0, D) / frequency(d0),
-            frequency = frequency(d0))
-
-# ---- 7) Plot original vs fitted series ----
-par(mfrow = c(2, 2))
-for (p in 1:nrow(Y0)) {
-  plot(d0[, p], col = "gray",
-       main = colnames(d0)[p], ylab = colnames(d0)[p], xlab = "")
-  lines(d1_ts[, p], col = 2, lwd = 2)
-  legend("topleft", bty = "n",
-         legend = c("Original", "Fitted (reconstructed)"),
-         col = c("gray", "red"), lwd = c(1, 2))
-}
-
-# ---- 8) Additional diagnostics (optional) ----
-# Convergence plot of the optimization process
-par(mfrow = c(1, 1))
-plot(res, main = paste0("r.squared = ", round(res$r.squared, 3)))
-
-# Residual heatmaps (Y, XB, E)
-# nmfkc.residual.plot(Y = Y, result = res)
+# Plot Fitted Values for a variable (e.g., Employment 'e')
+# Row 1 of Y corresponds to variable 'e'
+plot(time_vec, Y[1, ], type = "l", col = "gray", lwd = 2,
+     main = "Employment (Normalized Diff)", xlab = "Year", ylab = "Value")
+lines(time_vec, res$XB[1, ], col = "red", lwd = 1.5)
+legend("topleft", legend = c("Observed", "Fitted"), 
+       col = c("gray", "red"), lwd = 2, bty = "n")
 ```
 
 ## 9\. Classification: Iris (NMF-LAB)

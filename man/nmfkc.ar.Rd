@@ -3,16 +3,12 @@
 \name{nmfkc.ar}
 \alias{nmfkc.ar}
 \title{Construct observation and covariate matrices for a vector autoregressive model}
-\source{
-Satoh, K. (2025). Applying Non-negative Matrix Factorization with Covariates
-to Multivariate Time Series Data as a Vector Autoregression Model.
-Japanese Journal of Statistics and Data Science. \url{https://doi.org/10.1007/s42081-025-00314-0}
-}
 \usage{
-nmfkc.ar(Y, degree = 1, intercept = T)
+nmfkc.ar(Y, degree = 1, intercept = TRUE)
 }
 \arguments{
-\item{Y}{An observation matrix, where columns are ordered by measurement time points.}
+\item{Y}{An observation matrix (P x N) or a \code{ts} object.
+If \code{Y} is a \code{ts} object (typically N x P), it is automatically transposed to match the (P x N) format.}
 
 \item{degree}{The lag order of the autoregressive model. The default is 1.}
 
@@ -20,36 +16,18 @@ nmfkc.ar(Y, degree = 1, intercept = T)
 }
 \value{
 A list containing:
-\item{Y}{Observation matrix constructed according to the specified lag order.}
-\item{A}{Covariate matrix constructed according to the specified lag order.}
+\item{Y}{Observation matrix (P x N_A) used for NMF. Includes adjusted \code{"tsp_info"} attribute and time-based column names.}
+\item{A}{Covariate matrix (R x N_A) constructed according to the specified lag order. Includes adjusted \code{"tsp_info"} attribute and time-based column names.}
 \item{A.columns}{Index matrix used to generate \code{A}.}
-\item{degree.max}{Maximum lag order, set to \eqn{10 \log_{10}(N)} following the \code{ar} function in the \pkg{stats} package.}
+\item{degree.max}{Maximum lag order.}
 }
 \description{
 \code{nmfkc.ar} generates the observation matrix and covariate matrix
 corresponding to a specified autoregressive lag order.
-}
-\examples{
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
-# Example.
-d <- AirPassengers
-time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
-time.vec <- round(as.vector(t(time)),2)
-Y0 <- matrix(as.vector(d),nrow=1)
-colnames(Y0) <- time.vec
-rownames(Y0) <- "t"
-# nmf with covariates
-Q <- 1
-D <- 12
-a <- nmfkc.ar(Y0,degree=D,intercept=TRUE); Y <- a$Y; A <- a$A
-res <- nmfkc(Y=Y,A=A,Q=Q,prefix="Factor",epsilon=1e-6)
-res$r.squared
-# coefficients
-print(round(res$C,2))
-# fitted curve
-plot(as.numeric(colnames(Y)),as.vector(Y),type="l",col=1,xlab="",ylab="AirPassengers")
-lines(as.numeric(colnames(Y)),as.vector(res$XB),col=2)
+
+If the input \code{Y} is a \code{ts} object, its time properties are preserved
+in the \code{"tsp_info"} attribute, adjusted for the lag.
+Additionally, the column names of \code{Y} and \code{A} are set to the corresponding time points.
 }
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.ar.degree.cv}}, \code{\link{nmfkc.ar.stationarity}}, \code{\link{nmfkc.ar.DOT}}

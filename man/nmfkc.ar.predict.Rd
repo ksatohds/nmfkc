@@ -18,13 +18,15 @@ from \code{x$A.attr} (when available) or from the dimensions of \code{x$C}.}
 }
 \value{
 A list with components:
-\item{pred}{A \eqn{P \times n.ahead} matrix of predicted values.}
-\item{time}{A numeric vector of future time points if \code{colnames(Y)} are numeric
-and (approximately) equally spaced; otherwise \code{NULL}.}
+\item{pred}{A \eqn{P \times n.ahead} matrix of predicted values. Column names are future time points if time information is available.}
+\item{time}{A numeric vector of future time points corresponding to the columns of \code{pred}.}
 }
 \description{
 \code{nmfkc.ar.predict} computes multi-step-ahead forecasts for a fitted NMF-VAR model
 using recursive forecasting.
+
+If the fitted model contains time series property information (from \code{nmfkc.ar}),
+the forecasted values will have appropriate time-based column names.
 }
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}

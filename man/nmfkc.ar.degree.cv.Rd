@@ -7,7 +7,7 @@
 nmfkc.ar.degree.cv(Y, Q = 1, degree = 1:2, intercept = TRUE, plot = TRUE, ...)
 }
 \arguments{
-\item{Y}{Observation matrix \eqn{Y(P,N)}.}
+\item{Y}{Observation matrix \eqn{Y(P,N)} or a \code{ts} object.}
 
 \item{Q}{Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.}
 
@@ -29,19 +29,19 @@ following the \code{ar} function in the \pkg{stats} package.}
 \description{
 \code{nmfkc.ar.degree.cv} selects the optimal lag order for an autoregressive model
 by applying cross-validation over candidate degrees.
+
+This function accepts both standard matrices (Variables x Time) and \code{ts} objects
+(Time x Variables). \code{ts} objects are automatically transposed internally.
 }
 \examples{
 # install.packages("remotes")
 # remotes::install_github("ksatohds/nmfkc")
-# Example.
+# Example using ts object directly
 d <- AirPassengers
-time <- time(ts(1:length(d),start=c(1949,1),frequency=12))
-time.vec <- round(as.vector(t(time)),2)
-Y0 <- matrix(as.vector(d),nrow=1)
-colnames(Y0) <- time.vec
-rownames(Y0) <- "t"
-# selection of degree
-nmfkc.ar.degree.cv(Y=Y0,Q=1,degree=11:14)
+
+# Selection of degree (using ts object)
+# Note: Y is automatically transposed if it is a ts object
+nmfkc.ar.degree.cv(Y=d, Q=1, degree=11:14)
 }
 \seealso{
 \code{\link{nmfkc.ar}}, \code{\link{nmfkc.cv}}
