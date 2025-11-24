@@ -2565,7 +2565,7 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
 
       nmfkc_args <- c(list(Y=Y, A=A, Q=q_curr, Y.weights=weights_train), nmfkc_clean_args)
 
-      fit <- suppressMessages(do.call("nmfkc", nmfkc_args))
+      fit <- do.call("nmfkc", nmfkc_args)
 
       pred <- fit$XB
       residuals <- Y[test_idx] - pred[test_idx]
@@ -2839,7 +2839,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
       legend_lty <- c(legend_lty, 1)
     }
 
-    graphics::legend("bottomright", legend=legend_txt, col=legend_col, lty=legend_lty, lwd=2, bg="white", cex=0.7)
+    graphics::legend("right", legend=legend_txt, col=legend_col, lty=legend_lty, lwd=2, bg="white", cex=0.7)
   }
 
   return(list(rank.best = rank.final, criteria = results_df))
