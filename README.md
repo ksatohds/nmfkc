@@ -622,6 +622,11 @@ legend("topleft", title="Sex", legend=c("Male", "Female"), fill=c(4,2))
 **nmfkc** can perform Vector Autoregression (NMF-VAR). This example includes **Lag Order Selection** and **Future Forecasting**.
 
 ```r
+library(nmfkc)
+data(AirPassengers)
+d <- log10(AirPassengers)
+is.ts(d)
+
 # --- 1. Lag Order Selection ---
 # Perform cross-validation to select the optimal lag order (degree).
 # We evaluate degrees 1 to 15 to capture potential seasonality (e.g., lag 12).
