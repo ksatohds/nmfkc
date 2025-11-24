@@ -4,7 +4,7 @@
 \alias{nmfkc.ar.degree.cv}
 \title{Optimize lag order for the autoregressive model}
 \usage{
-nmfkc.ar.degree.cv(Y, Q = 1, degree = 1:2, intercept = T, plot = TRUE, ...)
+nmfkc.ar.degree.cv(Y, Q = 1, degree = 1:2, intercept = TRUE, plot = TRUE, ...)
 }
 \arguments{
 \item{Y}{Observation matrix \eqn{Y(P,N)}.}

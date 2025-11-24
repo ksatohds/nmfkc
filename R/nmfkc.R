@@ -615,81 +615,67 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 #' # selection of degree
 #' nmfkc.ar.degree.cv(Y=Y0,Q=1,degree=11:14)
 
-nmfkc.ar.degree.cv <- function(Y,Q=1,degree=1:2,intercept=T,plot=TRUE,...){
+nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ...){
   extra_args <- list(...)
-  objfuncs <- numeric(length(degree)) # Use numeric(length(degree)) for clean initialization
-
-  # --- FIX 1: Initialize status variable outside the loop ---
+  objfuncs <- numeric(length(degree))
   success_status <- logical(length(degree))
 
-  for(i in 1:length(degree)){
+  for(i in seq_along(degree)){
     start.time <- Sys.time()
-    # --- FIX 1: Define current_degree inside the loop ---
     current_degree <- degree[i]
+    message(paste0("degree=", current_degree, "..."), appendLF = FALSE)
 
-    message(paste0("degree=",current_degree,"..."),appendLF=FALSE)
+    res <- tryCatch({
+      # 1) build lagged Y & A
+      a <- nmfkc.ar(Y = Y, degree = current_degree, intercept = intercept)
 
-    tryCatch({
-      # 1. Execute nmfkc.ar (Construct Y and A)
-      a <- nmfkc.ar(Y=Y,degree=current_degree,intercept=intercept)
+      # 2) prepare args for CV (block CV for time series)
+      main_args <- list(Y = a$Y, A = a$A, Q = Q)
+      all_args  <- c(extra_args, main_args, list(shuffle = FALSE))
 
-      # 2. Setup arguments for nmfkc.cv
-      main_args <- list(Y = a$Y,A = a$A,Q = Q)
-      # Use shuffle=FALSE for block CV, suitable for time series data
-      all_args <- c(extra_args, main_args, list(shuffle = FALSE))
-
-      # 3. Execute nmfkc.cv
-      # Note: We suppress messages from inner calls to keep the log clean
+      # 3) run CV
       result.cv <- suppressMessages(do.call("nmfkc.cv", all_args))
 
-      # 4. Record successful results
-      objfuncs[i] <- result.cv$objfunc
-      success_status[i] <- TRUE
-
-      # 5. Log processing time
-      end.time <- Sys.time()
-      diff.time <- difftime(end.time,start.time,units="sec")
-      diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
-                             paste0(round(diff.time/60,1),"min"))
-      message(diff.time.st)
-
-    }, error = function(e) {
-      # Handle error: Record NA, issue a warning, and continue the loop
+      # 4) success payload
+      list(ok = TRUE, obj = result.cv$objfunc, err = NULL)
+    }, error = function(e){
       warning(paste0("Skipping degree=", current_degree, " due to error: ", e$message), call. = FALSE)
-      objfuncs[i] <- NA
-      success_status[i] <- FALSE
-      message("Skipped (Error)")
+      list(ok = FALSE, obj = NA_real_, err = e)
     })
+
+    # 一箇所で代入（スコープ安全）
+    objfuncs[i] <- res$obj
+    success_status[i] <- res$ok
+
+    # ログ
+    end.time <- Sys.time()
+    diff.time <- difftime(end.time, start.time, units = "sec")
+    diff.time.st <- ifelse(diff.time <= 180, paste0(round(diff.time, 1), "sec"),
+                           paste0(round(diff.time/60, 1), "min"))
+    message(if (res$ok) diff.time.st else "Skipped (Error)")
   }
 
-  # --- FIX 2: Post-Processing executed ONCE outside the loop ---
   valid_indices <- which(success_status)
-  if (length(valid_indices) == 0) {
-    stop("Cross-validation failed for all candidate degrees.")
-  }
+  if(length(valid_indices) == 0) stop("Cross-validation failed for all candidate degrees.")
 
-  # Find the minimum objective function among successful runs
   i0 <- valid_indices[which.min(objfuncs[valid_indices])]
   best.degree <- degree[i0]
 
-  # Calculate degree.max (empirical rule)
-  degree.max <- min(ncol(Y),floor(10*log10(ncol(Y))))
+  degree.max <- min(ncol(Y), floor(10 * log10(ncol(Y))))
 
-  # Plotting (Only successful runs are plotted/labeled)
   if(plot){
-    # Plot objective function values
-    plot(degree,objfuncs,type="l",col=2,xlab=paste0("degree (max=",degree.max,")"),ylab="objfunc")
-    graphics::points(degree[valid_indices],objfuncs[valid_indices],cex=1,col=2)
-
-    # Highlight the best degree
-    graphics::points(degree[i0],objfuncs[i0],cex=3,col=2)
-    graphics::text(degree,objfuncs,degree, pos=3)
+    plot(degree, objfuncs, type = "l", col = 2,
+         xlab = paste0("degree (max=", degree.max, ")"),
+         ylab = "objfunc")
+    graphics::points(degree[valid_indices], objfuncs[valid_indices], cex = 1, col = 2)
+    graphics::points(degree[i0], objfuncs[i0], cex = 3, col = 2)
+    graphics::text(degree, objfuncs, degree, pos = 3)
   }
 
   names(objfuncs) <- degree
-  result <- list(degree=best.degree,degree.max=degree.max,objfunc=objfuncs)
-  return(result)
+  list(degree = best.degree, degree.max = degree.max, objfunc = objfuncs)
 }
+
 
 
 #' @title Check stationarity of an NMF-VAR model
@@ -1805,10 +1791,9 @@ summary.nmfkc <- function(object, ...) {
   ans$sigma <- object$sigma
 
   if(!is.null(object$criterion)){
-    ans$aic <- object$criterion$AIC
-    ans$bic <- object$criterion$BIC
+    ans$ICp <- object$criterion$ICp
   } else {
-    ans$aic <- NULL; ans$bic <- NULL
+    ans$ICp <- NULL
   }
 
   # --- Diagnostics (Sparsity & Clustering Quality) ---
@@ -1862,9 +1847,8 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("  Multiple R-squared: ", format(x$r.squared, digits = digits), "\n")
   cat("  Residual Std Error: ", format(x$sigma, digits = digits), "\n")
 
-  if (!is.null(x$aic)) {
-    cat("  AIC:                ", format(x$aic, digits = digits), "\n")
-    cat("  BIC:                ", format(x$bic, digits = digits), "\n")
+  if (!is.null(x$ICp)) {
+    cat("  ICp:                ", format(x$ICp, digits = digits), "\n")
   }
 
   cat("\nStructure Diagnostics:\n")
