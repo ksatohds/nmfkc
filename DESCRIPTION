@@ -1,15 +1,17 @@
 Package: nmfkc
 Type: Package
-Title: The Package is to Optimize Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.5.5
-Date: 2025-11-24
+Title: Non-Negative Matrix Factorization with Kernel Covariates
+Version: 0.5.6
+Date: 2025-11-25
 Authors@R: 
     person("Kenichi", "Satoh", 
            email = "kenichi-satoh@biwako.shiga-u.ac.jp", 
            role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-4436-9347"))
 Maintainer: Kenichi Satoh <kenichi-satoh@biwako.shiga-u.ac.jp>
-Description: This package performs Non-negative Matrix Factorization (NMF) 
+URL: https://github.com/ksatohds/nmfkc, https://ksatohds.github.io/nmfkc/
+BugReports: https://github.com/ksatohds/nmfkc/issues
+Description: Performs Non-negative Matrix Factorization (NMF) 
     with Kernel Covariates. Given an observation matrix and kernel 
     covariates, it optimizes both a basis matrix and a parameter matrix. 
     Notably, if the kernel matrix is an identity matrix, the method 
@@ -24,8 +26,17 @@ VignetteBuilder: knitr
 Suggests: 
     knitr,
     rmarkdown,
+    testthat (>= 3.0.0),
     palmerpenguins,
-    vars,
     quanteda,
-    testthat (>= 3.0.0)
+    vars,
+    DiagrammeR,
+    fda,
+    NipponMap,
+    alluvial,
+    httr,
+    readxl,
+    RColorBrewer,
+    MASS,
+    nlme
 Config/testthat/edition: 3

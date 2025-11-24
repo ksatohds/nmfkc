@@ -1,9 +1,11 @@
-.onAttach <- function(...) {
+.onAttach <- function(libname, pkgname) {
+  pkg_date <- utils::packageDescription("nmfkc", fields = "Date")
+  formatted_date <- format(as.Date(pkg_date), "%d %b %Y")
   packageStartupMessage(
     paste("Package: nmfkc (Version", as.character(utils::packageVersion("nmfkc")),
-          ", released on", format(as.Date(release_date), "%d %b %Y"), ")")
+          ", released on", formatted_date, ")")
   )
-  packageStartupMessage("https://github.com/ksatohds/nmfkc")
+  packageStartupMessage("https://ksatohds.github.io/nmfkc/")
 }
 
 
