@@ -11,7 +11,6 @@
 
 
 
-
 #' @title Construct observation and covariate matrices for a vector autoregressive model
 #' @description
 #' \code{nmfkc.ar} generates the observation matrix and covariate matrix
@@ -40,7 +39,10 @@ nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
   tsp_start <- 1
   tsp_freq <- 1
 
-  if(stats::is.ts(Y)){
+  # [FIX 1] Record if input was originally a ts object
+  is_ts_object <- stats::is.ts(Y)
+
+  if(is_ts_object){
     # Capture original time properties BEFORE transforming Y
     y_tsp_orig <- stats::tsp(Y)
     tsp_start <- y_tsp_orig[1]
@@ -48,7 +50,6 @@ nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
 
     # Standard 'ts' objects are Time(rows) x Variables(cols).
     # 'nmfkc' requires Variables(rows) x Time(cols).
-    # So we MUST transpose 'ts' objects to match the expected Y format.
     Y <- t(as.matrix(Y))
 
   } else {
@@ -81,23 +82,22 @@ nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
   t_start_idx <- degree + 1
 
   # --- 4. Calculate Adjusted tsp for Y and A ---
-  # The new series starts 'degree' steps later than the original
-  # New Start = Old Start + (degree * (1/Frequency))
   tsp_start_new <- tsp_start + (degree / tsp_freq)
-
-  # Calculate new End based on the new length N_A
-  # End = Start + (N_A - 1) / Frequency
   tsp_end_new <- tsp_start_new + (N_A - 1) / tsp_freq
-
-  # Construct the new tsp info vector: c(Start, End, Frequency)
   y_tsp_new <- c(tsp_start_new, tsp_end_new, tsp_freq)
 
-  # --- 5. Generate Time Sequence for Column Names (NEW) ---
-  # Create a sequence of time points based on the calculated tsp
-  time_seq <- seq(from = tsp_start_new, by = 1/tsp_freq, length.out = N_A)
-  # Format as character to ensure they can be used as colnames.
-  # Rounding is recommended to avoid floating point display issues (e.g. 1949.0833333).
-  time_names <- as.character(round(time_seq, 5))
+  # --- 5. Generate Time Sequence for Column Names [FIXED] ---
+  # Determine correct column names
+  if (!is_ts_object && !is.null(colnames(Y))) {
+    # Case A: Not a ts object AND has existing column names.
+    # Preserve existing names by slicing them.
+    time_names <- colnames(Y)[t_start_idx : N]
+  } else {
+    # Case B: Is a ts object OR no column names exist.
+    # Generate numeric time sequence based on tsp info.
+    time_seq <- seq(from = tsp_start_new, by = 1/tsp_freq, length.out = N_A)
+    time_names <- as.character(round(time_seq, 5))
+  }
 
   # --- 6. A.columns.index ---
   A.columns.index <- matrix(0, nrow = degree, ncol = N_A)
@@ -123,7 +123,7 @@ nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
   # --- 8. Ya (Non-lagged Observation Matrix) ---
   Ya <- Y[, t_start_idx : N, drop=FALSE]
 
-  # --- 9. Set Column Names (NEW) ---
+  # --- 9. Set Column Names ---
   colnames(Ya) <- time_names
   colnames(A) <- time_names
 
@@ -135,7 +135,7 @@ nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
   attr(A, "intercept") <- intercept
   attr(A, "function.name") <- "nmfkc.ar"
 
-  # Store Adjusted Time Properties as "tsp_info" to avoid R's dimension check error
+  # Store Adjusted Time Properties
   attr(A, "tsp_info") <- y_tsp_new
   attr(Ya, "tsp_info") <- y_tsp_new
 
