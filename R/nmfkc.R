@@ -1953,11 +1953,11 @@ summary.nmfkc <- function(object, ...) {
   }
 
   # 2. Probabilities (B.prob)
-  if (!is.null(object$B.prob) && is.matrix(object$B.prob)) {
+  if (!is.null(object$B.prob)){
     # Sparsity
     ans$B.prob.sparsity <- mean(object$B.prob < 1e-4)
-    ans$B.prob.entropy.mean <- object$B.prob.entropy.mean
-    ans$B.prob.max.mean <- object$B.prob.max.mean
+    ans$B.prob.entropy.mean <- object$criterion$B.prob.entropy.mean
+    ans$B.prob.max.mean <- object$criterion$B.prob.max.mean
   }
 
   class(ans) <- "summary.nmfkc"
@@ -1980,13 +1980,13 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   }
 
   cat("\nStatistics:\n")
-  cat("  Objective function: ", format(x$objfunc, digits = digits), "\n")
-  cat("  Multiple R-squared: ", format(x$r.squared, digits = digits), "\n")
-  cat("  Residual Std Error: ", format(x$sigma, digits = digits), "\n")
+  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
+  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
+  cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
 
   if (!is.null(x$ICp)) {
-    cat("  ICp:                ", format(x$ICp, digits = digits), "\n")
+    cat("  ICp:                 ", format(x$ICp, digits = digits), "\n")
   }
 
   cat("\nStructure Diagnostics:\n")
@@ -1995,12 +1995,12 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   }
   if (!is.null(x$B.prob.sparsity)) {
     cat("  Coef (B) Sparsity:    ", sprintf("%.1f%%", x$B.prob.sparsity * 100), "(< 1e-4)\n")
-    if(!is.null(x$B.prob.entropy.mean)){
-      cat("  Clustering Entropy:   ", format(x$B.prob.entropy.mean, digits = digits),
-          "(range: 0-1, closer to 0 is better)\n")
-      cat("  Clustering Crispness: ", format(x$B.prob.max.mean, digits = digits),
-          "(range: 0-1, closer to 1 is better)\n")
-    }
+  }
+  if(!is.null(x$B.prob.entropy.mean)){
+    cat("  Clustering Entropy:   ", format(x$B.prob.entropy.mean, digits = digits),
+        "(range: 0-1, closer to 0 is better)\n")
+    cat("  Clustering Crispness: ", format(x$B.prob.max.mean, digits = digits),
+        "(range: 0-1, closer to 1 is better)\n")
   }
   cat("\n")
   invisible(x)
