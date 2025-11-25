@@ -1795,10 +1795,20 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     if(any(valid_idx)) {
       r2 <- stats::cor(XB[valid_idx], Y[valid_idx])^2
       sigma <- stats::sd(Y[valid_idx] - XB[valid_idx])
+      mae <- mean(abs(Y[valid_idx] - XB[valid_idx]))
     } else { r2 <- NA; sigma <- NA }
 
     B.prob <- t( t(B) / (colSums(B) + .eps) )
-    B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
+    if(Q > 1){
+      B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
+      B.prob.max.mean <- mean(apply(B.prob,2,max))
+      p <- B.prob + .eps # avoid log(0)
+      B.prob.entropy.mean <- -mean(colSums(p * log(p))) / log(Q)
+    } else {
+      B.prob.sd.min <- 0
+      B.prob.entropy.mean <- 0
+      B.prob.max.mean <- 1
+    }
     B.cluster <- apply(B.prob,2,which.max)
     B.cluster[colSums(B.prob)==0] <- NA
     X.prob <- X / (rowSums(X) + .eps)
@@ -1818,10 +1828,12 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
       }else{ CPCC <- NA }
     }
   }else{
-    r2 <- NA; sigma <- NA; B.prob <- NA; B.prob.sd.min <- NA; B.cluster <- NA
-    XB <- NA; X.prob <- NA; X.cluster <- NA; silhouette <- NA; CPCC <- NA; dist.cor <- NA
+    r2 <- NA; sigma <- NA; mae <- NA
+    B.prob <- NA; B.cluster <- NA
+    B.prob.sd.min <- NA; B.prob.max.mean <- NA; B.prob.entropy.mean <- NA
+    XB <- NA; X.prob <- NA; X.cluster <- NA;
+    silhouette <- NA; CPCC <- NA; dist.cor <- NA
   }
-
   if(epsilon.iter > abs(epsilon)) warning(paste0("maximum iterations (",maxit,") reached..."))
   end.time <- Sys.time()
   diff.time.st <- paste0(round(difftime(end.time,start.time,units="sec"),1),"sec")
@@ -1836,7 +1848,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     call      = match.call(),
     dims      = dims,
     runtime   = diff.time.st,
-    method    = method,              # ← 目的関数を明示
+    method    = method,
     X         = X,
     B         = B,
     XB        = XB,
@@ -1853,8 +1865,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     objfunc.iter = objfunc.iter,
     r.squared = r2,
     sigma     = sigma,
+    mae =mae,
     criterion = list(
       B.prob.sd.min = B.prob.sd.min,
+      B.prob.max.mean = B.prob.max.mean,
+      B.prob.entropy.mean= B.prob.entropy.mean,
       ICp1 = ICp1, ICp2 = ICp2, ICp3 = ICp3, ICp = ICp,
       AIC  = AIC,  BIC  = BIC,
       silhouette = silhouette,
@@ -1922,7 +1937,7 @@ summary.nmfkc <- function(object, ...) {
   ans$objfunc <- object$objfunc
   ans$r.squared <- object$r.squared
   ans$sigma <- object$sigma
-
+  ans$mae <- object$mae
   if(!is.null(object$criterion)){
     ans$ICp <- object$criterion$ICp
   } else {
@@ -1941,19 +1956,8 @@ summary.nmfkc <- function(object, ...) {
   if (!is.null(object$B.prob) && is.matrix(object$B.prob)) {
     # Sparsity
     ans$B.prob.sparsity <- mean(object$B.prob < 1e-4)
-
-    # Entropy (Normalized): 0=Crisp, 1=Uniform
-    Q <- nrow(object$B.prob)
-    if(Q > 1){
-      p <- object$B.prob + 1e-10 # avoid log(0)
-      entropies <- -colSums(p * log(p)) / log(Q)
-      ans$B.prob.entropy <- mean(entropies)
-      # Crispness: Mean Maximum Probability (Closer to 1 is better)
-      ans$B.prob.crispness <- mean(apply(object$B.prob, 2, max))
-    } else {
-      ans$B.prob.entropy <- 0
-      ans$B.prob.crispness <- 1
-    }
+    ans$B.prob.entropy.mean <- object$B.prob.entropy.mean
+    ans$B.prob.max.mean <- object$B.prob.max.mean
   }
 
   class(ans) <- "summary.nmfkc"
@@ -1979,6 +1983,7 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("  Objective function: ", format(x$objfunc, digits = digits), "\n")
   cat("  Multiple R-squared: ", format(x$r.squared, digits = digits), "\n")
   cat("  Residual Std Error: ", format(x$sigma, digits = digits), "\n")
+  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
 
   if (!is.null(x$ICp)) {
     cat("  ICp:                ", format(x$ICp, digits = digits), "\n")
@@ -1990,9 +1995,11 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   }
   if (!is.null(x$B.prob.sparsity)) {
     cat("  Coef (B) Sparsity:    ", sprintf("%.1f%%", x$B.prob.sparsity * 100), "(< 1e-4)\n")
-    if(!is.null(x$B.prob.entropy)){
-      cat("  Clustering Entropy:   ", format(x$B.prob.entropy, digits = 3), "(0=Crisp, 1=Ambiguous)\n")
-      cat("  Clustering Crispness: ", format(x$B.prob.crispness, digits = 3), "(Mean Max Prob, >0.8 is good)\n")
+    if(!is.null(x$B.prob.entropy.mean)){
+      cat("  Clustering Entropy:   ", format(x$B.prob.entropy.mean, digits = digits),
+          "(range: 0-1, closer to 0 is better)\n")
+      cat("  Clustering Crispness: ", format(x$B.prob.max.mean, digits = digits),
+          "(range: 0-1, closer to 1 is better)\n")
     }
   }
   cat("\n")
