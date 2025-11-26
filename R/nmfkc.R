@@ -2654,6 +2654,8 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
     AIC = numeric(num_q),
     BIC = numeric(num_q),
     B.prob.sd.min = numeric(num_q),
+    B.prob.entropy.mean = numeric(num_q),
+    B.prob.max.mean = numeric(num_q),
     ARI = numeric(num_q),
     silhouette = numeric(num_q),
     CPCC = numeric(num_q),
@@ -2680,6 +2682,8 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
     results_df$AIC[q_idx] <- result$criterion$AIC
     results_df$BIC[q_idx] <- result$criterion$BIC
     results_df$B.prob.sd.min[q_idx] <- result$criterion$B.prob.sd.min
+    results_df$B.prob.max.mean[q_idx] = result$criterion$B.prob.max.mean
+    results_df$B.prob.entropy.mean[q_idx] = result$criterion$B.prob.entropy.mean
 
     if(save.time){
       results_df$CPCC[q_idx] <- NA
@@ -2758,6 +2762,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
     plot(results_df$rank, results_df$r.squared, type="l", col=2, lwd=3,
          xlab="Rank (Q)", ylab="Fit / Stability (0-1)", ylim=c(0,1),
          main="Rank Selection Diagnostics")
+    for(q in results_df$rank) graphics::abline(v=q,col="gray90",lwd=0.5)
     graphics::points(results_df$rank, results_df$r.squared, pch=16, col=2, cex=0.8)
     graphics::text(results_df$rank, results_df$r.squared, results_df$rank, pos=3, col=2, cex=0.8)
 
@@ -2772,8 +2777,15 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
     legend_col <- c(2)
     legend_lty <- c(1)
 
-    graphics::lines(results_df$rank, results_df$B.prob.sd.min, col=3, lwd=2)
-    legend_txt <- c(legend_txt, "B.prob.sd.min"); legend_col <- c(legend_col, 3); legend_lty <- c(legend_lty, 1)
+    graphics::lines(results_df$rank, results_df$B.prob.sd.min, col="green1", lwd=2)
+    legend_txt <- c(legend_txt, "B.prob.sd.min"); legend_col <- c(legend_col, "green1"); legend_lty <- c(legend_lty, 1)
+
+    graphics::lines(results_df$rank, results_df$B.prob.max.mean, col="green3", lwd=2)
+    legend_txt <- c(legend_txt, "B.prob.max.mean"); legend_col <- c(legend_col, "green3"); legend_lty <- c(legend_lty, 1)
+
+        graphics::lines(results_df$rank, results_df$B.prob.entropy.mean, col="green4", lwd=2)
+    legend_txt <- c(legend_txt, "B.prob.entropy.mean"); legend_col <- c(legend_col, "green4"); legend_lty <- c(legend_lty, 1)
+
 
     if (any(!is.na(results_df$ARI))) {
       graphics::lines(results_df$rank, results_df$ARI, col=4, lwd=2)
