@@ -2013,174 +2013,6 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 
 
 
-#------------------------------------------------------------------------------
-#------------------------------------------------------------------------------
-#------------------------------------------------------------------------------
-#------------------------------------------------------------------------------
-#------------------------------------------------------------------------------
-#------------------------------------------------------------------------------
-#------------------------------------------------------------------------------
-#------------------------------------------------------------------------------
-#------------------------------------------------------------------------------
-#------------------------------------------------------------------------------
-
-
-#' @title NMF-SEM Variable Splitter
-#' @description
-#' Estimates the causal ordering of variables based on Positive SEM logic.
-#' **Crucial Update:** Internally, data is **standardized (mean=0, sd=1)** to remove scale bias
-#' (e.g., seconds vs meters) before calculating regression coefficients.
-#'
-#' @param x A numeric matrix or data frame.
-#' @param n.exogenous Number of exogenous variables. If NULL, determined automatically.
-#' @param threshold Coefficient threshold (Standardized Beta). (Default: 0.1)
-#' @param auto.flipped Whether to perform automatic sign flipping. (Default: TRUE)
-#' @param verbose Whether to display progress messages. (Default: TRUE)
-#'
-#' @return A list object containing variable names and indices.
-#' @export
-nmfkc.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
-                            auto.flipped = TRUE, verbose = TRUE) {
-
-  if (!is.matrix(x) && !is.data.frame(x)) stop("x must be a numeric matrix or data frame.")
-
-  X_raw <- as.matrix(x)
-  P <- ncol(X_raw)
-  col_names <- colnames(X_raw)
-  if (is.null(col_names)) {
-    col_names <- paste0("V", 1:P)
-    colnames(X_raw) <- col_names
-  }
-
-  # -----------------------------------------------------------
-  # Internal Standardization (Forced)
-  # -----------------------------------------------------------
-  X_calc <- scale(X_raw, center = TRUE, scale = TRUE)
-  X_calc[is.na(X_calc)] <- 0
-  X_calc[is.nan(X_calc)] <- 0
-
-  all_indices <- 1:P
-
-  # -----------------------------------------------------------
-  # Step 0: Auto Sign Flipping
-  # -----------------------------------------------------------
-  is.flipped <- rep(FALSE, P)
-  names(is.flipped) <- col_names
-
-  if (auto.flipped) {
-    if (verbose) cat("Step 0: Checking correlations with PC1 (on standardized data)...\n")
-
-    svd_res <- svd(X_calc)
-    pc1 <- svd_res$u[, 1]
-
-    cors <- stats::cor(X_calc, pc1)
-    if (stats::median(cors, na.rm = TRUE) < 0) cors <- -cors
-
-    flip_idx <- which(cors < 0)
-
-    if (length(flip_idx) > 0) {
-      is.flipped[flip_idx] <- TRUE
-      X_calc[, flip_idx] <- -X_calc[, flip_idx]
-
-      if (verbose) {
-        cat(sprintf("  -> Detected %d flipped variables: %s\n",
-                    length(flip_idx), paste(col_names[flip_idx], collapse=", ")))
-      }
-    }
-  }
-
-  # -----------------------------------------------------------
-  # Step 1: Inferring Causal Ordering
-  # -----------------------------------------------------------
-  if (verbose) cat("Step 1: Inferring Causal Ordering...\n")
-
-  active_set <- all_indices
-  ordering_reversed <- integer(P)
-
-  for (t in 1:(P - 1)) {
-    scores <- numeric(length(active_set))
-
-    for (i in seq_along(active_set)) {
-      target_col <- active_set[i]
-      pred_cols <- active_set[-i]
-
-      y_vec <- X_calc[, target_col]
-      X_mat <- X_calc[, pred_cols, drop=FALSE]
-
-      coefs <- tryCatch({
-        stats::coef(stats::lm(y_vec ~ X_mat - 1))
-      }, error = function(e) -Inf)
-
-      scores[i] <- min(coefs, na.rm = TRUE)
-    }
-
-    best_idx <- which.max(scores)
-    ordering_reversed[t] <- active_set[best_idx]
-    active_set <- active_set[-best_idx]
-  }
-  ordering_reversed[P] <- active_set[1]
-
-  ordering_indices <- rev(ordering_reversed)
-
-  # -----------------------------------------------------------
-  # Step 2: Automatic Cut-off Detection
-  # -----------------------------------------------------------
-  if (is.null(n.exogenous)) {
-    if (verbose) cat("Step 2: Detecting optimal cut-off for Exogenous variables...\n")
-    cutoff <- 1
-
-    for (k in 2:(P-1)) {
-      curr_idx <- ordering_indices[k]
-      parent_indices <- ordering_indices[1:(k-1)]
-
-      y_vec <- X_calc[, curr_idx]
-      X_parents <- X_calc[, parent_indices, drop=FALSE]
-
-      coefs <- stats::coef(stats::lm(y_vec ~ X_parents - 1))
-      max_influence <- max(coefs, na.rm = TRUE)
-
-      if (max_influence > threshold) {
-        if (verbose) cat(sprintf("  [%d] %s : Max std.coef=%.3f -> Endogenous (Stop)\n",
-                                 k, col_names[curr_idx], max_influence))
-        break
-      } else {
-        cutoff <- k
-        if (verbose) cat(sprintf("  [%d] %s : Max std.coef=%.3f -> Exogenous (Continue)\n",
-                                 k, col_names[curr_idx], max_influence))
-      }
-    }
-    n.exogenous <- cutoff
-  }
-
-  # -----------------------------------------------------------
-  # Step 3: Finalizing Variable Names
-  # -----------------------------------------------------------
-  idx_exo <- ordering_indices[1:n.exogenous]
-  idx_endo <- ordering_indices[(n.exogenous + 1):P]
-
-  exogenous.variables <- col_names[idx_exo]
-  endogenous.variables <- col_names[idx_endo]
-  ordered.variables <- col_names[ordering_indices]
-
-  if (verbose) {
-    cat("\n--- Auto Split Result ---\n")
-    cat(sprintf("Exogenous (Y2, n=%d): %s\n", n.exogenous, paste(exogenous.variables, collapse=", ")))
-    cat(sprintf("Endogenous (Y1, n=%d): %s ...\n", length(endogenous.variables), paste(utils::head(endogenous.variables, 3), collapse=", ")))
-  }
-
-  return(list(
-    endogenous.variables = endogenous.variables,
-    exogenous.variables = exogenous.variables,
-    ordered.variables = ordered.variables,
-    is.flipped = is.flipped,
-    n.exogenous = as.integer(n.exogenous)
-  ))
-}
-
-
-
-
-
 
 
 
@@ -3274,4 +3106,312 @@ nmfkc.residual.plot <- function(Y, result,
                   axes = FALSE, ...)
   graphics::box()
 }
+
+
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+
+
+
+#' @title NMF-SEM (Soft Constraint Version with Rank support)
+#' @description
+#' Fits a Structural Equation Model (SEM) within the Non-negative Matrix Factorization (NMF) framework.
+#' The model approximates the endogenous variables \eqn{Y_1} using the structural equation:
+#' \eqn{Y_1 \approx X (C_1 Y_1 + C_2 Y_2)}.
+#' Here, \eqn{X} is the basis matrix representing latent factors, \eqn{C_1} captures the feedback effects
+#' among endogenous variables, and \eqn{C_2} represents the influence of exogenous variables \eqn{Y_2} on the factors.
+#' This function allows inducing diagonalization in \eqn{C_2} by imposing an L2 penalty on its off-diagonal elements.
+#'
+#' @param Y1 Endogenous variable matrix (P1 x N).
+#' @param Y2 Exogenous variable matrix (P2 x N).
+#' @param rank Rank of the basis matrix (number of latent factors).
+#'   Can also be specified as \code{Q} for backward compatibility.
+#' @param X.L2.ortho L2 penalty for orthogonality of X. Default is 100.0.
+#' @param C2.L2.off L2 penalty for off-diagonal elements of Theta2 (C2). Default is 10.0.
+#' @param C1.L1 L1 penalty for Theta1 (C1). Default is 0.5.
+#' @param C2.L1 L1 penalty for the whole Theta2 (C2). Default is 0.0.
+#' @param epsilon Positive convergence tolerance. Default is 1e-6.
+#' @param maxit Maximum number of iterations. Default is 20000.
+#' @param seed Integer seed for reproducibility. Default is 123.
+#' @param ... Additional arguments (e.g., \code{Q} for backward compatibility).
+#'
+#' @return A list containing:
+#' \item{X}{Estimated basis matrix.}
+#' \item{C1}{Estimated endogenous feedback coefficient matrix.}
+#' \item{C2}{Estimated exogenous coefficient matrix.}
+#' \item{objfunc}{Objective function values history.}
+#' \item{iter}{Number of iterations performed.}
+#' @export
+nmf.sem <- function(
+    Y1, Y2,
+    rank = NULL,
+    X.L2.ortho = 100.0,
+    C2.L2.off = 10.0, # Off-diagonal suppression for Theta2 (L2 penalty)
+    C1.L1 = 0.5,      # Sparsity for Theta1
+    C2.L1 = 0.0,      # Sparsity for Theta2
+    epsilon = 1e-6, maxit = 20000, seed = 123,
+    ...
+) {
+  # --- 0. Argument Handling (Rank/Q) ---
+  extra_args <- list(...)
+  Q_hidden <- if (!is.null(extra_args$Q)) extra_args$Q else NULL
+  # Priority: rank > Q > default(P2)
+  Q <- if (!is.null(rank)) rank else if (!is.null(Q_hidden)) Q_hidden else nrow(Y2)
+
+  if (min(Y1) < 0 || min(Y2) < 0) stop("Y1 and Y2 must be non-negative.")
+  P1 <- nrow(Y1); P2 <- nrow(Y2)
+
+  # Label creation
+  Y1_labels <- if (!is.null(rownames(Y1))) rownames(Y1) else paste0("Y1_", 1:P1)
+  Y2_labels <- if (!is.null(rownames(Y2))) rownames(Y2) else paste0("Y2_", 1:P2)
+  Basis_labels <- paste0("Factor", 1:Q)
+
+  set.seed(seed)
+  # Use .eps matching nmfkc style for numerical stability
+  .eps <- 1e-10
+
+  .xnorm <- function(X) sweep(X, 2, pmax(colSums(X), .eps), "/")
+
+  # --- 1. Initialization ---
+  # Initialize X using .nndsvdar (internal function of nmfkc)
+  X <- .nndsvdar(Y1, Q)
+  X <- .xnorm(X)
+
+  C1 <- matrix(stats::runif(Q * P1, 0.01, 0.1), nrow = Q)
+
+  # C2 Initialization: Scattered slightly for Soft Constraint
+  C2 <- matrix(stats::runif(Q * P2, 0.001, 0.01), nrow = Q, ncol = P2)
+
+  # Provide hints for diagonal elements (within range Q <= P2)
+  min_dim <- min(Q, P2)
+  for(i in 1:min_dim) C2[i, i] <- stats::runif(1, 0.1, 0.2)
+
+  # Off-diagonal mask (Diagonal=0, Off-diagonal=1)
+  OffDiag_Mask <- matrix(1, nrow = Q, ncol = P2)
+  for(i in 1:min_dim) OffDiag_Mask[i, i] <- 0
+
+  objfunc <- numeric(maxit)
+
+  # --- 2. Main Loop ---
+  for (it in 1:maxit) {
+    M  <- C1 %*% Y1 + C2 %*% Y2
+    Mt <- t(M)
+
+    # 2.1. X Update
+    Numerator_X   <- Y1 %*% Mt
+    Denominator_X_rec <- X %*% M %*% Mt
+
+    if (X.L2.ortho > 0) {
+      XtX <- t(X) %*% X; XtX_offdiag <- XtX; diag(XtX_offdiag) <- 0
+      Denominator_X_ortho <- X.L2.ortho * X %*% XtX_offdiag
+    } else { Denominator_X_ortho <- 0 }
+
+    # Removed .z function, relying on .eps for stability
+    X <- X * (Numerator_X / (Denominator_X_rec + Denominator_X_ortho + .eps))
+    X <- .xnorm(X)
+
+    Xt  <- t(X); XtX <- Xt %*% X
+
+    # 2.2. C1 Update (C1)
+    Numerator_C1 <- Xt %*% Y1 %*% t(Y1)
+    Denominator_C1 <- XtX %*% (C1 %*% Y1 + C2 %*% Y2) %*% t(Y1) + C1.L1 + .eps
+    C1 <- C1 * (Numerator_C1 / Denominator_C1)
+
+    # 2.3. C2 Update (C2) with Soft Penalty
+    Numerator_C2 <- Xt %*% Y1 %*% t(Y2)
+
+    # Denominator: Reconstruction + Off-diagonal L2 penalty + Overall L1 penalty
+    # Note: C2.L2.off * C2 corresponds to L2 regularization derivative (lambda * theta)
+    Denominator_C2 <- XtX %*% (C1 %*% Y1 + C2 %*% Y2) %*% t(Y2) +
+      C2.L2.off * (C2 * OffDiag_Mask) +
+      C2.L1 + .eps
+
+    C2 <- C2 * (Numerator_C2 / Denominator_C2)
+
+    # Convergence check
+    XB <- X %*% (C1 %*% Y1 + C2 %*% Y2)
+    objfunc[it] <- sum((Y1 - XB)^2)
+
+    # Robust convergence check matching nmfkc style
+    if (it >= 10) {
+      epsilon_iter <- abs(objfunc[it] - objfunc[it-1]) / pmax(abs(objfunc[it]), 1)
+      if (epsilon_iter <= epsilon) break
+    }
+  }
+
+  rownames(X) <- Y1_labels; colnames(X) <- Basis_labels
+  rownames(C1) <- Basis_labels; colnames(C1) <- Y1_labels
+  rownames(C2) <- Basis_labels; colnames(C2) <- Y2_labels
+
+  list(X = X, C1 = C1, C2 = C2, objfunc = objfunc[1:it], iter = it)
+}
+
+
+
+#' @title NMF-SEM Variable Splitter
+#' @description
+#' Estimates the causal ordering of variables based on Positive SEM logic.
+#' **Crucial Update:** Internally, data is **standardized (mean=0, sd=1)** to remove scale bias
+#' (e.g., seconds vs meters) before calculating regression coefficients.
+#'
+#' @param x A numeric matrix or data frame.
+#' @param n.exogenous Number of exogenous variables. If NULL, determined automatically.
+#' @param threshold Coefficient threshold (Standardized Beta). (Default: 0.1)
+#' @param auto.flipped Whether to perform automatic sign flipping. (Default: TRUE)
+#' @param verbose Whether to display progress messages. (Default: TRUE)
+#'
+#' @return A list object containing variable names and indices.
+#' @export
+nmfkc.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
+                            auto.flipped = TRUE, verbose = TRUE) {
+
+  if (!is.matrix(x) && !is.data.frame(x)) stop("x must be a numeric matrix or data frame.")
+
+  X_raw <- as.matrix(x)
+  P <- ncol(X_raw)
+  col_names <- colnames(X_raw)
+  if (is.null(col_names)) {
+    col_names <- paste0("V", 1:P)
+    colnames(X_raw) <- col_names
+  }
+
+  # -----------------------------------------------------------
+  # Internal Standardization (Forced)
+  # -----------------------------------------------------------
+  X_calc <- scale(X_raw, center = TRUE, scale = TRUE)
+  X_calc[is.na(X_calc)] <- 0
+  X_calc[is.nan(X_calc)] <- 0
+
+  all_indices <- 1:P
+
+  # -----------------------------------------------------------
+  # Step 0: Auto Sign Flipping
+  # -----------------------------------------------------------
+  is.flipped <- rep(FALSE, P)
+  names(is.flipped) <- col_names
+
+  if (auto.flipped) {
+    if (verbose) cat("Step 0: Checking correlations with PC1 (on standardized data)...\n")
+
+    svd_res <- svd(X_calc)
+    pc1 <- svd_res$u[, 1]
+
+    cors <- stats::cor(X_calc, pc1)
+    if (stats::median(cors, na.rm = TRUE) < 0) cors <- -cors
+
+    flip_idx <- which(cors < 0)
+
+    if (length(flip_idx) > 0) {
+      is.flipped[flip_idx] <- TRUE
+      X_calc[, flip_idx] <- -X_calc[, flip_idx]
+
+      if (verbose) {
+        cat(sprintf("  -> Detected %d flipped variables: %s\n",
+                    length(flip_idx), paste(col_names[flip_idx], collapse=", ")))
+      }
+    }
+  }
+
+  # -----------------------------------------------------------
+  # Step 1: Inferring Causal Ordering
+  # -----------------------------------------------------------
+  if (verbose) cat("Step 1: Inferring Causal Ordering...\n")
+
+  active_set <- all_indices
+  ordering_reversed <- integer(P)
+
+  for (t in 1:(P - 1)) {
+    scores <- numeric(length(active_set))
+
+    for (i in seq_along(active_set)) {
+      target_col <- active_set[i]
+      pred_cols <- active_set[-i]
+
+      y_vec <- X_calc[, target_col]
+      X_mat <- X_calc[, pred_cols, drop=FALSE]
+
+      coefs <- tryCatch({
+        stats::coef(stats::lm(y_vec ~ X_mat - 1))
+      }, error = function(e) -Inf)
+
+      scores[i] <- min(coefs, na.rm = TRUE)
+    }
+
+    best_idx <- which.max(scores)
+    ordering_reversed[t] <- active_set[best_idx]
+    active_set <- active_set[-best_idx]
+  }
+  ordering_reversed[P] <- active_set[1]
+
+  ordering_indices <- rev(ordering_reversed)
+
+  # -----------------------------------------------------------
+  # Step 2: Automatic Cut-off Detection
+  # -----------------------------------------------------------
+  if (is.null(n.exogenous)) {
+    if (verbose) cat("Step 2: Detecting optimal cut-off for Exogenous variables...\n")
+    cutoff <- 1
+
+    for (k in 2:(P-1)) {
+      curr_idx <- ordering_indices[k]
+      parent_indices <- ordering_indices[1:(k-1)]
+
+      y_vec <- X_calc[, curr_idx]
+      X_parents <- X_calc[, parent_indices, drop=FALSE]
+
+      coefs <- stats::coef(stats::lm(y_vec ~ X_parents - 1))
+      max_influence <- max(coefs, na.rm = TRUE)
+
+      if (max_influence > threshold) {
+        if (verbose) cat(sprintf("  [%d] %s : Max std.coef=%.3f -> Endogenous (Stop)\n",
+                                 k, col_names[curr_idx], max_influence))
+        break
+      } else {
+        cutoff <- k
+        if (verbose) cat(sprintf("  [%d] %s : Max std.coef=%.3f -> Exogenous (Continue)\n",
+                                 k, col_names[curr_idx], max_influence))
+      }
+    }
+    n.exogenous <- cutoff
+  }
+
+  # -----------------------------------------------------------
+  # Step 3: Finalizing Variable Names
+  # -----------------------------------------------------------
+  idx_exo <- ordering_indices[1:n.exogenous]
+  idx_endo <- ordering_indices[(n.exogenous + 1):P]
+
+  exogenous.variables <- col_names[idx_exo]
+  endogenous.variables <- col_names[idx_endo]
+  ordered.variables <- col_names[ordering_indices]
+
+  if (verbose) {
+    cat("\n--- Auto Split Result ---\n")
+    cat(sprintf("Exogenous (Y2, n=%d): %s\n", n.exogenous, paste(exogenous.variables, collapse=", ")))
+    cat(sprintf("Endogenous (Y1, n=%d): %s ...\n", length(endogenous.variables), paste(utils::head(endogenous.variables, 3), collapse=", ")))
+  }
+
+  return(list(
+    endogenous.variables = endogenous.variables,
+    exogenous.variables = exogenous.variables,
+    ordered.variables = ordered.variables,
+    is.flipped = is.flipped,
+    n.exogenous = as.integer(n.exogenous)
+  ))
+}
+
+
+
+
+
 
