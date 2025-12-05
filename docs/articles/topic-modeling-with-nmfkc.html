@@ -187,18 +187,18 @@ model predicts them, providing a robust measure for rank selection
 <span><span class="co">#&gt; [1] 2</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $criteria</span></span>
-<span><span class="co">#&gt;   rank r.squared       ICp      AIC      BIC B.prob.sd.min       ARI silhouette</span></span>
-<span><span class="co">#&gt; 1    2 0.5533924  37.65518 18393.35 22268.68     0.3457205        NA  0.7506465</span></span>
-<span><span class="co">#&gt; 2    3 0.5941030  55.66664 17767.02 23580.01     0.1536632 0.7224439  0.5497821</span></span>
-<span><span class="co">#&gt; 3    4 0.6285527  73.68498 17223.59 24974.23     0.1323326 0.5299410  0.4586054</span></span>
-<span><span class="co">#&gt; 4    5 0.6565263  91.71388 16807.10 26495.41     0.1207275 0.6070068  0.3781011</span></span>
-<span><span class="co">#&gt; 5    6 0.6830576 109.74059 16364.42 27990.39     0.1291896 0.6750738  0.3171195</span></span>
-<span><span class="co">#&gt;        CPCC  dist.cor sigma.ecv</span></span>
-<span><span class="co">#&gt; 1 0.9306425 0.8886148  2.284836</span></span>
-<span><span class="co">#&gt; 2 0.9213624 0.9084099  2.421535</span></span>
-<span><span class="co">#&gt; 3 0.9082198 0.9296355  2.738010</span></span>
-<span><span class="co">#&gt; 4 0.9246659 0.9291057  2.950237</span></span>
-<span><span class="co">#&gt; 5 0.8751251 0.9338937  3.024230</span></span></code></pre>
+<span><span class="co">#&gt;   rank r.squared       ICp      AIC      BIC B.prob.sd.min B.prob.entropy.mean</span></span>
+<span><span class="co">#&gt; 1    2 0.5533924  37.65518 18393.35 22268.68     0.3457205           0.5845892</span></span>
+<span><span class="co">#&gt; 2    3 0.5941030  55.66664 17767.02 23580.01     0.1536632           0.6637765</span></span>
+<span><span class="co">#&gt; 3    4 0.6285527  73.68498 17223.59 24974.23     0.1323326           0.6661412</span></span>
+<span><span class="co">#&gt; 4    5 0.6565263  91.71388 16807.10 26495.41     0.1207275           0.6558215</span></span>
+<span><span class="co">#&gt; 5    6 0.6830576 109.74059 16364.42 27990.39     0.1291896           0.6490900</span></span>
+<span><span class="co">#&gt;   B.prob.max.mean       ARI silhouette      CPCC  dist.cor sigma.ecv</span></span>
+<span><span class="co">#&gt; 1       0.8190118        NA  0.7506465 0.9306425 0.8886148  2.284836</span></span>
+<span><span class="co">#&gt; 2       0.6797261 0.7224439  0.5497821 0.9213624 0.9084099  2.421535</span></span>
+<span><span class="co">#&gt; 3       0.6079841 0.5299410  0.4586054 0.9082198 0.9296355  2.738010</span></span>
+<span><span class="co">#&gt; 4       0.5699106 0.6070068  0.3781011 0.9246659 0.9291057  2.950237</span></span>
+<span><span class="co">#&gt; 5       0.5258122 0.6750738  0.3171195 0.8751251 0.9338937  3.024230</span></span></code></pre>
 <p>Looking at the diagnostics (e.g., the minimum ECV Sigma, the elbow of
 the R-squared curve, or high Cophenetic Correlation), let’s assume
 <strong>Rank = 3</strong> is a reasonable choice for this overview.</p>

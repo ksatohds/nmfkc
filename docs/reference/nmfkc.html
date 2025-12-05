@@ -110,7 +110,9 @@ and output control. This includes the backward-compatible arguments <code>Q</cod
 0 indicates missing/ignored values. If NULL (default), weights are automatically
 set to 0 for NAs in Y, and 1 otherwise.</p></li>
 <li><p><code>X.L2.ortho</code>: Nonnegative penalty parameter for the orthogonality of \(X\) (default: 0).
-Enforces columns of \(X\) to be orthogonal (conceptually \(X^\top X \to I\)). (Formerly <code>lambda.ortho</code>).</p></li>
+It minimizes the off-diagonal elements of the Gram matrix \(X^\top X\), reducing the correlation
+between basis vectors (conceptually minimizing \(\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2\)).
+(Formerly <code>lambda.ortho</code>).</p></li>
 <li><p><code>B.L1</code>: Nonnegative penalty parameter for L1 regularization on \(B = C A\) (default: 0).
 Promotes <strong>sparsity in the coefficients</strong>. (Formerly <code>gamma</code>).</p></li>
 <li><p><code>C.L1</code>: Nonnegative penalty parameter for L1 regularization on \(C\) (default: 0).

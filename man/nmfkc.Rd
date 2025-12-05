@@ -31,7 +31,9 @@ and output control. This includes the backward-compatible arguments \code{Q} and
 0 indicates missing/ignored values. If NULL (default), weights are automatically
 set to 0 for NAs in Y, and 1 otherwise.
 \item \code{X.L2.ortho}: Nonnegative penalty parameter for the orthogonality of \eqn{X} (default: 0).
-Enforces columns of \eqn{X} to be orthogonal (conceptually \eqn{X^\top X \to I}). (Formerly \code{lambda.ortho}).
+It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
+between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
+(Formerly \code{lambda.ortho}).
 \item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).
 Promotes \strong{sparsity in the coefficients}. (Formerly \code{gamma}).
 \item \code{C.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{C} (default: 0).
