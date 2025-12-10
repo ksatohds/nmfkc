@@ -2144,7 +2144,7 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
       if(type=="prob"){
         result <- XB.prob
       }else{
-        result <- colnames(x$X)[apply(XB.prob,2,which.max)]
+        result <- rownames(x$X)[apply(XB.prob,2,which.max)]
       }
     }
   }else{
@@ -2157,7 +2157,7 @@ predict.nmfkc <- function(x,newA=NULL,type="response"){
       if(type=="prob"){
         result <- XB.prob
       }else{
-        result <- colnames(x$X)[apply(XB.prob,2,which.max)]
+        result <- rownames(x$X)[apply(XB.prob,2,which.max)]
       }
     }
   }
