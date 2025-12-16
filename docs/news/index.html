@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.7</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,21 +40,29 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.5.5" id="nmfkc-055">nmfkc 0.5.5<a class="anchor" aria-label="anchor" href="#nmfkc-055"></a></h2>
-<ul><li>
-<strong>New Function:</strong> Implemented <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code> for Element-wise Cross-Validation (Wold’s CV).
+<h2 class="pkg-version" data-toc-text="0.5.7" id="nmfkc-057">nmfkc 0.5.7<a class="anchor" aria-label="anchor" href="#nmfkc-057"></a></h2>
+<div class="section level4">
+<h4 id="graphviz-dot-output-consolidation-and-cleanup-0-5-7"><strong>Graphviz DOT Output Consolidation and Cleanup</strong><a class="anchor" aria-label="anchor" href="#graphviz-dot-output-consolidation-and-cleanup-0-5-7"></a></h4>
+<ul><li><p>Harmonized all DOT-generating functions (<code>nmf.sem.DOT</code>, <code>nmfkc.DOT</code>, <code>nmfkc.ar.DOT</code>) for consistent structure, naming conventions, and visualization logic.</p></li>
+<li><p>Standardized node and edge formatting rules, including unified cluster behavior, color schemes, and edge-scaling conventions.</p></li>
+<li><p>Implemented threshold-aware coefficient labeling so that displayed numerical precision aligns with the visualization threshold, preventing misleadingly detailed labels.</p></li>
+<li><p>Removed unused or redundant DOT fragments and improved compatibility across Graphviz engines.</p></li>
+<li><p>Enhanced layout readability through consistent indentation, node grouping, and suppression of isolated nodes in specific visualization modes (e.g., <code>type = "YA"</code> in <code>nmfkc.DOT</code>).</p></li>
+<li><p>Refactored and expanded internal DOT helper functions (<code>.nmfkc_dot_format_coef</code>, <code>.nmfkc_dot_digits_from_threshold</code>, <code>.nmfkc_dot_cluster_nodes</code>, etc.) for better maintainability and uniform behavior.</p></li>
+<li>
+<p><strong>New Function:</strong> Implemented <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code> for Element-wise Cross-Validation (Wold’s CV).</p>
 <ul><li>This function randomly masks elements of the observation matrix to evaluate structural reconstruction error.</li>
 <li>It provides a statistically robust criterion for rank selection, avoiding the monotonic error decrease often seen in standard column-wise CV.</li>
 <li>Supports vector input for <code>rank</code> to evaluate multiple ranks simultaneously.</li>
 </ul></li>
 <li>
-<strong>Missing Value &amp; Weight Support:</strong>
+<p><strong>Missing Value &amp; Weight Support:</strong></p>
 <ul><li>
 <code><a href="../reference/nmfkc.html">nmfkc()</a></code> and <code><a href="../reference/nmfkc.cv.html">nmfkc.cv()</a></code> now fully support missing values (<code>NA</code>) and observation weights via the hidden argument <code>Y.weights</code> (passed through <code>...</code>).</li>
 <li>If <code>Y</code> contains <code>NA</code>s, they are automatically detected and masked (assigned a weight of 0) during optimization.</li>
 </ul></li>
 <li>
-<strong>Rank Selection Diagnostics (<code>nmfkc.rank</code>):</strong>
+<p><strong>Rank Selection Diagnostics (<code>nmfkc.rank</code>):</strong></p>
 <ul><li>
 <strong>Dual-Axis Visualization:</strong> The plot now displays fitting metrics (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>R</mi><mn>2</mn></msup><annotation encoding="application/x-tex">R^2</annotation></semantics></math>, etc.) on the left axis and ECV Sigma (RMSE) on the right axis (blue line).</li>
 <li>
@@ -68,12 +76,12 @@
 <code>save.time</code> defaults to <code>FALSE</code>, enabling the robust Element-wise CV calculation by default.</li>
 </ul></li>
 <li>
-<strong>Argument Standardization:</strong>
+<p><strong>Argument Standardization:</strong></p>
 <ul><li>Unified the rank argument name to <code>rank</code> across all functions (<code>nmfkc</code>, <code>nmfkc.cv</code>, <code>nmfkc.ecv</code>, <code>nmfkc.rank</code>).</li>
 <li>The legacy argument <code>Q</code> is still supported for backward compatibility but internally mapped to <code>rank</code>.</li>
 </ul></li>
 <li>
-<strong>Summary Improvements:</strong>
+<p><strong>Summary Improvements:</strong></p>
 <ul><li>Updated <code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code> and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> methods to report:
 <ul><li>Sparsity of Basis (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>) and Coefficients (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>).</li>
 <li>Clustering Entropy (indicating “Crisp” vs “Ambiguous” clustering).</li>
@@ -82,47 +90,49 @@
 </ul></li>
 </ul></li>
 <li>
-<strong>Other Improvements:</strong>
+<p><strong>Other Improvements:</strong></p>
 <ul><li>Added a validation check in <code><a href="../reference/nmfkc.ar.html">nmfkc.ar()</a></code> to ensure the input <code>Y</code> has no missing values (as they cannot be propagated to the covariate matrix <code>A</code> in VAR models).</li>
 <li>Refined <code><a href="../reference/nmfkc.residual.plot.html">nmfkc.residual.plot()</a></code> layout margins for better visibility of titles.</li>
 <li>Updated documentation to reflect all changes.</li>
 </ul></li>
-<li>Regularization Update:<br>
-The regularization scheme has been revised from <strong>L2 (ridge)</strong> to <strong>L1 (lasso-type)</strong> penalties.
+<li>
+<p>Regularization Update:<br>
+The regularization scheme has been revised from <strong>L2 (ridge)</strong> to <strong>L1 (lasso-type)</strong> penalties.</p>
 <ul><li>
 <code>gamma</code> now controls the <strong>L1 penalty on the coefficient matrix</strong> ( B = C A ), promoting sparsity in sample-wise coefficients.<br></li>
 <li>A new argument <code>lambda</code> has been added to control the <strong>L1 penalty on the parameter matrix</strong> ( C ), encouraging sparsity in the shared template structure.<br>
 Both parameters can be passed through the ellipsis (<code>...</code>) to <code><a href="../reference/nmfkc.html">nmfkc()</a></code> and related functions.<br></li>
 </ul></li>
-<li>Function Signature Simplification:** Many less-frequently used arguments in <code><a href="../reference/nmfkc.html">nmfkc()</a></code> (e.g., <code>gamma</code>, <code>X.restriction</code>, <code>X.init</code>) and in <code><a href="../reference/nmfkc.cv.html">nmfkc.cv()</a></code> (e.g., <code>div</code>, <code>seed</code>) have been moved into the ellipsis (<code>...</code>) for a cleaner function signature.</li>
-<li>Performance Improvement: The internal function <code>.silhouette.simple</code> was vectorized and optimized to reduce computational cost, particularly for the calculation of <code>a(i)</code> and <code>b(i)</code>.</li>
-<li>Removed the <code>fast.calc</code> option from the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> function.</li>
-<li>Added the <code>X.init</code> argument to the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> function, allowing selection between <code>'kmeans'</code> and <code>'nndsvd'</code> initialization methods.</li>
-<li>The penalty term has been changed from <code>tr(CC')</code> to <code>tr(BB')</code> = <code>tr(CAA'C')</code>.</li>
-<li>Implemented the internal <code>.z</code> and <code>xnorm</code> functions.</li>
-<li>Added the fast.calc option to the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> function.</li>
-<li>Optimized internal calculations for improved performance.</li>
-<li>Updated <code>citation("nmfkc")</code> and added AIC/BIC to the output.</li>
-<li>Implemented the <code><a href="../reference/nmfkc.ar.stationarity.html">nmfkc.ar.stationarity()</a></code> function.</li>
-<li>Modified the <code>z()</code> function.</li>
-<li>Used <code><a href="https://rdrr.io/r/base/crossprod.html" class="external-link">crossprod()</a></code> for faster matrix multiplication.</li>
-<li>Implemented the <code><a href="../reference/nmfkc.ar.DOT.html">nmfkc.ar.DOT()</a></code> function.</li>
-<li>Added logic to sort the columns of <code>X</code> to form a unit matrix in special cases.</li>
-<li>Implemented <code><a href="../reference/nmfkc.kernel.beta.cv.html">nmfkc.kernel.beta.cv()</a></code> and <code><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv()</a></code> functions.</li>
-<li>Set the default column names of <code>X</code> to <code>Basis1</code>, <code>Basis2</code>, etc.</li>
-<li>Added <code>X.prob</code> and <code>X.cluster</code> to the return object.</li>
-<li>Skipped CPCC and silhouette calculations when <code>save.time = TRUE</code>.</li>
-<li>Added a prototype for the <code><a href="../reference/nmfkc.ar.html">nmfkc.ar()</a></code> function.</li>
-<li>Added the <code>criterion</code> argument to the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> function to support multiple criteria.</li>
-<li>Updated the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function.</li>
-<li>Added the <code>criterion</code> argument to the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function.</li>
-<li>Implemented the <code>save.time</code> argument.</li>
-<li>Implemented the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function.</li>
-<li>Implemented the <code>nstart</code> option from the <code><a href="https://rdrr.io/r/stats/kmeans.html" class="external-link">kmeans()</a></code> function.</li>
-<li>Added an experimental implementation of the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function.</li>
-<li>Removed zero-variance columns and rows with a warning.</li>
-<li>Added source and references to the documentation.</li>
-<li>Renamed several components for clarity:
+<li><p>Function Signature Simplification:** Many less-frequently used arguments in <code><a href="../reference/nmfkc.html">nmfkc()</a></code> (e.g., <code>gamma</code>, <code>X.restriction</code>, <code>X.init</code>) and in <code><a href="../reference/nmfkc.cv.html">nmfkc.cv()</a></code> (e.g., <code>div</code>, <code>seed</code>) have been moved into the ellipsis (<code>...</code>) for a cleaner function signature.</p></li>
+<li><p>Performance Improvement: The internal function <code>.silhouette.simple</code> was vectorized and optimized to reduce computational cost, particularly for the calculation of <code>a(i)</code> and <code>b(i)</code>.</p></li>
+<li><p>Removed the <code>fast.calc</code> option from the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> function.</p></li>
+<li><p>Added the <code>X.init</code> argument to the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> function, allowing selection between <code>'kmeans'</code> and <code>'nndsvd'</code> initialization methods.</p></li>
+<li><p>The penalty term has been changed from <code>tr(CC')</code> to <code>tr(BB')</code> = <code>tr(CAA'C')</code>.</p></li>
+<li><p>Implemented the internal <code>.z</code> and <code>xnorm</code> functions.</p></li>
+<li><p>Added the fast.calc option to the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> function.</p></li>
+<li><p>Optimized internal calculations for improved performance.</p></li>
+<li><p>Updated <code>citation("nmfkc")</code> and added AIC/BIC to the output.</p></li>
+<li><p>Implemented the <code><a href="../reference/nmfkc.ar.stationarity.html">nmfkc.ar.stationarity()</a></code> function.</p></li>
+<li><p>Modified the <code>z()</code> function.</p></li>
+<li><p>Used <code><a href="https://rdrr.io/r/base/crossprod.html" class="external-link">crossprod()</a></code> for faster matrix multiplication.</p></li>
+<li><p>Implemented the <code><a href="../reference/nmfkc.ar.DOT.html">nmfkc.ar.DOT()</a></code> function.</p></li>
+<li><p>Added logic to sort the columns of <code>X</code> to form a unit matrix in special cases.</p></li>
+<li><p>Implemented <code><a href="../reference/nmfkc.kernel.beta.cv.html">nmfkc.kernel.beta.cv()</a></code> and <code><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv()</a></code> functions.</p></li>
+<li><p>Set the default column names of <code>X</code> to <code>Basis1</code>, <code>Basis2</code>, etc.</p></li>
+<li><p>Added <code>X.prob</code> and <code>X.cluster</code> to the return object.</p></li>
+<li><p>Skipped CPCC and silhouette calculations when <code>save.time = TRUE</code>.</p></li>
+<li><p>Added a prototype for the <code><a href="../reference/nmfkc.ar.html">nmfkc.ar()</a></code> function.</p></li>
+<li><p>Added the <code>criterion</code> argument to the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> function to support multiple criteria.</p></li>
+<li><p>Updated the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function.</p></li>
+<li><p>Added the <code>criterion</code> argument to the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function.</p></li>
+<li><p>Implemented the <code>save.time</code> argument.</p></li>
+<li><p>Implemented the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function.</p></li>
+<li><p>Implemented the <code>nstart</code> option from the <code><a href="https://rdrr.io/r/stats/kmeans.html" class="external-link">kmeans()</a></code> function.</p></li>
+<li><p>Added an experimental implementation of the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function.</p></li>
+<li><p>Removed zero-variance columns and rows with a warning.</p></li>
+<li><p>Added source and references to the documentation.</p></li>
+<li>
+<p>Renamed several components for clarity:</p>
 <ul><li>
 <code>nmfkcreg</code> to <code>nmfkc</code>
 </li>
@@ -148,17 +158,20 @@ Both parameters can be passed through the ellipsis (<code>...</code>) to <code><
 <code>dims</code> to <code>print.dims</code>
 </li>
 </ul></li>
-<li>Added the <code>r.squared</code> argument to the <code>nmfkcreg.cv()</code> function.</li>
-<li>In <code>nmfkcreg()</code>:
+<li><p>Added the <code>r.squared</code> argument to the <code>nmfkcreg.cv()</code> function.</p></li>
+<li>
+<p>In <code>nmfkcreg()</code>:</p>
 <ul><li>Added the <code>dims</code> argument to check matrix sizes.</li>
 <li>Added the <code>unit</code> argument to normalize the basis matrix columns.</li>
 </ul></li>
-<li>Modified the <code>create.kernel()</code> function to support prediction.</li>
-<li>Updated examples on GitHub.</li>
-<li>Removed the <code>YHAT</code> return value; use <code>XB</code> instead.</li>
-<li>Added the <code>cluster</code> return value for hard clustering.</li>
+<li><p>Modified the <code>create.kernel()</code> function to support prediction.</p></li>
+<li><p>Updated examples on GitHub.</p></li>
+<li><p>Removed the <code>YHAT</code> return value; use <code>XB</code> instead.</p></li>
+<li><p>Added the <code>cluster</code> return value for hard clustering.</p></li>
 </ul></div>
-  </main></div>
+</div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">

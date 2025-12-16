@@ -1,4 +1,12 @@
-# nmfkc 0.5.5
+# nmfkc 0.5.7
+### **Graphviz DOT Output Consolidation and Cleanup**
+- Harmonized all DOT-generating functions (`nmf.sem.DOT`, `nmfkc.DOT`, `nmfkc.ar.DOT`) for consistent structure, naming conventions, and visualization logic.
+- Standardized node and edge formatting rules, including unified cluster behavior, color schemes, and edge-scaling conventions.
+- Implemented threshold-aware coefficient labeling so that displayed numerical precision aligns with the visualization threshold, preventing misleadingly detailed labels.
+- Removed unused or redundant DOT fragments and improved compatibility across Graphviz engines.
+- Enhanced layout readability through consistent indentation, node grouping, and suppression of isolated nodes in specific visualization modes (e.g., `type = "YA"` in `nmfkc.DOT`).
+- Refactored and expanded internal DOT helper functions (`.nmfkc_dot_format_coef`, `.nmfkc_dot_digits_from_threshold`, `.nmfkc_dot_cluster_nodes`, etc.) for better maintainability and uniform behavior.
+
 * **New Function:** Implemented `nmfkc.ecv()` for Element-wise Cross-Validation (Wold's CV).
   - This function randomly masks elements of the observation matrix to evaluate structural reconstruction error.
   - It provides a statistically robust criterion for rank selection, avoiding the monotonic error decrease often seen in standard column-wise CV.

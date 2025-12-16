@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.7</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -196,8 +196,8 @@ overlapping classes like versicolor and virginica.)</em></p>
 <span><span class="op">(</span><span class="va">f_linear</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span>fitted.label <span class="op">=</span> <span class="va">pred_linear</span>, label <span class="op">=</span> <span class="va">label_iris</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             label</span></span>
 <span><span class="co">#&gt; fitted.label setosa versicolor virginica</span></span>
-<span><span class="co">#&gt;       Class1     50          0         0</span></span>
-<span><span class="co">#&gt;       Class3      0         50        50</span></span>
+<span><span class="co">#&gt;    setosa        50          0         0</span></span>
+<span><span class="co">#&gt;    virginica      0         50        50</span></span>
 <span></span>
 <span><span class="co"># Calculate Accuracy (assuming diagonal correspondence)</span></span>
 <span><span class="va">acc_linear</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">f_linear</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">f_linear</span><span class="op">)</span></span>
@@ -234,9 +234,9 @@ kernel.</p>
 <span><span class="op">(</span><span class="va">f_kernel</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span>fitted.label <span class="op">=</span> <span class="va">fitted_label</span>, label <span class="op">=</span> <span class="va">label_iris</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             label</span></span>
 <span><span class="co">#&gt; fitted.label setosa versicolor virginica</span></span>
-<span><span class="co">#&gt;       Class1     50          0         0</span></span>
-<span><span class="co">#&gt;       Class2      0         49         4</span></span>
-<span><span class="co">#&gt;       Class3      0          1        46</span></span>
+<span><span class="co">#&gt;   setosa         50          0         0</span></span>
+<span><span class="co">#&gt;   versicolor      0         49         4</span></span>
+<span><span class="co">#&gt;   virginica       0          1        46</span></span>
 <span></span>
 <span><span class="co"># Calculate Accuracy</span></span>
 <span><span class="va">acc_kernel</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">f_kernel</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">f_kernel</span><span class="op">)</span></span>
@@ -340,11 +340,11 @@ uncertain (often on the boundary between species).</li>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fitted_label_p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict</a></span><span class="op">(</span><span class="va">res_penguins</span>, type <span class="op">=</span> <span class="st">"class"</span><span class="op">)</span></span>
 <span><span class="op">(</span><span class="va">f_penguins</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span>Predicted <span class="op">=</span> <span class="va">fitted_label_p</span>, Actual <span class="op">=</span> <span class="va">label_penguins</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;          Actual</span></span>
-<span><span class="co">#&gt; Predicted Adelie Chinstrap Gentoo</span></span>
-<span><span class="co">#&gt;    Class1    146         0      0</span></span>
-<span><span class="co">#&gt;    Class2      0        68      0</span></span>
-<span><span class="co">#&gt;    Class3      0         0    119</span></span>
+<span><span class="co">#&gt;            Actual</span></span>
+<span><span class="co">#&gt; Predicted   Adelie Chinstrap Gentoo</span></span>
+<span><span class="co">#&gt;   Adelie       146         0      0</span></span>
+<span><span class="co">#&gt;   Chinstrap      0        68      0</span></span>
+<span><span class="co">#&gt;   Gentoo         0         0    119</span></span>
 <span></span>
 <span><span class="va">acc_p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">f_penguins</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">f_penguins</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"Penguins Accuracy: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">acc_p</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"%\n"</span><span class="op">)</span><span class="op">)</span></span>

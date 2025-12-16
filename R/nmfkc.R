@@ -148,313 +148,6 @@ nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
 
 
 
-
-
-
-
-
-
-nmfkc.ar.DOT <- function(x, degree = 1, intercept = FALSE,
-                         digits = 1, threshold = 10^(-digits), rankdir = "RL") {
-  X <- x$X
-  C_raw <- x$C
-  if (is.null(X) || is.null(C_raw)) stop("x must contain X and C.")
-
-  # Round C for display purposes only
-  C <- round(C_raw, digits)
-
-  # --- Sanitize Node IDs and Separate Display Labels ---
-  sanitize_dot_id <- function(nm) gsub("[^[:alnum:]_.]", "_", nm, perl = TRUE)
-
-  # Assign default names if missing
-  if (is.null(rownames(X))) rownames(X) <- paste0("Y", seq_len(nrow(X)))
-  if (is.null(colnames(X))) colnames(X) <- paste0("X", seq_len(ncol(X)))
-  if (is.null(colnames(C))) colnames(C) <- colnames(C_raw) <- paste0("A_", seq_len(ncol(C)))
-
-  # Safe Node IDs
-  X_ids <- sanitize_dot_id(colnames(X))
-  Y_ids <- sanitize_dot_id(rownames(X))
-  C_ids <- sanitize_dot_id(colnames(C))
-
-  # Display Labels (for human readability)
-  X_lab <- colnames(X)
-  Y_lab <- rownames(X)
-  C_lab <- colnames(C_raw)
-
-  # --- Determine number of lags D accurately (considering intercept column) ---
-  base_from_name <- function(nm) sub("_([0-9]+)$", "", nm)
-  has_intercept_col <- any(C_lab == "(Intercept)")
-  A_labels_raw <- unique(base_from_name(C_lab))
-  A_labels_raw <- setdiff(A_labels_raw, "(Intercept)")
-  A_per_lag <- length(A_labels_raw)
-  if (A_per_lag == 0) stop("Could not identify covariate base names in C columns.")
-
-  total_cols <- ncol(C)
-  total_cols_no_int <- if (has_intercept_col) total_cols - 1L else total_cols
-  Dmax <- floor(total_cols_no_int / A_per_lag)
-  if (Dmax < 1) stop("Inconsistent C: not enough columns to form at least one lag block.")
-  D <- min(Dmax, as.integer(degree))
-
-  # --- Initialize Graph ---
-  scr <- paste0('digraph XCA {graph [rankdir=', rankdir, ' compound=true]; \n')
-
-  # --- Define Y Nodes (Output) ---
-  st <- 'subgraph cluster_Y{label="T" style="rounded"; \n'
-  for (i in seq_len(nrow(X))) {
-    st <- paste0(st, sprintf('  %s [label="%s", shape=box]; \n', Y_ids[i], Y_lab[i]))
-  }
-  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-  # --- Define X Nodes (Latent Variables) ---
-  st <- 'subgraph cluster_X{label="Latent Variables" style="rounded"; \n'
-  for (j in seq_len(ncol(X))) {
-    st <- paste0(st, sprintf('  %s [label="%s", shape=ellipse]; \n', X_ids[j], X_lab[j]))
-  }
-  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-  # --- Draw Edges: X → Y ---
-  for (i in seq_len(nrow(X))) {
-    for (j in seq_len(ncol(X))) {
-      val <- X[i, j]
-      if (is.finite(val) && val >= threshold) {
-        st <- sprintf(paste0('%s -> %s [label="%.', digits, 'f"]; \n'), X_ids[j], Y_ids[i], val)
-        scr <- paste0(scr, st)
-      }
-    }
-  }
-
-  # --- Add Intercept Nodes (optional) ---
-  if (isTRUE(intercept) && has_intercept_col) {
-    last_col <- ncol(C)
-    for (i in seq_len(ncol(X))) {
-      val <- C[i, last_col]
-      if (is.finite(val) && val >= threshold) {
-        st <- sprintf(paste0('Const%d [shape=circle label="%.', digits, 'f"]; '), i, val)
-        st <- paste0(st, sprintf('Const%d -> %s; \n', i, X_ids[i]))
-        scr <- paste0(scr, st)
-      }
-    }
-  }
-
-  # --- Draw Edges: T−k → X for each lag block ---
-  klist <- integer(0); ktoplist <- integer(0)
-  for (k in seq_len(D)) {
-    start <- (k - 1L) * A_per_lag
-    cols <- (start + 1L):(start + A_per_lag)  # Fixed range calculation
-
-    Ck <- C[, cols, drop = FALSE]
-    Ck_ids <- C_ids[cols]
-    Ck_lab <- base_from_name(C_lab[cols])
-
-    if (max(Ck, na.rm = TRUE) >= threshold) {
-      klist <- c(klist, k)
-      st <- sprintf('subgraph cluster_C%d{label="T-%d" style="rounded"; \n', k, k)
-      ktop <- NA_integer_
-
-      for (j in seq_len(ncol(Ck))) {
-        if (max(Ck[, j], na.rm = TRUE) >= threshold) {
-          if (is.na(ktop)) {
-            ktop <- j
-            ktoplist <- c(ktoplist, ktop)
-          }
-          # Node ID (safe) vs Label (display)
-          st <- paste0(st, sprintf('  %s [label="%s", shape=box]; \n', Ck_ids[j], Ck_lab[j]))
-        }
-      }
-      st <- paste0(st, "}; \n"); scr <- paste0(scr, st)
-    }
-
-    # Draw edges from each covariate node to corresponding X node
-    for (i in seq_len(nrow(Ck))) for (j in seq_len(ncol(Ck))) {
-      val <- Ck[i, j]
-      if (is.finite(val) && val >= threshold) {
-        st <- sprintf(paste0('%s -> %s [label="%.', digits, 'f"]; \n'),
-                      Ck_ids[j], X_ids[i], val)
-        scr <- paste0(scr, st)
-      }
-    }
-  }
-
-  # --- Add Invisible Edges for Cluster Ordering ---
-  if (length(klist) >= 2) {
-    for (t in 2:length(klist)) {
-      start_id <- C_ids[(klist[t] - 1L) * A_per_lag + ktoplist[t]]
-      end_id   <- C_ids[(klist[t - 1L] - 1L) * A_per_lag + ktoplist[t - 1L]]
-      st <- sprintf('%s -> %s [ltail=cluster_C%d lhead=cluster_C%d style=invis]; \n',
-                    start_id, end_id, klist[t], klist[t - 1L])
-      scr <- paste0(scr, st)
-    }
-  }
-
-  scr <- paste0(scr, "}\n")
-  return(scr)
-}
-
-
-
-
-
-
-
-
-#' @title Generate DOT language scripts for vector autoregressive models
-#' @description
-#' \code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
-#' vector autoregressive models fitted using \code{nmfkc}.
-#'
-#' @param x The return value of \code{nmfkc} for a vector autoregressive model.
-#' @param degree The maximum lag order to visualize. Default is 1.
-#' @param intercept Logical. If TRUE, an intercept node is added. Default is FALSE.
-#' @param digits Integer. Number of decimal places to display in edge labels.
-#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
-#' @param rankdir Graph layout direction in DOT language. Default is "RL". Other options include "LR", "TB", and "BT".
-#'
-#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
-#' @export
-
-nmfkc.ar.DOT <- function(x, degree = 1, intercept = FALSE,
-                         digits = 1, threshold = 10^(-digits), rankdir = "RL") {
-  X <- x$X
-  C_raw <- x$C
-  if (is.null(X) || is.null(C_raw)) stop("x must contain X and C.")
-
-  # Round C for display purposes only
-  C <- round(C_raw, digits)
-
-  # --- Sanitize Node IDs and Separate Display Labels ---
-  sanitize_dot_id <- function(nm) gsub("[^[:alnum:]_.]", "_", nm, perl = TRUE)
-
-  # Assign default names if missing
-  if (is.null(rownames(X))) rownames(X) <- paste0("Y", seq_len(nrow(X)))
-  if (is.null(colnames(X))) colnames(X) <- paste0("X", seq_len(ncol(X)))
-  if (is.null(colnames(C))) colnames(C) <- colnames(C_raw) <- paste0("A_", seq_len(ncol(C)))
-
-  # Safe Node IDs
-  X_ids <- sanitize_dot_id(colnames(X))
-  Y_ids <- sanitize_dot_id(rownames(X))
-  C_ids <- sanitize_dot_id(colnames(C))
-
-  # Display Labels (for human readability)
-  X_lab <- colnames(X)
-  Y_lab <- rownames(X)
-  C_lab <- colnames(C_raw)
-
-  # --- Determine number of lags D accurately (considering intercept column) ---
-  base_from_name <- function(nm) sub("_([0-9]+)$", "", nm)
-  has_intercept_col <- any(C_lab == "(Intercept)")
-  A_labels_raw <- unique(base_from_name(C_lab))
-  A_labels_raw <- setdiff(A_labels_raw, "(Intercept)")
-  A_per_lag <- length(A_labels_raw)
-  if (A_per_lag == 0) stop("Could not identify covariate base names in C columns.")
-
-  total_cols <- ncol(C)
-  total_cols_no_int <- if (has_intercept_col) total_cols - 1L else total_cols
-  Dmax <- floor(total_cols_no_int / A_per_lag)
-  if (Dmax < 1) stop("Inconsistent C: not enough columns to form at least one lag block.")
-  D <- min(Dmax, as.integer(degree))
-
-  # --- Initialize Graph ---
-  scr <- paste0('digraph XCA {graph [rankdir=', rankdir, ' compound=true]; \n')
-
-  # --- Define Y Nodes (Output) ---
-  st <- 'subgraph cluster_Y{label="T" style="rounded"; \n'
-  for (i in seq_len(nrow(X))) {
-    st <- paste0(st, sprintf('  %s [label="%s", shape=box]; \n', Y_ids[i], Y_lab[i]))
-  }
-  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-  # --- Define X Nodes (Latent Variables) ---
-  st <- 'subgraph cluster_X{label="Latent Variables" style="rounded"; \n'
-  for (j in seq_len(ncol(X))) {
-    st <- paste0(st, sprintf('  %s [label="%s", shape=ellipse]; \n', X_ids[j], X_lab[j]))
-  }
-  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-  # --- Draw Edges: X → Y ---
-  for (i in seq_len(nrow(X))) {
-    for (j in seq_len(ncol(X))) {
-      val <- X[i, j]
-      if (is.finite(val) && val >= threshold) {
-        st <- sprintf(paste0('%s -> %s [label="%.', digits, 'f"]; \n'), X_ids[j], Y_ids[i], val)
-        scr <- paste0(scr, st)
-      }
-    }
-  }
-
-  # --- Add Intercept Nodes (optional) ---
-  if (isTRUE(intercept) && has_intercept_col) {
-    last_col <- ncol(C)
-    for (i in seq_len(ncol(X))) {
-      val <- C[i, last_col]
-      if (is.finite(val) && val >= threshold) {
-        st <- sprintf(paste0('Const%d [shape=circle label="%.', digits, 'f"]; '), i, val)
-        st <- paste0(st, sprintf('Const%d -> %s; \n', i, X_ids[i]))
-        scr <- paste0(scr, st)
-      }
-    }
-  }
-
-  # --- Draw Edges: T−k → X for each lag block ---
-  klist <- integer(0); ktoplist <- integer(0)
-  for (k in seq_len(D)) {
-    start <- (k - 1L) * A_per_lag
-    cols <- (start + 1L):(start + A_per_lag)  # Fixed range calculation
-
-    Ck <- C[, cols, drop = FALSE]
-    Ck_ids <- C_ids[cols]
-    Ck_lab <- base_from_name(C_lab[cols])
-
-    if (max(Ck, na.rm = TRUE) >= threshold) {
-      klist <- c(klist, k)
-      st <- sprintf('subgraph cluster_C%d{label="T-%d" style="rounded"; \n', k, k)
-      ktop <- NA_integer_
-
-      for (j in seq_len(ncol(Ck))) {
-        if (max(Ck[, j], na.rm = TRUE) >= threshold) {
-          if (is.na(ktop)) {
-            ktop <- j
-            ktoplist <- c(ktoplist, ktop)
-          }
-          # Node ID (safe) vs Label (display)
-          st <- paste0(st, sprintf('  %s [label="%s", shape=box]; \n', Ck_ids[j], Ck_lab[j]))
-        }
-      }
-      st <- paste0(st, "}; \n"); scr <- paste0(scr, st)
-    }
-
-    # Draw edges from each covariate node to corresponding X node
-    for (i in seq_len(nrow(Ck))) for (j in seq_len(ncol(Ck))) {
-      val <- Ck[i, j]
-      if (is.finite(val) && val >= threshold) {
-        st <- sprintf(paste0('%s -> %s [label="%.', digits, 'f"]; \n'),
-                      Ck_ids[j], X_ids[i], val)
-        scr <- paste0(scr, st)
-      }
-    }
-  }
-
-  # --- Add Invisible Edges for Cluster Ordering ---
-  if (length(klist) >= 2) {
-    for (t in 2:length(klist)) {
-      start_id <- C_ids[(klist[t] - 1L) * A_per_lag + ktoplist[t]]
-      end_id   <- C_ids[(klist[t - 1L] - 1L) * A_per_lag + ktoplist[t - 1L]]
-      st <- sprintf('%s -> %s [ltail=cluster_C%d lhead=cluster_C%d style=invis]; \n',
-                    start_id, end_id, klist[t], klist[t - 1L])
-      scr <- paste0(scr, st)
-    }
-  }
-
-  scr <- paste0(scr, "}\n")
-  return(scr)
-}
-
-
-
-
-
-
-
 #' @title Forecast future values for NMF-VAR model
 #' @description
 #' \code{nmfkc.ar.predict} computes multi-step-ahead forecasts for a fitted NMF-VAR model
@@ -2845,208 +2538,6 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
 
 
 
-
-
-
-
-
-
-#' @title Generate DOT language scripts for NMF models
-#' @description
-#' \code{nmfkc.DOT} generates scripts in the DOT language for visualizing
-#' the NMF model structure (\eqn{Y \approx X C A}) or its simplified forms.
-#'
-#' @param x The return value of \code{nmfkc}.
-#' @param type Character string specifying the visualization type.
-#'   Options are:
-#'   \itemize{
-#'     \item \code{"YX"} (Default): Standard NMF view: \eqn{B \to X \to Y}.
-#'     \item \code{"YXA"} : Full visualization of the tri-factorization \eqn{A \to C \to X \to Y}.
-#'     \item \code{"YA"}: Direct regression view: \eqn{A \to Y}, where coefficients are from \eqn{X C}.
-#'   }
-#' @param digits Integer. Number of decimal places to display in edge labels. Default is 2.
-#' @param threshold Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.
-#' @param rankdir Graph layout direction in DOT language. Default is "LR".
-#' @param Y.label Character vector for row names of Y/X (features). If NULL, uses \code{rownames(x$X)}.
-#' @param X.label Character vector for column names of X/rows of B (latent factors). If NULL, uses \code{colnames(x$X)}.
-#' @param A.label Character vector for row names of A/columns of C (covariates). If NULL, uses \code{colnames(x$C)}.
-#' @param Y.title Title for the Y node cluster. Default is "Observation (Y)".
-#' @param X.title Title for the X node cluster. Default is "Basis (X)".
-#' @param A.title Title for the A node cluster. Default is "Covariates (A)".
-#' @param min.penwidth Numeric. Minimum line thickness for the path (default: 1.0).
-#' @param max.penwidth Numeric. Maximum line thickness for the path (default: 5.0).
-#'
-#' @return A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
-#' @seealso \code{\link{nmfkc}}
-#' @export
-nmfkc.DOT <- function(x, type = c("YX","YA","YXA"), digits = 2, threshold = 10^(-digits), rankdir = "LR",
-                      Y.label = NULL, X.label = NULL, A.label = NULL,
-                      Y.title = "Observation (Y)", X.title = "Basis (X)", A.title = "Covariates (A)",
-                      min.penwidth = 1.0, max.penwidth = 5.0) {
-  type <- match.arg(type)
-  X <- x$X
-  B <- x$B
-  hasA <- !is.null(x$C) && ncol(x$C) != ncol(B)
-  P <- nrow(X)
-  Q <- ncol(X)
-
-  calculate_penwidth <- function(coeff_matrix, value) {
-    if (is.null(coeff_matrix)) return(min.penwidth)
-    max_coeff <- max(coeff_matrix, na.rm = TRUE)
-    if (max_coeff <= threshold) return(min.penwidth)
-    penwidth <- min.penwidth +
-      (max.penwidth - min.penwidth) * (value - threshold) / (max_coeff - threshold)
-    return(max(min.penwidth, penwidth))
-  }
-
-  # --- NEW: Sanitize Names for DOT Node IDs (Problem 7 Fix) ---
-  # Replace non-alphanumeric chars (except underscore and dot) with '_'
-  sanitize_dot_id <- function(names) {
-    names <- gsub("[^[:alnum:]_.]", "_", names, perl=TRUE)
-    return(names)
-  }
-
-  # Sanitize names for use as internal DOT Node IDs
-  Y_names_id <- sanitize_dot_id(if (is.null(Y.label)) rownames(X) else Y.label)
-  X_names_id <- sanitize_dot_id(if (is.null(X.label)) colnames(X) else X.label)
-
-  # Use user-provided labels or matrix names for *display*
-  Y_labels_display <- if (is.null(Y.label)) rownames(X) else Y.label
-  X_labels_display <- if (is.null(X.label)) colnames(X) else X.label
-  # ---------------------------------------------------
-
-  # --- 1. Label Assignment & Coefficient Setup ---
-  if (hasA) {
-    C <- round(x$C, digits)
-    A_cols_NMF <- ncol(C)
-    A_labels_display <- if (is.null(A.label)) colnames(C) else A.label
-    A_names_id <- sanitize_dot_id(A_labels_display) # Sanitize A names too
-    XC_mat <- X %*% C
-  } else if (type == "YX") {
-    C <- B
-    A_cols_NMF <- ncol(C) # Set A_cols_NMF to prevent error later
-    A_labels_display <- NULL
-    XC_mat <- NULL
-    A_names_id <- NULL
-  } else {
-    stop("The model structure (A is missing) is incompatible with the selected type ('YXA' or 'YA').")
-  }
-
-  # --- 2. Graph Initialization ---
-  scr <- paste0('digraph NMF {graph [rankdir=', rankdir, ' compound=true]; \n')
-
-  # --- 3. Define Y Nodes (Observation/Output) ---
-  # Y.title
-  st <- paste0('subgraph cluster_Y{label="', Y.title, '" style="rounded"; \n')
-  for (j in 1:P) {
-    # Use Y%d as Node ID and Y_labels_display[j] as display label
-    st <- paste0(st, sprintf('  Y%d [label="%s", shape=box]; \n',
-                             j,                   # Numerical Node ID
-                             Y_labels_display[j])) # Display Label
-  }
-  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-  # --- 3. Define X Nodes (Latent Variables/Basis) ---
-  st <- paste0('subgraph cluster_X{label="', X.title, '" style="rounded"; \n')
-  for (j in 1:Q) {
-    st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n',
-                             j,                   # Numerical Node ID
-                             X_labels_display[j])) # Display Label
-  }
-  st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-  # --- 4. Draw Paths based on 'type' ---
-  if (type == "YXA") {
-    # 4.1. Define A Nodes (Covariates/Input)
-    st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
-    for (j in 1:A_cols_NMF) {
-      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n',
-                               j,                   # Numerical Node ID
-                               A_labels_display[j])) # Display Label
-    }
-    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-    # 4.2. Edges from A to X (via C) - Using numerical IDs
-    for (i in 1:Q) {
-      for (j in 1:A_cols_NMF) {
-        coeff_val <- C[i, j]
-        if (coeff_val >= threshold) {
-          penwidth <- calculate_penwidth(C, coeff_val)
-          st <- sprintf(paste0('A%d -> X%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
-                        j, i, coeff_val)
-          scr <- paste0(scr, st)
-        }
-      }
-    }
-    # 4.3. Edges from X to Y (Basis contribution)
-    max_X <- max(X, na.rm = TRUE)
-    for (i in 1:P) {
-      for (j in 1:Q) {
-        coeff_val <- X[i, j]
-        if (coeff_val >= threshold) {
-          penwidth <- calculate_penwidth(X, coeff_val)
-          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
-                        j, i, coeff_val)
-          scr <- paste0(scr, st)
-        }
-      }
-    }
-  } else if (type == "YA") {
-    # 4.1. Define A Nodes (Covariates/Input)
-    st <- paste0('subgraph cluster_A{label="', A.title, '" style="rounded"; \n')
-    for (j in 1:A_cols_NMF) {
-      st <- paste0(st, sprintf('  A%d [label="%s", shape=box]; \n',
-                               j,                   # Numerical Node ID
-                               A_labels_display[j])) # Display Label
-    }
-    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-    # 4.2. Edges from A to Y (via XC)
-    max_XC <- max(XC_mat, na.rm = TRUE)
-    for (i in 1:P) {
-      for (j in 1:A_cols_NMF) {
-        coeff_val <- XC_mat[i, j]
-        if (coeff_val >= threshold) {
-          penwidth <- calculate_penwidth(XC_mat, coeff_val)
-          st <- sprintf(paste0('A%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
-                        j, i, coeff_val)
-          scr <- paste0(scr, st)
-        }
-      }
-    }
-  } else if (type == "YX") {
-    for (j in 1:Q) {
-      st <- paste0(st, sprintf('  X%d [label="%s", shape=ellipse]; \n',
-                               j,                   # Numerical Node ID
-                               X_labels_display[j])) # Display Label
-    }
-    st <- paste0(st, '}; \n'); scr <- paste0(scr, st)
-
-    # 4.2. Edges from X to Y (Basis contribution)
-    max_X <- max(X, na.rm = TRUE)
-    for (i in 1:P) {
-      for (j in 1:Q) {
-        coeff_val <- X[i, j]
-        if (coeff_val >= threshold) {
-          penwidth <- calculate_penwidth(X, coeff_val)
-          st <- sprintf(paste0('X%d -> Y%d [label="%.', digits, 'f", penwidth=', penwidth, ']; \n'),
-                        j, i, coeff_val)
-          scr <- paste0(scr, st)
-        }
-      }
-    }
-  }
-  # --- 5. Graph Finalization ---
-  scr <- paste0(scr, "} \n")
-  return(scr)
-}
-
-
-
-
-
-
-
 #' @title Plot Diagnostics: Original, Fitted, and Residual Matrices as Heatmaps
 #' @description
 #' This function generates a side-by-side plot of three heatmaps: the original
@@ -3110,3 +2601,1379 @@ nmfkc.residual.plot <- function(Y, result,
 }
 
 
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#' @title Heuristic Variable Splitting for NMF-SEM
+#'
+#' @description
+#' Infers a heuristic partition of observed variables into exogenous (\eqn{Y_2})
+#' and endogenous (\eqn{Y_1}) blocks for use in NMF-SEM.
+#' The method is based on positive-SEM logic, causal ordering, and optional
+#' sign alignment using the first principal component (PC1).
+#'
+#' The procedure:
+#' \itemize{
+#'   \item internally standardizes variables (mean 0, sd 1),
+#'   \item optionally flips signs so that most variables align positively with PC1,
+#'   \item infers a causal ordering by repeatedly regressing each variable on the
+#'         remaining ones and selecting the variable with the largest minimum
+#'         standardized coefficient,
+#'   \item determines an exogenous block by scanning the ordering from upstream
+#'         and stopping at the first variable whose strongest parent coefficient
+#'         exceeds \code{threshold}.
+#' }
+#'
+#' If \code{n.exogenous} is supplied, it overrides the automatic threshold rule.
+#'
+#' @param x A numeric matrix or data frame with
+#'   \strong{rows = samples} and \strong{columns = observed variables}.
+#' @param n.exogenous Optional integer specifying the number of exogenous variables
+#'   (\eqn{Y_2}). If \code{NULL}, the number is inferred automatically by the
+#'   coefficient cut-off rule.
+#' @param threshold Standardized regression-coefficient threshold used in the
+#'   automatic exogenous–endogenous split. A variable is treated as endogenous
+#'   once its maximum standardized parent coefficient exceeds this value.
+#'   (Default: \code{0.1})
+#' @param auto.flipped Logical; if \code{TRUE}, applies PC1-based automatic
+#'   sign flipping after standardization to ensure consistent orientation.
+#'   (Default: \code{TRUE})
+#' @param verbose Logical; if \code{TRUE}, prints progress messages and the
+#'   resulting variable split. (Default: \code{TRUE})
+#'
+#' @return A list with:
+#'   \item{endogenous.variables}{
+#'     Character vector of variables selected as endogenous (\eqn{Y_1}).}
+#'   \item{exogenous.variables}{
+#'     Character vector of variables selected as exogenous (\eqn{Y_2}).}
+#'   \item{ordered.variables}{
+#'     Variables in inferred causal order (from exogenous to endogenous).}
+#'   \item{is.flipped}{
+#'     Logical vector indicating which variables were sign-flipped during processing.}
+#'   \item{n.exogenous}{
+#'     Integer giving the number of exogenous variables.}
+#'
+#' @export
+nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
+                          auto.flipped = TRUE, verbose = TRUE) {
+
+  if (!is.matrix(x) && !is.data.frame(x))
+    stop("x must be a numeric matrix or data frame.")
+
+  X_raw <- as.matrix(x)
+  P <- ncol(X_raw)
+  col_names <- colnames(X_raw)
+  if (is.null(col_names)) {
+    col_names <- paste0("V", 1:P)
+    colnames(X_raw) <- col_names
+  }
+
+  # --------------------------------------------------------------------
+  # Preprocessing Step 1: Standardize all variables
+  #
+  # Variables are centered and scaled (mean 0, sd 1). NMF-SEM requires
+  # non-negative matrices, but the purpose of this function is only to
+  # infer variable roles (Y1/Y2), so standardized values are allowed.
+  #
+  # Missing or NaN values resulting from constant columns are set to 0.
+  # --------------------------------------------------------------------
+  X_calc <- scale(X_raw, center = TRUE, scale = TRUE)
+  X_calc[is.na(X_calc)] <- 0
+  X_calc[is.nan(X_calc)] <- 0
+
+  all_indices <- 1:P
+
+  # --------------------------------------------------------------------
+  # Preprocessing Step 2: Optional sign flipping based on PC1 alignment
+  #
+  # In positive SEM (and NMF-SEM), variables should ideally have
+  # consistent sign orientation. To enforce this heuristic, variables
+  # negatively correlated with the first principal component are flipped.
+  #
+  # This stabilizes the causal-ordering heuristic by avoiding mixtures
+  # of arbitrary sign conventions in the raw data.
+  # --------------------------------------------------------------------
+  is.flipped <- rep(FALSE, P)
+  names(is.flipped) <- col_names
+
+  if (auto.flipped) {
+    if (verbose) cat("Step 0: Checking correlations with PC1 (on standardized data)...\n")
+
+    svd_res <- svd(X_calc)
+    pc1 <- svd_res$u[, 1]
+
+    cors <- stats::cor(X_calc, pc1)
+    # Ensure majority alignment with PC1
+    if (stats::median(cors, na.rm = TRUE) < 0) cors <- -cors
+
+    flip_idx <- which(cors < 0)
+
+    if (length(flip_idx) > 0) {
+      is.flipped[flip_idx] <- TRUE
+      X_calc[, flip_idx] <- -X_calc[, flip_idx]
+
+      if (verbose) {
+        cat(sprintf("   -> Detected %d flipped variables: %s\n",
+                    length(flip_idx), paste(col_names[flip_idx], collapse=", ")))
+      }
+    }
+  }
+
+  # --------------------------------------------------------------------
+  # Step 1: Causal ordering heuristic
+  #
+  # We infer an ordering of variables consistent with positive-SEM logic:
+  # repeatedly select the variable that has the *largest minimum* coefficient
+  # when regressed on the remaining variables. This favors variables that
+  # are least explained by others → likely exogenous.
+  #
+  # The resulting order approximates a causal topological order in which
+  # exogenous variables appear early and endogenous variables later.
+  # --------------------------------------------------------------------
+  if (verbose) cat("Step 1: Inferring Causal Ordering...\n")
+
+  active_set <- all_indices
+  ordering_reversed <- integer(P)
+
+  for (t in 1:(P - 1)) {
+    scores <- numeric(length(active_set))
+
+    for (i in seq_along(active_set)) {
+      target_col <- active_set[i]
+      pred_cols <- active_set[-i]
+
+      y_vec <- X_calc[, target_col]
+      X_mat <- X_calc[, pred_cols, drop = FALSE]
+
+      coefs <- tryCatch({
+        stats::coef(stats::lm(y_vec ~ X_mat - 1))
+      }, error = function(e) rep(NA_real_, length(pred_cols)))
+
+      # Positive SEM → keep the smallest coefficient (weakest positive predictor)
+      if (all(is.na(coefs))) {
+        scores[i] <- -Inf
+      } else {
+        scores[i] <- min(coefs, na.rm = TRUE)
+      }
+    }
+
+    best_idx <- which.max(scores)
+    ordering_reversed[t] <- active_set[best_idx]
+    active_set <- active_set[-best_idx]
+  }
+  ordering_reversed[P] <- active_set[1]
+
+  # Causal order: exogenous → endogenous
+  ordering_indices <- rev(ordering_reversed)
+
+  # --------------------------------------------------------------------
+  # Step 2: Automatic identification of exogenous variables
+  #
+  # Sweep through the causal ordering. For each variable, regress it on all
+  # earlier variables. If its strongest parent coefficient exceeds the
+  # threshold, the variable is considered endogenous.
+  #
+  # Variables before this point → exogenous (Y2)
+  # Variables after this point → endogenous (Y1)
+  #
+  # If n.exogenous is given, it overrides this automatic rule.
+  # --------------------------------------------------------------------
+  if (is.null(n.exogenous)) {
+    if (verbose) cat("Step 2: Detecting optimal cut-off for exogenous variables...\n")
+    cutoff <- 1
+
+    for (k in 2:(P - 1)) {
+      curr_idx <- ordering_indices[k]
+      parent_indices <- ordering_indices[1:(k - 1)]
+
+      y_vec <- X_calc[, curr_idx]
+      X_parents <- X_calc[, parent_indices, drop = FALSE]
+
+      coefs <- stats::coef(stats::lm(y_vec ~ X_parents - 1))
+      max_influence <- max(coefs, na.rm = TRUE)
+
+      if (max_influence > threshold) {
+        if (verbose)
+          cat(sprintf("   [%d] %s : Max std.coef=%.3f -> Endogenous (Stop)\n",
+                      k, col_names[curr_idx], max_influence))
+        break
+      } else {
+        cutoff <- k
+        if (verbose)
+          cat(sprintf("   [%d] %s : Max std.coef=%.3f -> Exogenous (Continue)\n",
+                      k, col_names[curr_idx], max_influence))
+      }
+    }
+    n.exogenous <- cutoff
+  }
+
+  # --------------------------------------------------------------------
+  # Step 3: Final classification into Y1 and Y2
+  #
+  # Variables appearing early in the ordering (determined by cut-off) are
+  # treated as exogenous (Y2). The remainder are endogenous (Y1).
+  #
+  # Ordered list shows the full inferred causal sequence.
+  # --------------------------------------------------------------------
+  idx_exo <- ordering_indices[1:n.exogenous]
+  idx_endo <- ordering_indices[(n.exogenous + 1):P]
+
+  exogenous.variables <- col_names[idx_exo]
+  endogenous.variables <- col_names[idx_endo]
+  ordered.variables <- col_names[ordering_indices]
+
+  if (verbose) {
+    cat("\n--- Auto Split Result ---\n")
+    cat(sprintf("Exogenous (Y2, n=%d): %s\n",
+                n.exogenous, paste(exogenous.variables, collapse=", ")))
+    cat(sprintf("Endogenous (Y1, n=%d): %s ...\n",
+                length(endogenous.variables),
+                paste(utils::head(endogenous.variables, 3), collapse=", ")))
+  }
+
+  return(list(
+    endogenous.variables = endogenous.variables,
+    exogenous.variables = exogenous.variables,
+    ordered.variables = ordered.variables,
+    is.flipped = is.flipped,
+    n.exogenous = as.integer(n.exogenous)
+  ))
+}
+
+
+
+
+############################################################
+## Common DOT Helpers
+############################################################
+
+#' Determine the decimal digits based on a threshold
+#'
+#' This helper computes the number of decimal places that should be
+#' used for formatting coefficient labels, based on the magnitude
+#' of the threshold used for edge visualization.
+#'
+#' @param threshold Numeric scalar (>0).
+#' @return Integer specifying the number of decimal places.
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_digits_from_threshold <- function(threshold) {
+  if (!is.finite(threshold) || threshold <= 0) {
+    return(2L)
+  }
+  if (threshold >= 1) {
+    return(0L)
+  }
+  s <- format(threshold, scientific = FALSE, trim = TRUE)
+  # Examples: "0.01" -> "01", "0.005" -> "005"
+  s_dec <- sub("^0\\.", "", s)
+  nchar(s_dec)
+}
+
+
+#' Format coefficient values for DOT edge labels
+#'
+#' If \code{digits} is \code{NULL}, the function uses the traditional
+#' magnitude-based formatting rules.
+#' If \code{digits} is provided, the coefficient is formatted with the
+#' specified number of decimal places (typically derived from the threshold).
+#'
+#' @param x Numeric scalar.
+#' @param digits Integer or \code{NULL}; number of decimal places.
+#' @return Character string suitable for use inside DOT \code{label="..."}.
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_format_coef <- function(x, digits = NULL) {
+  if (!is.finite(x)) return("")
+
+  # Default behavior: magnitude-dependent auto formatting
+  if (is.null(digits)) {
+    ax <- abs(x)
+    if (ax == 0) return("0")
+
+    if (ax >= 1) {
+      sprintf("%.2f", x)
+    } else if (ax >= 1e-1) {
+      sprintf("%.3f", x)
+    } else if (ax >= 1e-2) {
+      sprintf("%.4f", x)
+    } else {
+      sprintf("%.3e", x)
+    }
+
+    # Threshold-based fixed-digit formatting
+  } else {
+    if (digits <= 0) {
+      sprintf("%.0f", x)
+    } else {
+      fmt <- paste0("%.", digits, "f")
+      sprintf(fmt, x)
+    }
+  }
+}
+
+
+#' Sanitize character vectors for DOT node / cluster IDs
+#'
+#' Replace characters that are not alphanumeric, underscore, or dot
+#' with underscores to generate safe DOT identifiers.
+#'
+#' @param x Character vector.
+#' @return Character vector with sanitized identifiers.
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_sanitize_id <- function(x) {
+  gsub("[^[:alnum:]_.]", "_", x, perl = TRUE)
+}
+
+
+#' Generate a standard DOT graph header for NMF-related diagrams
+#'
+#' Provides a consistent DOT header used by NMF visualization functions.
+#'
+#' @param graph_name Character; name of the DOT graph.
+#' @param rankdir Character; Graphviz rank direction (e.g., "LR", "RL", "TB", "BT").
+#' @param fontname Character; default font name used in the graph.
+#'
+#' @return Character scalar containing DOT header lines.
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_header <- function(graph_name = "NMF_GRAPH",
+                              rankdir    = "LR",
+                              fontname   = "Meiryo") {
+  paste0(
+    "digraph ", graph_name, " {\n",
+    "  graph [rankdir=", rankdir, " compound=true];\n",
+    "  splines=true; nodesep=0.4; ranksep=0.7; fontname=\"", fontname, "\";\n"
+  )
+}
+
+
+#' Generate a DOT subgraph cluster with nodes
+#'
+#' Internal helper to define a cluster (subgraph) of nodes with shared
+#' visual properties.
+#' If \code{cluster_style = "none"}, nodes are listed individually without
+#' creating a DOT subgraph.
+#'
+#' @param cluster_id Character; cluster identifier suffix (e.g. "Y", "X", "F").
+#' @param title Character; cluster label (ignored if \code{cluster_style = "none"}).
+#' @param node_ids Character vector; internal DOT node IDs.
+#' @param node_labels Character vector; display labels for nodes.
+#' @param shape Character; Graphviz node shape.
+#' @param fill Logical; whether to use filled node shapes.
+#' @param fillcolor Character; fill color (if \code{fill = TRUE}).
+#' @param line_width Numeric; node border width.
+#' @param indent Character; indentation prefix for formatting.
+#' @param cluster_style Character; boundary style ("rounded", "dashed", "invis", "none").
+#' @param cluster_color Character; cluster boundary color.
+#' @param cluster_penwidth Numeric; cluster boundary width.
+#'
+#' @return Character scalar containing DOT code for the cluster.
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_cluster_nodes <- function(cluster_id,
+                                     title,
+                                     node_ids,
+                                     node_labels,
+                                     shape      = "box",
+                                     fill       = TRUE,
+                                     fillcolor  = "white",
+                                     line_width = 1.5,
+                                     indent     = "  ",
+                                     cluster_style    = "rounded",
+                                     cluster_color    = "black",
+                                     cluster_penwidth = 1.0) {
+
+  if (length(node_ids) == 0L) return("")
+  if (length(node_ids) != length(node_labels)) {
+    stop("node_ids and node_labels must have the same length.")
+  }
+
+  # Node style definition
+  if (fill) {
+    node_style <- sprintf(
+      '%snode [shape=%s, style="filled,rounded", fillcolor="%s", color=black, penwidth=%.1f];\n',
+      indent, shape, fillcolor, line_width
+    )
+  } else {
+    node_style <- sprintf(
+      '%snode [shape=%s, style="rounded", color=black, penwidth=%.1f];\n',
+      indent, shape, line_width
+    )
+  }
+
+  # Case 1: no cluster → output nodes directly
+  if (identical(cluster_style, "none")) {
+    scr <- node_style
+    for (i in seq_along(node_ids)) {
+      scr <- paste0(
+        scr,
+        sprintf('%s%s [label="%s"];\n', indent, node_ids[i], node_labels[i])
+      )
+    }
+    return(scr)
+  }
+
+  # Case 2: cluster with boundary
+  scr <- paste0(
+    indent, "subgraph cluster_", cluster_id,
+    '{label="', title, '"',
+    ' style="', cluster_style, '"',
+    ' color="', cluster_color, '"',
+    ' penwidth=', sprintf("%.1f", cluster_penwidth), ";\n",
+    node_style
+  )
+
+  for (i in seq_along(node_ids)) {
+    scr <- paste0(
+      scr,
+      sprintf('%s  %s [label="%s"];\n', indent, node_ids[i], node_labels[i])
+    )
+  }
+  paste0(scr, indent, "}\n")
+}
+
+
+#' Scale DOT edge width based on coefficient magnitude
+#'
+#' Computes an appropriate \code{penwidth} value for Graphviz edges
+#' by scaling the coefficient relative to the maximum coefficient in
+#' its category.
+#'
+#' @param value Numeric; coefficient value.
+#' @param max_value Numeric; maximum coefficient within its group.
+#' @param weight_scale Numeric; global scale factor for edge width.
+#' @param min_pw Numeric; minimum penwidth.
+#'
+#' @return Numeric penwidth value.
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_penwidth <- function(value,
+                                max_value,
+                                weight_scale = 5,
+                                min_pw       = 0.5) {
+  if (!is.finite(max_value) || max_value <= 0) return(min_pw)
+  if (!is.finite(value)     || value <= 0)     return(min_pw)
+  max(min_pw, value * weight_scale / max_value)
+}
+
+
+
+############################################################
+## 1. nmf.sem.DOT  (for NMF-SEM visualization)
+############################################################
+
+#' Generate a Graphviz DOT Diagram for an NMF-SEM Model
+#'
+#' @description
+#' Creates a Graphviz DOT script that visualizes the structural network
+#' estimated by \code{nmf.sem}.
+#' The resulting diagram displays:
+#' \itemize{
+#'   \item endogenous observed variables (\eqn{Y_1}),
+#'   \item exogenous observed variables (\eqn{Y_2}),
+#'   \item latent factors (\eqn{F_1}, \dots, \eqn{F_Q}),
+#' }
+#' together with the non-negative path coefficients whose magnitudes
+#' exceed a user-specified threshold.
+#'
+#' Directed edges represent estimated relationships:
+#' \itemize{
+#'   \item \eqn{Y_2 \rightarrow F_q}: entries of \code{C2} (exogenous loadings),
+#'   \item \eqn{F_q \rightarrow Y_1}: rows of \code{X} (factor-to-endogenous mappings),
+#'   \item \eqn{Y_1 \rightarrow F_q}: entries of \code{C1} (feedback paths).
+#' }
+#'
+#' Edge widths are scaled by coefficient magnitude, and nodes are placed
+#' in optional visual clusters. Only variables participating in
+#' edges above the threshold are displayed, while latent factors are always shown.
+#'
+#' @param result A list returned by \code{nmf.sem}, containing matrices
+#'   \code{X}, \code{C1}, and \code{C2}.
+#' @param weight_scale Base scaling factor for edge widths.
+#' @param weight_scale_y2f Optional override for scaling edges
+#'   \eqn{Y_2 \rightarrow F_q}. Defaults to \code{weight_scale}.
+#' @param weight_scale_fy1 Optional override for scaling edges
+#'   \eqn{F_q \rightarrow Y_1}. Defaults to \code{weight_scale}.
+#' @param weight_scale_feedback Optional override for scaling feedback edges
+#'   \eqn{Y_1 \rightarrow F_q}. Defaults to \code{weight_scale}.
+#' @param threshold Minimum coefficient value needed for an edge to be drawn.
+#' @param rankdir Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).
+#' @param fill Logical; whether to use filled node shapes.
+#' @param cluster.box Character string controlling the visibility and style
+#'   of cluster frames around Y2, factors, and Y1 blocks.
+#'   One of \code{"normal"}, \code{"faint"}, \code{"invisible"}, \code{"none"}.
+#' @param cluster.labels Optional character vector of length 3 giving custom
+#'   labels for the Y2, factor, and Y1 clusters.
+#'
+#' @return A character string representing a valid Graphviz DOT script.
+#'
+#' @export
+nmf.sem.DOT <- function(result,
+                        weight_scale          = 5,
+                        weight_scale_y2f      = weight_scale,
+                        weight_scale_fy1      = weight_scale,
+                        weight_scale_feedback = weight_scale,
+                        threshold             = 0.01,
+                        rankdir               = "LR",
+                        fill                  = TRUE,
+                        cluster.box           = c("normal", "faint", "invisible", "none"),
+                        cluster.labels        = NULL) {
+
+  ## ---------------------------------------------------------------
+  ## Cluster style selection
+  ## ---------------------------------------------------------------
+  cluster.box <- match.arg(cluster.box)
+
+  cluster_style <- switch(cluster.box,
+                          normal    = "rounded",
+                          faint     = "rounded,dashed",
+                          invisible = "rounded",
+                          none      = "none")
+
+  cluster_color <- switch(cluster.box,
+                          normal    = "black",
+                          faint     = "gray80",
+                          invisible = "none",
+                          none      = "none")
+
+  cluster_penwidth <- switch(cluster.box,
+                             normal    = 1.0,
+                             faint     = 0.7,
+                             invisible = 0.0,
+                             none      = 0.0)
+
+  ## ---------------------------------------------------------------
+  ## Cluster titles
+  ## ---------------------------------------------------------------
+  default.labels <- c("Exogenous (Y2)", "Latent Factors", "Endogenous (Y1)")
+  if (is.null(cluster.labels)) {
+    titles <- default.labels
+  } else {
+    if (!is.character(cluster.labels) || length(cluster.labels) != 3L) {
+      stop("cluster.labels must be a character vector of length 3: c(label_Y2, label_F, label_Y1).")
+    }
+    titles <- cluster.labels
+  }
+
+  ## ---------------------------------------------------------------
+  ## Extract matrices and labels
+  ## ---------------------------------------------------------------
+  X  <- result$X
+  C1 <- result$C1
+  C2 <- result$C2
+
+  if (is.null(X) || is.null(C1) || is.null(C2)) {
+    stop("result must contain elements X, C1, and C2.")
+  }
+
+  Y1_labels <- rownames(X)
+  Y2_labels <- colnames(C2)
+
+  if (is.null(Y1_labels)) Y1_labels <- paste0("Y1_", seq_len(nrow(X)))
+  if (is.null(Y2_labels)) Y2_labels <- paste0("Y2_", seq_len(ncol(C2)))
+
+  P1 <- length(Y1_labels)
+  P2 <- length(Y2_labels)
+  Q  <- ncol(X)
+
+  ## ---------------------------------------------------------------
+  ## Identify nodes involved in edges >= threshold
+  ## ---------------------------------------------------------------
+  used_y2 <- apply(C2, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+  used_y1_from_X  <- apply(X,  1L, function(row) any(row >= threshold, na.rm = TRUE))
+  used_y1_from_C1 <- apply(C1, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+  used_y1 <- used_y1_from_X | used_y1_from_C1
+
+  idx_y1 <- which(used_y1)
+  idx_y2 <- which(used_y2)
+
+  ## ---------------------------------------------------------------
+  ## Assign internal DOT node IDs
+  ## ---------------------------------------------------------------
+  Y1_ids <- .nmfkc_dot_sanitize_id(paste0("Y1_", seq_len(P1)))
+  Y2_ids <- .nmfkc_dot_sanitize_id(paste0("Y2_", seq_len(P2)))
+  F_ids  <- .nmfkc_dot_sanitize_id(paste0("F_",  seq_len(Q)))
+
+  ## Node colors
+  COLOR_Y2_NODE     <- "lightcoral"
+  COLOR_Y1_NODE     <- "lightblue"
+  COLOR_FACTOR_NODE <- "wheat"
+
+  ## ---------------------------------------------------------------
+  ## Header
+  ## ---------------------------------------------------------------
+  dot_script <- .nmfkc_dot_header(
+    graph_name = "NMF_SEM_Full_Mechanism",
+    rankdir    = rankdir
+  )
+
+  ## ---------------------------------------------------------------
+  ## Y2 cluster
+  ## ---------------------------------------------------------------
+  dot_script <- paste0(
+    dot_script,
+    "\n  // Exogenous variables (Y2)\n",
+    .nmfkc_dot_cluster_nodes(
+      cluster_id        = "Y2",
+      title             = titles[1],
+      node_ids          = Y2_ids[idx_y2],
+      node_labels       = Y2_labels[idx_y2],
+      shape             = "box",
+      fill              = fill,
+      fillcolor         = COLOR_Y2_NODE,
+      line_width        = 1.5,
+      cluster_style     = cluster_style,
+      cluster_color     = cluster_color,
+      cluster_penwidth  = cluster_penwidth
+    )
+  )
+
+  ## ---------------------------------------------------------------
+  ## Y1 cluster
+  ## ---------------------------------------------------------------
+  dot_script <- paste0(
+    dot_script,
+    "\n  // Endogenous variables (Y1)\n",
+    .nmfkc_dot_cluster_nodes(
+      cluster_id        = "Y1",
+      title             = titles[3],
+      node_ids          = Y1_ids[idx_y1],
+      node_labels       = Y1_labels[idx_y1],
+      shape             = "box",
+      fill              = fill,
+      fillcolor         = COLOR_Y1_NODE,
+      line_width        = 1.5,
+      cluster_style     = cluster_style,
+      cluster_color     = cluster_color,
+      cluster_penwidth  = cluster_penwidth
+    )
+  )
+
+  ## ---------------------------------------------------------------
+  ## Latent factor cluster
+  ## ---------------------------------------------------------------
+  dot_script <- paste0(
+    dot_script,
+    "\n  // Latent Factors (F)\n",
+    .nmfkc_dot_cluster_nodes(
+      cluster_id        = "F",
+      title             = titles[2],
+      node_ids          = F_ids,
+      node_labels       = paste0("Factor ", seq_len(Q)),
+      shape             = "ellipse",
+      fill              = fill,
+      fillcolor         = COLOR_FACTOR_NODE,
+      line_width        = 1.0,
+      cluster_style     = cluster_style,
+      cluster_color     = cluster_color,
+      cluster_penwidth  = cluster_penwidth
+    )
+  )
+
+  ## ---------------------------------------------------------------
+  ## Edge defaults
+  ## ---------------------------------------------------------------
+  dot_script <- paste0(
+    dot_script,
+    '\n  edge [fontname="Meiryo", fontsize=8, arrowhead=open];\n'
+  )
+
+  pw     <- .nmfkc_dot_penwidth
+  digits <- .nmfkc_dot_digits_from_threshold(threshold)
+  fmtc   <- function(x) .nmfkc_dot_format_coef(x, digits)
+
+  ## ---------------------------------------------------------------
+  ## 1. Y2 → F edges (C2)
+  ## ---------------------------------------------------------------
+  dot_script <- paste0(
+    dot_script,
+    '\n  // 1. External Driving (Y2 -> Factor) [C2]\n',
+    '  edge [color=black, fontcolor=black, style=solid];\n'
+  )
+
+  max_C2 <- suppressWarnings(max(C2, na.rm = TRUE))
+  if (is.finite(max_C2) && max_C2 > 0) {
+    for (q in seq_len(Q)) {
+      for (p2 in idx_y2) {
+        weight <- C2[q, p2]
+        if (is.finite(weight) && weight >= threshold) {
+          pen <- pw(weight, max_C2, weight_scale_y2f)
+          lab <- fmtc(weight)
+          path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
+                          Y2_ids[p2], F_ids[q], lab, pen)
+          dot_script <- paste0(dot_script, path)
+        }
+      }
+    }
+  }
+
+  ## ---------------------------------------------------------------
+  ## 2. F → Y1 edges (X)
+  ## ---------------------------------------------------------------
+  dot_script <- paste0(
+    dot_script,
+    '\n  // 2. Generation (Factor -> Y1) [X]\n',
+    '  edge [color="gray0", fontcolor="gray0", style=solid];\n'
+  )
+
+  max_X <- suppressWarnings(max(X, na.rm = TRUE))
+  if (is.finite(max_X) && max_X > 0) {
+    for (q in seq_len(Q)) {
+      for (p1 in idx_y1) {
+        weight <- X[p1, q]
+        if (is.finite(weight) && weight >= threshold) {
+          pen <- pw(weight, max_X, weight_scale_fy1)
+          lab <- fmtc(weight)
+          path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
+                          F_ids[q], Y1_ids[p1], lab, pen)
+          dot_script <- paste0(dot_script, path)
+        }
+      }
+    }
+  }
+
+  ## ---------------------------------------------------------------
+  ## 3. Y1 → F edges (C1 feedback)
+  ## ---------------------------------------------------------------
+  dot_script <- paste0(
+    dot_script,
+    '\n  // 3. Internal Feedback (Y1 -> Factor) [C1]\n',
+    '  edge [style=dashed, color="gray0", fontcolor="gray0"];\n'
+  )
+
+  max_C1 <- suppressWarnings(max(C1, na.rm = TRUE))
+  if (is.finite(max_C1) && max_C1 > 0) {
+    for (q in seq_len(Q)) {
+      for (p1 in idx_y1) {
+        weight <- C1[q, p1]
+        if (is.finite(weight) && weight >= threshold) {
+          pen <- pw(weight, max_C1, weight_scale_feedback)
+          lab <- fmtc(weight)
+          path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
+                          Y1_ids[p1], F_ids[q], lab, pen)
+          dot_script <- paste0(dot_script, path)
+        }
+      }
+    }
+  }
+
+  paste0(dot_script, "}\n")
+}
+
+
+
+
+
+############################################################
+## 2. nmfkc.DOT  (Static NMF / NMF-with-covariates visualization)
+############################################################
+
+#' Generate Graphviz DOT Scripts for NMF or NMF-with-Covariates Models
+#'
+#' @description
+#' Produces a Graphviz DOT script visualizing the structure of an NMF model
+#' (\eqn{Y \approx X C A}) or its simplified forms.
+#'
+#' Supported visualization types:
+#' \itemize{
+#'   \item \code{"YX"} — Standard NMF view: latent factors \eqn{X} map to observations \eqn{Y}.
+#'   \item \code{"YA"} — Direct regression view: covariates \eqn{A} map directly to \eqn{Y}
+#'         using the combined coefficient matrix \eqn{X C}.
+#'   \item \code{"YXA"} — Full tri-factorization: \eqn{A \rightarrow C \rightarrow X \rightarrow Y}.
+#' }
+#'
+#' Edge widths are scaled by coefficient magnitude, and nodes with no edges
+#' above the threshold are omitted from the visualization.
+#'
+#' @param x The return value from \code{nmfkc}, containing matrices
+#'   \code{X}, \code{B}, and optionally \code{C}.
+#' @param type Character string specifying the visualization style:
+#'   one of \code{"YX"}, \code{"YA"}, \code{"YXA"}.
+#' @param threshold Minimum coefficient magnitude to display an edge.
+#' @param rankdir Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).
+#' @param fill Logical; whether nodes should be drawn with filled shapes.
+#' @param weight_scale Base scaling factor for edge widths.
+#' @param weight_scale_ax Scaling factor for edges \eqn{A \rightarrow X} (type \code{"YXA"}).
+#' @param weight_scale_xy Scaling factor for edges \eqn{X \rightarrow Y}.
+#' @param weight_scale_ay Scaling factor for edges \eqn{A \rightarrow Y} (type \code{"YA"}).
+#' @param Y.label Optional character vector for labels of Y nodes.
+#' @param X.label Optional character vector for labels of X (latent factor) nodes.
+#' @param A.label Optional character vector for labels of A (covariate) nodes.
+#' @param Y.title Cluster title for Y nodes.
+#' @param X.title Cluster title for X nodes.
+#' @param A.title Cluster title for A nodes.
+#'
+#' @return A character string representing a Graphviz DOT script.
+#'
+#' @seealso \code{nmfkc}
+#' @export
+nmfkc.DOT <- function(
+    x,
+    type = c("YX","YA","YXA"),
+    threshold = 0.01,
+    rankdir   = "LR",
+    fill      = TRUE,
+    weight_scale    = 5,
+    weight_scale_ax = weight_scale,
+    weight_scale_xy = weight_scale,
+    weight_scale_ay = weight_scale,
+    Y.label = NULL, X.label = NULL, A.label = NULL,
+    Y.title = "Observation (Y)",
+    X.title = "Basis (X)",
+    A.title = "Covariates (A)"
+) {
+
+  type <- match.arg(type)
+
+  ## ---------------------------------------------------------
+  ## Required matrices
+  ## ---------------------------------------------------------
+  X <- x$X
+  B <- x$B
+  if (is.null(X) || is.null(B)) {
+    stop("x must contain X and B.")
+  }
+
+  ## If C exists and is a proper NMF-with-covariates factor:
+  hasA <- !is.null(x$C) && ncol(x$C) != ncol(B)
+
+  P <- nrow(X)
+  Q <- ncol(X)
+
+  ## ---------------------------------------------------------
+  ## Labels
+  ## ---------------------------------------------------------
+  Y_labels <- if (is.null(Y.label)) rownames(X) else Y.label
+  X_labels <- if (is.null(X.label)) colnames(X) else X.label
+
+  if (is.null(Y_labels)) Y_labels <- paste0("Y", seq_len(P))
+  if (is.null(X_labels)) X_labels <- paste0("Factor", seq_len(Q))
+
+  Y_ids <- .nmfkc_dot_sanitize_id(paste0("Y_", seq_len(P)))
+  X_ids <- .nmfkc_dot_sanitize_id(paste0("X_", seq_len(Q)))
+
+  ## ---------------------------------------------------------
+  ## Covariates and tri-factorization
+  ## ---------------------------------------------------------
+  if (hasA) {
+    C <- as.matrix(x$C)          # Q x R
+    A_cols <- ncol(C)
+    A_labels <- if (is.null(A.label)) colnames(C) else A.label
+    if (is.null(A_labels)) A_labels <- paste0("A", seq_len(A_cols))
+    A_ids <- .nmfkc_dot_sanitize_id(paste0("A_", seq_len(A_cols)))
+
+    ## Combined mapping for type = "YA"
+    XC_mat <- X %*% C   # P x R
+
+  } else if (type == "YX") {
+    ## No A block needed
+    C <- NULL
+    A_cols <- 0L
+    A_labels <- NULL
+    A_ids <- NULL
+    XC_mat <- NULL
+
+  } else {
+    stop("The model structure (matrix C) is incompatible with type 'YXA' or 'YA'.")
+  }
+
+  ## ---------------------------------------------------------
+  ## DOT header
+  ## ---------------------------------------------------------
+  scr <- .nmfkc_dot_header(graph_name = "NMF", rankdir = rankdir)
+
+  ## ---------------------------------------------------------
+  ## Y node cluster
+  ## ---------------------------------------------------------
+  scr <- paste0(
+    scr,
+    '\n  // Output variables (Y)\n',
+    .nmfkc_dot_cluster_nodes(
+      cluster_id  = "Y",
+      title       = Y.title,
+      node_ids    = Y_ids,
+      node_labels = Y_labels,
+      shape       = "box",
+      fill        = fill,
+      fillcolor   = "lightblue",
+      line_width  = 1.5
+    )
+  )
+
+  ## ---------------------------------------------------------
+  ## X node cluster
+  ## (Hidden when type = "YA")
+  ## ---------------------------------------------------------
+  if (type != "YA") {
+    scr <- paste0(
+      scr,
+      '\n  // Latent factors (X)\n',
+      .nmfkc_dot_cluster_nodes(
+        cluster_id  = "X",
+        title       = X.title,
+        node_ids    = X_ids,
+        node_labels = X_labels,
+        shape       = "ellipse",
+        fill        = fill,
+        fillcolor   = "wheat",
+        line_width  = 1.0
+      )
+    )
+  }
+
+  ## ---------------------------------------------------------
+  ## A node cluster
+  ## (Only for "YA" and "YXA")
+  ## ---------------------------------------------------------
+  if (type != "YX" && hasA) {
+    scr <- paste0(
+      scr,
+      '\n  // Covariates (A)\n',
+      .nmfkc_dot_cluster_nodes(
+        cluster_id  = "A",
+        title       = A.title,
+        node_ids    = A_ids,
+        node_labels = A_labels,
+        shape       = "box",
+        fill        = fill,
+        fillcolor   = "lightcoral",
+        line_width  = 1.5
+      )
+    )
+  }
+
+  ## ---------------------------------------------------------
+  ## Edge defaults
+  ## ---------------------------------------------------------
+  scr <- paste0(
+    scr,
+    '\n  edge [fontname="Meiryo", fontsize=8, arrowhead=open];\n'
+  )
+
+  pw     <- .nmfkc_dot_penwidth
+  digits <- .nmfkc_dot_digits_from_threshold(threshold)
+  fmtc   <- function(x) .nmfkc_dot_format_coef(x, digits)
+
+
+  ## =========================================================
+  ## Case 1: Full tri-factorization (A → X → Y)
+  ## =========================================================
+  if (type == "YXA") {
+
+    ## ---- A → X (C) edges ----
+    scr <- paste0(
+      scr,
+      '\n  // A -> X edges (C)\n',
+      '  edge [color=black, fontcolor=black, style=solid];\n'
+    )
+
+    max_C <- suppressWarnings(max(C, na.rm = TRUE))
+    if (is.finite(max_C) && max_C > 0) {
+      for (q in seq_len(Q)) {
+        for (k in seq_len(A_cols)) {
+          val <- C[q, k]
+          if (is.finite(val) && val >= threshold) {
+            pen <- pw(val, max_C, weight_scale_ax)
+            lab <- fmtc(val)
+            scr <- paste0(
+              scr,
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
+                      A_ids[k], X_ids[q], lab, pen)
+            )
+          }
+        }
+      }
+    }
+
+    ## ---- X → Y edges ----
+    scr <- paste0(
+      scr,
+      '\n  // X -> Y edges (X)\n',
+      '  edge [color="gray0", fontcolor="gray0", style=solid];\n'
+    )
+
+    max_X <- suppressWarnings(max(X, na.rm = TRUE))
+    if (is.finite(max_X) && max_X > 0) {
+      for (i in seq_len(P)) {
+        for (j in seq_len(Q)) {
+          val <- X[i, j]
+          if (is.finite(val) && val >= threshold) {
+            pen <- pw(val, max_X, weight_scale_xy)
+            lab <- fmtc(val)
+            scr <- paste0(
+              scr,
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
+                      X_ids[j], Y_ids[i], lab, pen)
+            )
+          }
+        }
+      }
+    }
+
+
+    ## =========================================================
+    ## Case 2: Direct regression view (A → Y)
+    ## =========================================================
+  } else if (type == "YA") {
+
+    scr <- paste0(
+      scr,
+      '\n  // A -> Y edges (X %*% C)\n',
+      '  edge [color=black, fontcolor=black, style=solid];\n'
+    )
+
+    max_XC <- suppressWarnings(max(XC_mat, na.rm = TRUE))
+    if (is.finite(max_XC) && max_XC > 0) {
+      for (i in seq_len(P)) {
+        for (k in seq_len(A_cols)) {
+          val <- XC_mat[i, k]
+          if (is.finite(val) && val >= threshold) {
+            pen <- pw(val, max_XC, weight_scale_ay)
+            lab <- fmtc(val)
+            scr <- paste0(
+              scr,
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
+                      A_ids[k], Y_ids[i], lab, pen)
+            )
+          }
+        }
+      }
+    }
+
+
+    ## =========================================================
+    ## Case 3: Standard NMF (X → Y)
+    ## =========================================================
+  } else if (type == "YX") {
+
+    scr <- paste0(
+      scr,
+      '\n  // X -> Y edges (X)\n',
+      '  edge [color="gray0", fontcolor="gray0", style=solid];\n'
+    )
+
+    max_X <- suppressWarnings(max(X, na.rm = TRUE))
+    if (is.finite(max_X) && max_X > 0) {
+      for (i in seq_len(P)) {
+        for (j in seq_len(Q)) {
+          val <- X[i, j]
+          if (is.finite(val) && val >= threshold) {
+            pen <- pw(val, max_X, weight_scale_xy)
+            lab <- fmtc(val)
+            scr <- paste0(
+              scr,
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
+                      X_ids[j], Y_ids[i], lab, pen)
+            )
+          }
+        }
+      }
+    }
+  }
+
+  paste0(scr, "}\n")
+}
+
+
+
+
+
+############################################################
+## nmfkc.ar.DOT  (Graphviz visualization for NMF-AR / VAR models)
+############################################################
+
+#' Generate a Graphviz DOT Diagram for NMF-AR / NMF-VAR Models
+#'
+#' @description
+#' Produces a Graphviz DOT script for visualizing autoregressive
+#' NMF-with-covariates models constructed via \code{nmfkc.ar} + \code{nmfkc}.
+#'
+#' The diagram displays three types of directed relationships:
+#' \itemize{
+#'   \item Lagged predictors: \eqn{T_{t-k} \rightarrow X},
+#'   \item Current latent factors: \eqn{X \rightarrow T_t},
+#'   \item Optional intercept effects: \code{Const -> X}.
+#' }
+#'
+#' Importantly, *no direct edges from lagged variables to current outputs*
+#' (\eqn{T_{t-k} \rightarrow T_t}) are drawn, in accordance with the NMF-AR
+#' formulation.
+#'
+#' Each block of lagged variables is displayed in its own DOT subgraph
+#' (e.g., “T-1”, “T-2”, ...), while latent factor nodes and current-time
+#' outputs are arranged in separate clusters.
+#'
+#' @param x A fitted \code{nmfkc} object representing the AR model.
+#'   Must contain matrices \code{X} and \code{C}.
+#' @param degree Maximum AR lag to visualize.
+#' @param intercept Logical; if \code{TRUE}, draws intercept nodes for
+#'   columns named "(Intercept)" in matrix \code{C}.
+#' @param threshold Minimum coefficient magnitude required to draw an edge.
+#' @param rankdir Graphviz rank direction (e.g., \code{"RL"}, \code{"LR"}, \code{"TB"}).
+#' @param fill Logical; whether nodes are filled with color.
+#' @param weight_scale_xy Scaling factor for edges \eqn{X \rightarrow T}.
+#' @param weight_scale_lag Scaling factor for lagged edges \eqn{T-k \rightarrow X}.
+#' @param weight_scale_int Scaling factor for intercept edges.
+#'
+#' @return A character string representing a Graphviz DOT file.
+#' @export
+nmfkc.ar.DOT <- function(x,
+                         degree    = 1,
+                         intercept = FALSE,
+                         threshold = 0.1,
+                         rankdir   = "RL",
+                         fill      = TRUE,
+                         weight_scale_xy  = 5,
+                         weight_scale_lag = 5,
+                         weight_scale_int = 3) {
+
+  ## -------------------------------------------------------------
+  ## Extract required AR components
+  ## -------------------------------------------------------------
+  X     <- x$X
+  C_raw <- x$C
+
+  if (is.null(X) || is.null(C_raw)) {
+    stop("x must contain matrices X and C.")
+  }
+
+  C <- as.matrix(C_raw)
+
+  ## Ensure node labels exist
+  if (is.null(rownames(X))) rownames(X) <- paste0("Y", seq_len(nrow(X)))
+  if (is.null(colnames(X))) colnames(X) <- paste0("X", seq_len(ncol(X)))
+
+  if (is.null(colnames(C))) {
+    colnames(C)     <- paste0("A_", seq_len(ncol(C)))
+    colnames(C_raw) <- colnames(C)
+  }
+
+  X_lab <- colnames(X)
+  Y_lab <- rownames(X)
+  C_lab <- colnames(C_raw)
+
+  X_ids <- .nmfkc_dot_sanitize_id(X_lab)
+  Y_ids <- .nmfkc_dot_sanitize_id(Y_lab)
+  C_ids <- .nmfkc_dot_sanitize_id(colnames(C))
+
+  ## Helper: strip numeric suffix _k for lag grouping
+  base_from_name <- function(nm) sub("_([0-9]+)$", "", nm)
+
+  has_intercept_col <- any(C_lab == "(Intercept)")
+
+  ## -------------------------------------------------------------
+  ## Determine lag structure
+  ## -------------------------------------------------------------
+  A_labels_raw <- unique(base_from_name(C_lab))
+  A_labels_raw <- setdiff(A_labels_raw, "(Intercept)")
+
+  A_per_lag <- length(A_labels_raw)
+  if (A_per_lag == 0L) {
+    stop("Unable to determine covariate base names for lag separation.")
+  }
+
+  total_cols        <- ncol(C)
+  total_cols_no_int <- if (has_intercept_col) total_cols - 1L else total_cols
+  Dmax              <- floor(total_cols_no_int / A_per_lag)
+
+  if (Dmax < 1L) {
+    stop("Insufficient columns in C to construct at least one lag block.")
+  }
+
+  D <- min(Dmax, as.integer(degree))
+
+  ## -------------------------------------------------------------
+  ## Compute edge width scaling maxima
+  ## -------------------------------------------------------------
+  max_X   <- suppressWarnings(max(X,   na.rm = TRUE))
+  max_C   <- suppressWarnings(max(C[, C_lab != "(Intercept)"], na.rm = TRUE))
+  max_int <- if (has_intercept_col) {
+    suppressWarnings(max(C[, C_lab == "(Intercept)"], na.rm = TRUE))
+  } else {
+    NA_real_
+  }
+
+  pw     <- .nmfkc_dot_penwidth
+  digits <- .nmfkc_dot_digits_from_threshold(threshold)
+  fmtc   <- function(v) .nmfkc_dot_format_coef(v, digits)
+
+  ## -------------------------------------------------------------
+  ## DOT header
+  ## -------------------------------------------------------------
+  scr <- .nmfkc_dot_header(graph_name = "NMF_AR", rankdir = rankdir)
+
+  ## -------------------------------------------------------------
+  ## Current-time output cluster (T)
+  ## -------------------------------------------------------------
+  scr <- paste0(
+    scr,
+    '\n  // Current-time outputs (T)\n',
+    .nmfkc_dot_cluster_nodes(
+      cluster_id  = "Y",
+      title       = "T",
+      node_ids    = Y_ids,
+      node_labels = Y_lab,
+      shape       = "box",
+      fill        = fill,
+      fillcolor   = "lightblue",
+      line_width  = 1.5
+    )
+  )
+
+  ## -------------------------------------------------------------
+  ## Latent factors cluster (X)
+  ## -------------------------------------------------------------
+  scr <- paste0(
+    scr,
+    '\n  // Latent variables (X)\n',
+    .nmfkc_dot_cluster_nodes(
+      cluster_id  = "X",
+      title       = "Latent Variables",
+      node_ids    = X_ids,
+      node_labels = X_lab,
+      shape       = "ellipse",
+      fill        = fill,
+      fillcolor   = "wheat",
+      line_width  = 1.0
+    )
+  )
+
+  ## -------------------------------------------------------------
+  ## Edge defaults
+  ## -------------------------------------------------------------
+  scr <- paste0(
+    scr,
+    '\n  edge [fontname="Meiryo", fontsize=8, arrowhead=open];\n'
+  )
+
+  ## -------------------------------------------------------------
+  ## 1. X → T edges (factor loadings)
+  ## -------------------------------------------------------------
+  scr <- paste0(
+    scr,
+    '\n  // X -> T edges (factor loadings)\n',
+    '  edge [color="gray0", fontcolor="gray0", style=solid];\n'
+  )
+
+  if (is.finite(max_X) && max_X > 0) {
+    for (i in seq_len(nrow(X))) {
+      for (j in seq_len(ncol(X))) {
+        val <- X[i, j]
+        if (is.finite(val) && val >= threshold) {
+          pen <- pw(val, max_X, weight_scale_xy)
+          lab <- fmtc(val)
+          scr <- paste0(
+            scr,
+            sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
+                    X_ids[j], Y_ids[i], lab, pen)
+          )
+        }
+      }
+    }
+  }
+
+  ## -------------------------------------------------------------
+  ## 2. Optional intercept nodes
+  ## -------------------------------------------------------------
+  if (isTRUE(intercept) && has_intercept_col && is.finite(max_int) && max_int > 0) {
+
+    scr <- paste0(scr, '\n  // Intercept nodes\n')
+    int_col <- which(C_lab == "(Intercept)")
+
+    for (j in seq_len(ncol(X))) {
+      val <- C[j, int_col]
+      if (is.finite(val) && val >= threshold) {
+        pen <- pw(val, max_int, weight_scale_int)
+        lab <- fmtc(val)
+        node_id <- paste0("Const", j)
+
+        scr <- paste0(
+          scr,
+          sprintf('  %s [shape=circle, label="%s"];\n', node_id, lab),
+          sprintf('  %s -> %s [penwidth=%.2f];\n', node_id, X_ids[j], pen)
+        )
+      }
+    }
+  }
+
+  ## -------------------------------------------------------------
+  ## 3. Lag blocks and T-k → X edges
+  ## -------------------------------------------------------------
+  for (k in seq_len(D)) {
+
+    start <- (k - 1L) * A_per_lag
+    cols  <- (start + 1L):(start + A_per_lag)
+
+    Ck     <- C[, cols, drop = FALSE]
+    Ck_ids <- C_ids[cols]
+    Ck_lab <- base_from_name(C_lab[cols])
+
+    ## Skip lag block if no coefficient exceeds threshold
+    if (max(Ck, na.rm = TRUE) < threshold) {
+      next
+    }
+
+    ## ---- Cluster for lag k ----
+    st <- sprintf('  subgraph cluster_C%d {label="T-%d" style="rounded";\n', k, k)
+
+    if (fill) {
+      st <- paste0(
+        st,
+        '    node [shape=box, style="filled,rounded", fillcolor="lightcoral", color=black, penwidth=1.5];\n'
+      )
+    } else {
+      st <- paste0(
+        st,
+        '    node [shape=box, style="rounded", color=black, penwidth=1.5];\n'
+      )
+    }
+
+    for (j in seq_len(ncol(Ck))) {
+      if (max(Ck[, j], na.rm = TRUE) >= threshold) {
+        st <- paste0(
+          st,
+          sprintf('    %s [label="%s"];\n', Ck_ids[j], Ck_lab[j])
+        )
+      }
+    }
+    st  <- paste0(st, "  }\n")
+
+    scr <- paste0(scr, "\n  // Lag block T-", k, "\n", st)
+
+    ## ---- Lag → X edges ----
+    scr <- paste0(
+      scr,
+      '  // T-', k, ' -> X edges\n',
+      '  edge [color=black, fontcolor=black, style=solid];\n'
+    )
+
+    if (is.finite(max_C) && max_C > 0) {
+      for (q in seq_len(nrow(Ck))) {
+        for (j in seq_len(ncol(Ck))) {
+          val <- Ck[q, j]
+          if (is.finite(val) && val >= threshold) {
+            pen <- pw(val, max_C, weight_scale_lag)
+            lab <- fmtc(val)
+            scr <- paste0(
+              scr,
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
+                      Ck_ids[j], X_ids[q], lab, pen)
+            )
+          }
+        }
+      }
+    }
+  }
+
+  paste0(scr, "}\n")
+}
