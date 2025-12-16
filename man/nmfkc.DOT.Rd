@@ -2,64 +2,77 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.DOT}
 \alias{nmfkc.DOT}
-\title{Generate DOT language scripts for NMF models}
+\title{Generate Graphviz DOT Scripts for NMF or NMF-with-Covariates Models}
 \usage{
 nmfkc.DOT(
   x,
   type = c("YX", "YA", "YXA"),
-  digits = 2,
-  threshold = 10^(-digits),
+  threshold = 0.01,
   rankdir = "LR",
+  fill = TRUE,
+  weight_scale = 5,
+  weight_scale_ax = weight_scale,
+  weight_scale_xy = weight_scale,
+  weight_scale_ay = weight_scale,
   Y.label = NULL,
   X.label = NULL,
   A.label = NULL,
   Y.title = "Observation (Y)",
   X.title = "Basis (X)",
-  A.title = "Covariates (A)",
-  min.penwidth = 1,
-  max.penwidth = 5
+  A.title = "Covariates (A)"
 )
 }
 \arguments{
-\item{x}{The return value of \code{nmfkc}.}
+\item{x}{The return value from \code{nmfkc}, containing matrices
+\code{X}, \code{B}, and optionally \code{C}.}
 
-\item{type}{Character string specifying the visualization type.
-Options are:
-\itemize{
-\item \code{"YX"} (Default): Standard NMF view: \eqn{B \to X \to Y}.
-\item \code{"YXA"} : Full visualization of the tri-factorization \eqn{A \to C \to X \to Y}.
-\item \code{"YA"}: Direct regression view: \eqn{A \to Y}, where coefficients are from \eqn{X C}.
-}}
+\item{type}{Character string specifying the visualization style:
+one of \code{"YX"}, \code{"YA"}, \code{"YXA"}.}
 
-\item{digits}{Integer. Number of decimal places to display in edge labels. Default is 2.}
+\item{threshold}{Minimum coefficient magnitude to display an edge.}
 
-\item{threshold}{Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.}
+\item{rankdir}{Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).}
 
-\item{rankdir}{Graph layout direction in DOT language. Default is "LR".}
+\item{fill}{Logical; whether nodes should be drawn with filled shapes.}
 
-\item{Y.label}{Character vector for row names of Y/X (features). If NULL, uses \code{rownames(x$X)}.}
+\item{weight_scale}{Base scaling factor for edge widths.}
 
-\item{X.label}{Character vector for column names of X/rows of B (latent factors). If NULL, uses \code{colnames(x$X)}.}
+\item{weight_scale_ax}{Scaling factor for edges \eqn{A \rightarrow X} (type \code{"YXA"}).}
 
-\item{A.label}{Character vector for row names of A/columns of C (covariates). If NULL, uses \code{colnames(x$C)}.}
+\item{weight_scale_xy}{Scaling factor for edges \eqn{X \rightarrow Y}.}
 
-\item{Y.title}{Title for the Y node cluster. Default is "Observation (Y)".}
+\item{weight_scale_ay}{Scaling factor for edges \eqn{A \rightarrow Y} (type \code{"YA"}).}
 
-\item{X.title}{Title for the X node cluster. Default is "Basis (X)".}
+\item{Y.label}{Optional character vector for labels of Y nodes.}
 
-\item{A.title}{Title for the A node cluster. Default is "Covariates (A)".}
+\item{X.label}{Optional character vector for labels of X (latent factor) nodes.}
 
-\item{min.penwidth}{Numeric. Minimum line thickness for the path (default: 1.0).}
+\item{A.label}{Optional character vector for labels of A (covariate) nodes.}
 
-\item{max.penwidth}{Numeric. Maximum line thickness for the path (default: 5.0).}
+\item{Y.title}{Cluster title for Y nodes.}
+
+\item{X.title}{Cluster title for X nodes.}
+
+\item{A.title}{Cluster title for A nodes.}
 }
 \value{
-A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
+A character string representing a Graphviz DOT script.
 }
 \description{
-\code{nmfkc.DOT} generates scripts in the DOT language for visualizing
-the NMF model structure (\eqn{Y \approx X C A}) or its simplified forms.
+Produces a Graphviz DOT script visualizing the structure of an NMF model
+(\eqn{Y \approx X C A}) or its simplified forms.
+
+Supported visualization types:
+\itemize{
+\item \code{"YX"} — Standard NMF view: latent factors \eqn{X} map to observations \eqn{Y}.
+\item \code{"YA"} — Direct regression view: covariates \eqn{A} map directly to \eqn{Y}
+using the combined coefficient matrix \eqn{X C}.
+\item \code{"YXA"} — Full tri-factorization: \eqn{A \rightarrow C \rightarrow X \rightarrow Y}.
+}
+
+Edge widths are scaled by coefficient magnitude, and nodes with no edges
+above the threshold are omitted from the visualization.
 }
 \seealso{
-\code{\link{nmfkc}}
+\code{nmfkc}
 }

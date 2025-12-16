@@ -2,37 +2,60 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.ar.DOT}
 \alias{nmfkc.ar.DOT}
-\title{Generate DOT language scripts for vector autoregressive models}
+\title{Generate a Graphviz DOT Diagram for NMF-AR / NMF-VAR Models}
 \usage{
 nmfkc.ar.DOT(
   x,
   degree = 1,
   intercept = FALSE,
-  digits = 1,
-  threshold = 10^(-digits),
-  rankdir = "RL"
+  threshold = 0.1,
+  rankdir = "RL",
+  fill = TRUE,
+  weight_scale_xy = 5,
+  weight_scale_lag = 5,
+  weight_scale_int = 3
 )
 }
 \arguments{
-\item{x}{The return value of \code{nmfkc} for a vector autoregressive model.}
+\item{x}{A fitted \code{nmfkc} object representing the AR model.
+Must contain matrices \code{X} and \code{C}.}
 
-\item{degree}{The maximum lag order to visualize. Default is 1.}
+\item{degree}{Maximum AR lag to visualize.}
 
-\item{intercept}{Logical. If TRUE, an intercept node is added. Default is FALSE.}
+\item{intercept}{Logical; if \code{TRUE}, draws intercept nodes for
+columns named "(Intercept)" in matrix \code{C}.}
 
-\item{digits}{Integer. Number of decimal places to display in edge labels.}
+\item{threshold}{Minimum coefficient magnitude required to draw an edge.}
 
-\item{threshold}{Numeric. Parameters greater than or equal to this threshold are displayed. Default is \eqn{10^{-\code{digits}}}.}
+\item{rankdir}{Graphviz rank direction (e.g., \code{"RL"}, \code{"LR"}, \code{"TB"}).}
 
-\item{rankdir}{Graph layout direction in DOT language. Default is "RL". Other options include "LR", "TB", and "BT".}
+\item{fill}{Logical; whether nodes are filled with color.}
+
+\item{weight_scale_xy}{Scaling factor for edges \eqn{X \rightarrow T}.}
+
+\item{weight_scale_lag}{Scaling factor for lagged edges \eqn{T-k \rightarrow X}.}
+
+\item{weight_scale_int}{Scaling factor for intercept edges.}
 }
 \value{
-A character string containing a DOT script, suitable for use with the \pkg{DOT} package or Graphviz tools.
+A character string representing a Graphviz DOT file.
 }
 \description{
-\code{nmfkc.ar.DOT} generates scripts in the DOT language for visualizing
-vector autoregressive models fitted using \code{nmfkc}.
+Produces a Graphviz DOT script for visualizing autoregressive
+NMF-with-covariates models constructed via \code{nmfkc.ar} + \code{nmfkc}.
+
+The diagram displays three types of directed relationships:
+\itemize{
+\item Lagged predictors: \eqn{T_{t-k} \rightarrow X},
+\item Current latent factors: \eqn{X \rightarrow T_t},
+\item Optional intercept effects: \code{Const -> X}.
 }
-\seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+
+Importantly, \emph{no direct edges from lagged variables to current outputs}
+(\eqn{T_{t-k} \rightarrow T_t}) are drawn, in accordance with the NMF-AR
+formulation.
+
+Each block of lagged variables is displayed in its own DOT subgraph
+(e.g., “T-1”, “T-2”, ...), while latent factor nodes and current-time
+outputs are arranged in separate clusters.
 }
