@@ -1,8 +1,8 @@
 Package: nmfkc
 Type: Package
 Title: Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.5.7
-Date: 2025-12-16
+Version: 0.5.8
+Date: 2025-12-20
 Authors@R: 
     person("Kenichi", "Satoh", 
            email = "kenichi-satoh@biwako.shiga-u.ac.jp", 
@@ -38,5 +38,6 @@ Suggests:
     readxl,
     RColorBrewer,
     MASS,
-    nlme
+    nlme,
+    lavaan
 Config/testthat/edition: 3

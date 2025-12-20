@@ -4,6 +4,7 @@ pkgdown_sha: ~
 articles:
   classification-with-nmfkc: classification-with-nmfkc.html
   introduction-to-nmfkc: introduction-to-nmfkc.html
+  nmf-sem-with-nmfkc: nmf-sem-with-nmfkc.html
   timeseries-with-nmfkc: timeseries-with-nmfkc.html
   topic-modeling-with-nmfkc: topic-modeling-with-nmfkc.html
-last_built: 2025-12-16T01:11Z
+last_built: 2025-12-20T04:43Z

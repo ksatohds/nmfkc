@@ -419,7 +419,7 @@ nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ..
       all_args  <- c(extra_args, main_args, list(shuffle = FALSE))
 
       # 3) run CV
-      result.cv <- suppressMessages(do.call("nmfkc.cv", all_args))
+      result.cv <- suppressMessages(do.call(nmfkc.cv, all_args))
 
       # 4) success payload
       list(ok = TRUE, obj = result.cv$objfunc, err = NULL)
@@ -721,7 +721,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   if(is.null(beta)){
     if(is.null(V)) V <- U
     med_args <- c(list(U = V), extra_args[names(extra_args) %in% names(formals(nmfkc.kernel.beta.nearest.med))])
-    result.beta <- do.call("nmfkc.kernel.beta.nearest.med", med_args)
+    result.beta <- do.call(nmfkc.kernel.beta.nearest.med, med_args)
     beta <- result.beta$beta_candidates
   }
   objfuncs <- numeric(length(beta))
@@ -733,13 +733,13 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
       list(U = U, V = V, beta = beta[i]),
       kernel_args_for_call
     )
-    A <- do.call("nmfkc.kernel", kernel_args)
+    A <- do.call(nmfkc.kernel, kernel_args)
 
     cv_args <- c(
       list(Y = Y, A = A, Q = Q),
       cv_args_for_call
     )
-    result <- do.call("nmfkc.cv", cv_args)
+    result <- do.call(nmfkc.cv, cv_args)
 
     objfuncs[i] <- result$objfunc
     end.time <- Sys.time()
@@ -1605,7 +1605,7 @@ plot.nmfkc <- function(x,...){
   if(is.null(extra_args$xlab)) args$xlab <- "iter"
   if(is.null(extra_args$ylab)) args$ylab <- "objfunc"
   all_args <- c(args, extra_args)
-  do.call("plot",all_args)
+  do.call(plot,all_args)
 }
 
 
@@ -2098,7 +2098,7 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
     nmfkc_args$shuffle <- NULL
 
     # Suppress messages from inner nmfkc calls
-    res_j <- suppressMessages(do.call("nmfkc", nmfkc_args))
+    res_j <- suppressMessages(do.call(nmfkc, nmfkc_args))
 
     # Predict on Test set
     if(is_identity){
@@ -2227,7 +2227,7 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
 
       nmfkc_args <- c(list(Y=Y, A=A, Q=q_curr, Y.weights=weights_train), nmfkc_clean_args)
 
-      fit <- do.call("nmfkc", nmfkc_args)
+      fit <- do.call(nmfkc, nmfkc_args)
 
       pred <- fit$XB
       residuals <- Y[test_idx] - pred[test_idx]
@@ -2359,7 +2359,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
     extra_args_nmfkc$Q <- NULL
 
     nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
-    result <- do.call("nmfkc", nmfkc_args)
+    result <- do.call(nmfkc, nmfkc_args)
 
     results_df$r.squared[q_idx] <- result$r.squared
     results_df$ICp[q_idx] <- result$criterion$ICp
@@ -2406,7 +2406,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
     ecv_full_args <- c(ecv_args, extra_args_ecv)
 
     message("Running Element-wise CV (this may take time)...")
-    ecv_res <- do.call("nmfkc.ecv", ecv_full_args)
+    ecv_res <- do.call(nmfkc.ecv, ecv_full_args)
     results_df$sigma.ecv <- ecv_res$sigma
 
     # Determine best rank by ECV
@@ -2612,6 +2612,495 @@ nmfkc.residual.plot <- function(Y, result,
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
+#' @title NMF-SEM Main Estimation Algorithm
+#'
+#' @description
+#' Fits the NMF-SEM model
+#' \deqn{
+#'   Y_1 \approx X \bigl( \Theta_1 Y_1 + \Theta_2 Y_2 \bigr)
+#' }
+#' under non-negativity constraints with orthogonality and sparsity regularization.
+#' The function returns the estimated latent factors, structural coefficient matrices,
+#' and the implied equilibrium (input–output) mapping.
+#'
+#' At equilibrium, the model can be written as
+#' \deqn{
+#'   Y_1 \approx (I - X \Theta_1)^{-1} X \Theta_2 Y_2
+#'   \equiv M_{\mathrm{model}} Y_2,
+#' }
+#' where \eqn{M_{\mathrm{model}} = (I - X \Theta_1)^{-1} X \Theta_2} is a
+#' Leontief-type cumulative-effect operator in latent space.
+#'
+#' Internally, the latent feedback and exogenous loading matrices are stored as
+#' \code{C1} and \code{C2}, corresponding to \eqn{\Theta_1} and \eqn{\Theta_2},
+#' respectively.
+#'
+#' @param Y1 A non-negative numeric matrix of endogenous variables with
+#'   \strong{rows = variables (P1), columns = samples (N)}.
+#' @param Y2 A non-negative numeric matrix of exogenous variables with
+#'   \strong{rows = variables (P2), columns = samples (N)}.
+#'   Must satisfy \code{ncol(Y1) == ncol(Y2)}.
+#' @param rank Integer; number of latent factors \eqn{Q}. If \code{NULL},
+#'   \eqn{Q} is taken from a hidden argument in \code{...} or defaults to
+#'   \code{nrow(Y2)}.
+#' @param X.init Optional non-negative initialization for the basis matrix
+#'   \code{X} (\eqn{P_1 \times Q}). If supplied, it is projected to be
+#'   non-negative and column-normalized.
+#' @param X.L2.ortho L2 orthogonality penalty for \code{X}. This controls
+#'   the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
+#'   \rVert_F^2}. Default: \code{100}.
+#' @param C1.L1 L1 sparsity penalty for \code{C1} (i.e., \eqn{\Theta_1}).
+#'   Default: \code{1.0}.
+#' @param C2.L1 L1 sparsity penalty for \code{C2} (i.e., \eqn{\Theta_2}).
+#'   Default: \code{0.1}.
+#' @param epsilon Relative convergence threshold for the objective function.
+#'   Iterations stop when the relative change in reconstruction loss falls
+#'   below this value. Default: \code{1e-6}.
+#' @param maxit Maximum number of iterations for the multiplicative updates.
+#'   Default: \code{20000}.
+#' @param seed Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
+#'   Default: \code{123}.
+#' @param ... Additional arguments. Currently used to pass a hidden rank
+#'   \code{Q} (e.g., via \code{Q = 3}) if \code{rank} is \code{NULL}.
+#'
+#' @return A list with components:
+#'   \item{X}{Estimated basis matrix (\eqn{P_1 \times Q}).}
+#'   \item{C1}{Estimated latent feedback matrix (\eqn{\Theta_1}, \eqn{Q \times P_1}).}
+#'   \item{C2}{Estimated exogenous loading matrix (\eqn{\Theta_2}, \eqn{Q \times P_2}).}
+#'   \item{XC1}{Feedback matrix \eqn{X \Theta_1}.}
+#'   \item{XC2}{Direct-effect matrix \eqn{X \Theta_2}.}
+#'   \item{XC1.radius}{Spectral radius \eqn{\rho(X \Theta_1)}.}
+#'   \item{XC1.norm1}{Induced 1-norm \eqn{\lVert X \Theta_1 \rVert_{1,\mathrm{op}}}.}
+#'   \item{Leontief.inv}{Leontief-type inverse \eqn{(I - X \Theta_1)^{-1}.}}
+#'   \item{M.model}{Equilibrium mapping
+#'     \eqn{M_{\mathrm{model}} = (I - X \Theta_1)^{-1} X \Theta_2}.}
+#'   \item{amplification}{Latent amplification factor
+#'     \eqn{\lVert M_{\mathrm{model}} \rVert_{1,\mathrm{op}} /
+#'          \bigl\lVert X \Theta_2 \bigr\rVert_{1,\mathrm{op}}}.}
+#'   \item{amplification.bound}{Geometric-series upper bound
+#'     \eqn{1 / (1 - \lVert X \Theta_1 \rVert_{1,\mathrm{op}})} if
+#'     \eqn{\lVert X \Theta_1 \rVert_{1,\mathrm{op}} < 1}, otherwise \code{Inf}.}
+#'   \item{Q}{Effective latent dimension used in the fit.}
+#'   \item{SC.cov}{Correlation between sample and model-implied covariance
+#'     (flattened) of \eqn{Y_1}.}
+#'   \item{MAE}{Mean absolute error between \eqn{Y_1} and its equilibrium
+#'     prediction \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.}
+#'   \item{objfunc}{Vector of reconstruction losses per iteration.}
+#'   \item{objfunc.full}{Vector of penalized objective values per iteration.}
+#'   \item{iter}{Number of iterations actually performed.}
+#'
+#' @export
+nmf.sem <- function(
+    Y1, Y2,
+    rank = NULL,
+    X.init = NULL,
+    X.L2.ortho = 100.0,
+    C1.L1 = 1.0,
+    C2.L1 = 0.1,
+    epsilon = 1e-6,
+    maxit = 20000,
+    seed  = 123,
+    ...
+) {
+  # ------------------------------ checks ------------------------------
+  if (!is.matrix(Y1)) Y1 <- as.matrix(Y1)
+  if (!is.matrix(Y2)) Y2 <- as.matrix(Y2)
+
+  if (any(!is.finite(Y1)) || any(!is.finite(Y2)))
+    stop("Y1 and Y2 must not contain NA/NaN/Inf.")
+  if (min(Y1) < 0 || min(Y2) < 0)
+    stop("Y1 and Y2 must be non-negative.")
+  if (ncol(Y1) != ncol(Y2))
+    stop("ncol(Y1) must be equal to ncol(Y2).")
+
+  extra_args <- list(...)
+  Q_hidden <- if (!is.null(extra_args$Q)) extra_args$Q else NULL
+  Q0 <- if (!is.null(rank)) rank else if (!is.null(Q_hidden)) Q_hidden else nrow(Y2)
+
+  P1 <- nrow(Y1); P2 <- nrow(Y2); N <- ncol(Y1)
+  Q  <- min(Q0, P1, N)
+  if (Q < 1) stop("Effective rank Q must be >= 1.")
+
+  # -------------------------- labels (output) -------------------------
+  Y1_labels    <- if (!is.null(rownames(Y1))) rownames(Y1) else paste0("Y1_", 1:P1)
+  Y2_labels    <- if (!is.null(rownames(Y2))) rownames(Y2) else paste0("Y2_", 1:P2)
+  Basis_labels <- paste0("Factor", 1:Q)
+
+  set.seed(seed)
+  .eps <- 1e-10
+  .xnorm  <- function(X) sweep(X, 2, pmax(colSums(X), .eps), "/")
+  mat1norm <- function(A) max(colSums(abs(A)))
+
+  # ---------------------------- init X,C1,C2 --------------------------
+  if (is.null(X.init)) {
+    X <- .nndsvdar(Y1, Q)   # exists in nmfkc
+  } else {
+    X <- as.matrix(X.init)
+    if (!all(dim(X) == c(P1, Q))) {
+      stop("X.init must have dimension (nrow(Y1) x rank).")
+    }
+    X[X < 0] <- 0
+  }
+  X <- .xnorm(X)
+
+  C1 <- matrix(stats::runif(Q * P1, 0.01, 0.1), nrow = Q, ncol = P1)
+  C2 <- matrix(stats::runif(Q * P2, 0.001, 0.01), nrow = Q, ncol = P2)
+
+  min_dim <- min(Q, P2)
+  for (i in 1:min_dim) {
+    C2[i, i] <- stats::runif(1, 0.1, 0.2)
+  }
+
+  objfunc      <- numeric(maxit)
+  objfunc.full <- numeric(maxit)
+
+  # ----------------------------- main loop ----------------------------
+  for (it in 1:maxit) {
+    M  <- C1 %*% Y1 + C2 %*% Y2
+    Mt <- t(M)
+
+    # 2.1 update X
+    Numerator_X       <- Y1 %*% Mt
+    Denominator_X_rec <- X %*% M %*% Mt
+
+    if (X.L2.ortho > 0) {
+      XtX <- t(X) %*% X
+      XtX_offdiag <- XtX
+      diag(XtX_offdiag) <- 0
+      Denominator_X_ortho <- X.L2.ortho * X %*% XtX_offdiag
+    } else {
+      Denominator_X_ortho <- 0
+    }
+
+    X <- X * (Numerator_X / (Denominator_X_rec + Denominator_X_ortho + .eps))
+    X <- .xnorm(X)
+
+    Xt  <- t(X)
+    XtX <- Xt %*% X
+
+    # 2.2 update C1
+    Numerator_C1   <- Xt %*% Y1 %*% t(Y1)
+    Denominator_C1 <- XtX %*% (C1 %*% Y1 + C2 %*% Y2) %*% t(Y1) + C1.L1 + .eps
+    C1 <- C1 * (Numerator_C1 / Denominator_C1)
+
+    # 2.3 update C2
+    Numerator_C2   <- Xt %*% Y1 %*% t(Y2)
+    Denominator_C2 <- XtX %*% (C1 %*% Y1 + C2 %*% Y2) %*% t(Y2) + C2.L1 + .eps
+    C2 <- C2 * (Numerator_C2 / Denominator_C2)
+
+    # loss + penalties
+    XB <- X %*% (C1 %*% Y1 + C2 %*% Y2)
+    loss_rec <- sum((Y1 - XB)^2)
+    objfunc[it] <- loss_rec
+
+    if (X.L2.ortho > 0) {
+      XtX_off <- XtX
+      diag(XtX_off) <- 0
+      pen_X_ortho <- 0.5 * X.L2.ortho * sum(XtX_off^2)
+    } else {
+      pen_X_ortho <- 0
+    }
+    pen_C1_L1 <- C1.L1 * sum(C1)
+    pen_C2_L1 <- C2.L1 * sum(C2)
+    objfunc.full[it] <- loss_rec + pen_X_ortho + pen_C1_L1 + pen_C2_L1
+
+    if (it >= 10) {
+      epsilon_iter <- abs(objfunc[it] - objfunc[it - 1]) / pmax(abs(objfunc[it]), 1)
+      if (epsilon_iter <= epsilon) break
+    }
+  }
+
+  # ------------------ reorder factors (nmfkc centroid order) ----------
+  centroid <- as.numeric((1:nrow(X)) / nrow(X)) %*% X
+  index <- order(centroid)
+  X  <- X[, index, drop = FALSE]
+  C1 <- C1[index, , drop = FALSE]
+  C2 <- C2[index, , drop = FALSE]
+
+  # ------------------------------ names -------------------------------
+  colnames(X)  <- Basis_labels
+  rownames(C1) <- Basis_labels
+  rownames(C2) <- Basis_labels
+  rownames(X)  <- Y1_labels
+  colnames(C1) <- Y1_labels
+  colnames(C2) <- Y2_labels
+
+  # -------------------- feedback + stability diagnostics --------------
+  XC1  <- X %*% C1
+  eigs <- eigen(XC1, only.values = TRUE)$values
+  rho  <- max(abs(eigs))
+  if (rho >= 1)
+    warning("Leontief.inv may be unstable; spectral radius >= 1.")
+
+  XC1_norm1 <- mat1norm(XC1)
+
+  # -------------------- Leontief inverse + equilibrium mapping --------
+  I_mat <- diag(nrow(XC1))
+  XC2   <- X %*% C2
+
+  Leontief.inv <- tryCatch(
+    base::solve(I_mat - XC1),
+    error = function(e) {
+      warning("Failed to compute Leontief.inv via solve(I - XC1). Returning NA matrices.")
+      matrix(NA_real_, nrow = nrow(XC1), ncol = ncol(XC1))
+    }
+  )
+  M.model <- Leontief.inv %*% XC2
+
+  amplification <- mat1norm(M.model) / (mat1norm(XC2) + .eps)
+  amplification.bound <- if (XC1_norm1 < 1) 1 / (1 - XC1_norm1) else Inf
+
+  # -------------------- fit indices (equilibrium prediction) ----------
+  Y1_hat   <- M.model %*% Y2
+  S.sample <- Y1 %*% t(Y1)
+  S.model  <- Y1_hat %*% t(Y1_hat)
+  SC.cov   <- stats::cor(as.numeric(S.sample), as.numeric(S.model))
+  MAE      <- mean(abs(Y1 - Y1_hat))
+
+  list(
+    X                   = X,
+    C1                  = C1,
+    C2                  = C2,
+    XC1                 = XC1,
+    XC2                 = XC2,
+    XC1.radius          = rho,
+    XC1.norm1           = XC1_norm1,
+    Leontief.inv        = Leontief.inv,
+    M.model             = M.model,
+    amplification       = amplification,
+    amplification.bound = amplification.bound,
+    Q                   = Q,
+    SC.cov              = SC.cov,
+    MAE                 = MAE,
+    objfunc             = objfunc[1:it],
+    objfunc.full        = objfunc.full[1:it],
+    iter                = it
+  )
+}
+
+
+
+#' @title Cross-Validation for NMF-SEM
+#' @description
+#' Performs K-fold cross-validation to evaluate the equilibrium mapping of
+#' the NMF-SEM model.
+#'
+#' For each fold, \code{nmf.sem} is fitted on the training samples,
+#' yielding an equilibrium mapping \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.
+#' The held-out endogenous variables \eqn{Y_1} are then predicted from \eqn{Y_2}
+#' using this mapping, and the mean absolute error (MAE) over all entries in the
+#' test block is computed. The returned value is the average MAE across folds.
+#'
+#' This implements the hyperparameter selection strategy described in the paper:
+#' hyperparameters are chosen by predictive cross-validation rather than direct
+#' inspection of the internal structural matrices.
+#'
+#' @param Y1 A non-negative numeric matrix of endogenous variables with
+#'   \strong{rows = variables (P1), columns = samples (N)}.
+#' @param Y2 A non-negative numeric matrix of exogenous variables with
+#'   \strong{rows = variables (P2), columns = samples (N)}.
+#'   Must satisfy \code{ncol(Y1) == ncol(Y2)}.
+#' @param rank Integer; rank (number of latent factors) passed to \code{nmf.sem}.
+#'   If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \code{nrow(Y2)}).
+#' @param X.init Optional initialization for \code{X} (as in \code{nmf.sem}).
+#' @param X.L2.ortho L2 orthogonality penalty for \code{X}.
+#' @param C1.L1 L1 sparsity penalty for \code{C1} (\eqn{\Theta_1}).
+#' @param C2.L1 L1 sparsity penalty for \code{C2} (\eqn{\Theta_2}).
+#' @param epsilon Convergence threshold for \code{nmf.sem}.
+#' @param maxit Maximum number of iterations for \code{nmf.sem}.
+#' @param seed Master random seed for CV splitting and fold-specific calls to \code{nmf.sem}.
+#'   If \code{NULL}, RNG is not controlled within folds.
+#' @param div Number of CV folds. (Default: \code{5})
+#' @param shuffle Logical; if \code{TRUE}, samples are randomly permuted
+#'   before assigning to folds. (Default: \code{TRUE})
+#' @param ... Additional arguments passed to \code{nmf.sem} (except for
+#'   \code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).
+#'
+#' @return A numeric scalar: mean MAE across CV folds.
+#'
+#' @export
+nmf.sem.cv <- function(
+    Y1, Y2,
+    rank = NULL,
+    X.init = NULL,
+    X.L2.ortho = 100.0,
+    C1.L1 = 0.5,        # L1 sparsity for C1 (Theta1)
+    C2.L1 = 0.0,        # L1 sparsity for C2 (Theta2)
+    epsilon = 1e-4,     # Convergence tolerance passed to nmf.sem
+    maxit = 50000,
+    seed = NULL,        # Master seed for CV (partition + fold seeds)
+    div = 5,            # Number of CV folds
+    shuffle = TRUE,     # Shuffle samples before assigning folds
+    ...
+){
+  # ------------------------------------------------------------------
+  # 1. Basic input checks
+  #
+  # NMF-SEM requires non-negative matrices. We also require that Y1 and Y2
+  # share the same number of samples (columns) to allow paired CV splits.
+  # ------------------------------------------------------------------
+  if (!is.matrix(Y1)) Y1 <- as.matrix(Y1)
+  if (!is.matrix(Y2)) Y2 <- as.matrix(Y2)
+  if (any(!is.finite(Y1)) || any(!is.finite(Y2))) stop("Y1 and Y2 must not contain NA/NaN/Inf.")
+  div <- as.integer(div)
+  if (min(Y1) < 0 || min(Y2) < 0) stop("Y1 and Y2 must be non-negative.")
+  if (ncol(Y1) != ncol(Y2)) {
+    stop("Y1 and Y2 must have the same number of columns (samples).")
+  }
+
+  P1 <- nrow(Y1)
+  P2 <- nrow(Y2)
+  N  <- ncol(Y1)
+
+  if (div < 2L) {
+    stop("div (number of CV folds) must be >= 2.")
+  }
+  if (div > N) {
+    stop("div (number of CV folds) must be <= number of samples.")
+  }
+
+  # ------------------------------------------------------------------
+  # 2. Handle extra arguments for nmf.sem
+  #
+  # We collect additional arguments in 'extra_args' but explicitly remove
+  # those that are managed at the CV level:
+  #   - div, shuffle : used only here, not passed to nmf.sem.
+  #   - rank        : passed explicitly from nmf.sem.cv.
+  #   - seed        : fold-specific seeds are generated here.
+  # ------------------------------------------------------------------
+  extra_args <- list(...)
+
+  extra_args$div     <- NULL
+  extra_args$shuffle <- NULL
+  extra_args$rank    <- NULL
+  extra_args$seed    <- NULL
+
+  # ------------------------------------------------------------------
+  # 3. Set RNG for CV partition and per-fold seeds
+  #
+  # If a master 'seed' is given:
+  #   - it is used to define the CV partition (sample permutation),
+  #   - independent seeds for each nmf.sem run are drawn.
+  # If 'seed' is NULL:
+  #   - CV partition uses the current RNG state,
+  #   - nmf.sem runs use whatever the global RNG state is at call time.
+  # ------------------------------------------------------------------
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+
+  # Sample indices for fold division
+  if (shuffle) {
+    perm_index <- sample.int(N)
+  } else {
+    perm_index <- seq_len(N)
+  }
+
+  # Per-fold seeds for nmf.sem (optional, only if master seed specified)
+  if (!is.null(seed)) {
+    seeds_fold <- sample.int(.Machine$integer.max, div)
+  } else {
+    seeds_fold <- rep(NA_integer_, div)
+  }
+
+  # ------------------------------------------------------------------
+  # 4. Create CV folds
+  #
+  # We assign approximately N/div samples to each fold, distributing
+  # any remainder one-by-one to the earliest folds.
+  # 'block[i] = k' means sample i belongs to fold k (as test set).
+  # ------------------------------------------------------------------
+  remainder <- N %% div
+  division  <- N %/% div
+  block     <- integer(N)
+
+  processed_count <- 0L
+  for (i in 1:(div - 1L)) {
+    plus       <- ifelse(i <= remainder, 1L, 0L)
+    chunk_size <- division + plus
+    idx_range  <- (processed_count + 1L):(processed_count + chunk_size)
+    target_idx <- perm_index[idx_range]
+    block[target_idx] <- i
+    processed_count   <- processed_count + chunk_size
+  }
+  # Last fold gets all remaining samples
+  target_idx <- perm_index[(processed_count + 1L):N]
+  block[target_idx] <- div
+
+  # Per-fold CV loss (MAE) will be stored here
+  objfunc.block <- numeric(div)
+
+  # ------------------------------------------------------------------
+  # 5. Cross-validation loop
+  #
+  # For each fold j:
+  #   - train on all samples not in fold j,
+  #   - test on samples in fold j,
+  #   - fit nmf.sem on training data,
+  #   - compute MAE on test block from equilibrium mapping M.model.
+  # ------------------------------------------------------------------
+  for (j in 1:div) {
+    # Train / Test split
+    train_idx <- block != j
+    test_idx  <- block == j
+
+    Y1_train <- Y1[, train_idx, drop = FALSE]
+    Y1_test  <- Y1[, test_idx,  drop = FALSE]
+    Y2_train <- Y2[, train_idx, drop = FALSE]
+    Y2_test  <- Y2[, test_idx,  drop = FALSE]
+
+    # Fold-specific seed for nmf.sem
+    seed_j <- if (!is.null(seed)) seeds_fold[j] else NULL
+
+    # Assemble arguments for nmf.sem
+    nmf.sem.args <- c(
+      extra_args,   # User-specified additional arguments (e.g., Q)
+      list(
+        Y1         = Y1_train,
+        Y2         = Y2_train,
+        rank       = rank,
+        X.init     = X.init,
+        X.L2.ortho = X.L2.ortho,
+        C1.L1      = C1.L1,
+        C2.L1      = C2.L1,
+        epsilon    = epsilon,
+        maxit      = maxit
+      )
+    )
+    # Attach seed only when it is defined
+    if (!is.null(seed_j)) {
+      nmf.sem.args$seed <- seed_j
+    }
+
+    # Call nmf.sem on the training data (suppress messages for cleaner CV output)
+    res_j <- suppressMessages(do.call(nmf.sem, nmf.sem.args))
+
+    # If mapping is not usable, penalize this fold (do not crash CV)
+    if (is.null(res_j$M.model) || any(!is.finite(res_j$M.model))) {
+      objfunc.block[j] <- Inf
+      next
+    }
+    Pre_test <- res_j$M.model %*% Y2_test
+    if (any(!is.finite(Pre_test))) {
+      objfunc.block[j] <- Inf
+      next
+    }
+    objfunc.block[j] <- mean(abs(Y1_test - Pre_test))
+  }
+
+  # ------------------------------------------------------------------
+  # 6. Aggregate CV score
+  #
+  # The overall CV criterion is the average MAE across all folds.
+  # This is typically minimized over hyperparameter grids
+  # (e.g., rank, X.L2.ortho, C1.L1, C2.L1) when tuning NMF-SEM.
+  # ------------------------------------------------------------------
+  objfunc <- mean(objfunc.block)
+  return(objfunc)
+}
+
+
+
 #' @title Heuristic Variable Splitting for NMF-SEM
 #'
 #' @description

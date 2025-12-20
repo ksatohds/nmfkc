@@ -1,0 +1,155 @@
+---
+title: "NMF-SEM with nmfkc"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{NMF-SEM with nmfkc}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteDepends{lavaan}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4
+)
+```
+
+## Overview
+
+This vignette demonstrates how to fit the **NMF-SEM**
+(Nonnegative Matrix Factorization–Structural Equation Model)
+implemented in the **nmfkc** package.
+
+NMF-SEM extends standard nonnegative matrix factorization by introducing
+a **structural equation model in latent space**.
+
+Observed endogenous variables \(Y_1\) are approximated as
+
+\[
+Y_1 \approx X (\Theta_1 Y_1 + \Theta_2 Y_2).
+\]
+
+If the feedback operator \(XC_1\) is stable, the model implies the equilibrium mapping
+
+\[
+\hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2
+\equiv M_{\mathrm{model}} Y_2.
+\]
+
+---
+
+## 1. Load and preprocess data
+
+```{r}
+library(lavaan)
+data(HolzingerSwineford1939)
+
+d <- HolzingerSwineford1939
+index <- complete.cases(d)
+d <- d[index, ]
+```
+
+### 1.1 Construct exogenous variables
+
+```{r}
+d$age.rev <- -(d$ageyr + d$agemo / 12)
+d$sex.2 <- ifelse(d$sex == 2, 1, 0)
+d$school.GW <- ifelse(d$school == "Grant-White", 1, 0)
+
+d[, c("id", "sex", "ageyr", "agemo", "school", "grade")] <- NULL
+```
+
+### 1.2 Nonnegative normalization
+
+```{r}
+library(nmfkc)
+d <- nmfkc::nmfkc.normalize(d)
+```
+
+## 2. Split into endogenous and exogenous blocks
+
+```{r}
+exogenous_vars <- c("age.rev", "sex.2", "school.GW")
+endogenous_vars <- setdiff(colnames(d), exogenous_vars)
+
+Y1 <- t(d[, endogenous_vars])
+Y2 <- t(d[, exogenous_vars])
+```
+
+## 3. Baseline NMF model
+
+```{r}
+myepsilon <- 1e-6
+Q0 <- 3
+
+res0 <- nmfkc(
+  Y = Y1,
+  A = Y2,
+  Q = Q0,
+  epsilon = myepsilon,
+  X.L2.ortho = 100
+)
+
+M.simple <- res0$X %*% res0$C
+```
+
+## 4. NMF-SEM estimation
+
+```{r}
+p <- list(C1.L1 = 10, C2.L1 = 0.6)
+
+res <- nmf.sem(
+  Y1, Y2,
+  rank = Q0,
+  X.init = res0$X,
+  X.L2.ortho = 100,
+  C1.L1 = p$C1.L1,
+  C2.L1 = p$C2.L1,
+  epsilon = myepsilon
+)
+```
+
+```{r}
+plot(res$objfunc.full, type = "l",
+     main = "Objective Function",
+     ylab = "Loss", xlab = "Iteration")
+```
+
+## 5. Diagnostics
+
+```{r}
+SC.map <- cor(as.vector(res$M.model),
+              as.vector(M.simple))
+
+cat("Q=     ", Q0, "\n")
+cat("RHO=   ", round(res$XC1.radius, 3), "\n")
+cat("AR=    ", round(res$amplification, 3), "\n")
+cat("SCmap= ", round(SC.map, 3), "\n")
+cat("SCcov= ", round(res$SC.cov, 3), "\n")
+cat("MAE=   ", round(res$MAE, 3), "\n")
+```
+
+## 6. Visualization
+
+```{r}
+res.dot <- nmf.sem.DOT(
+  res,
+  weight_scale = 5,
+  rankdir = "TB",
+  threshold = 0.01,
+  fill = FALSE,
+  cluster.box = "none"
+)
+
+library(DiagrammeR)
+grViz(res.dot)
+```
+
+## Session information
+
+```{r}
+sessionInfo()
+```

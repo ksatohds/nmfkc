@@ -13,7 +13,7 @@ This function accepts both standard matrices (Variables x Time) and ts objects
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -26,6 +26,7 @@ This function accepts both standard matrices (Variables x Time) and ts objects
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -116,7 +117,7 @@ following the <code>ar</code> function in the <span class="pkg">stats</span> pac
 <span class="r-in"><span><span class="co"># Note: Y is automatically transposed if it is a ts object</span></span></span>
 <span class="r-in"><span><span class="fu">nmfkc.ar.degree.cv</span><span class="op">(</span>Y<span class="op">=</span><span class="va">d</span>, Q<span class="op">=</span><span class="fl">1</span>, degree<span class="op">=</span><span class="fl">11</span><span class="op">:</span><span class="fl">14</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> degree=11...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> degree=12...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> degree=13...</span>

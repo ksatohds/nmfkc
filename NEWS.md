@@ -1,4 +1,4 @@
-# nmfkc 0.5.7
+# nmfkc 0.5.8
 ### **Graphviz DOT Output Consolidation and Cleanup**
 - Harmonized all DOT-generating functions (`nmf.sem.DOT`, `nmfkc.DOT`, `nmfkc.ar.DOT`) for consistent structure, naming conventions, and visualization logic.
 - Standardized node and edge formatting rules, including unified cluster behavior, color schemes, and edge-scaling conventions.
