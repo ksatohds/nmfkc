@@ -92,11 +92,11 @@ NMF-SEM fits a nonnegative structural equation model with endogenous feedback an
 
 $$
 Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2), \qquad
-M_{\mathrm{model}} = (I - X\Theta_1)^{-1} X\Theta_2.
+M_{model} = (I - X\Theta_1)^{-1} X\Theta_2.
 $$
 
 - **nmf.sem**: Fits the NMF-SEM model and returns the latent basis \(X\), feedback \(\Theta_1\) (`C1`), exogenous loading \(\Theta_2\) (`C2`), and the equilibrium mapping `M.model`.
-- **nmf.sem.cv**: Predictive K-fold CV for selecting NMF-SEM hyperparameters based on MAE of \(\hat Y_1 = M_{\mathrm{model}} Y_2\).
+- **nmf.sem.cv**: Predictive K-fold CV for selecting NMF-SEM hyperparameters based on MAE of \(\hat Y_1 = M_{model} Y_2\).
 - **nmf.sem.DOT**: Generates Graphviz/DOT code to visualize the estimated structure (feedback and exogenous paths).
 
 
@@ -169,7 +169,7 @@ The **nmfkc** package builds upon the standard NMF framework by incorporating ex
     $$
     When the feedback operator \(X\Theta_1\) is stable, the equilibrium mapping becomes:
     $$
-    \hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2 \equiv M_{\mathrm{model}}Y_2.
+    \hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2 \equiv M_{model}Y_2.
     $$
     This provides a cumulative-effect interpretation analogous to Leontief input–output models, while retaining NMF-style nonnegativity and interpretability.
 

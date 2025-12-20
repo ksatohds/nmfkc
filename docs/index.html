@@ -196,15 +196,15 @@
 <h3 id="nmf-sem-structural-equation-modeling">NMF-SEM (Structural Equation Modeling)<a class="anchor" aria-label="anchor" href="#nmf-sem-structural-equation-modeling"></a>
 </h3>
 <p>NMF-SEM fits a nonnegative structural equation model with endogenous feedback and an equilibrium (Leontief-type) mapping:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Y</mi><mn>1</mn></msub><mo>≈</mo><mi>X</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Θ</mi><mn>1</mn></msub><msub><mi>Y</mi><mn>1</mn></msub><mo>+</mo><msub><mi>Θ</mi><mn>2</mn></msub><msub><mi>Y</mi><mn>2</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>M</mi><mrow><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">d</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">l</mi></mrow></msub><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>I</mi><mo>−</mo><mi>X</mi><msub><mi>Θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><msub><mi>Θ</mi><mn>2</mn></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Y</mi><mn>1</mn></msub><mo>≈</mo><mi>X</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Θ</mi><mn>1</mn></msub><msub><mi>Y</mi><mn>1</mn></msub><mo>+</mo><msub><mi>Θ</mi><mn>2</mn></msub><msub><mi>Y</mi><mn>2</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>M</mi><mrow><mi>m</mi><mi>o</mi><mi>d</mi><mi>e</mi><mi>l</mi></mrow></msub><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>I</mi><mo>−</mo><mi>X</mi><msub><mi>Θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><msub><mi>Θ</mi><mn>2</mn></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
 Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2), \qquad
-M_{\mathrm{model}} = (I - X\Theta_1)^{-1} X\Theta_2.
+M_{model} = (I - X\Theta_1)^{-1} X\Theta_2.
 </annotation></semantics></math></p>
 <ul>
 <li>
 <strong>nmf.sem</strong>: Fits the NMF-SEM model and returns the latent basis (X), feedback (_1) (<code>C1</code>), exogenous loading (_2) (<code>C2</code>), and the equilibrium mapping <code>M.model</code>.</li>
 <li>
-<strong>nmf.sem.cv</strong>: Predictive K-fold CV for selecting NMF-SEM hyperparameters based on MAE of (Y_1 = M_{} Y_2).</li>
+<strong>nmf.sem.cv</strong>: Predictive K-fold CV for selecting NMF-SEM hyperparameters based on MAE of (Y_1 = M_{model} Y_2).</li>
 <li>
 <strong>nmf.sem.DOT</strong>: Generates Graphviz/DOT code to visualize the estimated structure (feedback and exogenous paths).</li>
 </ul>
@@ -309,8 +309,8 @@ M_{\mathrm{model}} = (I - X\Theta_1)^{-1} X\Theta_2.
 </li>
 <li><p><strong>Structural Equation Model (NMF-SEM)</strong>: For applications where endogenous variables affect each other (feedback) and exogenous variables drive the system, NMF-SEM models an endogenous block (Y_1) and exogenous block (Y_2) as: <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Y</mi><mn>1</mn></msub><mo>≈</mo><mi>X</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Θ</mi><mn>1</mn></msub><msub><mi>Y</mi><mn>1</mn></msub><mo>+</mo><msub><mi>Θ</mi><mn>2</mn></msub><msub><mi>Y</mi><mn>2</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
  Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2).
- </annotation></semantics></math> When the feedback operator (X_1) is stable, the equilibrium mapping becomes: <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>Y</mi><mo accent="true">̂</mo></mover><mn>1</mn></msub><mo>≈</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>I</mi><mo>−</mo><mi>X</mi><msub><mi>Θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><msub><mi>Θ</mi><mn>2</mn></msub><msub><mi>Y</mi><mn>2</mn></msub><mo>≡</mo><msub><mi>M</mi><mrow><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">d</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">l</mi></mrow></msub><msub><mi>Y</mi><mn>2</mn></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
- \hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2 \equiv M_{\mathrm{model}}Y_2.
+ </annotation></semantics></math> When the feedback operator (X_1) is stable, the equilibrium mapping becomes: <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>Y</mi><mo accent="true">̂</mo></mover><mn>1</mn></msub><mo>≈</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>I</mi><mo>−</mo><mi>X</mi><msub><mi>Θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><msub><mi>Θ</mi><mn>2</mn></msub><msub><mi>Y</mi><mn>2</mn></msub><mo>≡</mo><msub><mi>M</mi><mrow><mi>m</mi><mi>o</mi><mi>d</mi><mi>e</mi><mi>l</mi></mrow></msub><msub><mi>Y</mi><mn>2</mn></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+ \hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2 \equiv M_{model}Y_2.
  </annotation></semantics></math> This provides a cumulative-effect interpretation analogous to Leontief input–output models, while retaining NMF-style nonnegativity and interpretability.</p></li>
 </ol>
 </div>
