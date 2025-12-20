@@ -95,8 +95,8 @@ Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2), \qquad
 M_{model} = (I - X\Theta_1)^{-1} X\Theta_2.
 $$
 
-- **nmf.sem**: Fits the NMF-SEM model and returns the latent basis \(X\), feedback \(\Theta_1\) (`C1`), exogenous loading \(\Theta_2\) (`C2`), and the equilibrium mapping `M.model`.
-- **nmf.sem.cv**: Predictive K-fold CV for selecting NMF-SEM hyperparameters based on MAE of \(\hat Y_1 = M_{model} Y_2\).
+- **nmf.sem**: Fits the NMF-SEM model and returns the latent basis $X$, feedback $\Theta_1$ (`C1`), exogenous loading $\Theta_2$ (`C2`), and the equilibrium mapping `M.model`.
+- **nmf.sem.cv**: Predictive K-fold CV for selecting NMF-SEM hyperparameters based on MAE of $\hat Y_1 = M_{model} Y_2$.
 - **nmf.sem.DOT**: Generates Graphviz/DOT code to visualize the estimated structure (feedback and exogenous paths).
 
 
@@ -163,11 +163,11 @@ The **nmfkc** package builds upon the standard NMF framework by incorporating ex
     * **Theoretical Roots**: This formulation aligns with Orthogonal Tri-NMF (Ding et al., 2006) and generalizes the Growth Curve Models (Potthoff and Roy, 1964).
 
 4. **Structural Equation Model (NMF-SEM)**:
-    For applications where endogenous variables affect each other (feedback) and exogenous variables drive the system, NMF-SEM models an endogenous block \(Y_1\) and exogenous block \(Y_2\) as:
+    For applications where endogenous variables affect each other (feedback) and exogenous variables drive the system, NMF-SEM models an endogenous block $Y_1$ and exogenous block $Y_2$ as:
     $$
     Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2).
     $$
-    When the feedback operator \(X\Theta_1\) is stable, the equilibrium mapping becomes:
+    When the feedback operator $X\Theta_1$ is stable, the equilibrium mapping becomes:
     $$
     \hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2 \equiv M_{model}Y_2.
     $$
@@ -815,10 +815,10 @@ message("Accuracy: ", round(100 * sum(diag(f)) / sum(f), 2), "%")
 ## 10\. Structural equation modeling: HolzingerSwineford1939 (NMF-SEM)
 
 This example demonstrates **NMF-SEM**, a nonnegative structural equation model with endogenous feedback and an equilibrium mapping.
-We split the variables into an endogenous block \(Y_1\) (test scores) and an exogenous block \(Y_2\) (demographics), then fit:
+We split the variables into an endogenous block $Y_1$ (test scores) and an exogenous block $Y_2$ (demographics), then fit:
 
-- Baseline (no feedback): \(Y_1 \approx X C Y_2\)
-- NMF-SEM (with feedback): \(Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)\)
+- Baseline (no feedback): $Y_1 \approx X C Y_2$
+- NMF-SEM (with feedback): $Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)$
 
 ```r
 library(lavaan)
