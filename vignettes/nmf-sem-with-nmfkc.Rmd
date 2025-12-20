@@ -26,18 +26,18 @@ implemented in the **nmfkc** package.
 NMF-SEM extends standard nonnegative matrix factorization by introducing
 a **structural equation model in latent space**.
 
-Observed endogenous variables \(Y_1\) are approximated as
+Observed endogenous variables $Y_1$ are approximated as
 
-\[
+$$
 Y_1 \approx X (\Theta_1 Y_1 + \Theta_2 Y_2).
-\]
+$$
 
-If the feedback operator \(XC_1\) is stable, the model implies the equilibrium mapping
+If the feedback operator $XC_1$ is stable, the model implies the equilibrium mapping
 
-\[
+$$
 \hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2
 \equiv M_{\mathrm{model}} Y_2.
-\]
+$$
 
 ---
 
@@ -148,8 +148,3 @@ library(DiagrammeR)
 grViz(res.dot)
 ```
 
-## Session information
-
-```{r}
-sessionInfo()
-```
