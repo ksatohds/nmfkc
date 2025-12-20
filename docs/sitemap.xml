@@ -3,6 +3,7 @@
 <url><loc>/articles/classification-with-nmfkc.html</loc></url>
 <url><loc>/articles/index.html</loc></url>
 <url><loc>/articles/introduction-to-nmfkc.html</loc></url>
+<url><loc>/articles/nmf-sem-with-nmfkc.html</loc></url>
 <url><loc>/articles/timeseries-with-nmfkc.html</loc></url>
 <url><loc>/articles/topic-modeling-with-nmfkc.html</loc></url>
 <url><loc>/authors.html</loc></url>
@@ -11,7 +12,9 @@
 <url><loc>/LICENSE.html</loc></url>
 <url><loc>/news/index.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/nmf.sem.cv.html</loc></url>
 <url><loc>/reference/nmf.sem.DOT.html</loc></url>
+<url><loc>/reference/nmf.sem.html</loc></url>
 <url><loc>/reference/nmf.sem.split.html</loc></url>
 <url><loc>/reference/nmfkc.ar.degree.cv.html</loc></url>
 <url><loc>/reference/nmfkc.ar.DOT.html</loc></url>

@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,6 +35,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul>
@@ -94,7 +95,7 @@ indicators (<code>Canada</code>).</li>
 <p>First, let’s load the necessary packages.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ksatohds/nmfkc" class="external-link">nmfkc</a></span><span class="op">)</span></span>
-<span><span class="co">#&gt; Package: nmfkc (Version 0.5.6 , released on 25 11 2025 )</span></span>
+<span><span class="co">#&gt; Package: nmfkc (Version 0.5.8 , released on 20 12 2025 )</span></span>
 <span><span class="co">#&gt; https://ksatohds.github.io/nmfkc/</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://www.pfaffikus.de" class="external-link">vars</a></span><span class="op">)</span> <span class="co"># For Canada dataset</span></span>
 <span><span class="co">#&gt; Warning: package 'vars' was built under R version 4.4.3</span></span>
@@ -147,18 +148,18 @@ dimension.</p>
 <span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv</a></span><span class="op">(</span><span class="va">d_air_log</span>, rank <span class="op">=</span> <span class="fl">1</span>, degree <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">14</span>, epsilon<span class="op">=</span><span class="fl">1e-6</span>, maxit<span class="op">=</span><span class="fl">500000</span><span class="op">)</span></span>
 <span><span class="co">#&gt; degree=1...0.2sec</span></span>
 <span><span class="co">#&gt; degree=2...0.7sec</span></span>
-<span><span class="co">#&gt; degree=3...0.8sec</span></span>
+<span><span class="co">#&gt; degree=3...0.7sec</span></span>
 <span><span class="co">#&gt; degree=4...0.8sec</span></span>
-<span><span class="co">#&gt; degree=5...0.8sec</span></span>
+<span><span class="co">#&gt; degree=5...0.7sec</span></span>
 <span><span class="co">#&gt; degree=6...0.8sec</span></span>
 <span><span class="co">#&gt; degree=7...0.8sec</span></span>
-<span><span class="co">#&gt; degree=8...0.9sec</span></span>
-<span><span class="co">#&gt; degree=9...1sec</span></span>
+<span><span class="co">#&gt; degree=8...0.8sec</span></span>
+<span><span class="co">#&gt; degree=9...0.9sec</span></span>
 <span><span class="co">#&gt; degree=10...0.9sec</span></span>
-<span><span class="co">#&gt; degree=11...1sec</span></span>
+<span><span class="co">#&gt; degree=11...0.9sec</span></span>
 <span><span class="co">#&gt; degree=12...0.9sec</span></span>
 <span><span class="co">#&gt; degree=13...1sec</span></span>
-<span><span class="co">#&gt; degree=14...1.1sec</span></span></code></pre></div>
+<span><span class="co">#&gt; degree=14...1sec</span></span></code></pre></div>
 <p><img src="timeseries-with-nmfkc_files/figure-html/air-degree-cv-1.png" width="672"></p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
@@ -312,7 +313,7 @@ model.</p>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/substr.html" class="external-link">substr</a></span><span class="op">(</span><span class="va">dot_script</span>, <span class="fl">1</span>, <span class="fl">300</span><span class="op">)</span>, <span class="st">"...\n(truncated)"</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="grViz html-widget html-fill-item" id="htmlwidget-ac96cb3ee4656e2e9ec3" style="width:672px;height:480px;"></div>
-<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"diagram":"digraph XCA {graph [rankdir=RL compound=true]; \nsubgraph cluster_Y{label=\"T\" style=\"rounded\"; \n  e [label=\"e\", shape=box]; \n  prod [label=\"prod\", shape=box]; \n  rw [label=\"rw\", shape=box]; \n  U [label=\"U\", shape=box]; \n}; \nsubgraph cluster_X{label=\"Latent Variables\" style=\"rounded\"; \n  Condition1 [label=\"Condition1\", shape=ellipse]; \n  Condition2 [label=\"Condition2\", shape=ellipse]; \n}; \nCondition1 -> e [label=\"0.5\"]; \nCondition1 -> prod [label=\"0.4\"]; \nCondition2 -> prod [label=\"0.2\"]; \nCondition1 -> rw [label=\"0.1\"]; \nCondition2 -> rw [label=\"0.4\"]; \nCondition2 -> U [label=\"0.4\"]; \nConst1 [shape=circle label=\"0.2\"]; Const1 -> Condition1; \nConst2 [shape=circle label=\"0.2\"]; Const2 -> Condition2; \nsubgraph cluster_C1{label=\"T-1\" style=\"rounded\"; \n  e_1 [label=\"e\", shape=box]; \n  prod_1 [label=\"prod\", shape=box]; \n  rw_1 [label=\"rw\", shape=box]; \n  U_1 [label=\"U\", shape=box]; \n}; \ne_1 -> Condition1 [label=\"1.0\"]; \nprod_1 -> Condition1 [label=\"0.5\"]; \nrw_1 -> Condition2 [label=\"0.5\"]; \nU_1 -> Condition2 [label=\"0.9\"]; \n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"diagram":"digraph NMF_AR {\n  graph [rankdir=RL compound=true];\n  splines=true; nodesep=0.4; ranksep=0.7; fontname=\"Meiryo\";\n\n  // Current-time outputs (T)\n  subgraph cluster_Y{label=\"T\" style=\"rounded\" color=\"black\" penwidth=1.0;\n  node [shape=box, style=\"filled,rounded\", fillcolor=\"lightblue\", color=black, penwidth=1.5];\n    e [label=\"e\"];\n    prod [label=\"prod\"];\n    rw [label=\"rw\"];\n    U [label=\"U\"];\n  }\n\n  // Latent variables (X)\n  subgraph cluster_X{label=\"Latent Variables\" style=\"rounded\" color=\"black\" penwidth=1.0;\n  node [shape=ellipse, style=\"filled,rounded\", fillcolor=\"wheat\", color=black, penwidth=1.0];\n    Condition1 [label=\"Condition1\"];\n    Condition2 [label=\"Condition2\"];\n  }\n\n  edge [fontname=\"Meiryo\", fontsize=8, arrowhead=open];\n\n  // X -> T edges (factor loadings)\n  edge [color=\"gray0\", fontcolor=\"gray0\", style=solid];\n  Condition1 -> e [label=\"0.55\", penwidth=5.00];\n  Condition1 -> prod [label=\"0.40\", penwidth=3.64];\n  Condition2 -> prod [label=\"0.15\", penwidth=1.39];\n  Condition1 -> rw [label=\"0.06\", penwidth=0.53];\n  Condition2 -> rw [label=\"0.41\", penwidth=3.72];\n  Condition2 -> U [label=\"0.44\", penwidth=4.06];\n\n  // Intercept nodes\n  Const1 [shape=circle, label=\"0.24\"];\n  Const1 -> Condition1 [penwidth=3.00];\n  Const2 [shape=circle, label=\"0.20\"];\n  Const2 -> Condition2 [penwidth=2.53];\n\n  // Lag block T-1\n  subgraph cluster_C1 {label=\"T-1\" style=\"rounded\";\n    node [shape=box, style=\"filled,rounded\", fillcolor=\"lightcoral\", color=black, penwidth=1.5];\n    e_1 [label=\"e\"];\n    prod_1 [label=\"prod\"];\n    rw_1 [label=\"rw\"];\n    U_1 [label=\"U\"];\n  }\n  // T-1 -> X edges\n  edge [color=black, fontcolor=black, style=solid];\n  e_1 -> Condition1 [label=\"1.01\", penwidth=5.00];\n  prod_1 -> Condition1 [label=\"0.53\", penwidth=2.63];\n  rw_1 -> Condition2 [label=\"0.54\", penwidth=2.65];\n  U_1 -> Condition2 [label=\"0.88\", penwidth=4.33];\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
