@@ -419,7 +419,7 @@ nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ..
       all_args  <- c(extra_args, main_args, list(shuffle = FALSE))
 
       # 3) run CV
-      result.cv <- suppressMessages(do.call(nmfkc.cv, all_args))
+      result.cv <- suppressMessages(do.call("nmfkc.cv", all_args))
 
       # 4) success payload
       list(ok = TRUE, obj = result.cv$objfunc, err = NULL)
@@ -721,7 +721,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   if(is.null(beta)){
     if(is.null(V)) V <- U
     med_args <- c(list(U = V), extra_args[names(extra_args) %in% names(formals(nmfkc.kernel.beta.nearest.med))])
-    result.beta <- do.call(nmfkc.kernel.beta.nearest.med, med_args)
+    result.beta <- do.call("nmfkc.kernel.beta.nearest.med", med_args)
     beta <- result.beta$beta_candidates
   }
   objfuncs <- numeric(length(beta))
@@ -733,13 +733,13 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
       list(U = U, V = V, beta = beta[i]),
       kernel_args_for_call
     )
-    A <- do.call(nmfkc.kernel, kernel_args)
+    A <- do.call("nmfkc.kernel", kernel_args)
 
     cv_args <- c(
       list(Y = Y, A = A, Q = Q),
       cv_args_for_call
     )
-    result <- do.call(nmfkc.cv, cv_args)
+    result <- do.call("nmfkc.cv", cv_args)
 
     objfuncs[i] <- result$objfunc
     end.time <- Sys.time()
@@ -1605,7 +1605,7 @@ plot.nmfkc <- function(x,...){
   if(is.null(extra_args$xlab)) args$xlab <- "iter"
   if(is.null(extra_args$ylab)) args$ylab <- "objfunc"
   all_args <- c(args, extra_args)
-  do.call(plot,all_args)
+  do.call("plot",all_args)
 }
 
 
@@ -1814,19 +1814,13 @@ nmfkc.class <- function(x){
 #' \code{predict.nmfkc} generates predictions from an object of class \code{nmfkc},
 #' either using the fitted covariates or a new covariate matrix.
 #'
-#' @param x An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
+#' @param object An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
 #' @param newA Optional. A new covariate matrix to be used for prediction.
-#'   If \code{NULL} (default), the fitted covariates are used.
-#' @param type Type of prediction to return. Options are:
-#'   \itemize{
-#'     \item \code{"response"} (default): Returns the reconstructed matrix \eqn{X B}.
-#'     \item \code{"prob"}: Returns probabilities using \code{B.prob} instead of \code{B}.
-#'     \item \code{"class"}: Returns the class label corresponding to the maximum in each column of \code{B.prob}.
-#'   }
-#' @seealso \code{\link{nmfkc}}
+#' @param type Type of prediction to return. Options are "response", "prob", "class".
+#' @param ... Further arguments passed to or from other methods.
 #' @export
-predict.nmfkc <- function(x,newA=NULL,type="response"){
-  # A small constant for numerical stability to prevent division by zero and log(0).
+predict.nmfkc <- function(object, newA = NULL, type = "response", ...) {
+  x <- object
   .eps <- 1e-10
 
   if(is.null(newA)){
@@ -2098,7 +2092,7 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
     nmfkc_args$shuffle <- NULL
 
     # Suppress messages from inner nmfkc calls
-    res_j <- suppressMessages(do.call(nmfkc, nmfkc_args))
+    res_j <- suppressMessages(do.call("nmfkc", nmfkc_args))
 
     # Predict on Test set
     if(is_identity){
@@ -2227,7 +2221,7 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
 
       nmfkc_args <- c(list(Y=Y, A=A, Q=q_curr, Y.weights=weights_train), nmfkc_clean_args)
 
-      fit <- do.call(nmfkc, nmfkc_args)
+      fit <- do.call("nmfkc", nmfkc_args)
 
       pred <- fit$XB
       residuals <- Y[test_idx] - pred[test_idx]
@@ -2359,7 +2353,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
     extra_args_nmfkc$Q <- NULL
 
     nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
-    result <- do.call(nmfkc, nmfkc_args)
+    result <- do.call("nmfkc", nmfkc_args)
 
     results_df$r.squared[q_idx] <- result$r.squared
     results_df$ICp[q_idx] <- result$criterion$ICp
@@ -2406,7 +2400,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
     ecv_full_args <- c(ecv_args, extra_args_ecv)
 
     message("Running Element-wise CV (this may take time)...")
-    ecv_res <- do.call(nmfkc.ecv, ecv_full_args)
+    ecv_res <- do.call("nmfkc.ecv", ecv_full_args)
     results_df$sigma.ecv <- ecv_res$sigma
 
     # Determine best rank by ECV
@@ -3073,7 +3067,7 @@ nmf.sem.cv <- function(
     }
 
     # Call nmf.sem on the training data (suppress messages for cleaner CV output)
-    res_j <- suppressMessages(do.call(nmf.sem, nmf.sem.args))
+    res_j <- suppressMessages(do.call("nmf.sem", nmf.sem.args))
 
     # If mapping is not usable, penalize this fold (do not crash CV)
     if (is.null(res_j$M.model) || any(!is.finite(res_j$M.model))) {

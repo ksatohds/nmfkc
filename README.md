@@ -2,7 +2,7 @@
 
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![GitHub version](https://img.shields.io/github/r-package/v/ksatohds/nmfkc)](https://github.com/ksatohds/nmfkc)
-**nmfkc** is an R package that extends Non-negative Matrix Factorization (NMF) by incorporating **covariates** using kernel methods. It supports advanced features like rank selection via cross-validation, time-series modeling (NMF-VAR), and supervised classification (NMF-LAB).
+**nmfkc** is an R package that extends Non-negative Matrix Factorization (NMF) by incorporating **covariates** using kernel methods. It supports advanced features like rank selection via cross-validation, time-series modeling (NMF-VAR), supervised classification (NMF-LAB), and **structural equation modeling with equilibrium interpretation (NMF-SEM)**.
 
 # Installation
 
@@ -67,14 +67,13 @@ citation("nmfkc")
 
 | Feature | Standard NMF | nmfkc |
 | :--- | :--- | :--- |
-| **Handles covariates** | No | **Yes** |
+| **Handles covariates** | No | **Yes** (Linear / Kernel) |
+| **Structural equation modeling** | No | **Yes** (NMF-SEM) |
 | **Classification** | No | **Yes** (NMF-LAB) |
 | **Time series modeling** | No | **Yes** (NMF-VAR) |
 | **Nonlinearity** | No | **Yes** (Kernel) |
 | **Clustering support** | Limited | **Yes** (Hard/Soft) |
-| **Element-wise CV** | No | **Yes** |
-
-
+| **Rank selection / CV** | Limited (ad hoc) | **Yes** (Element-wise CV, Column-wise CV) |
 
 
 
@@ -87,6 +86,19 @@ The **nmfkc** package provides a comprehensive suite of functions for performing
 The heart of the package is the **nmfkc** function, which estimates the basis matrix $X$ and parameter matrix $C$ (where $B=CA$) based on the observation $Y$ and covariates $A$.
 
 - **nmfkc**: Fits the NMF model ($Y \approx XCA$) using multiplicative update rules. Supports missing values (NA) and observation weights.
+
+### NMF-SEM (Structural Equation Modeling)
+NMF-SEM fits a nonnegative structural equation model with endogenous feedback and an equilibrium (Leontief-type) mapping:
+
+$$
+Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2), \qquad
+M_{\mathrm{model}} = (I - X\Theta_1)^{-1} X\Theta_2.
+$$
+
+- **nmf.sem**: Fits the NMF-SEM model and returns the latent basis \(X\), feedback \(\Theta_1\) (`C1`), exogenous loading \(\Theta_2\) (`C2`), and the equilibrium mapping `M.model`.
+- **nmf.sem.cv**: Predictive K-fold CV for selecting NMF-SEM hyperparameters based on MAE of \(\hat Y_1 = M_{\mathrm{model}} Y_2\).
+- **nmf.sem.DOT**: Generates Graphviz/DOT code to visualize the estimated structure (feedback and exogenous paths).
+
 
 ## 2. Model Selection & Diagnostics
 Tools to determine the optimal number of bases (Rank $Q$) and evaluate model performance.
@@ -150,6 +162,18 @@ The **nmfkc** package builds upon the standard NMF framework by incorporating ex
     * **Kernel Extension**: By constructing $A$ using a kernel function (e.g., Gaussian kernel) on raw features, the model can capture non-linear relationships (Satoh, 2024).
     * **Theoretical Roots**: This formulation aligns with Orthogonal Tri-NMF (Ding et al., 2006) and generalizes the Growth Curve Models (Potthoff and Roy, 1964).
 
+4. **Structural Equation Model (NMF-SEM)**:
+    For applications where endogenous variables affect each other (feedback) and exogenous variables drive the system, NMF-SEM models an endogenous block \(Y_1\) and exogenous block \(Y_2\) as:
+    $$
+    Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2).
+    $$
+    When the feedback operator \(X\Theta_1\) is stable, the equilibrium mapping becomes:
+    $$
+    \hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2 \equiv M_{\mathrm{model}}Y_2.
+    $$
+    This provides a cumulative-effect interpretation analogous to Leontief input–output models, while retaining NMF-style nonnegativity and interpretability.
+
+
 # Matrices
 
 The goal of **nmfkc** is to optimize the unknown matrices $X$ and $C$, given the observation $Y$ and covariates $A$, minimizing the reconstruction error:
@@ -210,7 +234,8 @@ Here are practical examples demonstrating the capabilities of **nmfkc**, ranging
 | 6  | Growth curve model (Orthodont) | Handling dummy variables (Sex) |
 | 7  | Autoregression (AirPassengers) | **NMF-VAR**, Forecasting, Stationarity check |
 | 8  | Vector Autoregression (Canada) | Multivariate Time Series, **Granger Causality (DOT)** |
-| 9 | Classification (Iris) | **NMF-LAB**, Supervised learning |
+| 9  | Classification (Iris) | **NMF-LAB**, Supervised learning |
+| 10 | Structural equation modeling (HolzingerSwineford1939) | **NMF-SEM**, Equilibrium mapping, Stability (spectral radius), **DOT** |
 
 -----
 
@@ -787,7 +812,68 @@ message("Accuracy: ", round(100 * sum(diag(f)) / sum(f), 2), "%")
 ```
 
 
+## 10\. Structural equation modeling: HolzingerSwineford1939 (NMF-SEM)
 
+This example demonstrates **NMF-SEM**, a nonnegative structural equation model with endogenous feedback and an equilibrium mapping.
+We split the variables into an endogenous block \(Y_1\) (test scores) and an exogenous block \(Y_2\) (demographics), then fit:
+
+- Baseline (no feedback): \(Y_1 \approx X C Y_2\)
+- NMF-SEM (with feedback): \(Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)\)
+
+```r
+library(lavaan)
+library(nmfkc)
+
+data(HolzingerSwineford1939)
+d <- HolzingerSwineford1939
+d <- d[complete.cases(d), ]
+
+# Exogenous variables (demographics)
+d$age.rev <- -(d$ageyr + d$agemo/12)
+d$sex.2 <- ifelse(d$sex == 2, 1, 0)
+d$school.GW <- ifelse(d$school == "Grant-White", 1, 0)
+d[, c("id","sex","ageyr","agemo","school","grade")] <- NULL
+
+# Nonnegative normalization
+d <- nmfkc.normalize(d)
+
+exogenous_vars <- c("age.rev", "sex.2", "school.GW")
+endogenous_vars <- setdiff(colnames(d), exogenous_vars)
+
+Y1 <- t(d[, endogenous_vars])
+Y2 <- t(d[, exogenous_vars])
+
+# Baseline mapping: Y1 ≈ X C Y2
+Q0 <- 3
+res0 <- nmfkc(Y = Y1, A = Y2, Q = Q0, epsilon = 1e-6, X.L2.ortho = 100)
+M.simple <- res0$X %*% res0$C
+
+# NMF-SEM: Y1 ≈ X(C1 Y1 + C2 Y2)
+res <- nmf.sem(
+  Y1, Y2,
+  rank = Q0,
+  X.init = res0$X,
+  X.L2.ortho = 100,
+  C1.L1 = 10,
+  C2.L1 = 0.6,
+  epsilon = 1e-6
+)
+
+# Diagnostics
+SC.map <- cor(as.vector(res$M.model), as.vector(M.simple))
+cat("rho(XC1)=", round(res$XC1.radius, 3), "\n")
+cat("AR=", round(res$amplification, 3), "\n")
+cat("SCmap=", round(SC.map, 3), "\n")
+cat("SCcov=", round(res$SC.cov, 3), "\n")
+cat("MAE=", round(res$MAE, 3), "\n")
+
+# Graph visualization (DOT)
+res.dot <- nmf.sem.DOT(res, weight_scale = 5, rankdir = "TB",
+                       threshold = 0.01, fill = FALSE,
+                       cluster.box = "none")
+library(DiagrammeR)
+grViz(res.dot)
+```
 
 # Author
 

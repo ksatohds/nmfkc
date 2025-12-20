@@ -4,25 +4,18 @@
 \alias{predict.nmfkc}
 \title{Prediction method for objects of class \code{nmfkc}}
 \usage{
-\method{predict}{nmfkc}(x, newA = NULL, type = "response")
+\method{predict}{nmfkc}(object, newA = NULL, type = "response", ...)
 }
 \arguments{
-\item{x}{An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.}
+\item{object}{An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.}
 
-\item{newA}{Optional. A new covariate matrix to be used for prediction.
-If \code{NULL} (default), the fitted covariates are used.}
+\item{newA}{Optional. A new covariate matrix to be used for prediction.}
 
-\item{type}{Type of prediction to return. Options are:
-\itemize{
-\item \code{"response"} (default): Returns the reconstructed matrix \eqn{X B}.
-\item \code{"prob"}: Returns probabilities using \code{B.prob} instead of \code{B}.
-\item \code{"class"}: Returns the class label corresponding to the maximum in each column of \code{B.prob}.
-}}
+\item{type}{Type of prediction to return. Options are "response", "prob", "class".}
+
+\item{...}{Further arguments passed to or from other methods.}
 }
 \description{
 \code{predict.nmfkc} generates predictions from an object of class \code{nmfkc},
 either using the fitted covariates or a new covariate matrix.
-}
-\seealso{
-\code{\link{nmfkc}}
 }

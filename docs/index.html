@@ -59,7 +59,7 @@
   <main id="main" class="col-md-9"><div class="section level1">
 <div class="page-header"><h1 id="nmfkc-non-negative-matrix-factorization-with-kernel-covariates">nmfkc: Non-negative Matrix Factorization with Kernel Covariates<a class="anchor" aria-label="anchor" href="#nmfkc-non-negative-matrix-factorization-with-kernel-covariates"></a>
 </h1></div>
-<p><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a> <a href="https://github.com/ksatohds/nmfkc" class="external-link"><img src="https://img.shields.io/github/r-package/v/ksatohds/nmfkc" alt="GitHub version"></a> <strong>nmfkc</strong> is an R package that extends Non-negative Matrix Factorization (NMF) by incorporating <strong>covariates</strong> using kernel methods. It supports advanced features like rank selection via cross-validation, time-series modeling (NMF-VAR), and supervised classification (NMF-LAB).</p>
+<p><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a> <a href="https://github.com/ksatohds/nmfkc" class="external-link"><img src="https://img.shields.io/github/r-package/v/ksatohds/nmfkc" alt="GitHub version"></a> <strong>nmfkc</strong> is an R package that extends Non-negative Matrix Factorization (NMF) by incorporating <strong>covariates</strong> using kernel methods. It supports advanced features like rank selection via cross-validation, time-series modeling (NMF-VAR), supervised classification (NMF-LAB), and <strong>structural equation modeling with equilibrium interpretation (NMF-SEM)</strong>.</p>
 </div>
 <div class="section level1">
 <h1 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -124,6 +124,11 @@
 <h1 id="comparison-with-standard-nmf">Comparison with Standard NMF<a class="anchor" aria-label="anchor" href="#comparison-with-standard-nmf"></a>
 </h1>
 <table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
 <thead><tr class="header">
 <th align="left">Feature</th>
 <th align="left">Standard NMF</th>
@@ -133,36 +138,44 @@
 <tr class="odd">
 <td align="left"><strong>Handles covariates</strong></td>
 <td align="left">No</td>
-<td align="left"><strong>Yes</strong></td>
+<td align="left">
+<strong>Yes</strong> (Linear / Kernel)</td>
 </tr>
 <tr class="even">
+<td align="left"><strong>Structural equation modeling</strong></td>
+<td align="left">No</td>
+<td align="left">
+<strong>Yes</strong> (NMF-SEM)</td>
+</tr>
+<tr class="odd">
 <td align="left"><strong>Classification</strong></td>
 <td align="left">No</td>
 <td align="left">
 <strong>Yes</strong> (NMF-LAB)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left"><strong>Time series modeling</strong></td>
 <td align="left">No</td>
 <td align="left">
 <strong>Yes</strong> (NMF-VAR)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left"><strong>Nonlinearity</strong></td>
 <td align="left">No</td>
 <td align="left">
 <strong>Yes</strong> (Kernel)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left"><strong>Clustering support</strong></td>
 <td align="left">Limited</td>
 <td align="left">
 <strong>Yes</strong> (Hard/Soft)</td>
 </tr>
-<tr class="even">
-<td align="left"><strong>Element-wise CV</strong></td>
-<td align="left">No</td>
-<td align="left"><strong>Yes</strong></td>
+<tr class="odd">
+<td align="left"><strong>Rank selection / CV</strong></td>
+<td align="left">Limited (ad hoc)</td>
+<td align="left">
+<strong>Yes</strong> (Element-wise CV, Column-wise CV)</td>
 </tr>
 </tbody>
 </table>
@@ -179,6 +192,23 @@
 <li>
 <strong>nmfkc</strong>: Fits the NMF model (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>≈</mo><mi>X</mi><mi>C</mi><mi>A</mi></mrow><annotation encoding="application/x-tex">Y \approx XCA</annotation></semantics></math>) using multiplicative update rules. Supports missing values (NA) and observation weights.</li>
 </ul>
+<div class="section level3">
+<h3 id="nmf-sem-structural-equation-modeling">NMF-SEM (Structural Equation Modeling)<a class="anchor" aria-label="anchor" href="#nmf-sem-structural-equation-modeling"></a>
+</h3>
+<p>NMF-SEM fits a nonnegative structural equation model with endogenous feedback and an equilibrium (Leontief-type) mapping:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Y</mi><mn>1</mn></msub><mo>≈</mo><mi>X</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Θ</mi><mn>1</mn></msub><msub><mi>Y</mi><mn>1</mn></msub><mo>+</mo><msub><mi>Θ</mi><mn>2</mn></msub><msub><mi>Y</mi><mn>2</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>M</mi><mrow><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">d</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">l</mi></mrow></msub><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>I</mi><mo>−</mo><mi>X</mi><msub><mi>Θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><msub><mi>Θ</mi><mn>2</mn></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2), \qquad
+M_{\mathrm{model}} = (I - X\Theta_1)^{-1} X\Theta_2.
+</annotation></semantics></math></p>
+<ul>
+<li>
+<strong>nmf.sem</strong>: Fits the NMF-SEM model and returns the latent basis (X), feedback (_1) (<code>C1</code>), exogenous loading (_2) (<code>C2</code>), and the equilibrium mapping <code>M.model</code>.</li>
+<li>
+<strong>nmf.sem.cv</strong>: Predictive K-fold CV for selecting NMF-SEM hyperparameters based on MAE of (Y_1 = M_{} Y_2).</li>
+<li>
+<strong>nmf.sem.DOT</strong>: Generates Graphviz/DOT code to visualize the estimated structure (feedback and exogenous paths).</li>
+</ul>
+</div>
 </div>
 <div class="section level2">
 <h2 id="id_2-model-selection--diagnostics">2. Model Selection &amp; Diagnostics<a class="anchor" aria-label="anchor" href="#id_2-model-selection--diagnostics"></a>
@@ -277,6 +307,11 @@
 <strong>Theoretical Roots</strong>: This formulation aligns with Orthogonal Tri-NMF (Ding et al., 2006) and generalizes the Growth Curve Models (Potthoff and Roy, 1964).</li>
 </ul>
 </li>
+<li><p><strong>Structural Equation Model (NMF-SEM)</strong>: For applications where endogenous variables affect each other (feedback) and exogenous variables drive the system, NMF-SEM models an endogenous block (Y_1) and exogenous block (Y_2) as: <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Y</mi><mn>1</mn></msub><mo>≈</mo><mi>X</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Θ</mi><mn>1</mn></msub><msub><mi>Y</mi><mn>1</mn></msub><mo>+</mo><msub><mi>Θ</mi><mn>2</mn></msub><msub><mi>Y</mi><mn>2</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
+ Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2).
+ </annotation></semantics></math> When the feedback operator (X_1) is stable, the equilibrium mapping becomes: <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>Y</mi><mo accent="true">̂</mo></mover><mn>1</mn></msub><mo>≈</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>I</mi><mo>−</mo><mi>X</mi><msub><mi>Θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><msub><mi>Θ</mi><mn>2</mn></msub><msub><mi>Y</mi><mn>2</mn></msub><mo>≡</mo><msub><mi>M</mi><mrow><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">d</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">l</mi></mrow></msub><msub><mi>Y</mi><mn>2</mn></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+ \hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2 \equiv M_{\mathrm{model}}Y_2.
+ </annotation></semantics></math> This provides a cumulative-effect interpretation analogous to Leontief input–output models, while retaining NMF-style nonnegativity and interpretability.</p></li>
 </ol>
 </div>
 <div class="section level1">
@@ -428,6 +463,13 @@
 <td>Classification (Iris)</td>
 <td>
 <strong>NMF-LAB</strong>, Supervised learning</td>
+</tr>
+<tr class="odd">
+<td>10</td>
+<td>Structural equation modeling (HolzingerSwineford1939)</td>
+<td>
+<strong>NMF-SEM</strong>, Equilibrium mapping, Stability (spectral radius), <strong>DOT</strong>
+</td>
 </tr>
 </tbody>
 </table>
@@ -994,6 +1036,68 @@
 <span><span class="va">fitted.label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict</a></span><span class="op">(</span><span class="va">res</span>, type<span class="op">=</span><span class="st">"class"</span><span class="op">)</span></span>
 <span><span class="op">(</span><span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">fitted.label</span>, <span class="va">label</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="st">"Accuracy: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">f</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">f</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"%"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="id_10-structural-equation-modeling-holzingerswineford1939-nmf-sem">10. Structural equation modeling: HolzingerSwineford1939 (NMF-SEM)<a class="anchor" aria-label="anchor" href="#id_10-structural-equation-modeling-holzingerswineford1939-nmf-sem"></a>
+</h2>
+<p>This example demonstrates <strong>NMF-SEM</strong>, a nonnegative structural equation model with endogenous feedback and an equilibrium mapping. We split the variables into an endogenous block (Y_1) (test scores) and an exogenous block (Y_2) (demographics), then fit:</p>
+<ul>
+<li>Baseline (no feedback): (Y_1 X C Y_2)</li>
+<li>NMF-SEM (with feedback): (Y_1 X(_1 Y_1 + _2 Y_2))</li>
+</ul>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://lavaan.ugent.be" class="external-link">lavaan</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ksatohds/nmfkc" class="external-link">nmfkc</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">HolzingerSwineford1939</span><span class="op">)</span></span>
+<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="va">HolzingerSwineford1939</span></span>
+<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="va">d</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/stats/complete.cases.html" class="external-link">complete.cases</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span>, <span class="op">]</span></span>
+<span></span>
+<span><span class="co"># Exogenous variables (demographics)</span></span>
+<span><span class="va">d</span><span class="op">$</span><span class="va">age.rev</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">ageyr</span> <span class="op">+</span> <span class="va">d</span><span class="op">$</span><span class="va">agemo</span><span class="op">/</span><span class="fl">12</span><span class="op">)</span></span>
+<span><span class="va">d</span><span class="op">$</span><span class="va">sex.2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">sex</span> <span class="op">==</span> <span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="va">d</span><span class="op">$</span><span class="va">school.GW</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">school</span> <span class="op">==</span> <span class="st">"Grant-White"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="va">d</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span>,<span class="st">"sex"</span>,<span class="st">"ageyr"</span>,<span class="st">"agemo"</span>,<span class="st">"school"</span>,<span class="st">"grade"</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
+<span></span>
+<span><span class="co"># Nonnegative normalization</span></span>
+<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/nmfkc.normalize.html">nmfkc.normalize</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">exogenous_vars</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age.rev"</span>, <span class="st">"sex.2"</span>, <span class="st">"school.GW"</span><span class="op">)</span></span>
+<span><span class="va">endogenous_vars</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span>, <span class="va">exogenous_vars</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">Y1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">d</span><span class="op">[</span>, <span class="va">endogenous_vars</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">Y2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">d</span><span class="op">[</span>, <span class="va">exogenous_vars</span><span class="op">]</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Baseline mapping: Y1 ≈ X C Y2</span></span>
+<span><span class="va">Q0</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
+<span><span class="va">res0</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/nmfkc.html">nmfkc</a></span><span class="op">(</span>Y <span class="op">=</span> <span class="va">Y1</span>, A <span class="op">=</span> <span class="va">Y2</span>, Q <span class="op">=</span> <span class="va">Q0</span>, epsilon <span class="op">=</span> <span class="fl">1e-6</span>, X.L2.ortho <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="va">M.simple</span> <span class="op">&lt;-</span> <span class="va">res0</span><span class="op">$</span><span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">res0</span><span class="op">$</span><span class="va">C</span></span>
+<span></span>
+<span><span class="co"># NMF-SEM: Y1 ≈ X(C1 Y1 + C2 Y2)</span></span>
+<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/nmf.sem.html">nmf.sem</a></span><span class="op">(</span></span>
+<span>  <span class="va">Y1</span>, <span class="va">Y2</span>,</span>
+<span>  rank <span class="op">=</span> <span class="va">Q0</span>,</span>
+<span>  X.init <span class="op">=</span> <span class="va">res0</span><span class="op">$</span><span class="va">X</span>,</span>
+<span>  X.L2.ortho <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>  C1.L1 <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  C2.L1 <span class="op">=</span> <span class="fl">0.6</span>,</span>
+<span>  epsilon <span class="op">=</span> <span class="fl">1e-6</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Diagnostics</span></span>
+<span><span class="va">SC.map</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">M.model</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">M.simple</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"rho(XC1)="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">XC1.radius</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"AR="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">amplification</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"SCmap="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">SC.map</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"SCcov="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">SC.cov</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"MAE="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">MAE</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Graph visualization (DOT)</span></span>
+<span><span class="va">res.dot</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/nmf.sem.DOT.html">nmf.sem.DOT</a></span><span class="op">(</span><span class="va">res</span>, weight_scale <span class="op">=</span> <span class="fl">5</span>, rankdir <span class="op">=</span> <span class="st">"TB"</span>,</span>
+<span>                       threshold <span class="op">=</span> <span class="fl">0.01</span>, fill <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>                       cluster.box <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rich-iannone.github.io/DiagrammeR/" class="external-link">DiagrammeR</a></span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rich-iannone.github.io/DiagrammeR/reference/grViz.html" class="external-link">grViz</a></span><span class="op">(</span><span class="va">res.dot</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level1">
