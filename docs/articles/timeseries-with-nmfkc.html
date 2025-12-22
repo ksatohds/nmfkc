@@ -4,68 +4,99 @@
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Time Series Analysis with NMF-VAR • nmfkc</title>
-<script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
-<link href="../deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Time Series Analysis with NMF-VAR">
+<!-- jquery --><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script><!-- Bootstrap --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha256-bZLfwXAP04zRMK2BjiO8iu9pf4FbLqX6zitd+tIvLhE=" crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script><!-- bootstrap-toc --><link rel="stylesheet" href="../bootstrap-toc.css">
+<script src="../bootstrap-toc.js"></script><!-- Font Awesome icons --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous">
+<!-- clipboard.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><!-- headroom.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script><!-- pkgdown --><link href="../pkgdown.css" rel="stylesheet">
+<script src="../pkgdown.js"></script><meta property="og:title" content="Time Series Analysis with NMF-VAR">
+<!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
+<script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+<![endif]-->
 </head>
-<body>
-    <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
+<body data-spy="scroll" data-target="#toc">
 
 
-    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
+    <div class="container template-article">
+      <header><div class="navbar navbar-default navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <span class="navbar-brand">
+        <a class="navbar-link" href="../index.html">nmfkc</a>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.5.8</span>
+      </span>
+    </div>
 
-    <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+<li>
+  <a href="../reference/index.html">Reference</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+    Articles
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.8</small>
-
-
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <div id="navbar" class="collapse navbar-collapse ms-3">
-      <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="active nav-item dropdown">
-  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
-    <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
-    <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+<li>
+      <a href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a>
+    </li>
+    <li>
+      <a href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a>
+    </li>
+    <li>
+      <a href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a>
+    </li>
+    <li>
+      <a href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a>
+    </li>
+    <li>
+      <a href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a>
+    </li>
   </ul>
 </li>
-<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
+<li>
+  <a href="../news/index.html">Changelog</a>
+</li>
       </ul>
-<ul class="navbar-nav">
-<li class="nav-item"><form class="form-inline" role="search">
- <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
-</form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/ksatohds/nmfkc/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<ul class="nav navbar-nav navbar-right">
+<li>
+  <a href="https://github.com/ksatohds/nmfkc/" class="external-link">
+    <span class="fab fa-github fa-lg"></span>
+
+  </a>
+</li>
       </ul>
 </div>
-
-
+<!--/.nav-collapse -->
   </div>
-</nav><div class="container template-article">
+<!--/.container -->
+</div>
+<!--/.navbar -->
 
 
 
-<link href="timeseries-with-nmfkc_files/htmltools-fill-0.5.8.1/fill.css" rel="stylesheet">
+      </header><link href="timeseries-with-nmfkc_files/htmltools-fill-0.5.8.1/fill.css" rel="stylesheet">
 <script src="timeseries-with-nmfkc_files/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="timeseries-with-nmfkc_files/viz-1.8.2/viz.js"></script><link href="timeseries-with-nmfkc_files/DiagrammeR-styles-0.2/styles.css" rel="stylesheet">
 <script src="timeseries-with-nmfkc_files/grViz-binding-1.0.11/grViz.js"></script><div class="row">
-  <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Time Series Analysis with NMF-VAR</h1>
+  <div class="col-md-9 contents">
+    <div class="page-header toc-ignore">
+      <h1 data-toc-skip>Time Series Analysis with NMF-VAR</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/ksatohds/nmfkc/blob/HEAD/vignettes/timeseries-with-nmfkc.Rmd" class="external-link"><code>vignettes/timeseries-with-nmfkc.Rmd</code></a></small>
-      <div class="d-none name"><code>timeseries-with-nmfkc.Rmd</code></div>
+      <div class="hidden name"><code>timeseries-with-nmfkc.Rmd</code></div>
+
     </div>
 
     
@@ -146,18 +177,18 @@ dimension.</p>
 <code class="sourceCode R"><span><span class="co"># Evaluate lag orders from 1 to 14</span></span>
 <span><span class="co"># Note: ts objects are automatically transposed to (Variables x Time) internally</span></span>
 <span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv</a></span><span class="op">(</span><span class="va">d_air_log</span>, rank <span class="op">=</span> <span class="fl">1</span>, degree <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">14</span>, epsilon<span class="op">=</span><span class="fl">1e-6</span>, maxit<span class="op">=</span><span class="fl">500000</span><span class="op">)</span></span>
-<span><span class="co">#&gt; degree=1...0.3sec</span></span>
+<span><span class="co">#&gt; degree=1...0.2sec</span></span>
 <span><span class="co">#&gt; degree=2...0.7sec</span></span>
 <span><span class="co">#&gt; degree=3...0.7sec</span></span>
-<span><span class="co">#&gt; degree=4...0.7sec</span></span>
+<span><span class="co">#&gt; degree=4...0.8sec</span></span>
 <span><span class="co">#&gt; degree=5...0.8sec</span></span>
 <span><span class="co">#&gt; degree=6...0.8sec</span></span>
 <span><span class="co">#&gt; degree=7...0.8sec</span></span>
 <span><span class="co">#&gt; degree=8...0.8sec</span></span>
 <span><span class="co">#&gt; degree=9...0.9sec</span></span>
 <span><span class="co">#&gt; degree=10...0.9sec</span></span>
-<span><span class="co">#&gt; degree=11...1sec</span></span>
-<span><span class="co">#&gt; degree=12...0.9sec</span></span>
+<span><span class="co">#&gt; degree=11...0.9sec</span></span>
+<span><span class="co">#&gt; degree=12...0.8sec</span></span>
 <span><span class="co">#&gt; degree=13...1sec</span></span>
 <span><span class="co">#&gt; degree=14...1sec</span></span></code></pre></div>
 <p><img src="timeseries-with-nmfkc_files/figure-html/air-degree-cv-1.png" width="672"></p>
@@ -316,22 +347,29 @@ model.</p>
 <script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"diagram":"digraph NMF_AR {\n  graph [rankdir=RL compound=true];\n  splines=true; nodesep=0.4; ranksep=0.7; fontname=\"Meiryo\";\n\n  // Current-time outputs (T)\n  subgraph cluster_Y{label=\"T\" style=\"rounded\" color=\"black\" penwidth=1.0;\n  node [shape=box, style=\"filled,rounded\", fillcolor=\"lightblue\", color=black, penwidth=1.5];\n    e [label=\"e\"];\n    prod [label=\"prod\"];\n    rw [label=\"rw\"];\n    U [label=\"U\"];\n  }\n\n  // Latent variables (X)\n  subgraph cluster_X{label=\"Latent Variables\" style=\"rounded\" color=\"black\" penwidth=1.0;\n  node [shape=ellipse, style=\"filled,rounded\", fillcolor=\"wheat\", color=black, penwidth=1.0];\n    Condition1 [label=\"Condition1\"];\n    Condition2 [label=\"Condition2\"];\n  }\n\n  edge [fontname=\"Meiryo\", fontsize=8, arrowhead=open];\n\n  // X -> T edges (factor loadings)\n  edge [color=\"gray0\", fontcolor=\"gray0\", style=solid];\n  Condition1 -> e [label=\"0.55\", penwidth=5.00];\n  Condition1 -> prod [label=\"0.40\", penwidth=3.64];\n  Condition2 -> prod [label=\"0.15\", penwidth=1.39];\n  Condition1 -> rw [label=\"0.06\", penwidth=0.53];\n  Condition2 -> rw [label=\"0.41\", penwidth=3.72];\n  Condition2 -> U [label=\"0.44\", penwidth=4.06];\n\n  // Intercept nodes\n  Const1 [shape=circle, label=\"0.24\"];\n  Const1 -> Condition1 [penwidth=3.00];\n  Const2 [shape=circle, label=\"0.20\"];\n  Const2 -> Condition2 [penwidth=2.53];\n\n  // Lag block T-1\n  subgraph cluster_C1 {label=\"T-1\" style=\"rounded\";\n    node [shape=box, style=\"filled,rounded\", fillcolor=\"lightcoral\", color=black, penwidth=1.5];\n    e_1 [label=\"e\"];\n    prod_1 [label=\"prod\"];\n    rw_1 [label=\"rw\"];\n    U_1 [label=\"U\"];\n  }\n  // T-1 -> X edges\n  edge [color=black, fontcolor=black, style=solid];\n  e_1 -> Condition1 [label=\"1.01\", penwidth=5.00];\n  prod_1 -> Condition1 [label=\"0.53\", penwidth=2.63];\n  rw_1 -> Condition2 [label=\"0.54\", penwidth=2.65];\n  U_1 -> Condition2 [label=\"0.88\", penwidth=4.33];\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
-  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
-    </nav></aside>
+  </div>
+
+  <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
+
+      </div>
+
 </div>
 
 
 
-    <footer><div class="pkgdown-footer-left">
-  <p>Developed by Kenichi Satoh.</p>
+      <footer><div class="copyright">
+  <p></p>
+<p>Developed by Kenichi Satoh.</p>
 </div>
 
-<div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+<div class="pkgdown">
+  <p></p>
+<p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
 </div>
 
-    </footer>
+      </footer>
 </div>
+
 
 
 
