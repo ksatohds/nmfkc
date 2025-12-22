@@ -2,9 +2,9 @@ pandoc: '3.2'
 pkgdown: 2.1.1
 pkgdown_sha: ~
 articles:
-  introduction-to-nmfkc: introduction-to-nmfkc.html
-  topic-modeling-with-nmfkc: topic-modeling-with-nmfkc.html
-  timeseries-with-nmfkc: timeseries-with-nmfkc.html
   classification-with-nmfkc: classification-with-nmfkc.html
+  introduction-to-nmfkc: introduction-to-nmfkc.html
   nmf-sem-with-nmfkc: nmf-sem-with-nmfkc.html
-last_built: 2025-12-22T09:43Z
+  timeseries-with-nmfkc: timeseries-with-nmfkc.html
+  topic-modeling-with-nmfkc: topic-modeling-with-nmfkc.html
+last_built: 2025-12-22T10:01Z
