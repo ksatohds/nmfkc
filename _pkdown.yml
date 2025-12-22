@@ -1,7 +1,9 @@
-url: https://ksatohds.github.io/nmfkc/
+url: https://ksatohds.github.io/nmfkc
+
 template:
   bootstrap: 5
   bootswatch: flatly
+
 navbar:
   structure:
     left:  [intro, reference, articles, news]
@@ -11,15 +13,16 @@ navbar:
       text: Tutorials
       menu:
         - text: Introduction to nmfkc
-          href: articles/introduction-to-nmfkc.html
+          href: introduction-to-nmfkc
         - text: Classification
-          href: articles/classification-with-nmfkc.html
+          href: classification-with-nmfkc
         - text: Time Series Analysis
-          href: articles/timeseries-with-nmfkc.html
+          href: timeseries-with-nmfkc
         - text: Topic Modeling
-          href: articles/topic-modeling-with-nmfkc.html
+          href: topic-modeling-with-nmfkc
         - text: NMF-SEM
-          href: articles/nmf-sem-with-nmfkc.html
+          href: nmf-sem-with-nmfkc
+
 authors:
   Kenichi Satoh:
     href: https://github.com/ksatohds
