@@ -145,7 +145,6 @@ is stable, the model implies the equilibrium mapping</p>
 <code class="sourceCode R"><span><span class="va">d</span><span class="op">$</span><span class="va">age.rev</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">ageyr</span> <span class="op">+</span> <span class="va">d</span><span class="op">$</span><span class="va">agemo</span> <span class="op">/</span> <span class="fl">12</span><span class="op">)</span></span>
 <span><span class="va">d</span><span class="op">$</span><span class="va">sex.2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">sex</span> <span class="op">==</span> <span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="va">d</span><span class="op">$</span><span class="va">school.GW</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">school</span> <span class="op">==</span> <span class="st">"Grant-White"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span>
-<span></span>
 <span><span class="va">d</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span>, <span class="st">"sex"</span>, <span class="st">"ageyr"</span>, <span class="st">"agemo"</span>, <span class="st">"school"</span>, <span class="st">"grade"</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -187,9 +186,45 @@ is stable, the model implies the equilibrium mapping</p>
 <span><span class="va">M.simple</span> <span class="op">&lt;-</span> <span class="va">res0</span><span class="op">$</span><span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">res0</span><span class="op">$</span><span class="va">C</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="nmf-sem-estimation">4. NMF-SEM estimation<a class="anchor" aria-label="anchor" href="#nmf-sem-estimation"></a>
+<h2 id="hyperparameter-tuning-for-sparsity-optional">3.5 Hyperparameter Tuning for Sparsity (Optional)<a class="anchor" aria-label="anchor" href="#hyperparameter-tuning-for-sparsity-optional"></a>
 </h2>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">grid_params</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span></span>
+<span>    C1.L1     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>,<span class="fl">1</span><span class="op">:</span><span class="fl">9</span><span class="op">/</span><span class="fl">10</span>,<span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span>,</span>
+<span>    C2.L1     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>,<span class="fl">1</span><span class="op">:</span><span class="fl">9</span><span class="op">/</span><span class="fl">10</span>,<span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">n_iter</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">grid_params</span><span class="op">)</span></span>
+<span><span class="va">mae.cv</span> <span class="op">&lt;-</span> <span class="fl">0</span><span class="op">*</span><span class="fl">1</span><span class="op">:</span><span class="va">n_iter</span></span>
+<span></span>
+<span><span class="kw">for</span><span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">n_iter</span><span class="op">)</span><span class="op">{</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">i</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">n_iter</span> <span class="op">/</span> <span class="fl">10</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Processing... %d%% (%d/%d)"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">i</span><span class="op">/</span><span class="va">n_iter</span><span class="op">*</span><span class="fl">100</span><span class="op">)</span>, <span class="va">i</span>, <span class="va">n_iter</span><span class="op">)</span><span class="op">)</span> </span>
+<span>  <span class="op">}</span>  </span>
+<span>  <span class="va">p</span> <span class="op">&lt;-</span> <span class="va">grid_params</span><span class="op">[</span><span class="va">i</span>, <span class="op">]</span></span>
+<span>  <span class="va">res.cv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmf.sem.cv.html">nmf.sem.cv</a></span><span class="op">(</span><span class="va">Y1</span>, <span class="va">Y2</span>, rank <span class="op">=</span> <span class="va">Q0</span>,</span>
+<span>                       X.init <span class="op">=</span> <span class="va">res0</span><span class="op">$</span><span class="va">X</span>,</span>
+<span>                       X.L2.ortho <span class="op">=</span> <span class="fl">100</span>,</span>
+<span>                       C1.L1 <span class="op">=</span> <span class="va">p</span><span class="op">$</span><span class="va">C1.L1</span>,</span>
+<span>                       C2.L1 <span class="op">=</span> <span class="va">p</span><span class="op">$</span><span class="va">C2.L1</span>,</span>
+<span>                       seed <span class="op">=</span> <span class="fl">1</span>, epsilon <span class="op">=</span> <span class="va">myepsilon</span><span class="op">)</span></span>
+<span>  <span class="va">mae.cv</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">res.cv</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="va">grid_params</span>,<span class="va">mae.cv</span><span class="op">)</span></span>
+<span><span class="va">f</span> <span class="op">&lt;-</span> <span class="va">f</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">f</span><span class="op">$</span><span class="va">mae.cv</span><span class="op">)</span>,<span class="op">]</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">f</span>,<span class="fl">5</span><span class="op">)</span></span>
+<span><span class="co">#    C2.L2.off C1.L1 C2.L1    mae.cv</span></span>
+<span><span class="co">#140         0    10   0.6 0.1820841</span></span>
+<span><span class="co">#160         0    10   0.7 0.1820843</span></span>
+<span><span class="co">#180         0    10   0.8 0.1820877</span></span>
+<span><span class="co">#200         0    10   0.9 0.1820907</span></span>
+<span><span class="co">#120         0    10   0.5 0.1820908</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">p</span> <span class="op">&lt;-</span> <span class="va">f</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="nmf-sem-estimation">4. NMF-SEM estimation<a class="anchor" aria-label="anchor" href="#nmf-sem-estimation"></a>
+</h2>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>C1.L1 <span class="op">=</span> <span class="fl">10</span>, C2.L1 <span class="op">=</span> <span class="fl">0.6</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmf.sem.html">nmf.sem</a></span><span class="op">(</span></span>
@@ -201,16 +236,16 @@ is stable, the model implies the equilibrium mapping</p>
 <span>  C2.L1 <span class="op">=</span> <span class="va">p</span><span class="op">$</span><span class="va">C2.L1</span>,</span>
 <span>  epsilon <span class="op">=</span> <span class="va">myepsilon</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">objfunc.full</span>, type <span class="op">=</span> <span class="st">"l"</span>,</span>
 <span>     main <span class="op">=</span> <span class="st">"Objective Function"</span>,</span>
 <span>     ylab <span class="op">=</span> <span class="st">"Loss"</span>, xlab <span class="op">=</span> <span class="st">"Iteration"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="nmf-sem-with-nmfkc_files/figure-html/unnamed-chunk-7-1.png" width="672"></p>
+<p><img src="nmf-sem-with-nmfkc_files/figure-html/unnamed-chunk-8-1.png" width="672"></p>
 </div>
 <div class="section level2">
 <h2 id="diagnostics">5. Diagnostics<a class="anchor" aria-label="anchor" href="#diagnostics"></a>
 </h2>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">SC.map</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">M.model</span><span class="op">)</span>,</span>
 <span>              <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">M.simple</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -230,7 +265,7 @@ is stable, the model implies the equilibrium mapping</p>
 <div class="section level2">
 <h2 id="visualization">6. Visualization<a class="anchor" aria-label="anchor" href="#visualization"></a>
 </h2>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res.dot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmf.sem.DOT.html">nmf.sem.DOT</a></span><span class="op">(</span></span>
 <span>  <span class="va">res</span>,</span>
 <span>  weight_scale <span class="op">=</span> <span class="fl">5</span>,</span>

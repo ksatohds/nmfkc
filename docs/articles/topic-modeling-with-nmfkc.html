@@ -153,17 +153,20 @@ documents and columns represent words.</p>
 <span><span class="co"># Create DFM and filter</span></span>
 <span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://quanteda.io/reference/dfm.html" class="external-link">dfm</a></span><span class="op">(</span><span class="va">tok</span><span class="op">)</span></span>
 <span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://quanteda.io/reference/dfm_select.html" class="external-link">dfm_select</a></span><span class="op">(</span><span class="va">df</span>, min_nchar <span class="op">=</span> <span class="fl">3</span><span class="op">)</span> <span class="co"># Remove short words (&lt;= 2 chars)</span></span>
-<span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://quanteda.io/reference/dfm_trim.html" class="external-link">dfm_trim</a></span><span class="op">(</span><span class="va">df</span>, min_termfreq <span class="op">=</span> <span class="fl">50</span><span class="op">)</span> <span class="co"># Remove rare words (appearing &lt; 50 times)</span></span>
+<span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://quanteda.io/reference/dfm_trim.html" class="external-link">dfm_trim</a></span><span class="op">(</span><span class="va">df</span>, min_termfreq <span class="op">=</span> <span class="fl">100</span><span class="op">)</span> <span class="co"># Remove rare words (appearing &lt; 100 times)</span></span>
 <span></span>
 <span><span class="co"># --- CRITICAL STEP ---</span></span>
 <span><span class="co"># quanteda's DFM is (Documents x Words).</span></span>
 <span><span class="co"># nmfkc expects (Words x Documents).</span></span>
 <span><span class="co"># We must transpose the matrix.</span></span>
 <span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span></span>
+<span><span class="co"># Sort by frequency</span></span>
+<span><span class="va">index</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">colSums</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span>, decreasing<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span> </span>
+<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="va">d</span><span class="op">[</span>,<span class="va">index</span><span class="op">]</span></span>
 <span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span> <span class="co"># Features (Words) x Samples (Documents)</span></span>
-<span><span class="co">#&gt; [1] 204  59</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 67 59</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="rank-selection-number-of-topics">2. Rank Selection (Number of Topics)<a class="anchor" aria-label="anchor" href="#rank-selection-number-of-topics"></a>
@@ -181,55 +184,55 @@ model predicts them, providing a robust measure for rank selection
 <code class="sourceCode R"><span><span class="co"># Evaluate ranks from 2 to 6</span></span>
 <span><span class="co"># save.time=FALSE enables the robust Element-wise CV</span></span>
 <span><span class="fu"><a href="../reference/nmfkc.rank.html">nmfkc.rank</a></span><span class="op">(</span><span class="va">Y</span>, rank <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="fl">6</span>, save.time <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,2)B(2,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,3)B(3,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,4)B(4,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,5)B(5,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,6)B(6,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,2)B(2,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,3)B(3,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,4)B(4,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,5)B(5,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,6)B(6,59)...0sec</span></span>
 <span><span class="co">#&gt; Running Element-wise CV (this may take time)...</span></span>
 <span><span class="co">#&gt; Performing Element-wise CV for Q = 2,3,4,5,6 (5-fold)...</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,2)B(2,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,2)B(2,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,2)B(2,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,2)B(2,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,2)B(2,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,3)B(3,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,3)B(3,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,3)B(3,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,3)B(3,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,3)B(3,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,4)B(4,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,4)B(4,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,4)B(4,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,4)B(4,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,4)B(4,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,5)B(5,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,5)B(5,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,5)B(5,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,5)B(5,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,5)B(5,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,6)B(6,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,6)B(6,59)...0.1sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,6)B(6,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,6)B(6,59)...0sec</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,6)B(6,59)...0sec</span></span></code></pre></div>
+<span><span class="co">#&gt; Y(67,59)~X(67,2)B(2,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,2)B(2,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,2)B(2,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,2)B(2,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,2)B(2,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,3)B(3,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,3)B(3,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,3)B(3,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,3)B(3,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,3)B(3,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,4)B(4,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,4)B(4,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,4)B(4,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,4)B(4,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,4)B(4,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,5)B(5,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,5)B(5,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,5)B(5,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,5)B(5,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,5)B(5,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,6)B(6,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,6)B(6,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,6)B(6,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,6)B(6,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,6)B(6,59)...0sec</span></span></code></pre></div>
 <p><img src="topic-modeling-with-nmfkc_files/figure-html/rank-selection-1.png" width="672"></p>
 <pre><code><span><span class="co">#&gt; $rank.best</span></span>
 <span><span class="co">#&gt; [1] 2</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $criteria</span></span>
-<span><span class="co">#&gt;   rank r.squared       ICp      AIC      BIC B.prob.sd.min B.prob.entropy.mean</span></span>
-<span><span class="co">#&gt; 1    2 0.5533924  37.65518 18393.35 22268.68     0.3457205           0.5845892</span></span>
-<span><span class="co">#&gt; 2    3 0.5941030  55.66664 17767.02 23580.01     0.1536632           0.6637765</span></span>
-<span><span class="co">#&gt; 3    4 0.6285527  73.68498 17223.59 24974.23     0.1323326           0.6661412</span></span>
-<span><span class="co">#&gt; 4    5 0.6565263  91.71388 16807.10 26495.41     0.1207275           0.6558215</span></span>
-<span><span class="co">#&gt; 5    6 0.6830576 109.74059 16364.42 27990.39     0.1291896           0.6490900</span></span>
+<span><span class="co">#&gt;   rank r.squared      ICp      AIC      BIC B.prob.sd.min B.prob.entropy.mean</span></span>
+<span><span class="co">#&gt; 1    2 0.5714525 19.39498 8869.595 10440.15     0.3476271           0.5889663</span></span>
+<span><span class="co">#&gt; 2    3 0.6129089 27.93205 8717.283 11073.12     0.1582146           0.6624310</span></span>
+<span><span class="co">#&gt; 3    4 0.6535278 36.46005 8529.063 11670.18     0.1301392           0.6519002</span></span>
+<span><span class="co">#&gt; 4    5 0.6866667 44.99848 8382.099 12308.49     0.1227179           0.6572496</span></span>
+<span><span class="co">#&gt; 5    6 0.7186176 53.52984 8207.187 12918.86     0.1151692           0.6642655</span></span>
 <span><span class="co">#&gt;   B.prob.max.mean       ARI silhouette      CPCC  dist.cor sigma.ecv</span></span>
-<span><span class="co">#&gt; 1       0.8190118        NA  0.7506465 0.9306425 0.8886148  2.284836</span></span>
-<span><span class="co">#&gt; 2       0.6797261 0.7224439  0.5497821 0.9213624 0.9084099  2.421535</span></span>
-<span><span class="co">#&gt; 3       0.6079841 0.5299410  0.4586054 0.9082198 0.9296355  2.738010</span></span>
-<span><span class="co">#&gt; 4       0.5699106 0.6070068  0.3781011 0.9246659 0.9291057  2.950237</span></span>
-<span><span class="co">#&gt; 5       0.5258122 0.6750738  0.3171195 0.8751251 0.9338937  3.024230</span></span></code></pre>
+<span><span class="co">#&gt; 1       0.8186375        NA  0.7456899 0.9220031 0.9049180  3.287153</span></span>
+<span><span class="co">#&gt; 2       0.6805368 0.7493380  0.5141000 0.9041294 0.9128002  3.675603</span></span>
+<span><span class="co">#&gt; 3       0.6102601 0.5737936  0.4743689 0.8675133 0.9239746  4.278131</span></span>
+<span><span class="co">#&gt; 4       0.5510541 0.6236933  0.3397598 0.8782690 0.9283578  4.621801</span></span>
+<span><span class="co">#&gt; 5       0.5142690 0.6637536  0.3059911 0.8701347 0.9274730  4.683195</span></span></code></pre>
 <p>Looking at the diagnostics (e.g., the minimum ECV Sigma, the elbow of
 the R-squared curve, or high Cophenetic Correlation), let’s assume
 <strong>Rank = 3</strong> is a reasonable choice for this overview.</p>
@@ -254,11 +257,11 @@ with <code>rank = 3</code>. In the context of topic modeling:</p>
 <code class="sourceCode R"><span><span class="va">rank</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
 <span><span class="co"># Set seed for reproducibility</span></span>
 <span><span class="va">res_std</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, rank <span class="op">=</span> <span class="va">rank</span>, seed <span class="op">=</span> <span class="fl">123</span>, prefix <span class="op">=</span> <span class="st">"Topic"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,3)B(3,59)...0sec</span></span>
+<span><span class="co">#&gt; Y(67,59)~X(67,3)B(3,59)...0sec</span></span>
 <span></span>
 <span><span class="co"># Check Goodness of Fit (R-squared)</span></span>
 <span><span class="va">res_std</span><span class="op">$</span><span class="va">r.squared</span></span>
-<span><span class="co">#&gt; [1] 0.594103</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.6129089</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="interpreting-topics-keywords">Interpreting Topics (Keywords)<a class="anchor" aria-label="anchor" href="#interpreting-topics-keywords"></a>
 </h3>
@@ -267,13 +270,32 @@ with the highest weights in the basis matrix <code>X</code>.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Extract top 10 words for each topic from X.prob (normalized X)</span></span>
 <span><span class="va">Xp</span> <span class="op">&lt;-</span> <span class="va">res_std</span><span class="op">$</span><span class="va">X.prob</span></span>
-<span><span class="kw">for</span><span class="op">(</span><span class="va">k</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">rank</span><span class="op">)</span><span class="op">{</span></span>
-<span>  <span class="va">top_words</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">Xp</span><span class="op">[</span>,<span class="va">k</span><span class="op">]</span>, decreasing <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">]</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"Topic "</span>, <span class="va">k</span>, <span class="st">" Keywords: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">top_words</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="kw">for</span><span class="op">(</span><span class="va">q</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">rank</span><span class="op">)</span><span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"----- Featured words on Topic ["</span>, <span class="va">q</span>, <span class="st">"] -----"</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">Xp</span><span class="op">)</span>, <span class="st">"("</span>, <span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>, <span class="st">") "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span><span class="op">*</span><span class="va">Xp</span><span class="op">[</span>,<span class="va">q</span><span class="op">]</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"%"</span><span class="op">)</span><span class="op">[</span><span class="va">Xp</span><span class="op">[</span>,<span class="va">q</span><span class="op">]</span><span class="op">&gt;=</span><span class="fl">0.5</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
-<span><span class="co">#&gt; Topic 1 Keywords: however, character, executive, citizen, power, principle, constitution, given, might, become</span></span>
-<span><span class="co">#&gt; Topic 2 Keywords: policy, commerce, protection, revenue, question, business, laws, trade, respect, duties</span></span>
-<span><span class="co">#&gt; Topic 3 Keywords: today, americans, america, help, together, know, live, let, lives, earth</span></span></code></pre></div>
+<span><span class="co">#&gt; ----- Featured words on Topic [1] -----</span></span>
+<span><span class="co">#&gt;  [1] "government(564) 54.1%" "states(334) 62.7%"     "shall(316) 59.3%"     </span></span>
+<span><span class="co">#&gt;  [4] "public(225) 72%"       "united(203) 68.1%"     "union(190) 53.9%"     </span></span>
+<span><span class="co">#&gt;  [7] "war(181) 65.4%"        "national(158) 66.8%"   "congress(130) 60.1%"  </span></span>
+<span><span class="co">#&gt; [10] "laws(130) 81.2%"       "law(129) 60%"          "just(128) 56.9%"      </span></span>
+<span><span class="co">#&gt; [13] "interests(115) 57.6%"  "among(108) 62.9%"      "foreign(104) 72.2%"</span></span>
+<span><span class="co">#&gt; ----- Featured words on Topic [2] -----</span></span>
+<span><span class="co">#&gt;  [1] "may(343) 56.7%"          "one(267) 57.7%"         </span></span>
+<span><span class="co">#&gt;  [3] "power(241) 91%"          "constitution(209) 88.6%"</span></span>
+<span><span class="co">#&gt;  [5] "spirit(140) 76.5%"       "rights(138) 62.4%"      </span></span>
+<span><span class="co">#&gt;  [7] "never(132) 57.2%"        "liberty(123) 69.8%"     </span></span>
+<span><span class="co">#&gt;  [9] "well(120) 61.2%"         "duty(120) 51%"          </span></span>
+<span><span class="co">#&gt; [11] "state(110) 76.1%"        "much(108) 53.3%"        </span></span>
+<span><span class="co">#&gt; [13] "powers(101) 65.7%"</span></span>
+<span><span class="co">#&gt; ----- Featured words on Topic [3] -----</span></span>
+<span><span class="co">#&gt;  [1] "must(376) 61.4%"     "world(319) 97.6%"    "nation(305) 63.6%"  </span></span>
+<span><span class="co">#&gt;  [4] "peace(258) 57.5%"    "new(250) 90.4%"      "time(220) 55.4%"    </span></span>
+<span><span class="co">#&gt;  [7] "america(202) 100%"   "nations(199) 57.8%"  "freedom(185) 80.3%" </span></span>
+<span><span class="co">#&gt; [10] "american(172) 59.9%" "let(160) 99.8%"      "make(147) 56.1%"    </span></span>
+<span><span class="co">#&gt; [13] "justice(142) 52.1%"  "life(138) 73.9%"     "work(124) 90.9%"    </span></span>
+<span><span class="co">#&gt; [16] "hope(120) 64.3%"     "know(111) 100%"      "fellow(110) 57.3%"  </span></span>
+<span><span class="co">#&gt; [19] "history(105) 79.4%"  "today(105) 100%"</span></span></code></pre></div>
 <p><em>(Note: Interpretation depends on the result. For example, one
 topic might contain words like “government, people, states” (Political),
 while another might have “world, peace, freedom”
@@ -307,9 +329,9 @@ using Cross-Validation.</p>
 <span><span class="co"># Run CV to find the best beta</span></span>
 <span><span class="co"># Note: We use the same rank (Q=3) as selected above.</span></span>
 <span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.kernel.beta.cv.html">nmfkc.kernel.beta.cv</a></span><span class="op">(</span><span class="va">Y</span>, rank <span class="op">=</span> <span class="va">rank</span>, U <span class="op">=</span> <span class="va">U</span>, beta <span class="op">=</span> <span class="va">beta_candidates</span>, plot <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="co">#&gt; beta=2e-05...0.2sec</span></span>
-<span><span class="co">#&gt; beta=5e-05...0.1sec</span></span>
-<span><span class="co">#&gt; beta=1e-04...0.1sec</span></span>
+<span><span class="co">#&gt; beta=2e-05...0.1sec</span></span>
+<span><span class="co">#&gt; beta=5e-05...0sec</span></span>
+<span><span class="co">#&gt; beta=1e-04...0sec</span></span>
 <span><span class="co">#&gt; beta=2e-04...0sec</span></span>
 <span><span class="co">#&gt; beta=5e-04...0sec</span></span>
 <span><span class="va">best_beta</span> <span class="op">&lt;-</span> <span class="va">cv_res</span><span class="op">$</span><span class="va">beta</span></span>
@@ -328,7 +350,7 @@ similar topic distributions.</p>
 <span></span>
 <span><span class="co"># Fit NMF with Kernel Covariates</span></span>
 <span><span class="va">res_ker</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="va">A</span>, rank <span class="op">=</span> <span class="va">rank</span>, seed <span class="op">=</span> <span class="fl">123</span>, prefix <span class="op">=</span> <span class="st">"Topic"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Y(204,59)~X(204,3)C(3,59)A(59,59)=XB(3,59)...0sec</span></span></code></pre></div>
+<span><span class="co">#&gt; Y(67,59)~X(67,3)C(3,59)A(59,59)=XB(3,59)...0sec</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="visualization-standard-vs-kernel-nmf">Visualization: Standard vs Kernel NMF<a class="anchor" aria-label="anchor" href="#visualization-standard-vs-kernel-nmf"></a>

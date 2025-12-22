@@ -51,13 +51,16 @@ tok <- tokens_remove(tok, pattern = stopwords("en", source = "snowball"))
 # Create DFM and filter
 df <- dfm(tok)
 df <- dfm_select(df, min_nchar = 3) # Remove short words (<= 2 chars)
-df <- dfm_trim(df, min_termfreq = 50) # Remove rare words (appearing < 50 times)
+df <- dfm_trim(df, min_termfreq = 100) # Remove rare words (appearing < 100 times)
 
 # --- CRITICAL STEP ---
 # quanteda's DFM is (Documents x Words).
 # nmfkc expects (Words x Documents).
 # We must transpose the matrix.
 d <- as.matrix(df)
+# Sort by frequency
+index <- order(colSums(d), decreasing=TRUE) 
+d <- d[,index]
 Y <- t(d)
 
 dim(Y) # Features (Words) x Samples (Documents)
@@ -103,9 +106,9 @@ We can identify the meaning of each topic by looking at the words with the highe
 ```{r interpret-topics}
 # Extract top 10 words for each topic from X.prob (normalized X)
 Xp <- res_std$X.prob
-for(k in 1:rank){
-  top_words <- names(sort(Xp[,k], decreasing = TRUE)[1:10])
-  cat(paste0("Topic ", k, " Keywords: ", paste(top_words, collapse = ", "), "\n"))
+for(q in 1:rank){
+  message(paste0("----- Featured words on Topic [", q, "] -----"))
+  print(paste0(rownames(Xp), "(", rowSums(Y), ") ", round(100*Xp[,q], 1), "%")[Xp[,q]>=0.5])
 }
 ```
 
