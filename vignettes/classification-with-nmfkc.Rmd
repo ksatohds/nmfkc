@@ -219,5 +219,4 @@ acc_p <- sum(diag(f_penguins)) / sum(f_penguins)
 cat(paste0("Penguins Accuracy: ", round(acc_p * 100, 2), "%\n"))
 ```
 
-}
-```
+

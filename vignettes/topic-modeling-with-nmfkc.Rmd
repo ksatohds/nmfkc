@@ -176,3 +176,4 @@ axis(1, at = at_points, labels = labels_years)
 
 # Legend
 legend("topright", legend = paste("Topic", 1:rank), fill = 2:(rank+1), bg="white", cex=0.8)
+```
