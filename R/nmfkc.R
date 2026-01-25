@@ -622,60 +622,151 @@ nmfkc.kernel <- function(U, V = NULL,
 
 
 
-
-
-#' @title Estimate kernel parameter beta from covariates
+#' @title Estimate kernel parameter beta from covariates (supports landmarks)
 #' @description
-#' \code{nmfkc.kernel.beta.nearest.med} estimates the Gaussian kernel
-#' parameter \eqn{\beta} by computing the median of nearest-neighbor
-#' distances among covariates. This is useful for setting the scale
-#' parameter in kernel-based NMF with covariates.
+#' Extension of nmfkc.kernel.beta.nearest.med.
+#' If Uk is provided, computes median of nearest-landmark distances (U vs Uk).
 #'
-#' @param U covariate matrix \eqn{U(K,N)=(u_1,\dots,u_N)},
-#'   where each column corresponds to an individual. Each row may be
-#'   normalized in advance.
-#' @param block_size number of samples to process at once.
-#'   If \eqn{N \le 1000}, it is automatically set to \eqn{N}.
+#' @param U  covariate matrix (K x N), columns are samples
+#' @param Uk landmark matrix (K x M), columns are landmarks (optional)
+#' @param block_size number of U-samples to process at once
+#' @param block_size_Uk number of Uk-landmarks to process at once (only when Uk is not NULL)
+#' @param sample_size optionally subsample columns of U to reduce cost (NULL = use all)
 #'
-#' @return A list with components:
-#' \item{beta}{estimated kernel parameter \eqn{\beta=1/(2 d_{med}^2)}}
-#' \item{beta_candidates}{a numeric vector of candidate values obtained by
-#'   multiplying the estimate \eqn{\beta} by powers of 10,
-#'   i.e.\ \eqn{\{\beta \cdot 10^{-2},\,\beta \cdot 10^{-1},\,\beta,\,\beta \cdot 10^{1}\}}}
-#' \item{dist_median}{the median nearest-neighbor distance}
-#' \item{block_size_used}{actual block size used in computation}
-#' @details
-#' The function computes all pairwise squared distances between columns of
-#' \eqn{U}, excludes self-distances, and takes the median of the nearest-neighbor
-#' distances (after square root). This median is then used to set \eqn{\beta}.
-#' @seealso \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.kernel.beta.cv}}
+#' @return list(beta, beta_candidates, dist_median, block_size_used, sample_size_used)
 #' @export
-
-nmfkc.kernel.beta.nearest.med <- function(U, block_size=1000){
+nmfkc.kernel.beta.nearest.med <- function(
+    U,
+    Uk = NULL,
+    block_size = 1000,
+    block_size_Uk = 2000,
+    sample_size = NULL
+){
   U <- as.matrix(U)
+  storage.mode(U) <- "double"
   N <- ncol(U)
-  X <- t(U)
+  if (N < 2) stop("U must have at least 2 columns.")
+
+  # ---- optional subsampling over U columns (for speed) ----
+  if (!is.null(sample_size)) {
+    sample_size <- as.integer(sample_size)
+    if (sample_size <= 1) stop("sample_size must be >= 2")
+    if (sample_size < N) {
+      idxU <- sample.int(N, sample_size)
+      U <- U[, idxU, drop = FALSE]
+      N <- ncol(U)
+    }
+  }
+  sample_size_used <- N
+
+  # If Uk is NULL, behave like the original function: NN within U (exclude self).
+  if (is.null(Uk)) {
+    X  <- t(U)                    # N x K
+    if (N <= 1000) block_size <- N
+    XX <- rowSums(X * X)          # length N
+    min_d2 <- rep(Inf, N)
+
+    for (i in seq(1, N, by = block_size)) {
+      i2 <- min(i + block_size - 1, N)
+      Xi <- X[i:i2, , drop = FALSE]
+      Xi_norm <- rowSums(Xi * Xi)
+
+      dist2 <- outer(Xi_norm, XX, "+") - 2 * Xi %*% t(X)
+      idx <- i:i2
+      dist2[cbind(seq_along(idx), idx)] <- Inf  # exclude self
+      dist2[dist2 < 0] <- 0
+
+      nn_local <- apply(dist2, 1, min)
+      min_d2[idx] <- pmin(min_d2[idx], nn_local)
+
+      rm(Xi, Xi_norm, dist2); gc(FALSE)
+    }
+
+    d_med <- stats::median(sqrt(min_d2))
+    beta  <- 1 / (2 * d_med^2)
+    return(list(
+      beta = beta,
+      beta_candidates = beta * 10^c(-2:1),
+      dist_median = d_med,
+      block_size_used = block_size,
+      sample_size_used = sample_size_used
+    ))
+  }
+
+  # ---- Uk provided: nearest landmark distance (U vs Uk) ----
+  Uk <- as.matrix(Uk)
+  storage.mode(Uk) <- "double"
+  if (nrow(Uk) != nrow(U)) stop("nrow(Uk) must equal nrow(U).")
+
+  M <- ncol(Uk)
+  if (M < 1) stop("Uk must have at least 1 column.")
+
+  # We'll compute, for each column of U, min_j ||u_i - uk_j||^2.
+  # Block over U (columns) and optionally over Uk to control memory.
   if (N <= 1000) block_size <- N
-  XX <- rowSums(X * X)
+  if (M <= 2000) block_size_Uk <- M
+
+  U2  <- colSums(U * U)           # length N
+  Uk2 <- colSums(Uk * Uk)         # length M
   min_d2 <- rep(Inf, N)
+
+  # Detect "Uk is U" case (same object / identical values) to exclude self-distance.
+  uk_is_u <- (M == N) && isTRUE(all.equal(Uk, U, check.attributes = FALSE))
+
   for (i in seq(1, N, by = block_size)) {
     i2 <- min(i + block_size - 1, N)
-    Xi <- X[i:i2, , drop = FALSE]
-    Xi_norm <- rowSums(Xi * Xi)
-    dist2 <- outer(Xi_norm, rep(1, N)) +
-      outer(rep(1, nrow(Xi)), XX) -
-      2 * Xi %*% t(X)
-    idx <- i:i2
-    dist2[cbind(seq_along(idx), idx)] <- Inf
-    dist2[dist2 < 0] <- 0
-    nn_local <- apply(dist2, 1, min)
-    min_d2[idx] <- pmin(min_d2[idx], nn_local)
-    rm(Xi, Xi_norm, dist2); gc(FALSE)
+    Ui <- U[, i:i2, drop = FALSE]
+    Ui2 <- U2[i:i2]
+
+    # we may need to accumulate min over Uk blocks
+    cur_min <- rep(Inf, ncol(Ui))
+
+    for (j in seq(1, M, by = block_size_Uk)) {
+      j2 <- min(j + block_size_Uk - 1, M)
+      Ukj <- Uk[, j:j2, drop = FALSE]
+      Ukj2 <- Uk2[j:j2]
+
+      # dist2: (block_U) x (block_Uk)
+      # dist2 = ||u||^2 + ||uk||^2 - 2 uk^T u
+      G <- crossprod(Ukj, Ui)  # (block_Uk) x (block_U)
+      dist2 <- outer(Ui2, Ukj2, "+") - 2 * t(G)
+      dist2[dist2 < 0] <- 0
+
+      # exclude self-distances only when Uk == U
+      if (uk_is_u) {
+        # global indices in U: col(Ui) = (i..i2), col(Ukj) = (j..j2)
+        # where they overlap, set that cell to Inf
+        gi <- i:i2
+        gj <- j:j2
+        common <- intersect(gi, gj)
+        if (length(common) > 0) {
+          # map global index -> local positions
+          li <- match(common, gi)
+          lj <- match(common, gj)
+          dist2[cbind(li, lj)] <- Inf
+        }
+      }
+
+      cur_min <- pmin(cur_min, apply(dist2, 1, min))
+
+      rm(Ukj, Ukj2, G, dist2); gc(FALSE)
+    }
+
+    min_d2[i:i2] <- pmin(min_d2[i:i2], cur_min)
+    rm(Ui, Ui2, cur_min); gc(FALSE)
   }
+
   d_med <- stats::median(sqrt(min_d2))
   beta  <- 1 / (2 * d_med^2)
-  beta_candidates <- beta*10^c(-2:1)
-  list(beta = beta, beta_candidates=beta_candidates, dist_median = d_med, block_size_used = block_size)
+
+  list(
+    beta = beta,
+    beta_candidates = beta * 10^c(-2:1),
+    dist_median = d_med,
+    block_size_used = c(U = block_size, Uk = block_size_Uk),
+    sample_size_used = sample_size_used,
+    uk_is_u = uk_is_u
+  )
 }
 
 

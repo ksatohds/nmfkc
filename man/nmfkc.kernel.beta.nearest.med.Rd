@@ -2,38 +2,31 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmfkc.kernel.beta.nearest.med}
 \alias{nmfkc.kernel.beta.nearest.med}
-\title{Estimate kernel parameter beta from covariates}
+\title{Estimate kernel parameter beta from covariates (supports landmarks)}
 \usage{
-nmfkc.kernel.beta.nearest.med(U, block_size = 1000)
+nmfkc.kernel.beta.nearest.med(
+  U,
+  Uk = NULL,
+  block_size = 1000,
+  block_size_Uk = 2000,
+  sample_size = NULL
+)
 }
 \arguments{
-\item{U}{covariate matrix \eqn{U(K,N)=(u_1,\dots,u_N)},
-where each column corresponds to an individual. Each row may be
-normalized in advance.}
+\item{U}{covariate matrix (K x N), columns are samples}
 
-\item{block_size}{number of samples to process at once.
-If \eqn{N \le 1000}, it is automatically set to \eqn{N}.}
+\item{Uk}{landmark matrix (K x M), columns are landmarks (optional)}
+
+\item{block_size}{number of U-samples to process at once}
+
+\item{block_size_Uk}{number of Uk-landmarks to process at once (only when Uk is not NULL)}
+
+\item{sample_size}{optionally subsample columns of U to reduce cost (NULL = use all)}
 }
 \value{
-A list with components:
-\item{beta}{estimated kernel parameter \eqn{\beta=1/(2 d_{med}^2)}}
-\item{beta_candidates}{a numeric vector of candidate values obtained by
-multiplying the estimate \eqn{\beta} by powers of 10,
-i.e.\ \eqn{\{\beta \cdot 10^{-2},\,\beta \cdot 10^{-1},\,\beta,\,\beta \cdot 10^{1}\}}}
-\item{dist_median}{the median nearest-neighbor distance}
-\item{block_size_used}{actual block size used in computation}
+list(beta, beta_candidates, dist_median, block_size_used, sample_size_used)
 }
 \description{
-\code{nmfkc.kernel.beta.nearest.med} estimates the Gaussian kernel
-parameter \eqn{\beta} by computing the median of nearest-neighbor
-distances among covariates. This is useful for setting the scale
-parameter in kernel-based NMF with covariates.
-}
-\details{
-The function computes all pairwise squared distances between columns of
-\eqn{U}, excludes self-distances, and takes the median of the nearest-neighbor
-distances (after square root). This median is then used to set \eqn{\beta}.
-}
-\seealso{
-\code{\link{nmfkc.kernel}}, \code{\link{nmfkc.kernel.beta.cv}}
+Extension of nmfkc.kernel.beta.nearest.med.
+If Uk is provided, computes median of nearest-landmark distances (U vs Uk).
 }
