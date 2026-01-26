@@ -761,7 +761,7 @@ nmfkc.kernel.beta.nearest.med <- function(
 
   list(
     beta = beta,
-    beta_candidates = beta * 10^c(-2:1),
+    beta_candidates = beta * 10^(c(-3:3)/3),
     dist_median = d_med,
     block_size_used = c(U = block_size, Uk = block_size_Uk),
     sample_size_used = sample_size_used,
