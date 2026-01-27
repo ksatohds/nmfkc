@@ -621,19 +621,82 @@ nmfkc.kernel <- function(U, V = NULL,
 
 
 
-
-#' @title Estimate kernel parameter beta from covariates (supports landmarks)
+#' @title Estimate Gaussian/RBF kernel parameter beta from covariates (supports landmarks)
+#'
 #' @description
-#' Extension of nmfkc.kernel.beta.nearest.med.
-#' If Uk is provided, computes median of nearest-landmark distances (U vs Uk).
+#' Computes a data-driven reference scale for the Gaussian/RBF kernel from covariates
+#' using a robust "median nearest-neighbor (or nearest-landmark) distance" heuristic,
+#' and returns the corresponding kernel parameter \eqn{\beta}.
 #'
-#' @param U  covariate matrix (K x N), columns are samples
-#' @param Uk landmark matrix (K x M), columns are landmarks (optional)
-#' @param block_size number of U-samples to process at once
-#' @param block_size_Uk number of Uk-landmarks to process at once (only when Uk is not NULL)
-#' @param sample_size optionally subsample columns of U to reduce cost (NULL = use all)
+#' The Gaussian/RBF kernel is assumed to be written in the form
+#' \deqn{k(u,v) = \exp\{-\beta \|u-v\|^2\} = \exp\{-\|u-v\|^2/(2\sigma^2)\},}
+#' hence \eqn{\beta = 1/(2\sigma^2)}. This function first estimates a typical distance
+#' scale \eqn{\sigma_0} by the median of distances, then sets \eqn{\beta_0 = 1/(2\sigma_0^2)}.
 #'
-#' @return list(beta, beta_candidates, dist_median, block_size_used, sample_size_used)
+#' If \code{Uk} is \code{NULL}, \eqn{\sigma_0} is estimated as the median of
+#' nearest-neighbor distances within \code{U} (excluding self-distance).
+#' If \code{Uk} is provided, \eqn{\sigma_0} is estimated as the median of
+#' nearest-landmark distances from each sample in \code{U} to its closest landmark in \code{Uk}.
+#'
+#' To control memory usage for large \code{N} (and \code{M}), distances are computed in blocks.
+#' Optionally, columns of \code{U} can be randomly subsampled via \code{sample_size} to reduce cost.
+#'
+#' @details
+#' \strong{Candidate grid:}
+#' Along with \code{beta}, the function returns \code{beta_candidates}, a small logarithmic grid
+#' suitable for cross-validation.
+#'
+#' In the landmark case (\code{Uk} provided), the grid is designed to be symmetric on the
+#' bandwidth scale \eqn{\sigma} around \eqn{\sigma_0} over one decade:
+#' \deqn{\sigma = \sigma_0 \times 10^{t}, \quad t \in \{-1,-2/3,-1/3,0,1/3,2/3,1\}.}
+#' Using \eqn{\beta = 1/(2\sigma^2)}, this corresponds to
+#' \deqn{\beta = \beta_0 \times 10^{-2t}.}
+#'
+#' When \code{Uk} is \code{NULL}, a shorter coarse grid may be returned (see \code{Value}).
+#'
+#' \strong{Notes:}
+#' \itemize{
+#'   \item When \code{Uk} is identical to \code{U}, the function detects this case and excludes
+#'         self-distances (distance 0) to avoid \eqn{\sigma_0=0}.
+#'   \item \code{sample_size} performs random subsampling without setting a seed. For reproducible
+#'         results, set \code{set.seed()} before calling this function.
+#' }
+#'
+#' @param U A numeric matrix of covariates (\code{K x N}); columns are samples.
+#' @param Uk An optional numeric matrix of landmarks (\code{K x M}); columns are landmark points.
+#'   If provided, distances are computed from samples in \code{U} to landmarks in \code{Uk}.
+#' @param block_size Integer. Number of columns of \code{U} processed per block when computing
+#'   distances (controls memory usage). If \code{N <= 1000}, it is automatically set to \code{N}.
+#' @param block_size_Uk Integer. Number of columns of \code{Uk} processed per block when \code{Uk}
+#'   is not \code{NULL} (controls memory usage). If \code{M <= 2000}, it is automatically set to \code{M}.
+#' @param sample_size Integer or \code{NULL}. If not \code{NULL}, randomly subsamples this many columns
+#'   of \code{U} (without replacement) before computing distances, to reduce computational cost.
+#'
+#' @return A list with elements:
+#' \itemize{
+#'   \item \code{beta}: Estimated kernel parameter \eqn{\beta_0 = 1/(2\sigma_0^2)}.
+#'   \item \code{beta_candidates}: Numeric vector of candidate \eqn{\beta} values (logarithmic grid)
+#'         intended for cross-validation.
+#'   \item \code{dist_median}: The estimated distance scale \eqn{\sigma_0} (median of nearest-neighbor
+#'         or nearest-landmark distances).
+#'   \item \code{block_size_used}: The effective block size(s) used. Either a scalar (no \code{Uk}) or
+#'         a named vector \code{c(U=..., Uk=...)} when \code{Uk} is provided.
+#'   \item \code{sample_size_used}: The number of columns of \code{U} actually used (after subsampling).
+#'   \item \code{uk_is_u}: Logical flag indicating whether \code{Uk} was detected as identical to \code{U}
+#'         (only returned when \code{Uk} is provided).
+#' }
+#'
+#' @examples
+#' # Basic (nearest-neighbor within U)
+#' # beta_info <- nmfkc.kernel.beta.nearest.med(U)
+#' # beta0 <- beta_info$beta
+#' # betas <- beta_info$beta_candidates
+#'
+#' # With landmarks (nearest-landmark distances)
+#' # beta_info <- nmfkc.kernel.beta.nearest.med(U, Uk)
+#' # beta0 <- beta_info$beta
+#' # betas <- beta_info$beta_candidates
+#'
 #' @export
 nmfkc.kernel.beta.nearest.med <- function(
     U,
@@ -759,9 +822,12 @@ nmfkc.kernel.beta.nearest.med <- function(
   d_med <- stats::median(sqrt(min_d2))
   beta  <- 1 / (2 * d_med^2)
 
+  t <- c(-1, -2/3, -1/3, 0, 1/3, 2/3, 1)
+  betas <- beta * 10^(-2*t)
+
   list(
     beta = beta,
-    beta_candidates = beta * 10^(c(-3:3)/3),
+    beta_candidates = betas,
     dist_median = d_med,
     block_size_used = c(U = block_size, Uk = block_size_Uk),
     sample_size_used = sample_size_used,
