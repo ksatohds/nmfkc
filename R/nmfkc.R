@@ -1451,7 +1451,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # Initialize X
   is.X.scalar <- FALSE
   if(nrow(Y)>=2){
-    if(min(nrow(Y),ncol(Y))>=Q){
+    if(ncol(Y)>=Q){
       if(ncol(Y)==Q){
         X <- Y
       }else{
@@ -1479,13 +1479,16 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
           } else if (X.init == "runif") {
             X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
           } else {
-            # Use Y_init
-            X <- .nndsvdar(Y_init, Q)
+            if (Q > min(nrow(Y), ncol(Y))) {
+              X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+            } else {
+              X <- .nndsvdar(Y_init, Q)
+            }
           }
         }
       }
     }else{
-      stop("It does not hold Q<=min(P,N).")
+      stop("It does not hold Q<=N (ncol(Y)).")
     }
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
