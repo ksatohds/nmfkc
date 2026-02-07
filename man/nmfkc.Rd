@@ -44,6 +44,9 @@ Promotes \strong{sparsity in the parameter matrix}. (Formerly \code{lambda}).
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
 \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
 \item \code{seed}: Integer seed for reproducibility (default: 123).
+\item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
+(i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
+otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
 \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 \item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
