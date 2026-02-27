@@ -19,6 +19,14 @@ A list with components:
 by computing the spectral radius of its companion matrix.
 It returns both the spectral radius and a logical indicator of stationarity.
 }
+\examples{
+# Check stationarity of fitted AR model
+d <- AirPassengers
+ar_data <- nmfkc.ar(d, degree = 2)
+result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+nmfkc.ar.stationarity(result)
+
+}
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
 }

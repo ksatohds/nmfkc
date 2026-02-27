@@ -9,3 +9,9 @@
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
+^\.Rhistory$
+^\.RData$
+^\.Ruserdata$
+^cran-comments\.md$
+^\.github$
+^CLAUDE\.md$

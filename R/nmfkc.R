@@ -31,6 +31,18 @@
 #' \item{A.columns}{Index matrix used to generate \code{A}.}
 #' \item{degree.max}{Maximum lag order.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar.degree.cv}}, \code{\link{nmfkc.ar.stationarity}}, \code{\link{nmfkc.ar.DOT}}
+#' @examples
+#' # Example using AirPassengers (ts object)
+#' d <- AirPassengers
+#' ar_data <- nmfkc.ar(d, degree = 2)
+#' dim(ar_data$Y)
+#' dim(ar_data$A)
+#'
+#' # Example using matrix input
+#' Y <- matrix(1:20, nrow = 2)
+#' ar_data <- nmfkc.ar(Y, degree = 1)
+#' ar_data$degree.max
+#'
 #' @export
 nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
 
@@ -166,6 +178,14 @@ nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
 #' \item{pred}{A \eqn{P \times n.ahead} matrix of predicted values. Column names are future time points if time information is available.}
 #' \item{time}{A numeric vector of future time points corresponding to the columns of \code{pred}.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+#' @examples
+#' # Forecast AirPassengers
+#' d <- AirPassengers
+#' ar_data <- nmfkc.ar(d, degree = 2)
+#' result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+#' pred <- nmfkc.ar.predict(result, Y = matrix(d, nrow = 1), degree = 2, n.ahead = 3)
+#' pred$pred
+#'
 #' @export
 nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
   # --- Basic checks ---
@@ -481,6 +501,13 @@ nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ..
 #' \item{spectral.radius}{Numeric. The spectral radius of the companion matrix. A value less than 1 indicates stationarity.}
 #' \item{stationary}{Logical. \code{TRUE} if the spectral radius is less than 1 (i.e., the system is stationary), \code{FALSE} otherwise.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+#' @examples
+#' # Check stationarity of fitted AR model
+#' d <- AirPassengers
+#' ar_data <- nmfkc.ar(d, degree = 2)
+#' result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+#' nmfkc.ar.stationarity(result)
+#'
 #' @export
 
 nmfkc.ar.stationarity <- function(x){
@@ -1840,6 +1867,12 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
 #' @param x An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
 #' @param ... Additional arguments passed to the base \code{\link{plot}} function.
 #' @return Called for its side effect (a plot). Returns \code{NULL} invisibly.
+#' @examples
+#' Y <- matrix(cars$dist, nrow = 1)
+#' A <- rbind(1, cars$speed)
+#' result <- nmfkc(Y, A, Q = 1)
+#' plot(result)
+#'
 #' @export
 plot.nmfkc <- function(x,...){
   extra_args <- list(...)
@@ -1862,6 +1895,12 @@ plot.nmfkc <- function(x,...){
 #' @param object An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
 #' @param ... Additional arguments (currently unused).
 #' @return An object of class \code{summary.nmfkc}, containing summary statistics.
+#' @examples
+#' Y <- matrix(cars$dist, nrow = 1)
+#' A <- rbind(1, cars$speed)
+#' result <- nmfkc(Y, A, Q = 1)
+#' summary(result)
+#'
 #' @export
 summary.nmfkc <- function(object, ...) {
   ans <- list()
@@ -1919,6 +1958,12 @@ summary.nmfkc <- function(object, ...) {
 #' @param digits Minimum number of significant digits to be used.
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
+#' @examples
+#' Y <- matrix(cars$dist, nrow = 1)
+#' A <- rbind(1, cars$speed)
+#' result <- nmfkc(Y, A, Q = 1)
+#' print(summary(result))
+#'
 #' @export
 print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
   cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n\n", sep = "")
@@ -2092,6 +2137,14 @@ nmfkc.class <- function(x){
 #' @param ... Further arguments passed to or from other methods.
 #' @return Depending on \code{type}: a numeric matrix (\code{"response"} or \code{"prob"})
 #'   or a character vector of class labels (\code{"class"}).
+#' @examples
+#' # Prediction with newA
+#' Y <- matrix(cars$dist, nrow = 1)
+#' A <- rbind(1, cars$speed)
+#' result <- nmfkc(Y, A, Q = 1)
+#' newA <- rbind(1, c(10, 20, 30))
+#' predict(result, newA = newA)
+#'
 #' @export
 predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response", ...) {
   x <- object
@@ -2460,6 +2513,12 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
 #' \item{objfunc.fold}{List of length equal to Q vector. Each element contains the MSE values for the k folds.}
 #' \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
+#' @examples
+#' # Element-wise CV to select rank
+#' Y <- t(iris[1:30, 1:4])
+#' res <- nmfkc.ecv(Y, Q = 1:2, div = 3)
+#' res$objfunc
+#'
 #' @export
 nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, data, ...){
   # --- Formula Mode ---
@@ -2876,6 +2935,11 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, data, ..
 #' @param ... Additional graphical parameters passed to the internal image calls.
 #'
 #' @return NULL. The function generates a plot.
+#' @examples
+#' Y <- t(iris[1:30, 1:4])
+#' result <- nmfkc(Y, Q = 2)
+#' nmfkc.residual.plot(Y, result)
+#'
 #' @export
 nmfkc.residual.plot <- function(Y, result,
                                 Y_XB_palette = grDevices::colorRampPalette(c("white", "orange", "red"))(256),
@@ -3012,6 +3076,14 @@ nmfkc.residual.plot <- function(Y, result,
 #'   \item{objfunc}{Vector of reconstruction losses per iteration.}
 #'   \item{objfunc.full}{Vector of penalized objective values per iteration.}
 #'   \item{iter}{Number of iterations actually performed.}
+#'
+#' @examples
+#' # Simple NMF-SEM with iris data (non-negative)
+#' Y <- t(iris[, -5])
+#' Y1 <- Y[1:2, ]  # Sepal
+#' Y2 <- Y[3:4, ]  # Petal
+#' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+#' result$MAE
 #'
 #' @export
 nmf.sem <- function(
@@ -3252,6 +3324,13 @@ nmf.sem <- function(
 #'
 #' @return A numeric scalar: mean MAE across CV folds.
 #'
+#' @examples
+#' Y <- t(iris[, -5])
+#' Y1 <- Y[1:2, ]
+#' Y2 <- Y[3:4, ]
+#' mae <- nmf.sem.cv(Y1, Y2, rank = 2, maxit = 500, div = 3)
+#' mae
+#'
 #' @export
 nmf.sem.cv <- function(
     Y1, Y2,
@@ -3483,6 +3562,12 @@ nmf.sem.cv <- function(
 #'     Logical vector indicating which variables were sign-flipped during processing.}
 #'   \item{n.exogenous}{
 #'     Integer giving the number of exogenous variables.}
+#'
+#' @examples
+#' # Infer exogenous/endogenous split from iris
+#' sp <- nmf.sem.split(iris[, -5], n.exogenous = 2)
+#' sp$Y1.names
+#' sp$Y2.names
 #'
 #' @export
 nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
@@ -3944,6 +4029,14 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #'
 #' @return A character string representing a valid Graphviz DOT script.
 #'
+#' @examples
+#' Y <- t(iris[, -5])
+#' Y1 <- Y[1:2, ]
+#' Y2 <- Y[3:4, ]
+#' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+#' dot <- nmf.sem.DOT(result)
+#' cat(dot)
+#'
 #' @export
 nmf.sem.DOT <- function(result,
                         weight_scale          = 5,
@@ -4243,6 +4336,13 @@ nmf.sem.DOT <- function(result,
 #' @return A character string representing a Graphviz DOT script.
 #'
 #' @seealso \code{nmfkc}
+#' @examples
+#' Y <- matrix(cars$dist, nrow = 1)
+#' A <- rbind(1, cars$speed)
+#' result <- nmfkc(Y, A, Q = 1)
+#' dot <- nmfkc.DOT(result)
+#' cat(dot)
+#'
 #' @export
 nmfkc.DOT <- function(
     x,
@@ -4553,6 +4653,13 @@ nmfkc.DOT <- function(
 #' @param weight_scale_int Scaling factor for intercept edges.
 #'
 #' @return A character string representing a Graphviz DOT file.
+#' @examples
+#' d <- AirPassengers
+#' ar_data <- nmfkc.ar(d, degree = 2)
+#' result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+#' dot <- nmfkc.ar.DOT(result, degree = 2)
+#' cat(dot)
+#'
 #' @export
 nmfkc.ar.DOT <- function(x,
                          degree    = 1,

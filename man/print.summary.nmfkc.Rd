@@ -19,3 +19,10 @@ Called for its side effect (printing). Returns \code{x} invisibly.
 \description{
 Prints a formatted summary of an \code{nmfkc} model fit.
 }
+\examples{
+Y <- matrix(cars$dist, nrow = 1)
+A <- rbind(1, cars$speed)
+result <- nmfkc(Y, A, Q = 1)
+print(summary(result))
+
+}

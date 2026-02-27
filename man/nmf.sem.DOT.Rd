@@ -71,3 +71,12 @@ Edge widths are scaled by coefficient magnitude, and nodes are placed
 in optional visual clusters. Only variables participating in
 edges above the threshold are displayed, while latent factors are always shown.
 }
+\examples{
+Y <- t(iris[, -5])
+Y1 <- Y[1:2, ]
+Y2 <- Y[3:4, ]
+result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+dot <- nmf.sem.DOT(result)
+cat(dot)
+
+}

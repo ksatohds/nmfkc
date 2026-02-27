@@ -32,7 +32,7 @@ If n.exogenous is supplied, it overrides the automatic threshold rule."><!-- mat
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">nmfkc</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.5.8</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.6.0</span>
       </span>
     </div>
 
@@ -64,6 +64,9 @@ If n.exogenous is supplied, it overrides the automatic threshold rule."><!-- mat
   </ul></li>
 <li>
   <a href="../news/index.html">Changelog</a>
+</li>
+<li>
+  <a href="../nmfkc-manual.pdf">PDF Manual</a>
 </li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/ksatohds/nmfkc/" class="external-link">
@@ -164,6 +167,24 @@ resulting variable split. (Default: <code>TRUE</code>)</p></dd>
 
 </dl></div>
 
+    <div id="ref-examples">
+    <h2>Examples</h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Infer exogenous/endogenous split from iris</span></span></span>
+<span class="r-in"><span><span class="va">sp</span> <span class="op">&lt;-</span> <span class="fu">nmf.sem.split</span><span class="op">(</span><span class="va">iris</span><span class="op">[</span>, <span class="op">-</span><span class="fl">5</span><span class="op">]</span>, n.exogenous <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Step 0: Checking correlations with PC1 (on standardized data)...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    -&gt; Detected 1 flipped variables: Sepal.Width</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Step 1: Inferring Causal Ordering...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> --- Auto Split Result ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Exogenous (Y2, n=2): Sepal.Length, Sepal.Width</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Endogenous (Y1, n=2): Petal.Width, Petal.Length ...</span>
+<span class="r-in"><span><span class="va">sp</span><span class="op">$</span><span class="va">Y1.names</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
+<span class="r-in"><span><span class="va">sp</span><span class="op">$</span><span class="va">Y2.names</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
+<span class="r-in"><span></span></span>
+</code></pre></div>
+    </div>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top"><h2 data-toc-skip>Contents</h2>

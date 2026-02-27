@@ -25,7 +25,7 @@ The rank of the basis matrix can be specified using either the rank argument
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">nmfkc</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.5.8</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.6.0</span>
       </span>
     </div>
 
@@ -57,6 +57,9 @@ The rank of the basis matrix can be specified using either the rank argument
   </ul></li>
 <li>
   <a href="../news/index.html">Changelog</a>
+</li>
+<li>
+  <a href="../nmfkc-manual.pdf">PDF Manual</a>
 </li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/ksatohds/nmfkc/" class="external-link">
@@ -102,11 +105,15 @@ to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
 
 
 <dl><dt id="arg-y">Y<a class="anchor" aria-label="anchor" href="#arg-y"></a></dt>
-<dd><p>Observation matrix, OR a formula object if <code>data</code> is supplied.</p></dd>
+<dd><p>Observation matrix (P x N), OR a formula object for Formula Mode.
+In Formula Mode, use <code>Y1 + Y2 ~ A1 + A2</code> with <code>data</code>, or
+<code>Y_matrix ~ A_matrix</code> for direct matrix evaluation.
+Supports dot notation (<code>. ~ A1 + A2</code>) when <code>data</code> is supplied.</p></dd>
 
 
 <dt id="arg-a">A<a class="anchor" aria-label="anchor" href="#arg-a"></a></dt>
-<dd><p>Covariate matrix. Default is <code>NULL</code> (no covariates).</p></dd>
+<dd><p>Covariate matrix. Default is <code>NULL</code> (no covariates).
+Ignored when <code>Y</code> is a formula.</p></dd>
 
 
 <dt id="arg-rank">rank<a class="anchor" aria-label="anchor" href="#arg-rank"></a></dt>
@@ -144,6 +151,9 @@ Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lamb
 <li><p><code>X.init</code>: Method for initializing the basis matrix \(X\). Options: <code>"kmeans"</code> (default), <code>"runif"</code>, <code>"nndsvd"</code>, or a user-specified matrix.</p></li>
 <li><p><code>nstart</code>: Number of random starts for <code>kmeans</code> when initializing \(X\) (default: 1).</p></li>
 <li><p><code>seed</code>: Integer seed for reproducibility (default: 123).</p></li>
+<li><p><code>C.init</code>: Optional numeric matrix giving the initial value of the parameter matrix \(C\)
+(i.e., \(\Theta\)). If <code>A</code> is <code>NULL</code>, <code>C</code> has dimension \(Q \times N\) (equivalently \(B\));
+otherwise, <code>C</code> has dimension \(Q \times K\) where \(K = nrow(A)\). Default initializes all entries to 1.</p></li>
 <li><p><code>prefix</code>: Prefix for column names of \(X\) and row names of \(B\) (default: "Basis").</p></li>
 <li><p><code>print.trace</code>: Logical. If <code>TRUE</code>, prints progress every 10 iterations (default: <code>FALSE</code>).</p></li>
 <li><p><code>print.dims</code>: Logical. If <code>TRUE</code> (default), prints matrix dimensions and elapsed time.</p></li>
@@ -191,6 +201,9 @@ Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lamb
 <dt>A.attr</dt>
 <dd><p>List of attributes of the input covariate matrix <code>A</code>, containing metadata like lag order and intercept status if created by <code>nmfkc.ar</code> or <code>nmfkc.kernel</code>.</p></dd>
 
+<dt>formula.meta</dt>
+<dd><p>If fitted via Formula Mode, a list with <code>formula</code>, <code>Y_cols</code>, and <code>A_cols</code>; otherwise <code>NULL</code>.</p></dd>
+
 <dt>objfunc</dt>
 <dd><p>Final objective value.</p></dd>
 
@@ -200,11 +213,26 @@ Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lamb
 <dt>r.squared</dt>
 <dd><p>Coefficient of determination \(R^2\) between \(Y\) and \(X B\).</p></dd>
 
+<dt>method</dt>
+<dd><p>Character string indicating the optimization method used (<code>"EU"</code> or <code>"KL"</code>).</p></dd>
+
+<dt>n.missing</dt>
+<dd><p>Number of missing (or zero-weighted) elements in \(Y\).</p></dd>
+
+<dt>n.total</dt>
+<dd><p>Total number of elements in \(Y\).</p></dd>
+
+<dt>rank</dt>
+<dd><p>The rank \(Q\) used in the factorization.</p></dd>
+
 <dt>sigma</dt>
 <dd><p>The residual standard error, representing the typical deviation of the observed values \(Y\) from the fitted values \(X B\).</p></dd>
 
+<dt>mae</dt>
+<dd><p>Mean Absolute Error between \(Y\) and \(X B\).</p></dd>
+
 <dt>criterion</dt>
-<dd><p>A list of selection criteria, including <code>ICp</code>, <code>CPCC</code>, <code>silhouette</code>, <code>AIC</code>, and <code>BIC</code>.</p></dd>
+<dd><p>A list of selection criteria, including <code>ICp</code> (<code>ICp1</code>, <code>ICp2</code>, <code>ICp3</code>), <code>CPCC</code>, <code>silhouette</code>, <code>AIC</code>, <code>BIC</code>, <code>dist.cor</code>, <code>B.prob.sd.min</code>, <code>B.prob.max.mean</code>, and <code>B.prob.entropy.mean</code>.</p></dd>
 
 </dl></div>
     <div id="references">
@@ -258,9 +286,14 @@ Potthoff, R. F., &amp; Roy, S. N. (1964). A generalized multivariate analysis of
 <span class="r-out co"><span class="r-pr">#&gt;</span> Basis1 0.000000 0.9999995176 0.9920988</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Basis2 2.007838 0.0001206861 2.0079012</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 2. Formula Mode (New)</span></span></span>
-<span class="r-in"><span><span class="co"># dummy_data &lt;- data.frame(Y1=rpois(10,5), Y2=rpois(10,10), A1=1:10, A2=rnorm(10,5))</span></span></span>
-<span class="r-in"><span><span class="co"># res_f &lt;- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)</span></span></span>
+<span class="r-in"><span><span class="co"># Example 2. Formula Mode</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">dummy_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>Y1<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="fl">10</span>,<span class="fl">5</span><span class="op">)</span>, Y2<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="fl">10</span>,<span class="fl">10</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                         A1<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span>,<span class="fl">5</span><span class="op">)</span><span class="op">)</span>, A2<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span>,<span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">res_f</span> <span class="op">&lt;-</span> <span class="fu">nmfkc</span><span class="op">(</span><span class="va">Y1</span> <span class="op">+</span> <span class="va">Y2</span> <span class="op">~</span> <span class="va">A1</span> <span class="op">+</span> <span class="va">A2</span>, data<span class="op">=</span><span class="va">dummy_data</span>, rank<span class="op">=</span><span class="fl">2</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> A created using columns: A1, A2</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(2,10)~X(2,2)C(2,2)A(2,10)=XB(2,10)...</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

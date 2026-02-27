@@ -18,3 +18,10 @@ An object of class \code{summary.nmfkc}, containing summary statistics.
 Produces a summary of an \code{nmfkc} object, including matrix dimensions,
 runtime, fit statistics, and diagnostics.
 }
+\examples{
+Y <- matrix(cars$dist, nrow = 1)
+A <- rbind(1, cars$speed)
+result <- nmfkc(Y, A, Q = 1)
+summary(result)
+
+}

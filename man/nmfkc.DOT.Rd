@@ -73,6 +73,14 @@ using the combined coefficient matrix \eqn{X C}.
 Edge widths are scaled by coefficient magnitude, and nodes with no edges
 above the threshold are omitted from the visualization.
 }
+\examples{
+Y <- matrix(cars$dist, nrow = 1)
+A <- rbind(1, cars$speed)
+result <- nmfkc(Y, A, Q = 1)
+dot <- nmfkc.DOT(result)
+cat(dot)
+
+}
 \seealso{
 \code{nmfkc}
 }

@@ -1,0 +1,10 @@
+url: https://ksatohds.github.io/nmfkc/
+
+navbar:
+  structure:
+    left:  [reference, articles, news, manual]
+    right: [github]
+  components:
+    manual:
+      text: PDF Manual
+      href: nmfkc-manual.pdf

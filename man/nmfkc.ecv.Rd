@@ -38,6 +38,13 @@ This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for \code{Q},
 allowing simultaneous evaluation of multiple ranks on the same folds.
 }
+\examples{
+# Element-wise CV to select rank
+Y <- t(iris[1:30, 1:4])
+res <- nmfkc.ecv(Y, Q = 1:2, div = 3)
+res$objfunc
+
+}
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
 }

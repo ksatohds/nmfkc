@@ -26,7 +26,7 @@ Min RMSE (Blue): Based on the minimum Element-wise CV Sigma (only if save.time=F
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">nmfkc</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.5.8</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.6.0</span>
       </span>
     </div>
 
@@ -59,6 +59,9 @@ Min RMSE (Blue): Based on the minimum Element-wise CV Sigma (only if save.time=F
 <li>
   <a href="../news/index.html">Changelog</a>
 </li>
+<li>
+  <a href="../nmfkc-manual.pdf">PDF Manual</a>
+</li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/ksatohds/nmfkc/" class="external-link">
     <span class="fab fa-github fa-lg"></span>
@@ -90,7 +93,7 @@ Element-wise Cross-Validation error (Wold's CV Sigma) using <code><a href="nmfkc
 </ol></div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfkc.rank</span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="cn">NULL</span>, rank <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, save.time <span class="op">=</span> <span class="cn">FALSE</span>, plot <span class="op">=</span> <span class="cn">TRUE</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfkc.rank</span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="cn">NULL</span>, rank <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, save.time <span class="op">=</span> <span class="cn">FALSE</span>, plot <span class="op">=</span> <span class="cn">TRUE</span>, <span class="va">data</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -98,11 +101,12 @@ Element-wise Cross-Validation error (Wold's CV Sigma) using <code><a href="nmfkc
 
 
 <dl><dt id="arg-y">Y<a class="anchor" aria-label="anchor" href="#arg-y"></a></dt>
-<dd><p>Observation matrix.</p></dd>
+<dd><p>Observation matrix, or a formula (see <code><a href="nmfkc.html">nmfkc</a></code> for Formula Mode).</p></dd>
 
 
 <dt id="arg-a">A<a class="anchor" aria-label="anchor" href="#arg-a"></a></dt>
-<dd><p>Covariate matrix. If <code>NULL</code>, the identity matrix is used.</p></dd>
+<dd><p>Covariate matrix. If <code>NULL</code>, the identity matrix is used.
+Ignored when <code>Y</code> is a formula.</p></dd>
 
 
 <dt id="arg-rank">rank<a class="anchor" aria-label="anchor" href="#arg-rank"></a></dt>
@@ -116,6 +120,10 @@ Default is <code>FALSE</code> (computes everything).</p></dd>
 
 <dt id="arg-plot">plot<a class="anchor" aria-label="anchor" href="#arg-plot"></a></dt>
 <dd><p>Logical. If <code>TRUE</code> (default), draws a plot of the diagnostic criteria.</p></dd>
+
+
+<dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
+<dd><p>A data frame (required when <code>Y</code> is a formula with column names).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -169,46 +177,6 @@ Consensus-based ensembles of soft clusterings.
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Running Element-wise CV (this may take time)...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Performing Element-wise CV for Q = 1,2,3,4 (5-fold)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,1)B(1,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,1)B(1,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,1)B(1,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,1)B(1,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,1)B(1,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,2)B(2,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,2)B(2,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,2)B(2,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,2)B(2,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,2)B(2,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,3)B(3,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,3)B(3,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,3)B(3,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,3)B(3,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,3)B(3,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,4)B(4,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,4)B(4,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,4)B(4,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,4)B(4,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,4)B(4,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-plt img"><img src="nmfkc.rank-1.png" alt="" width="700" height="433"></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $rank.best</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 4</span>
@@ -239,7 +207,7 @@ Consensus-based ensembles of soft clusterings.
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,3)B(3,150)...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Y(4,150)~X(4,4)B(4,150)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
 <span class="r-plt img"><img src="nmfkc.rank-2.png" alt="" width="700" height="433"></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $rank.best</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2</span>

@@ -71,3 +71,11 @@ This implements the hyperparameter selection strategy described in the paper:
 hyperparameters are chosen by predictive cross-validation rather than direct
 inspection of the internal structural matrices.
 }
+\examples{
+Y <- t(iris[, -5])
+Y1 <- Y[1:2, ]
+Y2 <- Y[3:4, ]
+mae <- nmf.sem.cv(Y1, Y2, rank = 2, maxit = 500, div = 3)
+mae
+
+}

@@ -33,3 +33,12 @@ When the model was fitted using a formula (Formula Mode), a \code{newdata}
 data frame can be supplied instead of \code{newA}; the covariate matrix is
 then constructed automatically from the stored formula metadata.
 }
+\examples{
+# Prediction with newA
+Y <- matrix(cars$dist, nrow = 1)
+A <- rbind(1, cars$speed)
+result <- nmfkc(Y, A, Q = 1)
+newA <- rbind(1, c(10, 20, 30))
+predict(result, newA = newA)
+
+}

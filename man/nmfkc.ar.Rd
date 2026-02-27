@@ -29,6 +29,19 @@ If the input \code{Y} is a \code{ts} object, its time properties are preserved
 in the \code{"tsp_info"} attribute, adjusted for the lag.
 Additionally, the column names of \code{Y} and \code{A} are set to the corresponding time points.
 }
+\examples{
+# Example using AirPassengers (ts object)
+d <- AirPassengers
+ar_data <- nmfkc.ar(d, degree = 2)
+dim(ar_data$Y)
+dim(ar_data$A)
+
+# Example using matrix input
+Y <- matrix(1:20, nrow = 2)
+ar_data <- nmfkc.ar(Y, degree = 1)
+ar_data$degree.max
+
+}
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.ar.degree.cv}}, \code{\link{nmfkc.ar.stationarity}}, \code{\link{nmfkc.ar.DOT}}
 }

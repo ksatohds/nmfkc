@@ -27,7 +27,7 @@ above the threshold are omitted from the visualization.'><!-- mathjax --><script
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">nmfkc</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.5.8</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.6.0</span>
       </span>
     </div>
 
@@ -59,6 +59,9 @@ above the threshold are omitted from the visualization.'><!-- mathjax --><script
   </ul></li>
 <li>
   <a href="../news/index.html">Changelog</a>
+</li>
+<li>
+  <a href="../nmfkc-manual.pdf">PDF Manual</a>
 </li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/ksatohds/nmfkc/" class="external-link">
@@ -186,6 +189,40 @@ one of <code>"YX"</code>, <code>"YA"</code>, <code>"YXA"</code>.</p></dd>
     <div class="dont-index"><p><code>nmfkc</code></p></div>
     </div>
 
+    <div id="ref-examples">
+    <h2>Examples</h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">cars</span><span class="op">$</span><span class="va">dist</span>, nrow <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">cars</span><span class="op">$</span><span class="va">speed</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(1,50)~X(1,1)C(1,2)A(2,50)=XB(1,50)...</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
+<span class="r-in"><span><span class="va">dot</span> <span class="op">&lt;-</span> <span class="fu">nmfkc.DOT</span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="va">dot</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> digraph NMF {</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   graph [rankdir=LR compound=true];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   splines=true; nodesep=0.4; ranksep=0.7; fontname="Arial";</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   // Output variables (Y)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   subgraph cluster_Y{label="Observation (Y)" style="rounded" color="black" penwidth=1.0;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   node [shape=box, style="filled,rounded", fillcolor="lightblue", color=black, penwidth=1.5];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Y_1 [label="Y1"];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   }</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   // Latent factors (X)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   subgraph cluster_X{label="Basis (X)" style="rounded" color="black" penwidth=1.0;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   node [shape=ellipse, style="filled,rounded", fillcolor="wheat", color=black, penwidth=1.0];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     X_1 [label="Basis1"];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   }</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   edge [fontname="Arial", fontsize=8, arrowhead=open];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   // X -&gt; Y edges (X)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   edge [color="gray0", fontcolor="gray0", style=solid];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   X_1 -&gt; Y_1 [label="1.00", penwidth=5.00];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> }</span>
+<span class="r-in"><span></span></span>
+</code></pre></div>
+    </div>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top"><h2 data-toc-skip>Contents</h2>

@@ -23,7 +23,7 @@ allowing simultaneous evaluation of multiple ranks on the same folds."><!-- math
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">nmfkc</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.5.8</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.6.0</span>
       </span>
     </div>
 
@@ -56,6 +56,9 @@ allowing simultaneous evaluation of multiple ranks on the same folds."><!-- math
 <li>
   <a href="../news/index.html">Changelog</a>
 </li>
+<li>
+  <a href="../nmfkc-manual.pdf">PDF Manual</a>
+</li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/ksatohds/nmfkc/" class="external-link">
     <span class="fab fa-github fa-lg"></span>
@@ -87,7 +90,7 @@ allowing simultaneous evaluation of multiple ranks on the same folds.</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfkc.ecv</span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="cn">NULL</span>, Q <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, div <span class="op">=</span> <span class="fl">5</span>, seed <span class="op">=</span> <span class="fl">123</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfkc.ecv</span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="cn">NULL</span>, Q <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, div <span class="op">=</span> <span class="fl">5</span>, seed <span class="op">=</span> <span class="fl">123</span>, <span class="va">data</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -95,11 +98,11 @@ allowing simultaneous evaluation of multiple ranks on the same folds.</p>
 
 
 <dl><dt id="arg-y">Y<a class="anchor" aria-label="anchor" href="#arg-y"></a></dt>
-<dd><p>Observation matrix.</p></dd>
+<dd><p>Observation matrix, or a formula (see <code><a href="nmfkc.html">nmfkc</a></code> for Formula Mode).</p></dd>
 
 
 <dt id="arg-a">A<a class="anchor" aria-label="anchor" href="#arg-a"></a></dt>
-<dd><p>Covariate matrix.</p></dd>
+<dd><p>Covariate matrix. Ignored when <code>Y</code> is a formula.</p></dd>
 
 
 <dt id="arg-q">Q<a class="anchor" aria-label="anchor" href="#arg-q"></a></dt>
@@ -112,6 +115,10 @@ allowing simultaneous evaluation of multiple ranks on the same folds.</p>
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
 <dd><p>Integer seed for reproducibility.</p></dd>
+
+
+<dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
+<dd><p>A data frame (required when <code>Y</code> is a formula with column names).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -139,6 +146,18 @@ allowing simultaneous evaluation of multiple ranks on the same folds.</p>
     <div class="dont-index"><p><code><a href="nmfkc.html">nmfkc</a></code>, <code><a href="nmfkc.cv.html">nmfkc.cv</a></code></p></div>
     </div>
 
+    <div id="ref-examples">
+    <h2>Examples</h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Element-wise CV to select rank</span></span></span>
+<span class="r-in"><span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">iris</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">30</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">]</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">nmfkc.ecv</span><span class="op">(</span><span class="va">Y</span>, Q <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, div <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Performing Element-wise CV for Q = 1,2 (3-fold)...</span>
+<span class="r-in"><span><span class="va">res</span><span class="op">$</span><span class="va">objfunc</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       Q=1       Q=2 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 0.2597611 0.4376291 </span>
+<span class="r-in"><span></span></span>
+</code></pre></div>
+    </div>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top"><h2 data-toc-skip>Contents</h2>

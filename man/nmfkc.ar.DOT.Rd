@@ -59,3 +59,11 @@ Each block of lagged variables is displayed in its own DOT subgraph
 (e.g., “T-1”, “T-2”, ...), while latent factor nodes and current-time
 outputs are arranged in separate clusters.
 }
+\examples{
+d <- AirPassengers
+ar_data <- nmfkc.ar(d, degree = 2)
+result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+dot <- nmfkc.ar.DOT(result, degree = 2)
+cat(dot)
+
+}

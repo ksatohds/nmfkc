@@ -105,3 +105,12 @@ Internally, the latent feedback and exogenous loading matrices are stored as
 \code{C1} and \code{C2}, corresponding to \eqn{\Theta_1} and \eqn{\Theta_2},
 respectively.
 }
+\examples{
+# Simple NMF-SEM with iris data (non-negative)
+Y <- t(iris[, -5])
+Y1 <- Y[1:2, ]  # Sepal
+Y2 <- Y[3:4, ]  # Petal
+result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+result$MAE
+
+}

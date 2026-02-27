@@ -18,3 +18,10 @@ Called for its side effect (a plot). Returns \code{NULL} invisibly.
 \code{plot.nmfkc} produces a diagnostic plot for the return value of
 \code{nmfkc}, showing the objective function across iterations.
 }
+\examples{
+Y <- matrix(cars$dist, nrow = 1)
+A <- rbind(1, cars$speed)
+result <- nmfkc(Y, A, Q = 1)
+plot(result)
+
+}
