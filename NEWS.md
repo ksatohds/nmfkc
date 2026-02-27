@@ -1,3 +1,24 @@
+# nmfkc 0.6.0
+### **Bug Fixes**
+- Fixed variable `T` shadowing `TRUE` in information criterion computation.
+- Fixed `nmfkc.ecv()` to use KL divergence for evaluation when `method="KL"`.
+- Added performance flags (`save.time=TRUE`) to `nmfkc.ecv()` inner calls.
+- Fixed zero-division in `nmfkc.rank()` elbow normalization when R-squared values are identical.
+- Fixed parameter name mismatch (`rank` → `Q`) in `nmfkc.rank()` call to `nmfkc.ecv()`.
+- Fixed descending loop in `nmf.sem.split()` when P=2.
+- Added input validation for `n.exogenous` in `nmf.sem.split()`.
+
+### **Documentation**
+- Added roxygen documentation for `summary.nmfkc()` and `print.summary.nmfkc()`.
+- Added `@return` for `plot.nmfkc()` and `predict.nmfkc()`.
+- Added missing `@return` items (`method`, `n.missing`, `n.total`, `rank`, `mae`) to `nmfkc()`.
+
+### **Code Quality**
+- Replaced `T`/`F` with `TRUE`/`FALSE`.
+- Replaced `1:length()` with `seq_along()`.
+- Changed default font from Meiryo to Arial in DOT functions.
+- Aligned `nmf.sem.cv()` defaults with `nmf.sem()`.
+
 # nmfkc 0.5.8
 ### **Graphviz DOT Output Consolidation and Cleanup**
 - Harmonized all DOT-generating functions (`nmf.sem.DOT`, `nmfkc.DOT`, `nmfkc.ar.DOT`) for consistent structure, naming conventions, and visualization logic.
