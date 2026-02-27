@@ -71,8 +71,13 @@ A list with components:
 \item{objfunc}{Final objective value.}
 \item{objfunc.iter}{Objective values by iteration.}
 \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+\item{method}{Character string indicating the optimization method used (\code{"EU"} or \code{"KL"}).}
+\item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y}.}
+\item{n.total}{Total number of elements in \eqn{Y}.}
+\item{rank}{The rank \eqn{Q} used in the factorization.}
 \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
-\item{criterion}{A list of selection criteria, including \code{ICp}, \code{CPCC}, \code{silhouette}, \code{AIC}, and \code{BIC}.}
+\item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
+\item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, and \code{B.prob.entropy.mean}.}
 }
 \description{
 \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates

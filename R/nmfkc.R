@@ -882,7 +882,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     beta <- result.beta$beta_candidates
   }
   objfuncs <- numeric(length(beta))
-  for(i in 1:length(beta)){
+  for(i in seq_along(beta)){
     start.time <- Sys.time()
     message(paste0("beta=",beta[i],"..."),appendLF=FALSE)
 
@@ -1034,7 +1034,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     for(q in 1:Q){
       ns <- c(ns,sum(B.cluster==q))
       cluster.list <- c(cluster.list,list(which(B.cluster==q)))
-      cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=F])
+      cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=FALSE])
     }
     B_prob_sq_sum <- colSums(B.prob^2)
     cluster_means_sq_sum <- colSums(cluster.means^2)
@@ -1046,7 +1046,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     neighbor.cluster <- 0*B.cluster
     for(q in 1:Q){
       q_indices <- cluster.list[[q]]
-      for(i_idx in 1:length(q_indices)){
+      for(i_idx in seq_along(q_indices)){
         i <- q_indices[i_idx]
         di <- d2_matrix[i, ]
         qn <- order(di)[ifelse(order(di)[1]==q, 2, 1)]
@@ -1071,7 +1071,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     si.sort <- NULL
     si.sort.cluster <- NULL
     for(q in 1:Q){
-      si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=T))
+      si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=TRUE))
       si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
     }
     return(list(cluster=si.sort.cluster,silhouette=si.sort,
@@ -1315,8 +1315,13 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
 #' \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+#' \item{method}{Character string indicating the optimization method used (\code{"EU"} or \code{"KL"}).}
+#' \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y}.}
+#' \item{n.total}{Total number of elements in \eqn{Y}.}
+#' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
-#' \item{criterion}{A list of selection criteria, including \code{ICp}, \code{CPCC}, \code{silhouette}, \code{AIC}, and \code{BIC}.}
+#' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
+#' \item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, and \code{B.prob.entropy.mean}.}
 #' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @source Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
@@ -1636,11 +1641,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # Bai, J., & Ng, S. (2002). Determining the number of factors in approximate factor models. Econometrica, 70(1), 191-221.
   if (method == "EU") {
     sigma2 <- objfunc / N_obs
-    P <- nrow(Y)
-    T <- ncol(Y)
-    g_icp1 <- (P + T) / (P * T) * log(P * T)
-    g_icp2 <- (P + T) / (P * T) * log(min(P, T))
-    g_icp3 <- log(min(P, T)) / min(P, T)
+    P_dim <- nrow(Y)
+    T_dim <- ncol(Y)
+    g_icp1 <- (P_dim + T_dim) / (P_dim * T_dim) * log(P_dim * T_dim)
+    g_icp2 <- (P_dim + T_dim) / (P_dim * T_dim) * log(min(P_dim, T_dim))
+    g_icp3 <- log(min(P_dim, T_dim)) / min(P_dim, T_dim)
     ICp1 <- log(sigma2) + nparam * g_icp1
     ICp2 <- log(sigma2) + nparam * g_icp2
     ICp3 <- log(sigma2) + nparam * g_icp3
@@ -1766,6 +1771,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
 #'
 #' @param x An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
 #' @param ... Additional arguments passed to the base \code{\link{plot}} function.
+#' @return Called for its side effect (a plot). Returns \code{NULL} invisibly.
 #' @export
 plot.nmfkc <- function(x,...){
   extra_args <- list(...)
@@ -1780,6 +1786,14 @@ plot.nmfkc <- function(x,...){
 
 
 
+#' @title Summary method for objects of class \code{nmfkc}
+#' @description
+#' Produces a summary of an \code{nmfkc} object, including matrix dimensions,
+#' runtime, fit statistics, and diagnostics.
+#'
+#' @param object An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
+#' @param ... Additional arguments (currently unused).
+#' @return An object of class \code{summary.nmfkc}, containing summary statistics.
 #' @export
 summary.nmfkc <- function(object, ...) {
   ans <- list()
@@ -1828,6 +1842,14 @@ summary.nmfkc <- function(object, ...) {
   return(ans)
 }
 
+#' @title Print method for \code{summary.nmfkc} objects
+#' @description
+#' Prints a formatted summary of an \code{nmfkc} model fit.
+#'
+#' @param x An object of class \code{summary.nmfkc}.
+#' @param digits Minimum number of significant digits to be used.
+#' @param ... Additional arguments (currently unused).
+#' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @export
 print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
   cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n\n", sep = "")
@@ -1902,13 +1924,13 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 #' x <- nmfkc.normalize(iris[,-5])
 #' apply(x,2,range)
 nmfkc.normalize <- function(x,ref=x){
-  if(is.vector(x)==TRUE){
+  if(is.vector(x)){
     x <- matrix(x,ncol=1)
     ref <- matrix(ref,ncol=1)
   }
   r <- apply(ref,2,range)
   denom <- r[2, ] - r[1, ]
-  denom[denom == 0] <- 1   # 0幅列はそのままにする（全0返しが嫌なら別方針に）
+  denom[denom == 0] <- 1   # leave zero-width columns unchanged
   y <- sweep(x, 2, r[1, ], FUN = "-")
   y <- sweep(y, 2, denom,   FUN = "/")
   return(y)
@@ -1970,7 +1992,7 @@ nmfkc.class <- function(x){
   X <- outer(lev, x, "==")
   mode(X) <- "numeric"
   rownames(X) <- lev
-  if(!is.null(names(x))) colnames(X) <- names(x) else colnames(X) <- 1:length(x)
+  if(!is.null(names(x))) colnames(X) <- names(x) else colnames(X) <- seq_along(x)
   X
 }
 
@@ -1985,8 +2007,11 @@ nmfkc.class <- function(x){
 #'
 #' @param object An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
 #' @param newA Optional. A new covariate matrix to be used for prediction.
-#' @param type Type of prediction to return. Options are "response", "prob", "class".
+#' @param type Type of prediction to return. Options are "response" (fitted values matrix),
+#'   "prob" (soft-clustering probabilities), or "class" (hard-clustering labels based on row names of X).
 #' @param ... Further arguments passed to or from other methods.
+#' @return Depending on \code{type}: a numeric matrix (\code{"response"} or \code{"prob"})
+#'   or a character vector of class labels (\code{"class"}).
 #' @export
 predict.nmfkc <- function(object, newA = NULL, type = "response", ...) {
   x <- object
@@ -2388,13 +2413,26 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
       nmfkc_clean_args$Q <- NULL
       nmfkc_clean_args$rank <- NULL
 
-      nmfkc_args <- c(list(Y=Y, A=A, Q=q_curr, Y.weights=weights_train), nmfkc_clean_args)
+      nmfkc_clean_args$print.trace <- NULL
+      nmfkc_clean_args$print.dims <- NULL
+      nmfkc_clean_args$save.time <- NULL
+      nmfkc_clean_args$save.memory <- NULL
+      nmfkc_args <- c(list(Y=Y, A=A, Q=q_curr, Y.weights=weights_train,
+                           print.trace=FALSE, print.dims=FALSE,
+                           save.time=TRUE), nmfkc_clean_args)
 
-      fit <- do.call("nmfkc", nmfkc_args)
+      fit <- suppressMessages(do.call("nmfkc", nmfkc_args))
 
       pred <- fit$XB
-      residuals <- Y[test_idx] - pred[test_idx]
-      objfunc.fold[k] <- mean(residuals^2)
+      if(method == "KL"){
+        .eps <- 1e-10
+        term1 <- -Y[test_idx] * log(pred[test_idx] + .eps)
+        term2 <- pred[test_idx]
+        objfunc.fold[k] <- mean(term1 + term2)
+      }else{
+        residuals <- Y[test_idx] - pred[test_idx]
+        objfunc.fold[k] <- mean(residuals^2)
+      }
     }
 
     result_fold[[i]]  <- objfunc.fold
@@ -2560,7 +2598,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
   # --- Element-wise CV (Wold's CV) ---
   rank.best.ecv <- NA
   if(!save.time){
-    ecv_args <- list(Y = Y, A = A, rank = Q)
+    ecv_args <- list(Y = Y, A = A, Q = Q)
     extra_args_ecv <- extra_args
     extra_args_ecv$save.time <- NULL
     extra_args_ecv$save.memory <- NULL
@@ -2574,7 +2612,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
 
     # Determine best rank by ECV
     idx_best_ecv <- which.min(results_df$sigma.ecv)
-    rank.best.ecv <- results_df$rank[idx_best_ecv]
+    rank.best.ecv <- if(length(idx_best_ecv) > 0) results_df$rank[idx_best_ecv] else NA
   } else {
     results_df$sigma.ecv <- NA
   }
@@ -2584,8 +2622,10 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
   if(num_q > 2){
     x <- 1:num_q
     y <- results_df$r.squared
-    y_norm <- (y - min(y)) / (max(y) - min(y))
-    x_norm <- (x - min(x)) / (max(x) - min(x))
+    y_range <- max(y) - min(y)
+    x_range <- max(x) - min(x)
+    y_norm <- if(y_range > 0) (y - min(y)) / y_range else rep(0.5, length(y))
+    x_norm <- if(x_range > 0) (x - min(x)) / x_range else rep(0.5, length(x))
     x1 <- x_norm[1]; y1 <- y_norm[1]
     x2 <- x_norm[num_q]; y2 <- y_norm[num_q]
 
@@ -3087,10 +3127,10 @@ nmf.sem.cv <- function(
     rank = NULL,
     X.init = NULL,
     X.L2.ortho = 100.0,
-    C1.L1 = 0.5,        # L1 sparsity for C1 (Theta1)
-    C2.L1 = 0.0,        # L1 sparsity for C2 (Theta2)
-    epsilon = 1e-4,     # Convergence tolerance passed to nmf.sem
-    maxit = 50000,
+    C1.L1 = 1.0,        # L1 sparsity for C1 (Theta1)
+    C2.L1 = 0.1,        # L1 sparsity for C2 (Theta2)
+    epsilon = 1e-6,     # Convergence tolerance passed to nmf.sem
+    maxit = 20000,
     seed = NULL,        # Master seed for CV (partition + fold seeds)
     div = 5,            # Number of CV folds
     shuffle = TRUE,     # Shuffle samples before assigning folds
@@ -3442,7 +3482,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
     if (verbose) cat("Step 2: Detecting optimal cut-off for exogenous variables...\n")
     cutoff <- 1
 
-    for (k in 2:(P - 1)) {
+    for (k in seq_len(max(P - 2, 0)) + 1) {
       curr_idx <- ordering_indices[k]
       parent_indices <- ordering_indices[1:(k - 1)]
 
@@ -3475,6 +3515,8 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
   #
   # Ordered list shows the full inferred causal sequence.
   # --------------------------------------------------------------------
+  if(n.exogenous < 1 || n.exogenous >= P)
+    stop("n.exogenous must be between 1 and P-1.")
   idx_exo <- ordering_indices[1:n.exogenous]
   idx_endo <- ordering_indices[(n.exogenous + 1):P]
 
@@ -3600,7 +3642,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' @noRd
 .nmfkc_dot_header <- function(graph_name = "NMF_GRAPH",
                               rankdir    = "LR",
-                              fontname   = "Meiryo") {
+                              fontname   = "Arial") {
   paste0(
     "digraph ", graph_name, " {\n",
     "  graph [rankdir=", rankdir, " compound=true];\n",
@@ -3937,7 +3979,7 @@ nmf.sem.DOT <- function(result,
   ## ---------------------------------------------------------------
   dot_script <- paste0(
     dot_script,
-    '\n  edge [fontname="Meiryo", fontsize=8, arrowhead=open];\n'
+    '\n  edge [fontname="Arial", fontsize=8, arrowhead=open];\n'
   )
 
   pw     <- .nmfkc_dot_penwidth
@@ -4209,7 +4251,7 @@ nmfkc.DOT <- function(
   ## ---------------------------------------------------------
   scr <- paste0(
     scr,
-    '\n  edge [fontname="Meiryo", fontsize=8, arrowhead=open];\n'
+    '\n  edge [fontname="Arial", fontsize=8, arrowhead=open];\n'
   )
 
   pw     <- .nmfkc_dot_penwidth
@@ -4505,7 +4547,7 @@ nmfkc.ar.DOT <- function(x,
   ## -------------------------------------------------------------
   scr <- paste0(
     scr,
-    '\n  edge [fontname="Meiryo", fontsize=8, arrowhead=open];\n'
+    '\n  edge [fontname="Arial", fontsize=8, arrowhead=open];\n'
   )
 
   ## -------------------------------------------------------------
@@ -4571,7 +4613,7 @@ nmfkc.ar.DOT <- function(x,
     Ck_lab <- base_from_name(C_lab[cols])
 
     ## Skip lag block if no coefficient exceeds threshold
-    if (max(Ck, na.rm = TRUE) < threshold) {
+    if (suppressWarnings(max(Ck, na.rm = TRUE)) < threshold) {
       next
     }
 
@@ -4591,7 +4633,7 @@ nmfkc.ar.DOT <- function(x,
     }
 
     for (j in seq_len(ncol(Ck))) {
-      if (max(Ck[, j], na.rm = TRUE) >= threshold) {
+      if (suppressWarnings(max(Ck[, j], na.rm = TRUE)) >= threshold) {
         st <- paste0(
           st,
           sprintf('    %s [label="%s"];\n', Ck_ids[j], Ck_lab[j])

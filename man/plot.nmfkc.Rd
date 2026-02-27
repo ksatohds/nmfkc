@@ -11,6 +11,9 @@
 
 \item{...}{Additional arguments passed to the base \code{\link{plot}} function.}
 }
+\value{
+Called for its side effect (a plot). Returns \code{NULL} invisibly.
+}
 \description{
 \code{plot.nmfkc} produces a diagnostic plot for the return value of
 \code{nmfkc}, showing the objective function across iterations.

@@ -11,9 +11,14 @@
 
 \item{newA}{Optional. A new covariate matrix to be used for prediction.}
 
-\item{type}{Type of prediction to return. Options are "response", "prob", "class".}
+\item{type}{Type of prediction to return. Options are "response" (fitted values matrix),
+"prob" (soft-clustering probabilities), or "class" (hard-clustering labels based on row names of X).}
 
 \item{...}{Further arguments passed to or from other methods.}
+}
+\value{
+Depending on \code{type}: a numeric matrix (\code{"response"} or \code{"prob"})
+or a character vector of class labels (\code{"class"}).
 }
 \description{
 \code{predict.nmfkc} generates predictions from an object of class \code{nmfkc},
