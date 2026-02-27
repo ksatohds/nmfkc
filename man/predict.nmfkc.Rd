@@ -4,12 +4,17 @@
 \alias{predict.nmfkc}
 \title{Prediction method for objects of class \code{nmfkc}}
 \usage{
-\method{predict}{nmfkc}(object, newA = NULL, type = "response", ...)
+\method{predict}{nmfkc}(object, newA = NULL, newdata = NULL, type = "response", ...)
 }
 \arguments{
 \item{object}{An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.}
 
 \item{newA}{Optional. A new covariate matrix to be used for prediction.}
+
+\item{newdata}{Optional data frame. Only available when the model was fitted
+using a formula. Covariate columns are extracted automatically using the
+stored formula metadata. If both \code{newdata} and \code{newA} are
+supplied, \code{newdata} takes precedence (with a warning).}
 
 \item{type}{Type of prediction to return. Options are "response" (fitted values matrix),
 "prob" (soft-clustering probabilities), or "class" (hard-clustering labels based on row names of X).}
@@ -23,4 +28,8 @@ or a character vector of class labels (\code{"class"}).
 \description{
 \code{predict.nmfkc} generates predictions from an object of class \code{nmfkc},
 either using the fitted covariates or a new covariate matrix.
+
+When the model was fitted using a formula (Formula Mode), a \code{newdata}
+data frame can be supplied instead of \code{newA}; the covariate matrix is
+then constructed automatically from the stored formula metadata.
 }

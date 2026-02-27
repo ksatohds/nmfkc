@@ -4,12 +4,13 @@
 \alias{nmfkc.rank}
 \title{Rank selection diagnostics with graphical output}
 \usage{
-nmfkc.rank(Y, A = NULL, rank = 1:2, save.time = FALSE, plot = TRUE, ...)
+nmfkc.rank(Y, A = NULL, rank = 1:2, save.time = FALSE, plot = TRUE, data, ...)
 }
 \arguments{
-\item{Y}{Observation matrix.}
+\item{Y}{Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).}
 
-\item{A}{Covariate matrix. If \code{NULL}, the identity matrix is used.}
+\item{A}{Covariate matrix. If \code{NULL}, the identity matrix is used.
+Ignored when \code{Y} is a formula.}
 
 \item{rank}{A vector of candidate ranks to be evaluated.}
 
@@ -17,6 +18,8 @@ nmfkc.rank(Y, A = NULL, rank = 1:2, save.time = FALSE, plot = TRUE, ...)
 Default is \code{FALSE} (computes everything).}
 
 \item{plot}{Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.}
+
+\item{data}{A data frame (required when \code{Y} is a formula with column names).}
 
 \item{...}{Additional arguments passed to \code{\link{nmfkc}} and \code{\link{nmfkc.ecv}}.
 \itemize{

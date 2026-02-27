@@ -9,7 +9,7 @@ nmfkc.kernel.beta.cv(Y, Q = 2, U, V = NULL, beta = NULL, plot = TRUE, ...)
 \arguments{
 \item{Y}{Observation matrix \eqn{Y(P,N)}.}
 
-\item{Q}{Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.}
+\item{Q}{Rank of the basis matrix.}
 
 \item{U}{Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.}
 

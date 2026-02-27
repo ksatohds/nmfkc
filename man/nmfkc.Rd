@@ -12,9 +12,13 @@ to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
 nmfkc(Y, A = NULL, rank = NULL, data, epsilon = 1e-04, maxit = 5000, ...)
 }
 \arguments{
-\item{Y}{Observation matrix, OR a formula object if \code{data} is supplied.}
+\item{Y}{Observation matrix (P x N), OR a formula object for Formula Mode.
+In Formula Mode, use \code{Y1 + Y2 ~ A1 + A2} with \code{data}, or
+\code{Y_matrix ~ A_matrix} for direct matrix evaluation.
+Supports dot notation (\code{. ~ A1 + A2}) when \code{data} is supplied.}
 
-\item{A}{Covariate matrix. Default is \code{NULL} (no covariates).}
+\item{A}{Covariate matrix. Default is \code{NULL} (no covariates).
+Ignored when \code{Y} is a formula.}
 
 \item{rank}{Integer. The rank of the basis matrix \eqn{X} (Q). Preferred over \code{Q}.}
 
@@ -68,6 +72,7 @@ A list with components:
 \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
 \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
 \item{A.attr}{List of attributes of the input covariate matrix \code{A}, containing metadata like lag order and intercept status if created by \code{nmfkc.ar} or \code{nmfkc.kernel}.}
+\item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 \item{objfunc}{Final objective value.}
 \item{objfunc.iter}{Objective values by iteration.}
 \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
@@ -108,9 +113,11 @@ res <- nmfkc(Y,Q=2,epsilon=1e-6)
 res$X
 res$B
 
-# Example 2. Formula Mode (New)
-# dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10), A1=1:10, A2=rnorm(10,5))
-# res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
+# Example 2. Formula Mode
+set.seed(1)
+dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10),
+                         A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
+res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 
 }
 \references{

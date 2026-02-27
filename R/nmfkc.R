@@ -297,6 +297,7 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
     # We should check if colnames(Y) can be parsed to sync with Y's actual end time.
     # However, if Y is just the tail of training data, we can try to infer dt from freq.
 
+    if (freq <= 0) stop("'freq' in tsp_info must be positive.")
     dt <- 1 / freq
 
     # Try to find the last time point of current Y to start prediction from
@@ -364,7 +365,7 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 #' (Time x Variables). \code{ts} objects are automatically transposed internally.
 #'
 #' @param Y Observation matrix \eqn{Y(P,N)} or a \code{ts} object.
-#' @param Q Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.
+#' @param Q Rank of the basis matrix.
 #' @param degree A vector of candidate lag orders to be evaluated.
 #' @param intercept Logical. If TRUE (default), an intercept is added to the covariate matrix.
 #' @param plot Logical. If TRUE (default), a plot of the objective function values is drawn.
@@ -483,13 +484,17 @@ nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ..
 #' @export
 
 nmfkc.ar.stationarity <- function(x){
+  if (!inherits(x, "nmfkc")) stop("'x' must be an object of class 'nmfkc'.")
+  if (is.null(x$X) || is.null(x$C)) stop("'x' must contain 'X' and 'C' components (from nmfkc.ar).")
   X <- x$X  # P × Q
   Theta <- x$C  # Q × (P * D [+1] )
   P <- nrow(X)
   Q <- ncol(X)
+  if (P == 0 || Q == 0) stop("'X' must have positive dimensions.")
   total_cols <- ncol(Theta)
   has_intercept <- (total_cols - 1) %% P == 0
   D <- if (has_intercept) (total_cols - 1) %/% P else total_cols %/% P
+  if (D <= 0) stop("Cannot determine lag order D from dimensions of 'C'.")
   Theta_lags <- if (has_intercept) Theta[, 1:(total_cols - 1), drop = FALSE] else Theta
   Xi_list <- lapply(1:D, function(d){
     cols <- ((d - 1) * P + 1):(d * P)
@@ -552,6 +557,8 @@ nmfkc.kernel <- function(U, V = NULL,
   U <- as.matrix(U); storage.mode(U) <- "double"
   if (is.null(V)) V <- U else V <- as.matrix(V)
   storage.mode(V) <- "double"
+  if (nrow(U) == 0) stop("'U' must have at least one row (feature).")
+  if (nrow(U) != nrow(V)) stop("'U' and 'V' must have the same number of rows (features).")
   kernel <- match.arg(kernel)
   G <- crossprod(U, V)
 
@@ -746,6 +753,10 @@ nmfkc.kernel.beta.nearest.med <- function(
     }
 
     d_med <- stats::median(sqrt(min_d2))
+    if (d_med <= 0) {
+      warning("Median nearest-neighbor distance is 0 (identical points exist). Using machine epsilon.")
+      d_med <- sqrt(.Machine$double.eps)
+    }
     beta  <- 1 / (2 * d_med^2)
     return(list(
       beta = beta,
@@ -820,6 +831,10 @@ nmfkc.kernel.beta.nearest.med <- function(
   }
 
   d_med <- stats::median(sqrt(min_d2))
+  if (d_med <= 0) {
+    warning("Median nearest-neighbor distance is 0 (identical points exist). Using machine epsilon.")
+    d_med <- sqrt(.Machine$double.eps)
+  }
   beta  <- 1 / (2 * d_med^2)
 
   t <- c(-1, -2/3, -1/3, 0, 1/3, 2/3, 1)
@@ -844,7 +859,7 @@ nmfkc.kernel.beta.nearest.med <- function(
 #' \code{nmfkc.kernel.beta.cv} selects the optimal beta parameter of the kernel function by applying cross-validation over a set of candidate values.
 #'
 #' @param Y Observation matrix \eqn{Y(P,N)}.
-#' @param Q Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.
+#' @param Q Rank of the basis matrix.
 #' @param U Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.
 #' @param V Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.
 #' @param beta A numeric vector of candidate kernel parameters to evaluate via cross-validation.
@@ -880,6 +895,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     med_args <- c(list(U = V), extra_args[names(extra_args) %in% names(formals(nmfkc.kernel.beta.nearest.med))])
     result.beta <- do.call("nmfkc.kernel.beta.nearest.med", med_args)
     beta <- result.beta$beta_candidates
+    if (is.null(beta) || length(beta) == 0) stop("Failed to determine beta candidates from nearest-neighbor median.")
   }
   objfuncs <- numeric(length(beta))
   for(i in seq_along(beta)){
@@ -1189,6 +1205,20 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
       #       and is handled in the A_mat creation block below.
     }
 
+    # Validate column existence
+    missing_Y <- base::setdiff(Y_cols, all_cols)
+    if (base::length(missing_Y) > 0) {
+      base::stop(base::paste0("Formula error: Y columns not found in data: ",
+                               base::paste(missing_Y, collapse = ", ")))
+    }
+    if (!A_is_missing) {
+      missing_A <- base::setdiff(A_cols, all_cols)
+      if (base::length(missing_A) > 0) {
+        base::stop(base::paste0("Formula error: A columns not found in data: ",
+                                 base::paste(missing_A, collapse = ", ")))
+      }
+    }
+
     # Matrix Creation
     Y_mat <- data[, Y_cols, drop = FALSE]
 
@@ -1204,6 +1234,8 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
   } else {
     # MODE 2: data omitted (Direct matrix expression evaluation)
+    Y_cols <- NULL
+    A_cols <- NULL
 
     if (base::is.symbol(Y_expr) && base::as.character(Y_expr) == ".") {
       base::stop("Formula error: '.' is not supported for direct matrix evaluation mode (without 'data' argument).")
@@ -1238,10 +1270,40 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     A <- NULL
   }
 
-  return(base::list(Y = Y, A = A))
+  return(base::list(Y = Y, A = A, Y_cols = Y_cols, A_cols = A_cols))
 }
 
 
+#' Resolve formula input to Y/A matrices with metadata
+#'
+#' Internal helper that detects formula input, parses it, and returns
+#' the Y/A matrices along with formula metadata for downstream use.
+#' The \code{data_missing} flag solves the \code{missing(data)} propagation
+#' problem in R (cannot check \code{missing()} through nested calls).
+#'
+#' @param Y A formula or matrix.
+#' @param A A matrix or NULL.
+#' @param data_missing Logical; TRUE if \code{data} was not supplied by the caller.
+#' @param data_value The value of \code{data} (or NULL if missing).
+#' @return A list with \code{Y}, \code{A}, and \code{formula.meta} (NULL if not formula mode).
+#' @keywords internal
+#' @noRd
+.nmfkc_resolve_formula <- function(Y, A, data_missing, data_value) {
+  if (!base::inherits(Y, "formula")) {
+    return(base::list(Y = Y, A = A, formula.meta = NULL))
+  }
+  if (data_missing) {
+    data_list <- .nmfkc_parse_formula(formula = Y)
+  } else {
+    data_list <- .nmfkc_parse_formula(formula = Y, data = data_value)
+  }
+  formula.meta <- base::list(
+    formula = Y,
+    Y_cols  = data_list$Y_cols,
+    A_cols  = data_list$A_cols
+  )
+  base::list(Y = data_list$Y, A = data_list$A, formula.meta = formula.meta)
+}
 
 
 
@@ -1264,8 +1326,12 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' The rank of the basis matrix can be specified using either the \code{rank} argument
 #' (preferred for formula mode) or the hidden \code{Q} argument (for backward compatibility).
 #'
-#' @param Y Observation matrix, OR a formula object if \code{data} is supplied.
+#' @param Y Observation matrix (P x N), OR a formula object for Formula Mode.
+#'   In Formula Mode, use \code{Y1 + Y2 ~ A1 + A2} with \code{data}, or
+#'   \code{Y_matrix ~ A_matrix} for direct matrix evaluation.
+#'   Supports dot notation (\code{. ~ A1 + A2}) when \code{data} is supplied.
 #' @param A Covariate matrix. Default is \code{NULL} (no covariates).
+#'   Ignored when \code{Y} is a formula.
 #' @param rank Integer. The rank of the basis matrix \eqn{X} (Q). Preferred over \code{Q}.
 #' @param data Optional. A data frame from which variables in the formula should be taken.
 #' @param epsilon Positive convergence tolerance.
@@ -1312,6 +1378,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
 #' \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
 #' \item{A.attr}{List of attributes of the input covariate matrix \code{A}, containing metadata like lag order and intercept status if created by \code{nmfkc.ar} or \code{nmfkc.kernel}.}
+#' \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
 #' \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
@@ -1349,21 +1416,17 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' res$X
 #' res$B
 #'
-#' # Example 2. Formula Mode (New)
-#' # dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10), A1=1:10, A2=rnorm(10,5))
-#' # res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
+#' # Example 2. Formula Mode
+#' set.seed(1)
+#' dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10),
+#'                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
+#' res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 #'
 nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # A small constant for numerical stability to prevent division by zero and log(0).
   .eps <- 1e-10
 
   extra_args <- base::list(...)
-
-  if(!base::is.null(A)) {
-    if(any(is.na(A))) base::stop("Covariate matrix A contains NAs. Please impute or remove them.")
-    if(base::min(A, na.rm=TRUE)<0) base::stop("The matrix A should be non-negative.")
-  }
-  if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
 
   # --- 1. Parameter Extraction ---
   Q_hidden <- if (!base::is.null(extra_args$Q)) extra_args$Q else NULL
@@ -1394,14 +1457,24 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   Y.weights <- if (!base::is.null(extra_args$Y.weights)) extra_args$Y.weights else NULL
 
   # --- 2. Input Data Preparation ---
+  formula.meta <- NULL
   if (base::inherits(Y, "formula")) {
-    data_list <- .nmfkc_parse_formula(formula = Y, data = data)
-    Y <- data_list$Y
-    A <- data_list$A
+    data_missing <- base::missing(data)
+    resolved <- .nmfkc_resolve_formula(Y, A, data_missing, if (!data_missing) data else NULL)
+    Y <- resolved$Y
+    A <- resolved$A
+    formula.meta <- resolved$formula.meta
   } else {
     if(base::is.vector(Y)) Y <- base::matrix(Y,nrow=1)
     if(!base::is.matrix(Y)) Y <- base::as.matrix(Y)
   }
+
+  # --- Input Validation (after formula dispatch) ---
+  if(!base::is.null(A)) {
+    if(any(is.na(A))) base::stop("Covariate matrix A contains NAs. Please impute or remove them.")
+    if(base::min(A, na.rm=TRUE)<0) base::stop("The matrix A should be non-negative.")
+  }
+  if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
 
   # === Weights Handling ===
   # 1. Vector Expansion (Column-wise weights)
@@ -1456,44 +1529,43 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # Initialize X
   is.X.scalar <- FALSE
   if(nrow(Y)>=2){
-    if(ncol(Y)>=Q){
-      if(ncol(Y)==Q){
-        X <- Y
-      }else{
-        # [Fix 2] Create Y_init for initialization (impute NAs with row means)
-        Y_init <- Y
-        if (is.matrix(Y.weights) && any(Y.weights == 0)) {
-          # Calculate weighted mean (Since Y is zero-filled, sum(Y) is equivalent to sum(Y*W))
-          row_means <- rowSums(Y) / (rowSums(Y.weights) + .eps)
-          mask_binary <- (Y.weights > 0)
-          idx_missing <- which(!mask_binary, arr.ind = TRUE)
-          if (nrow(idx_missing) > 0) {
-            Y_init[idx_missing] <- row_means[idx_missing[,1]]
-          }
-        }
+    # [Fix 2] Create Y_init for initialization (impute NAs with row means)
+    Y_init <- Y
+    if (is.matrix(Y.weights) && any(Y.weights == 0)) {
+      # Calculate weighted mean (Since Y is zero-filled, sum(Y) is equivalent to sum(Y*W))
+      row_means <- rowSums(Y) / (rowSums(Y.weights) + .eps)
+      mask_binary <- (Y.weights > 0)
+      idx_missing <- which(!mask_binary, arr.ind = TRUE)
+      if (nrow(idx_missing) > 0) {
+        Y_init[idx_missing] <- row_means[idx_missing[,1]]
+      }
+    }
 
-        if (is.matrix(X.init)) {
-          X <- X.init
-        } else if (is.character(X.init)) {
-          if (!is.null(seed)) set.seed(seed)
-          if (X.init == "kmeans") {
-            # Use Y_init
-            res.kmeans <- tryCatch(stats::kmeans(t(Y_init), centers = Q, iter.max = maxit, nstart = nstart),
-                                   error = function(e) NULL)
-            if(!is.null(res.kmeans)) X <- t(res.kmeans$centers) else X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-          } else if (X.init == "runif") {
-            X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-          } else {
-            if (Q > min(nrow(Y), ncol(Y))) {
-              X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-            } else {
-              X <- .nndsvdar(Y_init, Q)
-            }
-          }
+    if (is.matrix(X.init)) {
+      X <- X.init
+    } else if (is.character(X.init)) {
+      if (!is.null(seed)) set.seed(seed)
+      if (X.init == "kmeans") {
+        # kmeans requires ncol(Y) >= Q (N >= Q)
+        res.kmeans <- if (ncol(Y) >= Q) {
+          tryCatch(stats::kmeans(t(Y_init), centers = Q, iter.max = maxit, nstart = nstart),
+                   error = function(e) NULL)
+        } else { NULL }
+        if(!is.null(res.kmeans)) X <- t(res.kmeans$centers) else X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+      } else if (X.init == "runif") {
+        X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+      } else {
+        # nndsvd requires Q <= min(P, N)
+        if (Q > min(nrow(Y), ncol(Y))) {
+          X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+        } else {
+          X <- .nndsvdar(Y_init, Q)
         }
       }
-    }else{
-      stop("It does not hold Q<=N (ncol(Y)).")
+    } else if (ncol(Y) == Q) {
+      X <- Y_init
+    } else {
+      X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
     }
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
@@ -1722,6 +1794,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     X.prob    = X.prob,
     X.cluster = X.cluster,
     A.attr    = A.attr,
+    formula.meta = formula.meta,
     n.missing = n.missing,
     n.total   = n.total,
     rank      = Q,
@@ -1805,6 +1878,7 @@ summary.nmfkc <- function(object, ...) {
     ans$n.missing <- NULL
   }
 
+  ans$formula.meta <- object$formula.meta
   ans$method <- object$method
   ans$iter <- length(object$objfunc.iter)
   ans$objfunc <- object$objfunc
@@ -1849,6 +1923,9 @@ summary.nmfkc <- function(object, ...) {
 print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
   cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n\n", sep = "")
 
+  if (!is.null(x$formula.meta)) {
+    cat("Formula:    ", deparse(x$formula.meta$formula), "\n")
+  }
   cat("Dimensions:", x$dims, "\n")
   if(!is.null(x$rank)) cat("Rank (Q):   ", x$rank, "\n")
   cat("Runtime:    ", x$runtime, "\n")
@@ -2000,17 +2077,45 @@ nmfkc.class <- function(x){
 #' \code{predict.nmfkc} generates predictions from an object of class \code{nmfkc},
 #' either using the fitted covariates or a new covariate matrix.
 #'
+#' When the model was fitted using a formula (Formula Mode), a \code{newdata}
+#' data frame can be supplied instead of \code{newA}; the covariate matrix is
+#' then constructed automatically from the stored formula metadata.
+#'
 #' @param object An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
 #' @param newA Optional. A new covariate matrix to be used for prediction.
+#' @param newdata Optional data frame. Only available when the model was fitted
+#'   using a formula. Covariate columns are extracted automatically using the
+#'   stored formula metadata. If both \code{newdata} and \code{newA} are
+#'   supplied, \code{newdata} takes precedence (with a warning).
 #' @param type Type of prediction to return. Options are "response" (fitted values matrix),
 #'   "prob" (soft-clustering probabilities), or "class" (hard-clustering labels based on row names of X).
 #' @param ... Further arguments passed to or from other methods.
 #' @return Depending on \code{type}: a numeric matrix (\code{"response"} or \code{"prob"})
 #'   or a character vector of class labels (\code{"class"}).
 #' @export
-predict.nmfkc <- function(object, newA = NULL, type = "response", ...) {
+predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response", ...) {
   x <- object
   .eps <- 1e-10
+
+  # --- newdata handling (Formula Mode) ---
+  if (!is.null(newdata)) {
+    if (is.null(x$formula.meta)) {
+      stop("'newdata' can only be used when the model was fitted with a formula.")
+    }
+    if (!is.null(newA)) {
+      warning("Both 'newdata' and 'newA' supplied; 'newdata' takes precedence.")
+    }
+    A_cols <- x$formula.meta$A_cols
+    if (is.null(A_cols)) {
+      stop("Formula metadata has no A columns. Model was fitted without covariates (standard NMF).")
+    }
+    missing_cols <- setdiff(A_cols, names(newdata))
+    if (length(missing_cols) > 0) {
+      stop(paste0("'newdata' is missing required columns: ", paste(missing_cols, collapse = ", ")))
+    }
+    newdata <- as.data.frame(newdata)
+    newA <- t(as.matrix(newdata[, A_cols, drop = FALSE]))
+  }
 
   if(is.null(newA)){
     if(type=="response"){
@@ -2055,16 +2160,18 @@ predict.nmfkc <- function(object, newA = NULL, type = "response", ...) {
 #' \itemize{
 #'   \item \eqn{Y(P,N)} is the observation matrix,
 #'   \item \eqn{A(R,N)} is the covariate (or kernel) matrix,
-#'   \item \eqn{X(P,Q)} is the basis matrix (with \eqn{Q \le \min(P,N)}),
+#'   \item \eqn{X(P,Q)} is the basis matrix,
 #'   \item \eqn{C(Q,R)} is the parameter matrix, and
 #'   \item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
 #' }
 #' Given \eqn{Y} (and optionally \eqn{A}), \eqn{X} and \eqn{C} are fitted on each
 #' training split and predictive performance is evaluated on the held-out split.
 #'
-#' @param Y Observation matrix.
+#' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
 #' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
-#' @param Q Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.
+#'   Ignored when \code{Y} is a formula.
+#' @param Q Rank of the basis matrix \eqn{X}.
+#' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments controlling CV and the internal \code{\link{nmfkc}} call:
 #'   \describe{
 #'     \item{\code{Y.weights}}{Optional numeric matrix or vector; 0 indicates missing/ignored values.}
@@ -2107,7 +2214,14 @@ predict.nmfkc <- function(object, newA = NULL, type = "response", ...) {
 #'
 #' @export
 
-nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
+nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
+  # --- Formula Mode ---
+  if (base::inherits(Y, "formula")) {
+    resolved <- .nmfkc_resolve_formula(Y, A, base::missing(data), if (!base::missing(data)) data else NULL)
+    Y <- resolved$Y
+    A <- resolved$A
+  }
+
   # A small constant for numerical stability to prevent division by zero and log(0).
   .eps <- 1e-10
 
@@ -2332,11 +2446,12 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
 #' the optimal rank (Q) in NMF. This function supports vector input for `Q`,
 #' allowing simultaneous evaluation of multiple ranks on the same folds.
 #'
-#' @param Y Observation matrix.
-#' @param A Covariate matrix.
+#' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
+#' @param A Covariate matrix. Ignored when \code{Y} is a formula.
 #' @param Q Vector of ranks to evaluate (e.g., 1:5).
 #' @param div Number of folds (default: 5).
 #' @param seed Integer seed for reproducibility.
+#' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} (e.g., \code{method="EU"}).
 #'
 #' @return A list with components:
@@ -2346,7 +2461,13 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, ...){
 #' \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
 #' @export
-nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
+nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, data, ...){
+  # --- Formula Mode ---
+  if (base::inherits(Y, "formula")) {
+    resolved <- .nmfkc_resolve_formula(Y, A, base::missing(data), if (!base::missing(data)) data else NULL)
+    Y <- resolved$Y
+    A <- resolved$A
+  }
 
   if(!is.matrix(Y)) Y <- as.matrix(Y)
   P <- nrow(Y)
@@ -2458,12 +2579,14 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
 #'   \item **Min RMSE (Blue)**: Based on the minimum Element-wise CV Sigma (only if \code{save.time=FALSE}).
 #' }
 #'
-#' @param Y Observation matrix.
+#' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
 #' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
+#'   Ignored when \code{Y} is a formula.
 #' @param rank A vector of candidate ranks to be evaluated.
 #' @param save.time Logical. If \code{TRUE}, skips heavy computations like Element-wise CV.
 #'   Default is \code{FALSE} (computes everything).
 #' @param plot Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.
+#' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} and \code{\link{nmfkc.ecv}}.
 #'   \itemize{
 #'     \item \code{Q}: (Deprecated) Alias for \code{rank}.
@@ -2494,22 +2617,19 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, ...){
 #' # Fast run (skip ECV)
 #' nmfkc.rank(Y, rank=1:4, save.time=TRUE)
 
-nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
+nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, data, ...){
+  # --- Formula Mode ---
+  if (base::inherits(Y, "formula")) {
+    resolved <- .nmfkc_resolve_formula(Y, A, base::missing(data), if (!base::missing(data)) data else NULL)
+    Y <- resolved$Y
+    A <- resolved$A
+  }
 
   extra_args <- list(...)
 
   # Backward Compatibility for Q
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
   Q <- rank
-  max_rank <- min(nrow(Y), ncol(Y))
-  if (any(Q > max_rank)) {
-    invalid_Q <- Q[Q > max_rank]
-    warning(paste0("Rank(s) ", paste(invalid_Q, collapse=", "),
-                   " exceed min(nrow(Y), ncol(Y)) = ", max_rank,
-                   ". They have been removed."))
-    Q <- Q[Q <= max_rank]
-    if(length(Q) == 0) stop("No valid ranks specified (all exceed matrix dimensions).")
-  }
   # ---------------------------------------------
   AdjustedRandIndex <- function(x){
     choose2 <- function(n) choose(n,2)
@@ -2625,8 +2745,11 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, ...){
     x2 <- x_norm[num_q]; y2 <- y_norm[num_q]
 
     distances <- numeric(num_q)
-    for(i in 1:num_q){
-      distances[i] <- abs((y2-y1)*x_norm[i] - (x2-x1)*y_norm[i] + x2*y1 - y2*x1) / sqrt((y2-y1)^2 + (x2-x1)^2)
+    denom <- sqrt((y2-y1)^2 + (x2-x1)^2)
+    if (denom > 0) {
+      for(i in 1:num_q){
+        distances[i] <- abs((y2-y1)*x_norm[i] - (x2-x1)*y_norm[i] + x2*y1 - y2*x1) / denom
+      }
     }
     idx_best_r2 <- which.max(distances)
     rank.best.r2 <- results_df$rank[idx_best_r2]
@@ -2761,6 +2884,9 @@ nmfkc.residual.plot <- function(Y, result,
     stop("The 'result' argument must be an object of class 'nmfkc'.")
   }
   XB <- result$XB
+  if (is.null(XB) || (length(XB) == 1 && is.na(XB))) {
+    stop("'result$XB' is not available. The model may have been fitted with save.memory=TRUE.")
+  }
   E <- Y - XB
   if(nrow(Y) != nrow(E) || ncol(Y) != ncol(E)){
     stop("Dimension mismatch between Y and result$XB. Check input matrices.")
@@ -2916,8 +3042,8 @@ nmf.sem <- function(
   Q0 <- if (!is.null(rank)) rank else if (!is.null(Q_hidden)) Q_hidden else nrow(Y2)
 
   P1 <- nrow(Y1); P2 <- nrow(Y2); N <- ncol(Y1)
-  Q  <- min(Q0, P1, N)
-  if (Q < 1) stop("Effective rank Q must be >= 1.")
+  Q  <- Q0
+  if (Q < 1) stop("Rank Q must be >= 1.")
 
   # -------------------------- labels (output) -------------------------
   Y1_labels    <- if (!is.null(rownames(Y1))) rownames(Y1) else paste0("Y1_", 1:P1)
@@ -2931,7 +3057,11 @@ nmf.sem <- function(
 
   # ---------------------------- init X,C1,C2 --------------------------
   if (is.null(X.init)) {
-    X <- .nndsvdar(Y1, Q)   # exists in nmfkc
+    if (Q <= min(P1, N)) {
+      X <- .nndsvdar(Y1, Q)
+    } else {
+      X <- matrix(stats::runif(P1 * Q), nrow = P1, ncol = Q)
+    }
   } else {
     X <- as.matrix(X.init)
     if (!all(dim(X) == c(P1, Q))) {
@@ -3049,11 +3179,17 @@ nmf.sem <- function(
   amplification.bound <- if (XC1_norm1 < 1) 1 / (1 - XC1_norm1) else Inf
 
   # -------------------- fit indices (equilibrium prediction) ----------
-  Y1_hat   <- M.model %*% Y2
-  S.sample <- Y1 %*% t(Y1)
-  S.model  <- Y1_hat %*% t(Y1_hat)
-  SC.cov   <- stats::cor(as.numeric(S.sample), as.numeric(S.model))
-  MAE      <- mean(abs(Y1 - Y1_hat))
+  if (anyNA(Leontief.inv)) {
+    Y1_hat <- matrix(NA_real_, nrow = nrow(Y1), ncol = ncol(Y1))
+    SC.cov <- NA_real_
+    MAE    <- NA_real_
+  } else {
+    Y1_hat   <- M.model %*% Y2
+    S.sample <- Y1 %*% t(Y1)
+    S.model  <- Y1_hat %*% t(Y1_hat)
+    SC.cov   <- stats::cor(as.numeric(S.sample), as.numeric(S.model))
+    MAE      <- mean(abs(Y1 - Y1_hat))
+  }
 
   list(
     X                   = X,
@@ -3479,13 +3615,15 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 
     for (k in seq_len(max(P - 2, 0)) + 1) {
       curr_idx <- ordering_indices[k]
-      parent_indices <- ordering_indices[1:(k - 1)]
+      parent_indices <- ordering_indices[seq_len(k - 1)]
 
       y_vec <- X_calc[, curr_idx]
+      if (length(parent_indices) == 0) next
       X_parents <- X_calc[, parent_indices, drop = FALSE]
 
       coefs <- stats::coef(stats::lm(y_vec ~ X_parents - 1))
-      max_influence <- max(coefs, na.rm = TRUE)
+      coefs <- coefs[is.finite(coefs)]
+      max_influence <- if (length(coefs) > 0) max(coefs) else 0
 
       if (max_influence > threshold) {
         if (verbose)

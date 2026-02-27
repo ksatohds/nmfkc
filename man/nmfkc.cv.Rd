@@ -4,14 +4,17 @@
 \alias{nmfkc.cv}
 \title{Perform k-fold cross-validation for NMF with kernel covariates}
 \usage{
-nmfkc.cv(Y, A = NULL, Q = 2, ...)
+nmfkc.cv(Y, A = NULL, Q = 2, data, ...)
 }
 \arguments{
-\item{Y}{Observation matrix.}
+\item{Y}{Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).}
 
-\item{A}{Covariate matrix. If \code{NULL}, the identity matrix is used.}
+\item{A}{Covariate matrix. If \code{NULL}, the identity matrix is used.
+Ignored when \code{Y} is a formula.}
 
-\item{Q}{Rank of the basis matrix \eqn{X}; must satisfy \eqn{Q \le \min(P,N)}.}
+\item{Q}{Rank of the basis matrix \eqn{X}.}
+
+\item{data}{A data frame (required when \code{Y} is a formula with column names).}
 
 \item{...}{Additional arguments controlling CV and the internal \code{\link{nmfkc}} call:
 \describe{
@@ -39,7 +42,7 @@ A list with components:
 \itemize{
 \item \eqn{Y(P,N)} is the observation matrix,
 \item \eqn{A(R,N)} is the covariate (or kernel) matrix,
-\item \eqn{X(P,Q)} is the basis matrix (with \eqn{Q \le \min(P,N)}),
+\item \eqn{X(P,Q)} is the basis matrix,
 \item \eqn{C(Q,R)} is the parameter matrix, and
 \item \eqn{B(Q,N)} is the coefficient matrix (\eqn{B = C A}).
 }

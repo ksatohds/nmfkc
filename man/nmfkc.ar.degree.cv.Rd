@@ -9,7 +9,7 @@ nmfkc.ar.degree.cv(Y, Q = 1, degree = 1:2, intercept = TRUE, plot = TRUE, ...)
 \arguments{
 \item{Y}{Observation matrix \eqn{Y(P,N)} or a \code{ts} object.}
 
-\item{Q}{Rank of the basis matrix. Must satisfy \eqn{Q \le \min(P,N)}.}
+\item{Q}{Rank of the basis matrix.}
 
 \item{degree}{A vector of candidate lag orders to be evaluated.}
 
