@@ -1431,7 +1431,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     if (!all(dim(Y.weights) == dim(Y))) stop("Dimension mismatch between Y and Y.weights.")
     Y.weights[is.na(Y.weights)] <- 0
     Y[is.na(Y)] <- 0
-    Y <- Y * Y.weights
+    Y[Y.weights == 0] <- 0
   }
 
   # --- 3. Algorithm Setup ---
@@ -1452,11 +1452,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   }
   if(print.dims) base::message(base::paste0(dims,"..."),appendLF=FALSE)
   start.time <- base::Sys.time()
-
-  if(!base::is.null(A)) if(base::min(A)<0) base::stop("The matrix A should be non-negative.")
-
-  # [Fix 1] Added na.rm=TRUE to min(Y) check
-  if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
 
   # Initialize X
   is.X.scalar <- FALSE
@@ -1531,10 +1526,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   for(i in 1:maxit){
     if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
-    if(print.trace&i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
+    if(print.trace && i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
     if(method=="EU"){
-      if(!is.X.scalar & X.restriction!="fixed"){
+      if(!is.X.scalar && X.restriction!="fixed"){
         num_X <- (Y.weights * Y) %*% t(B)
         den_X <- (Y.weights * XB) %*% t(B)
         if (X.L2.ortho > 0) {
@@ -1562,7 +1557,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
       obj <- sum(resid^2)
 
     }else{ # KL
-      if(!is.X.scalar & X.restriction!="fixed"){
+      if(!is.X.scalar && X.restriction!="fixed"){
         ratio <- Y.weights * (Y / (XB + .eps))
         num_X <- ratio %*% t(B)
         den_X <- Y.weights %*% t(B)
@@ -1625,7 +1620,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   } else if (i >= 10){ objfunc.iter <- objfunc.iter[10:i]
   } else { objfunc.iter <- objfunc.iter[1:i] }
 
-  if(ncol(X) > 1 & X.restriction != "fixed"){
+  if(ncol(X) > 1 && X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
     X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]; C <- C[index,,drop=FALSE]
   }
@@ -1665,7 +1660,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
       r2 <- stats::cor(XB[valid_idx], Y[valid_idx])^2
       sigma <- stats::sd(Y[valid_idx] - XB[valid_idx])
       mae <- mean(abs(Y[valid_idx] - XB[valid_idx]))
-    } else { r2 <- NA; sigma <- NA }
+    } else { r2 <- NA; sigma <- NA; mae <- NA }
 
     B.prob <- t( t(B) / (colSums(B) + .eps) )
     if(Q > 1){
