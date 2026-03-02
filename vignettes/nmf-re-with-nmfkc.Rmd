@@ -1,0 +1,310 @@
+---
+title: "NMF-RE: Mixed-Effects Modeling with nmfkc"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{NMF-RE: Mixed-Effects Modeling with nmfkc}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteDepends{nlme}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+This vignette demonstrates **NMF-RE** (Non-negative Matrix Factorization with Random Effects), a mixed-effects extension of NMF implemented in the `nmfkc` package.
+
+### Why Mixed Effects?
+
+Standard NMF with covariates models the data as:
+$$Y \approx X \Theta A$$
+
+where $\Theta A$ captures systematic (fixed) effects of covariates $A$ on latent scores. However, in many applications --- such as longitudinal studies, panel data, or clustered observations --- individuals exhibit **unit-specific deviations** that cannot be explained by covariates alone.
+
+NMF-RE addresses this by adding **random effects** $U$:
+$$Y = X(\Theta A + U) + \mathcal{E}$$
+
+- $Y$ ($P \times N$): Non-negative observation matrix (e.g., repeated measurements over $P$ time points for $N$ subjects).
+- $X$ ($P \times Q$): Non-negative basis matrix learned from data.
+- $\Theta$ ($Q \times K$): Coefficient matrix for covariate effects.
+- $A$ ($K \times N$): Covariate matrix (e.g., intercept, sex, treatment).
+- $U$ ($Q \times N$): Random effects matrix capturing individual deviations.
+- $\mathcal{E}$: Residual noise with variance $\sigma^2$.
+
+The random effects $U$ follow a ridge-type prior controlled by variance $\tau^2$, and the penalty $\lambda = \sigma^2 / \tau^2$ determines the degree of shrinkage.
+
+### Key Features
+
+- **Automatic regularization**: `dfU.cap.rate` controls the effective degrees of freedom consumed by $U$, preventing overfitting.
+- **Wild bootstrap inference**: Standard errors, z-values, p-values, and confidence intervals for $\Theta$ without repeated constrained re-optimization.
+- **Trace-based ICC**: Quantifies the proportion of variance attributable to random effects.
+
+---
+
+## 1. Data: Orthodont (Longitudinal Growth)
+
+We use the `Orthodont` dataset from the `nlme` package: orthodontic distance measurements for 27 children at ages 8, 10, 12, and 14. The covariate of interest is sex (Male/Female).
+
+```{r load-data}
+library(nmfkc)
+library(nlme)
+
+data(Orthodont)
+head(Orthodont)
+```
+
+### 1.1 Prepare the Observation Matrix Y
+
+Each column of $Y$ is a subject, each row is a time point (age). Since there are 4 ages and 27 subjects, $Y$ is $4 \times 27$.
+
+```{r prepare-Y}
+Y <- matrix(Orthodont$distance, nrow = 4, ncol = 27)
+colnames(Y) <- paste0("S", 1:27)
+rownames(Y) <- paste("Age", c(8, 10, 12, 14))
+Y[, 1:6]
+```
+
+### 1.2 Prepare the Covariate Matrix A
+
+We create a $2 \times 27$ covariate matrix with an intercept row and a binary `male` indicator.
+
+```{r prepare-A}
+male <- ifelse(Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
+A <- rbind(intercept = 1, male = male)
+A[, 1:6]
+```
+
+---
+
+## 2. Selecting dfU Cap Rate
+
+Before fitting the model, we use `nmfre.dfU.scan()` to scan different regularization levels. The **dfU cap rate** limits how many effective degrees of freedom the random effects $U$ can consume, preventing overfitting.
+
+The scan evaluates rates from 0.1 to 1.0 (where 1.0 means no cap). Key columns in the output:
+
+- **dfU**: Effective degrees of freedom actually used.
+- **safeguard**: Whether `dfU` stayed below the cap (`TRUE` = safe).
+- **hit**: Whether $\tau^2$ was updated freely (`TRUE` = unconstrained).
+- **ICC**: Trace-based Intraclass Correlation Coefficient.
+
+```{r dfU-scan}
+scan_result <- nmfre.dfU.scan(1:10/10, Y, A, Q = 1)
+scan_result
+```
+
+### Interpreting the Scan
+
+A good `dfU.cap.rate` satisfies two criteria:
+
+1. **safeguard = TRUE**: The cap is not overly binding.
+2. **hit = TRUE**: The model converges to a natural solution without the cap forcing an artificial penalty.
+
+Choose the smallest rate where both conditions hold. This balances model flexibility against overfitting.
+
+---
+
+## 3. Fitting the NMF-RE Model
+
+Based on the scan, we select `dfU.cap.rate = 0.2` and fit the model with rank $Q = 1$ (a single latent trend). The `prefix` argument labels the basis.
+
+```{r fit-nmfre}
+res <- nmfre(Y, A, Q = 1, dfU.cap.rate = 0.2, prefix = "Trend")
+```
+
+### 3.1 Model Summary
+
+`summary()` displays variance components, fit statistics, and the coefficient table with significance stars.
+
+```{r summary}
+summary(res)
+```
+
+### Understanding the Output
+
+**Variance components:**
+
+- $\sigma^2$: Residual variance (measurement noise).
+- $\tau^2$: Random effect variance (individual heterogeneity).
+- **ICC**: Proportion of variance from random effects. Higher ICC means stronger individual differences relative to noise.
+
+**Coefficient table ($\Theta$):**
+
+- **Estimate**: Effect of each covariate on the latent trend.
+- **Std. Error**: From wild bootstrap.
+- **Pr(>|z|)**: One-sided p-value (H0: $\Theta_{qk} = 0$ vs H1: $\Theta_{qk} > 0$), appropriate because $\Theta$ is non-negative.
+
+**R-squared:**
+
+- $R^2$ (XB+blup): Fit including both fixed and random effects.
+- $R^2$ (XB): Fit from fixed effects only --- the gap shows how much random effects improve the fit.
+
+---
+
+## 4. Visualization
+
+We plot the growth curves to see how the model captures both population-level trends (fixed effects) and individual deviations (random effects).
+
+```{r plot-growth, fig.height=6}
+age <- c(8, 10, 12, 14)
+
+plot(age, res$XB[, 1], type = "n", ylim = range(Y),
+     xlab = "Age (years)", ylab = "Distance (mm)",
+     main = "Orthodont: NMF-RE Growth Curves")
+
+# Plot observed data points
+for (j in 1:27) {
+  pch_j <- ifelse(male[j] == 1, 4, 1)
+  points(age, Y[, j], pch = pch_j, col = "gray60")
+}
+
+# Plot individual predictions (fixed + random effects)
+for (j in 1:27) {
+  lines(age, res$XB.blup[, j], col = "steelblue", lty = 3, lwd = 0.8)
+}
+
+# Plot population-level fixed effects (two lines: male and female)
+for (j in 1:27) {
+  lines(age, res$XB[, j], col = "red", lwd = 2)
+}
+
+legend("topleft",
+  legend = c("Fixed effect (male/female)", "Fixed + Random (BLUP)",
+             "Male (observed)", "Female (observed)"),
+  lwd = c(2, 1, NA, NA), lty = c(1, 3, NA, NA),
+  pch = c(NA, NA, 4, 1),
+  col = c("red", "steelblue", "gray60", "gray60"),
+  cex = 0.85)
+```
+
+### Interpreting the Plot
+
+- **Red solid lines**: Population-level fitted values from fixed effects ($X \Theta A$). There are two distinct curves --- one for males (higher) and one for females (lower) --- reflecting the sex effect in $\Theta$.
+- **Blue dashed lines**: Individual-level predictions ($X(\Theta A + U)$). Each line is shifted from the population curve by the subject's random effect $U$, capturing personal growth trajectories.
+- **Gray points**: Observed measurements. Crosses ($\times$) for males, circles ($\circ$) for females.
+
+---
+
+## 5. Examining Learned Components
+
+### 5.1 Basis Matrix X
+
+The basis $X$ represents the latent temporal pattern shared across all subjects.
+
+```{r basis-X}
+cat("Basis X (temporal pattern):\n")
+print(round(res$X, 4))
+```
+
+Since $Q = 1$, there is one basis vector. Its shape shows how the latent factor manifests across the four ages. The column is normalized to sum to 1.
+
+### 5.2 Coefficient Matrix $\Theta$
+
+$\Theta$ maps covariates to latent scores:
+
+```{r coef-C}
+cat("Coefficient matrix (Theta):\n")
+print(round(res$C, 4))
+```
+
+- `intercept`: Baseline level of the latent trend for females.
+- `male`: Additional contribution for males. A significant positive value indicates that males have higher orthodontic distances on average.
+
+### 5.3 Random Effects U
+
+$U$ captures individual deviations. Subjects with positive $U$ values grow faster than the population average; negative values indicate slower growth.
+
+```{r random-effects, fig.height=4}
+barplot(res$U[1, ], names.arg = colnames(Y),
+        las = 2, cex.names = 0.7,
+        col = ifelse(male == 1, "steelblue", "salmon"),
+        main = "Random Effects (U) by Subject",
+        ylab = "Random effect value")
+legend("topright", fill = c("steelblue", "salmon"),
+       legend = c("Male", "Female"), cex = 0.85)
+```
+
+---
+
+## 6. Model Diagnostics
+
+### 6.1 Convergence
+
+Check that the algorithm converged properly:
+
+```{r convergence}
+cat("Converged:", res$converged, "\n")
+cat("Iterations:", res$iter, "\n")
+cat("Stop reason:", res$stop.reason, "\n")
+```
+
+```{r plot-convergence, fig.height=4}
+plot(res$objfunc.iter, type = "l",
+     xlab = "Iteration", ylab = "Objective function",
+     main = "Convergence Trace")
+```
+
+### 6.2 Residual Analysis
+
+Compare the fitted values against the original data:
+
+```{r residual-analysis, fig.height=4}
+residuals <- Y - res$XB.blup
+cat("Mean absolute residual (BLUP):", round(mean(abs(residuals)), 4), "\n")
+cat("Mean absolute residual (fixed):", round(mean(abs(Y - res$XB)), 4), "\n")
+
+# Fitted vs Observed
+plot(as.vector(Y), as.vector(res$XB.blup),
+     xlab = "Observed", ylab = "Fitted (BLUP)",
+     main = "Observed vs Fitted", pch = 16, col = "steelblue")
+abline(0, 1, col = "red", lwd = 2)
+```
+
+---
+
+## 7. Comparison: With and Without Random Effects
+
+To appreciate the value of random effects, compare NMF-RE with a standard NMF covariate model (no random effects).
+
+```{r compare-models}
+# Standard NMF with covariates (no random effects)
+res_fixed <- nmfkc(Y, A = A, Q = 1, epsilon = 1e-5)
+
+cat("=== Standard NMF (fixed effects only) ===\n")
+cat("R-squared:", round(1 - sum((Y - res_fixed$XB)^2) / sum((Y - mean(Y))^2), 4), "\n\n")
+
+cat("=== NMF-RE (fixed + random effects) ===\n")
+cat("R-squared (XB):      ", round(res$r.squared.fixed, 4), "\n")
+cat("R-squared (XB+blup): ", round(res$r.squared, 4), "\n")
+cat("ICC:                 ", round(res$ICC, 4), "\n")
+```
+
+The improvement from fixed-only $R^2$ to BLUP $R^2$ quantifies the contribution of individual random effects.
+
+---
+
+## Summary
+
+NMF-RE provides a principled way to model **individual heterogeneity** in NMF:
+
+| Step | Function | Purpose |
+|:---|:---|:---|
+| 1 | `nmfre.dfU.scan()` | Select regularization level |
+| 2 | `nmfre()` | Fit the mixed-effects model |
+| 3 | `summary()` | Examine variance components and inference |
+
+**When to use NMF-RE:**
+
+- Longitudinal or repeated-measures data where subjects differ systematically.
+- Panel data with unit-level heterogeneity.
+- Any NMF application where fixed covariates alone leave structured residual variation.
+
+For more details on the underlying methodology, see:
+
+- Satoh, K. (2026). "Non-negative Matrix Factorization with Random Effects." *Working paper*.

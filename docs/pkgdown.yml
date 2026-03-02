@@ -4,10 +4,11 @@ pkgdown_sha: ~
 articles:
   classification-with-nmfkc: classification-with-nmfkc.html
   introduction-to-nmfkc: introduction-to-nmfkc.html
+  nmf-re-with-nmfkc: nmf-re-with-nmfkc.html
   nmf-sem-with-nmfkc: nmf-sem-with-nmfkc.html
   timeseries-with-nmfkc: timeseries-with-nmfkc.html
   topic-modeling-with-nmfkc: topic-modeling-with-nmfkc.html
-last_built: 2026-03-02T05:39Z
+last_built: 2026-03-02T20:51Z
 urls:
   reference: https://ksatohds.github.io/nmfkc/reference
   article: https://ksatohds.github.io/nmfkc/articles
