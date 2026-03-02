@@ -273,7 +273,7 @@ was updated freely (<code>TRUE</code> = unconstrained).</li>
 Coefficient.</li>
 </ul>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">scan_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.dfU.scan.html">nmfre.dfU.scan</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">/</span><span class="fl">10</span>, <span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">scan_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.dfU.scan.html">nmfre.dfU.scan</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">/</span><span class="fl">10</span>, <span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span>, epsilon <span class="op">=</span> <span class="fl">1e-08</span><span class="op">)</span></span>
 <span><span class="va">scan_result</span></span>
 <span><span class="co">#&gt;    rate dfU.cap  dfU safeguard   hit converged  tau2 sigma2    ICC</span></span>
 <span><span class="co">#&gt; 1   0.1     2.7 2.70     FALSE  TRUE      TRUE 0.443      1 0.0270</span></span>
@@ -312,7 +312,7 @@ the model with rank
 (a single latent trend). The <code>prefix</code> argument labels the
 basis.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span>, dfU.cap.rate <span class="op">=</span> <span class="fl">0.2</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span>, dfU.cap.rate <span class="op">=</span> <span class="fl">0.2</span>, epsilon <span class="op">=</span> <span class="fl">1e-08</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="model-summary">3.1 Model Summary<a class="anchor" aria-label="anchor" href="#model-summary"></a>
 </h3>
@@ -321,7 +321,7 @@ and the coefficient table with significance stars.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
 <span><span class="co">#&gt; NMF-RE: Y(4,27) = X(4,1) [C(1,2) A + U(1,27)]</span></span>
-<span><span class="co">#&gt; Iterations: 2 (converged, epsilon = 1e-05)</span></span>
+<span><span class="co">#&gt; Iterations: 2 (converged, epsilon = 1e-08)</span></span>
 <span><span class="co">#&gt; R-squared: 0.5654 (XB+blup), 0.4167 (XB)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Variance components:</span></span>
@@ -333,8 +333,8 @@ and the coefficient table with significance stars.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Coefficients:</span></span>
 <span><span class="co">#&gt;                   Estimate Std. Error (Boot) z value   Pr(&gt;z) </span></span>
-<span><span class="co">#&gt; intercept:Trend1    90.393      2.471  2.452   36.58   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt;      male:Trend1     9.606      3.056  2.977    3.14 0.0008356 ***</span></span>
+<span><span class="co">#&gt; intercept:Trend1    90.502      2.471  2.450   36.62   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt;      male:Trend1     9.428      3.056  2.975    3.09 0.001017 **</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
 </div>
@@ -483,7 +483,7 @@ maps covariates to latent scores:</p>
 <span><span class="co">#&gt; Coefficient matrix (Theta):</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">C</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;        intercept   male</span></span>
-<span><span class="co">#&gt; Trend1   90.3934 9.6059</span></span></code></pre></div>
+<span><span class="co">#&gt; Trend1    90.502 9.4285</span></span></code></pre></div>
 <ul>
 <li>
 <code>intercept</code>: Baseline level of the latent trend for
@@ -541,9 +541,9 @@ slower growth.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">residuals</span> <span class="op">&lt;-</span> <span class="va">Y</span> <span class="op">-</span> <span class="va">res</span><span class="op">$</span><span class="va">XB.blup</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean absolute residual (BLUP):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">residuals</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean absolute residual (BLUP): 1.5118</span></span>
+<span><span class="co">#&gt; Mean absolute residual (BLUP): 1.5105</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean absolute residual (fixed):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">Y</span> <span class="op">-</span> <span class="va">res</span><span class="op">$</span><span class="va">XB</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean absolute residual (fixed): 1.7612</span></span>
+<span><span class="co">#&gt; Mean absolute residual (fixed): 1.7589</span></span>
 <span></span>
 <span><span class="co"># Fitted vs Observed</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">XB.blup</span><span class="op">)</span>,</span>
@@ -561,13 +561,13 @@ slower growth.</p>
 standard NMF covariate model (no random effects).</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Standard NMF with covariates (no random effects)</span></span>
-<span><span class="va">res_fixed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span>, epsilon <span class="op">=</span> <span class="fl">1e-5</span><span class="op">)</span></span>
+<span><span class="va">res_fixed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span>, epsilon <span class="op">=</span> <span class="fl">1e-08</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Y(4,27)~X(4,1)C(1,2)A(2,27)=XB(1,27)...0sec</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"=== Standard NMF (fixed effects only) ===\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; === Standard NMF (fixed effects only) ===</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"R-squared:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">(</span><span class="va">Y</span> <span class="op">-</span> <span class="va">res_fixed</span><span class="op">$</span><span class="va">XB</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">(</span><span class="va">Y</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; R-squared: 0.4166</span></span>
+<span><span class="co">#&gt; R-squared: 0.4167</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"=== NMF-RE (fixed + random effects) ===\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; === NMF-RE (fixed + random effects) ===</span></span>
