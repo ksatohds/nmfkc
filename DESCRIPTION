@@ -1,7 +1,7 @@
 Package: nmfkc
 Type: Package
 Title: Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.6.0
+Version: 0.7.0
 Date: 2026-02-28
 Authors@R: 
     person("Kenichi", "Satoh", 
@@ -10,11 +10,14 @@ Authors@R:
            comment = c(ORCID = "0000-0003-4436-9347"))
 URL: https://github.com/ksatohds/nmfkc, https://ksatohds.github.io/nmfkc/
 BugReports: https://github.com/ksatohds/nmfkc/issues
-Description: Performs Non-negative Matrix Factorization (NMF) 
-    with Kernel Covariates. Given an observation matrix and kernel 
-    covariates, it optimizes both a basis matrix and a parameter matrix. 
-    Notably, if the kernel matrix is an identity matrix, the method 
-    simplifies to standard NMF.
+Description: Performs Non-negative Matrix Factorization (NMF)
+    with Kernel Covariates. Given an observation matrix and kernel
+    covariates, it optimizes both a basis matrix and a parameter matrix.
+    Notably, if the kernel matrix is an identity matrix, the method
+    simplifies to standard NMF. Also provides NMF with Random Effects
+    (NMF-RE) via nmfre(), which estimates a mixed-effects model combining
+    covariate-driven scores with unit-specific random effects, together
+    with wild bootstrap inference.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-US
