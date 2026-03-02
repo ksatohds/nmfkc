@@ -2,7 +2,7 @@
 
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![GitHub version](https://img.shields.io/github/r-package/v/ksatohds/nmfkc)](https://github.com/ksatohds/nmfkc)
-**nmfkc** is an R package that extends Non-negative Matrix Factorization (NMF) by incorporating **covariates** using kernel methods. It supports advanced features like rank selection via cross-validation, time-series modeling (NMF-VAR), supervised classification (NMF-LAB), and **structural equation modeling with equilibrium interpretation (NMF-SEM)**.
+**nmfkc** is an R package that extends Non-negative Matrix Factorization (NMF) by incorporating **covariates** using kernel methods. It supports advanced features like rank selection via cross-validation, time-series modeling (NMF-VAR), supervised classification (NMF-LAB), **structural equation modeling with equilibrium interpretation (NMF-SEM)**, and **mixed-effects modeling with random effects (NMF-RE)**.
 
 # Installation
 
@@ -69,6 +69,7 @@ citation("nmfkc")
 | :--- | :--- | :--- |
 | **Handles covariates** | No | **Yes** (Linear / Kernel) |
 | **Structural equation modeling** | No | **Yes** (NMF-SEM) |
+| **Mixed-effects / Random effects** | No | **Yes** (NMF-RE) |
 | **Classification** | No | **Yes** (NMF-LAB) |
 | **Time series modeling** | No | **Yes** (NMF-VAR) |
 | **Nonlinearity** | No | **Yes** (Kernel) |
@@ -99,6 +100,17 @@ $$
 - **nmf.sem.cv**: Predictive K-fold CV for selecting NMF-SEM hyperparameters based on MAE of $\hat Y_1 = M_{model} Y_2$.
 - **nmf.sem.DOT**: Generates Graphviz/DOT code to visualize the estimated structure (feedback and exogenous paths).
 
+
+### NMF-RE (Random Effects)
+NMF-RE extends the NMF-with-covariates model by adding unit-specific random effects:
+
+$$Y = X(\Theta A + U) + \mathcal{E}$$
+
+where $U$ is a random effects matrix capturing individual deviations in the latent score space.
+
+- **nmfre**: Fits the NMF-RE model with ridge-type BLUP updates for $U$, dfU-based complexity control, and wild bootstrap inference for $\Theta$ (standard errors, p-values, confidence intervals).
+- **nmfre.dfU.scan**: Scans dfU cap rates to select an appropriate regularization level for the random effects.
+- **summary.nmfre**: Displays variance components ($\sigma^2$, $\tau^2$, ICC), convergence diagnostics, and a coefficient table with significance stars.
 
 ## 2. Model Selection & Diagnostics
 Tools to determine the optimal number of bases (Rank $Q$) and evaluate model performance.
@@ -162,7 +174,12 @@ The **nmfkc** package builds upon the standard NMF framework by incorporating ex
     * **Kernel Extension**: By constructing $A$ using a kernel function (e.g., Gaussian kernel) on raw features, the model can capture non-linear relationships (Satoh, 2024).
     * **Theoretical Roots**: This formulation aligns with Orthogonal Tri-NMF (Ding et al., 2006) and generalizes the Growth Curve Models (Potthoff and Roy, 1964).
 
-4. **Structural Equation Model (NMF-SEM)**:
+4. **Mixed-Effects Model (NMF-RE)**:
+    NMF-RE extends the covariate model by adding random effects $U$ to capture unit-specific deviations:
+    $$Y = X(\Theta A + U) + \mathcal{E}, \qquad U_{\cdot n} \sim N(0, \tau^2 I_Q), \quad \mathcal{E}_{\cdot n} \sim N(0, \sigma^2 I_P).$$
+    The random effects $U$ are estimated via ridge-type BLUP, with the effective degrees of freedom monitored and capped to prevent overfitting. Inference on $\Theta$ is performed via wild bootstrap. This model is suitable for panel/longitudinal data where individual heterogeneity needs to be accounted for while maintaining the interpretable non-negative structure.
+
+5. **Structural Equation Model (NMF-SEM)**:
     For applications where endogenous variables affect each other (feedback) and exogenous variables drive the system, NMF-SEM models an endogenous block $Y_1$ and exogenous block $Y_2$ as:
     $$
     Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2).
@@ -207,6 +224,7 @@ $$Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)$$
 -   Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. <https://arxiv.org/abs/2403.05359>
 -   Satoh, K. (2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model, Japanese Journal of Statistics and Data Science, in press. <https://doi.org/10.1007/s42081-025-00314-0>
 -   Satoh, K. (2025) Applying non-negative matrix factorization with covariates to label matrix for classification. arXiv preprint arXiv:2510.10375. <https://arxiv.org/abs/2510.10375>
+-   Satoh, K. (2026) Wild Bootstrap Inference for Non-Negative Matrix Factorization with Random Effects. (in preparation)
 
 
 # References
@@ -236,6 +254,7 @@ Here are practical examples demonstrating the capabilities of **nmfkc**, ranging
 | 8  | Vector Autoregression (Canada) | Multivariate Time Series, **Granger Causality (DOT)** |
 | 9  | Classification (Iris) | **NMF-LAB**, Supervised learning |
 | 10 | Structural equation modeling (HolzingerSwineford1939) | **NMF-SEM**, Equilibrium mapping, Stability (spectral radius), **DOT** |
+| 11 | Mixed-effects model (Orthodont) | **NMF-RE**, Random effects, Wild bootstrap inference, dfU scan |
 
 -----
 
@@ -873,6 +892,42 @@ res.dot <- nmf.sem.DOT(res, weight_scale = 5, rankdir = "TB",
                        cluster.box = "none")
 library(DiagrammeR)
 grViz(res.dot)
+```
+
+## 11\. Mixed-effects model: Orthodont (NMF-RE)
+
+NMF-RE adds random effects to account for individual heterogeneity. This example analyzes repeated orthodontic measurements with sex as a covariate.
+
+```r
+library(nmfkc)
+library(nlme)
+
+# 1. Data Preparation
+Y <- matrix(Orthodont$distance, 4, 27)
+male <- ifelse(Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
+A <- rbind(intercept = 1, male = male)
+
+# 2. Scan dfU cap rates
+nmfre.dfU.scan(1:10/10, Y, A, Q = 1)
+
+# 3. Fit NMF-RE
+res <- nmfre(Y, A, Q = 1, dfU.cap.rate = 0.2, prefix = "Trend")
+summary(res)
+
+# 4. Visualization
+age <- c(8, 10, 12, 14)
+plot(age, res$XB[,1], type = "n", ylim = range(Y),
+     xlab = "Age", ylab = "Distance")
+for (j in 1:27) {
+  pch_j <- ifelse(male[j] == 1, 4, 1)
+  points(age, Y[,j], pch = pch_j, col = "gray")
+  lines(age, res$XB.blup[,j], col = "blue", lty = 3)
+  lines(age, res$XB[,j], col = "red", lwd = 2)
+}
+legend("topleft",
+  legend = c("Fixed effect", "Fixed + Random (BLUP)", "Male", "Female"),
+  lwd = c(2, 1, NA, NA), lty = c(1, 3, NA, NA),
+  pch = c(NA, NA, 4, 1), col = c("red", "blue", "gray", "gray"))
 ```
 
 # Author
