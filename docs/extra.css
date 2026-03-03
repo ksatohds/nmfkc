@@ -1,0 +1,103 @@
+/* Custom styles to match ksatohds.github.io */
+
+/* Navbar styling */
+.navbar {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  backdrop-filter: blur(8px);
+}
+
+.navbar-brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Card-like sections */
+.section {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+  transition: box-shadow 0.2s;
+}
+
+.section:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Content area */
+.contents {
+  max-width: 960px;
+}
+
+/* Headings */
+h1, .h1 {
+  color: #1e3a5f;
+  font-weight: 700;
+}
+
+h2, .h2 {
+  color: #1e3a5f;
+  font-weight: 700;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #2980b9;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+h3, .h3, h4, .h4 {
+  color: #1e3a5f;
+  font-weight: 600;
+}
+
+/* Links */
+a {
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #1e3a5f;
+}
+
+/* Code blocks */
+pre {
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  border: 1px solid #e1e8ed;
+}
+
+code {
+  border-radius: 4px;
+}
+
+/* Footer */
+.footer {
+  background: #1e3a5f;
+  color: rgba(255,255,255,0.7);
+}
+
+.footer a {
+  color: rgba(255,255,255,0.85);
+}
+
+.footer a:hover {
+  color: #ffffff;
+}
+
+/* Reference table */
+.table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Badge styling */
+.badge {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}

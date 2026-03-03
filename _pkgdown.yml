@@ -1,6 +1,26 @@
 url: https://ksatohds.github.io/nmfkc/
 
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#1e3a5f"
+    secondary: "#6c7a89"
+    info: "#2980b9"
+    link-color: "#2980b9"
+    bg: "#fafbfc"
+    fg: "#2c3e50"
+    base_font:
+      google: "Noto Sans JP"
+    heading_font:
+      google: "Inter"
+    code_font:
+      google: "Fira Code"
+    border-radius: "8px"
+    font-size-base: "0.95rem"
+
 navbar:
+  bg: "#1e3a5f"
+  type: dark
   structure:
     left:  [reference, articles, news, manual]
     right: [github]
