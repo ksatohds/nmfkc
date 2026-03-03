@@ -224,7 +224,7 @@ $$Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)$$
 -   Satoh, K. (2024) Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv preprint arXiv:2403.05359. <https://arxiv.org/abs/2403.05359>
 -   Satoh, K. (2025) Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model, Japanese Journal of Statistics and Data Science, in press. <https://doi.org/10.1007/s42081-025-00314-0>
 -   Satoh, K. (2025) Applying non-negative matrix factorization with covariates to label matrix for classification. arXiv preprint arXiv:2510.10375. <https://arxiv.org/abs/2510.10375>
--   Satoh, K. (2026) Wild Bootstrap Inference for Non-Negative Matrix Factorization with Random Effects. (in preparation)
+-   Satoh, K. (2026) Wild Bootstrap Inference for Non-Negative Matrix Factorization with Random Effects. arXiv:2603.01468. <https://arxiv.org/abs/2603.01468>
 
 
 # References
