@@ -22,9 +22,12 @@ navbar:
   bg: "#1e3a5f"
   type: dark
   structure:
-    left:  [reference, articles, news, manual]
+    left:  [home, reference, articles, news, manual]
     right: [github]
   components:
+    home:
+      text: Homepage
+      href: https://ksatohds.github.io/english.html
     manual:
       text: PDF Manual
       href: nmfkc-manual.pdf
