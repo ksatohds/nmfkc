@@ -932,4 +932,4 @@ legend("topleft",
 
 # Author
 
--   Kenichi Satoh, [homepage](https://sites.google.com/view/ksatoh/english)
+-   Kenichi Satoh, [homepage](https://ksatohds.github.io/english.html)
