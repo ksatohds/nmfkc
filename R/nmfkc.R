@@ -14,6 +14,175 @@
 
 
 
+#' @title Create a Gaussian kernel matrix from covariates
+#' @description
+#' \code{nmfkc.kernel.gaussian} constructs a Gaussian (RBF) kernel matrix from covariate matrices.
+#' The kernel is defined as \eqn{K(u,v) = \exp(-\beta \|u - v\|^2)}.
+#' When \code{V} contains \code{NA} values, two methods are available via \code{na.method}:
+#' \describe{
+#'   \item{\code{"pds"}}{Partial Distance Strategy. Computes the kernel using only observed (non-NA) rows,
+#'     with beta adjusted by \eqn{\beta_{adj} = \beta \times K / K_{obs}} where \eqn{K} is the total number of rows
+#'     and \eqn{K_{obs}} is the number of observed rows.}
+#'   \item{\code{"egk"}}{Expected Gaussian Kernel (Mesquita et al., 2019). Uses a Gaussian Mixture Model (GMM)
+#'     to estimate the conditional distribution of missing values given observed values,
+#'     then computes the expected kernel value via a Gamma approximation.
+#'     Requires \code{gmm.means}, \code{gmm.sigmas}, and \code{gmm.weights} passed through \code{...}.}
+#' }
+#'
+#' @param U Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.
+#' @param V Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}. May contain \code{NA} values.
+#' @param beta Bandwidth parameter for the Gaussian kernel. Default is \code{0.5}.
+#' @param na.method Method for handling \code{NA} values in \code{V}. Either \code{"pds"} or \code{"egk"}. Ignored if \code{V} has no \code{NA}.
+#' @param ... Additional arguments for EGK method:
+#'   \describe{
+#'     \item{\code{gmm.G}}{Number of GMM components for EGK. Default is \code{3} (Mesquita et al., 2019).}
+#'   }
+#'
+#' @return Kernel matrix \eqn{A(N,M)}.
+#' @seealso \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.kernel.beta.cv}}, \code{\link{nmfkc.kernel.beta.nearest.med}}
+#' @export
+#' @source Mesquita, D., Gomes, J. P., & Rodrigues, L. R. (2019).
+#'   Gaussian kernels for incomplete data. \emph{Applied Soft Computing}, 77, 356--365.
+#' @examples
+#' U <- matrix(c(5,10,15,20,25),nrow=1)
+#' V <- matrix(1:25,nrow=1)
+#' A <- nmfkc.kernel.gaussian(U,V,beta=28/1000)
+#' dim(A)
+#'
+#' # PDS example: V with NA in first row
+#' U2 <- matrix(rnorm(20), nrow=2)
+#' V2 <- matrix(rnorm(10), nrow=2)
+#' V2[1, c(2,4)] <- NA
+#' A2 <- nmfkc.kernel.gaussian(U2, V2, beta=0.5, na.method="pds")
+
+nmfkc.kernel.gaussian <- function(U, V = NULL, beta = 0.5,
+                                   na.method = c("pds", "egk"), ...){
+  extra_args <- base::list(...)
+  U <- as.matrix(U); storage.mode(U) <- "double"
+  if (is.null(V)) V <- U else V <- as.matrix(V)
+  storage.mode(V) <- "double"
+  if (nrow(U) == 0) stop("'U' must have at least one row (feature).")
+  if (nrow(U) != nrow(V)) stop("'U' and 'V' must have the same number of rows (features).")
+  na.method <- match.arg(na.method)
+
+  has_na <- anyNA(V)
+
+  if (!has_na) {
+    # --- No NA: fast vectorized computation ---
+    G <- crossprod(U, V)
+    u2 <- colSums(U * U)
+    v2 <- colSums(V * V)
+    D2 <- outer(u2, v2, "+") - 2 * G
+    D2 <- pmax(D2, 0)
+    K <- exp(-beta * D2)
+  } else if (na.method == "pds") {
+    # --- PDS: Partial Distance Strategy ---
+    N <- ncol(U); M <- ncol(V); P <- nrow(U)
+    K <- matrix(0, N, M)
+    for (j in seq_len(M)) {
+      obs <- !is.na(V[, j])
+      P_obs <- sum(obs)
+      if (P_obs == 0) next
+      beta_adj <- beta * (P / P_obs)
+      d2_j <- colSums((U[obs, , drop = FALSE] - V[obs, j])^2)
+      K[, j] <- exp(-beta_adj * d2_j)
+    }
+  } else {
+    # --- EGK: Expected Gaussian Kernel ---
+    if (!requireNamespace("mclust", quietly = TRUE))
+      stop("na.method='egk' requires the 'mclust' package. Install it with: install.packages('mclust')")
+    gmm_G <- if (!is.null(extra_args$gmm.G)) extra_args$gmm.G else 3
+    gmm <- mclust::Mclust(t(U), G = gmm_G, verbose = FALSE)
+    gmm_means   <- gmm$parameters$mean
+    gmm_sigmas  <- gmm$parameters$variance$sigma
+    gmm_weights <- gmm$parameters$pro
+    C_gmm <- length(gmm_weights)
+    N <- ncol(U); M <- ncol(V); P <- nrow(U)
+    K <- matrix(0, N, M)
+
+    for (j in seq_len(M)) {
+      obs_idx  <- which(!is.na(V[, j]))
+      miss_idx <- which(is.na(V[, j]))
+      P_obs  <- length(obs_idx)
+      P_miss <- length(miss_idx)
+
+      if (P_miss == 0) {
+        # No missing: standard kernel
+        d2_j <- colSums((U - V[, j])^2)
+        K[, j] <- exp(-beta * d2_j)
+        next
+      }
+      if (P_obs == 0) next
+
+      x_obs <- V[obs_idx, j]
+
+      # Conditional moments from GMM
+      resp <- numeric(C_gmm)
+      cond_mean_list <- vector("list", C_gmm)
+      cond_var_list  <- vector("list", C_gmm)
+
+      for (cc in seq_len(C_gmm)) {
+        mu_O <- gmm_means[obs_idx, cc]
+        mu_M <- gmm_means[miss_idx, cc]
+        Sig_OO <- gmm_sigmas[obs_idx, obs_idx, cc]
+        Sig_MO <- gmm_sigmas[miss_idx, obs_idx, cc]
+        Sig_OM <- gmm_sigmas[obs_idx, miss_idx, cc]
+        Sig_MM <- gmm_sigmas[miss_idx, miss_idx, cc]
+
+        Sig_OO_inv <- solve(Sig_OO)
+        diff_o <- x_obs - mu_O
+        cond_mean_list[[cc]] <- as.vector(mu_M + Sig_MO %*% Sig_OO_inv %*% diff_o)
+        cond_cov <- Sig_MM - Sig_MO %*% Sig_OO_inv %*% Sig_OM
+        cond_var_list[[cc]] <- pmax(diag(cond_cov), 0)
+
+        log_lik <- -0.5 * (P_obs * log(2 * pi) +
+                            determinant(Sig_OO, logarithm = TRUE)$modulus +
+                            sum(diff_o * (Sig_OO_inv %*% diff_o)))
+        resp[cc] <- log(gmm_weights[cc]) + log_lik
+      }
+
+      # Normalize responsibilities (log-sum-exp trick)
+      resp <- exp(resp - max(resp))
+      resp <- resp / sum(resp)
+
+      # Mixture moments for missing dimensions
+      E_x_miss  <- rep(0, P_miss)
+      E_x2_miss <- rep(0, P_miss)
+      for (cc in seq_len(C_gmm)) {
+        E_x_miss  <- E_x_miss  + resp[cc] * cond_mean_list[[cc]]
+        E_x2_miss <- E_x2_miss + resp[cc] * (cond_mean_list[[cc]]^2 + cond_var_list[[cc]])
+      }
+      Var_x_miss <- pmax(E_x2_miss - E_x_miss^2, 0)
+
+      # Compute EGK for each training sample
+      for (i in seq_len(N)) {
+        Ez_obs <- sum((U[obs_idx, i] - x_obs)^2)
+        diff_miss <- U[miss_idx, i] - E_x_miss
+        Ez_miss <- sum(diff_miss^2 + Var_x_miss)
+        Ez <- Ez_obs + Ez_miss
+        Varz <- sum(4 * diff_miss^2 * Var_x_miss + 2 * Var_x_miss^2)
+
+        if (Varz < 1e-30) {
+          K[i, j] <- exp(-beta * Ez)
+        } else {
+          alpha_g <- Ez^2 / Varz
+          beta_g  <- Ez / Varz
+          K[i, j] <- (beta_g / (beta_g + beta))^alpha_g
+        }
+      }
+    }
+  }
+
+  K[K < 0] <- 0
+  dimnames(K) <- list(colnames(U), colnames(V))
+  attr(K, "params") <- beta
+  attr(K, "kernel") <- "Gaussian"
+  attr(K, "function.name") <- "nmfkc.kernel.gaussian"
+  if (has_na) attr(K, "na.method") <- na.method
+  return(K)
+}
+
+
 #' @title Create a kernel matrix from covariates
 #' @description
 #' \code{nmfkc.kernel} constructs a kernel matrix from covariate matrices.
@@ -77,7 +246,11 @@ nmfkc.kernel <- function(U, V = NULL,
   K <- switch(kernel,
               Gaussian ={
                 beta <- if (!is.null(k_params$beta)) k_params$beta else 0.5
-                exp(-beta * D2)
+                na_method <- if (!is.null(k_params$na.method)) k_params$na.method else "pds"
+                KG <- nmfkc.kernel.gaussian(U, V, beta, na.method = na_method,
+                                             gmm.G = k_params$gmm.G)
+                attr(KG, "function.name") <- "nmfkc.kernel"
+                KG
               },
               Exponential = {
                 beta <- if (!is.null(k_params$beta)) k_params$beta else 0.5
