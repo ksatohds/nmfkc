@@ -4,7 +4,7 @@
 \alias{nmfkc.inference}
 \title{Statistical inference for the parameter matrix C (Theta)}
 \usage{
-nmfkc.inference(object, Y, A = NULL, ...)
+nmfkc.inference(object, Y, A = NULL, wild.bootstrap = TRUE, ...)
 }
 \arguments{
 \item{object}{An object of class \code{"nmfkc"} returned by \code{\link{nmfkc}}.}
@@ -13,6 +13,10 @@ nmfkc.inference(object, Y, A = NULL, ...)
 
 \item{A}{Covariate matrix (K x N). Default is \code{NULL} (same as identity;
 in this case \eqn{B = C} and inference is on \eqn{B} directly).}
+
+\item{wild.bootstrap}{Logical. If \code{TRUE} (default), performs wild bootstrap
+for confidence intervals and bootstrap standard errors. Set to \code{FALSE}
+to skip bootstrap (faster, only sandwich SE is computed).}
 
 \item{...}{Additional arguments:
 \describe{

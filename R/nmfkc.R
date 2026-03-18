@@ -2849,6 +2849,9 @@ nmfkc.residual.plot <- function(Y, result,
 #' @param Y Observation matrix (P x N). Must match the data used in \code{nmfkc()}.
 #' @param A Covariate matrix (K x N). Default is \code{NULL} (same as identity;
 #'   in this case \eqn{B = C} and inference is on \eqn{B} directly).
+#' @param wild.bootstrap Logical. If \code{TRUE} (default), performs wild bootstrap
+#'   for confidence intervals and bootstrap standard errors. Set to \code{FALSE}
+#'   to skip bootstrap (faster, only sandwich SE is computed).
 #' @param ... Additional arguments:
 #'   \describe{
 #'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
@@ -2879,7 +2882,8 @@ nmfkc.residual.plot <- function(Y, result,
 #' result2 <- nmfkc.inference(result, Y, A)
 #' summary(result2)
 #'
-nmfkc.inference <- function(object, Y, A = NULL, ...) {
+nmfkc.inference <- function(object, Y, A = NULL,
+                            wild.bootstrap = TRUE, ...) {
   if (!inherits(object, "nmfkc")) stop("object must be of class 'nmfkc'")
 
   extra_args <- base::list(...)
@@ -2945,42 +2949,48 @@ nmfkc.inference <- function(object, Y, A = NULL, ...) {
   C.se <- matrix(se_vec, nrow = Q, ncol = K, byrow = FALSE)
 
   # ---- Wild bootstrap (one-step Newton) ----
-  set.seed(wild.seed)
-  Xt <- t(X)
-  score_mat <- matrix(0, Q * K, N)
-  for (n in 1:N) {
-    a_n <- A[, n, drop = FALSE]
-    r_n <- R_C[, n, drop = FALSE]
-    g_n <- Xt %*% r_n
-    G_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
-    score_mat[, n] <- as.vector(G_n)
+  C.se.boot <- NULL
+  C.ci.lower <- NULL
+  C.ci.upper <- NULL
+
+  if (isTRUE(wild.bootstrap)) {
+    set.seed(wild.seed)
+    Xt <- t(X)
+    score_mat <- matrix(0, Q * K, N)
+    for (n in 1:N) {
+      a_n <- A[, n, drop = FALSE]
+      r_n <- R_C[, n, drop = FALSE]
+      g_n <- Xt %*% r_n
+      G_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
+      score_mat[, n] <- as.vector(G_n)
+    }
+
+    C_hat_vec <- as.vector(C_mat)
+    C_boot <- matrix(NA_real_, nrow = Q * K, ncol = wild.B)
+    for (b in 1:wild.B) {
+      w <- stats::rexp(N, rate = 1) - 1   # Exp(1)-centered multiplier
+      grad_b <- as.vector(score_mat %*% w)
+      c_b <- C_hat_vec - as.vector(Hinv %*% grad_b)
+      c_b <- pmax(c_b, 0)   # project onto C >= 0
+      C_boot[, b] <- c_b
+    }
+
+    # Bootstrap SE
+    sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
+    C.se.boot <- matrix(sd_vec, nrow = Q, ncol = K, byrow = FALSE)
+
+    # Bootstrap CI
+    alpha <- 1 - wild.level
+    lo <- apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
+    hi <- apply(C_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
+    C.ci.lower <- matrix(lo, nrow = Q, ncol = K, byrow = FALSE)
+    C.ci.upper <- matrix(hi, nrow = Q, ncol = K, byrow = FALSE)
   }
-
-  C_hat_vec <- as.vector(C_mat)
-  C_boot <- matrix(NA_real_, nrow = Q * K, ncol = wild.B)
-  for (b in 1:wild.B) {
-    w <- stats::rexp(N, rate = 1) - 1   # Exp(1)-centered multiplier
-    grad_b <- as.vector(score_mat %*% w)
-    c_b <- C_hat_vec - as.vector(Hinv %*% grad_b)
-    c_b <- pmax(c_b, 0)   # project onto C >= 0
-    C_boot[, b] <- c_b
-  }
-
-  # Bootstrap SE
-  sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
-  C.se.boot <- matrix(sd_vec, nrow = Q, ncol = K, byrow = FALSE)
-
-  # Bootstrap CI
-  alpha <- 1 - wild.level
-  lo <- apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
-  hi <- apply(C_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
-  C.ci.lower <- matrix(lo, nrow = Q, ncol = K, byrow = FALSE)
-  C.ci.upper <- matrix(hi, nrow = Q, ncol = K, byrow = FALSE)
 
   # ---- Coefficients table ----
   Estimate <- as.vector(C_mat)
   SE <- as.vector(C.se)
-  BSE <- as.vector(C.se.boot)
+  BSE <- if (!is.null(C.se.boot)) as.vector(C.se.boot) else rep(NA_real_, length(Estimate))
   z_value <- ifelse(SE > 0, Estimate / SE, NA_real_)
 
   if (C.p.side == "one.sided") {
@@ -3001,12 +3011,18 @@ nmfkc.inference <- function(object, Y, A = NULL, ...) {
     BSE      = BSE,
     z_value  = z_value,
     p_value  = p_value,
-    CI_low   = as.vector(C.ci.lower),
-    CI_high  = as.vector(C.ci.upper),
+    CI_low   = if (!is.null(C.ci.lower)) as.vector(C.ci.lower) else NA_real_,
+    CI_high  = if (!is.null(C.ci.upper)) as.vector(C.ci.upper) else NA_real_,
     row.names = NULL, stringsAsFactors = FALSE
   )
 
-  if (print.trace) message("  Inference: sandwich SE + wild bootstrap done.")
+  if (print.trace) {
+    if (isTRUE(wild.bootstrap)) {
+      message("  Inference: sandwich SE + wild bootstrap done.")
+    } else {
+      message("  Inference: sandwich SE done (wild bootstrap skipped).")
+    }
+  }
 
   # Add inference fields to the object
   object$sigma2.used  <- sigma2.used
