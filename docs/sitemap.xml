@@ -28,6 +28,7 @@
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmfkc.DOT.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmfkc.html</loc></url>
+<url><loc>https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.beta.cv.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.beta.nearest.med.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.gaussian.html</loc></url>
@@ -39,8 +40,11 @@
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmfre.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmfkc.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/predict.nmfkc.html</loc></url>
+<url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmfkc.inference.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.html</loc></url>
+<url><loc>https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.inference.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.html</loc></url>
+<url><loc>https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.inference.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/summary.nmfre.html</loc></url>
 </urlset>
 

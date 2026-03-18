@@ -2834,4 +2834,257 @@ nmfkc.residual.plot <- function(Y, result,
 }
 
 
+#' @title Statistical inference for the parameter matrix C (Theta)
+#' @description
+#' \code{nmfkc.inference} performs statistical inference on the parameter matrix
+#' \eqn{C} (\eqn{\Theta}) from a fitted \code{nmfkc} model, conditional on
+#' the estimated basis matrix \eqn{\hat{X}}.
+#'
+#' Under the working model \eqn{Y = X C A + \varepsilon} where
+#' \eqn{\varepsilon_{pn} \stackrel{iid}{\sim} N(0, \sigma^2)},
+#' inference is conducted via sandwich covariance estimation and
+#' one-step wild bootstrap with non-negative projection.
+#'
+#' @param object An object of class \code{"nmfkc"} returned by \code{\link{nmfkc}}.
+#' @param Y Observation matrix (P x N). Must match the data used in \code{nmfkc()}.
+#' @param A Covariate matrix (K x N). Default is \code{NULL} (same as identity;
+#'   in this case \eqn{B = C} and inference is on \eqn{B} directly).
+#' @param ... Additional arguments:
+#'   \describe{
+#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
+#'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
+#'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
+#'     \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
+#'     \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
+#'     \item{\code{cov.ridge}}{Ridge stabilization for information matrix inversion. Default is 1e-8.}
+#'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+#'   }
+#'
+#' @return An object of class \code{c("nmfkc.inference", "nmfkc")}, inheriting all
+#' components from the input \code{object}, with additional inference components:
+#' \item{sigma2.used}{Estimated \eqn{\sigma^2} used for inference.}
+#' \item{C.se}{Sandwich standard errors for \eqn{C} (Q x K matrix).}
+#' \item{C.se.boot}{Bootstrap standard errors for \eqn{C} (Q x K matrix).}
+#' \item{C.ci.lower}{Lower CI bounds for \eqn{C} (Q x K matrix).}
+#' \item{C.ci.upper}{Upper CI bounds for \eqn{C} (Q x K matrix).}
+#' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{C}.}
+#' \item{C.p.side}{P-value type used.}
+#'
+#' @seealso \code{\link{nmfkc}}, \code{\link{summary.nmfkc.inference}}
+#' @export
+#' @examples
+#' Y <- matrix(cars$dist, nrow = 1)
+#' A <- rbind(1, cars$speed)
+#' result <- nmfkc(Y, A, Q = 1)
+#' result2 <- nmfkc.inference(result, Y, A)
+#' summary(result2)
+#'
+nmfkc.inference <- function(object, Y, A = NULL, ...) {
+  if (!inherits(object, "nmfkc")) stop("object must be of class 'nmfkc'")
+
+  extra_args <- base::list(...)
+  wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 1000
+  wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 42
+  wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
+  sandwich    <- if (!is.null(extra_args$sandwich))     extra_args$sandwich    else TRUE
+  C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
+  cov.ridge   <- if (!is.null(extra_args$cov.ridge))   extra_args$cov.ridge   else 1e-8
+  print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
+
+  X <- object$X   # P x Q
+  C_mat <- object$C   # Q x K (or Q x N if A is NULL)
+
+  # If A is NULL, use identity (B = C)
+  if (is.null(A)) A <- diag(ncol(Y))
+
+  XB <- X %*% C_mat %*% A   # P x N  fitted values
+  Q <- ncol(X)
+  K <- nrow(A)
+  P <- nrow(Y)
+  N <- ncol(Y)
+
+  R_C <- Y - XB   # P x N  residuals
+
+  # sigma2 estimate (denominator: PN - QK)
+  denom <- max(P * N - Q * K, 1)
+  sigma2.used <- sum(R_C^2) / denom
+
+  # Information matrix: I = sigma^{-2} (AA' x X'X)
+  XtX <- crossprod(X)       # Q x Q
+  AAt <- tcrossprod(A)      # K x K
+  Info_core <- kronecker(AAt, XtX)   # QK x QK
+  Info <- Info_core / max(sigma2.used, 1e-12)
+  Info <- Info + diag(cov.ridge, nrow(Info))
+
+  Hinv <- tryCatch(solve(Info), error = function(e) {
+    if (requireNamespace("MASS", quietly = TRUE)) MASS::ginv(Info)
+    else stop("Information matrix singular; install MASS package.")
+  })
+
+  # Sandwich covariance: V = Hinv J Hinv
+  V_sand <- NULL
+  if (isTRUE(sandwich)) {
+    Xt <- t(X)
+    J <- matrix(0, Q * K, Q * K)
+    for (n in 1:N) {
+      a_n <- A[, n, drop = FALSE]
+      r_n <- R_C[, n, drop = FALSE]
+      g_n <- Xt %*% r_n
+      S_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
+      s_n <- as.vector(S_n)
+      J <- J + tcrossprod(s_n)
+    }
+    if (N > 1) J <- (N / (N - 1)) * J   # CR1 correction
+    V_sand <- Hinv %*% J %*% Hinv
+  }
+
+  C.vec.cov <- if (!is.null(V_sand)) V_sand else Hinv
+
+  # Sandwich SE
+  se_vec <- sqrt(pmax(diag(C.vec.cov), 0))
+  C.se <- matrix(se_vec, nrow = Q, ncol = K, byrow = FALSE)
+
+  # ---- Wild bootstrap (one-step Newton) ----
+  set.seed(wild.seed)
+  Xt <- t(X)
+  score_mat <- matrix(0, Q * K, N)
+  for (n in 1:N) {
+    a_n <- A[, n, drop = FALSE]
+    r_n <- R_C[, n, drop = FALSE]
+    g_n <- Xt %*% r_n
+    G_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
+    score_mat[, n] <- as.vector(G_n)
+  }
+
+  C_hat_vec <- as.vector(C_mat)
+  C_boot <- matrix(NA_real_, nrow = Q * K, ncol = wild.B)
+  for (b in 1:wild.B) {
+    w <- stats::rexp(N, rate = 1) - 1   # Exp(1)-centered multiplier
+    grad_b <- as.vector(score_mat %*% w)
+    c_b <- C_hat_vec - as.vector(Hinv %*% grad_b)
+    c_b <- pmax(c_b, 0)   # project onto C >= 0
+    C_boot[, b] <- c_b
+  }
+
+  # Bootstrap SE
+  sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
+  C.se.boot <- matrix(sd_vec, nrow = Q, ncol = K, byrow = FALSE)
+
+  # Bootstrap CI
+  alpha <- 1 - wild.level
+  lo <- apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
+  hi <- apply(C_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
+  C.ci.lower <- matrix(lo, nrow = Q, ncol = K, byrow = FALSE)
+  C.ci.upper <- matrix(hi, nrow = Q, ncol = K, byrow = FALSE)
+
+  # ---- Coefficients table ----
+  Estimate <- as.vector(C_mat)
+  SE <- as.vector(C.se)
+  BSE <- as.vector(C.se.boot)
+  z_value <- ifelse(SE > 0, Estimate / SE, NA_real_)
+
+  if (C.p.side == "one.sided") {
+    p_value <- ifelse(is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
+  } else {
+    p_value <- ifelse(is.finite(z_value), 1 - stats::pchisq(z_value^2, df = 1), NA_real_)
+  }
+
+  # Row/column labels for C
+  rlabs <- if (!is.null(rownames(C_mat))) rownames(C_mat) else paste0("Basis", 1:Q)
+  clabs <- if (!is.null(colnames(C_mat))) colnames(C_mat) else paste0("Cov", 1:K)
+
+  coefficients <- data.frame(
+    Basis    = rep(rlabs, times = K),
+    Covariate = rep(clabs, each = Q),
+    Estimate = Estimate,
+    SE       = SE,
+    BSE      = BSE,
+    z_value  = z_value,
+    p_value  = p_value,
+    CI_low   = as.vector(C.ci.lower),
+    CI_high  = as.vector(C.ci.upper),
+    row.names = NULL, stringsAsFactors = FALSE
+  )
+
+  if (print.trace) message("  Inference: sandwich SE + wild bootstrap done.")
+
+  # Add inference fields to the object
+  object$sigma2.used  <- sigma2.used
+  object$C.se         <- C.se
+  object$C.se.boot    <- C.se.boot
+  object$C.ci.lower   <- C.ci.lower
+  object$C.ci.upper   <- C.ci.upper
+  object$coefficients <- coefficients
+  object$C.p.side     <- C.p.side
+  class(object) <- c("nmfkc.inference", "nmfkc")
+  return(object)
+}
+
+
+#' @title Summary method for nmfkc.inference objects
+#' @description
+#' Produces a summary of a fitted NMF model with inference results,
+#' including the coefficients table for \eqn{C} (\eqn{\Theta}).
+#'
+#' @param object An object of class \code{"nmfkc.inference"}.
+#' @param ... Additional arguments (currently unused).
+#' @return An object of class \code{"summary.nmfkc.inference"}.
+#' @seealso \code{\link{nmfkc.inference}}, \code{\link{summary.nmfkc}}
+#' @export
+summary.nmfkc.inference <- function(object, ...) {
+  ans <- summary.nmfkc(object, ...)
+  ans$sigma2.used  <- object$sigma2.used
+  ans$coefficients <- object$coefficients
+  ans$C.p.side     <- object$C.p.side
+  class(ans) <- "summary.nmfkc.inference"
+  return(ans)
+}
+
+
+#' @title Print method for summary.nmfkc.inference objects
+#' @description
+#' Prints a formatted summary including the coefficients table.
+#' @param x An object of class \code{"summary.nmfkc.inference"}.
+#' @param digits Minimum number of significant digits.
+#' @param max.coef Maximum coefficient rows to display. Default is 20.
+#' @param ... Additional arguments (currently unused).
+#' @return Called for its side effect (printing). Returns \code{x} invisibly.
+#' @seealso \code{\link{summary.nmfkc.inference}}
+#' @export
+print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits") - 3L),
+                                           max.coef = 20, ...) {
+  # Print base summary
+  print.summary.nmfkc(x, digits = digits, ...)
+
+  # Print inference section
+  cat("Inference (conditional on X):\n")
+  cat("  sigma^2:  ", format(x$sigma2.used, digits = digits), "\n")
+  cat("  p-value:  ", x$C.p.side, "\n\n")
+
+  cat("Coefficients (C = Theta):\n")
+  coef_df <- x$coefficients
+  nr <- nrow(coef_df)
+  if (nr > max.coef) {
+    print(coef_df[1:max.coef, ], digits = digits, row.names = FALSE)
+    cat(sprintf("  ... (%d more rows)\n", nr - max.coef))
+  } else {
+    print(coef_df, digits = digits, row.names = FALSE)
+  }
+  cat("\n")
+  invisible(x)
+}
+
+
+#' @title Print method for nmfkc.inference objects
+#' @description
+#' Prints a summary of the NMF model with inference results.
+#' @param x An object of class \code{"nmfkc.inference"}.
+#' @param ... Additional arguments passed to \code{\link{print.summary.nmfkc.inference}}.
+#' @return Called for its side effect (printing). Returns \code{x} invisibly.
+#' @seealso \code{\link{nmfkc.inference}}, \code{\link{summary.nmfkc.inference}}
+#' @export
+print.nmfkc.inference <- function(x, ...) {
+  print(summary(x), ...)
+  invisible(x)
+}
 
