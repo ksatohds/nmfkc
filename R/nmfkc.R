@@ -2878,7 +2878,7 @@ nmfkc.residual.plot <- function(Y, result,
 #' @export
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
-#' A <- rbind(1, cars$speed)
+#' A <- rbind(intercept = 1, speed = cars$speed)
 #' result <- nmfkc(Y, A, Q = 1)
 #' result2 <- nmfkc.inference(result, Y, A)
 #' summary(result2)
@@ -3001,11 +3001,11 @@ nmfkc.inference <- function(object, Y, A = NULL,
   }
 
   # Row/column labels for C (rows = X columns = Basis, cols = A rows = Covariate)
-  rlabs <- if (!is.null(rownames(C_mat))) rownames(C_mat)
-           else if (!is.null(colnames(X))) colnames(X)
+  rlabs <- if (!is.null(colnames(X))) colnames(X)
+           else if (!is.null(rownames(C_mat))) rownames(C_mat)
            else paste0("Basis", 1:Q)
-  clabs <- if (!is.null(colnames(C_mat))) colnames(C_mat)
-           else if (!is.null(rownames(A))) rownames(A)
+  clabs <- if (!is.null(rownames(A))) rownames(A)
+           else if (!is.null(colnames(C_mat))) colnames(C_mat)
            else paste0("Cov", 1:K)
 
   coefficients <- data.frame(

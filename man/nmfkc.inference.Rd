@@ -52,7 +52,7 @@ one-step wild bootstrap with non-negative projection.
 }
 \examples{
 Y <- matrix(cars$dist, nrow = 1)
-A <- rbind(1, cars$speed)
+A <- rbind(intercept = 1, speed = cars$speed)
 result <- nmfkc(Y, A, Q = 1)
 result2 <- nmfkc.inference(result, Y, A)
 summary(result2)
