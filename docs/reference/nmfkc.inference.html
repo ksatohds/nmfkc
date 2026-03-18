@@ -66,7 +66,7 @@ one-step wild bootstrap with non-negative projection.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfkc.inference</span><span class="op">(</span><span class="va">object</span>, <span class="va">Y</span>, A <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfkc.inference</span><span class="op">(</span><span class="va">object</span>, <span class="va">Y</span>, A <span class="op">=</span> <span class="cn">NULL</span>, wild.bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -84,6 +84,12 @@ one-step wild bootstrap with non-negative projection.</p>
 <dt id="arg-a">A<a class="anchor" aria-label="anchor" href="#arg-a"></a></dt>
 <dd><p>Covariate matrix (K x N). Default is <code>NULL</code> (same as identity;
 in this case \(B = C\) and inference is on \(B\) directly).</p></dd>
+
+
+<dt id="arg-wild-bootstrap">wild.bootstrap<a class="anchor" aria-label="anchor" href="#arg-wild-bootstrap"></a></dt>
+<dd><p>Logical. If <code>TRUE</code> (default), performs wild bootstrap
+for confidence intervals and bootstrap standard errors. Set to <code>FALSE</code>
+to skip bootstrap (faster, only sandwich SE is computed).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -178,12 +184,13 @@ components from the input <code>object</code>, with additional inference compone
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Inference (conditional on X):</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   sigma^2:   270.5 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   p-value:   one.sided </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Coefficients (C = Theta):</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Basis Covariate Estimate     SE    BSE z_value   p_value CI_low CI_high</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  Basis1      Cov1   0.1564 6.5124 3.3887 0.02401 4.904e-01  0.000  10.751</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  Basis1      Cov2   2.8996 0.4642 0.4651 6.24623 2.102e-10  2.177   3.916</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Coefficients (conditional on X): 2 total, 1 significant</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Cov:Basis  Estimate Std. Error (Boot) z value   Pr(&gt;z) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Cov1:Basis1     0.156      6.512  3.389    0.02   0.4904  </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Cov2:Basis1     2.900      0.464  0.465    6.25 2.102e-10 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

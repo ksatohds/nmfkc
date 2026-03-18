@@ -79,6 +79,7 @@ above the threshold are omitted from the visualization.</p>
 <span>  <span class="va">x</span>,</span>
 <span>  type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"YX"</span>, <span class="st">"YA"</span>, <span class="st">"YXA"</span><span class="op">)</span>,</span>
 <span>  threshold <span class="op">=</span> <span class="fl">0.01</span>,</span>
+<span>  sig.level <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  rankdir <span class="op">=</span> <span class="st">"LR"</span>,</span>
 <span>  fill <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  weight_scale <span class="op">=</span> <span class="fl">5</span>,</span>
@@ -110,6 +111,14 @@ one of <code>"YX"</code>, <code>"YA"</code>, <code>"YXA"</code>.</p></dd>
 
 <dt id="arg-threshold">threshold<a class="anchor" aria-label="anchor" href="#arg-threshold"></a></dt>
 <dd><p>Minimum coefficient magnitude to display an edge.</p></dd>
+
+
+<dt id="arg-sig-level">sig.level<a class="anchor" aria-label="anchor" href="#arg-sig-level"></a></dt>
+<dd><p>Significance level for filtering C edges when inference
+results are available (i.e., <code>x</code> is of class <code>"nmfkc.inference"</code>).
+Only edges with p-value below <code>sig.level</code> are shown, decorated with
+significance stars (<code>*</code>, <code>**</code>, <code>***</code>). Set to <code>NULL</code>
+to disable filtering and show all edges above <code>threshold</code>. Default is 0.1.</p></dd>
 
 
 <dt id="arg-rankdir">rankdir<a class="anchor" aria-label="anchor" href="#arg-rankdir"></a></dt>
