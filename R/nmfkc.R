@@ -1362,6 +1362,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]; C <- C[index,,drop=FALSE]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
+  if (!is.null(A) && !is.null(rownames(A))) colnames(C) <- rownames(A)
   rownames(X) <- rownames(Y); colnames(X) <- paste0(prefix,1:ncol(X))
   rownames(B) <- paste0(prefix,1:nrow(B)); colnames(B) <- colnames(Y)
 
@@ -2999,9 +3000,13 @@ nmfkc.inference <- function(object, Y, A = NULL,
     p_value <- ifelse(is.finite(z_value), 1 - stats::pchisq(z_value^2, df = 1), NA_real_)
   }
 
-  # Row/column labels for C
-  rlabs <- if (!is.null(rownames(C_mat))) rownames(C_mat) else paste0("Basis", 1:Q)
-  clabs <- if (!is.null(colnames(C_mat))) colnames(C_mat) else paste0("Cov", 1:K)
+  # Row/column labels for C (rows = X columns = Basis, cols = A rows = Covariate)
+  rlabs <- if (!is.null(rownames(C_mat))) rownames(C_mat)
+           else if (!is.null(colnames(X))) colnames(X)
+           else paste0("Basis", 1:Q)
+  clabs <- if (!is.null(colnames(C_mat))) colnames(C_mat)
+           else if (!is.null(rownames(A))) rownames(A)
+           else paste0("Cov", 1:K)
 
   coefficients <- data.frame(
     Basis    = rep(rlabs, times = K),
