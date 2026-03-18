@@ -1449,5 +1449,29 @@ nmfkc.DOT <- function(
     }
   }
 
-  paste0(scr, "}\n")
+  result <- paste0(scr, "}\n")
+  class(result) <- "nmfkc.DOT"
+  result
+}
+
+
+#' @title Plot method for nmfkc.DOT objects
+#' @description
+#' Renders a DOT graph string using \code{DiagrammeR::grViz}.
+#' If the \pkg{DiagrammeR} package is not installed, prints the DOT source
+#' to the console instead.
+#'
+#' @param x An object of class \code{"nmfkc.DOT"} returned by \code{\link{nmfkc.DOT}}.
+#' @param ... Not used.
+#' @return Called for its side effect (rendering). Returns \code{x} invisibly.
+#' @seealso \code{\link{nmfkc.DOT}}
+#' @export
+plot.nmfkc.DOT <- function(x, ...) {
+  if (requireNamespace("DiagrammeR", quietly = TRUE)) {
+    print(DiagrammeR::grViz(as.character(x)))
+  } else {
+    message("DiagrammeR package not installed. Printing DOT source:")
+    cat(as.character(x))
+  }
+  invisible(x)
 }
