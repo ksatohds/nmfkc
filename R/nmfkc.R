@@ -3075,17 +3075,80 @@ print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits"
   # Print inference section
   cat("Inference (conditional on X):\n")
   cat("  sigma^2:  ", format(x$sigma2.used, digits = digits), "\n")
-  cat("  p-value:  ", x$C.p.side, "\n\n")
 
-  cat("Coefficients (C = Theta):\n")
-  coef_df <- x$coefficients
-  nr <- nrow(coef_df)
-  if (nr > max.coef) {
-    print(coef_df[1:max.coef, ], digits = digits, row.names = FALSE)
-    cat(sprintf("  ... (%d more rows)\n", nr - max.coef))
-  } else {
-    print(coef_df, digits = digits, row.names = FALSE)
+  # Coefficients table (formatted like lm summary)
+  if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
+    cf <- x$coefficients
+    n_total <- nrow(cf)
+    rnames <- paste0(cf$Covariate, ":", cf$Basis)
+
+    # Determine which rows to display
+    if (n_total <= max.coef) {
+      show_idx <- seq_len(n_total)
+      truncated <- FALSE
+    } else {
+      sig_idx <- which(cf$p_value < 0.05)
+      if (length(sig_idx) == 0) {
+        show_idx <- seq_len(min(max.coef, n_total))
+        truncated <- TRUE
+      } else if (length(sig_idx) <= max.coef) {
+        show_idx <- sig_idx
+        truncated <- FALSE
+      } else {
+        show_idx <- sig_idx[seq_len(max.coef)]
+        truncated <- TRUE
+      }
+    }
+
+    n_sig <- sum(cf$p_value < 0.05, na.rm = TRUE)
+    cat(sprintf("\nCoefficients (conditional on X): %d total, %d significant\n",
+                n_total, n_sig))
+    if (n_total > max.coef) {
+      cat(sprintf("  (showing %d significant rows; use res$coefficients for full table)\n",
+                  length(show_idx)))
+    }
+
+    p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "one.sided"
+    p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
+
+    sig_stars <- function(p) {
+      ifelse(!is.finite(p), " ",
+        ifelse(p < 0.001, "***",
+          ifelse(p < 0.01, "**",
+            ifelse(p < 0.05, "*",
+              ifelse(p < 0.1, ".", " ")))))
+    }
+    format_pval <- function(p) {
+      ifelse(!is.finite(p), "      NA",
+        ifelse(p < 2.2e-16, "  <2e-16",
+          formatC(p, format = "g", digits = 4, width = 8)))
+    }
+
+    est <- formatC(cf$Estimate[show_idx], format = "f", digits = 3, width = 9)
+    se  <- formatC(cf$SE[show_idx], format = "f", digits = 3, width = 10)
+    bse <- formatC(cf$BSE[show_idx], format = "f", digits = 3, width = 6)
+    zv  <- formatC(cf$z_value[show_idx], format = "f", digits = 2, width = 7)
+    pv_str <- format_pval(cf$p_value[show_idx])
+    stars <- sig_stars(cf$p_value[show_idx])
+    show_names <- rnames[show_idx]
+
+    max_lw <- max(nchar(show_names))
+    hdr <- sprintf("%s %s %s %s %s %s",
+                   formatC("Estimate", width = 9),
+                   formatC("Std. Error", width = 10),
+                   formatC("(Boot)", width = 6),
+                   formatC("z value", width = 7),
+                   formatC(p_header, width = 8), "")
+    cat(sprintf("%s %s\n", formatC("Cov:Basis", width = max_lw), hdr))
+    for (i in seq_along(show_names)) {
+      cat(sprintf("%s %s %s %s %s %s %s\n",
+                  formatC(show_names[i], width = max_lw),
+                  est[i], se[i], bse[i], zv[i], pv_str[i], stars[i]))
+    }
+    cat("---\n")
+    cat("Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n")
   }
+
   cat("\n")
   invisible(x)
 }

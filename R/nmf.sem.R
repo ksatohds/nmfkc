@@ -1125,6 +1125,11 @@ nmf.sem.DOT <- function(result,
 #' @param type Character string specifying the visualization style:
 #'   one of \code{"YX"}, \code{"YA"}, \code{"YXA"}.
 #' @param threshold Minimum coefficient magnitude to display an edge.
+#' @param sig.level Significance level for filtering C edges when inference
+#'   results are available (i.e., \code{x} is of class \code{"nmfkc.inference"}).
+#'   Only edges with p-value below \code{sig.level} are shown, decorated with
+#'   significance stars (\code{*}, \code{**}, \code{***}). Set to \code{NULL}
+#'   to disable filtering and show all edges above \code{threshold}. Default is 0.1.
 #' @param rankdir Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).
 #' @param fill Logical; whether nodes should be drawn with filled shapes.
 #' @param weight_scale Base scaling factor for edge widths.
@@ -1153,6 +1158,7 @@ nmfkc.DOT <- function(
     x,
     type = c("YX","YA","YXA"),
     threshold = 0.01,
+    sig.level = 0.1,
     rankdir   = "LR",
     fill      = TRUE,
     weight_scale    = 5,
@@ -1285,6 +1291,33 @@ nmfkc.DOT <- function(
   }
 
   ## ---------------------------------------------------------
+  ## Significance stars for C edges (from nmfkc.inference)
+  ## ---------------------------------------------------------
+  C_stars <- NULL
+  C_show  <- NULL
+  if (!is.null(x$coefficients) && hasA) {
+    C_stars <- matrix("", nrow = Q, ncol = A_cols)
+    C_pval  <- matrix(NA_real_, nrow = Q, ncol = A_cols)
+    cf <- x$coefficients
+    basis_names <- rownames(C)
+    cov_names   <- colnames(C)
+    for (k in seq_len(nrow(cf))) {
+      q <- match(cf$Basis[k], basis_names)
+      r <- match(cf$Covariate[k], cov_names)
+      if (!is.na(q) && !is.na(r) && !is.na(cf$p_value[k])) {
+        p <- cf$p_value[k]
+        C_pval[q, r] <- p
+        if (p < 0.001)      C_stars[q, r] <- "***"
+        else if (p < 0.01)  C_stars[q, r] <- "**"
+        else if (p < 0.05)  C_stars[q, r] <- "*"
+      }
+    }
+    if (!is.null(sig.level)) {
+      C_show <- !is.na(C_pval) & C_pval < sig.level
+    }
+  }
+
+  ## ---------------------------------------------------------
   ## Edge defaults
   ## ---------------------------------------------------------
   scr <- paste0(
@@ -1314,9 +1347,12 @@ nmfkc.DOT <- function(
       for (q in seq_len(Q)) {
         for (k in seq_len(A_cols)) {
           val <- C[q, k]
-          if (is.finite(val) && val >= threshold) {
+          show <- if (!is.null(C_show)) C_show[q, k]
+                  else is.finite(val) && val >= threshold
+          if (show) {
             pen <- pw(val, max_C, weight_scale_ax)
             lab <- fmtc(val)
+            if (!is.null(C_stars)) lab <- paste0(lab, C_stars[q, k])
             scr <- paste0(
               scr,
               sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',

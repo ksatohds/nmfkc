@@ -8,6 +8,7 @@ nmfkc.DOT(
   x,
   type = c("YX", "YA", "YXA"),
   threshold = 0.01,
+  sig.level = 0.1,
   rankdir = "LR",
   fill = TRUE,
   weight_scale = 5,
@@ -30,6 +31,12 @@ nmfkc.DOT(
 one of \code{"YX"}, \code{"YA"}, \code{"YXA"}.}
 
 \item{threshold}{Minimum coefficient magnitude to display an edge.}
+
+\item{sig.level}{Significance level for filtering C edges when inference
+results are available (i.e., \code{x} is of class \code{"nmfkc.inference"}).
+Only edges with p-value below \code{sig.level} are shown, decorated with
+significance stars (\code{*}, \code{**}, \code{***}). Set to \code{NULL}
+to disable filtering and show all edges above \code{threshold}. Default is 0.1.}
 
 \item{rankdir}{Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).}
 
