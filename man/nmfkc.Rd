@@ -51,6 +51,10 @@ Promotes \strong{sparsity in the parameter matrix}. (Formerly \code{lambda}).
 \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
+\item \code{Y.symmetric}: Logical. If \code{TRUE}, performs symmetric NMF by enforcing \eqn{B = X^\top}
+so that the factorization becomes \eqn{Y \approx X X^\top}. Useful for community detection
+on adjacency or similarity matrices. Requires \code{Y} to be square
+and cannot be used with covariate matrix \code{A} (default: \code{FALSE}).
 \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 \item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
@@ -118,6 +122,13 @@ set.seed(1)
 dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10),
                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
 res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
+
+# Example 3. Symmetric NMF
+# Factorizes a symmetric matrix as Y ~ X X^T
+S <- matrix(c(3,0,2, 0,3,1, 2,1,2), nrow=3)
+res_s <- nmfkc(S, Q=2, Y.symmetric=TRUE)
+res_s$X   # basis matrix (columns sum to 1)
+res_s$XB  # reconstruction X \%*\% t(X)
 
 }
 \references{

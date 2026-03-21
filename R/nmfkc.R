@@ -1024,6 +1024,10 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'     \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 #'       (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 #'       otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
+#'     \item \code{Y.symmetric}: Logical. If \code{TRUE}, performs symmetric NMF by enforcing \eqn{B = X^\top}
+#'       so that the factorization becomes \eqn{Y \approx X X^\top}. Useful for community detection
+#'       on adjacency or similarity matrices. Requires \code{Y} to be square
+#'       and cannot be used with covariate matrix \code{A} (default: \code{FALSE}).
 #'     \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 #'     \item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
@@ -1087,6 +1091,13 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
 #' res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 #'
+#' # Example 3. Symmetric NMF
+#' # Factorizes a symmetric matrix as Y ~ X X^T
+#' S <- matrix(c(3,0,2, 0,3,1, 2,1,2), nrow=3)
+#' res_s <- nmfkc(S, Q=2, Y.symmetric=TRUE)
+#' res_s$X   # basis matrix (columns sum to 1)
+#' res_s$XB  # reconstruction X %*% t(X)
+#'
 nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # A small constant for numerical stability to prevent division by zero and log(0).
   .eps <- 1e-10
@@ -1112,6 +1123,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
   seed <- if (!base::is.null(extra_args$seed)) extra_args$seed else 123
   C.init <- if (!is.null(extra_args$C.init)) extra_args$C.init else NULL
+  Y.symmetric <- if (!base::is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else FALSE
 
   prefix <- if (!base::is.null(extra_args$prefix)) extra_args$prefix else "Basis"
   print.trace <- if (!base::is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
@@ -1140,6 +1152,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     if(base::min(A, na.rm=TRUE)<0) base::stop("The matrix A should be non-negative.")
   }
   if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
+  if(Y.symmetric){
+    if(base::nrow(Y) != base::ncol(Y)) base::stop("Y.symmetric=TRUE requires a square matrix Y.")
+    if(!base::is.null(A)) base::stop("Y.symmetric=TRUE cannot be used with covariate matrix A.")
+  }
 
   # === Weights Handling ===
   # 1. Vector Expansion (Column-wise weights)
@@ -1242,7 +1258,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # Initialize tX here so it exists even if the X update loop is skipped (e.g., scalar X)
   tX <- t(X)
 
-  if(is.null(A)){
+  if(Y.symmetric){
+    C <- tX  # symmetric NMF: C = t(X) so that B = C = X^T
+  }else if(is.null(A)){
     if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=ncol(Y)) else C <- C.init
   }else{
     if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=nrow(A)) else C <- C.init
@@ -1277,7 +1295,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         X <- xnorm(X)
         tX <- t(X)
       }
-      if(is.null(A)) {
+      if(Y.symmetric){
+        C <- tX  # symmetric NMF: enforce B = X^T
+      }else if(is.null(A)) {
         num_C <- tX %*% (Y.weights * Y)
         den_C <- tX %*% (Y.weights * XB)
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QN
@@ -1306,7 +1326,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         X <- xnorm(X)
         tX <- t(X)
       }
-      if(is.null(A)) {
+      if(Y.symmetric){
+        C <- tX  # symmetric NMF: enforce B = X^T
+      }else if(is.null(A)) {
         ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio
         den_C <- tX %*% Y.weights

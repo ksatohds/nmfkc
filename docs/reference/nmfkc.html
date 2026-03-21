@@ -132,6 +132,10 @@ Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lamb
 <li><p><code>C.init</code>: Optional numeric matrix giving the initial value of the parameter matrix \(C\)
 (i.e., \(\Theta\)). If <code>A</code> is <code>NULL</code>, <code>C</code> has dimension \(Q \times N\) (equivalently \(B\));
 otherwise, <code>C</code> has dimension \(Q \times K\) where \(K = nrow(A)\). Default initializes all entries to 1.</p></li>
+<li><p><code>Y.symmetric</code>: Logical. If <code>TRUE</code>, performs symmetric NMF by enforcing \(B = X^\top\)
+so that the factorization becomes \(Y \approx X X^\top\). Useful for community detection
+on adjacency or similarity matrices. Requires <code>Y</code> to be square
+and cannot be used with covariate matrix <code>A</code> (default: <code>FALSE</code>).</p></li>
 <li><p><code>prefix</code>: Prefix for column names of \(X\) and row names of \(B\) (default: "Basis").</p></li>
 <li><p><code>print.trace</code>: Logical. If <code>TRUE</code>, prints progress every 10 iterations (default: <code>FALSE</code>).</p></li>
 <li><p><code>print.dims</code>: Logical. If <code>TRUE</code> (default), prints matrix dimensions and elapsed time.</p></li>
@@ -272,6 +276,23 @@ Potthoff, R. F., &amp; Roy, S. N. (1964). A generalized multivariate analysis of
 <span class="r-msg co"><span class="r-pr">#&gt;</span> A created using columns: A1, A2</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Y(2,10)~X(2,2)C(2,2)A(2,10)=XB(2,10)...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Example 3. Symmetric NMF</span></span></span>
+<span class="r-in"><span><span class="co"># Factorizes a symmetric matrix as Y ≈ X X^T</span></span></span>
+<span class="r-in"><span><span class="va">S</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>,<span class="fl">0</span>,<span class="fl">2</span>, <span class="fl">0</span>,<span class="fl">3</span>,<span class="fl">1</span>, <span class="fl">2</span>,<span class="fl">1</span>,<span class="fl">2</span><span class="op">)</span>, nrow<span class="op">=</span><span class="fl">3</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">res_s</span> <span class="op">&lt;-</span> <span class="fu">nmfkc</span><span class="op">(</span><span class="va">S</span>, Q<span class="op">=</span><span class="fl">2</span>, Y.symmetric<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(3,3)~X(3,2)B(2,3)...</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
+<span class="r-in"><span><span class="va">res_s</span><span class="op">$</span><span class="va">X</span>   <span class="co"># basis matrix (columns sum to 1)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>            Basis1    Basis2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.6037598656 0.0000000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.0002106821 0.7015829</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.3960294522 0.2984171</span>
+<span class="r-in"><span><span class="va">res_s</span><span class="op">$</span><span class="va">XB</span>  <span class="co"># reconstruction X %*% t(X)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>              [,1]         [,2]      [,3]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.3645259753 0.0001272014 0.2391067</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.0001272014 0.4922185812 0.2094478</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.2391066889 0.2094477790 0.2458921</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
