@@ -1024,10 +1024,15 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'     \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 #'       (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 #'       otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
-#'     \item \code{Y.symmetric}: Logical. If \code{TRUE}, performs symmetric NMF by enforcing \eqn{B = X^\top}
-#'       so that the factorization becomes \eqn{Y \approx X X^\top}. Useful for community detection
-#'       on adjacency or similarity matrices. Requires \code{Y} to be square
-#'       and cannot be used with covariate matrix \code{A} (default: \code{FALSE}).
+#'     \item \code{Y.symmetric}: Character string specifying the type of symmetric NMF.
+#'       \code{"none"} (default): standard NMF (\eqn{Y \approx XB}).
+#'       \code{"bi"}: 2-factor symmetric NMF enforcing \eqn{B = X^\top}
+#'       so that \eqn{Y \approx X X^\top}.
+#'       \code{"tri"}: 3-factor symmetric NMF (\eqn{Y \approx X C X^\top})
+#'       where \eqn{C} is a \eqn{Q \times Q} matrix representing cluster interactions
+#'       (Ding et al., 2006).
+#'       Both \code{"bi"} and \code{"tri"} require \code{Y} to be square
+#'       and cannot be used with covariate matrix \code{A}.
 #'     \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 #'     \item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
@@ -1091,12 +1096,16 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
 #' res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 #'
-#' # Example 3. Symmetric NMF
-#' # Factorizes a symmetric matrix as Y ~ X X^T
+#' # Example 3. Symmetric NMF (bi: Y ~ X X^T)
 #' S <- matrix(c(3,0,2, 0,3,1, 2,1,2), nrow=3)
-#' res_s <- nmfkc(S, Q=2, Y.symmetric=TRUE)
-#' res_s$X   # basis matrix (columns sum to 1)
-#' res_s$XB  # reconstruction X %*% t(X)
+#' res_bi <- nmfkc(S, Q=2, Y.symmetric="bi")
+#' res_bi$X   # basis matrix (columns sum to 1)
+#' res_bi$XB  # reconstruction X %*% t(X)
+#'
+#' # Example 4. Symmetric NMF (tri: Y ~ X C X^T)
+#' res_tri <- nmfkc(S, Q=2, Y.symmetric="tri")
+#' res_tri$C  # Q x Q cluster interaction matrix
+#' res_tri$XB # reconstruction X %*% C %*% t(X)
 #'
 nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # A small constant for numerical stability to prevent division by zero and log(0).
@@ -1123,7 +1132,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
   seed <- if (!base::is.null(extra_args$seed)) extra_args$seed else 123
   C.init <- if (!is.null(extra_args$C.init)) extra_args$C.init else NULL
-  Y.symmetric <- if (!base::is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else FALSE
+  Y.symmetric <- if (!base::is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else "none"
+  Y.symmetric <- base::match.arg(Y.symmetric, c("none", "bi", "tri"))
 
   prefix <- if (!base::is.null(extra_args$prefix)) extra_args$prefix else "Basis"
   print.trace <- if (!base::is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
@@ -1152,9 +1162,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     if(base::min(A, na.rm=TRUE)<0) base::stop("The matrix A should be non-negative.")
   }
   if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
-  if(Y.symmetric){
-    if(base::nrow(Y) != base::ncol(Y)) base::stop("Y.symmetric=TRUE requires a square matrix Y.")
-    if(!base::is.null(A)) base::stop("Y.symmetric=TRUE cannot be used with covariate matrix A.")
+  if(Y.symmetric != "none"){
+    if(base::nrow(Y) != base::ncol(Y)) base::stop("Y.symmetric requires a square matrix Y.")
+    if(!base::is.null(A)) base::stop("Y.symmetric cannot be used with covariate matrix A.")
   }
 
   # === Weights Handling ===
@@ -1258,8 +1268,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # Initialize tX here so it exists even if the X update loop is skipped (e.g., scalar X)
   tX <- t(X)
 
-  if(Y.symmetric){
-    C <- tX  # symmetric NMF: C = t(X) so that B = C = X^T
+  if(Y.symmetric == "bi"){
+    C <- tX  # symmetric NMF (bi): C = t(X) so that B = C = X^T
+  }else if(Y.symmetric == "tri"){
+    if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=Q) else C <- C.init  # tri: C is Q x Q
   }else if(is.null(A)){
     if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=ncol(Y)) else C <- C.init
   }else{
@@ -1279,7 +1291,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
 
   # --- 4. Main Loop (Weighted) ---
   for(i in 1:maxit){
-    if(is.null(A)) B <- C else B <- C %*% A
+    if(Y.symmetric == "tri") B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
     if(print.trace && i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
@@ -1295,8 +1307,13 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         X <- xnorm(X)
         tX <- t(X)
       }
-      if(Y.symmetric){
-        C <- tX  # symmetric NMF: enforce B = X^T
+      if(Y.symmetric == "bi"){
+        C <- tX  # symmetric NMF (bi): enforce B = X^T
+      }else if(Y.symmetric == "tri"){
+        # tri-factorization: Y ≈ X C X^T, update C (Q x Q)
+        num_C <- tX %*% (Y.weights * Y) %*% X
+        den_C <- tX %*% (Y.weights * XB) %*% X
+        C <- C * (num_C / (den_C + .eps))
       }else if(is.null(A)) {
         num_C <- tX %*% (Y.weights * Y)
         den_C <- tX %*% (Y.weights * XB)
@@ -1326,8 +1343,14 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         X <- xnorm(X)
         tX <- t(X)
       }
-      if(Y.symmetric){
-        C <- tX  # symmetric NMF: enforce B = X^T
+      if(Y.symmetric == "bi"){
+        C <- tX  # symmetric NMF (bi): enforce B = X^T
+      }else if(Y.symmetric == "tri"){
+        # tri-factorization: Y ≈ X C X^T, update C (Q x Q) with KL
+        ratio <- Y.weights * (Y / (XB + .eps))
+        num_C <- tX %*% ratio %*% X
+        den_C <- tX %*% Y.weights %*% X
+        C <- C * (num_C / (den_C + .eps))
       }else if(is.null(A)) {
         ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio
@@ -1363,7 +1386,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     }
   }
 
-  if(is.null(A)) B <- C else B <- C %*% A
+  if(Y.symmetric == "tri") B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
 
   if(method=="EU"){
