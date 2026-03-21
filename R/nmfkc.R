@@ -1313,6 +1313,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         # tri-factorization: Y ≈ X C X^T, update C (Q x Q)
         num_C <- tX %*% (Y.weights * Y) %*% X
         den_C <- tX %*% (Y.weights * XB) %*% X
+        if (C.L1 != 0) den_C <- den_C + (C.L1/2) * matrix(1, nrow=Q, ncol=Q)
         C <- C * (num_C / (den_C + .eps))
       }else if(is.null(A)) {
         num_C <- tX %*% (Y.weights * Y)
@@ -1350,6 +1351,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
         ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio %*% X
         den_C <- tX %*% Y.weights %*% X
+        if (C.L1 != 0) den_C <- den_C + C.L1 * matrix(1, nrow=Q, ncol=Q)
         C <- C * (num_C / (den_C + .eps))
       }else if(is.null(A)) {
         ratio <- Y.weights * (Y / (XB + .eps))
