@@ -2187,6 +2187,10 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
 #' the optimal rank (Q) in NMF. This function supports vector input for `Q`,
 #' allowing simultaneous evaluation of multiple ranks on the same folds.
 #'
+#' When \code{Y.symmetric = "bi"} or \code{"tri"} is passed via \code{...},
+#' fold creation uses only the upper triangle (including the diagonal) to
+#' prevent information leakage through the symmetric entries \eqn{Y_{ij} = Y_{ji}}.
+#'
 #' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
 #' @param A Covariate matrix. Ignored when \code{Y} is a formula.
 #' @param Q Vector of ranks to evaluate (e.g., 1:5).
@@ -2228,22 +2232,59 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, data, ...){
     Q <- extra_args$rank
   }
 
+  # Check Y.symmetric from ...
+  Y.symmetric <- if (!is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else "none"
+  Y.symmetric <- match.arg(Y.symmetric, c("none", "bi", "tri"))
+
   # 1. Create Folds
   if (!is.null(seed)) set.seed(seed)
-  valid_indices <- which(!is.na(Y))
-  n_valid <- length(valid_indices)
 
-  perm_indices <- sample(valid_indices)
-  folds <- vector("list", div)
-  chunk_size <- n_valid %/% div
-  remainder <- n_valid %% div
+  if (Y.symmetric %in% c("bi", "tri")) {
+    # Symmetric matrix: sample only upper triangle + diagonal to avoid info leakage
+    upper_mask <- row(Y) <= col(Y)
+    valid_upper <- which(!is.na(Y) & upper_mask)
+    n_valid <- length(valid_upper)
 
-  start_idx <- 1
-  for(k in 1:div){
-    current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-    end_idx <- start_idx + current_size - 1
-    folds[[k]] <- perm_indices[start_idx:end_idx]
-    start_idx <- end_idx + 1
+    perm_indices <- sample(valid_upper)
+    folds_upper <- vector("list", div)
+    chunk_size <- n_valid %/% div
+    remainder <- n_valid %% div
+
+    start_idx <- 1
+    for(k in 1:div){
+      current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
+      end_idx <- start_idx + current_size - 1
+      folds_upper[[k]] <- perm_indices[start_idx:end_idx]
+      start_idx <- end_idx + 1
+    }
+
+    # Expand folds: add symmetric (j,i) for each off-diagonal (i,j)
+    # R matrix index: element (r,c) has linear index = (c-1)*P + r
+    folds <- vector("list", div)
+    for(k in 1:div){
+      idx <- folds_upper[[k]]
+      rc <- arrayInd(idx, .dim = c(P, P))  # row, col
+      # Transpose index: (r,c) -> (c,r) = (rc[,2]-1)*P + rc[,1]... but that's idx itself
+      # We need (c,r): linear index = (rc[,1]-1)*P + rc[,2]
+      sym_idx <- (rc[,1] - 1L) * P + rc[,2]
+      folds[[k]] <- unique(c(idx, sym_idx))
+    }
+  } else {
+    valid_indices <- which(!is.na(Y))
+    n_valid <- length(valid_indices)
+
+    perm_indices <- sample(valid_indices)
+    folds <- vector("list", div)
+    chunk_size <- n_valid %/% div
+    remainder <- n_valid %% div
+
+    start_idx <- 1
+    for(k in 1:div){
+      current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
+      end_idx <- start_idx + current_size - 1
+      folds[[k]] <- perm_indices[start_idx:end_idx]
+      start_idx <- end_idx + 1
+    }
   }
 
   method <- if(!is.null(extra_args$method)) extra_args$method else "EU"

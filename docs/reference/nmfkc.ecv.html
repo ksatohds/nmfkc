@@ -5,13 +5,19 @@ weight of 0 via Y.weights, and evaluating the reconstruction error on
 those held-out elements.
 This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for Q,
-allowing simultaneous evaluation of multiple ranks on the same folds."><meta property="og:description" content="nmfkc.ecv performs k-fold cross-validation by randomly holding out
+allowing simultaneous evaluation of multiple ranks on the same folds.
+When Y.symmetric = &quot;bi&quot; or &quot;tri&quot; is passed via ...,
+fold creation uses only the upper triangle (including the diagonal) to
+prevent information leakage through the symmetric entries \(Y_{ij} = Y_{ji}\)."><meta property="og:description" content="nmfkc.ecv performs k-fold cross-validation by randomly holding out
 individual elements of the data matrix (element-wise), assigning them a
 weight of 0 via Y.weights, and evaluating the reconstruction error on
 those held-out elements.
 This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for Q,
-allowing simultaneous evaluation of multiple ranks on the same folds."></head><body>
+allowing simultaneous evaluation of multiple ranks on the same folds.
+When Y.symmetric = &quot;bi&quot; or &quot;tri&quot; is passed via ...,
+fold creation uses only the upper triangle (including the diagonal) to
+prevent information leakage through the symmetric entries \(Y_{ij} = Y_{ji}\)."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -62,6 +68,9 @@ those held-out elements.</p>
 <p>This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for <code>Q</code>,
 allowing simultaneous evaluation of multiple ranks on the same folds.</p>
+<p>When <code>Y.symmetric = "bi"</code> or <code>"tri"</code> is passed via <code>...</code>,
+fold creation uses only the upper triangle (including the diagonal) to
+prevent information leakage through the symmetric entries \(Y_{ij} = Y_{ji}\).</p>
     </div>
 
     <div class="section level2">
