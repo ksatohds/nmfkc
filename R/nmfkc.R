@@ -1017,7 +1017,10 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'       Promotes **sparsity in the parameter matrix**. (Formerly \code{lambda}).
 #'     \item \code{Q}: Backward-compatible name for the rank of the basis matrix (Q).
 #'     \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
-#'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, or \code{"fixed"}.
+#'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
+#'       \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
+#'       This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
+#'       would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
 #'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
 #'     \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
 #'     \item \code{seed}: Integer seed for reproducibility (default: 123).
@@ -1026,13 +1029,23 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'       otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
 #'     \item \code{Y.symmetric}: Character string specifying the type of symmetric NMF.
 #'       \code{"none"} (default): standard NMF (\eqn{Y \approx XB}).
-#'       \code{"bi"}: 2-factor symmetric NMF enforcing \eqn{B = X^\top}
-#'       so that \eqn{Y \approx X X^\top}.
+#'       \code{"bi"}: 2-factor symmetric NMF (\eqn{Y \approx X X^\top}).
+#'       Internally implemented as the \code{"tri"} model with \eqn{C = I_Q} (identity matrix)
+#'       held fixed, so that \eqn{X} is updated freely without column normalization.
+#'       The multiplicative update for \eqn{X} uses cube-root damping
+#'       (\eqn{X \leftarrow X \circ (numerator / denominator)^{1/3}}) to prevent
+#'       oscillation, since \eqn{X} appears in both factors of the decomposition
+#'       (He et al., 2011, Proposition 1).
 #'       \code{"tri"}: 3-factor symmetric NMF (\eqn{Y \approx X C X^\top})
 #'       where \eqn{C} is a \eqn{Q \times Q} matrix representing cluster interactions
 #'       (Ding et al., 2006).
 #'       Both \code{"bi"} and \code{"tri"} require \code{Y} to be square
 #'       and cannot be used with covariate matrix \code{A}.
+#'       When \code{Y.symmetric = "bi"}, \code{X.restriction}
+#'       is automatically set to \code{"none"} (no column normalization), because
+#'       \eqn{C = I_Q} is fixed and cannot absorb the scale.
+#'       For \code{"tri"}, column normalization is retained (default \code{"colSums"})
+#'       because the free parameter matrix \eqn{C} absorbs the scale.
 #'     \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 #'     \item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
@@ -1099,7 +1112,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' # Example 3. Symmetric NMF (bi: Y ~ X X^T)
 #' S <- matrix(c(3,0,2, 0,3,1, 2,1,2), nrow=3)
 #' res_bi <- nmfkc(S, Q=2, Y.symmetric="bi")
-#' res_bi$X   # basis matrix (columns sum to 1)
+#' res_bi$X   # basis matrix (no column normalization)
 #' res_bi$XB  # reconstruction X %*% t(X)
 #'
 #' # Example 4. Symmetric NMF (tri: Y ~ X C X^T)
@@ -1199,11 +1212,18 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   }
 
   # --- 3. Algorithm Setup ---
-  X.restriction <- base::match.arg(X.restriction, base::c("colSums", "colSqSums", "totalSum","fixed"))
+  # Override X.restriction for bi-symmetric NMF: column normalization would break
+  # the scale of XX^T because C = I is fixed and cannot absorb the scale.
+  # For tri-symmetric NMF, colSums normalization is kept because C is free to absorb the scale.
+  if(Y.symmetric == "bi" && X.restriction == "colSums"){
+    X.restriction <- "none"
+  }
+  X.restriction <- base::match.arg(X.restriction, base::c("colSums", "colSqSums", "totalSum", "none", "fixed"))
   xnorm <- base::switch(X.restriction,
                         colSums   = function(X) base::sweep(X, 2, base::colSums(X), "/"),
                         colSqSums = function(X) base::sweep(X, 2, base::sqrt(base::colSums(X^2)), "/"),
                         totalSum  = function(X) X / base::sum(X),
+                        none  = function(X) X,
                         fixed = function(X) X
   )
 
@@ -1269,7 +1289,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   tX <- t(X)
 
   if(Y.symmetric == "bi"){
-    C <- tX  # symmetric NMF (bi): C = t(X) so that B = C = X^T
+    C <- base::diag(Q)  # symmetric NMF (bi): Y ≈ X I X^T = X X^T
   }else if(Y.symmetric == "tri"){
     if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=Q) else C <- C.init  # tri: C is Q x Q
   }else if(is.null(A)){
@@ -1291,7 +1311,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
 
   # --- 4. Main Loop (Weighted) ---
   for(i in 1:maxit){
-    if(Y.symmetric == "tri") B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
+    if(Y.symmetric %in% c("bi", "tri")) B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
     if(print.trace && i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
@@ -1303,12 +1323,19 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
-        X <- X * (num_X / (den_X + .eps))
+        update_ratio <- num_X / (den_X + .eps)
+        # Cube-root damping for bi-symmetric NMF (Y ≈ XX^T): X appears in
+        # both factors, so the standard multiplicative update oscillates.
+        # The cube root is theoretically justified by He et al. (2011,
+        # Proposition 1) using auxiliary function analysis.
+        # Not needed for tri because C absorbs the scale (X is column-normalized).
+        if(Y.symmetric == "bi") update_ratio <- update_ratio^(1/3)
+        X <- X * update_ratio
         X <- xnorm(X)
         tX <- t(X)
       }
       if(Y.symmetric == "bi"){
-        C <- tX  # symmetric NMF (bi): enforce B = X^T
+        # C = I_Q is fixed; no update needed (bi is tri with C = I)
       }else if(Y.symmetric == "tri"){
         # tri-factorization: Y ≈ X C X^T, update C (Q x Q)
         num_C <- tX %*% (Y.weights * Y) %*% X
@@ -1340,12 +1367,15 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
-        X <- X * (num_X / (den_X + .eps))
+        update_ratio <- num_X / (den_X + .eps)
+        # Cube-root damping for bi-symmetric NMF (KL divergence).
+        if(Y.symmetric == "bi") update_ratio <- update_ratio^(1/3)
+        X <- X * update_ratio
         X <- xnorm(X)
         tX <- t(X)
       }
       if(Y.symmetric == "bi"){
-        C <- tX  # symmetric NMF (bi): enforce B = X^T
+        # C = I_Q is fixed; no update needed (bi is tri with C = I)
       }else if(Y.symmetric == "tri"){
         # tri-factorization: Y ≈ X C X^T, update C (Q x Q) with KL
         ratio <- Y.weights * (Y / (XB + .eps))
@@ -1388,7 +1418,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     }
   }
 
-  if(Y.symmetric == "tri") B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
+  if(Y.symmetric %in% c("bi", "tri")) B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
 
   if(method=="EU"){

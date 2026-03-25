@@ -125,7 +125,10 @@ Promotes <strong>sparsity in the coefficients</strong>. (Formerly <code>gamma</c
 Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lambda</code>).</p></li>
 <li><p><code>Q</code>: Backward-compatible name for the rank of the basis matrix (Q).</p></li>
 <li><p><code>method</code>: Objective function: Euclidean distance <code>"EU"</code> (default) or Kullback–Leibler divergence <code>"KL"</code>.</p></li>
-<li><p><code>X.restriction</code>: Constraint for columns of \(X\). Options: <code>"colSums"</code> (default), <code>"colSqSums"</code>, <code>"totalSum"</code>, or <code>"fixed"</code>.</p></li>
+<li><p><code>X.restriction</code>: Constraint for columns of \(X\). Options: <code>"colSums"</code> (default), <code>"colSqSums"</code>, <code>"totalSum"</code>, <code>"none"</code>, or <code>"fixed"</code>.
+<code>"none"</code> applies no normalization to \(X\) after each update, allowing it to absorb the scale freely.
+This is automatically set when <code>Y.symmetric = "bi"</code> or <code>"tri"</code>, because column normalization
+would prevent \(X X^\top\) (or \(X C X^\top\)) from approximating \(Y\) at the correct scale.</p></li>
 <li><p><code>X.init</code>: Method for initializing the basis matrix \(X\). Options: <code>"kmeans"</code> (default), <code>"runif"</code>, <code>"nndsvd"</code>, or a user-specified matrix.</p></li>
 <li><p><code>nstart</code>: Number of random starts for <code>kmeans</code> when initializing \(X\) (default: 1).</p></li>
 <li><p><code>seed</code>: Integer seed for reproducibility (default: 123).</p></li>
@@ -134,13 +137,23 @@ Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lamb
 otherwise, <code>C</code> has dimension \(Q \times K\) where \(K = nrow(A)\). Default initializes all entries to 1.</p></li>
 <li><p><code>Y.symmetric</code>: Character string specifying the type of symmetric NMF.
 <code>"none"</code> (default): standard NMF (\(Y \approx XB\)).
-<code>"bi"</code>: 2-factor symmetric NMF enforcing \(B = X^\top\)
-so that \(Y \approx X X^\top\).
+<code>"bi"</code>: 2-factor symmetric NMF (\(Y \approx X X^\top\)).
+Internally implemented as the <code>"tri"</code> model with \(C = I_Q\) (identity matrix)
+held fixed, so that \(X\) is updated freely without column normalization.
+The multiplicative update for \(X\) uses cube-root damping
+(\(X \leftarrow X \circ (numerator / denominator)^{1/3}\)) to prevent
+oscillation, since \(X\) appears in both factors of the decomposition
+(He et al., 2011, Proposition 1).
 <code>"tri"</code>: 3-factor symmetric NMF (\(Y \approx X C X^\top\))
 where \(C\) is a \(Q \times Q\) matrix representing cluster interactions
 (Ding et al., 2006).
 Both <code>"bi"</code> and <code>"tri"</code> require <code>Y</code> to be square
-and cannot be used with covariate matrix <code>A</code>.</p></li>
+and cannot be used with covariate matrix <code>A</code>.
+When <code>Y.symmetric = "bi"</code>, <code>X.restriction</code>
+is automatically set to <code>"none"</code> (no column normalization), because
+\(C = I_Q\) is fixed and cannot absorb the scale.
+For <code>"tri"</code>, column normalization is retained (default <code>"colSums"</code>)
+because the free parameter matrix \(C\) absorbs the scale.</p></li>
 <li><p><code>prefix</code>: Prefix for column names of \(X\) and row names of \(B\) (default: "Basis").</p></li>
 <li><p><code>print.trace</code>: Logical. If <code>TRUE</code>, prints progress every 10 iterations (default: <code>FALSE</code>).</p></li>
 <li><p><code>print.dims</code>: Logical. If <code>TRUE</code> (default), prints matrix dimensions and elapsed time.</p></li>
@@ -287,16 +300,16 @@ Potthoff, R. F., &amp; Roy, S. N. (1964). A generalized multivariate analysis of
 <span class="r-in"><span><span class="va">res_bi</span> <span class="op">&lt;-</span> <span class="fu">nmfkc</span><span class="op">(</span><span class="va">S</span>, Q<span class="op">=</span><span class="fl">2</span>, Y.symmetric<span class="op">=</span><span class="st">"bi"</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Y(3,3)~X(3,2)B(2,3)...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-in"><span><span class="va">res_bi</span><span class="op">$</span><span class="va">X</span>   <span class="co"># basis matrix (columns sum to 1)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>            Basis1    Basis2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.6037598656 0.0000000</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.0002106821 0.7015829</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.3960294522 0.2984171</span>
+<span class="r-in"><span><span class="va">res_bi</span><span class="op">$</span><span class="va">X</span>   <span class="co"># basis matrix (no column normalization)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         Basis1     Basis2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.0000000 1.71131965</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 1.7274149 0.01105598</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.5977175 1.22664897</span>
 <span class="r-in"><span><span class="va">res_bi</span><span class="op">$</span><span class="va">XB</span>  <span class="co"># reconstruction X %*% t(X)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>              [,1]         [,2]      [,3]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.3645259753 0.0001272014 0.2391067</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.0001272014 0.4922185812 0.2094478</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.2391066889 0.2094477790 0.2458921</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>            [,1]       [,2]     [,3]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 2.92861495 0.01892032 2.099188</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.01892032 2.98408448 1.046068</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 2.09918848 1.04606801 1.861934</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example 4. Symmetric NMF (tri: Y ~ X C X^T)</span></span></span>
 <span class="r-in"><span><span class="va">res_tri</span> <span class="op">&lt;-</span> <span class="fu">nmfkc</span><span class="op">(</span><span class="va">S</span>, Q<span class="op">=</span><span class="fl">2</span>, Y.symmetric<span class="op">=</span><span class="st">"tri"</span><span class="op">)</span></span></span>
