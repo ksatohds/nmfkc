@@ -23,7 +23,7 @@ The rank of the basis matrix can be specified using either the rank argument
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -129,7 +129,7 @@ Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lamb
 <code>"none"</code> applies no normalization to \(X\) after each update, allowing it to absorb the scale freely.
 This is automatically set when <code>Y.symmetric = "bi"</code> or <code>"tri"</code>, because column normalization
 would prevent \(X X^\top\) (or \(X C X^\top\)) from approximating \(Y\) at the correct scale.</p></li>
-<li><p><code>X.init</code>: Method for initializing the basis matrix \(X\). Options: <code>"kmeans"</code> (default), <code>"runif"</code>, <code>"nndsvd"</code>, or a user-specified matrix.</p></li>
+<li><p><code>X.init</code>: Method for initializing the basis matrix \(X\). Options: <code>"kmeans"</code> (default), <code>"kmeansar"</code>, <code>"runif"</code>, <code>"nndsvd"</code>, or a user-specified matrix. <code>"kmeansar"</code> applies \(k\)-means initialization and then fills zero entries with <code>Uniform(0, mean(Y)/100)</code>, analogous to NNDSVDar.</p></li>
 <li><p><code>nstart</code>: Number of random starts for <code>kmeans</code> when initializing \(X\) (default: 1).</p></li>
 <li><p><code>seed</code>: Integer seed for reproducibility (default: 123).</p></li>
 <li><p><code>C.init</code>: Optional numeric matrix giving the initial value of the parameter matrix \(C\)

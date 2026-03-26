@@ -1021,7 +1021,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'       \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
 #'       This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
 #'       would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
-#'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
+#'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
 #'     \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
 #'     \item \code{seed}: Integer seed for reproducibility (default: 123).
 #'     \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
@@ -1256,13 +1256,18 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
       X <- X.init
     } else if (is.character(X.init)) {
       if (!is.null(seed)) set.seed(seed)
-      if (X.init == "kmeans") {
+      if (X.init == "kmeans" || X.init == "kmeansar") {
         # kmeans requires ncol(Y) >= Q (N >= Q)
         res.kmeans <- if (ncol(Y) >= Q) {
           tryCatch(stats::kmeans(t(Y_init), centers = Q, iter.max = maxit, nstart = nstart),
                    error = function(e) NULL)
         } else { NULL }
         if(!is.null(res.kmeans)) X <- t(res.kmeans$centers) else X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+        if (X.init == "kmeansar") {
+          avg_Y <- mean(Y)
+          idx_zero <- which(X == 0)
+          if (length(idx_zero) > 0) X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
+        }
       } else if (X.init == "runif") {
         X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
       } else {

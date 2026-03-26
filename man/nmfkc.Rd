@@ -48,7 +48,7 @@ Promotes \strong{sparsity in the parameter matrix}. (Formerly \code{lambda}).
 \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
 This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
 would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
-\item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix.
+\item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
 \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
 \item \code{seed}: Integer seed for reproducibility (default: 123).
 \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
