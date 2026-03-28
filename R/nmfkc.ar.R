@@ -574,6 +574,9 @@ nmfkc.ar.stationarity <- function(x){
 #' @param weight_scale_xy Scaling factor for edges \eqn{X \rightarrow T}.
 #' @param weight_scale_lag Scaling factor for lagged edges \eqn{T-k \rightarrow X}.
 #' @param weight_scale_int Scaling factor for intercept edges.
+#' @param hide.isolated Logical. If \code{TRUE}, Y nodes that have no
+#'   edges at or above \code{threshold} are excluded from the graph.
+#'   Default is \code{FALSE}.
 #'
 #' @return A character string representing a Graphviz DOT file.
 #' @examples
@@ -592,7 +595,8 @@ nmfkc.ar.DOT <- function(x,
                          fill      = TRUE,
                          weight_scale_xy  = 5,
                          weight_scale_lag = 5,
-                         weight_scale_int = 3) {
+                         weight_scale_int = 3,
+                         hide.isolated   = FALSE) {
 
   ## -------------------------------------------------------------
   ## Extract required AR components
@@ -665,6 +669,15 @@ nmfkc.ar.DOT <- function(x,
   fmtc   <- function(v) .nmfkc_dot_format_coef(v, digits)
 
   ## -------------------------------------------------------------
+  ## Filter isolated Y nodes (hide.isolated)
+  ## -------------------------------------------------------------
+  idx_Y <- seq_along(Y_lab)
+  if (isTRUE(hide.isolated)) {
+    used_Y <- apply(X, 1L, function(row) any(row >= threshold, na.rm = TRUE))
+    idx_Y <- which(used_Y)
+  }
+
+  ## -------------------------------------------------------------
   ## DOT header
   ## -------------------------------------------------------------
   scr <- .nmfkc_dot_header(graph_name = "NMF_AR", rankdir = rankdir)
@@ -678,8 +691,8 @@ nmfkc.ar.DOT <- function(x,
     .nmfkc_dot_cluster_nodes(
       cluster_id  = "Y",
       title       = "T",
-      node_ids    = Y_ids,
-      node_labels = Y_lab,
+      node_ids    = Y_ids[idx_Y],
+      node_labels = Y_lab[idx_Y],
       shape       = "box",
       fill        = fill,
       fillcolor   = "lightblue",
@@ -723,7 +736,7 @@ nmfkc.ar.DOT <- function(x,
   )
 
   if (is.finite(max_X) && max_X > 0) {
-    for (i in seq_len(nrow(X))) {
+    for (i in idx_Y) {
       for (j in seq_len(ncol(X))) {
         val <- X[i, j]
         if (is.finite(val) && val >= threshold) {

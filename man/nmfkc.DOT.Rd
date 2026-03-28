@@ -20,7 +20,8 @@ nmfkc.DOT(
   A.label = NULL,
   Y.title = "Observation (Y)",
   X.title = "Basis (X)",
-  A.title = "Covariates (A)"
+  A.title = "Covariates (A)",
+  hide.isolated = FALSE
 )
 }
 \arguments{
@@ -61,6 +62,10 @@ to disable filtering and show all edges above \code{threshold}. Default is 0.1.}
 \item{X.title}{Cluster title for X nodes.}
 
 \item{A.title}{Cluster title for A nodes.}
+
+\item{hide.isolated}{Logical. If \code{TRUE}, Y and A nodes that have no
+edges at or above \code{threshold} are excluded from the graph.
+Default is \code{FALSE}.}
 }
 \value{
 A character string representing a Graphviz DOT script.

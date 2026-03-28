@@ -831,6 +831,8 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #'   One of \code{"normal"}, \code{"faint"}, \code{"invisible"}, \code{"none"}.
 #' @param cluster.labels Optional character vector of length 3 giving custom
 #'   labels for the Y2, factor, and Y1 clusters.
+#' @param hide.isolated Logical. If \code{TRUE} (default), Y1 and Y2 nodes
+#'   that have no edges at or above \code{threshold} are excluded from the graph.
 #'
 #' @return A character string representing a valid Graphviz DOT script.
 #'
@@ -852,7 +854,8 @@ nmf.sem.DOT <- function(result,
                         rankdir               = "LR",
                         fill                  = TRUE,
                         cluster.box           = c("normal", "faint", "invisible", "none"),
-                        cluster.labels        = NULL) {
+                        cluster.labels        = NULL,
+                        hide.isolated         = TRUE) {
 
   ## ---------------------------------------------------------------
   ## Cluster style selection
@@ -914,13 +917,17 @@ nmf.sem.DOT <- function(result,
   ## ---------------------------------------------------------------
   ## Identify nodes involved in edges >= threshold
   ## ---------------------------------------------------------------
-  used_y2 <- apply(C2, 2L, function(col) any(col >= threshold, na.rm = TRUE))
-  used_y1_from_X  <- apply(X,  1L, function(row) any(row >= threshold, na.rm = TRUE))
-  used_y1_from_C1 <- apply(C1, 2L, function(col) any(col >= threshold, na.rm = TRUE))
-  used_y1 <- used_y1_from_X | used_y1_from_C1
-
-  idx_y1 <- which(used_y1)
-  idx_y2 <- which(used_y2)
+  if (isTRUE(hide.isolated)) {
+    used_y2 <- apply(C2, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+    used_y1_from_X  <- apply(X,  1L, function(row) any(row >= threshold, na.rm = TRUE))
+    used_y1_from_C1 <- apply(C1, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+    used_y1 <- used_y1_from_X | used_y1_from_C1
+    idx_y1 <- which(used_y1)
+    idx_y2 <- which(used_y2)
+  } else {
+    idx_y1 <- seq_len(P1)
+    idx_y2 <- seq_len(P2)
+  }
 
   ## ---------------------------------------------------------------
   ## Assign internal DOT node IDs
@@ -1142,6 +1149,9 @@ nmf.sem.DOT <- function(result,
 #' @param Y.title Cluster title for Y nodes.
 #' @param X.title Cluster title for X nodes.
 #' @param A.title Cluster title for A nodes.
+#' @param hide.isolated Logical. If \code{TRUE}, Y and A nodes that have no
+#'   edges at or above \code{threshold} are excluded from the graph.
+#'   Default is \code{FALSE}.
 #'
 #' @return A character string representing a Graphviz DOT script.
 #'
@@ -1168,7 +1178,8 @@ nmfkc.DOT <- function(
     Y.label = NULL, X.label = NULL, A.label = NULL,
     Y.title = "Observation (Y)",
     X.title = "Basis (X)",
-    A.title = "Covariates (A)"
+    A.title = "Covariates (A)",
+    hide.isolated = FALSE
 ) {
 
   type <- match.arg(type)
@@ -1226,6 +1237,34 @@ nmfkc.DOT <- function(
   }
 
   ## ---------------------------------------------------------
+  ## Filter isolated nodes (hide.isolated)
+  ## ---------------------------------------------------------
+  idx_Y <- seq_len(P)
+  idx_A <- if (hasA) seq_len(A_cols) else integer(0)
+  if (isTRUE(hide.isolated)) {
+    if (type == "YX" || type == "YXA") {
+      # Y is connected via X: X[i, ] >= threshold
+      used_Y <- apply(X, 1L, function(row) any(row >= threshold, na.rm = TRUE))
+      idx_Y <- which(used_Y)
+    } else if (type == "YA" && !is.null(XC_mat)) {
+      # Y is connected via XC: XC_mat[i, ] >= threshold
+      used_Y <- apply(XC_mat, 1L, function(row) any(row >= threshold, na.rm = TRUE))
+      idx_Y <- which(used_Y)
+    }
+    if (hasA && type %in% c("YXA", "YA")) {
+      if (type == "YXA" && !is.null(C)) {
+        # A is connected via C: C[, k] >= threshold
+        used_A <- apply(C, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+        idx_A <- which(used_A)
+      } else if (type == "YA" && !is.null(XC_mat)) {
+        # A is connected via XC: XC_mat[, k] >= threshold
+        used_A <- apply(XC_mat, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+        idx_A <- which(used_A)
+      }
+    }
+  }
+
+  ## ---------------------------------------------------------
   ## DOT header
   ## ---------------------------------------------------------
   scr <- .nmfkc_dot_header(graph_name = "NMF", rankdir = rankdir)
@@ -1239,8 +1278,8 @@ nmfkc.DOT <- function(
     .nmfkc_dot_cluster_nodes(
       cluster_id  = "Y",
       title       = Y.title,
-      node_ids    = Y_ids,
-      node_labels = Y_labels,
+      node_ids    = Y_ids[idx_Y],
+      node_labels = Y_labels[idx_Y],
       shape       = "box",
       fill        = fill,
       fillcolor   = "lightblue",
@@ -1280,8 +1319,8 @@ nmfkc.DOT <- function(
       .nmfkc_dot_cluster_nodes(
         cluster_id  = "A",
         title       = A.title,
-        node_ids    = A_ids,
-        node_labels = A_labels,
+        node_ids    = A_ids[idx_A],
+        node_labels = A_labels[idx_A],
         shape       = "box",
         fill        = fill,
         fillcolor   = "lightcoral",
@@ -1345,7 +1384,7 @@ nmfkc.DOT <- function(
     max_C <- suppressWarnings(max(C, na.rm = TRUE))
     if (is.finite(max_C) && max_C > 0) {
       for (q in seq_len(Q)) {
-        for (k in seq_len(A_cols)) {
+        for (k in idx_A) {
           val <- C[q, k]
           show <- if (!is.null(C_show)) C_show[q, k]
                   else is.finite(val) && val >= threshold
@@ -1372,7 +1411,7 @@ nmfkc.DOT <- function(
 
     max_X <- suppressWarnings(max(X, na.rm = TRUE))
     if (is.finite(max_X) && max_X > 0) {
-      for (i in seq_len(P)) {
+      for (i in idx_Y) {
         for (j in seq_len(Q)) {
           val <- X[i, j]
           if (is.finite(val) && val >= threshold) {
@@ -1402,8 +1441,8 @@ nmfkc.DOT <- function(
 
     max_XC <- suppressWarnings(max(XC_mat, na.rm = TRUE))
     if (is.finite(max_XC) && max_XC > 0) {
-      for (i in seq_len(P)) {
-        for (k in seq_len(A_cols)) {
+      for (i in idx_Y) {
+        for (k in idx_A) {
           val <- XC_mat[i, k]
           if (is.finite(val) && val >= threshold) {
             pen <- pw(val, max_XC, weight_scale_ay)
@@ -1432,7 +1471,7 @@ nmfkc.DOT <- function(
 
     max_X <- suppressWarnings(max(X, na.rm = TRUE))
     if (is.finite(max_X) && max_X > 0) {
-      for (i in seq_len(P)) {
+      for (i in idx_Y) {
         for (j in seq_len(Q)) {
           val <- X[i, j]
           if (is.finite(val) && val >= threshold) {

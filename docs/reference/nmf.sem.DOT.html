@@ -102,7 +102,8 @@ edges above the threshold are displayed, while latent factors are always shown.<
 <span>  rankdir <span class="op">=</span> <span class="st">"LR"</span>,</span>
 <span>  fill <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  cluster.box <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"normal"</span>, <span class="st">"faint"</span>, <span class="st">"invisible"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
-<span>  cluster.labels <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  cluster.labels <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  hide.isolated <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -155,6 +156,11 @@ One of <code>"normal"</code>, <code>"faint"</code>, <code>"invisible"</code>, <c
 <dt id="arg-cluster-labels">cluster.labels<a class="anchor" aria-label="anchor" href="#arg-cluster-labels"></a></dt>
 <dd><p>Optional character vector of length 3 giving custom
 labels for the Y2, factor, and Y1 clusters.</p></dd>
+
+
+<dt id="arg-hide-isolated">hide.isolated<a class="anchor" aria-label="anchor" href="#arg-hide-isolated"></a></dt>
+<dd><p>Logical. If <code>TRUE</code> (default), Y1 and Y2 nodes
+that have no edges at or above <code>threshold</code> are excluded from the graph.</p></dd>
 
 </dl></div>
     <div class="section level2">

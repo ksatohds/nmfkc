@@ -1673,6 +1673,9 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' @param X1.title Character. Title for decoder node group. Default is \code{"Decoder (X1)"}.
 #' @param X2.title Character. Title for encoder node group. Default is \code{"Encoder (X2)"}.
 #' @param Y2.title Character. Title for input node group. Default is \code{"Input (Y2)"}.
+#' @param hide.isolated Logical. If \code{TRUE}, Y1 and Y2 nodes that have no
+#'   edges at or above \code{threshold} are excluded from the graph. Only
+#'   applies when \code{type = "YXCXY"}. Default is \code{FALSE}.
 #'
 #' @return A character string containing the DOT graph specification.
 #' @seealso \code{\link{nmfae}}
@@ -1692,7 +1695,8 @@ nmfae.DOT <- function(x,
                       Y1.title = "Output (Y1)",
                       X1.title = "Decoder (X1)",
                       X2.title = "Encoder (X2)",
-                      Y2.title = "Input (Y2)") {
+                      Y2.title = "Input (Y2)",
+                      hide.isolated = FALSE) {
 
   type <- match.arg(type)
 
@@ -1719,6 +1723,18 @@ nmfae.DOT <- function(x,
   X1_ids <- sanitize(paste0("X1_", seq_len(Q)))
   X2_ids <- sanitize(paste0("X2_", seq_len(R)))
   Y2_ids <- sanitize(paste0("Y2_", seq_len(P2)))
+
+  # --- Filter isolated Y1/Y2 nodes (hide.isolated) ---
+  idx_Y1 <- seq_len(P1)
+  idx_Y2 <- seq_len(P2)
+  if (isTRUE(hide.isolated) && type == "YXCXY") {
+    # Y1 is connected if any X1[i, ] >= threshold
+    used_Y1 <- apply(X1, 1L, function(row) any(row >= threshold, na.rm = TRUE))
+    idx_Y1 <- which(used_Y1)
+    # Y2 is connected if any X2[, j] >= threshold
+    used_Y2 <- apply(X2, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+    idx_Y2 <- which(used_Y2)
+  }
 
   # --- Helpers ---
   pw <- function(value, max_value, ws) {
@@ -1815,21 +1831,21 @@ nmfae.DOT <- function(x,
   if (type == "YXCXY") {
     # Clusters: Y2 -> X2 -> X1 -> Y1
     scr <- paste0(scr,
-      make_cluster("Y2", Y2.title, Y2_ids, Y2_labels, "box", "lightcoral"),
+      make_cluster("Y2", Y2.title, Y2_ids[idx_Y2], Y2_labels[idx_Y2], "box", "lightcoral"),
       make_cluster("X2", X2.title, X2_ids, X2_labels, "ellipse", "wheat"),
       make_cluster("X1", X1.title, X1_ids, X1_labels, "ellipse", "wheat"),
-      make_cluster("Y1", Y1.title, Y1_ids, Y1_labels, "box", "lightblue")
+      make_cluster("Y1", Y1.title, Y1_ids[idx_Y1], Y1_labels[idx_Y1], "box", "lightblue")
     )
     # Edges: Y2 -> X2 (X2 matrix: R x P2, X2[r,j] = weight from Y2_j to X2_r)
     scr <- paste0(scr,
-      make_edges(Y2_ids, X2_ids, X2, weight_scale_x2, "Y2 -> X2 (encoder)", "row_to_col"))
+      make_edges(Y2_ids[idx_Y2], X2_ids, X2[, idx_Y2, drop = FALSE], weight_scale_x2, "Y2 -> X2 (encoder)", "row_to_col"))
     # Edges: X2 -> X1 (C: Q x R, C[q,r] = weight from X2_r to X1_q)
     scr <- paste0(scr,
       make_edges(X2_ids, X1_ids, C_mat, weight_scale_theta, "X2 -> X1 (C)",
                  "row_to_col", stars_mat = C_stars, show_mat = C_show))
     # Edges: X1 -> Y1 (X1: P1 x Q, X1[i,q] = weight from X1_q to Y1_i)
     scr <- paste0(scr,
-      make_edges(X1_ids, Y1_ids, X1, weight_scale_x1, "X1 -> Y1 (decoder)", "row_to_col"))
+      make_edges(X1_ids, Y1_ids[idx_Y1], X1[idx_Y1, , drop = FALSE], weight_scale_x1, "X1 -> Y1 (decoder)", "row_to_col"))
 
   } else {
     # XCX: X2 -> X1 only

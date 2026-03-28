@@ -22,7 +22,8 @@ nmfae.DOT(
   Y1.title = "Output (Y1)",
   X1.title = "Decoder (X1)",
   X2.title = "Encoder (X2)",
-  Y2.title = "Input (Y2)"
+  Y2.title = "Input (Y2)",
+  hide.isolated = FALSE
 )
 }
 \arguments{
@@ -63,6 +64,10 @@ are shown, with significance stars. Set to \code{NULL} to disable. Default is 0.
 \item{X2.title}{Character. Title for encoder node group. Default is \code{"Encoder (X2)"}.}
 
 \item{Y2.title}{Character. Title for input node group. Default is \code{"Input (Y2)"}.}
+
+\item{hide.isolated}{Logical. If \code{TRUE}, Y1 and Y2 nodes that have no
+edges at or above \code{threshold} are excluded from the graph. Only
+applies when \code{type = "YXCXY"}. Default is \code{FALSE}.}
 }
 \value{
 A character string containing the DOT graph specification.

@@ -14,7 +14,8 @@ nmf.sem.DOT(
   rankdir = "LR",
   fill = TRUE,
   cluster.box = c("normal", "faint", "invisible", "none"),
-  cluster.labels = NULL
+  cluster.labels = NULL,
+  hide.isolated = TRUE
 )
 }
 \arguments{
@@ -44,6 +45,9 @@ One of \code{"normal"}, \code{"faint"}, \code{"invisible"}, \code{"none"}.}
 
 \item{cluster.labels}{Optional character vector of length 3 giving custom
 labels for the Y2, factor, and Y1 clusters.}
+
+\item{hide.isolated}{Logical. If \code{TRUE} (default), Y1 and Y2 nodes
+that have no edges at or above \code{threshold} are excluded from the graph.}
 }
 \value{
 Integer specifying the number of decimal places.
