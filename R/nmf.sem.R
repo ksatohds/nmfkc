@@ -1149,9 +1149,8 @@ nmf.sem.DOT <- function(result,
 #' @param Y.title Cluster title for Y nodes.
 #' @param X.title Cluster title for X nodes.
 #' @param A.title Cluster title for A nodes.
-#' @param hide.isolated Logical. If \code{TRUE}, Y and A nodes that have no
+#' @param hide.isolated Logical. If \code{TRUE} (default), Y and A nodes that have no
 #'   edges at or above \code{threshold} are excluded from the graph.
-#'   Default is \code{FALSE}.
 #'
 #' @return A character string representing a Graphviz DOT script.
 #'
@@ -1179,7 +1178,7 @@ nmfkc.DOT <- function(
     Y.title = "Observation (Y)",
     X.title = "Basis (X)",
     A.title = "Covariates (A)",
-    hide.isolated = FALSE
+    hide.isolated = TRUE
 ) {
 
   type <- match.arg(type)

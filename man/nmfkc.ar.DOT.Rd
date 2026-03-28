@@ -14,7 +14,7 @@ nmfkc.ar.DOT(
   weight_scale_xy = 5,
   weight_scale_lag = 5,
   weight_scale_int = 3,
-  hide.isolated = FALSE
+  hide.isolated = TRUE
 )
 }
 \arguments{
@@ -38,9 +38,8 @@ columns named "(Intercept)" in matrix \code{C}.}
 
 \item{weight_scale_int}{Scaling factor for intercept edges.}
 
-\item{hide.isolated}{Logical. If \code{TRUE}, Y nodes that have no
-edges at or above \code{threshold} are excluded from the graph.
-Default is \code{FALSE}.}
+\item{hide.isolated}{Logical. If \code{TRUE} (default), Y nodes that have no
+edges at or above \code{threshold} are excluded from the graph.}
 }
 \value{
 A character string representing a Graphviz DOT file.

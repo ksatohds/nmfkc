@@ -574,9 +574,8 @@ nmfkc.ar.stationarity <- function(x){
 #' @param weight_scale_xy Scaling factor for edges \eqn{X \rightarrow T}.
 #' @param weight_scale_lag Scaling factor for lagged edges \eqn{T-k \rightarrow X}.
 #' @param weight_scale_int Scaling factor for intercept edges.
-#' @param hide.isolated Logical. If \code{TRUE}, Y nodes that have no
+#' @param hide.isolated Logical. If \code{TRUE} (default), Y nodes that have no
 #'   edges at or above \code{threshold} are excluded from the graph.
-#'   Default is \code{FALSE}.
 #'
 #' @return A character string representing a Graphviz DOT file.
 #' @examples
@@ -596,7 +595,7 @@ nmfkc.ar.DOT <- function(x,
                          weight_scale_xy  = 5,
                          weight_scale_lag = 5,
                          weight_scale_int = 3,
-                         hide.isolated   = FALSE) {
+                         hide.isolated   = TRUE) {
 
   ## -------------------------------------------------------------
   ## Extract required AR components
