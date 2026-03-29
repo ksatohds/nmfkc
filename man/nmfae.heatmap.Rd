@@ -37,6 +37,14 @@ Invisible \code{NULL}. Called for its side effect (plot).
 and \eqn{X_2} as side-by-side heatmaps. This provides an alternative to DOT graph
 visualization, especially when \eqn{Y_2} has many variables (e.g., kernel matrix).
 }
+\examples{
+\donttest{
+set.seed(1)
+Y <- matrix(runif(20), nrow = 4)
+res <- nmfae(Y, rank = 2)
+nmfae.heatmap(res)
+}
+}
 \seealso{
 \code{\link{nmfae}}, \code{\link{plot.nmfae}}, \code{\link{nmfae.DOT}}
 }

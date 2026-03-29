@@ -39,6 +39,14 @@ If \code{Y1} (actual values) is provided, it is stored as an attribute so that
 (for \code{type = "response"}) or a confusion matrix heatmap
 (for \code{type = "class"}).
 }
+\examples{
+\donttest{
+set.seed(1)
+Y <- matrix(runif(20), nrow = 4)
+res <- nmfae(Y, rank = 2)
+pred <- predict(res)
+}
+}
 \seealso{
 \code{\link{nmfae}}, \code{\link{plot.predict.nmfae}},
 \code{\link{nmfkc.class}}

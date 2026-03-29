@@ -22,6 +22,15 @@ Otherwise, displays the predicted matrix as a heatmap.
 For \code{type = "class"}: if actual classes were stored, displays a
 confusion matrix heatmap with accuracy (ACC) in the title.
 }
+\examples{
+\donttest{
+set.seed(1)
+Y <- matrix(runif(20), nrow = 4)
+res <- nmfae(Y, rank = 2)
+pred <- predict(res)
+plot(pred)
+}
+}
 \seealso{
 \code{\link{predict.nmfae}}
 }

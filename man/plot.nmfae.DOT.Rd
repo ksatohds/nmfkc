@@ -20,6 +20,15 @@ Renders a DOT graph string using \code{DiagrammeR::grViz}.
 If the \pkg{DiagrammeR} package is not installed, prints the DOT source
 to the console instead.
 }
+\examples{
+\donttest{
+set.seed(1)
+Y <- matrix(runif(20), nrow = 4)
+res <- nmfae(Y, rank = 2)
+dot <- nmfae.DOT(res)
+plot(dot)
+}
+}
 \seealso{
 \code{\link{nmfae.DOT}}
 }

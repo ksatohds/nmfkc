@@ -82,6 +82,14 @@ of a three-layer NMF model. Two graph types are supported:
 Edge widths are proportional to matrix element values, and edges below
 \code{threshold} are omitted for clarity.
 }
+\examples{
+\donttest{
+set.seed(1)
+Y <- matrix(runif(20), nrow = 4)
+res <- nmfae(Y, rank = 2)
+dot <- nmfae.DOT(res)
+}
+}
 \seealso{
 \code{\link{nmfae}}
 }

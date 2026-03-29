@@ -19,6 +19,14 @@ Invisible \code{NULL}. Called for its side effect (plot).
 \code{plot.nmfae} displays the convergence trajectory of the objective function
 across iterations. The title shows the achieved \eqn{R^2}.
 }
+\examples{
+\donttest{
+set.seed(1)
+Y <- matrix(runif(20), nrow = 4)
+res <- nmfae(Y, rank = 2)
+plot(res)
+}
+}
 \seealso{
 \code{\link{nmfae}}, \code{\link{nmfae.heatmap}}
 }

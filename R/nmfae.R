@@ -598,6 +598,13 @@ nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
 #' @seealso \code{\link{nmfae}}, \code{\link{nmfae.heatmap}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y <- matrix(runif(20), nrow = 4)
+#' res <- nmfae(Y, rank = 2)
+#' plot(res)
+#' }
 #' @export
 plot.nmfae <- function(x, ...) {
   extra_args <- list(...)
@@ -898,6 +905,13 @@ print.nmfae.inference <- function(x, ...) {
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
 #' @seealso \code{\link{nmfae}}, \code{\link{plot.nmfae}}, \code{\link{nmfae.DOT}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y <- matrix(runif(20), nrow = 4)
+#' res <- nmfae(Y, rank = 2)
+#' nmfae.heatmap(res)
+#' }
 #' @export
 nmfae.heatmap <- function(x,
                           Y1.label = NULL, X1.label = NULL,
@@ -989,6 +1003,13 @@ nmfae.heatmap <- function(x,
 #'   in \code{attr(result, "actual")}.
 #' @seealso \code{\link{nmfae}}, \code{\link{plot.predict.nmfae}},
 #'   \code{\link{nmfkc.class}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y <- matrix(runif(20), nrow = 4)
+#' res <- nmfae(Y, rank = 2)
+#' pred <- predict(res)
+#' }
 #' @export
 predict.nmfae <- function(object, newY2 = NULL, Y1 = NULL,
                           type = c("response", "class"), ...) {
@@ -1033,6 +1054,14 @@ predict.nmfae <- function(object, newY2 = NULL, Y1 = NULL,
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
 #' @seealso \code{\link{predict.nmfae}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y <- matrix(runif(20), nrow = 4)
+#' res <- nmfae(Y, rank = 2)
+#' pred <- predict(res)
+#' plot(pred)
+#' }
 #' @export
 plot.predict.nmfae <- function(x, ...) {
   extra_args <- list(...)
@@ -1688,6 +1717,13 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #'
 #' @return A character string containing the DOT graph specification.
 #' @seealso \code{\link{nmfae}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y <- matrix(runif(20), nrow = 4)
+#' res <- nmfae(Y, rank = 2)
+#' dot <- nmfae.DOT(res)
+#' }
 #' @export
 nmfae.DOT <- function(x,
                       type = c("XCX", "YXCXY"),
@@ -1884,6 +1920,14 @@ nmfae.DOT <- function(x,
 #' @return The \code{grViz} widget (invisibly), or invisible \code{NULL}
 #'   if \pkg{DiagrammeR} is not available.
 #' @seealso \code{\link{nmfae.DOT}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y <- matrix(runif(20), nrow = 4)
+#' res <- nmfae(Y, rank = 2)
+#' dot <- nmfae.DOT(res)
+#' plot(dot)
+#' }
 #' @export
 plot.nmfae.DOT <- function(x, ...) {
   if (requireNamespace("DiagrammeR", quietly = TRUE)) {
