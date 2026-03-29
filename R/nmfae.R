@@ -554,12 +554,13 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
 #' @return A modified copy of \code{x} with updated names.
 #' @examples
 #' \donttest{
-#' res <- nmfae(Y, rank = 3, rank.encoder = 3)
+#' set.seed(1)
+#' Y <- matrix(runif(15), nrow = 3)
+#' res <- nmfae(Y, rank = 2, rank.encoder = 2)
 #' res <- nmfae.rename(res,
-#'   X1.colnames = c("Sprint", "Throw", "Endurance"),
-#'   X2.rownames = c("Speed", "Power", "Stamina"))
+#'   X1.colnames = c("Basis1", "Basis2"),
+#'   X2.rownames = c("Enc1", "Enc2"))
 #' summary(res)
-#' nmfae.DOT(res)
 #' }
 #' @seealso \code{\link{nmfae}}
 #' @export

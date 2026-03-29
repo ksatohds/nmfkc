@@ -24,6 +24,9 @@ are defined in their respective source files.)
 }
 \examples{
 \donttest{
+set.seed(1)
+Y <- matrix(runif(20), nrow = 4)
+A <- diag(5)
 res <- nmfre(Y, A, rank = 2, wild.bootstrap = FALSE)
 plot(res)
 }
