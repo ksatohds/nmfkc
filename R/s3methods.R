@@ -105,12 +105,12 @@ summary.nmf.sem <- function(object, ...) {
 
   # Coefficients from inference
   if (!is.null(object$coefficients) && is.data.frame(object$coefficients)) {
-    cat("\nC2 Coefficients (Exogenous -> Factor):\n")
+    cat("\nC2 Coefficients (Covariate -> Basis):\n")
     cf <- object$coefficients
     p_side <- if (!is.null(object$C2.p.side)) object$C2.p.side else "one.sided"
     p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
 
-    rnames <- paste0(cf$Exogenous, ":", cf$Factor)
+    rnames <- paste0(cf$Covariate, ":", cf$Basis)
     est <- formatC(cf$Estimate, format = "f", digits = 4, width = 10)
     se  <- formatC(cf$SE, format = "f", digits = 4, width = 10)
     zv  <- formatC(cf$z_value, format = "f", digits = 2, width = 7)

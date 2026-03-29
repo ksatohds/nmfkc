@@ -390,8 +390,8 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
   if (!inherits(object, "nmfae")) stop("object must be of class 'nmfae'")
 
   extra_args <- list(...)
-  wild.B     <- if (!is.null(extra_args$wild.B))     extra_args$wild.B     else 1000
-  wild.seed  <- if (!is.null(extra_args$wild.seed))  extra_args$wild.seed  else 42
+  wild.B     <- if (!is.null(extra_args$wild.B))     extra_args$wild.B     else 500
+  wild.seed  <- if (!is.null(extra_args$wild.seed))  extra_args$wild.seed  else 123
   wild.level <- if (!is.null(extra_args$wild.level)) extra_args$wild.level else 0.95
   sandwich   <- if (!is.null(extra_args$sandwich))   extra_args$sandwich   else TRUE
   C.p.side   <- if (!is.null(extra_args$C.p.side))   extra_args$C.p.side   else "one.sided"
@@ -505,8 +505,8 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
   clabs <- if (!is.null(colnames(C))) colnames(C) else paste0("Enc", 1:R)
 
   coefficients <- data.frame(
-    Decoder  = rep(rlabs, times = R),
-    Encoder  = rep(clabs, each = Q),
+    Basis    = rep(rlabs, times = R),
+    Covariate = rep(clabs, each = Q),
     Estimate = Estimate,
     SE       = SE,
     BSE      = BSE,
@@ -574,7 +574,7 @@ nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
     if (!is.null(x$coefficients)) {
       old <- paste0("Dec", 1:Q)
       for (k in seq_len(Q))
-        x$coefficients$Decoder[x$coefficients$Decoder == old[k]] <- X1.colnames[k]
+        x$coefficients$Basis[x$coefficients$Basis == old[k]] <- X1.colnames[k]
     }
   }
   if (!is.null(X2.rownames)) {
@@ -585,7 +585,7 @@ nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
     if (!is.null(x$coefficients)) {
       old <- paste0("Enc", 1:R)
       for (k in seq_len(R))
-        x$coefficients$Encoder[x$coefficients$Encoder == old[k]] <- X2.rownames[k]
+        x$coefficients$Covariate[x$coefficients$Covariate == old[k]] <- X2.rownames[k]
     }
   }
   x
@@ -773,7 +773,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
     n_total <- nrow(cf)
-    rnames <- paste0(cf$Encoder, ":", cf$Decoder)
+    rnames <- paste0(cf$Covariate, ":", cf$Basis)
 
     # Determine which rows to display
     if (n_total <= max.coef) {
@@ -1152,10 +1152,9 @@ plot.predict.nmfae <- function(x, ...) {
 #' @param rank.encoder Integer vector of encoder ranks to evaluate. Default is \code{NULL},
 #'   which sets \code{rank.encoder = rank} and evaluates element-wise pairs.
 #'   When explicitly specified, all combinations with \code{rank} are evaluated.
-#' @param nfolds Number of folds. Default is 5. For backward compatibility,
-#'   \code{div} is accepted via \code{...}.
-#' @param seed Integer seed for reproducibility. Default is 123.
 #' @param ... Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
+#'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
+#'   \code{seed} (integer seed, default 123).
 #'   For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
 #'   \code{rank} and \code{rank.encoder}.
 #'
@@ -1177,12 +1176,12 @@ plot.predict.nmfae <- function(x, ...) {
 #' res2 <- nmfae.ecv(Y, rank = 1:3, rank.encoder = 1:3, nfolds = 3, maxit = 500)
 #' res2$sigma
 #'
-nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL,
-                      nfolds = 5, seed = 123, ...) {
+nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
   extra_ecv <- list(...)
   if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
   if (!is.null(extra_ecv$R)) rank.encoder <- extra_ecv$R
-  if (!is.null(extra_ecv$div)) nfolds <- extra_ecv$div
+  nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
+  seed   <- if (!is.null(extra_ecv$seed))   extra_ecv$seed   else 123
   Q <- rank; R <- rank.encoder
   div <- nfolds
 
@@ -1387,15 +1386,12 @@ plot.nmfae.ecv <- function(x, ...) {
 #'   Default is \code{Y1} (autoencoder).
 #' @param rank Integer. Rank of the decoder basis. Default is 2.
 #' @param rank.encoder Integer. Rank of the encoder basis. Default is \code{rank}.
-#' @param nfolds Number of folds. Default is 5. For backward compatibility,
-#'   \code{div} is accepted via \code{...}.
-#' @param seed Integer seed for reproducible fold partitioning. Default is 123.
-#' @param shuffle Logical. If \code{TRUE} (default), randomly shuffles samples;
-#'   if \code{FALSE}, splits sequentially (block CV for time series).
 #' @param ... Additional arguments passed to \code{\link{nmfae}}
 #'   (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
-#'   For backward compatibility, \code{Q}, \code{R}, and \code{div} are accepted as aliases for
-#'   \code{rank}, \code{rank.encoder}, and \code{nfolds}.
+#'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
+#'   \code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}).
+#'   For backward compatibility, \code{Q}, \code{R} are accepted as aliases for
+#'   \code{rank}, \code{rank.encoder}.
 #'
 #' @return A list with components:
 #' \item{objfunc}{Mean squared error per valid element over all folds.}
@@ -1411,12 +1407,13 @@ plot.nmfae.ecv <- function(x, ...) {
 #' res <- nmfae.cv(Y, rank = 2, rank.encoder = 2, nfolds = 5, maxit = 500)
 #' res$sigma
 #'
-nmfae.cv <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
-                     nfolds = 5, seed = 123, shuffle = TRUE, ...) {
+nmfae.cv <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank, ...) {
   extra_cv <- list(...)
   if (!is.null(extra_cv$Q)) rank <- extra_cv$Q
   if (!is.null(extra_cv$R)) rank.encoder <- extra_cv$R
-  if (!is.null(extra_cv$div)) nfolds <- extra_cv$div
+  nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
+  seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else 123
+  shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
   Q <- rank; R <- rank.encoder
   div <- nfolds
 
@@ -1694,7 +1691,7 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' Edge widths are proportional to matrix element values, and edges below
 #' \code{threshold} are omitted for clarity.
 #'
-#' @param x An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.
+#' @param result An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.
 #' @param type Character. Graph type: \code{"XCX"} (default) or \code{"YXCXY"}.
 #' @param threshold Numeric. Edges with values below this are omitted. Default is 0.01.
 #' @param sig.level Numeric or \code{NULL}. Significance level for filtering C edges
@@ -1728,7 +1725,7 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' dot <- nmfae.DOT(res)
 #' }
 #' @export
-nmfae.DOT <- function(x,
+nmfae.DOT <- function(result,
                       type = c("XCX", "YXCXY"),
                       threshold = 0.01,
                       sig.level = 0.1,
@@ -1748,9 +1745,9 @@ nmfae.DOT <- function(x,
 
   type <- match.arg(type)
 
-  X1 <- x$X1        # P1 x Q
-  C_mat <- x$C   # Q x R
-  X2 <- x$X2        # R x P2
+  X1 <- result$X1        # P1 x Q
+  C_mat <- result$C   # Q x R
+  X2 <- result$X2        # R x P2
 
   P1 <- nrow(X1); Q <- ncol(X1)
   R <- nrow(X2); P2 <- ncol(X2)
@@ -1846,15 +1843,15 @@ nmfae.DOT <- function(x,
   # --- Significance stars and p-value filter for Theta edges ---
   C_stars <- NULL
   C_show  <- NULL  # logical matrix for sig.level filter
-  if (!is.null(x$coefficients)) {
+  if (!is.null(result$coefficients)) {
     C_stars <- matrix("", nrow = Q, ncol = R)
     C_pval  <- matrix(NA_real_, nrow = Q, ncol = R)
-    cf <- x$coefficients
-    dec_names <- rownames(C_mat)  # current decoder names (may be renamed)
-    enc_names <- colnames(C_mat)  # current encoder names (may be renamed)
+    cf <- result$coefficients
+    dec_names <- rownames(C_mat)  # current basis names (may be renamed)
+    enc_names <- colnames(C_mat)  # current covariate names (may be renamed)
     for (k in seq_len(nrow(cf))) {
-      q <- match(cf$Decoder[k], dec_names)
-      r <- match(cf$Encoder[k], enc_names)
+      q <- match(cf$Basis[k], dec_names)
+      r <- match(cf$Covariate[k], enc_names)
       if (!is.na(q) && !is.na(r) && !is.na(cf$p_value[k])) {
         p <- cf$p_value[k]
         C_pval[q, r] <- p

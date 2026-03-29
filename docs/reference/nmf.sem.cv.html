@@ -85,9 +85,6 @@ inspection of the internal structural matrices.</p>
 <span>  C2.L1 <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  epsilon <span class="op">=</span> <span class="fl">1e-06</span>,</span>
 <span>  maxit <span class="op">=</span> <span class="fl">20000</span>,</span>
-<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  nfolds <span class="op">=</span> <span class="fl">5</span>,</span>
-<span>  shuffle <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -136,24 +133,12 @@ If <code>NULL</code>, <code>nmf.sem</code> decides the effective rank (via <code
 <dd><p>Maximum number of iterations for <code>nmf.sem</code>.</p></dd>
 
 
-<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>Master random seed for CV splitting and fold-specific calls to <code>nmf.sem</code>.
-If <code>NULL</code>, RNG is not controlled within folds.</p></dd>
-
-
-<dt id="arg-nfolds">nfolds<a class="anchor" aria-label="anchor" href="#arg-nfolds"></a></dt>
-<dd><p>Number of CV folds. Default is 5. For backward compatibility,
-<code>div</code> is accepted via <code>...</code>.</p></dd>
-
-
-<dt id="arg-shuffle">shuffle<a class="anchor" aria-label="anchor" href="#arg-shuffle"></a></dt>
-<dd><p>Logical; if <code>TRUE</code>, samples are randomly permuted
-before assigning to folds. (Default: <code>TRUE</code>)</p></dd>
-
-
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code>nmf.sem</code> (except for
-<code>rank</code>, <code>seed</code>, <code>div</code>, <code>shuffle</code>, which are handled here).</p></dd>
+<code>rank</code>, <code>seed</code>, <code>div</code>, <code>shuffle</code>, which are handled here).
+Also accepts: <code>nfolds</code> (number of folds, default 5; <code>div</code> also accepted),
+<code>seed</code> (master random seed, default <code>NULL</code>),
+<code>shuffle</code> (logical, default <code>TRUE</code>).</p></dd>
 
 </dl></div>
     <div class="section level2">

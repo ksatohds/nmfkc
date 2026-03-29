@@ -357,8 +357,8 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
 
   extra_args <- base::list(...)
-  wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 1000
-  wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 42
+  wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
+  wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
   wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
   sandwich    <- if (!is.null(extra_args$sandwich))     extra_args$sandwich    else TRUE
   C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
@@ -475,8 +475,8 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
   clabs <- if (!is.null(base::colnames(C2))) base::colnames(C2) else base::paste0("Y2_", 1:P2)
 
   coefficients <- base::data.frame(
-    Factor    = base::rep(rlabs, times = P2),
-    Exogenous = base::rep(clabs, each = Q),
+    Basis     = base::rep(rlabs, times = P2),
+    Covariate = base::rep(clabs, each = Q),
     Estimate  = Estimate,
     SE        = SE,
     BSE       = BSE,
@@ -534,14 +534,11 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
 #' @param C2.L1 L1 sparsity penalty for \code{C2} (\eqn{\Theta_2}).
 #' @param epsilon Convergence threshold for \code{nmf.sem}.
 #' @param maxit Maximum number of iterations for \code{nmf.sem}.
-#' @param seed Master random seed for CV splitting and fold-specific calls to \code{nmf.sem}.
-#'   If \code{NULL}, RNG is not controlled within folds.
-#' @param nfolds Number of CV folds. Default is 5. For backward compatibility,
-#'   \code{div} is accepted via \code{...}.
-#' @param shuffle Logical; if \code{TRUE}, samples are randomly permuted
-#'   before assigning to folds. (Default: \code{TRUE})
 #' @param ... Additional arguments passed to \code{nmf.sem} (except for
 #'   \code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).
+#'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
+#'   \code{seed} (master random seed, default \code{NULL}),
+#'   \code{shuffle} (logical, default \code{TRUE}).
 #'
 #' @return A numeric scalar: mean MAE across CV folds.
 #'
@@ -563,13 +560,12 @@ nmf.sem.cv <- function(
     C2.L1 = 0.1,        # L1 sparsity for C2 (Theta2)
     epsilon = 1e-6,     # Convergence tolerance passed to nmf.sem
     maxit = 20000,
-    seed = NULL,        # Master seed for CV (partition + fold seeds)
-    nfolds = 5,         # Number of CV folds
-    shuffle = TRUE,     # Shuffle samples before assigning folds
     ...
 ){
   extra_cv <- base::list(...)
-  if (!is.null(extra_cv$div)) nfolds <- extra_cv$div
+  nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
+  seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else NULL
+  shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
   div <- nfolds
   # ------------------------------------------------------------------
   # 1. Basic input checks
@@ -609,6 +605,7 @@ nmf.sem.cv <- function(
   extra_args <- list(...)
 
   extra_args$div     <- NULL
+  extra_args$nfolds  <- NULL
   extra_args$shuffle <- NULL
   extra_args$rank    <- NULL
   extra_args$seed    <- NULL
@@ -1252,8 +1249,8 @@ nmf.sem.DOT <- function(result,
     fac_names <- rownames(C2)
     exo_names <- colnames(C2)
     for (k in seq_len(nrow(cf))) {
-      q  <- match(cf$Factor[k], fac_names)
-      p2 <- match(cf$Exogenous[k], exo_names)
+      q  <- match(cf$Basis[k], fac_names)
+      p2 <- match(cf$Covariate[k], exo_names)
       if (!is.na(q) && !is.na(p2) && !is.na(cf$p_value[k])) {
         p <- cf$p_value[k]
         C2_pval[q, p2] <- p
@@ -1375,7 +1372,7 @@ nmf.sem.DOT <- function(result,
 #' Edge widths are scaled by coefficient magnitude, and nodes with no edges
 #' above the threshold are omitted from the visualization.
 #'
-#' @param x The return value from \code{nmfkc}, containing matrices
+#' @param result The return value from \code{nmfkc}, containing matrices
 #'   \code{X}, \code{B}, and optionally \code{C}.
 #' @param type Character string specifying the visualization style:
 #'   one of \code{"YX"}, \code{"YA"}, \code{"YXA"}.
@@ -1413,7 +1410,7 @@ nmf.sem.DOT <- function(result,
 #'
 #' @export
 nmfkc.DOT <- function(
-    x,
+    result,
     type = c("YX","YA","YXA"),
     threshold = 0.01,
     sig.level = 0.1,
@@ -1435,14 +1432,14 @@ nmfkc.DOT <- function(
   ## ---------------------------------------------------------
   ## Required matrices
   ## ---------------------------------------------------------
-  X <- x$X
-  B <- x$B
+  X <- result$X
+  B <- result$B
   if (is.null(X) || is.null(B)) {
-    stop("x must contain X and B.")
+    stop("result must contain X and B.")
   }
 
   ## If C exists and is a proper NMF-with-covariates factor:
-  hasA <- !is.null(x$C) && ncol(x$C) != ncol(B)
+  hasA <- !is.null(result$C) && ncol(result$C) != ncol(B)
 
   P <- nrow(X)
   Q <- ncol(X)
@@ -1463,7 +1460,7 @@ nmfkc.DOT <- function(
   ## Covariates and tri-factorization
   ## ---------------------------------------------------------
   if (hasA) {
-    C <- as.matrix(x$C)          # Q x R
+    C <- as.matrix(result$C)          # Q x R
     A_cols <- ncol(C)
     A_labels <- if (is.null(A.label)) colnames(C) else A.label
     if (is.null(A_labels)) A_labels <- paste0("A", seq_len(A_cols))
@@ -1582,10 +1579,10 @@ nmfkc.DOT <- function(
   ## ---------------------------------------------------------
   C_stars <- NULL
   C_show  <- NULL
-  if (!is.null(x$coefficients) && hasA) {
+  if (!is.null(result$coefficients) && hasA) {
     C_stars <- matrix("", nrow = Q, ncol = A_cols)
     C_pval  <- matrix(NA_real_, nrow = Q, ncol = A_cols)
-    cf <- x$coefficients
+    cf <- result$coefficients
     basis_names <- rownames(C)
     cov_names   <- colnames(C)
     for (k in seq_len(nrow(cf))) {

@@ -5,9 +5,9 @@
 \title{Generate a Graphviz DOT Diagram for NMF-AR / NMF-VAR Models}
 \usage{
 nmfkc.ar.DOT(
-  x,
+  result,
   degree = 1,
-  intercept = any(colnames(x$C) == "(Intercept)"),
+  intercept = any(colnames(result$C) == "(Intercept)"),
   threshold = 0.1,
   rankdir = "RL",
   fill = TRUE,
@@ -18,7 +18,7 @@ nmfkc.ar.DOT(
 )
 }
 \arguments{
-\item{x}{A fitted \code{nmfkc} object representing the AR model.
+\item{result}{A fitted \code{nmfkc} object representing the AR model.
 Must contain matrices \code{X} and \code{C}.}
 
 \item{degree}{Maximum AR lag to visualize.}

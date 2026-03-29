@@ -4,15 +4,7 @@
 \alias{nmfae.ecv}
 \title{Element-wise Cross-Validation for nmfae (Wold's CV)}
 \usage{
-nmfae.ecv(
-  Y1,
-  Y2 = Y1,
-  rank = 1:2,
-  rank.encoder = NULL,
-  nfolds = 5,
-  seed = 123,
-  ...
-)
+nmfae.ecv(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...)
 }
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N).}
@@ -25,12 +17,9 @@ nmfae.ecv(
 which sets \code{rank.encoder = rank} and evaluates element-wise pairs.
 When explicitly specified, all combinations with \code{rank} are evaluated.}
 
-\item{nfolds}{Number of folds. Default is 5. For backward compatibility,
-\code{div} is accepted via \code{...}.}
-
-\item{seed}{Integer seed for reproducibility. Default is 123.}
-
 \item{...}{Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
+Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
+\code{seed} (integer seed, default 123).
 For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
 \code{rank} and \code{rank.encoder}.}
 }

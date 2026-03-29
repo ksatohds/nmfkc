@@ -2188,11 +2188,10 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #' @param A Covariate matrix. Ignored when \code{Y} is a formula.
 #' @param rank Vector of ranks to evaluate (e.g., 1:5). For backward compatibility,
 #'   \code{Q} is accepted via \code{...}.
-#' @param nfolds Number of folds (default: 5). For backward compatibility,
-#'   \code{div} is accepted via \code{...}.
-#' @param seed Integer seed for reproducibility.
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} (e.g., \code{method="EU"}).
+#'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
+#'   \code{seed} (integer seed, default 123).
 #'
 #' @return A list with components:
 #' \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
@@ -2207,10 +2206,11 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #' res$objfunc
 #'
 #' @export
-nmfkc.ecv <- function(Y, A=NULL, rank=1:3, nfolds=5, seed=123, data, ...){
+nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   extra_ecv <- list(...)
   if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
-  if (!is.null(extra_ecv$div)) nfolds <- extra_ecv$div
+  nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
+  seed   <- if (!is.null(extra_ecv$seed))   extra_ecv$seed   else 123
   Q <- rank
   div <- nfolds
   # --- Formula Mode ---
@@ -3162,8 +3162,8 @@ nmfkc.inference <- function(object, Y, A = NULL,
   if (!inherits(object, "nmfkc")) stop("object must be of class 'nmfkc'")
 
   extra_args <- base::list(...)
-  wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 1000
-  wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 42
+  wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
+  wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
   wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
   sandwich    <- if (!is.null(extra_args$sandwich))     extra_args$sandwich    else TRUE
   C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"

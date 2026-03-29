@@ -4,16 +4,7 @@
 \alias{nmfae.cv}
 \title{Sample-wise k-fold Cross-Validation for nmfae}
 \usage{
-nmfae.cv(
-  Y1,
-  Y2 = Y1,
-  rank = 2,
-  rank.encoder = rank,
-  nfolds = 5,
-  seed = 123,
-  shuffle = TRUE,
-  ...
-)
+nmfae.cv(Y1, Y2 = Y1, rank = 2, rank.encoder = rank, ...)
 }
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N). Non-negative.}
@@ -25,18 +16,12 @@ Default is \code{Y1} (autoencoder).}
 
 \item{rank.encoder}{Integer. Rank of the encoder basis. Default is \code{rank}.}
 
-\item{nfolds}{Number of folds. Default is 5. For backward compatibility,
-\code{div} is accepted via \code{...}.}
-
-\item{seed}{Integer seed for reproducible fold partitioning. Default is 123.}
-
-\item{shuffle}{Logical. If \code{TRUE} (default), randomly shuffles samples;
-if \code{FALSE}, splits sequentially (block CV for time series).}
-
 \item{...}{Additional arguments passed to \code{\link{nmfae}}
 (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
-For backward compatibility, \code{Q}, \code{R}, and \code{div} are accepted as aliases for
-\code{rank}, \code{rank.encoder}, and \code{nfolds}.}
+Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
+\code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}).
+For backward compatibility, \code{Q}, \code{R} are accepted as aliases for
+\code{rank}, \code{rank.encoder}.}
 }
 \value{
 A list with components:

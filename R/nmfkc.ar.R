@@ -571,7 +571,7 @@ nmfkc.ar.stationarity <- function(x){
 #' (e.g., “T-1”, “T-2”, ...), while latent factor nodes and current-time
 #' outputs are arranged in separate clusters.
 #'
-#' @param x A fitted \code{nmfkc} object representing the AR model.
+#' @param result A fitted \code{nmfkc} object representing the AR model.
 #'   Must contain matrices \code{X} and \code{C}.
 #' @param degree Maximum AR lag to visualize.
 #' @param intercept Logical; if \code{TRUE}, draws intercept nodes for
@@ -597,9 +597,9 @@ nmfkc.ar.stationarity <- function(x){
 #' cat(dot)
 #'
 #' @export
-nmfkc.ar.DOT <- function(x,
+nmfkc.ar.DOT <- function(result,
                          degree    = 1,
-                         intercept = any(colnames(x$C) == "(Intercept)"),
+                         intercept = any(colnames(result$C) == "(Intercept)"),
                          threshold = 0.1,
                          rankdir   = "RL",
                          fill      = TRUE,
@@ -611,11 +611,11 @@ nmfkc.ar.DOT <- function(x,
   ## -------------------------------------------------------------
   ## Extract required AR components
   ## -------------------------------------------------------------
-  X     <- x$X
-  C_raw <- x$C
+  X     <- result$X
+  C_raw <- result$C
 
   if (is.null(X) || is.null(C_raw)) {
-    stop("x must contain matrices X and C.")
+    stop("result must contain matrices X and C.")
   }
 
   C <- as.matrix(C_raw)

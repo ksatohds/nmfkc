@@ -5,7 +5,7 @@
 \title{DOT graph visualization for nmfae objects}
 \usage{
 nmfae.DOT(
-  x,
+  result,
   type = c("XCX", "YXCXY"),
   threshold = 0.01,
   sig.level = 0.1,
@@ -27,7 +27,7 @@ nmfae.DOT(
 )
 }
 \arguments{
-\item{x}{An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.}
+\item{result}{An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.}
 
 \item{type}{Character. Graph type: \code{"XCX"} (default) or \code{"YXCXY"}.}
 

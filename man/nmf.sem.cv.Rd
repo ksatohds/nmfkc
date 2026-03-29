@@ -14,9 +14,6 @@ nmf.sem.cv(
   C2.L1 = 0.1,
   epsilon = 1e-06,
   maxit = 20000,
-  seed = NULL,
-  nfolds = 5,
-  shuffle = TRUE,
   ...
 )
 }
@@ -43,17 +40,11 @@ If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \co
 
 \item{maxit}{Maximum number of iterations for \code{nmf.sem}.}
 
-\item{seed}{Master random seed for CV splitting and fold-specific calls to \code{nmf.sem}.
-If \code{NULL}, RNG is not controlled within folds.}
-
-\item{nfolds}{Number of CV folds. Default is 5. For backward compatibility,
-\code{div} is accepted via \code{...}.}
-
-\item{shuffle}{Logical; if \code{TRUE}, samples are randomly permuted
-before assigning to folds. (Default: \code{TRUE})}
-
 \item{...}{Additional arguments passed to \code{nmf.sem} (except for
-\code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).}
+\code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).
+Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
+\code{seed} (master random seed, default \code{NULL}),
+\code{shuffle} (logical, default \code{TRUE}).}
 }
 \value{
 A numeric scalar: mean MAE across CV folds.

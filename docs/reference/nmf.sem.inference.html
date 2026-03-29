@@ -162,16 +162,16 @@ arXiv:2512.18250. <a href="https://arxiv.org/abs/2512.18250" class="external-lin
 <span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="nmf.sem.html">nmf.sem</a></span><span class="op">(</span><span class="va">Y1</span>, <span class="va">Y2</span>, rank <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">res2</span> <span class="op">&lt;-</span> <span class="fu">nmf.sem.inference</span><span class="op">(</span><span class="va">res</span>, <span class="va">Y1</span>, <span class="va">Y2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">res2</span><span class="op">$</span><span class="va">coefficients</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    Factor    Exogenous     Estimate           SE          BSE      z_value</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 Factor1 Petal.Length 9.157274e-03 0.0007674188 0.0008025624 1.193256e+01</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 Factor2 Petal.Length 2.602520e-09 0.0006634281 0.0003749655 3.922836e-06</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3 Factor1  Petal.Width 2.300680e-06 0.0023326828 0.0013632101 9.862806e-04</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4 Factor2  Petal.Width 2.134356e-10 0.0018436918 0.0010385662 1.157654e-07</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Basis    Covariate     Estimate           SE          BSE      z_value</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 Factor1 Petal.Length 9.157274e-03 0.0007674188 0.0007462585 1.193256e+01</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 Factor2 Petal.Length 2.602520e-09 0.0006634281 0.0003779676 3.922836e-06</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3 Factor1  Petal.Width 2.300680e-06 0.0023326828 0.0012550356 9.862806e-04</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4 Factor2  Petal.Width 2.134356e-10 0.0018436918 0.0009884945 1.157654e-07</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        p_value      CI_low     CI_high</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 4.003418e-33 0.007666162 0.010794976</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 4.999984e-01 0.000000000 0.001312381</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3 4.996065e-01 0.000000000 0.004325197</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4 5.000000e-01 0.000000000 0.003343044</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 4.003418e-33 0.007747119 0.010681964</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 4.999984e-01 0.000000000 0.001239286</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3 4.996065e-01 0.000000000 0.004173533</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4 5.000000e-01 0.000000000 0.003146949</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

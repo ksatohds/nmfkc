@@ -5,7 +5,7 @@
 \title{Generate Graphviz DOT Scripts for NMF or NMF-with-Covariates Models}
 \usage{
 nmfkc.DOT(
-  x,
+  result,
   type = c("YX", "YA", "YXA"),
   threshold = 0.01,
   sig.level = 0.1,
@@ -25,7 +25,7 @@ nmfkc.DOT(
 )
 }
 \arguments{
-\item{x}{The return value from \code{nmfkc}, containing matrices
+\item{result}{The return value from \code{nmfkc}, containing matrices
 \code{X}, \code{B}, and optionally \code{C}.}
 
 \item{type}{Character string specifying the visualization style:
