@@ -157,8 +157,13 @@ because the free parameter matrix \(C\) absorbs the scale.</p></li>
 <li><p><code>prefix</code>: Prefix for column names of \(X\) and row names of \(B\) (default: "Basis").</p></li>
 <li><p><code>print.trace</code>: Logical. If <code>TRUE</code>, prints progress every 10 iterations (default: <code>FALSE</code>).</p></li>
 <li><p><code>print.dims</code>: Logical. If <code>TRUE</code> (default), prints matrix dimensions and elapsed time.</p></li>
-<li><p><code>save.time</code>: Logical. If <code>TRUE</code> (default), skips some post-computations (e.g., CPCC, silhouette) to save time.</p></li>
-<li><p><code>save.memory</code>: Logical. If <code>TRUE</code>, performs only essential computations (implies <code>save.time = TRUE</code>) to reduce memory usage (default: <code>FALSE</code>).</p></li>
+<li><p><code>detail</code>: Level of post-fit criterion computation.
+<code>"full"</code> computes all criteria including silhouette, CPCC, dist.cor;
+<code>"fast"</code> skips expensive distance-based criteria;
+<code>"minimal"</code> returns only information criteria.
+Default is <code>"full"</code>. For backward compatibility,
+<code>save.time = TRUE</code> maps to <code>"fast"</code> and
+<code>save.memory = TRUE</code> maps to <code>"minimal"</code>.</p></li>
 </ul></dd>
 
 </dl></div>

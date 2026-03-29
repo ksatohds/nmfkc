@@ -4,7 +4,16 @@
 \alias{nmfkc.rank}
 \title{Rank selection diagnostics with graphical output}
 \usage{
-nmfkc.rank(Y, A = NULL, rank = 1:2, save.time = FALSE, plot = TRUE, data, ...)
+nmfkc.rank(
+  Y,
+  A = NULL,
+  rank = 1:2,
+  detail = "full",
+  save.time = FALSE,
+  plot = TRUE,
+  data,
+  ...
+)
 }
 \arguments{
 \item{Y}{Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).}
@@ -14,8 +23,11 @@ Ignored when \code{Y} is a formula.}
 
 \item{rank}{A vector of candidate ranks to be evaluated.}
 
-\item{save.time}{Logical. If \code{TRUE}, skips heavy computations like Element-wise CV.
-Default is \code{FALSE} (computes everything).}
+\item{detail}{Level of criterion computation: \code{"full"} (default) computes
+all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.}
+
+\item{save.time}{Logical. Backward-compatible alias: \code{TRUE} maps to
+\code{detail = "fast"}. Default is \code{FALSE}.}
 
 \item{plot}{Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.}
 

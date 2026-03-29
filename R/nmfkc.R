@@ -1049,8 +1049,13 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'     \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 #'     \item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
-#'     \item \code{save.time}: Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.
-#'     \item \code{save.memory}: Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage (default: \code{FALSE}).
+#'     \item \code{detail}: Level of post-fit criterion computation.
+#'       \code{"full"} computes all criteria including silhouette, CPCC, dist.cor;
+#'       \code{"fast"} skips expensive distance-based criteria;
+#'       \code{"minimal"} returns only information criteria.
+#'       Default is \code{"full"}. For backward compatibility,
+#'       \code{save.time = TRUE} maps to \code{"fast"} and
+#'       \code{save.memory = TRUE} maps to \code{"minimal"}.
 #'   }
 #' @return A list with components:
 #' \item{call}{The matched call, as captured by `match.call()`.}
@@ -1151,8 +1156,16 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   prefix <- if (!base::is.null(extra_args$prefix)) extra_args$prefix else "Basis"
   print.trace <- if (!base::is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
   print.dims <- if (!base::is.null(extra_args$print.dims)) extra_args$print.dims else TRUE
-  save.time <- if (!base::is.null(extra_args$save.time)) extra_args$save.time else TRUE
+  save.time <- if (!base::is.null(extra_args$save.time)) extra_args$save.time else FALSE
   save.memory <- if (!base::is.null(extra_args$save.memory)) extra_args$save.memory else FALSE
+  detail <- if (!base::is.null(extra_args$detail)) extra_args$detail else NULL
+  if (base::is.null(detail)) {
+    # backward compatibility: derive detail from save.time / save.memory
+    if (save.memory) detail <- "minimal"
+    else if (save.time) detail <- "fast"
+    else detail <- "full"
+  }
+  detail <- base::match.arg(detail, base::c("full", "fast", "minimal"))
 
   Y.weights <- if (!base::is.null(extra_args$Y.weights)) extra_args$Y.weights else NULL
 
@@ -1450,76 +1463,20 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   rownames(X) <- rownames(Y); colnames(X) <- paste0(prefix,1:ncol(X))
   rownames(B) <- paste0(prefix,1:nrow(B)); colnames(B) <- colnames(Y)
 
-  N_obs <- sum(Y.weights > 0)
+  # --- Compute criteria via nmfkc.criterion ---
+  crit_result <- nmfkc.criterion(
+    base::list(X = X, B = B, C = C, XB = XB, method = method, A.attr = if(!base::is.null(A)) base::attributes(A) else NULL),
+    Y, detail = detail, Y.weights = Y.weights, X.restriction = X.restriction
+  )
+  r2        <- crit_result$r.squared
+  sigma     <- crit_result$sigma
+  mae       <- crit_result$mae
+  B.prob    <- crit_result$B.prob
+  B.cluster <- crit_result$B.cluster
+  X.prob    <- crit_result$X.prob
+  X.cluster <- crit_result$X.cluster
+  if (detail == "minimal") XB <- NA
 
-  if(X.restriction=="fixed") nparam.X <- 0 else if(X.restriction=="totalSum") nparam.X <- prod(dim(X)) - 1 else nparam.X <- (nrow(X)-1)*ncol(X)
-  if(is.null(A)) nparam <- nparam.X + prod(dim(B)) else nparam <- nparam.X + prod(dim(C))
-
-  # Bai, J., & Ng, S. (2002). Determining the number of factors in approximate factor models. Econometrica, 70(1), 191-221.
-  if (method == "EU") {
-    sigma2 <- objfunc / N_obs
-    P_dim <- nrow(Y)
-    T_dim <- ncol(Y)
-    g_icp1 <- (P_dim + T_dim) / (P_dim * T_dim) * log(P_dim * T_dim)
-    g_icp2 <- (P_dim + T_dim) / (P_dim * T_dim) * log(min(P_dim, T_dim))
-    g_icp3 <- log(min(P_dim, T_dim)) / min(P_dim, T_dim)
-    ICp1 <- log(sigma2) + nparam * g_icp1
-    ICp2 <- log(sigma2) + nparam * g_icp2
-    ICp3 <- log(sigma2) + nparam * g_icp3
-    ICp <- min(ICp1, ICp2, ICp3)
-    AIC <- N_obs * log(sigma2) + 2 * nparam
-    BIC <- N_obs * log(sigma2) + nparam * log(N_obs)
-  } else {
-    ICp <- NA;ICp1 <- NA;ICp2 <-NA;ICp3 <- NA;
-    AIC <- NA
-    BIC <- NA
-  }
-
-  if(save.memory==FALSE){
-    # [Fix 3] Calculate statistics using valid data only
-    valid_idx <- (Y.weights > 0)
-    if(any(valid_idx)) {
-      r2 <- stats::cor(XB[valid_idx], Y[valid_idx])^2
-      sigma <- stats::sd(Y[valid_idx] - XB[valid_idx])
-      mae <- mean(abs(Y[valid_idx] - XB[valid_idx]))
-    } else { r2 <- NA; sigma <- NA; mae <- NA }
-
-    B.prob <- t( t(B) / (colSums(B) + .eps) )
-    if(Q > 1){
-      B.prob.sd.min <- min(apply(B.prob,1,stats::sd))
-      B.prob.max.mean <- mean(apply(B.prob,2,max))
-      p <- B.prob + .eps # avoid log(0)
-      B.prob.entropy.mean <- -mean(colSums(p * log(p))) / log(Q)
-    } else {
-      B.prob.sd.min <- 0
-      B.prob.entropy.mean <- 0
-      B.prob.max.mean <- 1
-    }
-    B.cluster <- apply(B.prob,2,which.max)
-    B.cluster[colSums(B.prob)==0] <- NA
-    X.prob <- X / (rowSums(X) + .eps)
-    X.cluster <- apply(X.prob,1,which.max)
-
-    # [Fix 4] Skip dist.cor if there are missing values
-    if(save.time || any(Y.weights == 0)){
-      silhouette <- NA; CPCC <- NA; dist.cor <- NA
-    }else{
-      silhouette <- .silhouette.simple(B.prob,B.cluster)
-      dist.cor <- stats::cor(as.vector(stats::dist(t(Y))),as.vector(stats::dist(t(B))))
-      if(Q>=2){
-        M <- t(B.prob) %*% B.prob
-        h.dist <- as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1-M))))
-        up <- upper.tri(M)
-        CPCC <- stats::cor(h.dist[up],(1-M)[up])
-      }else{ CPCC <- NA }
-    }
-  }else{
-    r2 <- NA; sigma <- NA; mae <- NA
-    B.prob <- NA; B.cluster <- NA
-    B.prob.sd.min <- NA; B.prob.max.mean <- NA; B.prob.entropy.mean <- NA
-    XB <- NA; X.prob <- NA; X.cluster <- NA;
-    silhouette <- NA; CPCC <- NA; dist.cor <- NA
-  }
   if(epsilon.iter > abs(epsilon)) warning(paste0("maximum iterations (",maxit,") reached..."))
   end.time <- Sys.time()
   diff.time.st <- paste0(round(difftime(end.time,start.time,units="sec"),1),"sec")
@@ -1552,17 +1509,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
     objfunc.iter = objfunc.iter,
     r.squared = r2,
     sigma     = sigma,
-    mae =mae,
-    criterion = list(
-      B.prob.sd.min = B.prob.sd.min,
-      B.prob.max.mean = B.prob.max.mean,
-      B.prob.entropy.mean= B.prob.entropy.mean,
-      ICp1 = ICp1, ICp2 = ICp2, ICp3 = ICp3, ICp = ICp,
-      AIC  = AIC,  BIC  = BIC,
-      silhouette = silhouette,
-      CPCC       = CPCC,
-      dist.cor   = dist.cor
-    )
+    mae = mae,
+    criterion = crit_result$criterion
   )
   class(result) <- "nmfkc"
   return(result)
@@ -2386,6 +2334,185 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, data, ...){
 }
 
 
+#' @title Compute model selection criteria for a fitted nmfkc model
+#' @description
+#' \code{nmfkc.criterion} computes information criteria (ICp, AIC, BIC),
+#' clustering quality measures (silhouette, CPCC, dist.cor), and
+#' soft-clustering statistics (B.prob entropy, max, sd) from a fitted
+#' \code{nmfkc} model.
+#'
+#' This function can be called on a model that was fitted with
+#' \code{detail = "fast"} or \code{detail = "minimal"} to compute the
+#' full set of criteria afterwards.
+#'
+#' @param object An object of class \code{"nmfkc"} returned by
+#'   \code{\link{nmfkc}}.
+#' @param Y The original observation matrix (P x N) used for fitting.
+#' @param detail Character string controlling the level of computation:
+#'   \code{"full"} (default) computes all criteria including silhouette,
+#'   CPCC and dist.cor;
+#'   \code{"fast"} skips the expensive distance-based criteria;
+#'   \code{"minimal"} returns only information criteria.
+#' @param ... Additional arguments: \code{Y.weights} (weight matrix,
+#'   default: all ones).
+#'
+#' @return A list with components:
+#' \describe{
+#'   \item{r.squared}{R-squared between Y and XB.}
+#'   \item{sigma}{Residual standard deviation.}
+#'   \item{mae}{Mean absolute error.}
+#'   \item{B.prob}{Column-normalized coefficient matrix (soft-clustering probabilities).}
+#'   \item{B.cluster}{Hard clustering labels (argmax of B.prob per column).}
+#'   \item{X.prob}{Row-normalized basis matrix.}
+#'   \item{X.cluster}{Hard clustering labels per row of X.}
+#'   \item{criterion}{Named list: ICp, ICp1, ICp2, ICp3, AIC, BIC,
+#'     B.prob.sd.min, B.prob.max.mean, B.prob.entropy.mean,
+#'     silhouette, CPCC, dist.cor.}
+#' }
+#'
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.rank}}
+#' @export
+#' @examples
+#' Y <- t(iris[, -5])
+#' res <- nmfkc(Y, Q = 3, detail = "fast")
+#' crit <- nmfkc.criterion(res, Y)
+#' crit$criterion$silhouette
+#'
+nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ...) {
+  detail <- match.arg(detail)
+  extra_args <- base::list(...)
+
+  X <- object$X
+  B <- object$B
+  C <- object$C
+  XB <- object$XB
+  method <- if (!is.null(object$method)) object$method else "EU"
+  Q <- base::ncol(X)
+  .eps <- 1e-10
+
+  Y <- base::as.matrix(Y)
+  P <- base::nrow(Y)
+  N <- base::ncol(Y)
+
+  # Y.weights
+  Y.weights <- if (!is.null(extra_args$Y.weights)) extra_args$Y.weights
+               else base::matrix(1, nrow = P, ncol = N)
+
+  # Recompute XB if missing (detail="minimal" case)
+  if (base::is.null(XB) || (base::length(XB) == 1 && base::is.na(XB))) {
+    hasA <- !base::is.null(object$A.attr)
+    if (hasA) {
+      # Cannot recompute without A; use object$B
+      XB <- X %*% B
+    } else {
+      XB <- X %*% B
+    }
+  }
+
+  # X.restriction detection for parameter counting
+  X.restriction <- if (!is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
+
+  N_obs <- base::sum(Y.weights > 0)
+
+  # --- Information Criteria ---
+  resid <- Y.weights * (Y - XB)
+  objfunc <- base::sum(resid^2)
+
+  if (X.restriction == "fixed") nparam.X <- 0
+  else if (X.restriction == "totalSum") nparam.X <- base::prod(base::dim(X)) - 1
+  else nparam.X <- (base::nrow(X) - 1) * base::ncol(X)
+
+  hasA_flag <- !base::is.null(C) && base::ncol(C) != base::ncol(B)
+  if (!hasA_flag) nparam <- nparam.X + base::prod(base::dim(B))
+  else nparam <- nparam.X + base::prod(base::dim(C))
+
+  if (method == "EU") {
+    sigma2 <- objfunc / N_obs
+    P_dim <- P; T_dim <- N
+    g_icp1 <- (P_dim + T_dim) / (P_dim * T_dim) * base::log(P_dim * T_dim)
+    g_icp2 <- (P_dim + T_dim) / (P_dim * T_dim) * base::log(base::min(P_dim, T_dim))
+    g_icp3 <- base::log(base::min(P_dim, T_dim)) / base::min(P_dim, T_dim)
+    ICp1 <- base::log(sigma2) + nparam * g_icp1
+    ICp2 <- base::log(sigma2) + nparam * g_icp2
+    ICp3 <- base::log(sigma2) + nparam * g_icp3
+    ICp <- base::min(ICp1, ICp2, ICp3)
+    AIC <- N_obs * base::log(sigma2) + 2 * nparam
+    BIC <- N_obs * base::log(sigma2) + nparam * base::log(N_obs)
+  } else {
+    ICp <- NA; ICp1 <- NA; ICp2 <- NA; ICp3 <- NA
+    AIC <- NA; BIC <- NA
+  }
+
+  # --- Fit statistics and clustering (detail != "minimal") ---
+  if (detail != "minimal") {
+    valid_idx <- (Y.weights > 0)
+    if (base::any(valid_idx)) {
+      r2 <- stats::cor(XB[valid_idx], Y[valid_idx])^2
+      sigma <- stats::sd(Y[valid_idx] - XB[valid_idx])
+      mae <- base::mean(base::abs(Y[valid_idx] - XB[valid_idx]))
+    } else {
+      r2 <- NA; sigma <- NA; mae <- NA
+    }
+
+    B.prob <- base::t(base::t(B) / (base::colSums(B) + .eps))
+    if (Q > 1) {
+      B.prob.sd.min <- base::min(base::apply(B.prob, 1, stats::sd))
+      B.prob.max.mean <- base::mean(base::apply(B.prob, 2, base::max))
+      p_ent <- B.prob + .eps
+      B.prob.entropy.mean <- -base::mean(base::colSums(p_ent * base::log(p_ent))) / base::log(Q)
+    } else {
+      B.prob.sd.min <- 0; B.prob.entropy.mean <- 0; B.prob.max.mean <- 1
+    }
+    B.cluster <- base::apply(B.prob, 2, base::which.max)
+    B.cluster[base::colSums(B.prob) == 0] <- NA
+    X.prob <- X / (base::rowSums(X) + .eps)
+    X.cluster <- base::apply(X.prob, 1, base::which.max)
+
+    # Distance-based criteria (detail == "full" only)
+    if (detail == "full" && !base::any(Y.weights == 0)) {
+      silhouette <- .silhouette.simple(B.prob, B.cluster)
+      dist.cor <- stats::cor(base::as.vector(stats::dist(base::t(Y))),
+                             base::as.vector(stats::dist(base::t(B))))
+      if (Q >= 2) {
+        M <- base::t(B.prob) %*% B.prob
+        h.dist <- base::as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1 - M))))
+        up <- base::upper.tri(M)
+        CPCC <- stats::cor(h.dist[up], (1 - M)[up])
+      } else {
+        CPCC <- NA
+      }
+    } else {
+      silhouette <- NA; CPCC <- NA; dist.cor <- NA
+    }
+  } else {
+    r2 <- NA; sigma <- NA; mae <- NA
+    B.prob <- NA; B.cluster <- NA
+    B.prob.sd.min <- NA; B.prob.max.mean <- NA; B.prob.entropy.mean <- NA
+    X.prob <- NA; X.cluster <- NA
+    silhouette <- NA; CPCC <- NA; dist.cor <- NA
+  }
+
+  base::list(
+    r.squared = r2,
+    sigma     = sigma,
+    mae       = mae,
+    B.prob    = B.prob,
+    B.cluster = B.cluster,
+    X.prob    = X.prob,
+    X.cluster = X.cluster,
+    criterion = base::list(
+      B.prob.sd.min       = B.prob.sd.min,
+      B.prob.max.mean     = B.prob.max.mean,
+      B.prob.entropy.mean = B.prob.entropy.mean,
+      ICp1 = ICp1, ICp2 = ICp2, ICp3 = ICp3, ICp = ICp,
+      AIC  = AIC,  BIC  = BIC,
+      silhouette = silhouette,
+      CPCC       = CPCC,
+      dist.cor   = dist.cor
+    )
+  )
+}
+
 
 #' @title Rank selection diagnostics with graphical output
 #' @description
@@ -2406,8 +2533,10 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, data, ...){
 #' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
 #'   Ignored when \code{Y} is a formula.
 #' @param rank A vector of candidate ranks to be evaluated.
-#' @param save.time Logical. If \code{TRUE}, skips heavy computations like Element-wise CV.
-#'   Default is \code{FALSE} (computes everything).
+#' @param detail Level of criterion computation: \code{"full"} (default) computes
+#'   all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.
+#' @param save.time Logical. Backward-compatible alias: \code{TRUE} maps to
+#'   \code{detail = "fast"}. Default is \code{FALSE}.
 #' @param plot Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} and \code{\link{nmfkc.ecv}}.
@@ -2440,7 +2569,7 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, data, ...){
 #' # Fast run (skip ECV)
 #' nmfkc.rank(Y, rank=1:4, save.time=TRUE)
 
-nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, data, ...){
+nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", save.time=FALSE, plot=TRUE, data, ...){
   # --- Formula Mode ---
   if (base::inherits(Y, "formula")) {
     resolved <- .nmfkc_resolve_formula(Y, A, base::missing(data), if (!base::missing(data)) data else NULL)
@@ -2449,6 +2578,9 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, data, ..
   }
 
   extra_args <- list(...)
+
+  # Backward compatibility: save.time -> detail
+  if (save.time && detail == "full") detail <- "fast"
 
   # Backward Compatibility for Q
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
@@ -2493,8 +2625,9 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, data, ..
     current_Q <- Q[q_idx]
 
     extra_args_nmfkc <- extra_args
-    extra_args_nmfkc$save.memory <- FALSE
-    extra_args_nmfkc$save.time <- save.time
+    extra_args_nmfkc$save.memory <- NULL
+    extra_args_nmfkc$save.time <- NULL
+    extra_args_nmfkc$detail <- detail
     extra_args_nmfkc$Q <- NULL
 
     nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
@@ -2508,15 +2641,10 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, data, ..
     results_df$B.prob.max.mean[q_idx] = result$criterion$B.prob.max.mean
     results_df$B.prob.entropy.mean[q_idx] = result$criterion$B.prob.entropy.mean
 
-    if(save.time){
-      results_df$CPCC[q_idx] <- NA
-      results_df$dist.cor[q_idx] <- NA
-      results_df$silhouette[q_idx] <- NA
-    } else {
-      results_df$CPCC[q_idx] <- result$criterion$CPCC
-      results_df$dist.cor[q_idx] <- result$criterion$dist.cor
-      results_df$silhouette[q_idx] <- result$criterion$silhouette$silhouette.mean
-    }
+    results_df$CPCC[q_idx] <- result$criterion$CPCC
+    results_df$dist.cor[q_idx] <- result$criterion$dist.cor
+    sil <- result$criterion$silhouette
+    results_df$silhouette[q_idx] <- if (is.list(sil)) sil$silhouette.mean else NA
 
     if(is.null(cluster.old)){
       results_df$ARI[q_idx] <- NA
@@ -2535,7 +2663,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, save.time=FALSE, plot=TRUE, data, ..
 
   # --- Element-wise CV (Wold's CV) ---
   rank.best.ecv <- NA
-  if(!save.time){
+  if(detail == "full"){
     ecv_args <- list(Y = Y, A = A, Q = Q)
     extra_args_ecv <- extra_args
     extra_args_ecv$save.time <- NULL

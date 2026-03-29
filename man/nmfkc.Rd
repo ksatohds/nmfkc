@@ -76,8 +76,13 @@ because the free parameter matrix \eqn{C} absorbs the scale.
 \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 \item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
-\item \code{save.time}: Logical. If \code{TRUE} (default), skips some post-computations (e.g., CPCC, silhouette) to save time.
-\item \code{save.memory}: Logical. If \code{TRUE}, performs only essential computations (implies \code{save.time = TRUE}) to reduce memory usage (default: \code{FALSE}).
+\item \code{detail}: Level of post-fit criterion computation.
+\code{"full"} computes all criteria including silhouette, CPCC, dist.cor;
+\code{"fast"} skips expensive distance-based criteria;
+\code{"minimal"} returns only information criteria.
+Default is \code{"full"}. For backward compatibility,
+\code{save.time = TRUE} maps to \code{"fast"} and
+\code{save.memory = TRUE} maps to \code{"minimal"}.
 }}
 }
 \value{
