@@ -42,6 +42,12 @@ ar_data <- nmfkc.ar(Y, degree = 1)
 ar_data$degree.max
 
 }
+\references{
+Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+to multivariate time series data as a vector autoregression model.
+\emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
+\doi{10.1007/s42081-025-00314-0}
+}
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.ar.degree.cv}}, \code{\link{nmfkc.ar.stationarity}}, \code{\link{nmfkc.ar.DOT}}
 }

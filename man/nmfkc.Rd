@@ -3,11 +3,6 @@
 \name{nmfkc}
 \alias{nmfkc}
 \title{Optimize NMF with kernel covariates (Full Support for Missing Values)}
-\source{
-Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
-to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
-\url{https://arxiv.org/abs/2403.05359}
-}
 \usage{
 nmfkc(Y, A = NULL, rank = NULL, data, epsilon = 1e-04, maxit = 5000, ...)
 }
@@ -159,11 +154,23 @@ res_tri$XB # reconstruction X \%*\% C \%*\% t(X)
 
 }
 \references{
-Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix Tri-Factorizations for Clustering.
-In \emph{Proceedings of the 12th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining} (pp. 126–135).
+Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
+to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
+\url{https://arxiv.org/abs/2403.05359}
+
+Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+to multivariate time series data as a vector autoregression model.
+\emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
+\doi{10.1007/s42081-025-00314-0}
+
+Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+to label matrix for classification. arXiv:2510.10375.
+\url{https://arxiv.org/abs/2510.10375}
+
+Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix
+Tri-Factorizations for Clustering.
+In \emph{Proc. 12th ACM SIGKDD} (pp. 126--135).
 \doi{10.1145/1150402.1150420}
-Potthoff, R. F., & Roy, S. N. (1964). A generalized multivariate analysis of variance model useful especially for growth curve problems.
-\emph{Biometrika}, 51, 313–326. \doi{10.2307/2334137}
 }
 \seealso{
 \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}

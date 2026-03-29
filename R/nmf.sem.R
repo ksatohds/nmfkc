@@ -92,6 +92,10 @@
 #' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
 #' result$MAE
 #'
+#' @references
+#' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+#'   to structural equation modeling for blind input-output analysis.
+#'   arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 #' @export
 nmf.sem <- function(
     Y1, Y2,
@@ -334,6 +338,10 @@ nmf.sem <- function(
 #' \item{C2.p.side}{P-value type used.}
 #'
 #' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.DOT}}
+#' @references
+#' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+#'   to structural equation modeling for blind input-output analysis.
+#'   arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 #' @export
 #' @examples
 #' Y <- t(iris[, -5])

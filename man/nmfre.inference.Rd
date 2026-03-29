@@ -61,6 +61,11 @@ res2 <- nmfre.inference(res, Y, A)
 res2$coefficients
 
 }
+\references{
+Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix
+Factorization with Random Effects. arXiv:2603.01468.
+\url{https://arxiv.org/abs/2603.01468}
+}
 \seealso{
 \code{\link{nmfre}}, \code{\link{nmfkc.DOT}},
 \code{\link{summary.nmfre}}

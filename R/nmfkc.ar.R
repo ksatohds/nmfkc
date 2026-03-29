@@ -21,6 +21,11 @@
 #' \item{A.columns}{Index matrix used to generate \code{A}.}
 #' \item{degree.max}{Maximum lag order.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar.degree.cv}}, \code{\link{nmfkc.ar.stationarity}}, \code{\link{nmfkc.ar.DOT}}
+#' @references
+#' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+#'   to multivariate time series data as a vector autoregression model.
+#'   \emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
+#'   \doi{10.1007/s42081-025-00314-0}
 #' @examples
 #' # Example using AirPassengers (ts object)
 #' d <- AirPassengers

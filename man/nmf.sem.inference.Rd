@@ -58,6 +58,11 @@ res2 <- nmf.sem.inference(res, Y1, Y2)
 res2$coefficients
 
 }
+\references{
+Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+to structural equation modeling for blind input-output analysis.
+arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
+}
 \seealso{
 \code{\link{nmf.sem}}, \code{\link{nmf.sem.DOT}}
 }

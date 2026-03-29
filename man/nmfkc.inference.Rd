@@ -58,6 +58,11 @@ result2 <- nmfkc.inference(result, Y, A)
 summary(result2)
 
 }
+\references{
+Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix
+Factorization with Random Effects. arXiv:2603.01468.
+\url{https://arxiv.org/abs/2603.01468}
+}
 \seealso{
 \code{\link{nmfkc}}, \code{\link{summary.nmfkc.inference}}
 }

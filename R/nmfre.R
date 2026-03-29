@@ -255,6 +255,10 @@
 #'     \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
 #'   }
 #' @export
+#' @references
+#' Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix
+#'   Factorization with Random Effects. arXiv:2603.01468.
+#'   \url{https://arxiv.org/abs/2603.01468}
 #' @examples
 #' # Example 1. cars data
 #' Y <- matrix(cars$dist, nrow = 1)
@@ -1103,6 +1107,10 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
 #'
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfkc.DOT}},
 #'   \code{\link{summary.nmfre}}
+#' @references
+#' Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix
+#'   Factorization with Random Effects. arXiv:2603.01468.
+#'   \url{https://arxiv.org/abs/2603.01468}
 #' @export
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)

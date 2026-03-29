@@ -212,3 +212,8 @@ summary(res)
 }
 
 }
+\references{
+Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix
+Factorization with Random Effects. arXiv:2603.01468.
+\url{https://arxiv.org/abs/2603.01468}
+}
