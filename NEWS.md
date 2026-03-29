@@ -1,3 +1,30 @@
+# nmfkc 0.6.5
+
+### **New Functions**
+- `nmfkc.criterion()`: Extracted criterion computation from `nmfkc()` as a standalone exported function. Supports `detail = "full"` / `"fast"` / `"minimal"` to control computation cost.
+- `nmfre.inference()`: Separated statistical inference from `nmfre()` optimization. Returns coefficient table with SE, z-values, and p-values via wild bootstrap.
+- `nmf.sem.inference()`: Statistical inference for the C2 parameter matrix in NMF-SEM. Uses sandwich SE and wild bootstrap.
+- S3 methods `coef()`, `fitted()`, `residuals()` for all model classes (`nmfkc`, `nmfae`, `nmfre`, `nmf.sem`).
+- S3 methods `plot()` for `nmfre` and `nmf.sem` (convergence diagnostics).
+- `summary.nmf.sem()`: Stability diagnostics, fit statistics, and C2 coefficient table.
+
+### **Parameter Renames** (old names remain usable for backward compatibility)
+- `nmfkc()`, `nmfkc.rank()`: `save.time` / `save.memory` → `detail`
+- `nmfae()`: `Q` → `rank`, `R` → `rank.encoder`
+- `nmfre()`: `Q` → `rank`, `dfU.cap.rate` → `df.rate`
+- `nmfre.dfU.scan()`, `nmfkc.ar.degree.cv()`: `Q` → `rank`
+- `nmfkc.ecv()`, `nmfae.ecv()`, `nmfae.cv()`, `nmf.sem.cv()`: `div` → `nfolds`
+- `nmfkc.residual.plot()`: `Y_XB_palette` → `fitted.palette`, `E_palette` → `residual.palette`
+- `nmfkc.kernel.beta.nearest.med()`: `block_size` → `block.size`, `sample_size` → `sample.size`
+
+### **Other Improvements**
+- `hide.isolated` option added to all `.DOT` functions (default `TRUE`).
+- `nmf.sem.DOT()`: Added `sig.level` parameter; C2 edges decorated with significance stars.
+- `nmfkc()`: Added `X.restriction = "none"` option and `X.init = "kmeansar"` initialization.
+- Added arXiv/DOI references to roxygen documentation for all main functions.
+- `@section Lifecycle: Experimental` added to `nmfae()`.
+- Removed `mc.cores` parallel option from `nmfae.ecv()` for CRAN compliance.
+
 # nmfkc 0.6.0
 ### **Bug Fixes**
 - Fixed variable `T` shadowing `TRUE` in information criterion computation.
