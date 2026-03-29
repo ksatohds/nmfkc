@@ -11,5 +11,5 @@
 
 * This is a new submission.
 * All 48 tests pass (testthat).
-* All examples run without errors.
+* All examples run without errors (including --run-donttest).
 * All 6 vignettes build without errors.
