@@ -4,16 +4,7 @@
 \alias{nmfkc.rank}
 \title{Rank selection diagnostics with graphical output}
 \usage{
-nmfkc.rank(
-  Y,
-  A = NULL,
-  rank = 1:2,
-  detail = "full",
-  save.time = FALSE,
-  plot = TRUE,
-  data,
-  ...
-)
+nmfkc.rank(Y, A = NULL, rank = 1:2, detail = "full", plot = TRUE, data, ...)
 }
 \arguments{
 \item{Y}{Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).}
@@ -26,9 +17,6 @@ Ignored when \code{Y} is a formula.}
 \item{detail}{Level of criterion computation: \code{"full"} (default) computes
 all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.}
 
-\item{save.time}{Logical. Backward-compatible alias: \code{TRUE} maps to
-\code{detail = "fast"}. Default is \code{FALSE}.}
-
 \item{plot}{Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.}
 
 \item{data}{A data frame (required when \code{Y} is a formula with column names).}
@@ -36,6 +24,7 @@ all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.
 \item{...}{Additional arguments passed to \code{\link{nmfkc}} and \code{\link{nmfkc.ecv}}.
 \itemize{
 \item \code{Q}: (Deprecated) Alias for \code{rank}.
+\item \code{save.time}: (Deprecated) \code{TRUE} maps to \code{detail = "fast"}.
 }}
 }
 \value{
@@ -54,7 +43,7 @@ Element-wise Cross-Validation error (Wold's CV Sigma) using \code{\link{nmfkc.ec
 The plot explicitly marks the "BEST" rank based on two criteria:
 \enumerate{
 \item \strong{Elbow Method (Red)}: Based on the curvature of the R-squared values (always computed if Q > 2).
-\item \strong{Min RMSE (Blue)}: Based on the minimum Element-wise CV Sigma (only if \code{save.time=FALSE}).
+\item \strong{Min RMSE (Blue)}: Based on the minimum Element-wise CV Sigma (only if \code{detail="full"}).
 }
 }
 \examples{
@@ -63,7 +52,7 @@ Y <- t(iris[,-5])
 # Full run (default)
 nmfkc.rank(Y, rank=1:4)
 # Fast run (skip ECV)
-nmfkc.rank(Y, rank=1:4, save.time=TRUE)
+nmfkc.rank(Y, rank=1:4, detail="fast")
 }
 \references{
 Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004).

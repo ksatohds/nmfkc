@@ -35,7 +35,7 @@ reconstruction (\eqn{Y - X(B_{blup})}) by default. Set
 }
 \examples{
 Y <- matrix(runif(50), 5, 10)
-result <- nmfkc(Y, Q = 2)
+result <- nmfkc(Y, rank = 2)
 residuals(result, Y)
 
 }

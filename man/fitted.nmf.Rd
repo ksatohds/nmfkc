@@ -28,7 +28,7 @@ For \code{nmf.sem} objects, returns the equilibrium prediction
 \eqn{X (C_1 Y_1 + C_2 Y_2)} instead.
 }
 \examples{
-result <- nmfkc(matrix(runif(50), 5, 10), Q = 2)
+result <- nmfkc(matrix(runif(50), 5, 10), rank = 2)
 fitted(result)
 
 }

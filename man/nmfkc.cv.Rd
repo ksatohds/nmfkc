@@ -4,7 +4,7 @@
 \alias{nmfkc.cv}
 \title{Perform k-fold cross-validation for NMF with kernel covariates}
 \usage{
-nmfkc.cv(Y, A = NULL, Q = 2, data, ...)
+nmfkc.cv(Y, A = NULL, rank = 2, data, ...)
 }
 \arguments{
 \item{Y}{Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).}
@@ -12,7 +12,7 @@ nmfkc.cv(Y, A = NULL, Q = 2, data, ...)
 \item{A}{Covariate matrix. If \code{NULL}, the identity matrix is used.
 Ignored when \code{Y} is a formula.}
 
-\item{Q}{Rank of the basis matrix \eqn{X}.}
+\item{rank}{Rank of the basis matrix \eqn{X}. Default is 2.}
 
 \item{data}{A data frame (required when \code{Y} is a formula with column names).}
 
@@ -23,6 +23,7 @@ Ignored when \code{Y} is a formula.}
 \item{\code{seed}}{Integer seed for reproducible partitioning; default: \code{123}.}
 \item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);
 if \code{FALSE}, splits sequentially (block CV; recommended for time series).}
+\item{\code{Q}}{(Deprecated) Alias for \code{rank}.}
 \item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{gamma} (\code{B.L1}), \code{epsilon},
 \code{maxit}, \code{method} (\code{"EU"} or \code{"KL"}), \code{X.restriction}, \code{X.init}, etc.}
 }}

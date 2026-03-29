@@ -1895,7 +1895,7 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response"
 #' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
 #' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
 #'   Ignored when \code{Y} is a formula.
-#' @param Q Rank of the basis matrix \eqn{X}.
+#' @param rank Rank of the basis matrix \eqn{X}. Default is 2.
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments controlling CV and the internal \code{\link{nmfkc}} call:
 #'   \describe{
@@ -1904,6 +1904,7 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response"
 #'     \item{\code{seed}}{Integer seed for reproducible partitioning; default: \code{123}.}
 #'     \item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);
 #'       if \code{FALSE}, splits sequentially (block CV; recommended for time series).}
+#'     \item{\code{Q}}{(Deprecated) Alias for \code{rank}.}
 #'     \item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{gamma} (\code{B.L1}), \code{epsilon},
 #'       \code{maxit}, \code{method} (\code{"EU"} or \code{"KL"}), \code{X.restriction}, \code{X.init}, etc.}
 #'   }
@@ -1939,7 +1940,7 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response"
 #'
 #' @export
 
-nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
+nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   # --- Formula Mode ---
   if (base::inherits(Y, "formula")) {
     resolved <- .nmfkc_resolve_formula(Y, A, base::missing(data), if (!base::missing(data)) data else NULL)
@@ -1951,6 +1952,8 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
   .eps <- 1e-10
 
   extra_args <- list(...)
+  if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  Q <- rank
 
   div <- if (!is.null(extra_args$div)) extra_args$div else 5
   seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
@@ -2177,7 +2180,8 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
 #'
 #' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
 #' @param A Covariate matrix. Ignored when \code{Y} is a formula.
-#' @param Q Vector of ranks to evaluate (e.g., 1:5).
+#' @param rank Vector of ranks to evaluate (e.g., 1:5). For backward compatibility,
+#'   \code{Q} is accepted via \code{...}.
 #' @param nfolds Number of folds (default: 5). For backward compatibility,
 #'   \code{div} is accepted via \code{...}.
 #' @param seed Integer seed for reproducibility.
@@ -2197,9 +2201,11 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
 #' res$objfunc
 #'
 #' @export
-nmfkc.ecv <- function(Y, A=NULL, Q=1:3, nfolds=5, seed=123, data, ...){
+nmfkc.ecv <- function(Y, A=NULL, rank=1:3, nfolds=5, seed=123, data, ...){
   extra_ecv <- list(...)
+  if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
   if (!is.null(extra_ecv$div)) nfolds <- extra_ecv$div
+  Q <- rank
   div <- nfolds
   # --- Formula Mode ---
   if (base::inherits(Y, "formula")) {
@@ -2531,7 +2537,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' The plot explicitly marks the "BEST" rank based on two criteria:
 #' \enumerate{
 #'   \item **Elbow Method (Red)**: Based on the curvature of the R-squared values (always computed if Q > 2).
-#'   \item **Min RMSE (Blue)**: Based on the minimum Element-wise CV Sigma (only if \code{save.time=FALSE}).
+#'   \item **Min RMSE (Blue)**: Based on the minimum Element-wise CV Sigma (only if \code{detail="full"}).
 #' }
 #'
 #' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
@@ -2540,13 +2546,12 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' @param rank A vector of candidate ranks to be evaluated.
 #' @param detail Level of criterion computation: \code{"full"} (default) computes
 #'   all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.
-#' @param save.time Logical. Backward-compatible alias: \code{TRUE} maps to
-#'   \code{detail = "fast"}. Default is \code{FALSE}.
 #' @param plot Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} and \code{\link{nmfkc.ecv}}.
 #'   \itemize{
 #'     \item \code{Q}: (Deprecated) Alias for \code{rank}.
+#'     \item \code{save.time}: (Deprecated) \code{TRUE} maps to \code{detail = "fast"}.
 #'   }
 #'
 #' @return A list containing:
@@ -2569,9 +2574,9 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' # Full run (default)
 #' nmfkc.rank(Y, rank=1:4)
 #' # Fast run (skip ECV)
-#' nmfkc.rank(Y, rank=1:4, save.time=TRUE)
+#' nmfkc.rank(Y, rank=1:4, detail="fast")
 
-nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", save.time=FALSE, plot=TRUE, data, ...){
+nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...){
   # --- Formula Mode ---
   if (base::inherits(Y, "formula")) {
     resolved <- .nmfkc_resolve_formula(Y, A, base::missing(data), if (!base::missing(data)) data else NULL)
@@ -2581,11 +2586,9 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", save.time=FALSE, plot
 
   extra_args <- list(...)
 
-  # Backward compatibility: save.time -> detail
-  if (save.time && detail == "full") detail <- "fast"
-
-  # Backward Compatibility for Q
+  # Backward compatibility: Q -> rank, save.time -> detail
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (!is.null(extra_args$save.time) && extra_args$save.time && detail == "full") detail <- "fast"
   Q <- rank
   # ---------------------------------------------
   AdjustedRandIndex <- function(x){

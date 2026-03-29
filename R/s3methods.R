@@ -186,7 +186,7 @@ summary.nmf.sem <- function(object, ...) {
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
-#' result <- nmfkc(Y, A, Q = 1)
+#' result <- nmfkc(Y, A, rank = 1)
 #' coef(result)  # returns C matrix
 #'
 #' result2 <- nmfkc.inference(result, Y, A)
@@ -225,7 +225,7 @@ coef.nmf.sem <- function(object, ...) {
 #' @return The fitted matrix \eqn{X B}.
 #' @name fitted.nmf
 #' @examples
-#' result <- nmfkc(matrix(runif(50), 5, 10), Q = 2)
+#' result <- nmfkc(matrix(runif(50), 5, 10), rank = 2)
 #' fitted(result)
 #'
 NULL
@@ -276,7 +276,7 @@ fitted.nmf.sem <- function(object, ...) {
 #' @name residuals.nmf
 #' @examples
 #' Y <- matrix(runif(50), 5, 10)
-#' result <- nmfkc(Y, Q = 2)
+#' result <- nmfkc(Y, rank = 2)
 #' residuals(result, Y)
 #'
 NULL
