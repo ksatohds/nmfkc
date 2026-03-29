@@ -44,5 +44,5 @@ plot(as.vector(V),as.vector(Y))
 lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }
 \seealso{
-\code{\link{nmfkc.kernel}}, \code{\link{nmfkc.cv}}
+\code{\link{nmfkc.kernel.gaussian}}, \code{\link{nmfkc.cv}}
 }

@@ -1156,6 +1156,8 @@ plot.predict.nmfae <- function(x, ...) {
 #'   \code{div} is accepted via \code{...}.
 #' @param seed Integer seed for reproducibility. Default is 123.
 #' @param ... Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
+#'   For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
+#'   \code{rank} and \code{rank.encoder}.
 #'
 #' @return A list with components:
 #' \item{objfunc}{Named numeric vector of mean MSE for each (Q, R) pair.}
@@ -1392,6 +1394,8 @@ plot.nmfae.ecv <- function(x, ...) {
 #'   if \code{FALSE}, splits sequentially (block CV for time series).
 #' @param ... Additional arguments passed to \code{\link{nmfae}}
 #'   (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
+#'   For backward compatibility, \code{Q}, \code{R}, and \code{div} are accepted as aliases for
+#'   \code{rank}, \code{rank.encoder}, and \code{nfolds}.
 #'
 #' @return A list with components:
 #' \item{objfunc}{Mean squared error per valid element over all folds.}
@@ -1577,6 +1581,8 @@ plot.nmfae.cv <- function(x, ...) {
 #'   are passed to \code{\link{nmfkc.kernel}}; all others
 #'   (\code{div}, \code{seed}, \code{shuffle}, \code{epsilon}, \code{maxit}, etc.)
 #'   are passed to \code{\link{nmfae.cv}}.
+#'   For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
+#'   \code{rank} and \code{rank.encoder}.
 #'
 #' @return A list with components:
 #' \item{beta}{The beta value that minimizes the cross-validation objective.}

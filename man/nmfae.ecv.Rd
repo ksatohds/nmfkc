@@ -30,7 +30,9 @@ When explicitly specified, all combinations with \code{rank} are evaluated.}
 
 \item{seed}{Integer seed for reproducibility. Default is 123.}
 
-\item{...}{Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).}
+\item{...}{Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
+For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
+\code{rank} and \code{rank.encoder}.}
 }
 \value{
 A list with components:

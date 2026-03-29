@@ -791,8 +791,8 @@ nmf.sem.cv <- function(
 #' @examples
 #' # Infer exogenous/endogenous split from iris
 #' sp <- nmf.sem.split(iris[, -5], n.exogenous = 2)
-#' sp$Y1.names
-#' sp$Y2.names
+#' sp$endogenous.variables
+#' sp$exogenous.variables
 #'
 #' @seealso \code{\link{nmf.sem}}
 #' @export

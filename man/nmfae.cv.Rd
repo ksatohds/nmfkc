@@ -34,7 +34,9 @@ Default is \code{Y1} (autoencoder).}
 if \code{FALSE}, splits sequentially (block CV for time series).}
 
 \item{...}{Additional arguments passed to \code{\link{nmfae}}
-(e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).}
+(e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
+For backward compatibility, \code{Q}, \code{R}, and \code{div} are accepted as aliases for
+\code{rank}, \code{rank.encoder}, and \code{nfolds}.}
 }
 \value{
 A list with components:

@@ -182,7 +182,7 @@ nmfkc.kernel.gaussian <- function(U, V = NULL, beta = 0.5,
 #' @param ... Additional arguments passed to the specific kernel function (e.g., \code{beta}, \code{degree}).
 #'
 #' @return Kernel matrix \eqn{A(N,M)}.
-#' @seealso \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.cv}}
+#' @seealso \code{\link{nmfkc.kernel.gaussian}}, \code{\link{nmfkc.cv}}
 #' @export
 #' @source Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model.
 #'   arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}

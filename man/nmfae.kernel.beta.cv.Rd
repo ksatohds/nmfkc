@@ -36,7 +36,9 @@ determined via \code{\link{nmfkc.kernel.beta.nearest.med}}.}
 \item{...}{Additional arguments. Kernel-specific args (\code{kernel}, \code{degree})
 are passed to \code{\link{nmfkc.kernel}}; all others
 (\code{div}, \code{seed}, \code{shuffle}, \code{epsilon}, \code{maxit}, etc.)
-are passed to \code{\link{nmfae.cv}}.}
+are passed to \code{\link{nmfae.cv}}.
+For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
+\code{rank} and \code{rank.encoder}.}
 }
 \value{
 A list with components:
