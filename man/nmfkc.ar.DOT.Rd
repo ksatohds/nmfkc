@@ -7,7 +7,7 @@
 nmfkc.ar.DOT(
   x,
   degree = 1,
-  intercept = FALSE,
+  intercept = any(colnames(x$C) == "(Intercept)"),
   threshold = 0.1,
   rankdir = "RL",
   fill = TRUE,
@@ -24,7 +24,9 @@ Must contain matrices \code{X} and \code{C}.}
 \item{degree}{Maximum AR lag to visualize.}
 
 \item{intercept}{Logical; if \code{TRUE}, draws intercept nodes for
-columns named "(Intercept)" in matrix \code{C}.}
+columns named "(Intercept)" in matrix \code{C}.
+Default is \code{TRUE} when an intercept column is detected in \code{C},
+\code{FALSE} otherwise (auto-detected).}
 
 \item{threshold}{Minimum coefficient magnitude required to draw an edge.}
 

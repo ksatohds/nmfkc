@@ -576,6 +576,8 @@ nmfkc.ar.stationarity <- function(x){
 #' @param degree Maximum AR lag to visualize.
 #' @param intercept Logical; if \code{TRUE}, draws intercept nodes for
 #'   columns named "(Intercept)" in matrix \code{C}.
+#'   Default is \code{TRUE} when an intercept column is detected in \code{C},
+#'   \code{FALSE} otherwise (auto-detected).
 #' @param threshold Minimum coefficient magnitude required to draw an edge.
 #' @param rankdir Graphviz rank direction (e.g., \code{"RL"}, \code{"LR"}, \code{"TB"}).
 #' @param fill Logical; whether nodes are filled with color.
@@ -597,7 +599,7 @@ nmfkc.ar.stationarity <- function(x){
 #' @export
 nmfkc.ar.DOT <- function(x,
                          degree    = 1,
-                         intercept = FALSE,
+                         intercept = any(colnames(x$C) == "(Intercept)"),
                          threshold = 0.1,
                          rankdir   = "RL",
                          fill      = TRUE,

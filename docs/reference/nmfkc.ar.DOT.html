@@ -87,7 +87,7 @@ outputs are arranged in separate clusters.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfkc.ar.DOT</span><span class="op">(</span></span>
 <span>  <span class="va">x</span>,</span>
 <span>  degree <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  intercept <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  intercept <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/any.html" class="external-link">any</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">C</span><span class="op">)</span> <span class="op">==</span> <span class="st">"(Intercept)"</span><span class="op">)</span>,</span>
 <span>  threshold <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  rankdir <span class="op">=</span> <span class="st">"RL"</span>,</span>
 <span>  fill <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -113,7 +113,9 @@ Must contain matrices <code>X</code> and <code>C</code>.</p></dd>
 
 <dt id="arg-intercept">intercept<a class="anchor" aria-label="anchor" href="#arg-intercept"></a></dt>
 <dd><p>Logical; if <code>TRUE</code>, draws intercept nodes for
-columns named "(Intercept)" in matrix <code>C</code>.</p></dd>
+columns named "(Intercept)" in matrix <code>C</code>.
+Default is <code>TRUE</code> when an intercept column is detected in <code>C</code>,
+<code>FALSE</code> otherwise (auto-detected).</p></dd>
 
 
 <dt id="arg-threshold">threshold<a class="anchor" aria-label="anchor" href="#arg-threshold"></a></dt>
@@ -184,6 +186,10 @@ edges at or above <code>threshold</code> are excluded from the graph.</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   // X -&gt; T edges (factor loadings)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   edge [color="gray0", fontcolor="gray0", style=solid];</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Basis1 -&gt; 1 [label="1.0", penwidth=5.00];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   // Intercept nodes</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Const1 [shape=circle, label="11.0"];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Const1 -&gt; Basis1 [penwidth=3.00];</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   // Lag block T-1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   subgraph cluster_C1 {label="T-1" style="rounded";</span>
