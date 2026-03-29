@@ -27,8 +27,8 @@ Assigns user-specified names to the decoder (X1 columns) and encoder
 such as \code{summary}, \code{nmfae.DOT}, and \code{nmfae.heatmap}.
 }
 \examples{
-\dontrun{
-res <- nmfae(Y, Q = 3, R = 3)
+\donttest{
+res <- nmfae(Y, rank = 3, rank.encoder = 3)
 res <- nmfae.rename(res,
   X1.colnames = c("Sprint", "Throw", "Endurance"),
   X2.rownames = c("Speed", "Power", "Stamina"))

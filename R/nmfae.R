@@ -553,8 +553,8 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
 #'
 #' @return A modified copy of \code{x} with updated names.
 #' @examples
-#' \dontrun{
-#' res <- nmfae(Y, Q = 3, R = 3)
+#' \donttest{
+#' res <- nmfae(Y, rank = 3, rank.encoder = 3)
 #' res <- nmfae.rename(res,
 #'   X1.colnames = c("Sprint", "Throw", "Endurance"),
 #'   X2.rownames = c("Speed", "Power", "Stamina"))
@@ -1324,7 +1324,8 @@ plot.nmfae.ecv <- function(x, ...) {
     }
 
     # Color bar — use cell step as unit for positioning
-    graphics::par(xpd = TRUE)
+    old_par <- graphics::par(xpd = TRUE)
+    on.exit(graphics::par(old_par), add = TRUE)
     q_step <- if (length(Qs) > 1) diff(Qs)[1] else 1
     r_step <- if (length(Rs) > 1) diff(Rs)[1] else 1
     bar_x <- max(Qs) + q_step * 0.7

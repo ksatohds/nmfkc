@@ -23,8 +23,8 @@ Plots the objective function value over iterations for \code{nmfre} and
 are defined in their respective source files.)
 }
 \examples{
-\dontrun{
-res <- nmfre(Y, A, Q = 2, wild.bootstrap = FALSE)
+\donttest{
+res <- nmfre(Y, A, rank = 2, wild.bootstrap = FALSE)
 plot(res)
 }
 

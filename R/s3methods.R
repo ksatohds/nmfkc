@@ -15,8 +15,8 @@
 #' @return Invisible \code{NULL}.
 #' @name plot.nmfre
 #' @examples
-#' \dontrun{
-#' res <- nmfre(Y, A, Q = 2, wild.bootstrap = FALSE)
+#' \donttest{
+#' res <- nmfre(Y, A, rank = 2, wild.bootstrap = FALSE)
 #' plot(res)
 #' }
 #'
