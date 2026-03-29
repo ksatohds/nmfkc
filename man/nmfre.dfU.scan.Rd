@@ -8,7 +8,7 @@ nmfre.dfU.scan(
   rates = (1:10)/10,
   Y,
   A,
-  Q,
+  rank = NULL,
   X.init = NULL,
   C.init = NULL,
   U.init = NULL,
@@ -23,7 +23,8 @@ nmfre.dfU.scan(
 
 \item{A}{Covariate matrix (K x N).}
 
-\item{Q}{Integer. Rank of the basis matrix.}
+\item{rank}{Integer. Rank of the basis matrix.
+For backward compatibility, \code{Q} is accepted via \code{...}.}
 
 \item{X.init}{Initial basis matrix, or \code{NULL}.}
 

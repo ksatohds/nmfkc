@@ -7,9 +7,10 @@
 nmfkc.kernel.beta.nearest.med(
   U,
   Uk = NULL,
-  block_size = 1000,
-  block_size_Uk = 2000,
-  sample_size = NULL
+  block.size = 1000,
+  block.size.Uk = 2000,
+  sample.size = NULL,
+  ...
 )
 }
 \arguments{
@@ -18,13 +19,13 @@ nmfkc.kernel.beta.nearest.med(
 \item{Uk}{An optional numeric matrix of landmarks (\code{K x M}); columns are landmark points.
 If provided, distances are computed from samples in \code{U} to landmarks in \code{Uk}.}
 
-\item{block_size}{Integer. Number of columns of \code{U} processed per block when computing
+\item{block.size}{Integer. Number of columns of \code{U} processed per block when computing
 distances (controls memory usage). If \code{N <= 1000}, it is automatically set to \code{N}.}
 
-\item{block_size_Uk}{Integer. Number of columns of \code{Uk} processed per block when \code{Uk}
+\item{block.size.Uk}{Integer. Number of columns of \code{Uk} processed per block when \code{Uk}
 is not \code{NULL} (controls memory usage). If \code{M <= 2000}, it is automatically set to \code{M}.}
 
-\item{sample_size}{Integer or \code{NULL}. If not \code{NULL}, randomly subsamples this many columns
+\item{sample.size}{Integer or \code{NULL}. If not \code{NULL}, randomly subsamples this many columns
 of \code{U} (without replacement) before computing distances, to reduce computational cost.}
 }
 \value{
@@ -35,9 +36,9 @@ A list with elements:
 intended for cross-validation.
 \item \code{dist_median}: The estimated distance scale \eqn{\sigma_0} (median of nearest-neighbor
 or nearest-landmark distances).
-\item \code{block_size_used}: The effective block size(s) used. Either a scalar (no \code{Uk}) or
+\item \code{block.size.used}: The effective block size(s) used. Either a scalar (no \code{Uk}) or
 a named vector \code{c(U=..., Uk=...)} when \code{Uk} is provided.
-\item \code{sample_size_used}: The number of columns of \code{U} actually used (after subsampling).
+\item \code{sample.size.used}: The number of columns of \code{U} actually used (after subsampling).
 \item \code{uk_is_u}: Logical flag indicating whether \code{Uk} was detected as identical to \code{U}
 (only returned when \code{Uk} is provided).
 }
@@ -58,7 +59,7 @@ If \code{Uk} is provided, \eqn{\sigma_0} is estimated as the median of
 nearest-landmark distances from each sample in \code{U} to its closest landmark in \code{Uk}.
 
 To control memory usage for large \code{N} (and \code{M}), distances are computed in blocks.
-Optionally, columns of \code{U} can be randomly subsampled via \code{sample_size} to reduce cost.
+Optionally, columns of \code{U} can be randomly subsampled via \code{sample.size} to reduce cost.
 }
 \details{
 \strong{Candidate grid:}
@@ -77,7 +78,7 @@ When \code{Uk} is \code{NULL}, a shorter coarse grid may be returned (see \code{
 \itemize{
 \item When \code{Uk} is identical to \code{U}, the function detects this case and excludes
 self-distances (distance 0) to avoid \eqn{\sigma_0=0}.
-\item \code{sample_size} performs random subsampling without setting a seed. For reproducible
+\item \code{sample.size} performs random subsampling without setting a seed. For reproducible
 results, set \code{set.seed()} before calling this function.
 }
 }

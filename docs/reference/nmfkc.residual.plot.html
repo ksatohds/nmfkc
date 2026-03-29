@@ -66,8 +66,8 @@ to maximize the plot area, reflecting the compact layout settings.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfkc.residual.plot</span><span class="op">(</span></span>
 <span>  <span class="va">Y</span>,</span>
 <span>  <span class="va">result</span>,</span>
-<span>  Y_XB_palette <span class="op">=</span> <span class="op">(</span><span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/colorRamp.html" class="external-link">colorRampPalette</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"white"</span>, <span class="st">"orange"</span>, <span class="st">"red"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">(</span><span class="fl">256</span><span class="op">)</span>,</span>
-<span>  E_palette <span class="op">=</span> <span class="op">(</span><span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/colorRamp.html" class="external-link">colorRampPalette</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"blue"</span>, <span class="st">"white"</span>, <span class="st">"red"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">(</span><span class="fl">256</span><span class="op">)</span>,</span>
+<span>  fitted.palette <span class="op">=</span> <span class="op">(</span><span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/colorRamp.html" class="external-link">colorRampPalette</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"white"</span>, <span class="st">"orange"</span>, <span class="st">"red"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">(</span><span class="fl">256</span><span class="op">)</span>,</span>
+<span>  residual.palette <span class="op">=</span> <span class="op">(</span><span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/colorRamp.html" class="external-link">colorRampPalette</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"blue"</span>, <span class="st">"white"</span>, <span class="st">"red"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">(</span><span class="fl">256</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -84,12 +84,14 @@ to maximize the plot area, reflecting the compact layout settings.</p>
 <dd><p>The result object returned by the nmfkc function.</p></dd>
 
 
-<dt id="arg-y-xb-palette">Y_XB_palette<a class="anchor" aria-label="anchor" href="#arg-y-xb-palette"></a></dt>
-<dd><p>A vector of colors used for Y and XB heatmaps. Defaults to a white-orange-red gradient.</p></dd>
+<dt id="arg-fitted-palette">fitted.palette<a class="anchor" aria-label="anchor" href="#arg-fitted-palette"></a></dt>
+<dd><p>A vector of colors for Y and XB heatmaps. Defaults to white-orange-red.
+For backward compatibility, <code>Y_XB_palette</code> is accepted via <code>...</code>.</p></dd>
 
 
-<dt id="arg-e-palette">E_palette<a class="anchor" aria-label="anchor" href="#arg-e-palette"></a></dt>
-<dd><p>A vector of colors used for the residuals (E) heatmap. Defaults to a blue-white-red gradient.</p></dd>
+<dt id="arg-residual-palette">residual.palette<a class="anchor" aria-label="anchor" href="#arg-residual-palette"></a></dt>
+<dd><p>A vector of colors for the residuals heatmap. Defaults to blue-white-red.
+For backward compatibility, <code>E_palette</code> is accepted via <code>...</code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

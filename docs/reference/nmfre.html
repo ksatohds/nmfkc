@@ -120,8 +120,8 @@ repeated constrained re-optimization.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfre</span><span class="op">(</span></span>
 <span>  <span class="va">Y</span>,</span>
 <span>  A <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  Q <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  dfU.cap.rate <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  rank <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  df.rate <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  wild.bootstrap <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  epsilon <span class="op">=</span> <span class="fl">1e-05</span>,</span>
 <span>  maxit <span class="op">=</span> <span class="fl">50000</span>,</span>
@@ -141,12 +141,14 @@ repeated constrained re-optimization.</p>
 <dd><p>Covariate matrix (K x N). Default is a row of ones (intercept only).</p></dd>
 
 
-<dt id="arg-q">Q<a class="anchor" aria-label="anchor" href="#arg-q"></a></dt>
-<dd><p>Integer. Rank of the basis matrix \(X\).</p></dd>
+<dt id="arg-rank">rank<a class="anchor" aria-label="anchor" href="#arg-rank"></a></dt>
+<dd><p>Integer. Rank of the basis matrix \(X\). Default is 2.
+For backward compatibility, <code>Q</code> is accepted via <code>...</code>.</p></dd>
 
 
-<dt id="arg-dfu-cap-rate">dfU.cap.rate<a class="anchor" aria-label="anchor" href="#arg-dfu-cap-rate"></a></dt>
+<dt id="arg-df-rate">df.rate<a class="anchor" aria-label="anchor" href="#arg-df-rate"></a></dt>
 <dd><p>Rate for computing the dfU cap (<code>cap = rate * N * Q</code>).
+For backward compatibility, <code>dfU.cap.rate</code> is accepted via <code>...</code>.
 If <code>NULL</code> (default), runs <code><a href="nmfre.dfU.scan.html">nmfre.dfU.scan</a></code> internally and
 selects the minimum rate where the cap is not binding.
 Use <code><a href="nmfre.dfU.scan.html">nmfre.dfU.scan</a></code> beforehand to examine dfU behavior across rates

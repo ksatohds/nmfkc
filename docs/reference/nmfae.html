@@ -75,7 +75,15 @@ When <code>Y1 != Y2</code>, it acts as a heteroencoder.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfae</span><span class="op">(</span><span class="va">Y1</span>, Y2 <span class="op">=</span> <span class="va">Y1</span>, Q <span class="op">=</span> <span class="fl">2</span>, R <span class="op">=</span> <span class="va">Q</span>, epsilon <span class="op">=</span> <span class="fl">1e-04</span>, maxit <span class="op">=</span> <span class="fl">5000</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfae</span><span class="op">(</span></span>
+<span>  <span class="va">Y1</span>,</span>
+<span>  Y2 <span class="op">=</span> <span class="va">Y1</span>,</span>
+<span>  rank <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  rank.encoder <span class="op">=</span> <span class="va">rank</span>,</span>
+<span>  epsilon <span class="op">=</span> <span class="fl">1e-04</span>,</span>
+<span>  maxit <span class="op">=</span> <span class="fl">5000</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -96,12 +104,14 @@ to Multivariate Time Series. <em>Japanese Journal of Statistics and Data Science
 <dd><p>Input matrix \(Y_2\) (P2 x N). Non-negative. Default is <code>Y1</code> (autoencoder).</p></dd>
 
 
-<dt id="arg-q">Q<a class="anchor" aria-label="anchor" href="#arg-q"></a></dt>
-<dd><p>Integer. Rank of the decoder basis \(X_1\) (P1 x Q). Default is 2.</p></dd>
+<dt id="arg-rank">rank<a class="anchor" aria-label="anchor" href="#arg-rank"></a></dt>
+<dd><p>Integer. Rank of the decoder basis \(X_1\) (P1 x Q). Default is 2.
+For backward compatibility, <code>Q</code> is accepted via <code>...</code>.</p></dd>
 
 
-<dt id="arg-r">R<a class="anchor" aria-label="anchor" href="#arg-r"></a></dt>
-<dd><p>Integer. Rank of the encoder basis \(X_2\) (R x P2). Default is <code>Q</code>.</p></dd>
+<dt id="arg-rank-encoder">rank.encoder<a class="anchor" aria-label="anchor" href="#arg-rank-encoder"></a></dt>
+<dd><p>Integer. Rank of the encoder basis \(X_2\) (R x P2).
+Default is <code>rank</code>. For backward compatibility, <code>R</code> is accepted via <code>...</code>.</p></dd>
 
 
 <dt id="arg-epsilon">epsilon<a class="anchor" aria-label="anchor" href="#arg-epsilon"></a></dt>

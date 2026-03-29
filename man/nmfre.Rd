@@ -7,8 +7,8 @@
 nmfre(
   Y,
   A = NULL,
-  Q = 2,
-  dfU.cap.rate = NULL,
+  rank = 2,
+  df.rate = NULL,
   wild.bootstrap = TRUE,
   epsilon = 1e-05,
   maxit = 50000,
@@ -20,9 +20,11 @@ nmfre(
 
 \item{A}{Covariate matrix (K x N). Default is a row of ones (intercept only).}
 
-\item{Q}{Integer. Rank of the basis matrix \eqn{X}.}
+\item{rank}{Integer. Rank of the basis matrix \eqn{X}. Default is 2.
+For backward compatibility, \code{Q} is accepted via \code{...}.}
 
-\item{dfU.cap.rate}{Rate for computing the dfU cap (\code{cap = rate * N * Q}).
+\item{df.rate}{Rate for computing the dfU cap (\code{cap = rate * N * Q}).
+For backward compatibility, \code{dfU.cap.rate} is accepted via \code{...}.
 If \code{NULL} (default), runs \code{\link{nmfre.dfU.scan}} internally and
 selects the minimum rate where the cap is not binding.
 Use \code{\link{nmfre.dfU.scan}} beforehand to examine dfU behavior across rates

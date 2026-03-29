@@ -24,8 +24,10 @@
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Non-negative. May contain \code{NA}s
 #'   (handled via \code{Y1.weights}).
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N). Non-negative. Default is \code{Y1} (autoencoder).
-#' @param Q Integer. Rank of the decoder basis \eqn{X_1} (P1 x Q). Default is 2.
-#' @param R Integer. Rank of the encoder basis \eqn{X_2} (R x P2). Default is \code{Q}.
+#' @param rank Integer. Rank of the decoder basis \eqn{X_1} (P1 x Q). Default is 2.
+#'   For backward compatibility, \code{Q} is accepted via \code{...}.
+#' @param rank.encoder Integer. Rank of the encoder basis \eqn{X_2} (R x P2).
+#'   Default is \code{rank}. For backward compatibility, \code{R} is accepted via \code{...}.
 #' @param epsilon Positive convergence tolerance. Default is \code{1e-4}.
 #' @param maxit Maximum number of multiplicative update iterations. Default is 5000.
 #' @param ... Additional arguments:
@@ -79,12 +81,17 @@
 #' Y2 <- matrix(runif(8), nrow=4)
 #' res2 <- nmfae(Y1, Y2, Q=2, R=2)
 #'
-nmfae <- function(Y1, Y2 = Y1, Q = 2, R = Q,
+nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
                   epsilon = 1e-4, maxit = 5000, ...) {
 
   cl <- match.call()
 
   extra_args <- list(...)
+  # backward compatibility: Q -> rank, R -> rank.encoder
+  if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
+  Q <- rank
+  R <- rank.encoder
   Y1.weights  <- if (!is.null(extra_args$Y1.weights))  extra_args$Y1.weights  else NULL
   C.L1        <- if (!is.null(extra_args$C.L1))        extra_args$C.L1        else 0
   X1.L2.ortho <- if (!is.null(extra_args$X1.L2.ortho)) extra_args$X1.L2.ortho else 0
@@ -1125,7 +1132,8 @@ plot.predict.nmfae <- function(x, ...) {
 #' @param R Integer vector of encoder ranks to evaluate. Default is \code{NULL},
 #'   which sets \code{R = Q} and evaluates element-wise pairs.
 #'   When explicitly specified, all combinations with \code{Q} are evaluated.
-#' @param div Number of folds. Default is 5.
+#' @param nfolds Number of folds. Default is 5. For backward compatibility,
+#'   \code{div} is accepted via \code{...}.
 #' @param seed Integer seed for reproducibility. Default is 123.
 #' @param ... Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
 #'
@@ -1149,7 +1157,10 @@ plot.predict.nmfae <- function(x, ...) {
 #' res2$sigma
 #'
 nmfae.ecv <- function(Y1, Y2 = Y1, Q = 1:2, R = NULL,
-                      div = 5, seed = 123, ...) {
+                      nfolds = 5, seed = 123, ...) {
+  extra_ecv <- list(...)
+  if (!is.null(extra_ecv$div)) nfolds <- extra_ecv$div
+  div <- nfolds
 
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
   P1 <- nrow(Y1); N <- ncol(Y1)
@@ -1351,7 +1362,8 @@ plot.nmfae.ecv <- function(x, ...) {
 #'   Default is \code{Y1} (autoencoder).
 #' @param Q Integer. Rank of the decoder basis. Default is 2.
 #' @param R Integer. Rank of the encoder basis. Default is \code{Q}.
-#' @param div Number of folds. Default is 5.
+#' @param nfolds Number of folds. Default is 5. For backward compatibility,
+#'   \code{div} is accepted via \code{...}.
 #' @param seed Integer seed for reproducible fold partitioning. Default is 123.
 #' @param shuffle Logical. If \code{TRUE} (default), randomly shuffles samples;
 #'   if \code{FALSE}, splits sequentially (block CV for time series).
@@ -1374,7 +1386,10 @@ plot.nmfae.ecv <- function(x, ...) {
 #' res$sigma
 #'
 nmfae.cv <- function(Y1, Y2 = Y1, Q = 2, R = Q,
-                     div = 5, seed = 123, shuffle = TRUE, ...) {
+                     nfolds = 5, seed = 123, shuffle = TRUE, ...) {
+  extra_cv <- list(...)
+  if (!is.null(extra_cv$div)) nfolds <- extra_cv$div
+  div <- nfolds
 
   extra_args <- list(...)
 

@@ -86,7 +86,7 @@ inspection of the internal structural matrices.</p>
 <span>  epsilon <span class="op">=</span> <span class="fl">1e-06</span>,</span>
 <span>  maxit <span class="op">=</span> <span class="fl">20000</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  div <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  nfolds <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  shuffle <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -141,8 +141,9 @@ If <code>NULL</code>, <code>nmf.sem</code> decides the effective rank (via <code
 If <code>NULL</code>, RNG is not controlled within folds.</p></dd>
 
 
-<dt id="arg-div">div<a class="anchor" aria-label="anchor" href="#arg-div"></a></dt>
-<dd><p>Number of CV folds. (Default: <code>5</code>)</p></dd>
+<dt id="arg-nfolds">nfolds<a class="anchor" aria-label="anchor" href="#arg-nfolds"></a></dt>
+<dd><p>Number of CV folds. Default is 5. For backward compatibility,
+<code>div</code> is accepted via <code>...</code>.</p></dd>
 
 
 <dt id="arg-shuffle">shuffle<a class="anchor" aria-label="anchor" href="#arg-shuffle"></a></dt>

@@ -66,7 +66,16 @@ predictive performance is evaluated on the held-out samples.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfae.cv</span><span class="op">(</span><span class="va">Y1</span>, Y2 <span class="op">=</span> <span class="va">Y1</span>, Q <span class="op">=</span> <span class="fl">2</span>, R <span class="op">=</span> <span class="va">Q</span>, div <span class="op">=</span> <span class="fl">5</span>, seed <span class="op">=</span> <span class="fl">123</span>, shuffle <span class="op">=</span> <span class="cn">TRUE</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfae.cv</span><span class="op">(</span></span>
+<span>  <span class="va">Y1</span>,</span>
+<span>  Y2 <span class="op">=</span> <span class="va">Y1</span>,</span>
+<span>  Q <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  R <span class="op">=</span> <span class="va">Q</span>,</span>
+<span>  nfolds <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">123</span>,</span>
+<span>  shuffle <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -90,8 +99,9 @@ Default is <code>Y1</code> (autoencoder).</p></dd>
 <dd><p>Integer. Rank of the encoder basis. Default is <code>Q</code>.</p></dd>
 
 
-<dt id="arg-div">div<a class="anchor" aria-label="anchor" href="#arg-div"></a></dt>
-<dd><p>Number of folds. Default is 5.</p></dd>
+<dt id="arg-nfolds">nfolds<a class="anchor" aria-label="anchor" href="#arg-nfolds"></a></dt>
+<dd><p>Number of folds. Default is 5. For backward compatibility,
+<code>div</code> is accepted via <code>...</code>.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>

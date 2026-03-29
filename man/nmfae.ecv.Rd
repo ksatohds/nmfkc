@@ -4,7 +4,7 @@
 \alias{nmfae.ecv}
 \title{Element-wise Cross-Validation for nmfae (Wold's CV)}
 \usage{
-nmfae.ecv(Y1, Y2 = Y1, Q = 1:2, R = NULL, div = 5, seed = 123, ...)
+nmfae.ecv(Y1, Y2 = Y1, Q = 1:2, R = NULL, nfolds = 5, seed = 123, ...)
 }
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N).}
@@ -17,7 +17,8 @@ nmfae.ecv(Y1, Y2 = Y1, Q = 1:2, R = NULL, div = 5, seed = 123, ...)
 which sets \code{R = Q} and evaluates element-wise pairs.
 When explicitly specified, all combinations with \code{Q} are evaluated.}
 
-\item{div}{Number of folds. Default is 5.}
+\item{nfolds}{Number of folds. Default is 5. For backward compatibility,
+\code{div} is accepted via \code{...}.}
 
 \item{seed}{Integer seed for reproducibility. Default is 123.}
 

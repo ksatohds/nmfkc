@@ -122,8 +122,10 @@
 #'
 #' @param Y Observation matrix (P x N), non-negative.
 #' @param A Covariate matrix (K x N). Default is a row of ones (intercept only).
-#' @param Q Integer. Rank of the basis matrix \eqn{X}.
-#' @param dfU.cap.rate Rate for computing the dfU cap (\code{cap = rate * N * Q}).
+#' @param rank Integer. Rank of the basis matrix \eqn{X}. Default is 2.
+#'   For backward compatibility, \code{Q} is accepted via \code{...}.
+#' @param df.rate Rate for computing the dfU cap (\code{cap = rate * N * Q}).
+#'   For backward compatibility, \code{dfU.cap.rate} is accepted via \code{...}.
 #'   If \code{NULL} (default), runs \code{\link{nmfre.dfU.scan}} internally and
 #'   selects the minimum rate where the cap is not binding.
 #'   Use \code{\link{nmfre.dfU.scan}} beforehand to examine dfU behavior across rates
@@ -281,11 +283,16 @@
 #' summary(res)
 #' }
 #'
-nmfre <- function(Y, A = NULL, Q = 2, dfU.cap.rate = NULL,
+nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
                   wild.bootstrap = TRUE, epsilon = 1e-5,
                   maxit = 50000, ...) {
 
   extra_args <- base::list(...)
+  # backward compatibility
+  if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (!is.null(extra_args$dfU.cap.rate)) df.rate <- extra_args$dfU.cap.rate
+  Q <- rank
+  dfU.cap.rate <- df.rate
 
   # --- Parameter Extraction from ... ---
   # initialization
@@ -1314,7 +1321,8 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #' @param rates Numeric vector of cap rates to scan (default \code{(1:10)/10}).
 #' @param Y Observation matrix (P x N).
 #' @param A Covariate matrix (K x N).
-#' @param Q Integer. Rank of the basis matrix.
+#' @param rank Integer. Rank of the basis matrix.
+#'   For backward compatibility, \code{Q} is accepted via \code{...}.
 #' @param X.init Initial basis matrix, or \code{NULL}.
 #' @param C.init Initial coefficient matrix, or \code{NULL}.
 #' @param U.init Initial random effects matrix, or \code{NULL}.
@@ -1373,11 +1381,14 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #'
 nmfre.dfU.scan <- function(
   rates = (1:10) / 10,
-  Y, A, Q,
+  Y, A, rank = NULL,
   X.init = NULL, C.init = NULL, U.init = NULL,
   print.trace = FALSE,
   ...
 ) {
+  extra_scan <- base::list(...)
+  if (!is.null(extra_scan$Q)) rank <- extra_scan$Q
+  Q <- rank
   N <- ncol(Y)
   NQ <- N * Q
 

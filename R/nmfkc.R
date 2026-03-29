@@ -311,7 +311,7 @@ nmfkc.kernel <- function(U, V = NULL,
 #' nearest-landmark distances from each sample in \code{U} to its closest landmark in \code{Uk}.
 #'
 #' To control memory usage for large \code{N} (and \code{M}), distances are computed in blocks.
-#' Optionally, columns of \code{U} can be randomly subsampled via \code{sample_size} to reduce cost.
+#' Optionally, columns of \code{U} can be randomly subsampled via \code{sample.size} to reduce cost.
 #'
 #' @details
 #' \strong{Candidate grid:}
@@ -330,18 +330,18 @@ nmfkc.kernel <- function(U, V = NULL,
 #' \itemize{
 #'   \item When \code{Uk} is identical to \code{U}, the function detects this case and excludes
 #'         self-distances (distance 0) to avoid \eqn{\sigma_0=0}.
-#'   \item \code{sample_size} performs random subsampling without setting a seed. For reproducible
+#'   \item \code{sample.size} performs random subsampling without setting a seed. For reproducible
 #'         results, set \code{set.seed()} before calling this function.
 #' }
 #'
 #' @param U A numeric matrix of covariates (\code{K x N}); columns are samples.
 #' @param Uk An optional numeric matrix of landmarks (\code{K x M}); columns are landmark points.
 #'   If provided, distances are computed from samples in \code{U} to landmarks in \code{Uk}.
-#' @param block_size Integer. Number of columns of \code{U} processed per block when computing
+#' @param block.size Integer. Number of columns of \code{U} processed per block when computing
 #'   distances (controls memory usage). If \code{N <= 1000}, it is automatically set to \code{N}.
-#' @param block_size_Uk Integer. Number of columns of \code{Uk} processed per block when \code{Uk}
+#' @param block.size.Uk Integer. Number of columns of \code{Uk} processed per block when \code{Uk}
 #'   is not \code{NULL} (controls memory usage). If \code{M <= 2000}, it is automatically set to \code{M}.
-#' @param sample_size Integer or \code{NULL}. If not \code{NULL}, randomly subsamples this many columns
+#' @param sample.size Integer or \code{NULL}. If not \code{NULL}, randomly subsamples this many columns
 #'   of \code{U} (without replacement) before computing distances, to reduce computational cost.
 #'
 #' @return A list with elements:
@@ -351,9 +351,9 @@ nmfkc.kernel <- function(U, V = NULL,
 #'         intended for cross-validation.
 #'   \item \code{dist_median}: The estimated distance scale \eqn{\sigma_0} (median of nearest-neighbor
 #'         or nearest-landmark distances).
-#'   \item \code{block_size_used}: The effective block size(s) used. Either a scalar (no \code{Uk}) or
+#'   \item \code{block.size.used}: The effective block size(s) used. Either a scalar (no \code{Uk}) or
 #'         a named vector \code{c(U=..., Uk=...)} when \code{Uk} is provided.
-#'   \item \code{sample_size_used}: The number of columns of \code{U} actually used (after subsampling).
+#'   \item \code{sample.size.used}: The number of columns of \code{U} actually used (after subsampling).
 #'   \item \code{uk_is_u}: Logical flag indicating whether \code{Uk} was detected as identical to \code{U}
 #'         (only returned when \code{Uk} is provided).
 #' }
@@ -373,36 +373,41 @@ nmfkc.kernel <- function(U, V = NULL,
 nmfkc.kernel.beta.nearest.med <- function(
     U,
     Uk = NULL,
-    block_size = 1000,
-    block_size_Uk = 2000,
-    sample_size = NULL
+    block.size = 1000,
+    block.size.Uk = 2000,
+    sample.size = NULL,
+    ...
 ){
+  extra_bn <- list(...)
+  if (!is.null(extra_bn$block.size)) block.size <- extra_bn$block.size
+  if (!is.null(extra_bn$block.size.Uk)) block.size.Uk <- extra_bn$block.size.Uk
+  if (!is.null(extra_bn$sample.size)) sample.size <- extra_bn$sample.size
   U <- as.matrix(U)
   storage.mode(U) <- "double"
   N <- ncol(U)
   if (N < 2) stop("U must have at least 2 columns.")
 
   # ---- optional subsampling over U columns (for speed) ----
-  if (!is.null(sample_size)) {
-    sample_size <- as.integer(sample_size)
-    if (sample_size <= 1) stop("sample_size must be >= 2")
-    if (sample_size < N) {
-      idxU <- sample.int(N, sample_size)
+  if (!is.null(sample.size)) {
+    sample.size <- as.integer(sample.size)
+    if (sample.size <= 1) stop("sample.size must be >= 2")
+    if (sample.size < N) {
+      idxU <- sample.int(N, sample.size)
       U <- U[, idxU, drop = FALSE]
       N <- ncol(U)
     }
   }
-  sample_size_used <- N
+  sample.size.used <- N
 
   # If Uk is NULL, behave like the original function: NN within U (exclude self).
   if (is.null(Uk)) {
     X  <- t(U)                    # N x K
-    if (N <= 1000) block_size <- N
+    if (N <= 1000) block.size <- N
     XX <- rowSums(X * X)          # length N
     min_d2 <- rep(Inf, N)
 
-    for (i in seq(1, N, by = block_size)) {
-      i2 <- min(i + block_size - 1, N)
+    for (i in seq(1, N, by = block.size)) {
+      i2 <- min(i + block.size - 1, N)
       Xi <- X[i:i2, , drop = FALSE]
       Xi_norm <- rowSums(Xi * Xi)
 
@@ -427,8 +432,8 @@ nmfkc.kernel.beta.nearest.med <- function(
       beta = beta,
       beta_candidates = beta * 10^c(-2:1),
       dist_median = d_med,
-      block_size_used = block_size,
-      sample_size_used = sample_size_used
+      block.size.used = block.size,
+      sample.size.used = sample.size.used
     ))
   }
 
@@ -442,8 +447,8 @@ nmfkc.kernel.beta.nearest.med <- function(
 
   # We'll compute, for each column of U, min_j ||u_i - uk_j||^2.
   # Block over U (columns) and optionally over Uk to control memory.
-  if (N <= 1000) block_size <- N
-  if (M <= 2000) block_size_Uk <- M
+  if (N <= 1000) block.size <- N
+  if (M <= 2000) block.size.Uk <- M
 
   U2  <- colSums(U * U)           # length N
   Uk2 <- colSums(Uk * Uk)         # length M
@@ -452,16 +457,16 @@ nmfkc.kernel.beta.nearest.med <- function(
   # Detect "Uk is U" case (same object / identical values) to exclude self-distance.
   uk_is_u <- (M == N) && isTRUE(all.equal(Uk, U, check.attributes = FALSE))
 
-  for (i in seq(1, N, by = block_size)) {
-    i2 <- min(i + block_size - 1, N)
+  for (i in seq(1, N, by = block.size)) {
+    i2 <- min(i + block.size - 1, N)
     Ui <- U[, i:i2, drop = FALSE]
     Ui2 <- U2[i:i2]
 
     # we may need to accumulate min over Uk blocks
     cur_min <- rep(Inf, ncol(Ui))
 
-    for (j in seq(1, M, by = block_size_Uk)) {
-      j2 <- min(j + block_size_Uk - 1, M)
+    for (j in seq(1, M, by = block.size.Uk)) {
+      j2 <- min(j + block.size.Uk - 1, M)
       Ukj <- Uk[, j:j2, drop = FALSE]
       Ukj2 <- Uk2[j:j2]
 
@@ -509,8 +514,8 @@ nmfkc.kernel.beta.nearest.med <- function(
     beta = beta,
     beta_candidates = betas,
     dist_median = d_med,
-    block_size_used = c(U = block_size, Uk = block_size_Uk),
-    sample_size_used = sample_size_used,
+    block.size.used = c(U = block.size, Uk = block.size.Uk),
+    sample.size.used = sample.size.used,
     uk_is_u = uk_is_u
   )
 }
@@ -2192,7 +2197,8 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
 #' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
 #' @param A Covariate matrix. Ignored when \code{Y} is a formula.
 #' @param Q Vector of ranks to evaluate (e.g., 1:5).
-#' @param div Number of folds (default: 5).
+#' @param nfolds Number of folds (default: 5). For backward compatibility,
+#'   \code{div} is accepted via \code{...}.
 #' @param seed Integer seed for reproducibility.
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} (e.g., \code{method="EU"}).
@@ -2210,7 +2216,10 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
 #' res$objfunc
 #'
 #' @export
-nmfkc.ecv <- function(Y, A=NULL, Q=1:3, div=5, seed=123, data, ...){
+nmfkc.ecv <- function(Y, A=NULL, Q=1:3, nfolds=5, seed=123, data, ...){
+  extra_ecv <- list(...)
+  if (!is.null(extra_ecv$div)) nfolds <- extra_ecv$div
+  div <- nfolds
   # --- Formula Mode ---
   if (base::inherits(Y, "formula")) {
     resolved <- .nmfkc_resolve_formula(Y, A, base::missing(data), if (!base::missing(data)) data else NULL)
@@ -2837,8 +2846,10 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", save.time=FALSE, plot
 #'
 #' @param Y The original observation matrix (P x N).
 #' @param result The result object returned by the nmfkc function.
-#' @param Y_XB_palette A vector of colors used for Y and XB heatmaps. Defaults to a white-orange-red gradient.
-#' @param E_palette A vector of colors used for the residuals (E) heatmap. Defaults to a blue-white-red gradient.
+#' @param fitted.palette A vector of colors for Y and XB heatmaps. Defaults to white-orange-red.
+#'   For backward compatibility, \code{Y_XB_palette} is accepted via \code{...}.
+#' @param residual.palette A vector of colors for the residuals heatmap. Defaults to blue-white-red.
+#'   For backward compatibility, \code{E_palette} is accepted via \code{...}.
 #' @param ... Additional graphical parameters passed to the internal image calls.
 #'
 #' @return NULL. The function generates a plot.
@@ -2849,8 +2860,11 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", save.time=FALSE, plot
 #'
 #' @export
 nmfkc.residual.plot <- function(Y, result,
-                                Y_XB_palette = grDevices::colorRampPalette(c("white", "orange", "red"))(256),
-                                E_palette = grDevices::colorRampPalette(c("blue", "white", "red"))(256), ...){
+                                fitted.palette = grDevices::colorRampPalette(c("white", "orange", "red"))(256),
+                                residual.palette = grDevices::colorRampPalette(c("blue", "white", "red"))(256), ...){
+  extra_rp <- list(...)
+  if (!is.null(extra_rp$Y_XB_palette)) fitted.palette <- extra_rp$Y_XB_palette
+  if (!is.null(extra_rp$E_palette)) residual.palette <- extra_rp$E_palette
   if (!inherits(result, "nmfkc")) {
     stop("The 'result' argument must be an object of class 'nmfkc'.")
   }
@@ -2870,7 +2884,7 @@ nmfkc.residual.plot <- function(Y, result,
   min_E <- -max_abs_E
   max_E <- max_abs_E
   graphics::image(t(Y)[, nrow(Y):1],
-                  col = Y_XB_palette,
+                  col = fitted.palette,
                   zlim = c(min_YX, max_YX),
                   main = "1. Original Matrix Y\n X-axis: Samples (N), Y-axis: Features (P)",
                   xlab = "",
@@ -2878,7 +2892,7 @@ nmfkc.residual.plot <- function(Y, result,
                   axes = FALSE, ...)
   graphics::box()
   graphics::image(t(XB)[, nrow(XB):1],
-                  col = Y_XB_palette,
+                  col = fitted.palette,
                   zlim = c(min_YX, max_YX),
                   main = paste0("2. Fitted Matrix XB (Q=",ncol(result$X),")\n X-axis: Samples (N), Y-axis: Features (P)"),
                   xlab = "",
@@ -2886,7 +2900,7 @@ nmfkc.residual.plot <- function(Y, result,
                   axes = FALSE, ...)
   graphics::box()
   graphics::image(t(E)[, nrow(E):1],
-                  col = E_palette,
+                  col = residual.palette,
                   zlim = c(min_E, max_E),
                   main = "3. Residual Matrix E (Y - XB)\n X-axis: Samples (N), Y-axis: Features (P)",
                   xlab = "",

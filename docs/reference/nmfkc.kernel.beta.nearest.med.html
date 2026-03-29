@@ -11,7 +11,7 @@ nearest-neighbor distances within U (excluding self-distance).
 If Uk is provided, \(\sigma_0\) is estimated as the median of
 nearest-landmark distances from each sample in U to its closest landmark in Uk.
 To control memory usage for large N (and M), distances are computed in blocks.
-Optionally, columns of U can be randomly subsampled via sample_size to reduce cost.'><meta property="og:description" content='Computes a data-driven reference scale for the Gaussian/RBF kernel from covariates
+Optionally, columns of U can be randomly subsampled via sample.size to reduce cost.'><meta property="og:description" content='Computes a data-driven reference scale for the Gaussian/RBF kernel from covariates
 using a robust "median nearest-neighbor (or nearest-landmark) distance" heuristic,
 and returns the corresponding kernel parameter \(\beta\).
 The Gaussian/RBF kernel is assumed to be written in the form
@@ -23,7 +23,7 @@ nearest-neighbor distances within U (excluding self-distance).
 If Uk is provided, \(\sigma_0\) is estimated as the median of
 nearest-landmark distances from each sample in U to its closest landmark in Uk.
 To control memory usage for large N (and M), distances are computed in blocks.
-Optionally, columns of U can be randomly subsampled via sample_size to reduce cost.'></head><body>
+Optionally, columns of U can be randomly subsampled via sample.size to reduce cost.'></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -79,7 +79,7 @@ nearest-neighbor distances within <code>U</code> (excluding self-distance).
 If <code>Uk</code> is provided, \(\sigma_0\) is estimated as the median of
 nearest-landmark distances from each sample in <code>U</code> to its closest landmark in <code>Uk</code>.</p>
 <p>To control memory usage for large <code>N</code> (and <code>M</code>), distances are computed in blocks.
-Optionally, columns of <code>U</code> can be randomly subsampled via <code>sample_size</code> to reduce cost.</p>
+Optionally, columns of <code>U</code> can be randomly subsampled via <code>sample.size</code> to reduce cost.</p>
     </div>
 
     <div class="section level2">
@@ -87,9 +87,10 @@ Optionally, columns of <code>U</code> can be randomly subsampled via <code>sampl
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfkc.kernel.beta.nearest.med</span><span class="op">(</span></span>
 <span>  <span class="va">U</span>,</span>
 <span>  Uk <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  block_size <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  block_size_Uk <span class="op">=</span> <span class="fl">2000</span>,</span>
-<span>  sample_size <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  block.size <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  block.size.Uk <span class="op">=</span> <span class="fl">2000</span>,</span>
+<span>  sample.size <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -106,17 +107,17 @@ Optionally, columns of <code>U</code> can be randomly subsampled via <code>sampl
 If provided, distances are computed from samples in <code>U</code> to landmarks in <code>Uk</code>.</p></dd>
 
 
-<dt id="arg-block-size">block_size<a class="anchor" aria-label="anchor" href="#arg-block-size"></a></dt>
+<dt id="arg-block-size">block.size<a class="anchor" aria-label="anchor" href="#arg-block-size"></a></dt>
 <dd><p>Integer. Number of columns of <code>U</code> processed per block when computing
 distances (controls memory usage). If <code>N &lt;= 1000</code>, it is automatically set to <code>N</code>.</p></dd>
 
 
-<dt id="arg-block-size-uk">block_size_Uk<a class="anchor" aria-label="anchor" href="#arg-block-size-uk"></a></dt>
+<dt id="arg-block-size-uk">block.size.Uk<a class="anchor" aria-label="anchor" href="#arg-block-size-uk"></a></dt>
 <dd><p>Integer. Number of columns of <code>Uk</code> processed per block when <code>Uk</code>
 is not <code>NULL</code> (controls memory usage). If <code>M &lt;= 2000</code>, it is automatically set to <code>M</code>.</p></dd>
 
 
-<dt id="arg-sample-size">sample_size<a class="anchor" aria-label="anchor" href="#arg-sample-size"></a></dt>
+<dt id="arg-sample-size">sample.size<a class="anchor" aria-label="anchor" href="#arg-sample-size"></a></dt>
 <dd><p>Integer or <code>NULL</code>. If not <code>NULL</code>, randomly subsamples this many columns
 of <code>U</code> (without replacement) before computing distances, to reduce computational cost.</p></dd>
 
@@ -128,9 +129,9 @@ of <code>U</code> (without replacement) before computing distances, to reduce co
 intended for cross-validation.</p></li>
 <li><p><code>dist_median</code>: The estimated distance scale \(\sigma_0\) (median of nearest-neighbor
 or nearest-landmark distances).</p></li>
-<li><p><code>block_size_used</code>: The effective block size(s) used. Either a scalar (no <code>Uk</code>) or
+<li><p><code>block.size.used</code>: The effective block size(s) used. Either a scalar (no <code>Uk</code>) or
 a named vector <code>c(U=..., Uk=...)</code> when <code>Uk</code> is provided.</p></li>
-<li><p><code>sample_size_used</code>: The number of columns of <code>U</code> actually used (after subsampling).</p></li>
+<li><p><code>sample.size.used</code>: The number of columns of <code>U</code> actually used (after subsampling).</p></li>
 <li><p><code>uk_is_u</code>: Logical flag indicating whether <code>Uk</code> was detected as identical to <code>U</code>
 (only returned when <code>Uk</code> is provided).</p></li>
 </ul></div>
@@ -147,7 +148,7 @@ $$\beta = \beta_0 \times 10^{-2t}.$$</p>
 <p>When <code>Uk</code> is <code>NULL</code>, a shorter coarse grid may be returned (see <code>Value</code>).</p>
 <p><strong>Notes:</strong></p><ul><li><p>When <code>Uk</code> is identical to <code>U</code>, the function detects this case and excludes
 self-distances (distance 0) to avoid \(\sigma_0=0\).</p></li>
-<li><p><code>sample_size</code> performs random subsampling without setting a seed. For reproducible
+<li><p><code>sample.size</code> performs random subsampling without setting a seed. For reproducible
 results, set <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> before calling this function.</p></li>
 </ul></div>
 

@@ -4,7 +4,16 @@
 \alias{nmfae.cv}
 \title{Sample-wise k-fold Cross-Validation for nmfae}
 \usage{
-nmfae.cv(Y1, Y2 = Y1, Q = 2, R = Q, div = 5, seed = 123, shuffle = TRUE, ...)
+nmfae.cv(
+  Y1,
+  Y2 = Y1,
+  Q = 2,
+  R = Q,
+  nfolds = 5,
+  seed = 123,
+  shuffle = TRUE,
+  ...
+)
 }
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N). Non-negative.}
@@ -16,7 +25,8 @@ Default is \code{Y1} (autoencoder).}
 
 \item{R}{Integer. Rank of the encoder basis. Default is \code{Q}.}
 
-\item{div}{Number of folds. Default is 5.}
+\item{nfolds}{Number of folds. Default is 5. For backward compatibility,
+\code{div} is accepted via \code{...}.}
 
 \item{seed}{Integer seed for reproducible fold partitioning. Default is 123.}
 

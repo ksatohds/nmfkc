@@ -85,7 +85,7 @@ the minimum rate satisfying both <code>safeguard = TRUE</code> and
 <span>  rates <span class="op">=</span> <span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span><span class="op">/</span><span class="fl">10</span>,</span>
 <span>  <span class="va">Y</span>,</span>
 <span>  <span class="va">A</span>,</span>
-<span>  <span class="va">Q</span>,</span>
+<span>  rank <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  X.init <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  C.init <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  U.init <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -110,8 +110,9 @@ the minimum rate satisfying both <code>safeguard = TRUE</code> and
 <dd><p>Covariate matrix (K x N).</p></dd>
 
 
-<dt id="arg-q">Q<a class="anchor" aria-label="anchor" href="#arg-q"></a></dt>
-<dd><p>Integer. Rank of the basis matrix.</p></dd>
+<dt id="arg-rank">rank<a class="anchor" aria-label="anchor" href="#arg-rank"></a></dt>
+<dd><p>Integer. Rank of the basis matrix.
+For backward compatibility, <code>Q</code> is accepted via <code>...</code>.</p></dd>
 
 
 <dt id="arg-x-init">X.init<a class="anchor" aria-label="anchor" href="#arg-x-init"></a></dt>

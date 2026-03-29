@@ -4,7 +4,7 @@
 \alias{nmfkc.ecv}
 \title{Perform Element-wise Cross-Validation (Wold's CV)}
 \usage{
-nmfkc.ecv(Y, A = NULL, Q = 1:3, div = 5, seed = 123, data, ...)
+nmfkc.ecv(Y, A = NULL, Q = 1:3, nfolds = 5, seed = 123, data, ...)
 }
 \arguments{
 \item{Y}{Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).}
@@ -13,7 +13,8 @@ nmfkc.ecv(Y, A = NULL, Q = 1:3, div = 5, seed = 123, data, ...)
 
 \item{Q}{Vector of ranks to evaluate (e.g., 1:5).}
 
-\item{div}{Number of folds (default: 5).}
+\item{nfolds}{Number of folds (default: 5). For backward compatibility,
+\code{div} is accepted via \code{...}.}
 
 \item{seed}{Integer seed for reproducibility.}
 

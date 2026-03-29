@@ -7,8 +7,8 @@
 nmfkc.residual.plot(
   Y,
   result,
-  Y_XB_palette = (grDevices::colorRampPalette(c("white", "orange", "red")))(256),
-  E_palette = (grDevices::colorRampPalette(c("blue", "white", "red")))(256),
+  fitted.palette = (grDevices::colorRampPalette(c("white", "orange", "red")))(256),
+  residual.palette = (grDevices::colorRampPalette(c("blue", "white", "red")))(256),
   ...
 )
 }
@@ -17,9 +17,11 @@ nmfkc.residual.plot(
 
 \item{result}{The result object returned by the nmfkc function.}
 
-\item{Y_XB_palette}{A vector of colors used for Y and XB heatmaps. Defaults to a white-orange-red gradient.}
+\item{fitted.palette}{A vector of colors for Y and XB heatmaps. Defaults to white-orange-red.
+For backward compatibility, \code{Y_XB_palette} is accepted via \code{...}.}
 
-\item{E_palette}{A vector of colors used for the residuals (E) heatmap. Defaults to a blue-white-red gradient.}
+\item{residual.palette}{A vector of colors for the residuals heatmap. Defaults to blue-white-red.
+For backward compatibility, \code{E_palette} is accepted via \code{...}.}
 
 \item{...}{Additional graphical parameters passed to the internal image calls.}
 }

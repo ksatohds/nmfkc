@@ -15,7 +15,7 @@ nmf.sem.cv(
   epsilon = 1e-06,
   maxit = 20000,
   seed = NULL,
-  div = 5,
+  nfolds = 5,
   shuffle = TRUE,
   ...
 )
@@ -46,7 +46,8 @@ If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \co
 \item{seed}{Master random seed for CV splitting and fold-specific calls to \code{nmf.sem}.
 If \code{NULL}, RNG is not controlled within folds.}
 
-\item{div}{Number of CV folds. (Default: \code{5})}
+\item{nfolds}{Number of CV folds. Default is 5. For backward compatibility,
+\code{div} is accepted via \code{...}.}
 
 \item{shuffle}{Logical; if \code{TRUE}, samples are randomly permuted
 before assigning to folds. (Default: \code{TRUE})}

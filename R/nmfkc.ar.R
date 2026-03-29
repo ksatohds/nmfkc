@@ -380,7 +380,8 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 #' (Time x Variables). \code{ts} objects are automatically transposed internally.
 #'
 #' @param Y Observation matrix \eqn{Y(P,N)} or a \code{ts} object.
-#' @param Q Rank of the basis matrix.
+#' @param rank Rank of the basis matrix. For backward compatibility,
+#'   \code{Q} is accepted via \code{...}.
 #' @param degree A vector of candidate lag orders to be evaluated.
 #' @param intercept Logical. If TRUE (default), an intercept is added to the covariate matrix.
 #' @param plot Logical. If TRUE (default), a plot of the objective function values is drawn.
@@ -403,7 +404,10 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 #' # Note: Y is automatically transposed if it is a ts object
 #' nmfkc.ar.degree.cv(Y=d, Q=1, degree=11:14)
 
-nmfkc.ar.degree.cv <- function(Y, Q=1, degree=1:2, intercept=TRUE, plot=TRUE, ...){
+nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE, ...){
+  extra_cv <- list(...)
+  if (!is.null(extra_cv$Q)) rank <- extra_cv$Q
+  Q <- rank
 
   # --- 1. Time Series Object Handling & Standardization ---
   # Ensure Y is (P x N) matrix before processing

@@ -534,7 +534,8 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
 #' @param maxit Maximum number of iterations for \code{nmf.sem}.
 #' @param seed Master random seed for CV splitting and fold-specific calls to \code{nmf.sem}.
 #'   If \code{NULL}, RNG is not controlled within folds.
-#' @param div Number of CV folds. (Default: \code{5})
+#' @param nfolds Number of CV folds. Default is 5. For backward compatibility,
+#'   \code{div} is accepted via \code{...}.
 #' @param shuffle Logical; if \code{TRUE}, samples are randomly permuted
 #'   before assigning to folds. (Default: \code{TRUE})
 #' @param ... Additional arguments passed to \code{nmf.sem} (except for
@@ -560,10 +561,13 @@ nmf.sem.cv <- function(
     epsilon = 1e-6,     # Convergence tolerance passed to nmf.sem
     maxit = 20000,
     seed = NULL,        # Master seed for CV (partition + fold seeds)
-    div = 5,            # Number of CV folds
+    nfolds = 5,         # Number of CV folds
     shuffle = TRUE,     # Shuffle samples before assigning folds
     ...
 ){
+  extra_cv <- base::list(...)
+  if (!is.null(extra_cv$div)) nfolds <- extra_cv$div
+  div <- nfolds
   # ------------------------------------------------------------------
   # 1. Basic input checks
   #

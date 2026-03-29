@@ -8,7 +8,15 @@ Satoh, K. (2025). Applying Non-negative Matrix Factorization with Covariates
 to Multivariate Time Series. \emph{Japanese Journal of Statistics and Data Science}.
 }
 \usage{
-nmfae(Y1, Y2 = Y1, Q = 2, R = Q, epsilon = 1e-04, maxit = 5000, ...)
+nmfae(
+  Y1,
+  Y2 = Y1,
+  rank = 2,
+  rank.encoder = rank,
+  epsilon = 1e-04,
+  maxit = 5000,
+  ...
+)
 }
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N). Non-negative. May contain \code{NA}s
@@ -16,9 +24,11 @@ nmfae(Y1, Y2 = Y1, Q = 2, R = Q, epsilon = 1e-04, maxit = 5000, ...)
 
 \item{Y2}{Input matrix \eqn{Y_2} (P2 x N). Non-negative. Default is \code{Y1} (autoencoder).}
 
-\item{Q}{Integer. Rank of the decoder basis \eqn{X_1} (P1 x Q). Default is 2.}
+\item{rank}{Integer. Rank of the decoder basis \eqn{X_1} (P1 x Q). Default is 2.
+For backward compatibility, \code{Q} is accepted via \code{...}.}
 
-\item{R}{Integer. Rank of the encoder basis \eqn{X_2} (R x P2). Default is \code{Q}.}
+\item{rank.encoder}{Integer. Rank of the encoder basis \eqn{X_2} (R x P2).
+Default is \code{rank}. For backward compatibility, \code{R} is accepted via \code{...}.}
 
 \item{epsilon}{Positive convergence tolerance. Default is \code{1e-4}.}
 
