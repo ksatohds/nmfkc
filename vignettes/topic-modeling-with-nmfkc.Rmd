@@ -70,12 +70,11 @@ dim(Y) # Features (Words) x Samples (Documents)
 
 Before fitting the model, we need to decide the number of topics ($rank$). The `nmfkc.rank()` function helps us choose an appropriate rank.
 
-Here, we set `save.time = FALSE` to perform **Element-wise Cross-Validation (Wold's CV)**. This method randomly holds out individual matrix elements and evaluates how well the model predicts them, providing a robust measure for rank selection (though it takes more computation time).
+The default `detail = "full"` performs **Element-wise Cross-Validation (Wold's CV)**. This method randomly holds out individual matrix elements and evaluates how well the model predicts them, providing a robust measure for rank selection (though it takes more computation time).
 
 ```{r rank-selection, fig.width=7, fig.height=6}
 # Evaluate ranks from 2 to 6
-# save.time=FALSE enables the robust Element-wise CV
-nmfkc.rank(Y, rank = 2:6, save.time = FALSE)
+nmfkc.rank(Y, rank = 2:6)
 ```
 
 Looking at the diagnostics (e.g., the minimum ECV Sigma, the elbow of the R-squared curve, or high Cophenetic Correlation), let's assume **Rank = 3** is a reasonable choice for this overview.
@@ -133,7 +132,7 @@ U <- t(as.matrix(years))
 beta_candidates <- c(0.2, 0.5, 1, 2, 5) / 10000
 
 # Run CV to find the best beta
-# Note: We use the same rank (Q=3) as selected above.
+# Note: We use the same rank (rank=3) as selected above.
 cv_res <- nmfkc.kernel.beta.cv(Y, rank = rank, U = U, beta = beta_candidates, plot = FALSE)
 best_beta <- cv_res$beta
 print(best_beta)

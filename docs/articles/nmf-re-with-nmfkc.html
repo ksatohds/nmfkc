@@ -138,7 +138,7 @@ determines the degree of shrinkage.</p>
 </h3>
 <ul>
 <li>
-<strong>Automatic regularization</strong>: <code>dfU.cap.rate</code>
+<strong>Automatic regularization</strong>: <code>df.rate</code>
 controls the effective degrees of freedom consumed by
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>U</mi><annotation encoding="application/x-tex">U</annotation></semantics></math>,
 preventing overfitting.</li>
@@ -241,7 +241,7 @@ was updated freely (<code>TRUE</code> = unconstrained).</li>
 Coefficient.</li>
 </ul>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">scan_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.dfU.scan.html">nmfre.dfU.scan</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">/</span><span class="fl">10</span>, <span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">scan_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.dfU.scan.html">nmfre.dfU.scan</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">/</span><span class="fl">10</span>, <span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">scan_result</span></span>
 <span><span class="co">#&gt;    rate dfU.cap  dfU safeguard   hit converged  tau2 sigma2    ICC</span></span>
 <span><span class="co">#&gt; 1   0.1     2.7 2.70     FALSE  TRUE      TRUE 0.443      1 0.0270</span></span>
@@ -257,7 +257,7 @@ Coefficient.</li>
 <div class="section level3">
 <h3 id="interpreting-the-scan">Interpreting the Scan<a class="anchor" aria-label="anchor" href="#interpreting-the-scan"></a>
 </h3>
-<p>A good <code>dfU.cap.rate</code> satisfies two criteria:</p>
+<p>A good <code>df.rate</code> satisfies two criteria:</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>safeguard = TRUE</strong>: The cap is not overly
@@ -274,20 +274,18 @@ model flexibility against overfitting.</p>
 <div class="section level2">
 <h2 id="fitting-the-nmf-re-model">3. Fitting the NMF-RE Model<a class="anchor" aria-label="anchor" href="#fitting-the-nmf-re-model"></a>
 </h2>
-<p>Based on the scan, we select <code>dfU.cap.rate = 0.2</code> and fit
-the model with rank
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">Q = 1</annotation></semantics></math>
-(a single latent trend). The <code>prefix</code> argument labels the
-basis.</p>
+<p>Based on the scan, we select <code>df.rate = 0.2</code> and fit the
+model with <code>rank = 1</code> (a single latent trend). The
+<code>prefix</code> argument labels the basis.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span>, dfU.cap.rate <span class="op">=</span> <span class="fl">0.2</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, df.rate <span class="op">=</span> <span class="fl">0.2</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="model-summary">3.1 Model Summary<a class="anchor" aria-label="anchor" href="#model-summary"></a>
 </h3>
-<p><code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code> displays variance components, fit statistics,
+<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> displays variance components, fit statistics,
 and the coefficient table with significance stars.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
 <span><span class="co">#&gt; NMF-RE: Y(4,27) = X(4,1) [C(1,2) A + U(1,27)]</span></span>
 <span><span class="co">#&gt; Iterations: 2 (converged, epsilon = 1e-05)</span></span>
 <span><span class="co">#&gt; R-squared: 0.5654 (XB+blup), 0.4167 (XB)</span></span>
@@ -360,7 +358,7 @@ population-level trends (fixed effects) and individual deviations
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">age</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">8</span>, <span class="fl">10</span>, <span class="fl">12</span>, <span class="fl">14</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">age</span>, <span class="va">res</span><span class="op">$</span><span class="va">XB</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"n"</span>, ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>,</span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">age</span>, <span class="va">res</span><span class="op">$</span><span class="va">XB</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"n"</span>, ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>,</span>
 <span>     xlab <span class="op">=</span> <span class="st">"Age (years)"</span>, ylab <span class="op">=</span> <span class="st">"Distance (mm)"</span>,</span>
 <span>     main <span class="op">=</span> <span class="st">"Orthodont: NMF-RE Growth Curves"</span><span class="op">)</span></span>
 <span></span>
@@ -434,11 +432,9 @@ represents the latent temporal pattern shared across all subjects.</p>
 <span><span class="co">#&gt; Age 10 0.2409</span></span>
 <span><span class="co">#&gt; Age 12 0.2566</span></span>
 <span><span class="co">#&gt; Age 14 0.2717</span></span></code></pre></div>
-<p>Since
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">Q = 1</annotation></semantics></math>,
-there is one basis vector. Its shape shows how the latent factor
-manifests across the four ages. The column is normalized to sum to
-1.</p>
+<p>Since <code>rank = 1</code>, there is one basis vector. Its shape
+shows how the latent factor manifests across the four ages. The column
+is normalized to sum to 1.</p>
 </div>
 <div class="section level3">
 <h3 id="coefficient-matrix-theta">5.2 Coefficient Matrix
@@ -497,7 +493,7 @@ slower growth.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Stop reason:"</span>, <span class="va">res</span><span class="op">$</span><span class="va">stop.reason</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Stop reason: epsilon</span></span></code></pre></div>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">objfunc.iter</span>, type <span class="op">=</span> <span class="st">"l"</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">objfunc.iter</span>, type <span class="op">=</span> <span class="st">"l"</span>,</span>
 <span>     xlab <span class="op">=</span> <span class="st">"Iteration"</span>, ylab <span class="op">=</span> <span class="st">"Objective function"</span>,</span>
 <span>     main <span class="op">=</span> <span class="st">"Convergence Trace"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="nmf-re-with-nmfkc_files/figure-html/plot-convergence-1.png" width="672"></p>
@@ -514,7 +510,7 @@ slower growth.</p>
 <span><span class="co">#&gt; Mean absolute residual (fixed): 1.7612</span></span>
 <span></span>
 <span><span class="co"># Fitted vs Observed</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">XB.blup</span><span class="op">)</span>,</span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">XB.blup</span><span class="op">)</span>,</span>
 <span>     xlab <span class="op">=</span> <span class="st">"Observed"</span>, ylab <span class="op">=</span> <span class="st">"Fitted (BLUP)"</span>,</span>
 <span>     main <span class="op">=</span> <span class="st">"Observed vs Fitted"</span>, pch <span class="op">=</span> <span class="fl">16</span>, col <span class="op">=</span> <span class="st">"steelblue"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/abline.html" class="external-link">abline</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, col <span class="op">=</span> <span class="st">"red"</span>, lwd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
@@ -529,7 +525,7 @@ slower growth.</p>
 standard NMF covariate model (no random effects).</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Standard NMF with covariates (no random effects)</span></span>
-<span><span class="va">res_fixed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">res_fixed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Y(4,27)~X(4,1)C(1,2)A(2,27)=XB(1,27)...0sec</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"=== Standard NMF (fixed effects only) ===\n"</span><span class="op">)</span></span>
@@ -560,7 +556,7 @@ inference. First fit with <code>wild.bootstrap = FALSE</code> (faster),
 then run inference separately:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit without bootstrap (fast)</span></span>
-<span><span class="va">res_fast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span>, dfU.cap.rate <span class="op">=</span> <span class="fl">0.2</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span>,</span>
+<span><span class="va">res_fast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, df.rate <span class="op">=</span> <span class="fl">0.2</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span>,</span>
 <span>                  wild.bootstrap <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Run inference separately</span></span>
@@ -577,7 +573,7 @@ graph visualization. Edges are filtered by significance level and
 decorated with stars:</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">dot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.DOT.html">nmfkc.DOT</a></span><span class="op">(</span><span class="va">res_inf</span>, type <span class="op">=</span> <span class="st">"YXA"</span>, sig.level <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">dot</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">dot</span><span class="op">)</span></span></code></pre></div>
 <hr>
 </div>
 </div>
@@ -605,7 +601,7 @@ heterogeneity</strong> in NMF:</p>
 </tr>
 <tr class="odd">
 <td align="left">3</td>
-<td align="left"><code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code></td>
+<td align="left"><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code></td>
 <td align="left">Examine variance components and inference</td>
 </tr>
 <tr class="even">

@@ -87,7 +87,7 @@ Q0 <- 3
 res0 <- nmfkc(
   Y = Y1,
   A = Y2,
-  Q = Q0,
+  rank = Q0,
   epsilon = myepsilon,
   X.L2.ortho = 100
 )

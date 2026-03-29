@@ -42,7 +42,7 @@ The random effects $U$ follow a ridge-type prior controlled by variance $\tau^2$
 
 ### Key Features
 
-- **Automatic regularization**: `dfU.cap.rate` controls the effective degrees of freedom consumed by $U$, preventing overfitting.
+- **Automatic regularization**: `df.rate` controls the effective degrees of freedom consumed by $U$, preventing overfitting.
 - **Wild bootstrap inference**: Standard errors, z-values, p-values, and confidence intervals for $\Theta$ without repeated constrained re-optimization.
 - **Trace-based ICC**: Quantifies the proportion of variance attributable to random effects.
 
@@ -95,13 +95,13 @@ The scan evaluates rates from 0.1 to 1.0 (where 1.0 means no cap). Key columns i
 - **ICC**: Trace-based Intraclass Correlation Coefficient.
 
 ```{r dfU-scan}
-scan_result <- nmfre.dfU.scan(1:10/10, Y, A, Q = 1)
+scan_result <- nmfre.dfU.scan(1:10/10, Y, A, rank = 1)
 scan_result
 ```
 
 ### Interpreting the Scan
 
-A good `dfU.cap.rate` satisfies two criteria:
+A good `df.rate` satisfies two criteria:
 
 1. **safeguard = TRUE**: The cap is not overly binding.
 2. **hit = TRUE**: The model converges to a natural solution without the cap forcing an artificial penalty.
@@ -112,10 +112,10 @@ Choose the smallest rate where both conditions hold. This balances model flexibi
 
 ## 3. Fitting the NMF-RE Model
 
-Based on the scan, we select `dfU.cap.rate = 0.2` and fit the model with rank $Q = 1$ (a single latent trend). The `prefix` argument labels the basis.
+Based on the scan, we select `df.rate = 0.2` and fit the model with `rank = 1` (a single latent trend). The `prefix` argument labels the basis.
 
 ```{r fit-nmfre}
-res <- nmfre(Y, A, Q = 1, dfU.cap.rate = 0.2, prefix = "Trend")
+res <- nmfre(Y, A, rank = 1, df.rate = 0.2, prefix = "Trend")
 ```
 
 ### 3.1 Model Summary
@@ -202,7 +202,7 @@ cat("Basis X (temporal pattern):\n")
 print(round(res$X, 4))
 ```
 
-Since $Q = 1$, there is one basis vector. Its shape shows how the latent factor manifests across the four ages. The column is normalized to sum to 1.
+Since `rank = 1`, there is one basis vector. Its shape shows how the latent factor manifests across the four ages. The column is normalized to sum to 1.
 
 ### 5.2 Coefficient Matrix $\Theta$
 
@@ -274,7 +274,7 @@ To appreciate the value of random effects, compare NMF-RE with a standard NMF co
 
 ```{r compare-models}
 # Standard NMF with covariates (no random effects)
-res_fixed <- nmfkc(Y, A = A, Q = 1)
+res_fixed <- nmfkc(Y, A = A, rank = 1)
 
 cat("=== Standard NMF (fixed effects only) ===\n")
 cat("R-squared:", round(1 - sum((Y - res_fixed$XB)^2) / sum((Y - mean(Y))^2), 4), "\n\n")
@@ -295,7 +295,7 @@ When fitting NMF-RE, you can separate optimization from statistical inference. F
 
 ```{r separated-inference}
 # Fit without bootstrap (fast)
-res_fast <- nmfre(Y, A, Q = 1, dfU.cap.rate = 0.2, prefix = "Trend",
+res_fast <- nmfre(Y, A, rank = 1, df.rate = 0.2, prefix = "Trend",
                   wild.bootstrap = FALSE)
 
 # Run inference separately
