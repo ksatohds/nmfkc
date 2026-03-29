@@ -1119,9 +1119,6 @@ plot.predict.nmfae <- function(x, ...) {
 #' When \code{R} is explicitly specified, all combinations of \code{Q} and \code{R}
 #' are evaluated via \code{expand.grid}.
 #'
-#' When \code{mc.cores > 1}, fold computations are parallelized using
-#' \code{parallel::mclapply} (available on Linux/macOS; ignored on Windows).
-#'
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N).
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N). Default is \code{Y1}.
 #' @param Q Integer vector of decoder ranks to evaluate. Default is \code{1:2}.
@@ -1130,8 +1127,6 @@ plot.predict.nmfae <- function(x, ...) {
 #'   When explicitly specified, all combinations with \code{Q} are evaluated.
 #' @param div Number of folds. Default is 5.
 #' @param seed Integer seed for reproducibility. Default is 123.
-#' @param mc.cores Number of cores for parallel computation. Default is 1 (sequential).
-#'   Values > 1 use \code{parallel::mclapply} (not available on Windows).
 #' @param ... Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
 #'
 #' @return A list with components:
@@ -1154,7 +1149,7 @@ plot.predict.nmfae <- function(x, ...) {
 #' res2$sigma
 #'
 nmfae.ecv <- function(Y1, Y2 = Y1, Q = 1:2, R = NULL,
-                      div = 5, seed = 123, mc.cores = 1, ...) {
+                      div = 5, seed = 123, ...) {
 
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
   P1 <- nrow(Y1); N <- ncol(Y1)
@@ -1189,8 +1184,8 @@ nmfae.ecv <- function(Y1, Y2 = Y1, Q = 1:2, R = NULL,
   has_na <- any(is.na(Y1))
 
   n_tasks <- num_pairs * div
-  message(sprintf("Element-wise CV: %d (Q,R) pairs, %d-fold, %d tasks (mc.cores=%d)...",
-                  num_pairs, div, n_tasks, mc.cores))
+  message(sprintf("Element-wise CV: %d (Q,R) pairs, %d-fold, %d tasks...",
+                  num_pairs, div, n_tasks))
 
   # Build flat task list: each task = one (Q,R) pair + one fold
   tasks <- vector("list", n_tasks)
@@ -1218,13 +1213,7 @@ nmfae.ecv <- function(Y1, Y2 = Y1, Q = 1:2, R = NULL,
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
   }
 
-  # Execute: parallel or sequential
-  if (mc.cores > 1 && requireNamespace("parallel", quietly = TRUE)) {
-    results <- parallel::mclapply(tasks, run_one, mc.cores = mc.cores)
-    results <- unlist(results)
-  } else {
-    results <- vapply(tasks, run_one, numeric(1))
-  }
+  results <- vapply(tasks, run_one, numeric(1))
 
   # Reshape results into per-pair fold MSEs
   result_objfunc <- numeric(num_pairs)

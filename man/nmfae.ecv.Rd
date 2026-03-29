@@ -4,16 +4,7 @@
 \alias{nmfae.ecv}
 \title{Element-wise Cross-Validation for nmfae (Wold's CV)}
 \usage{
-nmfae.ecv(
-  Y1,
-  Y2 = Y1,
-  Q = 1:2,
-  R = NULL,
-  div = 5,
-  seed = 123,
-  mc.cores = 1,
-  ...
-)
+nmfae.ecv(Y1, Y2 = Y1, Q = 1:2, R = NULL, div = 5, seed = 123, ...)
 }
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N).}
@@ -29,9 +20,6 @@ When explicitly specified, all combinations with \code{Q} are evaluated.}
 \item{div}{Number of folds. Default is 5.}
 
 \item{seed}{Integer seed for reproducibility. Default is 123.}
-
-\item{mc.cores}{Number of cores for parallel computation. Default is 1 (sequential).
-Values > 1 use \code{parallel::mclapply} (not available on Windows).}
 
 \item{...}{Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).}
 }
@@ -55,9 +43,6 @@ vector inputs. When \code{R = NULL} (default), \code{R} is set equal to \code{Q}
 and pairs are evaluated element-wise (i.e., \eqn{(Q_1, R_1), (Q_2, R_2), \dots}).
 When \code{R} is explicitly specified, all combinations of \code{Q} and \code{R}
 are evaluated via \code{expand.grid}.
-
-When \code{mc.cores > 1}, fold computations are parallelized using
-\code{parallel::mclapply} (available on Linux/macOS; ignored on Windows).
 }
 \examples{
 library(nmfkc)
