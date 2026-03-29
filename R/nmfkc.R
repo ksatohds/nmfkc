@@ -343,6 +343,7 @@ nmfkc.kernel <- function(U, V = NULL,
 #'   is not \code{NULL} (controls memory usage). If \code{M <= 2000}, it is automatically set to \code{M}.
 #' @param sample.size Integer or \code{NULL}. If not \code{NULL}, randomly subsamples this many columns
 #'   of \code{U} (without replacement) before computing distances, to reduce computational cost.
+#' @param ... Additional arguments (ignored; reserved for future use).
 #'
 #' @return A list with elements:
 #' \itemize{

@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmf.sem.R
 \name{nmf.sem.DOT}
 \alias{nmf.sem.DOT}
-\title{Determine the decimal digits based on a threshold}
+\title{Generate a Graphviz DOT Diagram for an NMF-SEM Model}
 \usage{
 nmf.sem.DOT(
   result,
@@ -57,8 +57,6 @@ frame (from \code{\link{nmf.sem.inference}}), only edges with
 Set to \code{NULL} to disable filtering. Default is \code{0.1}.}
 }
 \value{
-Integer specifying the number of decimal places.
-
 A character string representing a valid Graphviz DOT script.
 }
 \description{
@@ -84,11 +82,6 @@ Edge widths are scaled by coefficient magnitude, and nodes are placed
 in optional visual clusters. Only variables participating in
 edges above the threshold are displayed, while latent factors are always shown.
 }
-\details{
-This helper computes the number of decimal places that should be
-used for formatting coefficient labels, based on the magnitude
-of the threshold used for edge visualization.
-}
 \examples{
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]
@@ -98,4 +91,3 @@ dot <- nmf.sem.DOT(result)
 cat(dot)
 
 }
-\keyword{internal}

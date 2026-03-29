@@ -15,3 +15,7 @@
 ^cran-comments\.md$
 ^\.github$
 ^CLAUDE\.md$
+^\.claude$
+^\.git$
+^\.gitignore$
+^vignettes/\.gitignore$

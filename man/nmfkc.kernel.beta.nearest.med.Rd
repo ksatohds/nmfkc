@@ -27,6 +27,8 @@ is not \code{NULL} (controls memory usage). If \code{M <= 2000}, it is automatic
 
 \item{sample.size}{Integer or \code{NULL}. If not \code{NULL}, randomly subsamples this many columns
 of \code{U} (without replacement) before computing distances, to reduce computational cost.}
+
+\item{...}{Additional arguments (ignored; reserved for future use).}
 }
 \value{
 A list with elements:

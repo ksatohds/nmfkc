@@ -402,7 +402,7 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 #'
 #' # Selection of degree (using ts object)
 #' # Note: Y is automatically transposed if it is a ts object
-#' nmfkc.ar.degree.cv(Y=d, Q=1, degree=11:14)
+#' nmfkc.ar.degree.cv(Y=d, rank=1, degree=11:14)
 
 nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE, ...){
   extra_cv <- list(...)
@@ -420,7 +420,8 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
   }
 
   # --- 2. Main Processing ---
-  extra_args <- list(...)
+  # Remove backward-compat aliases from extra_args to avoid duplicate argument errors
+  extra_args <- extra_cv[!names(extra_cv) %in% c("Q")]
   objfuncs <- numeric(length(degree))
   success_status <- logical(length(degree))
 

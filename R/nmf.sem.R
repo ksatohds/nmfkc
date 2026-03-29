@@ -989,17 +989,6 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 ## Common DOT Helpers
 ############################################################
 
-#' Determine the decimal digits based on a threshold
-#'
-#' This helper computes the number of decimal places that should be
-#' used for formatting coefficient labels, based on the magnitude
-#' of the threshold used for edge visualization.
-#'
-#' @param threshold Numeric scalar (>0).
-#' @return Integer specifying the number of decimal places.
-#' @keywords internal
-#' @noRd
-
 ############################################################
 ## 1. nmf.sem.DOT  (for NMF-SEM visualization)
 ############################################################

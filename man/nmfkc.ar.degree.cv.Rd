@@ -49,7 +49,7 @@ d <- AirPassengers
 
 # Selection of degree (using ts object)
 # Note: Y is automatically transposed if it is a ts object
-nmfkc.ar.degree.cv(Y=d, Q=1, degree=11:14)
+nmfkc.ar.degree.cv(Y=d, rank=1, degree=11:14)
 }
 \seealso{
 \code{\link{nmfkc.ar}}, \code{\link{nmfkc.cv}}
