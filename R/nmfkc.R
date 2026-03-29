@@ -628,6 +628,54 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @return X (P x Q) non-negative initial basis matrix
 #' @keywords internal
 #' @noRd
+# Internal helper: initialize basis matrix X
+.nmfkc_init_X <- function(Y, Q, X.init, Y.weights, seed, nstart, maxit, .eps) {
+  # Impute NAs with row means for initialization
+  Y_init <- Y
+  if (is.matrix(Y.weights) && any(Y.weights == 0)) {
+    row_means <- rowSums(Y) / (rowSums(Y.weights) + .eps)
+    mask_binary <- (Y.weights > 0)
+    idx_missing <- which(!mask_binary, arr.ind = TRUE)
+    if (nrow(idx_missing) > 0) {
+      Y_init[idx_missing] <- row_means[idx_missing[, 1]]
+    }
+  }
+
+  if (is.matrix(X.init)) {
+    X <- X.init
+  } else if (is.character(X.init)) {
+    if (!is.null(seed)) set.seed(seed)
+    if (X.init == "kmeans" || X.init == "kmeansar") {
+      res.kmeans <- if (ncol(Y) >= Q) {
+        tryCatch(stats::kmeans(t(Y_init), centers = Q, iter.max = maxit, nstart = nstart),
+                 error = function(e) NULL)
+      } else { NULL }
+      if (!is.null(res.kmeans)) X <- t(res.kmeans$centers)
+      else X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+      if (X.init == "kmeansar") {
+        avg_Y <- mean(Y)
+        idx_zero <- which(X == 0)
+        if (length(idx_zero) > 0) X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
+      }
+    } else if (X.init == "runif") {
+      X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+    } else {
+      # nndsvd: requires Q <= min(P, N)
+      if (Q > min(nrow(Y), ncol(Y))) {
+        X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+      } else {
+        X <- .nndsvdar(Y_init, Q)
+      }
+    }
+  } else if (ncol(Y) == Q) {
+    X <- Y_init
+  } else {
+    X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+  }
+  X
+}
+
+
 .nndsvdar <- function(Y, Q) {
   P <- nrow(Y)
   N <- ncol(Y)
@@ -1253,49 +1301,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
   # Initialize X
   is.X.scalar <- FALSE
   if(nrow(Y)>=2){
-    # [Fix 2] Create Y_init for initialization (impute NAs with row means)
-    Y_init <- Y
-    if (is.matrix(Y.weights) && any(Y.weights == 0)) {
-      # Calculate weighted mean (Since Y is zero-filled, sum(Y) is equivalent to sum(Y*W))
-      row_means <- rowSums(Y) / (rowSums(Y.weights) + .eps)
-      mask_binary <- (Y.weights > 0)
-      idx_missing <- which(!mask_binary, arr.ind = TRUE)
-      if (nrow(idx_missing) > 0) {
-        Y_init[idx_missing] <- row_means[idx_missing[,1]]
-      }
-    }
-
-    if (is.matrix(X.init)) {
-      X <- X.init
-    } else if (is.character(X.init)) {
-      if (!is.null(seed)) set.seed(seed)
-      if (X.init == "kmeans" || X.init == "kmeansar") {
-        # kmeans requires ncol(Y) >= Q (N >= Q)
-        res.kmeans <- if (ncol(Y) >= Q) {
-          tryCatch(stats::kmeans(t(Y_init), centers = Q, iter.max = maxit, nstart = nstart),
-                   error = function(e) NULL)
-        } else { NULL }
-        if(!is.null(res.kmeans)) X <- t(res.kmeans$centers) else X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-        if (X.init == "kmeansar") {
-          avg_Y <- mean(Y)
-          idx_zero <- which(X == 0)
-          if (length(idx_zero) > 0) X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
-        }
-      } else if (X.init == "runif") {
-        X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-      } else {
-        # nndsvd requires Q <= min(P, N)
-        if (Q > min(nrow(Y), ncol(Y))) {
-          X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-        } else {
-          X <- .nndsvdar(Y_init, Q)
-        }
-      }
-    } else if (ncol(Y) == Q) {
-      X <- Y_init
-    } else {
-      X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-    }
+    X <- .nmfkc_init_X(Y, Q, X.init, Y.weights, seed, nstart, maxit, .eps)
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
     is.X.scalar <- TRUE
