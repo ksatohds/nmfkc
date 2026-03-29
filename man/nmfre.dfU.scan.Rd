@@ -91,17 +91,16 @@ the minimum rate satisfying both \code{safeguard = TRUE} and
 # Example 1. cars data (small maxit for speed)
 Y <- matrix(cars$dist, nrow = 1)
 A <- rbind(intercept = 1, speed = cars$speed)
-tab <- nmfre.dfU.scan(rates = c(0.1, 0.2), Y = Y, A = A, Q = 1, maxit = 1000)
+tab <- nmfre.dfU.scan(rates = c(0.1, 0.2), Y = Y, A = A, rank = 1, maxit = 1000)
 print(tab)
 
 \donttest{
 # Example 2. Orthodont data (nlme)
-library(nlme)
-Y <- matrix(Orthodont$distance, 4, 27)
-male <- ifelse(Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
-A <- rbind(intercept = 1, male = male)
-
-nmfre.dfU.scan(1:10/10, Y, A, Q = 1)
-}
+if (requireNamespace("nlme", quietly = TRUE)) {
+  Y <- matrix(nlme::Orthodont$distance, 4, 27)
+  male <- ifelse(nlme::Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
+  A <- rbind(intercept = 1, male = male)
+  nmfre.dfU.scan(1:10/10, Y, A, rank = 1)
+}}
 
 }

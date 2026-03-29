@@ -24,7 +24,7 @@ standard R regression output conventions.
 \examples{
 Y <- matrix(cars$dist, nrow = 1)
 A <- rbind(intercept = 1, speed = cars$speed)
-res <- nmfre(Y, A, Q = 1, maxit = 5000)
+res <- nmfre(Y, A, rank = 1, maxit = 5000)
 summary(res)
 
 }

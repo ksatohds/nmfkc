@@ -41,11 +41,6 @@ Suggests:
     quanteda,
     vars,
     DiagrammeR,
-    fda,
-    alluvial,
-    httr,
-    readxl,
-    RColorBrewer,
     MASS,
     nlme,
     lavaan

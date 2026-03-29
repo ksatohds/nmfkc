@@ -265,23 +265,23 @@
 #' # Example 1. cars data
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(intercept = 1, speed = cars$speed)
-#' res <- nmfre(Y, A, Q = 1, maxit = 5000)
+#' res <- nmfre(Y, A, rank = 1, maxit = 5000)
 #' summary(res)
 #'
 #' \donttest{
 #' # Example 2. Orthodont data (nlme)
-#' library(nlme)
-#' Y <- matrix(Orthodont$distance, 4, 27)
-#' male <- ifelse(Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
-#' A <- rbind(intercept = 1, male = male)
+#' if (requireNamespace("nlme", quietly = TRUE)) {
+#'   Y <- matrix(nlme::Orthodont$distance, 4, 27)
+#'   male <- ifelse(nlme::Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
+#'   A <- rbind(intercept = 1, male = male)
 #'
-#' # Scan dfU cap rates to choose an appropriate value
-#' nmfre.dfU.scan(1:10/10, Y, A, Q = 1)
+#'   # Scan dfU cap rates to choose an appropriate value
+#'   nmfre.dfU.scan(1:10/10, Y, A, rank = 1)
 #'
-#' # Fit with chosen rate
-#' res <- nmfre(Y, A, Q = 1, dfU.cap.rate = 0.2)
-#' summary(res)
-#' }
+#'   # Fit with chosen rate
+#'   res <- nmfre(Y, A, rank = 1, df.rate = 0.2)
+#'   summary(res)
+#' }}
 #'
 nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
                   wild.bootstrap = TRUE, epsilon = 1e-5,
@@ -393,8 +393,9 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
     )
     selected_rate <- dfU.cap.scan$cap.rate
     if (is.null(selected_rate) || is.na(selected_rate)) {
+      message("No safeguard rate found in auto scan. Scan results:")
       print(dfU.cap.scan$table)
-      stop("No safeguard rate found in auto scan. Try specifying dfU.cap.rate manually.")
+      stop("No safeguard rate found in auto scan. Try specifying df.rate manually.")
     }
     dfU.cap.rate <- selected_rate
   }
@@ -931,7 +932,7 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(intercept = 1, speed = cars$speed)
-#' res <- nmfre(Y, A, Q = 1, maxit = 5000)
+#' res <- nmfre(Y, A, rank = 1, maxit = 5000)
 #' summary(res)
 #'
 summary.nmfre <- function(object, show_ci = FALSE, ...) {
@@ -1122,7 +1123,7 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(intercept = 1, speed = cars$speed)
-#' res <- nmfre(Y, A, Q = 1, wild.bootstrap = FALSE)
+#' res <- nmfre(Y, A, rank = 1, wild.bootstrap = FALSE)
 #' res2 <- nmfre.inference(res, Y, A)
 #' res2$coefficients
 #'
@@ -1366,18 +1367,17 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #' # Example 1. cars data (small maxit for speed)
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(intercept = 1, speed = cars$speed)
-#' tab <- nmfre.dfU.scan(rates = c(0.1, 0.2), Y = Y, A = A, Q = 1, maxit = 1000)
+#' tab <- nmfre.dfU.scan(rates = c(0.1, 0.2), Y = Y, A = A, rank = 1, maxit = 1000)
 #' print(tab)
 #'
 #' \donttest{
 #' # Example 2. Orthodont data (nlme)
-#' library(nlme)
-#' Y <- matrix(Orthodont$distance, 4, 27)
-#' male <- ifelse(Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
-#' A <- rbind(intercept = 1, male = male)
-#'
-#' nmfre.dfU.scan(1:10/10, Y, A, Q = 1)
-#' }
+#' if (requireNamespace("nlme", quietly = TRUE)) {
+#'   Y <- matrix(nlme::Orthodont$distance, 4, 27)
+#'   male <- ifelse(nlme::Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
+#'   A <- rbind(intercept = 1, male = male)
+#'   nmfre.dfU.scan(1:10/10, Y, A, rank = 1)
+#' }}
 #'
 nmfre.dfU.scan <- function(
   rates = (1:10) / 10,

@@ -195,23 +195,23 @@ repeated constrained re-optimization.
 # Example 1. cars data
 Y <- matrix(cars$dist, nrow = 1)
 A <- rbind(intercept = 1, speed = cars$speed)
-res <- nmfre(Y, A, Q = 1, maxit = 5000)
+res <- nmfre(Y, A, rank = 1, maxit = 5000)
 summary(res)
 
 \donttest{
 # Example 2. Orthodont data (nlme)
-library(nlme)
-Y <- matrix(Orthodont$distance, 4, 27)
-male <- ifelse(Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
-A <- rbind(intercept = 1, male = male)
+if (requireNamespace("nlme", quietly = TRUE)) {
+  Y <- matrix(nlme::Orthodont$distance, 4, 27)
+  male <- ifelse(nlme::Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
+  A <- rbind(intercept = 1, male = male)
 
-# Scan dfU cap rates to choose an appropriate value
-nmfre.dfU.scan(1:10/10, Y, A, Q = 1)
+  # Scan dfU cap rates to choose an appropriate value
+  nmfre.dfU.scan(1:10/10, Y, A, rank = 1)
 
-# Fit with chosen rate
-res <- nmfre(Y, A, Q = 1, dfU.cap.rate = 0.2)
-summary(res)
-}
+  # Fit with chosen rate
+  res <- nmfre(Y, A, rank = 1, df.rate = 0.2)
+  summary(res)
+}}
 
 }
 \references{

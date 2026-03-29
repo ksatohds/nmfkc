@@ -1336,7 +1336,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   for(i in 1:maxit){
     if(Y.symmetric %in% c("bi", "tri")) B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
-    if(print.trace && i %% 10==0) print(paste0(format(Sys.time(), "%X")," ",i,"..."))
+    if(print.trace && i %% 10==0) message(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
     if(method=="EU"){
       if(!is.X.scalar && X.restriction!="fixed"){

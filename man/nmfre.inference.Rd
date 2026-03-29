@@ -56,7 +56,7 @@ The result is compatible with \code{\link{nmfkc.DOT}} for visualization
 \examples{
 Y <- matrix(cars$dist, nrow = 1)
 A <- rbind(intercept = 1, speed = cars$speed)
-res <- nmfre(Y, A, Q = 1, wild.bootstrap = FALSE)
+res <- nmfre(Y, A, rank = 1, wild.bootstrap = FALSE)
 res2 <- nmfre.inference(res, Y, A)
 res2$coefficients
 

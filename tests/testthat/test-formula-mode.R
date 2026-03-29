@@ -219,7 +219,7 @@ test_that("nmfkc.cv: formula mode works", {
   df <- make_test_data()
   res <- suppressWarnings(suppressMessages(
     nmfkc::nmfkc.cv(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
-                     Q = 2, div = 3, maxit = 100,
+                     rank = 2, nfolds = 3, maxit = 100,
                      print.dims = FALSE, print.trace = FALSE)
   ))
   expect_true(is.list(res))
@@ -231,9 +231,8 @@ test_that("nmfkc.ecv: formula mode works", {
   df <- make_test_data()
   res <- suppressWarnings(suppressMessages(
     nmfkc::nmfkc.ecv(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
-                      Q = 1:2, div = 3, maxit = 100,
-                      print.dims = FALSE, print.trace = FALSE,
-                      save.time = TRUE)
+                      rank = 1:2, nfolds = 3, maxit = 100,
+                      print.dims = FALSE, print.trace = FALSE)
   ))
   expect_true(is.list(res))
   expect_equal(length(res$objfunc), 2)
@@ -243,7 +242,7 @@ test_that("nmfkc.rank: formula mode works", {
   df <- make_test_data()
   res <- suppressWarnings(suppressMessages(
     nmfkc::nmfkc.rank(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
-                       rank = 1:2, save.time = TRUE,
+                       rank = 1:2, detail = "fast",
                        plot = FALSE, maxit = 100,
                        print.dims = FALSE, print.trace = FALSE)
   ))
