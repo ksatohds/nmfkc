@@ -20,6 +20,12 @@ Description: Performs Non-negative Matrix Factorization (NMF)
     covariate-driven scores with unit-specific random effects, together
     with wild bootstrap inference.
 License: MIT + file LICENSE
+Imports:
+    stats,
+    graphics,
+    utils,
+    grDevices,
+    methods
 Encoding: UTF-8
 Language: en-US
 Roxygen: list(markdown = TRUE)

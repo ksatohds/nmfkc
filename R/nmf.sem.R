@@ -835,7 +835,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
   names(is.flipped) <- col_names
 
   if (auto.flipped) {
-    if (verbose) cat("Step 0: Checking correlations with PC1 (on standardized data)...\n")
+    if (verbose) message("Step 0: Checking correlations with PC1 (on standardized data)...")
 
     svd_res <- svd(X_calc)
     pc1 <- svd_res$u[, 1]
@@ -851,7 +851,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
       X_calc[, flip_idx] <- -X_calc[, flip_idx]
 
       if (verbose) {
-        cat(sprintf("   -> Detected %d flipped variables: %s\n",
+        message(sprintf("   -> Detected %d flipped variables: %s",
                     length(flip_idx), paste(col_names[flip_idx], collapse=", ")))
       }
     }
@@ -868,7 +868,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
   # The resulting order approximates a causal topological order in which
   # exogenous variables appear early and endogenous variables later.
   # --------------------------------------------------------------------
-  if (verbose) cat("Step 1: Inferring Causal Ordering...\n")
+  if (verbose) message("Step 1: Inferring Causal Ordering...")
 
   active_set <- all_indices
   ordering_reversed <- integer(P)
@@ -917,7 +917,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
   # If n.exogenous is given, it overrides this automatic rule.
   # --------------------------------------------------------------------
   if (is.null(n.exogenous)) {
-    if (verbose) cat("Step 2: Detecting optimal cut-off for exogenous variables...\n")
+    if (verbose) message("Step 2: Detecting optimal cut-off for exogenous variables...")
     cutoff <- 1
 
     for (k in seq_len(max(P - 2, 0)) + 1) {
@@ -934,13 +934,13 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 
       if (max_influence > threshold) {
         if (verbose)
-          cat(sprintf("   [%d] %s : Max std.coef=%.3f -> Endogenous (Stop)\n",
+          message(sprintf("   [%d] %s : Max std.coef=%.3f -> Endogenous (Stop)",
                       k, col_names[curr_idx], max_influence))
         break
       } else {
         cutoff <- k
         if (verbose)
-          cat(sprintf("   [%d] %s : Max std.coef=%.3f -> Exogenous (Continue)\n",
+          message(sprintf("   [%d] %s : Max std.coef=%.3f -> Exogenous (Continue)",
                       k, col_names[curr_idx], max_influence))
       }
     }
@@ -965,10 +965,10 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
   ordered.variables <- col_names[ordering_indices]
 
   if (verbose) {
-    cat("\n--- Auto Split Result ---\n")
-    cat(sprintf("Exogenous (Y2, n=%d): %s\n",
+    message("\n--- Auto Split Result ---")
+    message(sprintf("Exogenous (Y2, n=%d): %s",
                 n.exogenous, paste(exogenous.variables, collapse=", ")))
-    cat(sprintf("Endogenous (Y1, n=%d): %s ...\n",
+    message(sprintf("Endogenous (Y1, n=%d): %s ...",
                 length(endogenous.variables),
                 paste(utils::head(endogenous.variables, 3), collapse=", ")))
   }
