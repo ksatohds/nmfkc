@@ -292,6 +292,207 @@ nmf.sem <- function(
 }
 
 
+#' @title Statistical inference for the exogenous parameter matrix C2
+#' @description
+#' \code{nmf.sem.inference} performs statistical inference on the exogenous
+#' parameter matrix \eqn{C_2} from a fitted \code{nmf.sem} model, conditional
+#' on the estimated basis matrix \eqn{\hat{X}} and the endogenous parameter
+#' matrix \eqn{\hat{C}_1}.
+#'
+#' Under the working model \eqn{R = Y_1 - X C_1 Y_1 \approx X C_2 Y_2 + \varepsilon},
+#' inference on \eqn{C_2} is conducted via sandwich covariance estimation and
+#' one-step wild bootstrap with non-negative projection.
+#'
+#' @param object A list returned by \code{\link{nmf.sem}}, containing at least
+#'   \code{X}, \code{C1}, and \code{C2}.
+#' @param Y1 Endogenous variable matrix (P1 x N). Must match the data used in
+#'   \code{nmf.sem()}.
+#' @param Y2 Exogenous variable matrix (P2 x N). Must match the data used in
+#'   \code{nmf.sem()}.
+#' @param wild.bootstrap Logical. If \code{TRUE} (default), performs wild bootstrap
+#'   for confidence intervals and bootstrap standard errors.
+#' @param ... Additional arguments:
+#'   \describe{
+#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
+#'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
+#'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
+#'     \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
+#'     \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
+#'     \item{\code{cov.ridge}}{Ridge stabilization for information matrix inversion. Default is 1e-8.}
+#'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+#'   }
+#'
+#' @return The input \code{object} with additional inference components:
+#' \item{sigma2.used}{Estimated \eqn{\sigma^2} used for inference.}
+#' \item{C2.se}{Sandwich standard errors for \eqn{C_2} (Q x P2 matrix).}
+#' \item{C2.se.boot}{Bootstrap standard errors for \eqn{C_2} (Q x P2 matrix).}
+#' \item{C2.ci.lower}{Lower CI bounds for \eqn{C_2} (Q x P2 matrix).}
+#' \item{C2.ci.upper}{Upper CI bounds for \eqn{C_2} (Q x P2 matrix).}
+#' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{C_2}.}
+#' \item{C2.p.side}{P-value type used.}
+#'
+#' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.DOT}}
+#' @export
+#' @examples
+#' Y <- t(iris[, -5])
+#' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
+#' res <- nmf.sem(Y1, Y2, rank = 2)
+#' res2 <- nmf.sem.inference(res, Y1, Y2)
+#' res2$coefficients
+#'
+nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
+  if (is.null(object$X) || is.null(object$C1) || is.null(object$C2))
+    stop("object must contain X, C1, and C2 (returned by nmf.sem).")
+
+  extra_args <- base::list(...)
+  wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 1000
+  wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 42
+  wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
+  sandwich    <- if (!is.null(extra_args$sandwich))     extra_args$sandwich    else TRUE
+  C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
+  cov.ridge   <- if (!is.null(extra_args$cov.ridge))   extra_args$cov.ridge   else 1e-8
+  print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
+
+  Y1 <- base::as.matrix(Y1)
+  Y2 <- base::as.matrix(Y2)
+
+  X     <- object$X    # P1 x Q
+  C1    <- object$C1   # Q x P1
+  C2    <- object$C2   # Q x P2
+
+  Q  <- base::ncol(X)
+  P1 <- base::nrow(Y1)
+  P2 <- base::nrow(Y2)
+  N  <- base::ncol(Y1)
+
+  # Residual after removing endogenous feedback: R = Y1 - X*C1*Y1
+  R_endo <- Y1 - X %*% C1 %*% Y1          # P1 x N
+  R_C2   <- R_endo - X %*% C2 %*% Y2      # P1 x N  (full residual)
+
+  # sigma2 estimate
+  denom <- base::max(P1 * N - Q * P2, 1)
+  sigma2.used <- base::sum(R_C2^2) / denom
+
+  # Information matrix: I = sigma^{-2} (Y2*Y2' x X'X)
+  XtX  <- base::crossprod(X)                # Q x Q
+  Y2Y2 <- base::tcrossprod(Y2)              # P2 x P2
+  Info_core <- base::kronecker(Y2Y2, XtX)   # QP2 x QP2
+  Info <- Info_core / base::max(sigma2.used, 1e-12)
+  Info <- Info + base::diag(cov.ridge, base::nrow(Info))
+
+  Hinv <- base::tryCatch(base::solve(Info), error = function(e) {
+    if (base::requireNamespace("MASS", quietly = TRUE)) MASS::ginv(Info)
+    else base::stop("Information matrix singular; install MASS package.")
+  })
+
+  # Sandwich covariance: V = Hinv J Hinv
+  V_sand <- NULL
+  if (base::isTRUE(sandwich)) {
+    Xt <- base::t(X)
+    J <- base::matrix(0, Q * P2, Q * P2)
+    for (n in 1:N) {
+      y2_n <- Y2[, n, drop = FALSE]       # P2 x 1
+      r_n  <- R_C2[, n, drop = FALSE]     # P1 x 1
+      g_n  <- Xt %*% r_n                  # Q x 1
+      S_n  <- -(g_n %*% base::t(y2_n)) / base::max(sigma2.used, 1e-12)  # Q x P2
+      s_n  <- base::as.vector(S_n)
+      J    <- J + base::tcrossprod(s_n)
+    }
+    if (N > 1) J <- (N / (N - 1)) * J    # CR1 correction
+    V_sand <- Hinv %*% J %*% Hinv
+  }
+
+  C.vec.cov <- if (!is.null(V_sand)) V_sand else Hinv
+
+  # Sandwich SE
+  se_vec <- base::sqrt(base::pmax(base::diag(C.vec.cov), 0))
+  C2.se <- base::matrix(se_vec, nrow = Q, ncol = P2, byrow = FALSE)
+
+  # ---- Wild bootstrap (one-step Newton) ----
+  C2.se.boot  <- NULL
+  C2.ci.lower <- NULL
+  C2.ci.upper <- NULL
+
+  if (base::isTRUE(wild.bootstrap)) {
+    base::set.seed(wild.seed)
+    Xt <- base::t(X)
+    score_mat <- base::matrix(0, Q * P2, N)
+    for (n in 1:N) {
+      y2_n <- Y2[, n, drop = FALSE]
+      r_n  <- R_C2[, n, drop = FALSE]
+      g_n  <- Xt %*% r_n
+      G_n  <- -(g_n %*% base::t(y2_n)) / base::max(sigma2.used, 1e-12)
+      score_mat[, n] <- base::as.vector(G_n)
+    }
+
+    C2_hat_vec <- base::as.vector(C2)
+    C2_boot <- base::matrix(NA_real_, nrow = Q * P2, ncol = wild.B)
+    for (b in 1:wild.B) {
+      w <- stats::rexp(N, rate = 1) - 1       # Exp(1)-centered multiplier
+      grad_b <- base::as.vector(score_mat %*% w)
+      c_b <- C2_hat_vec - base::as.vector(Hinv %*% grad_b)
+      c_b <- base::pmax(c_b, 0)               # project onto C2 >= 0
+      C2_boot[, b] <- c_b
+    }
+
+    # Bootstrap SE
+    sd_vec <- base::apply(C2_boot, 1, stats::sd, na.rm = TRUE)
+    C2.se.boot <- base::matrix(sd_vec, nrow = Q, ncol = P2, byrow = FALSE)
+
+    # Bootstrap CI
+    alpha <- 1 - wild.level
+    lo <- base::apply(C2_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
+    hi <- base::apply(C2_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
+    C2.ci.lower <- base::matrix(lo, nrow = Q, ncol = P2, byrow = FALSE)
+    C2.ci.upper <- base::matrix(hi, nrow = Q, ncol = P2, byrow = FALSE)
+  }
+
+  # ---- Coefficients table ----
+  Estimate <- base::as.vector(C2)
+  SE  <- base::as.vector(C2.se)
+  BSE <- if (!is.null(C2.se.boot)) base::as.vector(C2.se.boot) else base::rep(NA_real_, base::length(Estimate))
+  z_value <- base::ifelse(SE > 0, Estimate / SE, NA_real_)
+
+  if (C.p.side == "one.sided") {
+    p_value <- base::ifelse(base::is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
+  } else {
+    p_value <- base::ifelse(base::is.finite(z_value), 1 - stats::pchisq(z_value^2, df = 1), NA_real_)
+  }
+
+  rlabs <- if (!is.null(base::rownames(C2))) base::rownames(C2) else base::paste0("Factor", 1:Q)
+  clabs <- if (!is.null(base::colnames(C2))) base::colnames(C2) else base::paste0("Y2_", 1:P2)
+
+  coefficients <- base::data.frame(
+    Factor    = base::rep(rlabs, times = P2),
+    Exogenous = base::rep(clabs, each = Q),
+    Estimate  = Estimate,
+    SE        = SE,
+    BSE       = BSE,
+    z_value   = z_value,
+    p_value   = p_value,
+    CI_low    = if (!is.null(C2.ci.lower)) base::as.vector(C2.ci.lower) else NA_real_,
+    CI_high   = if (!is.null(C2.ci.upper)) base::as.vector(C2.ci.upper) else NA_real_,
+    row.names = NULL, stringsAsFactors = FALSE
+  )
+
+  if (print.trace) {
+    if (base::isTRUE(wild.bootstrap)) {
+      base::message("  Inference: sandwich SE + wild bootstrap done.")
+    } else {
+      base::message("  Inference: sandwich SE done (wild bootstrap skipped).")
+    }
+  }
+
+  object$sigma2.used  <- sigma2.used
+  object$C2.se        <- C2.se
+  object$C2.se.boot   <- C2.se.boot
+  object$C2.ci.lower  <- C2.ci.lower
+  object$C2.ci.upper  <- C2.ci.upper
+  object$coefficients <- coefficients
+  object$C2.p.side    <- C.p.side
+  return(object)
+}
+
 
 #' @title Cross-Validation for NMF-SEM
 #' @description
@@ -833,6 +1034,11 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #'   labels for the Y2, factor, and Y1 clusters.
 #' @param hide.isolated Logical. If \code{TRUE} (default), Y1 and Y2 nodes
 #'   that have no edges at or above \code{threshold} are excluded from the graph.
+#' @param sig.level Significance level for filtering C2 edges when inference
+#'   results are present. If \code{result} contains a \code{coefficients} data
+#'   frame (from \code{\link{nmf.sem.inference}}), only edges with
+#'   \code{p_value < sig.level} are drawn, with significance stars appended.
+#'   Set to \code{NULL} to disable filtering. Default is \code{0.1}.
 #'
 #' @return A character string representing a valid Graphviz DOT script.
 #'
@@ -855,7 +1061,8 @@ nmf.sem.DOT <- function(result,
                         fill                  = TRUE,
                         cluster.box           = c("normal", "faint", "invisible", "none"),
                         cluster.labels        = NULL,
-                        hide.isolated         = TRUE) {
+                        hide.isolated         = TRUE,
+                        sig.level             = 0.1) {
 
   ## ---------------------------------------------------------------
   ## Cluster style selection
@@ -1025,6 +1232,33 @@ nmf.sem.DOT <- function(result,
   fmtc   <- function(x) .nmfkc_dot_format_coef(x, digits)
 
   ## ---------------------------------------------------------------
+  ## Significance stars for C2 edges (from nmf.sem.inference)
+  ## ---------------------------------------------------------------
+  C2_stars <- NULL
+  C2_show  <- NULL
+  if (!is.null(result$coefficients)) {
+    C2_stars <- matrix("", nrow = Q, ncol = P2)
+    C2_pval  <- matrix(NA_real_, nrow = Q, ncol = P2)
+    cf <- result$coefficients
+    fac_names <- rownames(C2)
+    exo_names <- colnames(C2)
+    for (k in seq_len(nrow(cf))) {
+      q  <- match(cf$Factor[k], fac_names)
+      p2 <- match(cf$Exogenous[k], exo_names)
+      if (!is.na(q) && !is.na(p2) && !is.na(cf$p_value[k])) {
+        p <- cf$p_value[k]
+        C2_pval[q, p2] <- p
+        if (p < 0.001)      C2_stars[q, p2] <- "***"
+        else if (p < 0.01)  C2_stars[q, p2] <- "**"
+        else if (p < 0.05)  C2_stars[q, p2] <- "*"
+      }
+    }
+    if (!is.null(sig.level)) {
+      C2_show <- !is.na(C2_pval) & C2_pval < sig.level
+    }
+  }
+
+  ## ---------------------------------------------------------------
   ## 1. Y2 → F edges (C2)
   ## ---------------------------------------------------------------
   dot_script <- paste0(
@@ -1038,9 +1272,12 @@ nmf.sem.DOT <- function(result,
     for (q in seq_len(Q)) {
       for (p2 in idx_y2) {
         weight <- C2[q, p2]
-        if (is.finite(weight) && weight >= threshold) {
+        show <- if (!is.null(C2_show)) C2_show[q, p2]
+                else is.finite(weight) && weight >= threshold
+        if (show) {
           pen <- pw(weight, max_C2, weight_scale_y2f)
           lab <- fmtc(weight)
+          if (!is.null(C2_stars)) lab <- paste0(lab, C2_stars[q, p2])
           path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
                           Y2_ids[p2], F_ids[q], lab, pen)
           dot_script <- paste0(dot_script, path)

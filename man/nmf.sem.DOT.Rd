@@ -15,7 +15,8 @@ nmf.sem.DOT(
   fill = TRUE,
   cluster.box = c("normal", "faint", "invisible", "none"),
   cluster.labels = NULL,
-  hide.isolated = TRUE
+  hide.isolated = TRUE,
+  sig.level = 0.1
 )
 }
 \arguments{
@@ -48,6 +49,12 @@ labels for the Y2, factor, and Y1 clusters.}
 
 \item{hide.isolated}{Logical. If \code{TRUE} (default), Y1 and Y2 nodes
 that have no edges at or above \code{threshold} are excluded from the graph.}
+
+\item{sig.level}{Significance level for filtering C2 edges when inference
+results are present. If \code{result} contains a \code{coefficients} data
+frame (from \code{\link{nmf.sem.inference}}), only edges with
+\code{p_value < sig.level} are drawn, with significance stars appended.
+Set to \code{NULL} to disable filtering. Default is \code{0.1}.}
 }
 \value{
 Integer specifying the number of decimal places.
