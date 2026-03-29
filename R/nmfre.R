@@ -256,6 +256,8 @@
 #'     \item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 #'     \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
 #'   }
+#' @seealso \code{\link{nmfre.inference}}, \code{\link{nmfre.dfU.scan}},
+#'   \code{\link{nmfkc.DOT}}, \code{\link{summary.nmfre}}
 #' @export
 #' @references
 #' Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix
@@ -928,6 +930,7 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
 #' @param show_ci Logical. If \code{TRUE}, show confidence interval columns (default \code{FALSE}).
 #' @param ... Additional arguments (currently unused).
 #' @return The input object, invisibly.
+#' @seealso \code{\link{nmfre}}, \code{\link{nmfre.inference}}
 #' @export
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
@@ -1362,6 +1365,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #'
 #' When printed, only the \code{table} is displayed. Access \code{cap.rate}
 #' directly from the returned object.
+#' @seealso \code{\link{nmfre}}
 #' @export
 #' @examples
 #' # Example 1. cars data (small maxit for speed)
@@ -1440,6 +1444,7 @@ nmfre.dfU.scan <- function(
   result
 }
 
+#' @seealso \code{\link{nmfre.dfU.scan}}
 #' @export
 print.nmfre.dfU.scan <- function(x, ...) {
   print(x$table, ...)

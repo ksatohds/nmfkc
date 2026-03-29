@@ -80,3 +80,6 @@ mae <- nmf.sem.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 mae
 
 }
+\seealso{
+\code{\link{nmf.sem}}
+}

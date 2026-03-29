@@ -104,3 +104,6 @@ if (requireNamespace("nlme", quietly = TRUE)) {
 }}
 
 }
+\seealso{
+\code{\link{nmfre}}
+}

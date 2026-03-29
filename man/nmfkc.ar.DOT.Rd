@@ -71,3 +71,6 @@ dot <- nmfkc.ar.DOT(result, degree = 2)
 cat(dot)
 
 }
+\seealso{
+\code{\link{nmfkc.ar}}, \code{\link{nmfkc}}, \code{\link{plot.nmfkc.DOT}}
+}

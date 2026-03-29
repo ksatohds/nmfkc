@@ -40,3 +40,7 @@ result <- nmfkc(Y,A,rank=1)
 plot(as.vector(V),as.vector(Y))
 lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }
+\seealso{
+\code{\link{nmfkc.kernel.gaussian}}, \code{\link{nmfkc.kernel.beta.nearest.med}},
+\code{\link{nmfkc.kernel}}
+}

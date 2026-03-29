@@ -43,3 +43,6 @@ result <- nmfkc(Y, rank = 2)
 nmfkc.residual.plot(Y, result)
 
 }
+\seealso{
+\code{\link{nmfkc}}, \code{\link{residuals.nmf}}
+}

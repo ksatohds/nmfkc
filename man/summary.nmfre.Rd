@@ -28,3 +28,6 @@ res <- nmfre(Y, A, rank = 1, maxit = 5000)
 summary(res)
 
 }
+\seealso{
+\code{\link{nmfre}}, \code{\link{nmfre.inference}}
+}

@@ -13,6 +13,7 @@
 #' @param x A fitted model object.
 #' @param ... Additional graphical arguments passed to \code{\link{plot}}.
 #' @return Invisible \code{NULL}.
+#' @seealso \code{\link{nmfre}}, \code{\link{nmf.sem}}
 #' @name plot.nmfre
 #' @examples
 #' \donttest{
@@ -181,7 +182,7 @@ summary.nmf.sem <- function(object, ...) {
 #' @return A data frame of coefficients (if inference was performed),
 #'   or the parameter matrix \eqn{C}.
 #' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}},
-#'   \code{\link{nmfre.inference}}
+#'   \code{\link{nmfre.inference}}, \code{\link{nmf.sem.inference}}
 #' @name coef.nmf
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
@@ -223,6 +224,8 @@ coef.nmf.sem <- function(object, ...) {
 #'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.
 #' @param ... For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.
 #' @return The fitted matrix \eqn{X B}.
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfae}}, \code{\link{nmfre}},
+#'   \code{\link{nmf.sem}}, \code{\link{residuals.nmf}}
 #' @name fitted.nmf
 #' @examples
 #' result <- nmfkc(matrix(runif(50), 5, 10), rank = 2)
@@ -273,6 +276,8 @@ fitted.nmf.sem <- function(object, ...) {
 #'   \code{"fixed"}.
 #' @param ... Not used.
 #' @return The residual matrix.
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfae}}, \code{\link{nmfre}},
+#'   \code{\link{nmf.sem}}, \code{\link{fitted.nmf}}
 #' @name residuals.nmf
 #' @examples
 #' Y <- matrix(runif(50), 5, 10)

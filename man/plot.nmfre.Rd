@@ -32,3 +32,6 @@ plot(res)
 }
 
 }
+\seealso{
+\code{\link{nmfre}}, \code{\link{nmf.sem}}
+}

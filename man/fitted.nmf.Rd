@@ -32,3 +32,7 @@ result <- nmfkc(matrix(runif(50), 5, 10), rank = 2)
 fitted(result)
 
 }
+\seealso{
+\code{\link{nmfkc}}, \code{\link{nmfae}}, \code{\link{nmfre}},
+\code{\link{nmf.sem}}, \code{\link{residuals.nmf}}
+}

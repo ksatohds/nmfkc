@@ -118,3 +118,8 @@ Satoh, K. (2025). Applying non-negative matrix factorization with covariates
 to structural equation modeling for blind input-output analysis.
 arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 }
+\seealso{
+\code{\link{nmf.sem.inference}}, \code{\link{nmf.sem.cv}},
+\code{\link{nmf.sem.split}}, \code{\link{nmf.sem.DOT}},
+\code{\link{summary.nmf.sem}}
+}

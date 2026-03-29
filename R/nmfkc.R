@@ -356,6 +356,7 @@ nmfkc.kernel <- function(U, V = NULL,
 #' # beta0 <- beta_info$beta
 #' # betas <- beta_info$beta_candidates
 #'
+#' @seealso \code{\link{nmfkc.kernel.gaussian}}, \code{\link{nmfkc.kernel.beta.cv}}
 #' @export
 nmfkc.kernel.beta.nearest.med <- function(
     U,
@@ -526,6 +527,8 @@ nmfkc.kernel.beta.nearest.med <- function(
 #' @return A list with components:
 #' \item{beta}{The beta value that minimizes the cross-validation objective function.}
 #' \item{objfunc}{Objective function values for each candidate \code{beta}.}
+#' @seealso \code{\link{nmfkc.kernel.gaussian}}, \code{\link{nmfkc.kernel.beta.nearest.med}},
+#'   \code{\link{nmfkc.kernel}}
 #' @export
 #' @examples
 #' # Example.
@@ -1549,6 +1552,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 #' result <- nmfkc(Y, A, rank = 1)
 #' plot(result)
 #'
+#' @seealso \code{\link{nmfkc}}, \code{\link{summary.nmfkc}}
 #' @export
 plot.nmfkc <- function(x,...){
   extra_args <- list(...)
@@ -1577,6 +1581,7 @@ plot.nmfkc <- function(x,...){
 #' result <- nmfkc(Y, A, rank = 1)
 #' summary(result)
 #'
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.inference}}, \code{\link{plot.nmfkc}}
 #' @export
 summary.nmfkc <- function(object, ...) {
   ans <- list()
@@ -1817,6 +1822,7 @@ nmfkc.class <- function(x){
 #' newA <- rbind(1, c(10, 20, 30))
 #' predict(result, newA = newA)
 #'
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
 #' @export
 predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response", ...) {
   x <- object
@@ -2839,6 +2845,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
 #' result <- nmfkc(Y, rank = 2)
 #' nmfkc.residual.plot(Y, result)
 #'
+#' @seealso \code{\link{nmfkc}}, \code{\link{residuals.nmf}}
 #' @export
 nmfkc.residual.plot <- function(Y, result,
                                 fitted.palette = grDevices::colorRampPalette(c("white", "orange", "red"))(256),

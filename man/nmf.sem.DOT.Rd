@@ -91,3 +91,7 @@ dot <- nmf.sem.DOT(result)
 cat(dot)
 
 }
+\seealso{
+\code{\link{nmf.sem}}, \code{\link{nmf.sem.inference}},
+\code{\link{plot.nmfkc.DOT}}
+}

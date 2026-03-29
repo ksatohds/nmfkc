@@ -96,3 +96,6 @@ results, set \code{set.seed()} before calling this function.
 # betas <- beta_info$beta_candidates
 
 }
+\seealso{
+\code{\link{nmfkc.kernel.gaussian}}, \code{\link{nmfkc.kernel.beta.cv}}
+}

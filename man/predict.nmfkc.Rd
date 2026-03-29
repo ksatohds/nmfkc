@@ -42,3 +42,6 @@ newA <- rbind(1, c(10, 20, 30))
 predict(result, newA = newA)
 
 }
+\seealso{
+\code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
+}

@@ -72,3 +72,6 @@ sp$Y1.names
 sp$Y2.names
 
 }
+\seealso{
+\code{\link{nmf.sem}}
+}

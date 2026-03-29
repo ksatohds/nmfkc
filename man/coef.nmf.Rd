@@ -42,5 +42,5 @@ coef(result2)  # returns coefficients data frame
 }
 \seealso{
 \code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}},
-\code{\link{nmfre.inference}}
+\code{\link{nmfre.inference}}, \code{\link{nmf.sem.inference}}
 }

@@ -586,6 +586,7 @@ nmfkc.ar.stationarity <- function(x){
 #'   edges at or above \code{threshold} are excluded from the graph.
 #'
 #' @return A character string representing a Graphviz DOT file.
+#' @seealso \code{\link{nmfkc.ar}}, \code{\link{nmfkc}}, \code{\link{plot.nmfkc.DOT}}
 #' @examples
 #' d <- AirPassengers
 #' ar_data <- nmfkc.ar(d, degree = 2)

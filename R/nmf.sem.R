@@ -91,6 +91,9 @@
 #' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
 #' result$MAE
 #'
+#' @seealso \code{\link{nmf.sem.inference}}, \code{\link{nmf.sem.cv}},
+#'   \code{\link{nmf.sem.split}}, \code{\link{nmf.sem.DOT}},
+#'   \code{\link{summary.nmf.sem}}
 #' @references
 #' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
 #'   to structural equation modeling for blind input-output analysis.
@@ -549,6 +552,7 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
 #' mae <- nmf.sem.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 #' mae
 #'
+#' @seealso \code{\link{nmf.sem}}
 #' @export
 nmf.sem.cv <- function(
     Y1, Y2,
@@ -790,6 +794,7 @@ nmf.sem.cv <- function(
 #' sp$Y1.names
 #' sp$Y2.names
 #'
+#' @seealso \code{\link{nmf.sem}}
 #' @export
 nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
                           auto.flipped = TRUE, verbose = FALSE) {
@@ -1052,6 +1057,8 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' dot <- nmf.sem.DOT(result)
 #' cat(dot)
 #'
+#' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.inference}},
+#'   \code{\link{plot.nmfkc.DOT}}
 #' @export
 nmf.sem.DOT <- function(result,
                         weight_scale          = 5,
@@ -1395,7 +1402,8 @@ nmf.sem.DOT <- function(result,
 #'
 #' @return A character string representing a Graphviz DOT script.
 #'
-#' @seealso \code{nmfkc}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.sem.DOT}},
+#'   \code{\link{nmfkc.ar.DOT}}, \code{\link{plot.nmfkc.DOT}}
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)

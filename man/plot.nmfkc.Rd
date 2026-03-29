@@ -25,3 +25,6 @@ result <- nmfkc(Y, A, rank = 1)
 plot(result)
 
 }
+\seealso{
+\code{\link{nmfkc}}, \code{\link{summary.nmfkc}}
+}
