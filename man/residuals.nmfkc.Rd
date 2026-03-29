@@ -4,6 +4,7 @@
 \alias{residuals.nmfkc}
 \alias{residuals.nmfae}
 \alias{residuals.nmfre}
+\alias{residuals.nmf.sem}
 \title{Extract residuals from NMF models}
 \usage{
 \method{residuals}{nmfkc}(object, Y, ...)
@@ -11,6 +12,8 @@
 \method{residuals}{nmfae}(object, Y, ...)
 
 \method{residuals}{nmfre}(object, Y, type = c("blup", "fixed"), ...)
+
+\method{residuals}{nmf.sem}(object, Y, ...)
 }
 \arguments{
 \item{object}{A fitted model object.}

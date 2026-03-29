@@ -270,7 +270,7 @@ nmf.sem <- function(
     MAE      <- mean(abs(Y1 - Y1_hat))
   }
 
-  list(
+  out <- list(
     X                   = X,
     C1                  = C1,
     C2                  = C2,
@@ -289,6 +289,8 @@ nmf.sem <- function(
     objfunc.full        = objfunc.full[1:it],
     iter                = it
   )
+  class(out) <- "nmf.sem"
+  out
 }
 
 

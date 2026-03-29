@@ -4,6 +4,7 @@
 \alias{fitted.nmfkc}
 \alias{fitted.nmfae}
 \alias{fitted.nmfre}
+\alias{fitted.nmf.sem}
 \title{Extract fitted values from NMF models}
 \usage{
 \method{fitted}{nmfkc}(object, ...)
@@ -11,11 +12,13 @@
 \method{fitted}{nmfae}(object, ...)
 
 \method{fitted}{nmfre}(object, ...)
+
+\method{fitted}{nmf.sem}(object, ...)
 }
 \arguments{
 \item{object}{A fitted model object.}
 
-\item{...}{Not used.}
+\item{...}{For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.}
 }
 \value{
 The fitted matrix \eqn{X B}.
@@ -23,6 +26,11 @@ The fitted matrix \eqn{X B}.
 \description{
 Returns the reconstructed matrix \eqn{\hat{Y} = X B} from a fitted
 NMF model.
+
+For \code{nmf.sem} objects, returns the equilibrium prediction
+\eqn{\hat{Y}_1 = M_{model} Y_2} if available. Supply \code{Y1} and
+\code{Y2} to get the direct reconstruction
+\eqn{X (C_1 Y_1 + C_2 Y_2)} instead.
 }
 \examples{
 result <- nmfkc(matrix(runif(50), 5, 10), Q = 2)

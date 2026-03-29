@@ -4,6 +4,7 @@
 \alias{coef.nmfkc}
 \alias{coef.nmfae}
 \alias{coef.nmfre}
+\alias{coef.nmf.sem}
 \title{Extract coefficients from NMF models}
 \usage{
 \method{coef}{nmfkc}(object, ...)
@@ -11,6 +12,8 @@
 \method{coef}{nmfae}(object, ...)
 
 \method{coef}{nmfre}(object, ...)
+
+\method{coef}{nmf.sem}(object, ...)
 }
 \arguments{
 \item{object}{A fitted model object.}

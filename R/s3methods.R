@@ -51,6 +51,13 @@ coef.nmfre <- function(object, ...) {
 }
 
 
+#' @rdname coef.nmfkc
+#' @export
+coef.nmf.sem <- function(object, ...) {
+  if (!is.null(object$coefficients)) object$coefficients else object$C2
+}
+
+
 # --- fitted ---
 
 #' @title Extract fitted values from NMF models
@@ -58,8 +65,13 @@ coef.nmfre <- function(object, ...) {
 #' Returns the reconstructed matrix \eqn{\hat{Y} = X B} from a fitted
 #' NMF model.
 #'
+#' For \code{nmf.sem} objects, returns the equilibrium prediction
+#' \eqn{\hat{Y}_1 = M_{model} Y_2} if available. Supply \code{Y1} and
+#' \code{Y2} to get the direct reconstruction
+#' \eqn{X (C_1 Y_1 + C_2 Y_2)} instead.
+#'
 #' @param object A fitted model object.
-#' @param ... Not used.
+#' @param ... For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.
 #' @return The fitted matrix \eqn{X B}.
 #' @name fitted.nmfkc
 #' @examples
@@ -86,6 +98,25 @@ fitted.nmfae <- function(object, ...) {
 fitted.nmfre <- function(object, ...) {
   # XB.blup includes random effects; XB is fixed-effects only
   object$XB
+}
+
+#' @rdname fitted.nmfkc
+#' @export
+fitted.nmf.sem <- function(object, ...) {
+  extra <- list(...)
+  Y1 <- extra$Y1
+  Y2 <- extra$Y2
+  if (!is.null(Y1) && !is.null(Y2)) {
+    # Direct reconstruction: X(C1*Y1 + C2*Y2)
+    object$X %*% (object$C1 %*% Y1 + object$C2 %*% Y2)
+  } else {
+    # Equilibrium prediction: M.model %*% Y2 (requires Y2)
+    if (!is.null(Y2) && !anyNA(object$M.model)) {
+      object$M.model %*% Y2
+    } else {
+      stop("Supply Y1 and Y2 for direct reconstruction, or Y2 for equilibrium prediction.")
+    }
+  }
 }
 
 
@@ -134,5 +165,18 @@ residuals.nmfre <- function(object, Y, type = c("blup", "fixed"), ...) {
     Y - object$XB.blup
   } else {
     Y - object$XB
+  }
+}
+
+#' @rdname residuals.nmfkc
+#' @export
+residuals.nmf.sem <- function(object, Y, ...) {
+  extra <- list(...)
+  Y2 <- extra$Y2
+  if (is.null(Y2)) stop("Supply Y2 to compute residuals.")
+  if (!anyNA(object$M.model)) {
+    Y - object$M.model %*% Y2
+  } else {
+    stop("Leontief inverse is NA; cannot compute residuals.")
   }
 }
