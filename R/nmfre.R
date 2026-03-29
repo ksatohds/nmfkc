@@ -811,8 +811,8 @@ nmfre <- function(Y, A = NULL, Q = 2, dfU.cap.rate = NULL,
     p_value <- if (C.p.side == "one.sided") p_one else p_two
 
     coefficients <- data.frame(
-      Variable = rep(colnames(C_mat), each = Q),
-      Basis    = rep(rownames(C_mat), times = K),
+      Basis     = rep(rownames(C_mat), times = K),
+      Covariate = rep(colnames(C_mat), each = Q),
       Estimate = Estimate,
       SE       = SE,
       BSE      = BSE_vec,
@@ -965,8 +965,8 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
 
     cf <- x$coefficients
 
-    # row names: Variable:Basis
-    rnames <- paste0(cf$Variable, ":", cf$Basis)
+    # row names: Covariate:Basis
+    rnames <- paste0(cf$Covariate, ":", cf$Basis)
 
     # p-value formatting (lm-style)
     p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "one.sided"
@@ -1051,6 +1051,234 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
   }
 
   invisible(x)
+}
+
+
+# ============================================================
+# nmfre.inference() - statistical inference on C (separated)
+# ============================================================
+
+#' @title Statistical inference for the coefficient matrix C from NMF-RE
+#'
+#' @description
+#' \code{nmfre.inference} performs statistical inference on the coefficient
+#' matrix \eqn{C} (\eqn{\Theta}) from a fitted \code{nmfre} model,
+#' conditional on the estimated basis matrix \eqn{\hat{X}} and random
+#' effects \eqn{\hat{U}}.
+#'
+#' Under the working model \eqn{Y^* = Y - X\hat{U} \approx X C A + \varepsilon},
+#' inference is conducted via sandwich covariance estimation and
+#' one-step wild bootstrap with non-negative projection.
+#'
+#' The result is compatible with \code{\link{nmfkc.DOT}} for visualization
+#' (pass the result directly as \code{x} with \code{type = "YXA"}).
+#'
+#' @param object An object of class \code{"nmfre"} returned by
+#'   \code{\link{nmfre}}.
+#' @param Y Observation matrix (P x N). Must match the data used in
+#'   \code{nmfre()}.
+#' @param A Covariate matrix (K x N). Default is \code{NULL} (intercept only).
+#' @param wild.bootstrap Logical. If \code{TRUE} (default), performs wild
+#'   bootstrap for confidence intervals and bootstrap standard errors.
+#' @param ... Additional arguments:
+#'   \describe{
+#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 500.}
+#'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 123.}
+#'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
+#'     \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
+#'     \item{\code{cov.ridge}}{Ridge stabilization. Default is 1e-8.}
+#'     \item{\code{print.trace}}{Logical. Default is \code{FALSE}.}
+#'   }
+#'
+#' @return The input \code{object} with additional inference components:
+#' \item{sigma2.used}{Estimated \eqn{\sigma^2} used for inference.}
+#' \item{C.vec.cov}{Full covariance matrix for \eqn{vec(C)}.}
+#' \item{C.se}{Sandwich standard errors for \eqn{C}.}
+#' \item{C.se.boot}{Bootstrap standard errors for \eqn{C}.}
+#' \item{C.ci.lower}{Lower CI bounds for \eqn{C}.}
+#' \item{C.ci.upper}{Upper CI bounds for \eqn{C}.}
+#' \item{coefficients}{Data frame with Basis, Covariate, Estimate, SE, BSE,
+#'   z_value, p_value, CI_low, CI_high.}
+#' \item{C.p.side}{P-value type used.}
+#'
+#' @seealso \code{\link{nmfre}}, \code{\link{nmfkc.DOT}},
+#'   \code{\link{summary.nmfre}}
+#' @export
+#' @examples
+#' Y <- matrix(cars$dist, nrow = 1)
+#' A <- rbind(intercept = 1, speed = cars$speed)
+#' res <- nmfre(Y, A, Q = 1, wild.bootstrap = FALSE)
+#' res2 <- nmfre.inference(res, Y, A)
+#' res2$coefficients
+#'
+nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
+  if (!inherits(object, "nmfre"))
+    stop("object must be of class 'nmfre' (returned by nmfre).")
+
+  extra_args <- base::list(...)
+  wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
+  wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
+  wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
+  C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
+  cov.ridge   <- if (!is.null(extra_args$cov.ridge))   extra_args$cov.ridge   else 1e-8
+  print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
+
+  Y <- base::as.matrix(Y)
+  if (is.null(A)) A <- base::matrix(1, nrow = 1, ncol = base::ncol(Y))
+  A <- base::as.matrix(A)
+
+  X     <- object$X       # P x Q
+  C_mat <- object$C       # Q x K
+  U     <- object$U       # Q x N
+  sigma2 <- object$sigma2
+  tau2   <- object$tau2
+
+  P <- base::nrow(Y)
+  N <- base::ncol(Y)
+  Q <- base::ncol(X)
+  K <- base::nrow(A)
+
+  lambda_inf <- sigma2 / base::pmax(tau2, 1e-12)
+
+  # Y_star = Y - XU (remove random effects)
+  Y_star_inf <- Y - X %*% U
+  R_C <- Y_star_inf - X %*% (C_mat %*% A)
+  RSS_inf <- base::sum(R_C^2)
+
+  XtX_now <- base::crossprod(X)       # Q x Q
+  AAt <- A %*% base::t(A)             # K x K
+
+  M_inf <- XtX_now + base::diag(base::pmax(lambda_inf, 1e-12), Q)
+  cholM_inf <- base::tryCatch(base::chol(M_inf), error = function(e) NULL)
+  if (!is.null(cholM_inf)) {
+    Minv <- base::chol2inv(cholM_inf)
+  } else {
+    Minv <- base::tryCatch(base::solve(M_inf), error = function(e) {
+      if (base::requireNamespace("MASS", quietly = TRUE)) MASS::ginv(M_inf)
+      else base::stop("Information matrix singular; install MASS package.")
+    })
+  }
+
+  trH <- base::sum(base::diag(Minv %*% XtX_now))
+  dfU_inf <- N * trH
+  dfC <- Q * K
+  denom <- base::max(P * N - dfU_inf - dfC, 1)
+  sigma2_used <- RSS_inf / denom
+
+  # Information matrix with (I-H) correction
+  Xt_IH_X <- XtX_now - XtX_now %*% Minv %*% XtX_now
+  Info_core <- base::kronecker(AAt, Xt_IH_X)
+  Info <- Info_core / base::max(sigma2_used, 1e-12)
+  Info <- Info + base::diag(cov.ridge, base::nrow(Info))
+
+  Hinv <- base::tryCatch(base::solve(Info), error = function(e) {
+    if (base::requireNamespace("MASS", quietly = TRUE)) MASS::ginv(Info)
+    else base::stop("Information matrix singular; install MASS package.")
+  })
+
+  # Sandwich covariance
+  V_sand <- NULL
+  Xt <- base::t(X)
+  J <- base::matrix(0, Q * K, Q * K)
+  for (n in 1:N) {
+    a_n <- A[, n, drop = FALSE]
+    r_n <- R_C[, n, drop = FALSE]
+    g_n <- Xt %*% r_n
+    S_n <- -(g_n %*% base::t(a_n)) / base::max(sigma2_used, 1e-12)
+    s_n <- base::as.vector(S_n)
+    J <- J + base::tcrossprod(s_n)
+  }
+  if (N > 1) J <- (N / (N - 1)) * J    # CR1 correction
+  V_sand <- Hinv %*% J %*% Hinv
+
+  C.vec.cov <- V_sand
+  se_vec <- base::sqrt(base::pmax(base::diag(C.vec.cov), 0))
+  C.se <- base::matrix(se_vec, nrow = Q, ncol = K, byrow = FALSE)
+  base::dimnames(C.se) <- base::dimnames(C_mat)
+
+  # ---- Wild bootstrap (one-step Newton) ----
+  C.se.boot  <- NULL
+  C.ci.lower <- NULL
+  C.ci.upper <- NULL
+
+  if (base::isTRUE(wild.bootstrap)) {
+    base::set.seed(wild.seed)
+    score_mat <- base::matrix(0, Q * K, N)
+    for (n in 1:N) {
+      a_n <- A[, n, drop = FALSE]
+      r_n <- R_C[, n, drop = FALSE]
+      g_n <- Xt %*% r_n
+      G_n <- -(g_n %*% base::t(a_n)) / base::max(sigma2_used, 1e-12)
+      score_mat[, n] <- base::as.vector(G_n)
+    }
+
+    C_hat_vec <- base::as.vector(C_mat)
+    C_boot <- base::matrix(NA_real_, nrow = Q * K, ncol = wild.B)
+    for (b in 1:wild.B) {
+      w <- stats::rexp(N, rate = 1) - 1
+      grad_b <- base::as.vector(score_mat %*% w)
+      c_b <- C_hat_vec - base::as.vector(Hinv %*% grad_b)
+      c_b <- base::pmax(c_b, 0)
+      C_boot[, b] <- c_b
+    }
+
+    alpha <- 1 - wild.level
+    lo <- base::apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
+    hi <- base::apply(C_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
+
+    C.ci.lower <- base::matrix(lo, nrow = Q, ncol = K, byrow = FALSE)
+    C.ci.upper <- base::matrix(hi, nrow = Q, ncol = K, byrow = FALSE)
+    base::dimnames(C.ci.lower) <- base::dimnames(C_mat)
+    base::dimnames(C.ci.upper) <- base::dimnames(C_mat)
+
+    sd_vec <- base::apply(C_boot, 1, stats::sd, na.rm = TRUE)
+    C.se.boot <- base::matrix(sd_vec, nrow = Q, ncol = K, byrow = FALSE)
+    base::dimnames(C.se.boot) <- base::dimnames(C_mat)
+  }
+
+  # ---- Coefficients table (nmfkc.DOT compatible: Basis/Covariate) ----
+  Estimate <- base::as.vector(C_mat)
+  SE <- base::as.vector(C.se)
+  BSE <- if (!is.null(C.se.boot)) base::as.vector(C.se.boot) else base::rep(NA_real_, base::length(Estimate))
+  z_value <- base::ifelse(SE > 0, Estimate / SE, NA_real_)
+
+  if (C.p.side == "one.sided") {
+    p_value <- base::ifelse(base::is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
+  } else {
+    p_value <- base::ifelse(base::is.finite(z_value), 1 - stats::pchisq(z_value^2, df = 1), NA_real_)
+  }
+
+  rlabs <- if (!is.null(base::rownames(C_mat))) base::rownames(C_mat) else base::paste0("Basis", 1:Q)
+  clabs <- if (!is.null(base::colnames(C_mat))) base::colnames(C_mat) else base::paste0("Cov", 1:K)
+
+  coefficients <- base::data.frame(
+    Basis     = base::rep(rlabs, times = K),
+    Covariate = base::rep(clabs, each = Q),
+    Estimate  = Estimate,
+    SE        = SE,
+    BSE       = BSE,
+    z_value   = z_value,
+    p_value   = p_value,
+    CI_low    = if (!is.null(C.ci.lower)) base::as.vector(C.ci.lower) else NA_real_,
+    CI_high   = if (!is.null(C.ci.upper)) base::as.vector(C.ci.upper) else NA_real_,
+    row.names = NULL, stringsAsFactors = FALSE
+  )
+
+  if (print.trace) {
+    base::message("  nmfre.inference: sandwich SE + wild bootstrap done.")
+  }
+
+  object$sigma2.used  <- sigma2_used
+  object$C.vec.cov    <- C.vec.cov
+  object$C.se         <- C.se
+  object$C.se.hess    <- C.se
+  object$C.se.boot    <- C.se.boot
+  object$C.ci.lower   <- C.ci.lower
+  object$C.ci.upper   <- C.ci.upper
+  object$C.boot.sd    <- C.se.boot
+  object$coefficients <- coefficients
+  object$C.p.side     <- C.p.side
+  return(object)
 }
 
 
