@@ -2,11 +2,14 @@
 % Please edit documentation in R/s3methods.R
 \name{residuals.nmf}
 \alias{residuals.nmf}
+\alias{residuals.nmfae}
 \alias{residuals.nmfre}
 \alias{residuals.nmf.sem}
 \title{Extract residuals from NMF models}
 \usage{
 \method{residuals}{nmf}(object, Y, ...)
+
+\method{residuals}{nmfae}(object, Y, ...)
 
 \method{residuals}{nmfre}(object, Y, type = c("blup", "fixed"), ...)
 

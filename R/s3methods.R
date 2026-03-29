@@ -241,6 +241,12 @@ fitted.nmf <- function(object, ...) {
 
 #' @rdname fitted.nmf
 #' @export
+fitted.nmfae <- function(object, ...) {
+  object$Y1hat
+}
+
+#' @rdname fitted.nmf
+#' @export
 fitted.nmf.sem <- function(object, ...) {
   extra <- list(...)
   Y1 <- extra$Y1
@@ -290,6 +296,12 @@ NULL
 #' @export
 residuals.nmf <- function(object, Y, ...) {
   Y - object$XB
+}
+
+#' @rdname residuals.nmf
+#' @export
+residuals.nmfae <- function(object, Y, ...) {
+  Y - object$Y1hat
 }
 
 #' @rdname residuals.nmf

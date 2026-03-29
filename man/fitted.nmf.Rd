@@ -2,10 +2,13 @@
 % Please edit documentation in R/s3methods.R
 \name{fitted.nmf}
 \alias{fitted.nmf}
+\alias{fitted.nmfae}
 \alias{fitted.nmf.sem}
 \title{Extract fitted values from NMF models}
 \usage{
 \method{fitted}{nmf}(object, ...)
+
+\method{fitted}{nmfae}(object, ...)
 
 \method{fitted}{nmf.sem}(object, ...)
 }
