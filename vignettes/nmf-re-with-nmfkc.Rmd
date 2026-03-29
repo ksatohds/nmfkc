@@ -289,6 +289,31 @@ The improvement from fixed-only $R^2$ to BLUP $R^2$ quantifies the contribution 
 
 ---
 
+## Separated Inference with `nmfre.inference()`
+
+When fitting NMF-RE, you can separate optimization from statistical inference. First fit with `wild.bootstrap = FALSE` (faster), then run inference separately:
+
+```{r separated-inference}
+# Fit without bootstrap (fast)
+res_fast <- nmfre(Y, A, Q = 1, dfU.cap.rate = 0.2, prefix = "Trend",
+                  wild.bootstrap = FALSE)
+
+# Run inference separately
+res_inf <- nmfre.inference(res_fast, Y, A, wild.B = 500)
+res_inf$coefficients[, c("Basis", "Covariate", "Estimate", "SE", "p_value")]
+```
+
+### Visualization with `nmfkc.DOT()`
+
+The inference result is compatible with `nmfkc.DOT()` for graph visualization. Edges are filtered by significance level and decorated with stars:
+
+```{r dot-visualization, eval=requireNamespace("DiagrammeR", quietly=TRUE)}
+dot <- nmfkc.DOT(res_inf, type = "YXA", sig.level = 0.05)
+plot(dot)
+```
+
+---
+
 ## Summary
 
 NMF-RE provides a principled way to model **individual heterogeneity** in NMF:
@@ -298,6 +323,8 @@ NMF-RE provides a principled way to model **individual heterogeneity** in NMF:
 | 1 | `nmfre.dfU.scan()` | Select regularization level |
 | 2 | `nmfre()` | Fit the mixed-effects model |
 | 3 | `summary()` | Examine variance components and inference |
+| 4 | `nmfre.inference()` | Separated inference (optional) |
+| 5 | `nmfkc.DOT()` | Visualize with significance stars |
 
 **When to use NMF-RE:**
 

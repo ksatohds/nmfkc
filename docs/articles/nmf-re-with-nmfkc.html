@@ -553,6 +553,35 @@ quantifies the contribution of individual random effects.</p>
 <hr>
 </div>
 <div class="section level2">
+<h2 id="separated-inference-with-nmfre-inference">Separated Inference with <code>nmfre.inference()</code><a class="anchor" aria-label="anchor" href="#separated-inference-with-nmfre-inference"></a>
+</h2>
+<p>When fitting NMF-RE, you can separate optimization from statistical
+inference. First fit with <code>wild.bootstrap = FALSE</code> (faster),
+then run inference separately:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Fit without bootstrap (fast)</span></span>
+<span><span class="va">res_fast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span>, dfU.cap.rate <span class="op">=</span> <span class="fl">0.2</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span>,</span>
+<span>                  wild.bootstrap <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Run inference separately</span></span>
+<span><span class="va">res_inf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.inference.html">nmfre.inference</a></span><span class="op">(</span><span class="va">res_fast</span>, <span class="va">Y</span>, <span class="va">A</span>, wild.B <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span>
+<span><span class="va">res_inf</span><span class="op">$</span><span class="va">coefficients</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Basis"</span>, <span class="st">"Covariate"</span>, <span class="st">"Estimate"</span>, <span class="st">"SE"</span>, <span class="st">"p_value"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;    Basis Covariate  Estimate       SE       p_value</span></span>
+<span><span class="co">#&gt; 1 Trend1 intercept 90.393445 2.471312 3.306544e-293</span></span>
+<span><span class="co">#&gt; 2 Trend1      male  9.605879 3.056105  8.356231e-04</span></span></code></pre></div>
+<div class="section level3">
+<h3 id="visualization-with-nmfkc-dot">Visualization with <code>nmfkc.DOT()</code><a class="anchor" aria-label="anchor" href="#visualization-with-nmfkc-dot"></a>
+</h3>
+<p>The inference result is compatible with <code><a href="../reference/nmfkc.DOT.html">nmfkc.DOT()</a></code> for
+graph visualization. Edges are filtered by significance level and
+decorated with stars:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">dot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.DOT.html">nmfkc.DOT</a></span><span class="op">(</span><span class="va">res_inf</span>, type <span class="op">=</span> <span class="st">"YXA"</span>, sig.level <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">dot</span><span class="op">)</span></span></code></pre></div>
+<hr>
+</div>
+</div>
+<div class="section level2">
 <h2 id="summary">Summary<a class="anchor" aria-label="anchor" href="#summary"></a>
 </h2>
 <p>NMF-RE provides a principled way to model <strong>individual
@@ -578,6 +607,16 @@ heterogeneity</strong> in NMF:</p>
 <td align="left">3</td>
 <td align="left"><code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code></td>
 <td align="left">Examine variance components and inference</td>
+</tr>
+<tr class="even">
+<td align="left">4</td>
+<td align="left"><code><a href="../reference/nmfre.inference.html">nmfre.inference()</a></code></td>
+<td align="left">Separated inference (optional)</td>
+</tr>
+<tr class="odd">
+<td align="left">5</td>
+<td align="left"><code><a href="../reference/nmfkc.DOT.html">nmfkc.DOT()</a></code></td>
+<td align="left">Visualize with significance stars</td>
 </tr>
 </tbody>
 </table>
