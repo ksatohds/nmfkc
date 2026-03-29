@@ -1,3 +1,14 @@
+# nmfkc 0.6.7
+
+### **Bug Fixes**
+- Added `fitted.nmfae()` and `residuals.nmfae()` S3 methods; previously `fitted()` on an `nmfae` object silently returned `NULL` because the wrong field name (`$XB` instead of `$Y1hat`) was used.
+
+### **Naming Unification** (old names remain usable for backward compatibility)
+- Coefficient tables: all inference functions now use `Basis` / `Covariate` columns (was `Factor`/`Exogenous` in `nmf.sem.inference()`, `Decoder`/`Encoder` in `nmfae.inference()`).
+- Wild bootstrap defaults unified: `wild.B = 500`, `wild.seed = 123` across all inference functions.
+- First argument of all `.DOT` functions renamed to `result` for consistency.
+- CV tuning parameters (`nfolds`, `seed`, `shuffle`) moved to `...` in `nmfkc.ecv()`, `nmfae.ecv()`, `nmfae.cv()`, `nmf.sem.cv()`; `div` also accepted for backward compatibility.
+
 # nmfkc 0.6.6
 
 ### **New Functions**
@@ -13,7 +24,6 @@
 - `nmfae()`: `Q` → `rank`, `R` → `rank.encoder`
 - `nmfre()`: `Q` → `rank`, `dfU.cap.rate` → `df.rate`
 - `nmfre.dfU.scan()`, `nmfkc.ar.degree.cv()`: `Q` → `rank`
-- `nmfkc.ecv()`, `nmfae.ecv()`, `nmfae.cv()`, `nmf.sem.cv()`: `div` → `nfolds`
 - `nmfkc.residual.plot()`: `Y_XB_palette` → `fitted.palette`, `E_palette` → `residual.palette`
 - `nmfkc.kernel.beta.nearest.med()`: `block_size` → `block.size`, `sample_size` → `sample.size`
 
