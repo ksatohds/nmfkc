@@ -46,7 +46,7 @@ prevent information leakage through the symmetric entries \eqn{Y_{ij} = Y_{ji}}.
 \examples{
 # Element-wise CV to select rank
 Y <- t(iris[1:30, 1:4])
-res <- nmfkc.ecv(Y, Q = 1:2, div = 3)
+res <- nmfkc.ecv(Y, rank = 1:2, nfolds = 3)
 res$objfunc
 
 }

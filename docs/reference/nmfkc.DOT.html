@@ -27,7 +27,7 @@ above the threshold are omitted from the visualization.'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -188,7 +188,7 @@ edges at or above <code>threshold</code> are excluded from the graph.</p></dd>
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">cars</span><span class="op">$</span><span class="va">dist</span>, nrow <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">cars</span><span class="op">$</span><span class="va">speed</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, Q <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Y(1,50)~X(1,1)C(1,2)A(2,50)=XB(1,50)...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-in"><span><span class="va">dot</span> <span class="op">&lt;-</span> <span class="fu">nmfkc.DOT</span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>

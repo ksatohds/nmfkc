@@ -178,11 +178,5 @@ Finally, we can generate a **DOT script** to visualize the Granger causality (re
 # Generate DOT script for graph visualization
 dot_script <- nmfkc.ar.DOT(res_canada, intercept = TRUE, threshold=0.01)
 
-# Visualize the graph using DiagrammeR
-if (requireNamespace("DiagrammeR", quietly = TRUE)) {
-  DiagrammeR::grViz(dot_script)
-} else {
-  message("Please install 'DiagrammeR' to visualize the graph.")
-  cat(substr(dot_script, 1, 300), "...\n(truncated)")
-}
+# plot(dot_script)  # requires DiagrammeR
 ```

@@ -42,8 +42,6 @@ This function accepts both standard matrices (Variables x Time) and \code{ts} ob
 (Time x Variables). \code{ts} objects are automatically transposed internally.
 }
 \examples{
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
 # Example using ts object directly
 d <- AirPassengers
 

@@ -7,8 +7,8 @@
 nmfae.cv(
   Y1,
   Y2 = Y1,
-  Q = 2,
-  R = Q,
+  rank = 2,
+  rank.encoder = rank,
   nfolds = 5,
   seed = 123,
   shuffle = TRUE,
@@ -21,9 +21,9 @@ nmfae.cv(
 \item{Y2}{Input matrix \eqn{Y_2} (P2 x N), or a kernel matrix (N x N).
 Default is \code{Y1} (autoencoder).}
 
-\item{Q}{Integer. Rank of the decoder basis. Default is 2.}
+\item{rank}{Integer. Rank of the decoder basis. Default is 2.}
 
-\item{R}{Integer. Rank of the encoder basis. Default is \code{Q}.}
+\item{rank.encoder}{Integer. Rank of the encoder basis. Default is \code{rank}.}
 
 \item{nfolds}{Number of folds. Default is 5. For backward compatibility,
 \code{div} is accepted via \code{...}.}
@@ -54,9 +54,8 @@ When \code{Y2} is a kernel matrix created by \code{\link{nmfkc.kernel}}
 \code{Y2[train, train]} for training and \code{Y2[train, test]} for prediction.
 }
 \examples{
-library(nmfkc)
 Y <- t(iris[1:30, 1:4])
-res <- nmfae.cv(Y, Q = 2, R = 2, div = 5, maxit = 500)
+res <- nmfae.cv(Y, rank = 2, rank.encoder = 2, nfolds = 5, maxit = 500)
 res$sigma
 
 }

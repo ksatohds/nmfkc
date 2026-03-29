@@ -4,12 +4,12 @@
 \alias{nmfkc.kernel.beta.cv}
 \title{Optimize beta of the Gaussian kernel function by cross-validation}
 \usage{
-nmfkc.kernel.beta.cv(Y, Q = 2, U, V = NULL, beta = NULL, plot = TRUE, ...)
+nmfkc.kernel.beta.cv(Y, rank = 2, U, V = NULL, beta = NULL, plot = TRUE, ...)
 }
 \arguments{
 \item{Y}{Observation matrix \eqn{Y(P,N)}.}
 
-\item{Q}{Rank of the basis matrix.}
+\item{rank}{Rank of the basis matrix.}
 
 \item{U}{Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.}
 
@@ -30,15 +30,13 @@ A list with components:
 \code{nmfkc.kernel.beta.cv} selects the optimal beta parameter of the kernel function by applying cross-validation over a set of candidate values.
 }
 \examples{
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
 # Example.
 Y <- matrix(cars$dist,nrow=1)
 U <- matrix(c(5,10,15,20,25),nrow=1)
 V <- matrix(cars$speed,nrow=1)
-nmfkc.kernel.beta.cv(Y,Q=1,U,V,beta=25:30/1000)
+nmfkc.kernel.beta.cv(Y,rank=1,U,V,beta=25:30/1000)
 A <- nmfkc.kernel(U,V,beta=28/1000)
-result <- nmfkc(Y,A,Q=1)
+result <- nmfkc(Y,A,rank=1)
 plot(as.vector(V),as.vector(Y))
 lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }

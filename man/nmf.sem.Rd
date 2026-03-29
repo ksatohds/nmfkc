@@ -54,8 +54,7 @@ Default: \code{20000}.}
 \item{seed}{Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
 Default: \code{123}.}
 
-\item{...}{Additional arguments. Currently used to pass a hidden rank
-\code{Q} (e.g., via \code{Q = 3}) if \code{rank} is \code{NULL}.}
+\item{...}{Additional arguments (reserved for future use).}
 }
 \value{
 A list with components:

@@ -32,7 +32,7 @@ the forecasted values will have appropriate time-based column names.
 # Forecast AirPassengers
 d <- AirPassengers
 ar_data <- nmfkc.ar(d, degree = 2)
-result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
 pred <- nmfkc.ar.predict(result, Y = matrix(d, nrow = 1), degree = 2, n.ahead = 3)
 pred$pred
 

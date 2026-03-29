@@ -84,15 +84,14 @@ This function is \strong{experimental}. The interface may change in future versi
 
 \examples{
 # Autoencoder example
-library(nmfkc)
 Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-res <- nmfae(Y, Q=2, R=2)
+res <- nmfae(Y, rank=2, rank.encoder=2)
 res$r.squared
 
 # Heteroencoder example
 Y1 <- matrix(c(1,0,0,1), nrow=2)
 Y2 <- matrix(runif(8), nrow=4)
-res2 <- nmfae(Y1, Y2, Q=2, R=2)
+res2 <- nmfae(Y1, Y2, rank=2, rank.encoder=2)
 
 }
 \references{

@@ -23,7 +23,7 @@ It returns both the spectral radius and a logical indicator of stationarity.
 # Check stationarity of fitted AR model
 d <- AirPassengers
 ar_data <- nmfkc.ar(d, degree = 2)
-result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
 nmfkc.ar.stationarity(result)
 
 }

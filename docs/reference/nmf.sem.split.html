@@ -37,7 +37,7 @@ If n.exogenous is supplied, it overrides the automatic threshold rule."></head><
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -95,7 +95,7 @@ exceeds <code>threshold</code>.</p></li>
 <span>  n.exogenous <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  threshold <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  auto.flipped <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -129,7 +129,7 @@ sign flipping after standardization to ensure consistent orientation.
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>Logical; if <code>TRUE</code>, prints progress messages and the
-resulting variable split. (Default: <code>TRUE</code>)</p></dd>
+resulting variable split. (Default: <code>FALSE</code>)</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -156,13 +156,6 @@ resulting variable split. (Default: <code>TRUE</code>)</p></dd>
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Infer exogenous/endogenous split from iris</span></span></span>
 <span class="r-in"><span><span class="va">sp</span> <span class="op">&lt;-</span> <span class="fu">nmf.sem.split</span><span class="op">(</span><span class="va">iris</span><span class="op">[</span>, <span class="op">-</span><span class="fl">5</span><span class="op">]</span>, n.exogenous <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Step 0: Checking correlations with PC1 (on standardized data)...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    -&gt; Detected 1 flipped variables: Sepal.Width</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Step 1: Inferring Causal Ordering...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> --- Auto Split Result ---</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Exogenous (Y2, n=2): Sepal.Length, Sepal.Width</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Endogenous (Y1, n=2): Petal.Width, Petal.Length ...</span>
 <span class="r-in"><span><span class="va">sp</span><span class="op">$</span><span class="va">Y1.names</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
 <span class="r-in"><span><span class="va">sp</span><span class="op">$</span><span class="va">Y2.names</span></span></span>

@@ -1,5 +1,25 @@
 bibentry(
   bibtype  = "Misc",
+  title    = "Wild Bootstrap Inference for Non-Negative Matrix Factorization with Random Effects",
+  author   = "Kenichi Satoh",
+  year     = "2026",
+  note     = "arXiv:2603.01468",
+  url      = "https://arxiv.org/abs/2603.01468"
+)
+
+
+bibentry(
+  bibtype  = "Misc",
+  title    = "Applying non-negative matrix factorization with covariates to structural equation modeling for blind input-output analysis",
+  author   = "Kenichi Satoh",
+  year     = "2025",
+  note     = "arXiv:2512.18250",
+  url      = "https://arxiv.org/abs/2512.18250"
+)
+
+
+bibentry(
+  bibtype  = "Misc",
   title    = "Applying non-negative matrix factorization with covariates to label matrix for classification",
   author   = "Kenichi Satoh",
   year     = "2025",

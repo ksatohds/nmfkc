@@ -4,18 +4,26 @@
 \alias{nmfae.ecv}
 \title{Element-wise Cross-Validation for nmfae (Wold's CV)}
 \usage{
-nmfae.ecv(Y1, Y2 = Y1, Q = 1:2, R = NULL, nfolds = 5, seed = 123, ...)
+nmfae.ecv(
+  Y1,
+  Y2 = Y1,
+  rank = 1:2,
+  rank.encoder = NULL,
+  nfolds = 5,
+  seed = 123,
+  ...
+)
 }
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N).}
 
 \item{Y2}{Input matrix \eqn{Y_2} (P2 x N). Default is \code{Y1}.}
 
-\item{Q}{Integer vector of decoder ranks to evaluate. Default is \code{1:2}.}
+\item{rank}{Integer vector of decoder ranks to evaluate. Default is \code{1:2}.}
 
-\item{R}{Integer vector of encoder ranks to evaluate. Default is \code{NULL},
-which sets \code{R = Q} and evaluates element-wise pairs.
-When explicitly specified, all combinations with \code{Q} are evaluated.}
+\item{rank.encoder}{Integer vector of encoder ranks to evaluate. Default is \code{NULL},
+which sets \code{rank.encoder = rank} and evaluates element-wise pairs.
+When explicitly specified, all combinations with \code{rank} are evaluated.}
 
 \item{nfolds}{Number of folds. Default is 5. For backward compatibility,
 \code{div} is accepted via \code{...}.}
@@ -39,20 +47,19 @@ via \code{Y1.weights}, and evaluating the reconstruction error on those
 held-out elements.
 
 This method (also known as Wold's CV) is suitable for determining the optimal
-rank pair \eqn{(Q, R)} in three-layer NMF. Both \code{Q} and \code{R} accept
-vector inputs. When \code{R = NULL} (default), \code{R} is set equal to \code{Q}
+rank pair \eqn{(Q, R)} in three-layer NMF. Both \code{rank} and \code{rank.encoder} accept
+vector inputs. When \code{rank.encoder = NULL} (default), \code{rank.encoder} is set equal to \code{rank}
 and pairs are evaluated element-wise (i.e., \eqn{(Q_1, R_1), (Q_2, R_2), \dots}).
-When \code{R} is explicitly specified, all combinations of \code{Q} and \code{R}
+When \code{rank.encoder} is explicitly specified, all combinations of \code{rank} and \code{rank.encoder}
 are evaluated via \code{expand.grid}.
 }
 \examples{
-library(nmfkc)
 Y <- t(iris[1:30, 1:4])
-# Default: R=NULL -> paired Q=R
-res <- nmfae.ecv(Y, Q = 1:3, div = 3, maxit = 500)
+# Default: rank.encoder=NULL -> paired rank=rank.encoder
+res <- nmfae.ecv(Y, rank = 1:3, nfolds = 3, maxit = 500)
 res$sigma
-# Explicit R: full grid
-res2 <- nmfae.ecv(Y, Q = 1:3, R = 1:3, div = 3, maxit = 500)
+# Explicit rank.encoder: full grid
+res2 <- nmfae.ecv(Y, rank = 1:3, rank.encoder = 1:3, nfolds = 3, maxit = 500)
 res2$sigma
 
 }

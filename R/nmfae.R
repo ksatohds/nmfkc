@@ -72,15 +72,14 @@
 #'   \emph{Computer Methods in Applied Mechanics and Engineering}, 399.
 #' @examples
 #' # Autoencoder example
-#' library(nmfkc)
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-#' res <- nmfae(Y, Q=2, R=2)
+#' res <- nmfae(Y, rank=2, rank.encoder=2)
 #' res$r.squared
 #'
 #' # Heteroencoder example
 #' Y1 <- matrix(c(1,0,0,1), nrow=2)
 #' Y2 <- matrix(runif(8), nrow=4)
-#' res2 <- nmfae(Y1, Y2, Q=2, R=2)
+#' res2 <- nmfae(Y1, Y2, rank=2, rank.encoder=2)
 #'
 nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
                   epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...) {
@@ -340,7 +339,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     n.missing = n.missing,
     n.total = P1 * N
   )
-  class(result) <- "nmfae"
+  class(result) <- c("nmfae", "nmf")
   return(result)
 }
 
@@ -382,7 +381,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 #' @export
 #' @examples
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-#' res <- nmfae(Y, Q=2, R=2)
+#' res <- nmfae(Y, rank=2, rank.encoder=2)
 #' res2 <- nmfae.inference(res, Y)
 #' summary(res2)
 #'
@@ -534,7 +533,7 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
-  class(object) <- c("nmfae.inference", "nmfae")
+  class(object) <- c("nmfae.inference", "nmf.inference", "nmfae", "nmf")
   return(object)
 }
 
@@ -878,18 +877,7 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
   print.summary.nmfae(x, digits = digits, max.coef = max.coef, ...)
 }
 
-#' @title Print method for nmfae.inference objects
-#' @description
-#' Prints a summary of the NMF-AE model with inference results.
-#' @param x An object of class \code{"nmfae.inference"}.
-#' @param ... Additional arguments passed to \code{\link{print.summary.nmfae.inference}}.
-#' @return Called for its side effect (printing). Returns \code{x} invisibly.
-#' @seealso \code{\link{nmfae.inference}}, \code{\link{summary.nmfae.inference}}
-#' @export
-print.nmfae.inference <- function(x, ...) {
-  print(summary(x), ...)
-  invisible(x)
-}
+
 
 #' @title Heatmap visualization of nmfae factor matrices
 #' @description
@@ -1152,18 +1140,18 @@ plot.predict.nmfae <- function(x, ...) {
 #' held-out elements.
 #'
 #' This method (also known as Wold's CV) is suitable for determining the optimal
-#' rank pair \eqn{(Q, R)} in three-layer NMF. Both \code{Q} and \code{R} accept
-#' vector inputs. When \code{R = NULL} (default), \code{R} is set equal to \code{Q}
+#' rank pair \eqn{(Q, R)} in three-layer NMF. Both \code{rank} and \code{rank.encoder} accept
+#' vector inputs. When \code{rank.encoder = NULL} (default), \code{rank.encoder} is set equal to \code{rank}
 #' and pairs are evaluated element-wise (i.e., \eqn{(Q_1, R_1), (Q_2, R_2), \dots}).
-#' When \code{R} is explicitly specified, all combinations of \code{Q} and \code{R}
+#' When \code{rank.encoder} is explicitly specified, all combinations of \code{rank} and \code{rank.encoder}
 #' are evaluated via \code{expand.grid}.
 #'
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N).
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N). Default is \code{Y1}.
-#' @param Q Integer vector of decoder ranks to evaluate. Default is \code{1:2}.
-#' @param R Integer vector of encoder ranks to evaluate. Default is \code{NULL},
-#'   which sets \code{R = Q} and evaluates element-wise pairs.
-#'   When explicitly specified, all combinations with \code{Q} are evaluated.
+#' @param rank Integer vector of decoder ranks to evaluate. Default is \code{1:2}.
+#' @param rank.encoder Integer vector of encoder ranks to evaluate. Default is \code{NULL},
+#'   which sets \code{rank.encoder = rank} and evaluates element-wise pairs.
+#'   When explicitly specified, all combinations with \code{rank} are evaluated.
 #' @param nfolds Number of folds. Default is 5. For backward compatibility,
 #'   \code{div} is accepted via \code{...}.
 #' @param seed Integer seed for reproducibility. Default is 123.
@@ -1179,19 +1167,21 @@ plot.predict.nmfae <- function(x, ...) {
 #' @seealso \code{\link{nmfae}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @examples
-#' library(nmfkc)
 #' Y <- t(iris[1:30, 1:4])
-#' # Default: R=NULL -> paired Q=R
-#' res <- nmfae.ecv(Y, Q = 1:3, div = 3, maxit = 500)
+#' # Default: rank.encoder=NULL -> paired rank=rank.encoder
+#' res <- nmfae.ecv(Y, rank = 1:3, nfolds = 3, maxit = 500)
 #' res$sigma
-#' # Explicit R: full grid
-#' res2 <- nmfae.ecv(Y, Q = 1:3, R = 1:3, div = 3, maxit = 500)
+#' # Explicit rank.encoder: full grid
+#' res2 <- nmfae.ecv(Y, rank = 1:3, rank.encoder = 1:3, nfolds = 3, maxit = 500)
 #' res2$sigma
 #'
-nmfae.ecv <- function(Y1, Y2 = Y1, Q = 1:2, R = NULL,
+nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL,
                       nfolds = 5, seed = 123, ...) {
   extra_ecv <- list(...)
+  if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
+  if (!is.null(extra_ecv$R)) rank.encoder <- extra_ecv$R
   if (!is.null(extra_ecv$div)) nfolds <- extra_ecv$div
+  Q <- rank; R <- rank.encoder
   div <- nfolds
 
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
@@ -1293,8 +1283,8 @@ nmfae.ecv <- function(Y1, Y2 = Y1, Q = 1:2, R = NULL,
 #' @title Plot method for nmfae.ecv objects
 #' @description
 #' Visualizes element-wise cross-validation results.
-#' When \code{R} was \code{NULL} (paired Q=R), a line plot of sigma vs Q is drawn.
-#' When \code{R} was explicitly specified (grid), a heatmap of sigma over the (Q, R) grid is drawn.
+#' When \code{rank.encoder} was \code{NULL} (paired), a line plot of sigma vs rank is drawn.
+#' When \code{rank.encoder} was explicitly specified (grid), a heatmap of sigma over the (rank, rank.encoder) grid is drawn.
 #'
 #' @param x An object of class \code{"nmfae.ecv"} returned by \code{\link{nmfae.ecv}}.
 #' @param ... Additional graphical parameters (currently unused).
@@ -1393,8 +1383,8 @@ plot.nmfae.ecv <- function(x, ...) {
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Non-negative.
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N), or a kernel matrix (N x N).
 #'   Default is \code{Y1} (autoencoder).
-#' @param Q Integer. Rank of the decoder basis. Default is 2.
-#' @param R Integer. Rank of the encoder basis. Default is \code{Q}.
+#' @param rank Integer. Rank of the decoder basis. Default is 2.
+#' @param rank.encoder Integer. Rank of the encoder basis. Default is \code{rank}.
 #' @param nfolds Number of folds. Default is 5. For backward compatibility,
 #'   \code{div} is accepted via \code{...}.
 #' @param seed Integer seed for reproducible fold partitioning. Default is 123.
@@ -1413,15 +1403,17 @@ plot.nmfae.ecv <- function(x, ...) {
 #'   \code{\link{nmfkc.cv}}
 #' @export
 #' @examples
-#' library(nmfkc)
 #' Y <- t(iris[1:30, 1:4])
-#' res <- nmfae.cv(Y, Q = 2, R = 2, div = 5, maxit = 500)
+#' res <- nmfae.cv(Y, rank = 2, rank.encoder = 2, nfolds = 5, maxit = 500)
 #' res$sigma
 #'
-nmfae.cv <- function(Y1, Y2 = Y1, Q = 2, R = Q,
+nmfae.cv <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
                      nfolds = 5, seed = 123, shuffle = TRUE, ...) {
   extra_cv <- list(...)
+  if (!is.null(extra_cv$Q)) rank <- extra_cv$Q
+  if (!is.null(extra_cv$R)) rank.encoder <- extra_cv$R
   if (!is.null(extra_cv$div)) nfolds <- extra_cv$div
+  Q <- rank; R <- rank.encoder
   div <- nfolds
 
   extra_args <- list(...)
@@ -1572,8 +1564,8 @@ plot.nmfae.cv <- function(x, ...) {
 #' \code{\link{nmfkc.kernel.beta.nearest.med}}.
 #'
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Non-negative.
-#' @param Q Integer. Rank of the decoder basis. Default is 2.
-#' @param R Integer. Rank of the encoder basis. Default is \code{Q}.
+#' @param rank Integer. Rank of the decoder basis. Default is 2.
+#' @param rank.encoder Integer. Rank of the encoder basis. Default is \code{rank}.
 #' @param U Covariate matrix \eqn{U} (K x M). Rows are features, columns are samples
 #'   (or knot points for non-symmetric kernels).
 #' @param V Covariate matrix \eqn{V} (K x N). If \code{NULL} (default), \code{V = U}
@@ -1594,17 +1586,20 @@ plot.nmfae.cv <- function(x, ...) {
 #'   \code{\link{nmfkc.kernel.beta.cv}}
 #' @export
 #' @examples
-#' library(nmfkc)
 #' Y <- matrix(cars$dist, nrow = 1)
 #' U <- matrix(cars$speed, nrow = 1)
-#' res <- nmfae.kernel.beta.cv(Y, Q = 1, R = 1, U = U,
-#'                              beta = c(0.01, 0.02, 0.05), div = 5)
+#' res <- nmfae.kernel.beta.cv(Y, rank = 1, rank.encoder = 1, U = U,
+#'                              beta = c(0.01, 0.02, 0.05), nfolds = 5)
 #' res$beta
 #'
-nmfae.kernel.beta.cv <- function(Y1, Q = 2, R = Q, U, V = NULL,
+nmfae.kernel.beta.cv <- function(Y1, rank = 2, rank.encoder = rank, U, V = NULL,
                                   beta = NULL, plot = TRUE, ...) {
 
   extra_args <- list(...)
+  # backward compat: Q -> rank, R -> rank.encoder
+  if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
+  extra_args <- extra_args[!names(extra_args) %in% c("Q", "R")]
 
   # Separate kernel-specific args from cv/nmfae args
   kernel_only <- c("kernel", "degree")
@@ -1628,7 +1623,7 @@ nmfae.kernel.beta.cv <- function(Y1, Q = 2, R = Q, U, V = NULL,
     kernel_call <- c(list(U = U, V = V, beta = beta[i]), kernel_args)
     A <- do.call("nmfkc.kernel", kernel_call)
 
-    cv_call <- c(list(Y1 = Y1, Y2 = A, Q = Q, R = R), cv_args)
+    cv_call <- c(list(Y1 = Y1, Y2 = A, rank = rank, rank.encoder = rank.encoder), cv_args)
     result <- do.call("nmfae.cv", cv_call)
 
     objfuncs[i] <- result$objfunc
@@ -1906,39 +1901,6 @@ nmfae.DOT <- function(x,
   }
 
   result <- paste0(scr, "}\n")
-  class(result) <- "nmfae.DOT"
+  class(result) <- c("nmfae.DOT", "nmfkc.DOT")
   result
-}
-
-#' @title Plot method for nmfae.DOT objects
-#' @description
-#' Renders a DOT graph string using \code{DiagrammeR::grViz}.
-#' If the \pkg{DiagrammeR} package is not installed, prints the DOT source
-#' to the console instead.
-#'
-#' @param x An object of class \code{"nmfae.DOT"} returned by \code{\link{nmfae.DOT}}.
-#' @param ... Not used.
-#'
-#' @return The \code{grViz} widget (invisibly), or invisible \code{NULL}
-#'   if \pkg{DiagrammeR} is not available.
-#' @seealso \code{\link{nmfae.DOT}}
-#' @examples
-#' \donttest{
-#' set.seed(1)
-#' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
-#' dot <- nmfae.DOT(res)
-#' plot(dot)
-#' }
-#' @export
-plot.nmfae.DOT <- function(x, ...) {
-  if (requireNamespace("DiagrammeR", quietly = TRUE)) {
-    widget <- DiagrammeR::grViz(as.character(x))
-    print(widget)
-    invisible(widget)
-  } else {
-    message("DiagrammeR package not installed. Printing DOT source:")
-    cat(as.character(x))
-    invisible(NULL)
-  }
 }

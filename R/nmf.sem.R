@@ -55,8 +55,7 @@
 #'   Default: \code{20000}.
 #' @param seed Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
 #'   Default: \code{123}.
-#' @param ... Additional arguments. Currently used to pass a hidden rank
-#'   \code{Q} (e.g., via \code{Q = 3}) if \code{rank} is \code{NULL}.
+#' @param ... Additional arguments (reserved for future use).
 #'
 #' @return A list with components:
 #'   \item{X}{Estimated basis matrix (\eqn{P_1 \times Q}).}
@@ -547,7 +546,7 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]
 #' Y2 <- Y[3:4, ]
-#' mae <- nmf.sem.cv(Y1, Y2, rank = 2, maxit = 500, div = 3)
+#' mae <- nmf.sem.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 #' mae
 #'
 #' @export
@@ -1339,7 +1338,9 @@ nmf.sem.DOT <- function(result,
     }
   }
 
-  paste0(dot_script, "}\n")
+  result <- paste0(dot_script, "}\n")
+  class(result) <- c("nmf.sem.DOT", "nmfkc.DOT")
+  result
 }
 
 
@@ -1398,7 +1399,7 @@ nmf.sem.DOT <- function(result,
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
-#' result <- nmfkc(Y, A, Q = 1)
+#' result <- nmfkc(Y, A, rank = 1)
 #' dot <- nmfkc.DOT(result)
 #' cat(dot)
 #'
@@ -1739,10 +1740,15 @@ nmfkc.DOT <- function(
 #' If the \pkg{DiagrammeR} package is not installed, prints the DOT source
 #' to the console instead.
 #'
-#' @param x An object of class \code{"nmfkc.DOT"} returned by \code{\link{nmfkc.DOT}}.
+#' This method handles all DOT objects produced by the nmfkc package:
+#' \code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.sem.DOT}},
+#' and \code{\link{nmfkc.ar.DOT}}.
+#'
+#' @param x An object of class \code{"nmfkc.DOT"} (or a subclass thereof).
 #' @param ... Not used.
 #' @return Called for its side effect (rendering). Returns \code{x} invisibly.
-#' @seealso \code{\link{nmfkc.DOT}}
+#' @seealso \code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}},
+#'   \code{\link{nmf.sem.DOT}}, \code{\link{nmfkc.ar.DOT}}
 #' @export
 plot.nmfkc.DOT <- function(x, ...) {
   if (requireNamespace("DiagrammeR", quietly = TRUE)) {

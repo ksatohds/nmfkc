@@ -33,15 +33,13 @@ Kernel matrix \eqn{A(N,M)}.
 It supports Gaussian, Exponential, Periodic, Linear, Normalized Linear, and Polynomial kernels.
 }
 \examples{
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
 # Example.
 Y <- matrix(cars$dist,nrow=1)
 U <- matrix(c(5,10,15,20,25),nrow=1)
 V <- matrix(cars$speed,nrow=1)
 A <- nmfkc.kernel(U,V,beta=28/1000)
 dim(A)
-result <- nmfkc(Y,A,Q=1)
+result <- nmfkc(Y,A,rank=1)
 plot(as.vector(V),as.vector(Y))
 lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 }

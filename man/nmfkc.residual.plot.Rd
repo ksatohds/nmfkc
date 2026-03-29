@@ -39,7 +39,7 @@ to maximize the plot area, reflecting the compact layout settings.
 }
 \examples{
 Y <- t(iris[1:30, 1:4])
-result <- nmfkc(Y, Q = 2)
+result <- nmfkc(Y, rank = 2)
 nmfkc.residual.plot(Y, result)
 
 }

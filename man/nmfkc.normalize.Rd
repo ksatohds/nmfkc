@@ -20,8 +20,6 @@ A matrix of the same dimensions as \code{x}, with each column rescaled to the \e
 using the column-wise minimum and maximum values of a reference matrix.
 }
 \examples{
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
 # Example.
 x <- nmfkc.normalize(iris[,-5])
 apply(x,2,range)

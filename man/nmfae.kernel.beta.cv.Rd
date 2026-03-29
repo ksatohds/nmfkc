@@ -6,8 +6,8 @@
 \usage{
 nmfae.kernel.beta.cv(
   Y1,
-  Q = 2,
-  R = Q,
+  rank = 2,
+  rank.encoder = rank,
   U,
   V = NULL,
   beta = NULL,
@@ -18,9 +18,9 @@ nmfae.kernel.beta.cv(
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N). Non-negative.}
 
-\item{Q}{Integer. Rank of the decoder basis. Default is 2.}
+\item{rank}{Integer. Rank of the decoder basis. Default is 2.}
 
-\item{R}{Integer. Rank of the encoder basis. Default is \code{Q}.}
+\item{rank.encoder}{Integer. Rank of the encoder basis. Default is \code{rank}.}
 
 \item{U}{Covariate matrix \eqn{U} (K x M). Rows are features, columns are samples
 (or knot points for non-symmetric kernels).}
@@ -53,11 +53,10 @@ When \code{beta = NULL}, candidate values are automatically generated via
 \code{\link{nmfkc.kernel.beta.nearest.med}}.
 }
 \examples{
-library(nmfkc)
 Y <- matrix(cars$dist, nrow = 1)
 U <- matrix(cars$speed, nrow = 1)
-res <- nmfae.kernel.beta.cv(Y, Q = 1, R = 1, U = U,
-                             beta = c(0.01, 0.02, 0.05), div = 5)
+res <- nmfae.kernel.beta.cv(Y, rank = 1, rank.encoder = 1, U = U,
+                             beta = c(0.01, 0.02, 0.05), nfolds = 5)
 res$beta
 
 }

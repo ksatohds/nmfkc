@@ -7,7 +7,7 @@
 \method{plot}{nmfkc.DOT}(x, ...)
 }
 \arguments{
-\item{x}{An object of class \code{"nmfkc.DOT"} returned by \code{\link{nmfkc.DOT}}.}
+\item{x}{An object of class \code{"nmfkc.DOT"} (or a subclass thereof).}
 
 \item{...}{Not used.}
 }
@@ -18,7 +18,12 @@ Called for its side effect (rendering). Returns \code{x} invisibly.
 Renders a DOT graph string using \code{DiagrammeR::grViz}.
 If the \pkg{DiagrammeR} package is not installed, prints the DOT source
 to the console instead.
+
+This method handles all DOT objects produced by the nmfkc package:
+\code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.sem.DOT}},
+and \code{\link{nmfkc.ar.DOT}}.
 }
 \seealso{
-\code{\link{nmfkc.DOT}}
+\code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}},
+\code{\link{nmf.sem.DOT}}, \code{\link{nmfkc.ar.DOT}}
 }

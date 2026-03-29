@@ -1,7 +1,7 @@
 Package: nmfkc
 Type: Package
 Title: Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.6.5
+Version: 0.6.6
 Authors@R:
     person("Kenichi", "Satoh",
            email = "kenichi-satoh@biwako.shiga-u.ac.jp",
@@ -16,15 +16,16 @@ Description: Performs Non-negative Matrix Factorization (NMF)
     Notably, if the kernel matrix is an identity matrix, the method
     simplifies to standard NMF. Also provides NMF with Random Effects
     (NMF-RE) via nmfre(), which estimates a mixed-effects model combining
-    covariate-driven scores with unit-specific random effects, together
-    with wild bootstrap inference.
+    covariate-driven scores with unit-specific random effects together
+    with wild bootstrap inference, and NMF-based Structural Equation
+    Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output
+    model for blind source separation and path analysis.
 License: MIT + file LICENSE
 Imports:
     stats,
     graphics,
     utils,
-    grDevices,
-    methods
+    grDevices
 Encoding: UTF-8
 Language: en-US
 Roxygen: list(markdown = TRUE)

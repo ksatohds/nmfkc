@@ -37,7 +37,7 @@ then constructed automatically from the stored formula metadata.
 # Prediction with newA
 Y <- matrix(cars$dist, nrow = 1)
 A <- rbind(1, cars$speed)
-result <- nmfkc(Y, A, Q = 1)
+result <- nmfkc(Y, A, rank = 1)
 newA <- rbind(1, c(10, 20, 30))
 predict(result, newA = newA)
 

@@ -13,8 +13,8 @@
 }
 \description{
 Visualizes element-wise cross-validation results.
-When \code{R} was \code{NULL} (paired Q=R), a line plot of sigma vs Q is drawn.
-When \code{R} was explicitly specified (grid), a heatmap of sigma over the (Q, R) grid is drawn.
+When \code{rank.encoder} was \code{NULL} (paired), a line plot of sigma vs rank is drawn.
+When \code{rank.encoder} was explicitly specified (grid), a heatmap of sigma over the (rank, rank.encoder) grid is drawn.
 }
 \seealso{
 \code{\link{nmfae.ecv}}

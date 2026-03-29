@@ -48,7 +48,7 @@ full set of criteria afterwards.
 }
 \examples{
 Y <- t(iris[, -5])
-res <- nmfkc(Y, Q = 3, detail = "fast")
+res <- nmfkc(Y, rank = 3, detail = "fast")
 crit <- nmfkc.criterion(res, Y)
 crit$criterion$silhouette
 

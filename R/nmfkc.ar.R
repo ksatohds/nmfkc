@@ -177,7 +177,7 @@ nmfkc.ar <- function(Y, degree=1, intercept=TRUE){
 #' # Forecast AirPassengers
 #' d <- AirPassengers
 #' ar_data <- nmfkc.ar(d, degree = 2)
-#' result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+#' result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
 #' pred <- nmfkc.ar.predict(result, Y = matrix(d, nrow = 1), degree = 2, n.ahead = 3)
 #' pred$pred
 #'
@@ -395,8 +395,6 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 #' @seealso \code{\link{nmfkc.ar}}, \code{\link{nmfkc.cv}}
 #' @export
 #' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
 #' # Example using ts object directly
 #' d <- AirPassengers
 #'
@@ -505,7 +503,7 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 #' # Check stationarity of fitted AR model
 #' d <- AirPassengers
 #' ar_data <- nmfkc.ar(d, degree = 2)
-#' result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+#' result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
 #' nmfkc.ar.stationarity(result)
 #'
 #' @export
@@ -591,7 +589,7 @@ nmfkc.ar.stationarity <- function(x){
 #' @examples
 #' d <- AirPassengers
 #' ar_data <- nmfkc.ar(d, degree = 2)
-#' result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+#' result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
 #' dot <- nmfkc.ar.DOT(result, degree = 2)
 #' cat(dot)
 #'
@@ -854,5 +852,7 @@ nmfkc.ar.DOT <- function(x,
     }
   }
 
-  paste0(scr, "}\n")
+  result <- paste0(scr, "}\n")
+  class(result) <- c("nmfkc.ar.DOT", "nmfkc.DOT")
+  result
 }

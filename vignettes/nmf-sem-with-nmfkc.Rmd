@@ -180,7 +180,6 @@ res.dot <- nmf.sem.DOT(
   cluster.box = "none"
 )
 
-library(DiagrammeR)
-grViz(res.dot)
+# plot(res.dot)  # requires DiagrammeR
 ```
 

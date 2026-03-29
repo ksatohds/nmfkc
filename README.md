@@ -73,36 +73,24 @@ $$Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)$$
 - **NMF-RE**: Adds unit-specific random effects $U$: $Y = X(\Theta A + U) + \mathcal{E}$, estimated via ridge-type BLUP with wild bootstrap inference.
 - **NMF-SEM**: Models endogenous feedback: $Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)$, with equilibrium mapping $(I - X\Theta_1)^{-1} X\Theta_2$.
 
-# Functions
+# Main Functions
 
-## Core Algorithm
-- **nmfkc**: Standard NMF with covariates ($Y \approx XCA$)
-- **nmfae**: NMF Autoencoder
-- **nmfre** / **nmfre.inference**: NMF with Random Effects + wild bootstrap inference
-- **nmf.sem** / **nmf.sem.inference**: NMF Structural Equation Model + C2 inference
+| Function | Description |
+|:---|:---|
+| `nmfkc()` | Core NMF with covariates ($Y \approx XCA$); supports kernel matrices and formula interface |
+| `nmfre()` / `nmfre.inference()` | NMF with Random Effects + wild bootstrap inference |
+| `nmf.sem()` / `nmf.sem.inference()` | NMF Structural Equation Model + inference for path coefficients |
+| `nmfae()` / `nmfae.inference()` | NMF Autoencoder + inference |
+| `nmfkc.rank()` | Rank selection via elbow, cross-validation, ECV, and CPCC |
+| `nmfkc.inference()` | Sandwich SE and wild bootstrap p-values for `nmfkc` |
+| `nmfkc.DOT()` / `nmfkc.ar.DOT()` / `nmf.sem.DOT()` / `nmfae.DOT()` | Graphviz path diagrams; render with `plot()` |
 
-## Model Selection & Diagnostics
-- **nmfkc.rank**: Rank selection (elbow + Wold's CV + CPCC)
-- **nmfkc.ecv** / **nmfkc.cv**: Element-wise / column-wise cross-validation
-- **nmfkc.criterion**: Standalone criterion computation
-- **nmfkc.residual.plot**: Visualizes original, fitted, and residual matrices
-
-## Covariate Engineering
-- **nmfkc.kernel** / **nmfkc.kernel.gaussian**: Kernel matrix construction
-- **nmfkc.ar**: Lagged matrices for NMF-VAR
-- **nmfkc.class**: One-hot encoding for classification
-
-## Inference & Visualization
-- **nmfkc.inference** / **nmfae.inference**: Statistical inference for NMF / NMF-AE
-- **nmfkc.DOT** / **nmfae.DOT** / **nmfkc.ar.DOT** / **nmf.sem.DOT**: Graphviz DOT diagrams
-- **nmfkc.ar.predict** / **nmfkc.ar.stationarity**: Forecasting and stability for NMF-VAR
-
-## S3 Methods
-`coef()`, `fitted()`, `residuals()`, `plot()`, `summary()`, `predict()` for all model classes.
+S3 methods `coef()`, `fitted()`, `residuals()`, `plot()`, `summary()`, `predict()` are available for all model classes. See `?nmfkc` or `browseVignettes("nmfkc")` for the full function list.
 
 # References
 
 - Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359. <https://arxiv.org/abs/2403.05359>
 - Satoh, K. (2025). Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model. *Japanese Journal of Statistics and Data Science*. <https://doi.org/10.1007/s42081-025-00314-0>
 - Satoh, K. (2025). Applying non-negative matrix factorization with covariates to label matrix for classification. arXiv:2510.10375. <https://arxiv.org/abs/2510.10375>
+- Satoh, K. (2025). Applying non-negative matrix factorization with covariates to structural equation modeling for blind input-output analysis. arXiv:2512.18250. <https://arxiv.org/abs/2512.18250>
 - Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix Factorization with Random Effects. arXiv:2603.01468. <https://arxiv.org/abs/2603.01468>

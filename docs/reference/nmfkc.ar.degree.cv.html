@@ -13,7 +13,7 @@ This function accepts both standard matrices (Variables x Time) and ts objects
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -117,27 +117,31 @@ following the <code>ar</code> function in the <span class="pkg">stats</span> pac
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># install.packages("remotes")</span></span></span>
-<span class="r-in"><span><span class="co"># remotes::install_github("ksatohds/nmfkc")</span></span></span>
-<span class="r-in"><span><span class="co"># Example using ts object directly</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Example using ts object directly</span></span></span>
 <span class="r-in"><span><span class="va">d</span> <span class="op">&lt;-</span> <span class="va">AirPassengers</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Selection of degree (using ts object)</span></span></span>
 <span class="r-in"><span><span class="co"># Note: Y is automatically transposed if it is a ts object</span></span></span>
-<span class="r-in"><span><span class="fu">nmfkc.ar.degree.cv</span><span class="op">(</span>Y<span class="op">=</span><span class="va">d</span>, Q<span class="op">=</span><span class="fl">1</span>, degree<span class="op">=</span><span class="fl">11</span><span class="op">:</span><span class="fl">14</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">nmfkc.ar.degree.cv</span><span class="op">(</span>Y<span class="op">=</span><span class="va">d</span>, rank<span class="op">=</span><span class="fl">1</span>, degree<span class="op">=</span><span class="fl">11</span><span class="op">:</span><span class="fl">14</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> degree=11...</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Skipping degree=11 due to error: formal argument "Q" matched by multiple actual arguments</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Skipped (Error)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> degree=12...</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Skipping degree=12 due to error: formal argument "Q" matched by multiple actual arguments</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Skipped (Error)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> degree=13...</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Skipping degree=13 due to error: formal argument "Q" matched by multiple actual arguments</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Skipped (Error)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> degree=14...</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Skipping degree=14 due to error: formal argument "Q" matched by multiple actual arguments</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Skipped (Error)</span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in nmfkc.ar.degree.cv(Y = d, Q = 1, degree = 11:14):</span> Cross-validation failed for all candidate degrees.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
+<span class="r-plt img"><img src="nmfkc.ar.degree.cv-1.png" alt="" width="700" height="433"></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $degree</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 12</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $degree.max</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 21</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $objfunc</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       11       12       13       14 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 507.7053 271.4061 276.0141 278.1065 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

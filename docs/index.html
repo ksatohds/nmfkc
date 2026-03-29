@@ -15,8 +15,8 @@
 <link href="deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
 <meta property="og:title" content="Non-Negative Matrix Factorization with Kernel Covariates">
-<meta name="description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects, together with wild bootstrap inference.">
-<meta property="og:description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects, together with wild bootstrap inference.">
+<meta name="description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects together with wild bootstrap inference, and NMF-based Structural Equation Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output model for blind source separation and path analysis.">
+<meta property="og:description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects together with wild bootstrap inference, and NMF-based Structural Equation Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output model for blind source separation and path analysis.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -26,7 +26,7 @@
 
     <a class="navbar-brand me-2" href="index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.5</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -197,65 +197,59 @@
 </div>
 </div>
 <div class="section level1">
-<h1 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a>
+<h1 id="main-functions">Main Functions<a class="anchor" aria-label="anchor" href="#main-functions"></a>
 </h1>
-<div class="section level2">
-<h2 id="core-algorithm">Core Algorithm<a class="anchor" aria-label="anchor" href="#core-algorithm"></a>
-</h2>
-<ul>
-<li>
-<strong>nmfkc</strong>: Standard NMF with covariates (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>≈</mo><mi>X</mi><mi>C</mi><mi>A</mi></mrow><annotation encoding="application/x-tex">Y \approx XCA</annotation></semantics></math>)</li>
-<li>
-<strong>nmfae</strong>: NMF Autoencoder</li>
-<li>
-<strong>nmfre</strong> / <strong>nmfre.inference</strong>: NMF with Random Effects + wild bootstrap inference</li>
-<li>
-<strong>nmf.sem</strong> / <strong>nmf.sem.inference</strong>: NMF Structural Equation Model + C2 inference</li>
-</ul>
-</div>
-<div class="section level2">
-<h2 id="model-selection--diagnostics">Model Selection &amp; Diagnostics<a class="anchor" aria-label="anchor" href="#model-selection--diagnostics"></a>
-</h2>
-<ul>
-<li>
-<strong>nmfkc.rank</strong>: Rank selection (elbow + Wold’s CV + CPCC)</li>
-<li>
-<strong>nmfkc.ecv</strong> / <strong>nmfkc.cv</strong>: Element-wise / column-wise cross-validation</li>
-<li>
-<strong>nmfkc.criterion</strong>: Standalone criterion computation</li>
-<li>
-<strong>nmfkc.residual.plot</strong>: Visualizes original, fitted, and residual matrices</li>
-</ul>
-</div>
-<div class="section level2">
-<h2 id="covariate-engineering">Covariate Engineering<a class="anchor" aria-label="anchor" href="#covariate-engineering"></a>
-</h2>
-<ul>
-<li>
-<strong>nmfkc.kernel</strong> / <strong>nmfkc.kernel.gaussian</strong>: Kernel matrix construction</li>
-<li>
-<strong>nmfkc.ar</strong>: Lagged matrices for NMF-VAR</li>
-<li>
-<strong>nmfkc.class</strong>: One-hot encoding for classification</li>
-</ul>
-</div>
-<div class="section level2">
-<h2 id="inference--visualization">Inference &amp; Visualization<a class="anchor" aria-label="anchor" href="#inference--visualization"></a>
-</h2>
-<ul>
-<li>
-<strong>nmfkc.inference</strong> / <strong>nmfae.inference</strong>: Statistical inference for NMF / NMF-AE</li>
-<li>
-<strong>nmfkc.DOT</strong> / <strong>nmfae.DOT</strong> / <strong>nmfkc.ar.DOT</strong> / <strong>nmf.sem.DOT</strong>: Graphviz DOT diagrams</li>
-<li>
-<strong>nmfkc.ar.predict</strong> / <strong>nmfkc.ar.stationarity</strong>: Forecasting and stability for NMF-VAR</li>
-</ul>
-</div>
-<div class="section level2">
-<h2 id="s3-methods">S3 Methods<a class="anchor" aria-label="anchor" href="#s3-methods"></a>
-</h2>
-<p><code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code>, <code><a href="https://rdrr.io/r/stats/fitted.values.html" class="external-link">fitted()</a></code>, <code><a href="https://rdrr.io/r/stats/residuals.html" class="external-link">residuals()</a></code>, <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> for all model classes.</p>
-</div>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th align="left">Function</th>
+<th align="left">Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td align="left"><code><a href="reference/nmfkc.html">nmfkc()</a></code></td>
+<td align="left">Core NMF with covariates (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>≈</mo><mi>X</mi><mi>C</mi><mi>A</mi></mrow><annotation encoding="application/x-tex">Y \approx XCA</annotation></semantics></math>); supports kernel matrices and formula interface</td>
+</tr>
+<tr>
+<td align="left">
+<code><a href="reference/nmfre.html">nmfre()</a></code> / <code><a href="reference/nmfre.inference.html">nmfre.inference()</a></code>
+</td>
+<td align="left">NMF with Random Effects + wild bootstrap inference</td>
+</tr>
+<tr>
+<td align="left">
+<code><a href="reference/nmf.sem.html">nmf.sem()</a></code> / <code><a href="reference/nmf.sem.inference.html">nmf.sem.inference()</a></code>
+</td>
+<td align="left">NMF Structural Equation Model + inference for path coefficients</td>
+</tr>
+<tr>
+<td align="left">
+<code><a href="reference/nmfae.html">nmfae()</a></code> / <code><a href="reference/nmfae.inference.html">nmfae.inference()</a></code>
+</td>
+<td align="left">NMF Autoencoder + inference</td>
+</tr>
+<tr>
+<td align="left"><code><a href="reference/nmfkc.rank.html">nmfkc.rank()</a></code></td>
+<td align="left">Rank selection via elbow, cross-validation, ECV, and CPCC</td>
+</tr>
+<tr>
+<td align="left"><code><a href="reference/nmfkc.inference.html">nmfkc.inference()</a></code></td>
+<td align="left">Sandwich SE and wild bootstrap p-values for <code>nmfkc</code>
+</td>
+</tr>
+<tr>
+<td align="left">
+<code><a href="reference/nmfkc.DOT.html">nmfkc.DOT()</a></code> / <code><a href="reference/nmfkc.ar.DOT.html">nmfkc.ar.DOT()</a></code> / <code><a href="reference/nmf.sem.DOT.html">nmf.sem.DOT()</a></code> / <code><a href="reference/nmfae.DOT.html">nmfae.DOT()</a></code>
+</td>
+<td align="left">Graphviz path diagrams; render with <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>
+</td>
+</tr>
+</tbody>
+</table>
+<p>S3 methods <code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code>, <code><a href="https://rdrr.io/r/stats/fitted.values.html" class="external-link">fitted()</a></code>, <code><a href="https://rdrr.io/r/stats/residuals.html" class="external-link">residuals()</a></code>, <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> are available for all model classes. See <code><a href="reference/nmfkc.html">?nmfkc</a></code> or <code>browseVignettes("nmfkc")</code> for the full function list.</p>
 </div>
 <div class="section level1">
 <h1 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -266,6 +260,8 @@
 <li>Satoh, K. (2025). Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model. <em>Japanese Journal of Statistics and Data Science</em>. <a href="https://doi.org/10.1007/s42081-025-00314-0" class="external-link uri">https://doi.org/10.1007/s42081-025-00314-0</a>
 </li>
 <li>Satoh, K. (2025). Applying non-negative matrix factorization with covariates to label matrix for classification. arXiv:2510.10375. <a href="https://arxiv.org/abs/2510.10375" class="external-link uri">https://arxiv.org/abs/2510.10375</a>
+</li>
+<li>Satoh, K. (2025). Applying non-negative matrix factorization with covariates to structural equation modeling for blind input-output analysis. arXiv:2512.18250. <a href="https://arxiv.org/abs/2512.18250" class="external-link uri">https://arxiv.org/abs/2512.18250</a>
 </li>
 <li>Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix Factorization with Random Effects. arXiv:2603.01468. <a href="https://arxiv.org/abs/2603.01468" class="external-link uri">https://arxiv.org/abs/2603.01468</a>
 </li>

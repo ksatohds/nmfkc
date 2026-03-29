@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,6 +41,60 @@
       <small>Source: <a href="https://github.com/ksatohds/nmfkc/blob/HEAD/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.6.6" id="nmfkc-066">nmfkc 0.6.6<a class="anchor" aria-label="anchor" href="#nmfkc-066"></a></h2>
+<div class="section level4">
+<h4 id="new-functions-0-6-6"><strong>New Functions</strong><a class="anchor" aria-label="anchor" href="#new-functions-0-6-6"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfkc.criterion.html">nmfkc.criterion()</a></code>: Extracted criterion computation from <code><a href="../reference/nmfkc.html">nmfkc()</a></code> as a standalone exported function. Supports <code>detail = "full"</code> / <code>"fast"</code> / <code>"minimal"</code> to control computation cost.</li>
+<li>
+<code><a href="../reference/nmfre.inference.html">nmfre.inference()</a></code>: Separated statistical inference from <code><a href="../reference/nmfre.html">nmfre()</a></code> optimization. Returns coefficient table with SE, z-values, and p-values via wild bootstrap.</li>
+<li>
+<code><a href="../reference/nmf.sem.inference.html">nmf.sem.inference()</a></code>: Statistical inference for the C2 parameter matrix in NMF-SEM. Uses sandwich SE and wild bootstrap.</li>
+<li>S3 methods <code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code>, <code><a href="https://rdrr.io/r/stats/fitted.values.html" class="external-link">fitted()</a></code>, <code><a href="https://rdrr.io/r/stats/residuals.html" class="external-link">residuals()</a></code> for all model classes (<code>nmfkc</code>, <code>nmfae</code>, <code>nmfre</code>, <code>nmf.sem</code>).</li>
+<li>S3 methods <code><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot()</a></code> for <code>nmfre</code> and <code>nmf.sem</code> (convergence diagnostics).</li>
+<li>
+<code><a href="../reference/summary.nmf.sem.html">summary.nmf.sem()</a></code>: Stability diagnostics, fit statistics, and C2 coefficient table.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="parameter-renames-old-names-remain-usable-for-backward-compatibility-0-6-6">
+<strong>Parameter Renames</strong> (old names remain usable for backward compatibility)<a class="anchor" aria-label="anchor" href="#parameter-renames-old-names-remain-usable-for-backward-compatibility-0-6-6"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code>: <code>save.time</code> / <code>save.memory</code> → <code>detail</code>
+</li>
+<li>
+<code><a href="../reference/nmfae.html">nmfae()</a></code>: <code>Q</code> → <code>rank</code>, <code>R</code> → <code>rank.encoder</code>
+</li>
+<li>
+<code><a href="../reference/nmfre.html">nmfre()</a></code>: <code>Q</code> → <code>rank</code>, <code>dfU.cap.rate</code> → <code>df.rate</code>
+</li>
+<li>
+<code><a href="../reference/nmfre.dfU.scan.html">nmfre.dfU.scan()</a></code>, <code><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv()</a></code>: <code>Q</code> → <code>rank</code>
+</li>
+<li>
+<code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfae.ecv.html">nmfae.ecv()</a></code>, <code><a href="../reference/nmfae.cv.html">nmfae.cv()</a></code>, <code><a href="../reference/nmf.sem.cv.html">nmf.sem.cv()</a></code>: <code>div</code> → <code>nfolds</code>
+</li>
+<li>
+<code><a href="../reference/nmfkc.residual.plot.html">nmfkc.residual.plot()</a></code>: <code>Y_XB_palette</code> → <code>fitted.palette</code>, <code>E_palette</code> → <code>residual.palette</code>
+</li>
+<li>
+<code><a href="../reference/nmfkc.kernel.beta.nearest.med.html">nmfkc.kernel.beta.nearest.med()</a></code>: <code>block_size</code> → <code>block.size</code>, <code>sample_size</code> → <code>sample.size</code>
+</li>
+</ul></div>
+<div class="section level4">
+<h4 id="other-improvements-0-6-6"><strong>Other Improvements</strong><a class="anchor" aria-label="anchor" href="#other-improvements-0-6-6"></a></h4>
+<ul><li>
+<code>hide.isolated</code> option added to all <code>.DOT</code> functions (default <code>TRUE</code>).</li>
+<li>
+<code><a href="../reference/nmf.sem.DOT.html">nmf.sem.DOT()</a></code>: Added <code>sig.level</code> parameter; C2 edges decorated with significance stars.</li>
+<li>
+<code><a href="../reference/nmfkc.html">nmfkc()</a></code>: Added <code>X.restriction = "none"</code> option and <code>X.init = "kmeansar"</code> initialization.</li>
+<li>Added arXiv/DOI references to roxygen documentation for all main functions.</li>
+<li>
+<code>@section Lifecycle: Experimental</code> added to <code><a href="../reference/nmfae.html">nmfae()</a></code>.</li>
+<li>Removed <code>mc.cores</code> parallel option from <code><a href="../reference/nmfae.ecv.html">nmfae.ecv()</a></code> for CRAN compliance.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.6.0" id="nmfkc-060">nmfkc 0.6.0<a class="anchor" aria-label="anchor" href="#nmfkc-060"></a></h2>
 <div class="section level4">

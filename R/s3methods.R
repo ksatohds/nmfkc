@@ -173,13 +173,16 @@ summary.nmf.sem <- function(object, ...) {
 #' If inference has not been run, returns the parameter matrix \eqn{C}
 #' (\eqn{\Theta}) directly.
 #'
-#' @param object A fitted model object.
+#' For \code{nmf.sem} objects, returns \eqn{C_2} (exogenous block) as fallback.
+#'
+#' @param object A fitted model object of class \code{"nmf"}, \code{"nmfkc"},
+#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.
 #' @param ... Not used.
 #' @return A data frame of coefficients (if inference was performed),
 #'   or the parameter matrix \eqn{C}.
 #' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}},
 #'   \code{\link{nmfre.inference}}
-#' @name coef.nmfkc
+#' @name coef.nmf
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
@@ -191,26 +194,13 @@ summary.nmf.sem <- function(object, ...) {
 #'
 NULL
 
-#' @rdname coef.nmfkc
+#' @rdname coef.nmf
 #' @export
-coef.nmfkc <- function(object, ...) {
+coef.nmf <- function(object, ...) {
   if (!is.null(object$coefficients)) object$coefficients else object$C
 }
 
-#' @rdname coef.nmfkc
-#' @export
-coef.nmfae <- function(object, ...) {
-  if (!is.null(object$coefficients)) object$coefficients else object$C
-}
-
-#' @rdname coef.nmfkc
-#' @export
-coef.nmfre <- function(object, ...) {
-  if (!is.null(object$coefficients)) object$coefficients else object$C
-}
-
-
-#' @rdname coef.nmfkc
+#' @rdname coef.nmf
 #' @export
 coef.nmf.sem <- function(object, ...) {
   if (!is.null(object$coefficients)) object$coefficients else object$C2
@@ -229,37 +219,24 @@ coef.nmf.sem <- function(object, ...) {
 #' \code{Y2} to get the direct reconstruction
 #' \eqn{X (C_1 Y_1 + C_2 Y_2)} instead.
 #'
-#' @param object A fitted model object.
+#' @param object A fitted model object of class \code{"nmf"}, \code{"nmfkc"},
+#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.
 #' @param ... For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.
 #' @return The fitted matrix \eqn{X B}.
-#' @name fitted.nmfkc
+#' @name fitted.nmf
 #' @examples
 #' result <- nmfkc(matrix(runif(50), 5, 10), Q = 2)
 #' fitted(result)
 #'
 NULL
 
-#' @rdname fitted.nmfkc
+#' @rdname fitted.nmf
 #' @export
-fitted.nmfkc <- function(object, ...) {
+fitted.nmf <- function(object, ...) {
   object$XB
 }
 
-#' @rdname fitted.nmfkc
-#' @export
-fitted.nmfae <- function(object, ...) {
-  # nmfae stores reconstruction in XB (= X1 %*% C %*% X2 %*% Y2)
-  object$XB
-}
-
-#' @rdname fitted.nmfkc
-#' @export
-fitted.nmfre <- function(object, ...) {
-  # XB.blup includes random effects; XB is fixed-effects only
-  object$XB
-}
-
-#' @rdname fitted.nmfkc
+#' @rdname fitted.nmf
 #' @export
 fitted.nmf.sem <- function(object, ...) {
   extra <- list(...)
@@ -296,7 +273,7 @@ fitted.nmf.sem <- function(object, ...) {
 #'   \code{"fixed"}.
 #' @param ... Not used.
 #' @return The residual matrix.
-#' @name residuals.nmfkc
+#' @name residuals.nmf
 #' @examples
 #' Y <- matrix(runif(50), 5, 10)
 #' result <- nmfkc(Y, Q = 2)
@@ -304,19 +281,13 @@ fitted.nmf.sem <- function(object, ...) {
 #'
 NULL
 
-#' @rdname residuals.nmfkc
+#' @rdname residuals.nmf
 #' @export
-residuals.nmfkc <- function(object, Y, ...) {
+residuals.nmf <- function(object, Y, ...) {
   Y - object$XB
 }
 
-#' @rdname residuals.nmfkc
-#' @export
-residuals.nmfae <- function(object, Y, ...) {
-  Y - object$XB
-}
-
-#' @rdname residuals.nmfkc
+#' @rdname residuals.nmf
 #' @export
 residuals.nmfre <- function(object, Y, type = c("blup", "fixed"), ...) {
   type <- match.arg(type)
@@ -327,7 +298,7 @@ residuals.nmfre <- function(object, Y, type = c("blup", "fixed"), ...) {
   }
 }
 
-#' @rdname residuals.nmfkc
+#' @rdname residuals.nmf
 #' @export
 residuals.nmf.sem <- function(object, Y, ...) {
   extra <- list(...)
@@ -338,4 +309,22 @@ residuals.nmf.sem <- function(object, Y, ...) {
   } else {
     stop("Leontief inverse is NA; cannot compute residuals.")
   }
+}
+
+
+# --- print.nmf.inference ---
+
+#' @title Print method for NMF inference objects
+#' @description
+#' Prints a summary of any NMF inference result object
+#' (\code{"nmfkc.inference"} or \code{"nmfae.inference"}).
+#' @param x An object of class \code{"nmf.inference"}.
+#' @param ... Additional arguments passed to the corresponding
+#'   \code{print.summary.*} method.
+#' @return Called for its side effect (printing). Returns \code{x} invisibly.
+#' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}}
+#' @export
+print.nmf.inference <- function(x, ...) {
+  print(summary(x), ...)
+  invisible(x)
 }

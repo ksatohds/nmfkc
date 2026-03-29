@@ -1,12 +1,3 @@
-.onAttach <- function(libname, pkgname) {
-  packageStartupMessage(
-    paste("Package: nmfkc (Version", as.character(utils::packageVersion("nmfkc")), ")")
-  )
-  packageStartupMessage("https://ksatohds.github.io/nmfkc/")
-}
-
-
-
 
 
 
@@ -196,15 +187,13 @@ nmfkc.kernel.gaussian <- function(U, V = NULL, beta = 0.5,
 #' @source Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model.
 #'   arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 #' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
 #' # Example.
 #' Y <- matrix(cars$dist,nrow=1)
 #' U <- matrix(c(5,10,15,20,25),nrow=1)
 #' V <- matrix(cars$speed,nrow=1)
 #' A <- nmfkc.kernel(U,V,beta=28/1000)
 #' dim(A)
-#' result <- nmfkc(Y,A,Q=1)
+#' result <- nmfkc(Y,A,rank=1)
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
@@ -527,7 +516,7 @@ nmfkc.kernel.beta.nearest.med <- function(
 #' \code{nmfkc.kernel.beta.cv} selects the optimal beta parameter of the kernel function by applying cross-validation over a set of candidate values.
 #'
 #' @param Y Observation matrix \eqn{Y(P,N)}.
-#' @param Q Rank of the basis matrix.
+#' @param rank Rank of the basis matrix.
 #' @param U Covariate matrix \eqn{U(K,N) = (u_1, \dots, u_N)}. Each row may be normalized in advance.
 #' @param V Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.
 #' @param beta A numeric vector of candidate kernel parameters to evaluate via cross-validation.
@@ -539,20 +528,20 @@ nmfkc.kernel.beta.nearest.med <- function(
 #' \item{objfunc}{Objective function values for each candidate \code{beta}.}
 #' @export
 #' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
 #' # Example.
 #' Y <- matrix(cars$dist,nrow=1)
 #' U <- matrix(c(5,10,15,20,25),nrow=1)
 #' V <- matrix(cars$speed,nrow=1)
-#' nmfkc.kernel.beta.cv(Y,Q=1,U,V,beta=25:30/1000)
+#' nmfkc.kernel.beta.cv(Y,rank=1,U,V,beta=25:30/1000)
 #' A <- nmfkc.kernel(U,V,beta=28/1000)
-#' result <- nmfkc(Y,A,Q=1)
+#' result <- nmfkc(Y,A,rank=1)
 #' plot(as.vector(V),as.vector(Y))
 #' lines(as.vector(V),as.vector(result$XB),col=2,lwd=2)
 
-nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
+nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   extra_args <- list(...)
+  if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  Q <- rank
   kernel_arg_names <- names(formals(nmfkc.kernel))
   cv_arg_names <- names(formals(nmfkc.cv))
   kernel_args_for_call <- extra_args[names(extra_args) %in% kernel_arg_names]
@@ -1154,18 +1143,14 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   In \emph{Proc. 12th ACM SIGKDD} (pp. 126--135).
 #'   \doi{10.1145/1150402.1150420}
 #' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
 #' # Example 1. Matrix Mode (Existing)
-#' library(nmfkc)
 #' X <- cbind(c(1,0,1),c(0,1,0))
 #' B <- cbind(c(1,0),c(0,1),c(1,1))
 #' Y <- X %*% B
 #' rownames(Y) <- paste0("P",1:nrow(Y))
 #' colnames(Y) <- paste0("N",1:ncol(Y))
 #' print(X); print(B); print(Y)
-#' library(nmfkc)
-#' res <- nmfkc(Y,Q=2,epsilon=1e-6)
+#' res <- nmfkc(Y,rank=2,epsilon=1e-6)
 #' res$X
 #' res$B
 #'
@@ -1177,12 +1162,12 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'
 #' # Example 3. Symmetric NMF (bi: Y ~ X X^T)
 #' S <- matrix(c(3,0,2, 0,3,1, 2,1,2), nrow=3)
-#' res_bi <- nmfkc(S, Q=2, Y.symmetric="bi")
+#' res_bi <- nmfkc(S, rank=2, Y.symmetric="bi")
 #' res_bi$X   # basis matrix (no column normalization)
 #' res_bi$XB  # reconstruction X %*% t(X)
 #'
 #' # Example 4. Symmetric NMF (tri: Y ~ X C X^T)
-#' res_tri <- nmfkc(S, Q=2, Y.symmetric="tri")
+#' res_tri <- nmfkc(S, rank=2, Y.symmetric="tri")
 #' res_tri$C  # Q x Q cluster interaction matrix
 #' res_tri$XB # reconstruction X %*% C %*% t(X)
 #'
@@ -1532,7 +1517,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     mae = mae,
     criterion = crit_result$criterion
   )
-  class(result) <- "nmfkc"
+  class(result) <- c("nmfkc", "nmf")
   return(result)
 }
 
@@ -1561,7 +1546,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
-#' result <- nmfkc(Y, A, Q = 1)
+#' result <- nmfkc(Y, A, rank = 1)
 #' plot(result)
 #'
 #' @export
@@ -1589,7 +1574,7 @@ plot.nmfkc <- function(x,...){
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
-#' result <- nmfkc(Y, A, Q = 1)
+#' result <- nmfkc(Y, A, rank = 1)
 #' summary(result)
 #'
 #' @export
@@ -1652,7 +1637,7 @@ summary.nmfkc <- function(object, ...) {
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
-#' result <- nmfkc(Y, A, Q = 1)
+#' result <- nmfkc(Y, A, rank = 1)
 #' print(summary(result))
 #'
 #' @export
@@ -1726,8 +1711,6 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 #' @seealso \code{\link{nmfkc.denormalize}}
 #' @export
 #' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
 #' # Example.
 #' x <- nmfkc.normalize(iris[,-5])
 #' apply(x,2,range)
@@ -1789,8 +1772,6 @@ nmfkc.denormalize <- function(x, ref=x) {
 #' @seealso \code{\link{nmfkc}}
 #' @export
 #' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
 #' # Example.
 #' Y <- nmfkc.class(iris$Species)
 #' Y[,1:6]
@@ -1832,7 +1813,7 @@ nmfkc.class <- function(x){
 #' # Prediction with newA
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
-#' result <- nmfkc(Y, A, Q = 1)
+#' result <- nmfkc(Y, A, rank = 1)
 #' newA <- rbind(1, c(10, 20, 30))
 #' predict(result, newA = newA)
 #'
@@ -1941,7 +1922,7 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response"
 #' # Example 1 (with explicit covariates):
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
-#' res <- nmfkc.cv(Y, A, Q = 1)
+#' res <- nmfkc.cv(Y, A, rank = 1)
 #' res$objfunc
 #'
 #' # Example 2 (kernel A and beta sweep):
@@ -1952,7 +1933,7 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response"
 #' obj <- numeric(length(betas))
 #' for (i in seq_along(betas)) {
 #'   A <- nmfkc.kernel(U, V, beta = betas[i])
-#'   obj[i] <- nmfkc.cv(Y, A, Q = 1, div = 10)$objfunc
+#'   obj[i] <- nmfkc.cv(Y, A, rank = 1, nfolds = 10)$objfunc
 #' }
 #' betas[which.min(obj)]
 #'
@@ -2212,7 +2193,7 @@ nmfkc.cv <- function(Y, A=NULL, Q=2, data, ...){
 #' @examples
 #' # Element-wise CV to select rank
 #' Y <- t(iris[1:30, 1:4])
-#' res <- nmfkc.ecv(Y, Q = 1:2, div = 3)
+#' res <- nmfkc.ecv(Y, rank = 1:2, nfolds = 3)
 #' res$objfunc
 #'
 #' @export
@@ -2398,7 +2379,7 @@ nmfkc.ecv <- function(Y, A=NULL, Q=1:3, nfolds=5, seed=123, data, ...){
 #' @export
 #' @examples
 #' Y <- t(iris[, -5])
-#' res <- nmfkc(Y, Q = 3, detail = "fast")
+#' res <- nmfkc(Y, rank = 3, detail = "fast")
 #' crit <- nmfkc.criterion(res, Y)
 #' crit$criterion$silhouette
 #'
@@ -2583,10 +2564,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' \emph{Applied Artificial Intelligence}, 22(7–8), 780–810.
 #' \doi{10.1080/08839510802170546}
 #' @examples
-#' # install.packages("remotes")
-#' # remotes::install_github("ksatohds/nmfkc")
 #' # Example.
-#' library(nmfkc)
 #' Y <- t(iris[,-5])
 #' # Full run (default)
 #' nmfkc.rank(Y, rank=1:4)
@@ -2855,7 +2833,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", save.time=FALSE, plot
 #' @return NULL. The function generates a plot.
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
-#' result <- nmfkc(Y, Q = 2)
+#' result <- nmfkc(Y, rank = 2)
 #' nmfkc.residual.plot(Y, result)
 #'
 #' @export
@@ -3165,7 +3143,7 @@ nmfkc.residual.plot <- function(Y, result,
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(intercept = 1, speed = cars$speed)
-#' result <- nmfkc(Y, A, Q = 1)
+#' result <- nmfkc(Y, A, rank = 1)
 #' result2 <- nmfkc.inference(result, Y, A)
 #' summary(result2)
 #'
@@ -3319,7 +3297,7 @@ nmfkc.inference <- function(object, Y, A = NULL,
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
-  class(object) <- c("nmfkc.inference", "nmfkc")
+  class(object) <- c("nmfkc.inference", "nmf.inference", "nmfkc", "nmf")
   return(object)
 }
 
@@ -3441,16 +3419,4 @@ print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits"
 }
 
 
-#' @title Print method for nmfkc.inference objects
-#' @description
-#' Prints a summary of the NMF model with inference results.
-#' @param x An object of class \code{"nmfkc.inference"}.
-#' @param ... Additional arguments passed to \code{\link{print.summary.nmfkc.inference}}.
-#' @return Called for its side effect (printing). Returns \code{x} invisibly.
-#' @seealso \code{\link{nmfkc.inference}}, \code{\link{summary.nmfkc.inference}}
-#' @export
-print.nmfkc.inference <- function(x, ...) {
-  print(summary(x), ...)
-  invisible(x)
-}
 

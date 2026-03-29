@@ -1,4 +1,4 @@
-# nmfkc 0.6.5
+# nmfkc 0.6.6
 
 ### **New Functions**
 - `nmfkc.criterion()`: Extracted criterion computation from `nmfkc()` as a standalone exported function. Supports `detail = "full"` / `"fast"` / `"minimal"` to control computation cost.

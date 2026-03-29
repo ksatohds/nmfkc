@@ -908,7 +908,7 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
     C.p.side = C.p.side
   )
 
-  class(out) <- "nmfre"
+  class(out) <- c("nmfre", "nmf")
   out
 }
 

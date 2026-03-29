@@ -66,7 +66,7 @@ outputs are arranged in separate clusters.
 \examples{
 d <- AirPassengers
 ar_data <- nmfkc.ar(d, degree = 2)
-result <- nmfkc(ar_data$Y, ar_data$A, Q = 1)
+result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
 dot <- nmfkc.ar.DOT(result, degree = 2)
 cat(dot)
 

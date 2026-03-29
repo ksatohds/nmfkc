@@ -18,8 +18,6 @@ A binary matrix with one row per unique category and one column per observation.
 and each column corresponds to an observation.
 }
 \examples{
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
 # Example.
 Y <- nmfkc.class(iris$Species)
 Y[,1:6]

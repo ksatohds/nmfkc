@@ -58,10 +58,7 @@ The plot explicitly marks the "BEST" rank based on two criteria:
 }
 }
 \examples{
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
 # Example.
-library(nmfkc)
 Y <- t(iris[,-5])
 # Full run (default)
 nmfkc.rank(Y, rank=1:4)

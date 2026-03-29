@@ -131,18 +131,14 @@ The rank of the basis matrix can be specified using either the \code{rank} argum
 (preferred for formula mode) or the hidden \code{Q} argument (for backward compatibility).
 }
 \examples{
-# install.packages("remotes")
-# remotes::install_github("ksatohds/nmfkc")
 # Example 1. Matrix Mode (Existing)
-library(nmfkc)
 X <- cbind(c(1,0,1),c(0,1,0))
 B <- cbind(c(1,0),c(0,1),c(1,1))
 Y <- X \%*\% B
 rownames(Y) <- paste0("P",1:nrow(Y))
 colnames(Y) <- paste0("N",1:ncol(Y))
 print(X); print(B); print(Y)
-library(nmfkc)
-res <- nmfkc(Y,Q=2,epsilon=1e-6)
+res <- nmfkc(Y,rank=2,epsilon=1e-6)
 res$X
 res$B
 
@@ -154,12 +150,12 @@ res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 
 # Example 3. Symmetric NMF (bi: Y ~ X X^T)
 S <- matrix(c(3,0,2, 0,3,1, 2,1,2), nrow=3)
-res_bi <- nmfkc(S, Q=2, Y.symmetric="bi")
+res_bi <- nmfkc(S, rank=2, Y.symmetric="bi")
 res_bi$X   # basis matrix (no column normalization)
 res_bi$XB  # reconstruction X \%*\% t(X)
 
 # Example 4. Symmetric NMF (tri: Y ~ X C X^T)
-res_tri <- nmfkc(S, Q=2, Y.symmetric="tri")
+res_tri <- nmfkc(S, rank=2, Y.symmetric="tri")
 res_tri$C  # Q x Q cluster interaction matrix
 res_tri$XB # reconstruction X \%*\% C \%*\% t(X)
 

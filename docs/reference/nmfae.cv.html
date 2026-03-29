@@ -19,7 +19,7 @@ Y2[train, train] for training and Y2[train, test] for prediction."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -69,8 +69,8 @@ predictive performance is evaluated on the held-out samples.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmfae.cv</span><span class="op">(</span></span>
 <span>  <span class="va">Y1</span>,</span>
 <span>  Y2 <span class="op">=</span> <span class="va">Y1</span>,</span>
-<span>  Q <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  R <span class="op">=</span> <span class="va">Q</span>,</span>
+<span>  rank <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  rank.encoder <span class="op">=</span> <span class="va">rank</span>,</span>
 <span>  nfolds <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">123</span>,</span>
 <span>  shuffle <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -91,12 +91,12 @@ predictive performance is evaluated on the held-out samples.</p>
 Default is <code>Y1</code> (autoencoder).</p></dd>
 
 
-<dt id="arg-q">Q<a class="anchor" aria-label="anchor" href="#arg-q"></a></dt>
+<dt id="arg-rank">rank<a class="anchor" aria-label="anchor" href="#arg-rank"></a></dt>
 <dd><p>Integer. Rank of the decoder basis. Default is 2.</p></dd>
 
 
-<dt id="arg-r">R<a class="anchor" aria-label="anchor" href="#arg-r"></a></dt>
-<dd><p>Integer. Rank of the encoder basis. Default is <code>Q</code>.</p></dd>
+<dt id="arg-rank-encoder">rank.encoder<a class="anchor" aria-label="anchor" href="#arg-rank-encoder"></a></dt>
+<dd><p>Integer. Rank of the encoder basis. Default is <code>rank</code>.</p></dd>
 
 
 <dt id="arg-nfolds">nfolds<a class="anchor" aria-label="anchor" href="#arg-nfolds"></a></dt>
@@ -142,9 +142,8 @@ if <code>FALSE</code>, splits sequentially (block CV for time series).</p></dd>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ksatohds/nmfkc" class="external-link">nmfkc</a></span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">iris</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">30</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">]</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">nmfae.cv</span><span class="op">(</span><span class="va">Y</span>, Q <span class="op">=</span> <span class="fl">2</span>, R <span class="op">=</span> <span class="fl">2</span>, div <span class="op">=</span> <span class="fl">5</span>, maxit <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">iris</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">30</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">]</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">nmfae.cv</span><span class="op">(</span><span class="va">Y</span>, rank <span class="op">=</span> <span class="fl">2</span>, rank.encoder <span class="op">=</span> <span class="fl">2</span>, nfolds <span class="op">=</span> <span class="fl">5</span>, maxit <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">res</span><span class="op">$</span><span class="va">sigma</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.1429115</span>
 <span class="r-in"><span></span></span>

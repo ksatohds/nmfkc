@@ -53,7 +53,7 @@ training split and predictive performance is evaluated on the held-out split.
 # Example 1 (with explicit covariates):
 Y <- matrix(cars$dist, nrow = 1)
 A <- rbind(1, cars$speed)
-res <- nmfkc.cv(Y, A, Q = 1)
+res <- nmfkc.cv(Y, A, rank = 1)
 res$objfunc
 
 # Example 2 (kernel A and beta sweep):
@@ -64,7 +64,7 @@ betas <- 25:35/1000
 obj <- numeric(length(betas))
 for (i in seq_along(betas)) {
   A <- nmfkc.kernel(U, V, beta = betas[i])
-  obj[i] <- nmfkc.cv(Y, A, Q = 1, div = 10)$objfunc
+  obj[i] <- nmfkc.cv(Y, A, rank = 1, nfolds = 10)$objfunc
 }
 betas[which.min(obj)]
 

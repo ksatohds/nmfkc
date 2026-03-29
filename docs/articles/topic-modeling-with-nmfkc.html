@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -101,8 +101,6 @@ evolution</strong> of topics using the “Year” as a covariate.</li>
 <p>First, let’s load the necessary packages.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ksatohds/nmfkc" class="external-link">nmfkc</a></span><span class="op">)</span></span>
-<span><span class="co">#&gt; Package: nmfkc (Version 0.6.3 , released on 28 3 2026 )</span></span>
-<span><span class="co">#&gt; https://ksatohds.github.io/nmfkc/</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://quanteda.io" class="external-link">quanteda</a></span><span class="op">)</span></span>
 <span><span class="co">#&gt; Package version: 4.1.0</span></span>
 <span><span class="co">#&gt; Unicode version: 15.1</span></span>
@@ -277,8 +275,8 @@ using Cross-Validation.</p>
 <span><span class="co"># Note: We use the same rank (rank=3) as selected above.</span></span>
 <span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.kernel.beta.cv.html">nmfkc.kernel.beta.cv</a></span><span class="op">(</span><span class="va">Y</span>, rank <span class="op">=</span> <span class="va">rank</span>, U <span class="op">=</span> <span class="va">U</span>, beta <span class="op">=</span> <span class="va">beta_candidates</span>, plot <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; beta=2e-05...0.1sec</span></span>
-<span><span class="co">#&gt; beta=5e-05...0sec</span></span>
-<span><span class="co">#&gt; beta=1e-04...0sec</span></span>
+<span><span class="co">#&gt; beta=5e-05...0.1sec</span></span>
+<span><span class="co">#&gt; beta=1e-04...0.1sec</span></span>
 <span><span class="co">#&gt; beta=2e-04...0sec</span></span>
 <span><span class="co">#&gt; beta=5e-04...0sec</span></span>
 <span><span class="va">best_beta</span> <span class="op">&lt;-</span> <span class="va">cv_res</span><span class="op">$</span><span class="va">beta</span></span>

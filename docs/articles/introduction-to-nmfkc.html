@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -114,9 +114,7 @@ Users</strong> rating <strong>4 Movies</strong> on a scale of 1 to
 5.</p>
 <p>First, load the package.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ksatohds/nmfkc" class="external-link">nmfkc</a></span><span class="op">)</span></span>
-<span><span class="co">#&gt; Package: nmfkc (Version 0.6.3 , released on 28 3 2026 )</span></span>
-<span><span class="co">#&gt; https://ksatohds.github.io/nmfkc/</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ksatohds/nmfkc" class="external-link">nmfkc</a></span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="creating-the-data">Creating the Data<a class="anchor" aria-label="anchor" href="#creating-the-data"></a>
 </h3>
@@ -232,10 +230,10 @@ model.</p>
 <div class="section level3">
 <h3 id="convergence-plot">Convergence Plot<a class="anchor" aria-label="anchor" href="#convergence-plot"></a>
 </h3>
-<p>Use the <code><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot()</a></code> function to check if the error minimized
+<p>Use the <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> function to check if the error minimized
 properly during iterations.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span>, main <span class="op">=</span> <span class="st">"Convergence Plot"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span>, main <span class="op">=</span> <span class="st">"Convergence Plot"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="introduction-to-nmfkc_files/figure-html/plot-convergence-1.png" width="672"></p>
 </div>
 <div class="section level3">

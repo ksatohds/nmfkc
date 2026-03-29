@@ -87,7 +87,7 @@ above the threshold are omitted from the visualization.
 \examples{
 Y <- matrix(cars$dist, nrow = 1)
 A <- rbind(1, cars$speed)
-result <- nmfkc(Y, A, Q = 1)
+result <- nmfkc(Y, A, rank = 1)
 dot <- nmfkc.DOT(result)
 cat(dot)
 
