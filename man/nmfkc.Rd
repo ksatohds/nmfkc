@@ -4,7 +4,16 @@
 \alias{nmfkc}
 \title{Optimize NMF with kernel covariates (Full Support for Missing Values)}
 \usage{
-nmfkc(Y, A = NULL, rank = NULL, data, epsilon = 1e-04, maxit = 5000, ...)
+nmfkc(
+  Y,
+  A = NULL,
+  rank = NULL,
+  data,
+  epsilon = 1e-04,
+  maxit = 5000,
+  verbose = TRUE,
+  ...
+)
 }
 \arguments{
 \item{Y}{Observation matrix (P x N), OR a formula object for Formula Mode.
@@ -22,6 +31,8 @@ Ignored when \code{Y} is a formula.}
 \item{epsilon}{Positive convergence tolerance.}
 
 \item{maxit}{Maximum number of iterations.}
+
+\item{verbose}{Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.}
 
 \item{...}{Additional arguments passed for fine-tuning regularization, initialization, constraints,
 and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
@@ -70,7 +81,7 @@ For \code{"tri"}, column normalization is retained (default \code{"colSums"})
 because the free parameter matrix \eqn{C} absorbs the scale.
 \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
-\item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
+\item \code{print.dims}: Deprecated. Use \code{verbose} instead.
 \item \code{detail}: Level of post-fit criterion computation.
 \code{"full"} computes all criteria including silhouette, CPCC, dist.cor;
 \code{"fast"} skips expensive distance-based criteria;

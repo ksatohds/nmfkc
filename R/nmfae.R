@@ -30,6 +30,7 @@
 #'   Default is \code{rank}. For backward compatibility, \code{R} is accepted via \code{...}.
 #' @param epsilon Positive convergence tolerance. Default is \code{1e-4}.
 #' @param maxit Maximum number of multiplicative update iterations. Default is 5000.
+#' @param verbose Logical. If \code{TRUE}, prints progress messages during fitting. Default is \code{FALSE}.
 #' @param ... Additional arguments:
 #'   \describe{
 #'     \item{\code{Y1.weights}}{Weight matrix (P1 x N) or vector for \eqn{Y_1}.
@@ -82,7 +83,7 @@
 #' res2 <- nmfae(Y1, Y2, Q=2, R=2)
 #'
 nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
-                  epsilon = 1e-4, maxit = 5000, ...) {
+                  epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...) {
 
   cl <- match.call()
 
@@ -97,7 +98,8 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   X1.L2.ortho <- if (!is.null(extra_args$X1.L2.ortho)) extra_args$X1.L2.ortho else 0
   X2.L2.ortho <- if (!is.null(extra_args$X2.L2.ortho)) extra_args$X2.L2.ortho else 0
   seed        <- if (!is.null(extra_args$seed))        extra_args$seed        else 123
-  print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
+  print.trace <- verbose
+  if (!is.null(extra_args$print.trace)) print.trace <- extra_args$print.trace  # backward compat
 
   # --- Input validation ---
   Y1 <- as.matrix(Y1); storage.mode(Y1) <- "double"

@@ -1055,6 +1055,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @param data Optional. A data frame from which variables in the formula should be taken.
 #' @param epsilon Positive convergence tolerance.
 #' @param maxit Maximum number of iterations.
+#' @param verbose Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
 #' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints,
 #'   and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 #'   \itemize{
@@ -1102,7 +1103,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'       because the free parameter matrix \eqn{C} absorbs the scale.
 #'     \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
-#'     \item \code{print.dims}: Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
+#'     \item \code{print.dims}: Deprecated. Use \code{verbose} instead.
 #'     \item \code{detail}: Level of post-fit criterion computation.
 #'       \code{"full"} computes all criteria including silhouette, CPCC, dist.cor;
 #'       \code{"fast"} skips expensive distance-based criteria;
@@ -1188,7 +1189,7 @@ nmfkc.kernel.beta.cv <- function(Y,Q=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' res_tri$C  # Q x Q cluster interaction matrix
 #' res_tri$XB # reconstruction X %*% C %*% t(X)
 #'
-nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
+nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=TRUE, ...){
   # A small constant for numerical stability to prevent division by zero and log(0).
   .eps <- 1e-10
 
@@ -1218,7 +1219,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, ...){
 
   prefix <- if (!base::is.null(extra_args$prefix)) extra_args$prefix else "Basis"
   print.trace <- if (!base::is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
-  print.dims <- if (!base::is.null(extra_args$print.dims)) extra_args$print.dims else TRUE
+  print.dims <- verbose
+  if (!base::is.null(extra_args$print.dims)) print.dims <- extra_args$print.dims  # backward compat
   save.time <- if (!base::is.null(extra_args$save.time)) extra_args$save.time else FALSE
   save.memory <- if (!base::is.null(extra_args$save.memory)) extra_args$save.memory else FALSE
   detail <- if (!base::is.null(extra_args$detail)) extra_args$detail else NULL

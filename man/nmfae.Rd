@@ -15,6 +15,7 @@ nmfae(
   rank.encoder = rank,
   epsilon = 1e-04,
   maxit = 5000,
+  verbose = FALSE,
   ...
 )
 }
@@ -33,6 +34,8 @@ Default is \code{rank}. For backward compatibility, \code{R} is accepted via \co
 \item{epsilon}{Positive convergence tolerance. Default is \code{1e-4}.}
 
 \item{maxit}{Maximum number of multiplicative update iterations. Default is 5000.}
+
+\item{verbose}{Logical. If \code{TRUE}, prints progress messages during fitting. Default is \code{FALSE}.}
 
 \item{...}{Additional arguments:
 \describe{
