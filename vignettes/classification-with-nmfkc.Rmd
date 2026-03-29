@@ -5,6 +5,7 @@ vignette: >
   %\VignetteIndexEntry{Classification with NMF-LAB}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+  %\VignetteDepends{palmerpenguins}
 ---
 
 ```{r setup, include = FALSE}

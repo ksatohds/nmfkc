@@ -5,6 +5,7 @@ vignette: >
   %\VignetteIndexEntry{Topic Modeling with nmfkc}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+  %\VignetteDepends{quanteda}
 ---
 
 ```{r setup, include = FALSE}

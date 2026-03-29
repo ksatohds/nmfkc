@@ -5,6 +5,7 @@ vignette: >
   %\VignetteIndexEntry{Time Series Analysis with NMF-VAR}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+  %\VignetteDepends{vars}
 ---
 
 ```{r setup, include = FALSE}
