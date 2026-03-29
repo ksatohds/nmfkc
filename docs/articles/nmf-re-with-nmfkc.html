@@ -284,10 +284,10 @@ basis.</p>
 <div class="section level3">
 <h3 id="model-summary">3.1 Model Summary<a class="anchor" aria-label="anchor" href="#model-summary"></a>
 </h3>
-<p><code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code> displays variance components, fit statistics,
+<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> displays variance components, fit statistics,
 and the coefficient table with significance stars.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
 <span><span class="co">#&gt; NMF-RE: Y(4,27) = X(4,1) [C(1,2) A + U(1,27)]</span></span>
 <span><span class="co">#&gt; Iterations: 2 (converged, epsilon = 1e-05)</span></span>
 <span><span class="co">#&gt; R-squared: 0.5654 (XB+blup), 0.4167 (XB)</span></span>
@@ -360,7 +360,7 @@ population-level trends (fixed effects) and individual deviations
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">age</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">8</span>, <span class="fl">10</span>, <span class="fl">12</span>, <span class="fl">14</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">age</span>, <span class="va">res</span><span class="op">$</span><span class="va">XB</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"n"</span>, ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>,</span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">age</span>, <span class="va">res</span><span class="op">$</span><span class="va">XB</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"n"</span>, ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>,</span>
 <span>     xlab <span class="op">=</span> <span class="st">"Age (years)"</span>, ylab <span class="op">=</span> <span class="st">"Distance (mm)"</span>,</span>
 <span>     main <span class="op">=</span> <span class="st">"Orthodont: NMF-RE Growth Curves"</span><span class="op">)</span></span>
 <span></span>
@@ -497,7 +497,7 @@ slower growth.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Stop reason:"</span>, <span class="va">res</span><span class="op">$</span><span class="va">stop.reason</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Stop reason: epsilon</span></span></code></pre></div>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">objfunc.iter</span>, type <span class="op">=</span> <span class="st">"l"</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">objfunc.iter</span>, type <span class="op">=</span> <span class="st">"l"</span>,</span>
 <span>     xlab <span class="op">=</span> <span class="st">"Iteration"</span>, ylab <span class="op">=</span> <span class="st">"Objective function"</span>,</span>
 <span>     main <span class="op">=</span> <span class="st">"Convergence Trace"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="nmf-re-with-nmfkc_files/figure-html/plot-convergence-1.png" width="672"></p>
@@ -514,7 +514,7 @@ slower growth.</p>
 <span><span class="co">#&gt; Mean absolute residual (fixed): 1.7612</span></span>
 <span></span>
 <span><span class="co"># Fitted vs Observed</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">XB.blup</span><span class="op">)</span>,</span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">XB.blup</span><span class="op">)</span>,</span>
 <span>     xlab <span class="op">=</span> <span class="st">"Observed"</span>, ylab <span class="op">=</span> <span class="st">"Fitted (BLUP)"</span>,</span>
 <span>     main <span class="op">=</span> <span class="st">"Observed vs Fitted"</span>, pch <span class="op">=</span> <span class="fl">16</span>, col <span class="op">=</span> <span class="st">"steelblue"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/abline.html" class="external-link">abline</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, col <span class="op">=</span> <span class="st">"red"</span>, lwd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
@@ -577,7 +577,7 @@ graph visualization. Edges are filtered by significance level and
 decorated with stars:</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">dot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.DOT.html">nmfkc.DOT</a></span><span class="op">(</span><span class="va">res_inf</span>, type <span class="op">=</span> <span class="st">"YXA"</span>, sig.level <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">dot</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">dot</span><span class="op">)</span></span></code></pre></div>
 <hr>
 </div>
 </div>
@@ -605,7 +605,7 @@ heterogeneity</strong> in NMF:</p>
 </tr>
 <tr class="odd">
 <td align="left">3</td>
-<td align="left"><code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code></td>
+<td align="left"><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code></td>
 <td align="left">Examine variance components and inference</td>
 </tr>
 <tr class="even">
