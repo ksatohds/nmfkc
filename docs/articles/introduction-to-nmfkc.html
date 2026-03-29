@@ -13,7 +13,7 @@
 <link href="../deps/Inter-0.4.9/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="../deps/MathJax-3.2.2/tex-chtml.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
 <meta property="og:title" content="Introduction to nmfkc">
 </head>
 <body>
@@ -80,18 +80,11 @@
 beginner-friendly introduction to the core function,
 <code><a href="../reference/nmfkc.html">nmfkc()</a></code>.</p>
 <p><strong>Non-negative Matrix Factorization (NMF)</strong> is a
-technique that decomposes a large data matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>
-into two smaller matrices,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>:
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>≈</mo><mi>X</mi><mi>B</mi></mrow><annotation encoding="application/x-tex">Y \approx X B</annotation></semantics></math>
-The key feature of NMF is that all elements must be
-<strong>non-negative</strong>
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≥</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\ge 0</annotation></semantics></math>).
-This makes the results intuitive, as the original data can be understood
-as an additive combination of parts.</p>
+technique that decomposes a large data matrix <span class="math inline">\(Y\)</span> into two smaller matrices, <span class="math inline">\(X\)</span> and <span class="math inline">\(B\)</span>: <span class="math display">\[Y \approx
+X B\]</span> The key feature of NMF is that all elements must be
+<strong>non-negative</strong> (<span class="math inline">\(\ge
+0\)</span>). This makes the results intuitive, as the original data can
+be understood as an additive combination of parts.</p>
 <p>In this guide, we will cover:</p>
 <ol style="list-style-type: decimal">
 <li>
@@ -161,22 +154,15 @@ Since we assume there are 2 genres (Action and Romance), we set
 <div class="section level3">
 <h3 id="interpretation">Interpretation<a class="anchor" aria-label="anchor" href="#interpretation"></a>
 </h3>
-<p>NMF decomposes
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>
-into
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-(Basis) and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
-(Coefficient). <em>(Note: The order of bases may vary depending on the
-random seed. In this example with seed=123, Basis 1 corresponds to
-Action and Basis 2 to Romance.)</em></p>
+<p>NMF decomposes <span class="math inline">\(Y\)</span> into <span class="math inline">\(X\)</span> (Basis) and <span class="math inline">\(B\)</span> (Coefficient). <em>(Note: The order of
+bases may vary depending on the random seed. In this example with
+seed=123, Basis 1 corresponds to Action and Basis 2 to
+Romance.)</em></p>
 <div class="section level4">
 <h4 id="basis-matrix-x-user-preferences">1. Basis Matrix X: User Preferences<a class="anchor" aria-label="anchor" href="#basis-matrix-x-user-preferences"></a>
 </h4>
-<p>The matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-represents <strong>“How much each User likes each Genre
-(Basis).”</strong></p>
+<p>The matrix <span class="math inline">\(X\)</span> represents
+<strong>“How much each User likes each Genre (Basis).”</strong></p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Each column represents a latent factor (Basis)</span></span>
 <span><span class="va">res</span><span class="op">$</span><span class="va">X</span></span>
@@ -198,9 +184,8 @@ User5</strong> (Romance fans).</li>
 <div class="section level4">
 <h4 id="coefficient-matrix-b-movie-genres">2. Coefficient Matrix B: Movie Genres<a class="anchor" aria-label="anchor" href="#coefficient-matrix-b-movie-genres"></a>
 </h4>
-<p>The matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
-represents <strong>“Which Genre each Movie belongs to.”</strong></p>
+<p>The matrix <span class="math inline">\(B\)</span> represents
+<strong>“Which Genre each Movie belongs to.”</strong></p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Each row represents a latent factor</span></span>
 <span><span class="va">res</span><span class="op">$</span><span class="va">B</span></span>
@@ -240,12 +225,9 @@ properly during iterations.</p>
 <h3 id="visualizing-the-reconstruction">Visualizing the Reconstruction<a class="anchor" aria-label="anchor" href="#visualizing-the-reconstruction"></a>
 </h3>
 <p>The <code><a href="../reference/nmfkc.residual.plot.html">nmfkc.residual.plot()</a></code> function allows you to compare
-the <strong>Original Matrix
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>)</strong>,
-the <strong>Fitted Matrix
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mi>B</mi></mrow><annotation encoding="application/x-tex">XB</annotation></semantics></math>)</strong>,
-and the <strong>Residuals
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>E</mi><annotation encoding="application/x-tex">E</annotation></semantics></math>)</strong>
+the <strong>Original Matrix (<span class="math inline">\(Y\)</span>)</strong>, the <strong>Fitted Matrix
+(<span class="math inline">\(XB\)</span>)</strong>, and the
+<strong>Residuals (<span class="math inline">\(E\)</span>)</strong>
 side-by-side.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Visualize Original vs Fitted vs Residuals</span></span>
@@ -293,8 +275,7 @@ during optimization.</p>
 <div class="section level3">
 <h3 id="predicting-the-unknown-rating">Predicting the Unknown Rating<a class="anchor" aria-label="anchor" href="#predicting-the-unknown-rating"></a>
 </h3>
-<p>The fitted model
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mo>×</mo><mi>B</mi></mrow><annotation encoding="application/x-tex">X \times B</annotation></semantics></math>)
+<p>The fitted model (<span class="math inline">\(X \times B\)</span>)
 provides an estimate for the missing entry.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Extract the predicted value from the fitted matrix XB</span></span>
@@ -317,9 +298,7 @@ movie, closer to the actual rating (5) than to a low rating.</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>Decompose</strong> complex data into interpretable parts
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>).</li>
+(<span class="math inline">\(X\)</span> and <span class="math inline">\(B\)</span>).</li>
 <li>
 <strong>Handle missing values</strong> robustly for imputation and
 prediction.</li>

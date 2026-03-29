@@ -2,6 +2,7 @@ url: https://ksatohds.github.io/nmfkc/
 
 template:
   bootstrap: 5
+  math-rendering: mathjax
   bslib:
     primary: "#1e3a5f"
     secondary: "#6c7a89"

@@ -13,7 +13,7 @@
 <link href="deps/Inter-0.4.9/font.css" rel="stylesheet">
 <link href="deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
+<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><script src="deps/MathJax-3.2.2/tex-chtml.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
 <meta property="og:title" content="Non-Negative Matrix Factorization with Kernel Covariates">
 <meta name="description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects together with wild bootstrap inference, and NMF-based Structural Equation Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output model for blind source separation and path analysis.">
 <meta property="og:description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects together with wild bootstrap inference, and NMF-based Structural Equation Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output model for blind source separation and path analysis.">
@@ -174,25 +174,25 @@
 <h1 id="statistical-model">Statistical Model<a class="anchor" aria-label="anchor" href="#statistical-model"></a>
 </h1>
 <p>The <strong>nmfkc</strong> package builds upon the standard NMF framework by incorporating external information (covariates):</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>P</mi><mo>,</mo><mi>N</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mi>X</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>P</mi><mo>,</mo><mi>Q</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>×</mo><mi>C</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>Q</mi><mo>,</mo><mi>R</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>×</mo><mi>A</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>R</mi><mo>,</mo><mi>N</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)</annotation></semantics></math></p>
+<p><span class="math display">\[Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)\]</span></p>
 <ul>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math></strong>: Observation matrix (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>P</mi><annotation encoding="application/x-tex">P</annotation></semantics></math> features × <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math> samples)</li>
+<strong><span class="math inline">\(Y\)</span></strong>: Observation matrix (<span class="math inline">\(P\)</span> features × <span class="math inline">\(N\)</span> samples)</li>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math></strong>: Covariate matrix (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math> covariates × <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math> samples); defaults to identity (standard NMF)</li>
+<strong><span class="math inline">\(A\)</span></strong>: Covariate matrix (<span class="math inline">\(R\)</span> covariates × <span class="math inline">\(N\)</span> samples); defaults to identity (standard NMF)</li>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math></strong>: Basis matrix — learned latent patterns</li>
+<strong><span class="math inline">\(X\)</span></strong>: Basis matrix — learned latent patterns</li>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math></strong>: Parameter matrix — links covariates to latent structure</li>
+<strong><span class="math inline">\(C\)</span></strong>: Parameter matrix — links covariates to latent structure</li>
 </ul>
 <div class="section level3">
 <h3 id="extensions">Extensions<a class="anchor" aria-label="anchor" href="#extensions"></a>
 </h3>
 <ul>
 <li>
-<strong>NMF-RE</strong>: Adds unit-specific random effects <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>U</mi><annotation encoding="application/x-tex">U</annotation></semantics></math>: <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>=</mo><mi>X</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>Θ</mi><mi>A</mi><mo>+</mo><mi>U</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>+</mo><mi>ℰ</mi></mrow><annotation encoding="application/x-tex">Y = X(\Theta A + U) + \mathcal{E}</annotation></semantics></math>, estimated via ridge-type BLUP with wild bootstrap inference.</li>
+<strong>NMF-RE</strong>: Adds unit-specific random effects <span class="math inline">\(U\)</span>: <span class="math inline">\(Y = X(\Theta A + U) + \mathcal{E}\)</span>, estimated via ridge-type BLUP with wild bootstrap inference.</li>
 <li>
-<strong>NMF-SEM</strong>: Models endogenous feedback: <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Y</mi><mn>1</mn></msub><mo>≈</mo><mi>X</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>Θ</mi><mn>1</mn></msub><msub><mi>Y</mi><mn>1</mn></msub><mo>+</mo><msub><mi>Θ</mi><mn>2</mn></msub><msub><mi>Y</mi><mn>2</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)</annotation></semantics></math>, with equilibrium mapping <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>I</mi><mo>−</mo><mi>X</mi><msub><mi>Θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>X</mi><msub><mi>Θ</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">(I - X\Theta_1)^{-1} X\Theta_2</annotation></semantics></math>.</li>
+<strong>NMF-SEM</strong>: Models endogenous feedback: <span class="math inline">\(Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)\)</span>, with equilibrium mapping <span class="math inline">\((I - X\Theta_1)^{-1} X\Theta_2\)</span>.</li>
 </ul>
 </div>
 </div>
@@ -211,7 +211,7 @@
 <tbody>
 <tr>
 <td align="left"><code><a href="reference/nmfkc.html">nmfkc()</a></code></td>
-<td align="left">Core NMF with covariates (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>≈</mo><mi>X</mi><mi>C</mi><mi>A</mi></mrow><annotation encoding="application/x-tex">Y \approx XCA</annotation></semantics></math>); supports kernel matrices and formula interface</td>
+<td align="left">Core NMF with covariates (<span class="math inline">\(Y \approx XCA\)</span>); supports kernel matrices and formula interface</td>
 </tr>
 <tr>
 <td align="left">

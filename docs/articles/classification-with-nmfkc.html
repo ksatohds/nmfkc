@@ -13,7 +13,7 @@
 <link href="../deps/Inter-0.4.9/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="../deps/MathJax-3.2.2/tex-chtml.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
 <meta property="og:title" content="Classification with NMF-LAB">
 </head>
 <body>
@@ -83,42 +83,34 @@ as <strong>NMF-LAB</strong> (Label-based NMF).</p>
 <h3 id="how-it-works">How it works<a class="anchor" aria-label="anchor" href="#how-it-works"></a>
 </h3>
 <p>The NMF-LAB approach treats multi-class classification as a matrix
-factorization task:
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>≈</mo><mi>X</mi><mi>C</mi><mi>A</mi></mrow><annotation encoding="application/x-tex">Y \approx X C A</annotation></semantics></math></p>
+factorization task: <span class="math display">\[Y \approx X C
+A\]</span></p>
 <ul>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>
-(Target):</strong> One-hot encoded matrix of class labels (Classes
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
-Samples).</li>
+<strong><span class="math inline">\(Y\)</span> (Target):</strong>
+One-hot encoded matrix of class labels (Classes <span class="math inline">\(\times\)</span> Samples).</li>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-(Input):</strong> Feature matrix or Kernel matrix constructed from
-features.</li>
+<strong><span class="math inline">\(A\)</span> (Input):</strong>
+Feature matrix or Kernel matrix constructed from features.</li>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-(Learned Basis):</strong> A mapping matrix between latent factors and
-class labels.</li>
+<strong><span class="math inline">\(X\)</span> (Learned
+Basis):</strong> A mapping matrix between latent factors and class
+labels.</li>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+<strong><span class="math inline">\(C\)</span>
 (Coefficient/Parameter):</strong> Captures the relationship between
-input
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-and classes.</li>
+input <span class="math inline">\(A\)</span> and classes.</li>
 </ul>
 <p><strong>Key Trade-off:</strong></p>
 <ol style="list-style-type: decimal">
 <li>
-<strong>Linear Model
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><mi>F</mi><mi>e</mi><mi>a</mi><mi>t</mi><mi>u</mi><mi>r</mi><mi>e</mi><mi>s</mi></mrow><annotation encoding="application/x-tex">A = Features</annotation></semantics></math>):</strong>
-Highly interpretable.
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-tells you exactly which feature contributes to which class.</li>
+<strong>Linear Model (<span class="math inline">\(A =
+Features\)</span>):</strong> Highly interpretable. <span class="math inline">\(C\)</span> tells you exactly which feature
+contributes to which class.</li>
 <li>
-<strong>Kernel Model
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><mi>K</mi><mi>e</mi><mi>r</mi><mi>n</mi><mi>e</mi><mi>l</mi></mrow><annotation encoding="application/x-tex">A = Kernel</annotation></semantics></math>):</strong>
-Highly accurate. Handles non-linear boundaries but is harder to
-interpret.</li>
+<strong>Kernel Model (<span class="math inline">\(A =
+Kernel\)</span>):</strong> Highly accurate. Handles non-linear
+boundaries but is harder to interpret.</li>
 </ol>
 <p>We will explore this trade-off using the <code>iris</code>
 dataset.</p>
@@ -138,10 +130,7 @@ versicolor, virginica</em>) based on 4 measurements.</p>
 <div class="section level3">
 <h3 id="data-preparation">1. Data Preparation<a class="anchor" aria-label="anchor" href="#data-preparation"></a>
 </h3>
-<p>We convert the species labels into a binary class matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>
-and normalize the features
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>U</mi><annotation encoding="application/x-tex">U</annotation></semantics></math>.</p>
+<p>We convert the species labels into a binary class matrix <span class="math inline">\(Y\)</span> and normalize the features <span class="math inline">\(U\)</span>.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 1. Prepare Labels (Y)</span></span>
 <span><span class="va">label_iris</span> <span class="op">&lt;-</span> <span class="va">iris</span><span class="op">$</span><span class="va">Species</span></span>
@@ -156,12 +145,10 @@ and normalize the features
 <h3 id="step-1-linear-nmf-lab-focus-on-interpretability">Step 1: Linear NMF-LAB (Focus on Interpretability)<a class="anchor" aria-label="anchor" href="#step-1-linear-nmf-lab-focus-on-interpretability"></a>
 </h3>
 <p>First, we fit a <strong>Linear Model</strong> by using the features
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>U</mi><annotation encoding="application/x-tex">U</annotation></semantics></math>
-directly as the input matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>.
-This allows us to see <strong>“Which feature drives which
-class?”</strong> by inspecting the matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>.</p>
+<span class="math inline">\(U\)</span> directly as the input matrix
+<span class="math inline">\(A\)</span>. This allows us to see
+<strong>“Which feature drives which class?”</strong> by inspecting the
+matrix <span class="math inline">\(C\)</span>.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Use Normalized Features directly as A</span></span>
 <span><span class="va">A_linear</span> <span class="op">&lt;-</span> <span class="va">U_iris</span></span>
@@ -178,9 +165,7 @@ class?”</strong> by inspecting the matrix
 <span><span class="co">#&gt; Class1         0.00        0.87         0.00        0.00</span></span>
 <span><span class="co">#&gt; Class2         0.03        0.00         0.57        0.00</span></span>
 <span><span class="co">#&gt; Class3         0.01        0.00         0.08        0.78</span></span></code></pre></div>
-<p><strong>Interpretation:</strong> Looking at the matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-above:</p>
+<p><strong>Interpretation:</strong> Looking at the matrix <span class="math inline">\(C\)</span> above:</p>
 <ul>
 <li>
 <strong>Class1 (Setosa):</strong> Has high weights on
@@ -251,10 +236,9 @@ kernel.</p>
 <div class="section level3">
 <h3 id="visualization-class-prototypes-basis-x">Visualization: Class Prototypes (Basis X)<a class="anchor" aria-label="anchor" href="#visualization-class-prototypes-basis-x"></a>
 </h3>
-<p>Finally, let’s visualize the Basis Matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-of the successful kernel model. Ideally, it should look like a diagonal
-matrix, mapping each Latent Factor to a specific Species.</p>
+<p>Finally, let’s visualize the Basis Matrix <span class="math inline">\(X\)</span> of the successful kernel model.
+Ideally, it should look like a diagonal matrix, mapping each Latent
+Factor to a specific Species.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/image.html" class="external-link">image</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">res_kernel</span><span class="op">$</span><span class="va">X</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">res_kernel</span><span class="op">$</span><span class="va">X</span><span class="op">)</span><span class="op">:</span><span class="fl">1</span><span class="op">]</span>, </span>
 <span>      main <span class="op">=</span> <span class="st">"Basis Matrix X (Kernel Model)\nMapping Factors to Species"</span>,</span>
@@ -277,9 +261,8 @@ penguin species (<em>Adelie, Chinstrap, Gentoo</em>), focusing on the
 <h3 id="data-preparation-1">1. Data Preparation<a class="anchor" aria-label="anchor" href="#data-preparation-1"></a>
 </h3>
 <p>We must remove rows with missing values (<code>NA</code>) as the
-kernel matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-cannot handle missing entries in the input features.</p>
+kernel matrix <span class="math inline">\(A\)</span> cannot handle
+missing entries in the input features.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load and clean data (remove rows with NAs)</span></span>
 <span><span class="va">d_penguins</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/na.fail.html" class="external-link">na.omit</a></span><span class="op">(</span><span class="fu">palmerpenguins</span><span class="fu">::</span><span class="va"><a href="https://allisonhorst.github.io/palmerpenguins/reference/penguins.html" class="external-link">penguins</a></span><span class="op">)</span></span>
@@ -294,8 +277,7 @@ cannot handle missing entries in the input features.</p>
 <div class="section level3">
 <h3 id="model-fitting">2. Model Fitting<a class="anchor" aria-label="anchor" href="#model-fitting"></a>
 </h3>
-<p>We use the heuristic
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>β</mi><annotation encoding="application/x-tex">\beta</annotation></semantics></math>
+<p>We use the heuristic <span class="math inline">\(\beta\)</span>
 directly for a quick demonstration.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rank_penguins</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">label_penguins</span><span class="op">)</span><span class="op">)</span></span>

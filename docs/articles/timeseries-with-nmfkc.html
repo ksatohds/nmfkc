@@ -13,7 +13,7 @@
 <link href="../deps/Inter-0.4.9/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="../deps/MathJax-3.2.2/tex-chtml.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
 <meta property="og:title" content="Time Series Analysis with NMF-VAR">
 </head>
 <body>
@@ -79,9 +79,8 @@
 <p>This vignette demonstrates how to apply the <code>nmfkc</code>
 package to time series data using the <strong>NMF-VAR (Non-negative
 Matrix Factorization - Vector Autoregression)</strong> framework. This
-approach models the coefficient matrix of NMF as a VAR process
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>≈</mo><mi>C</mi><msub><mi>A</mi><mrow><mi>l</mi><mi>a</mi><mi>g</mi></mrow></msub></mrow><annotation encoding="application/x-tex">B \approx C A_{lag}</annotation></semantics></math>),
-allowing for both dimensionality reduction and temporal modeling.</p>
+approach models the coefficient matrix of NMF as a VAR process (<span class="math inline">\(B \approx C A_{lag}\)</span>), allowing for both
+dimensionality reduction and temporal modeling.</p>
 <p>Key functions in <code>nmfkc</code> such as <code>nmfkc.ar</code> and
 <code>nmfkc.ar.degree.cv</code> directly support R’s native
 <strong><code>ts</code> objects</strong>, preserving time series
@@ -151,16 +150,16 @@ dimension.</p>
 <span><span class="co">#&gt; degree=1...0.2sec</span></span>
 <span><span class="co">#&gt; degree=2...0.8sec</span></span>
 <span><span class="co">#&gt; degree=3...0.8sec</span></span>
-<span><span class="co">#&gt; degree=4...0.8sec</span></span>
-<span><span class="co">#&gt; degree=5...0.9sec</span></span>
+<span><span class="co">#&gt; degree=4...0.9sec</span></span>
+<span><span class="co">#&gt; degree=5...0.8sec</span></span>
 <span><span class="co">#&gt; degree=6...0.8sec</span></span>
 <span><span class="co">#&gt; degree=7...0.8sec</span></span>
-<span><span class="co">#&gt; degree=8...0.9sec</span></span>
-<span><span class="co">#&gt; degree=9...1sec</span></span>
-<span><span class="co">#&gt; degree=10...1sec</span></span>
-<span><span class="co">#&gt; degree=11...1sec</span></span>
-<span><span class="co">#&gt; degree=12...1sec</span></span>
-<span><span class="co">#&gt; degree=13...1.1sec</span></span>
+<span><span class="co">#&gt; degree=8...0.8sec</span></span>
+<span><span class="co">#&gt; degree=9...0.9sec</span></span>
+<span><span class="co">#&gt; degree=10...0.9sec</span></span>
+<span><span class="co">#&gt; degree=11...0.9sec</span></span>
+<span><span class="co">#&gt; degree=12...0.9sec</span></span>
+<span><span class="co">#&gt; degree=13...1sec</span></span>
 <span><span class="co">#&gt; degree=14...1.1sec</span></span></code></pre></div>
 <p><img src="timeseries-with-nmfkc_files/figure-html/air-degree-cv-1.png" width="672"></p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -252,10 +251,8 @@ relationship between these variables.</p>
 <h3 id="data-preparation-1">1. Data Preparation<a class="anchor" aria-label="anchor" href="#data-preparation-1"></a>
 </h3>
 <p>We take the first difference to achieve stationarity, normalize the
-data to
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="true" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">[0, 1]</annotation></semantics></math>,
-and transpose it to the <code>Variables x Time</code> format required by
-NMF.</p>
+data to <span class="math inline">\([0, 1]\)</span>, and transpose it to
+the <code>Variables x Time</code> format required by NMF.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load, difference, and normalize</span></span>
 <span><span class="va">d0_canada</span> <span class="op">&lt;-</span> <span class="va">Canada</span></span>

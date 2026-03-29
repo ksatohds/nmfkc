@@ -13,7 +13,7 @@
 <link href="../deps/Inter-0.4.9/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="../deps/MathJax-3.2.2/tex-chtml.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
 <meta property="og:title" content="Topic Modeling with nmfkc">
 </head>
 <body>
@@ -143,8 +143,8 @@ documents and columns represent words.</p>
 <h2 id="rank-selection-number-of-topics">2. Rank Selection (Number of Topics)<a class="anchor" aria-label="anchor" href="#rank-selection-number-of-topics"></a>
 </h2>
 <p>Before fitting the model, we need to decide the number of topics
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mi>a</mi><mi>n</mi><mi>k</mi></mrow><annotation encoding="application/x-tex">rank</annotation></semantics></math>).
-The <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function helps us choose an appropriate
+(<span class="math inline">\(rank\)</span>). The
+<code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> function helps us choose an appropriate
 rank.</p>
 <p>The default <code>detail = "full"</code> performs
 <strong>Element-wise Cross-Validation (Wold’s CV)</strong>. This method
@@ -185,18 +185,18 @@ the R-squared curve, or high Cophenetic Correlation), let’s assume
 <div class="section level2">
 <h2 id="standard-nmf">3. Standard NMF<a class="anchor" aria-label="anchor" href="#standard-nmf"></a>
 </h2>
-<p>We fit the standard NMF model
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi><mo>≈</mo><mi>X</mi><mi>B</mi></mrow><annotation encoding="application/x-tex">Y \approx XB</annotation></semantics></math>)
-with <code>rank = 3</code>. In the context of topic modeling:</p>
+<p>We fit the standard NMF model (<span class="math inline">\(Y \approx
+XB\)</span>) with <code>rank = 3</code>. In the context of topic
+modeling:</p>
 <ul>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-(Basis Matrix):</strong> Represents <strong>Topics</strong>
-(distribution of words).</li>
+<strong><span class="math inline">\(X\)</span> (Basis
+Matrix):</strong> Represents <strong>Topics</strong> (distribution of
+words).</li>
 <li>
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
-(Coefficient Matrix):</strong> Represents <strong>Trends</strong>
-(distribution of topics across documents).</li>
+<strong><span class="math inline">\(B\)</span> (Coefficient
+Matrix):</strong> Represents <strong>Trends</strong> (distribution of
+topics across documents).</li>
 </ul>
 <!-- end list --><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rank</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
@@ -277,7 +277,7 @@ using Cross-Validation.</p>
 <span><span class="co">#&gt; beta=2e-05...0.1sec</span></span>
 <span><span class="co">#&gt; beta=5e-05...0.1sec</span></span>
 <span><span class="co">#&gt; beta=1e-04...0.1sec</span></span>
-<span><span class="co">#&gt; beta=2e-04...0sec</span></span>
+<span><span class="co">#&gt; beta=2e-04...0.1sec</span></span>
 <span><span class="co">#&gt; beta=5e-04...0sec</span></span>
 <span><span class="va">best_beta</span> <span class="op">&lt;-</span> <span class="va">cv_res</span><span class="op">$</span><span class="va">beta</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">best_beta</span><span class="op">)</span></span>
