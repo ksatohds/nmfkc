@@ -9,7 +9,7 @@ nmf.sem.split(
   n.exogenous = NULL,
   threshold = 0.1,
   auto.flipped = TRUE,
-  verbose = TRUE
+  verbose = FALSE
 )
 }
 \arguments{
@@ -30,7 +30,7 @@ sign flipping after standardization to ensure consistent orientation.
 (Default: \code{TRUE})}
 
 \item{verbose}{Logical; if \code{TRUE}, prints progress messages and the
-resulting variable split. (Default: \code{TRUE})}
+resulting variable split. (Default: \code{FALSE})}
 }
 \value{
 A list with:

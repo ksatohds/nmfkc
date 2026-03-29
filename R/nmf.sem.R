@@ -771,7 +771,7 @@ nmf.sem.cv <- function(
 #'   sign flipping after standardization to ensure consistent orientation.
 #'   (Default: \code{TRUE})
 #' @param verbose Logical; if \code{TRUE}, prints progress messages and the
-#'   resulting variable split. (Default: \code{TRUE})
+#'   resulting variable split. (Default: \code{FALSE})
 #'
 #' @return A list with:
 #'   \item{endogenous.variables}{
@@ -793,7 +793,7 @@ nmf.sem.cv <- function(
 #'
 #' @export
 nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
-                          auto.flipped = TRUE, verbose = TRUE) {
+                          auto.flipped = TRUE, verbose = FALSE) {
 
   if (!is.matrix(x) && !is.data.frame(x))
     stop("x must be a numeric matrix or data frame.")
