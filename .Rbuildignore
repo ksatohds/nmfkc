@@ -19,3 +19,4 @@
 ^\.git$
 ^\.gitignore$
 ^vignettes/\.gitignore$
+^nmfkc-manual\.pdf$
