@@ -53,6 +53,9 @@
 #' \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y_1}.}
 #' \item{n.total}{Total number of elements in \eqn{Y_1} (P1 x N).}
 #'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in future versions.
+#'
 #' @seealso \code{\link{nmfae.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.DOT}}, \code{\link{nmfkc}}
 #' @export
 #' @source Satoh, K. (2025). Applying Non-negative Matrix Factorization with Covariates

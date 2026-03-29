@@ -64,6 +64,11 @@ Initialization uses a three-step NMF procedure via \code{\link{nmfkc}}:
 (2) \code{nmfkc(Y1, A=Y2, rank=Q)} with fixed \eqn{X_1} to obtain \eqn{C = \Theta X_2},
 (3) \code{nmfkc(Y2, rank=R)} to factor \eqn{C} into \eqn{\Theta} and \eqn{X_2}.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in future versions.
+}
+
 \examples{
 # Autoencoder example
 library(nmfkc)
