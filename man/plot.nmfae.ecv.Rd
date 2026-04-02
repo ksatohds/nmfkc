@@ -11,6 +11,9 @@
 
 \item{...}{Additional graphical parameters (currently unused).}
 }
+\value{
+Invisible \code{NULL}. Called for its side effect of producing a plot.
+}
 \description{
 Visualizes element-wise cross-validation results.
 When \code{rank.encoder} was \code{NULL} (paired), a line plot of sigma vs rank is drawn.

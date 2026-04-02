@@ -86,14 +86,16 @@ results, set \code{set.seed()} before calling this function.
 }
 \examples{
 # Basic (nearest-neighbor within U)
-# beta_info <- nmfkc.kernel.beta.nearest.med(U)
-# beta0 <- beta_info$beta
-# betas <- beta_info$beta_candidates
+U <- matrix(runif(20), nrow = 2)
+beta_info <- nmfkc.kernel.beta.nearest.med(U)
+beta0 <- beta_info$beta
+betas <- beta_info$beta_candidates
 
 # With landmarks (nearest-landmark distances)
-# beta_info <- nmfkc.kernel.beta.nearest.med(U, Uk)
-# beta0 <- beta_info$beta
-# betas <- beta_info$beta_candidates
+Uk <- matrix(runif(10), nrow = 2)
+\donttest{
+beta_info2 <- nmfkc.kernel.beta.nearest.med(U, Uk)
+}
 
 }
 \seealso{

@@ -1290,6 +1290,7 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
 #' @param x An object of class \code{"nmfae.ecv"} returned by \code{\link{nmfae.ecv}}.
 #' @param ... Additional graphical parameters (currently unused).
 #'
+#' @return Invisible \code{NULL}. Called for its side effect of producing a plot.
 #' @seealso \code{\link{nmfae.ecv}}
 #' @export
 plot.nmfae.ecv <- function(x, ...) {
