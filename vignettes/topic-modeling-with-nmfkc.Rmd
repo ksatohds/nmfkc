@@ -162,7 +162,6 @@ Let's compare how topic proportions change over time.
 
 ```{r plot-comparison, fig.width=8, fig.height=8}
 oldpar <- par(mfrow = c(2, 1), mar = c(4, 4, 2, 1))
-on.exit(par(oldpar))
 
 # Prepare Axis Labels (Rounded to integers)
 at_points <- seq(1, ncol(Y), length.out = 10)
@@ -180,4 +179,5 @@ axis(1, at = at_points, labels = labels_years)
 
 # Legend
 legend("topright", legend = paste("Topic", 1:rank), fill = 2:(rank+1), bg="white", cex=0.8)
+par(oldpar)
 ```
