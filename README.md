@@ -8,8 +8,13 @@
 # Installation
 
 ```r
+# Stable version (CRAN)
+install.packages("nmfkc")
+
+# Development version (GitHub, may be unstable)
 # install.packages("remotes")
-remotes::install_github("ksatohds/nmfkc")
+remotes::install_github("ksatohds/nmfkc", ref = "develop")
+
 library(nmfkc)
 ```
 
