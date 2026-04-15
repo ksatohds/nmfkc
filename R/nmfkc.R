@@ -655,7 +655,23 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
         if (length(idx_zero) > 0) X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
       }
     } else if (X.init == "runif") {
-      X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+      if (nstart <= 1) {
+        X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
+      } else {
+        best_obj <- Inf
+        P <- nrow(Y_init); N <- ncol(Y_init)
+        for (s in seq_len(nstart)) {
+          if (!is.null(seed)) set.seed(seed + s - 1)
+          Xs <- matrix(stats::runif(P * Q), nrow = P, ncol = Q)
+          Bs <- matrix(stats::runif(Q * N), nrow = Q, ncol = N)
+          for (iter in 1:10) {
+            Bs <- Bs * (t(Xs) %*% Y_init) / (t(Xs) %*% Xs %*% Bs + .eps)
+            Xs <- Xs * (Y_init %*% t(Bs)) / (Xs %*% Bs %*% t(Bs) + .eps)
+          }
+          obj <- sum((Y_init - Xs %*% Bs)^2)
+          if (obj < best_obj) { best_obj <- obj; X <- Xs }
+        }
+      }
     } else {
       # nndsvd: requires Q <= min(P, N)
       if (Q > min(nrow(Y), ncol(Y))) {
@@ -1362,6 +1378,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         X <- xnorm(X)
         tX <- t(X)
       }
+      # Recompute B and XB with updated X before C update (tri-symmetric fix)
+      if(Y.symmetric == "tri"){ B <- C %*% tX; XB <- X %*% B }
       if(Y.symmetric == "bi"){
         # C = I_Q is fixed; no update needed (bi is tri with C = I)
       }else if(Y.symmetric == "tri"){
@@ -1402,6 +1420,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         X <- xnorm(X)
         tX <- t(X)
       }
+      # Recompute B and XB with updated X before C update (tri-symmetric fix)
+      if(Y.symmetric == "tri"){ B <- C %*% tX; XB <- X %*% B }
       if(Y.symmetric == "bi"){
         # C = I_Q is fixed; no update needed (bi is tri with C = I)
       }else if(Y.symmetric == "tri"){
@@ -1464,7 +1484,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 
   if(ncol(X) > 1 && X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
-    X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]; C <- C[index,,drop=FALSE]
+    X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]
+    if(Y.symmetric == "tri") C <- C[index,index,drop=FALSE] else C <- C[index,,drop=FALSE]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
   if (!is.null(A)) {

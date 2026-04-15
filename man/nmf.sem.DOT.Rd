@@ -7,16 +7,17 @@
 nmf.sem.DOT(
   result,
   weight_scale = 5,
-  weight_scale_y2f = weight_scale,
-  weight_scale_fy1 = weight_scale,
+  weight_scale_c2 = weight_scale,
+  weight_scale_x1 = weight_scale,
   weight_scale_feedback = weight_scale,
   threshold = 0.01,
+  sig.level = 0.1,
   rankdir = "LR",
   fill = TRUE,
   cluster.box = c("normal", "faint", "invisible", "none"),
   cluster.labels = NULL,
   hide.isolated = TRUE,
-  sig.level = 0.1
+  ...
 )
 }
 \arguments{
@@ -25,16 +26,22 @@ nmf.sem.DOT(
 
 \item{weight_scale}{Base scaling factor for edge widths.}
 
-\item{weight_scale_y2f}{Optional override for scaling edges
-\eqn{Y_2 \rightarrow F_q}. Defaults to \code{weight_scale}.}
+\item{weight_scale_c2}{Scaling factor for edges
+\eqn{Y_2 \rightarrow F_q} (C2 matrix). Defaults to \code{weight_scale}.}
 
-\item{weight_scale_fy1}{Optional override for scaling edges
-\eqn{F_q \rightarrow Y_1}. Defaults to \code{weight_scale}.}
+\item{weight_scale_x1}{Scaling factor for edges
+\eqn{F_q \rightarrow Y_1} (X matrix). Defaults to \code{weight_scale}.}
 
-\item{weight_scale_feedback}{Optional override for scaling feedback edges
-\eqn{Y_1 \rightarrow F_q}. Defaults to \code{weight_scale}.}
+\item{weight_scale_feedback}{Scaling factor for feedback edges
+\eqn{Y_1 \rightarrow F_q} (C1 matrix). Defaults to \code{weight_scale}.}
 
 \item{threshold}{Minimum coefficient value needed for an edge to be drawn.}
+
+\item{sig.level}{Significance level for filtering C2 edges when inference
+results are present. If \code{result} contains a \code{coefficients} data
+frame (from \code{\link{nmf.sem.inference}}), only edges with
+\code{p_value < sig.level} are drawn, with significance stars appended.
+Set to \code{NULL} to disable filtering. Default is \code{0.1}.}
 
 \item{rankdir}{Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).}
 
@@ -50,11 +57,9 @@ labels for the Y2, factor, and Y1 clusters.}
 \item{hide.isolated}{Logical. If \code{TRUE} (default), Y1 and Y2 nodes
 that have no edges at or above \code{threshold} are excluded from the graph.}
 
-\item{sig.level}{Significance level for filtering C2 edges when inference
-results are present. If \code{result} contains a \code{coefficients} data
-frame (from \code{\link{nmf.sem.inference}}), only edges with
-\code{p_value < sig.level} are drawn, with significance stars appended.
-Set to \code{NULL} to disable filtering. Default is \code{0.1}.}
+\item{...}{For backward compatibility: accepts deprecated names
+\code{weight_scale_y2f} (use \code{weight_scale_c2}) and
+\code{weight_scale_fy1} (use \code{weight_scale_x1}).}
 }
 \value{
 A character string representing a valid Graphviz DOT script.

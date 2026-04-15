@@ -1,3 +1,16 @@
+# nmfkc 0.6.8
+
+### **Bug Fixes**
+- `nmfkc()`: Fixed C matrix asymmetry in tri-symmetric NMF (`Y.symmetric = "tri"`). The C update was using stale B and XB computed from the old X; now B and XB are recomputed after X is updated. Also fixed column reordering to permute both rows and columns of C. Previously the relative asymmetry could reach ~46%; now it is at machine precision (~1e-14).
+
+### **Improvements**
+- `plot.nmfae.ecv()`: Heatmap cell text color is now always black for better readability on light-colored cells.
+- `nmfkc()`: `X.init = "runif"` now supports `nstart > 1` for multi-start initialization. Multiple random starting points are evaluated with 10 standard NMF iterations, and the best (lowest Frobenius error) is selected.
+
+### **Parameter Renames** (old names remain usable for backward compatibility)
+- `nmf.sem.DOT()`: `weight_scale_y2f` → `weight_scale_c2`, `weight_scale_fy1` → `weight_scale_x1` (matrix-name-based naming, consistent with `nmfae.DOT()` and `nmfkc.DOT()`).
+- `nmf.sem.DOT()`: `sig.level` moved to after `threshold` for consistency with other `.DOT` functions.
+
 # nmfkc 0.6.7
 
 ### **Bug Fixes**

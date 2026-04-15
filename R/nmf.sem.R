@@ -1022,15 +1022,20 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' @param result A list returned by \code{nmf.sem}, containing matrices
 #'   \code{X}, \code{C1}, and \code{C2}.
 #' @param weight_scale Base scaling factor for edge widths.
-#' @param weight_scale_y2f Optional override for scaling edges
-#'   \eqn{Y_2 \rightarrow F_q}. Defaults to \code{weight_scale}.
-#' @param weight_scale_fy1 Optional override for scaling edges
-#'   \eqn{F_q \rightarrow Y_1}. Defaults to \code{weight_scale}.
-#' @param weight_scale_feedback Optional override for scaling feedback edges
-#'   \eqn{Y_1 \rightarrow F_q}. Defaults to \code{weight_scale}.
+#' @param weight_scale_c2 Scaling factor for edges
+#'   \eqn{Y_2 \rightarrow F_q} (C2 matrix). Defaults to \code{weight_scale}.
+#' @param weight_scale_x1 Scaling factor for edges
+#'   \eqn{F_q \rightarrow Y_1} (X matrix). Defaults to \code{weight_scale}.
+#' @param weight_scale_feedback Scaling factor for feedback edges
+#'   \eqn{Y_1 \rightarrow F_q} (C1 matrix). Defaults to \code{weight_scale}.
 #' @param threshold Minimum coefficient value needed for an edge to be drawn.
+#' @param sig.level Significance level for filtering edges by p-value
+#'   (requires inference results). Edges with p-value above this level are omitted.
 #' @param rankdir Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).
 #' @param fill Logical; whether to use filled node shapes.
+#' @param ... For backward compatibility: accepts deprecated names
+#'   \code{weight_scale_y2f} (use \code{weight_scale_c2}) and
+#'   \code{weight_scale_fy1} (use \code{weight_scale_x1}).
 #' @param cluster.box Character string controlling the visibility and style
 #'   of cluster frames around Y2, factors, and Y1 blocks.
 #'   One of \code{"normal"}, \code{"faint"}, \code{"invisible"}, \code{"none"}.
@@ -1059,16 +1064,22 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' @export
 nmf.sem.DOT <- function(result,
                         weight_scale          = 5,
-                        weight_scale_y2f      = weight_scale,
-                        weight_scale_fy1      = weight_scale,
+                        weight_scale_c2       = weight_scale,
+                        weight_scale_x1       = weight_scale,
                         weight_scale_feedback = weight_scale,
                         threshold             = 0.01,
+                        sig.level             = 0.1,
                         rankdir               = "LR",
                         fill                  = TRUE,
                         cluster.box           = c("normal", "faint", "invisible", "none"),
                         cluster.labels        = NULL,
                         hide.isolated         = TRUE,
-                        sig.level             = 0.1) {
+                        ...) {
+
+  ## Backward compatibility: accept deprecated names via ...
+  extra_args <- base::list(...)
+  if (!base::is.null(extra_args$weight_scale_y2f)) weight_scale_c2 <- extra_args$weight_scale_y2f
+  if (!base::is.null(extra_args$weight_scale_fy1)) weight_scale_x1 <- extra_args$weight_scale_fy1
 
   ## ---------------------------------------------------------------
   ## Cluster style selection
@@ -1281,7 +1292,7 @@ nmf.sem.DOT <- function(result,
         show <- if (!is.null(C2_show)) C2_show[q, p2]
                 else is.finite(weight) && weight >= threshold
         if (show) {
-          pen <- pw(weight, max_C2, weight_scale_y2f)
+          pen <- pw(weight, max_C2, weight_scale_c2)
           lab <- fmtc(weight)
           if (!is.null(C2_stars)) lab <- paste0(lab, C2_stars[q, p2])
           path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
@@ -1307,7 +1318,7 @@ nmf.sem.DOT <- function(result,
       for (p1 in idx_y1) {
         weight <- X[p1, q]
         if (is.finite(weight) && weight >= threshold) {
-          pen <- pw(weight, max_X, weight_scale_fy1)
+          pen <- pw(weight, max_X, weight_scale_x1)
           lab <- fmtc(weight)
           path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
                           F_ids[q], Y1_ids[p1], lab, pen)

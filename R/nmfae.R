@@ -1342,7 +1342,7 @@ plot.nmfae.ecv <- function(x, ...) {
     for (qi in seq_along(Qs)) {
       for (ri in seq_along(Rs)) {
         val <- sigma_mat[qi, ri]
-        txt_col <- ifelse(val < stats::median(sigma_mat), "white", "black")
+        txt_col <- "black"
         graphics::text(Qs[qi], Rs[ri], sprintf("%.2f", val), cex = 0.65, col = txt_col)
       }
     }
