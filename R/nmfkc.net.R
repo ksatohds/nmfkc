@@ -63,9 +63,9 @@ nmfkc.net.inference <- function(object, Y, wild.bootstrap = TRUE, ...) {
     names(cf)[names(cf) == "Basis"]     <- "Basis.row"
     names(cf)[names(cf) == "Covariate"] <- "Basis.col"
 
-    ## Keep only upper triangle (including diagonal) since C is symmetric
-    ## C is Q x Q; rows indexed by Basis.row, cols by Basis.col
-    ## The row labels come from rownames(C), col labels from colnames(C)
+    ## Keep only strict upper triangle (off-diagonal) since C is symmetric
+    ## Diagonal (within-group) is always large and trivially significant;
+    ## only between-group interactions are meaningful to test.
     Q <- ncol(object$X)
     rlabs <- if (!is.null(rownames(object$C))) rownames(object$C)
              else paste0("Basis", 1:Q)
@@ -73,7 +73,7 @@ nmfkc.net.inference <- function(object, Y, wild.bootstrap = TRUE, ...) {
              else paste0("Basis", 1:Q)
     row_idx <- match(cf$Basis.row, rlabs)
     col_idx <- match(cf$Basis.col, clabs)
-    keep <- !is.na(row_idx) & !is.na(col_idx) & (row_idx <= col_idx)
+    keep <- !is.na(row_idx) & !is.na(col_idx) & (row_idx < col_idx)
     cf <- cf[keep, , drop = FALSE]
     ## Unify Basis.col labels to match Basis.row naming
     cf$Basis.col <- rlabs[col_idx[keep]]
