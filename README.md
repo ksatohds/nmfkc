@@ -13,7 +13,7 @@ install.packages("nmfkc")
 
 # Development version (GitHub, may be unstable)
 # install.packages("remotes")
-remotes::install_github("ksatohds/nmfkc", ref = "develop")
+remotes::install_github("ksatohds/nmfkc@develop")
 
 library(nmfkc)
 ```
