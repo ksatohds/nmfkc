@@ -55,7 +55,11 @@ Promotes \strong{sparsity in the parameter matrix}. (Formerly \code{lambda}).
 This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
 would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
-\item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
+\item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
+Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
+multi-start evaluation (when \code{X.init = "runif"}).
+For symmetric NMF (\code{Y.symmetric = "tri"} or \code{"bi"}), results are sensitive to
+initial values; \code{nstart = 20} or higher is recommended.
 \item \code{seed}: Integer seed for reproducibility (default: 123).
 \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
