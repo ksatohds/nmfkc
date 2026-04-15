@@ -661,7 +661,6 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
         best_obj <- Inf
         P <- nrow(Y_init); N <- ncol(Y_init)
         for (s in seq_len(nstart)) {
-          if (!is.null(seed)) set.seed(seed + s - 1)
           Xs <- matrix(stats::runif(P * Q), nrow = P, ncol = Q)
           Bs <- matrix(stats::runif(Q * N), nrow = Q, ncol = N)
           for (iter in 1:10) {
