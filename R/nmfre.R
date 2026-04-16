@@ -637,12 +637,9 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   rownames(U) <- rownames(C_mat)
   colnames(U) <- colnames(Y)
 
-  # ---- r.squared ----
-  ss_total <- sum((Y - mean(Y))^2)
-  R_blup <- Y - XB.blup
-  R_fixed <- Y - XB
-  r.squared <- if (ss_total > 0) 1 - sum(R_blup^2) / ss_total else NA_real_
-  r.squared.fixed <- if (ss_total > 0) 1 - sum(R_fixed^2) / ss_total else NA_real_
+  # ---- r.squared (cor^2, consistent with nmfkc/nmfae) ----
+  r.squared <- stats::cor(as.vector(XB.blup), as.vector(Y))^2
+  r.squared.fixed <- stats::cor(as.vector(XB), as.vector(Y))^2
 
   # ---- ICC (trace-based) ----
   trXtX <- sum(d_final)  # tr(X'X), using eigenvalues already computed

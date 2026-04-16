@@ -300,7 +300,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   } else {
     n.missing <- 0L
     n.valid <- P1 * N
-    r.squared <- 1 - objfunc / sum((Y1 - mean(Y1))^2)
+    r.squared <- stats::cor(as.vector(Y1hat), as.vector(Y1))^2
     sigma <- sqrt(objfunc / n.valid)
     mae <- mean(abs(Y1 - Y1hat))
   }

@@ -6,6 +6,11 @@
 ### **Improvements**
 - `plot.nmfae.ecv()`: Heatmap cell text color is now always black for better readability on light-colored cells.
 - `nmfkc()`: `X.init = "runif"` now supports `nstart > 1` for multi-start initialization. Multiple random starting points are evaluated with 10 standard NMF iterations, and the best (lowest Frobenius error) is selected.
+- `nmfae()`, `nmfre()`: `r.squared` is now computed as `cor(Y, fitted)^2` (squared correlation between observed and fitted values), consistent with `nmfkc()`. Previously `nmfae()` used `1 - SS_res/SS_tot` and `nmfre()` used the same regression-style R-squared, which can behave unexpectedly for intercept-free non-negative models.
+
+### **New Functions**
+- `nmfkc.net.DOT()`: Graphviz DOT visualization for symmetric NMF networks (`Y.symmetric = "bi"` or `"tri"`). Displays basis-to-node membership edges and inter-basis interaction edges (C matrix) with significance stars.
+- `nmfkc.net.inference()`: Statistical inference for symmetric NMF. Wrapper around `nmfkc.inference()` with `A = t(X)`. Returns off-diagonal C coefficients with sandwich SE and wild bootstrap.
 
 ### **Parameter Renames** (old names remain usable for backward compatibility)
 - `nmf.sem.DOT()`: `weight_scale_y2f` → `weight_scale_c2`, `weight_scale_fy1` → `weight_scale_x1` (matrix-name-based naming, consistent with `nmfae.DOT()` and `nmfkc.DOT()`).
