@@ -11,6 +11,9 @@
 ### **New Functions**
 - `nmfkc.net.DOT()`: Graphviz DOT visualization for symmetric NMF networks (`Y.symmetric = "bi"` or `"tri"`). Displays basis-to-node membership edges and inter-basis interaction edges (C matrix) with significance stars.
 - `nmfkc.net.inference()`: Statistical inference for symmetric NMF. Wrapper around `nmfkc.inference()` with `A = t(X)`. Returns off-diagonal C coefficients with sandwich SE and wild bootstrap.
+- `nmfkc.rff.direct()`: Kernel-faithful NMF-KC with Random Fourier Features via a Direct Multiplicative Update algorithm. The implicit kernel is the true RFF approximation \eqn{Z^\top Z} (not the posneg-split surrogate), and the objective decreases monotonically per update. Per-iteration cost is \eqn{O(QD^2)}, independent of the sample size \eqn{N}.
+- `nmfkc.rff.params()`, `nmfkc.rff.apply()`, `nmfkc.rff.nonneg()`: helpers for generating RFF random parameters (Rahimi & Recht 2007), computing the \eqn{Z = \sqrt{2/D}\,\cos(\omega U + b)} feature matrix, and performing the posneg split.
+- S3 methods `predict.nmfkc.rff()`, `summary.nmfkc.rff()`, `plot.nmfkc.rff()`.
 
 ### **Parameter Renames** (old names remain usable for backward compatibility)
 - `nmf.sem.DOT()`: `weight_scale_y2f` → `weight_scale_c2`, `weight_scale_fy1` → `weight_scale_x1` (matrix-name-based naming, consistent with `nmfae.DOT()` and `nmfkc.DOT()`).
