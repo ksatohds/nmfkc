@@ -47,20 +47,19 @@
 #'   smaller \eqn{D} manually.  For very small \eqn{N}, RFF is not
 #'   recommended; use a full kernel matrix with \code{\link{nmfkc}}
 #'   instead.
+#' @param seed Optional integer passed to \code{set.seed()} before
+#'   generating \eqn{\omega, b}, for reproducibility.  Ignored when
+#'   \code{pars} is supplied.
 #' @param nonneg Logical. If \code{TRUE} (default), returns the posneg
 #'   split as \code{list(Zp = max(Z, 0), Zn = max(-Z, 0), pars = ...)}.
 #'   If \code{FALSE}, returns the raw sign-unrestricted \eqn{D \times N}
 #'   matrix \eqn{Z} with the generating \code{pars} attached as
 #'   attribute.
-#' @param ... Hidden options:
-#'   \itemize{
-#'     \item \code{seed}: integer, \code{set.seed()} for reproducibility
-#'           before generating \eqn{\omega, b}.
-#'     \item \code{pars}: a list \code{list(omega, b, D, beta)} obtained
-#'           from a previous call.  When supplied, \eqn{\omega, b} are
-#'           reused and \code{beta}/\code{D} arguments are ignored.
-#'           Use this to apply the same random map to test data.
-#'   }
+#' @param ... Hidden option \code{pars}: a list
+#'   \code{list(omega, b, D, beta)} obtained from a previous call.
+#'   When supplied, \eqn{\omega, b} are reused and \code{beta}/\code{D}/
+#'   \code{seed} arguments are ignored.  Use this to apply the same
+#'   random map to test data.
 #'
 #' @return When \code{nonneg = TRUE}: a list with elements \code{Zp},
 #'   \code{Zn} (non-negative matrices, each \eqn{D \times N}) and
@@ -86,9 +85,9 @@
 #' @export
 nmfkc.rff.random <- function(U, beta = NULL,
                              D = ceiling(ncol(U) / 2),
+                             seed = NULL,
                              nonneg = TRUE, ...) {
   extra <- list(...)
-  seed  <- extra$seed
   pars  <- extra$pars
 
   if (is.null(pars)) {
