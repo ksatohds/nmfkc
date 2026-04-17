@@ -12,8 +12,9 @@
 ### **New Functions**
 - `nmfkc.net.DOT()`: Graphviz DOT visualization for symmetric NMF networks (`Y.symmetric = "bi"` or `"tri"`). Displays basis-to-node membership edges and inter-basis interaction edges (C matrix) with significance stars.
 - `nmfkc.net.inference()`: Statistical inference for symmetric NMF. Wrapper around `nmfkc.inference()` with `A = t(X)`. Returns off-diagonal C coefficients with sandwich SE and wild bootstrap.
-- `nmfkc.rff.direct()`: Kernel-faithful NMF-KC with Random Fourier Features via a Direct Multiplicative Update algorithm. The implicit kernel is the true RFF approximation \eqn{Z^\top Z} (not the posneg-split surrogate), and the objective decreases monotonically per update. Per-iteration cost is \eqn{O(QD^2)}, independent of the sample size \eqn{N}.
-- `nmfkc.rff.params()`, `nmfkc.rff.apply()`, `nmfkc.rff.nonneg()`: helpers for generating RFF random parameters (Rahimi & Recht 2007), computing the \eqn{Z = \sqrt{2/D}\,\cos(\omega U + b)} feature matrix, and performing the posneg split.
+- `nmfkc.rff()`: Kernel-faithful NMF-KC with Random Fourier Features via a Direct Multiplicative Update algorithm. The implicit kernel is the true RFF approximation \eqn{Z^\top Z} (not the posneg-split surrogate), and the objective decreases monotonically per update. Per-iteration cost is \eqn{O(QD^2)}, independent of the sample size \eqn{N}.
+- `nmfkc.rff.params()`: generates RFF random parameters (omega, b) for a Gaussian kernel bandwidth (Rahimi & Recht 2007).
+- `nmfkc.rff.random()`: computes the RFF feature matrix \eqn{Z = \sqrt{2/D}\,\cos(\omega U + b)}. By default returns the posneg split as \code{list(Zp, Zn)}; use \code{nonneg = FALSE} for the raw sign-unrestricted matrix.
 - S3 methods `predict.nmfkc.rff()`, `summary.nmfkc.rff()`, `plot.nmfkc.rff()`.
 
 ### **Parameter Renames** (old names remain usable for backward compatibility)

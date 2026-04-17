@@ -46,13 +46,13 @@ set.seed(1)
 U <- matrix(stats::rnorm(5 * 40), 5, 40)
 Y <- matrix(abs(stats::rnorm(8 * 40)), 8, 40)
 pars <- nmfkc.rff.params(p = 5, D = 50, beta = 0.5, seed = 1)
-Zraw <- nmfkc.rff.apply(U, pars); Zp <- pmax(Zraw, 0); Zn <- pmax(-Zraw, 0)
-res <- nmfkc.rff.direct(Y, Zp, Zn, rank = 3, maxit = 100)
-Yhat <- predict(res, newZp = Zp, newZn = Zn)
+Z <- nmfkc.rff.random(U, pars)
+res <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = 3, maxit = 100)
+Yhat <- predict(res, newZp = Z$Zp, newZn = Z$Zn)
 dim(Yhat)
 }
 
 }
 \seealso{
-\code{\link{nmfkc.rff.direct}}
+\code{\link{nmfkc.rff}}
 }

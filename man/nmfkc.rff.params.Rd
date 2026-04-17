@@ -31,6 +31,6 @@ str(pars)
 
 }
 \seealso{
-\code{\link{nmfkc.rff.apply}}, \code{\link{nmfkc.rff.direct}},
+\code{\link{nmfkc.rff.random}}, \code{\link{nmfkc.rff}},
 \code{\link{nmfkc.kernel.beta.nearest.med}}
 }

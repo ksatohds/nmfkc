@@ -31,7 +31,7 @@
 #' @return A list with elements \code{omega} (\eqn{D \times p} matrix),
 #'   \code{b} (length-\eqn{D} vector), \code{D}, and \code{beta}.
 #'
-#' @seealso \code{\link{nmfkc.rff.apply}}, \code{\link{nmfkc.rff.direct}},
+#' @seealso \code{\link{nmfkc.rff.random}}, \code{\link{nmfkc.rff}},
 #'   \code{\link{nmfkc.kernel.beta.nearest.med}}
 #'
 #' @examples
@@ -52,7 +52,7 @@ nmfkc.rff.params <- function(p, D, beta, seed = NULL) {
 
 
 ############################################################
-## nmfkc.rff.apply : compute RFF features
+## nmfkc.rff.random : compute RFF features
 ############################################################
 
 #' Compute Random Fourier Features of input data
@@ -62,67 +62,50 @@ nmfkc.rff.params <- function(p, D, beta, seed = NULL) {
 #' \deqn{z_d(u) = \sqrt{2/D}\, \cos(\omega_d^\top u + b_d)}
 #' to each column of \code{U}, yielding a \eqn{D \times N} feature matrix
 #' \eqn{Z} such that \eqn{Z^\top Z \approx K} (the Gaussian kernel matrix).
-#' The matrix \eqn{Z} is sign-unrestricted (contains negative values).
+#' The raw matrix \eqn{Z} is sign-unrestricted (contains negative values);
+#' by default this function returns the non-negative posneg split
+#' \eqn{(Z_{+}, Z_{-})} suitable for direct use with
+#' \code{\link{nmfkc.rff}}.
 #'
 #' @param U A \eqn{p \times N} numeric matrix; columns are data points.
 #' @param pars A list returned by \code{\link{nmfkc.rff.params}}.
+#' @param nonneg Logical. If \code{TRUE} (default), returns the posneg
+#'   split as \code{list(Zp = max(Z, 0), Zn = max(-Z, 0))}. If
+#'   \code{FALSE}, returns the raw sign-unrestricted \eqn{D \times N}
+#'   matrix \eqn{Z}.
 #'
-#' @return A \eqn{D \times N} numeric matrix of RFF features.
+#' @return Either a list \code{list(Zp, Zn)} of non-negative matrices
+#'   (when \code{nonneg = TRUE}) or a sign-unrestricted numeric matrix
+#'   (when \code{nonneg = FALSE}).
 #'
-#' @seealso \code{\link{nmfkc.rff.params}}, \code{\link{nmfkc.rff.nonneg}}
+#' @seealso \code{\link{nmfkc.rff.params}}, \code{\link{nmfkc.rff}}
 #'
 #' @examples
 #' U <- matrix(stats::rnorm(5 * 20), 5, 20)
 #' pars <- nmfkc.rff.params(p = 5, D = 50, beta = 0.5, seed = 1)
-#' Z <- nmfkc.rff.apply(U, pars)
-#' dim(Z)     # 50 x 20
+#' Z <- nmfkc.rff.random(U, pars)         # posneg split (default)
+#' dim(Z$Zp); dim(Z$Zn)                   # 50 x 20 each
+#'
+#' Zraw <- nmfkc.rff.random(U, pars, nonneg = FALSE)  # raw (signed)
+#' dim(Zraw)                              # 50 x 20
 #'
 #' @export
-nmfkc.rff.apply <- function(U, pars) {
+nmfkc.rff.random <- function(U, pars, nonneg = TRUE) {
   proj <- pars$omega %*% U + pars$b
-  sqrt(2 / pars$D) * cos(proj)
+  Z <- sqrt(2 / pars$D) * cos(proj)
+  if (isTRUE(nonneg)) {
+    list(Zp = pmax(Z, 0), Zn = pmax(-Z, 0))
+  } else {
+    Z
+  }
 }
 
 
 ############################################################
-## nmfkc.rff.nonneg : posneg split
+## nmfkc.rff : Direct MU algorithm (Algorithm 2)
 ############################################################
 
-#' Positive/negative split of a sign-unrestricted matrix
-#'
-#' @description
-#' Splits a sign-unrestricted matrix \eqn{Z} into its positive and negative
-#' parts stacked row-wise,
-#' \deqn{[Z_{+}; Z_{-}],\ Z_{+} = \max(Z, 0),\ Z_{-} = \max(-Z, 0),}
-#' producing a non-negative matrix suitable as a covariate for standard NMF
-#' (the \dQuote{posneg split}; Chen & Plemmons 2009).
-#'
-#' @param Zraw A \eqn{D \times N} numeric matrix (may contain negative values).
-#' @param posneg.split Logical. If \code{TRUE} (default), returns the stacked
-#'   \eqn{2D \times N} matrix \eqn{[Z_{+}; Z_{-}]}. If \code{FALSE}, returns
-#'   only \eqn{Z_{+} = \max(Z, 0)}.
-#'
-#' @return A non-negative numeric matrix.
-#'
-#' @seealso \code{\link{nmfkc.rff.apply}}, \code{\link{nmfkc.rff.direct}}
-#'
-#' @examples
-#' Zraw <- matrix(stats::rnorm(30), 6, 5)
-#' Z_aug <- nmfkc.rff.nonneg(Zraw)
-#' dim(Z_aug)   # 12 x 5
-#'
-#' @export
-nmfkc.rff.nonneg <- function(Zraw, posneg.split = TRUE) {
-  if (isTRUE(posneg.split)) rbind(pmax(Zraw, 0), pmax(-Zraw, 0))
-  else pmax(Zraw, 0)
-}
-
-
-############################################################
-## nmfkc.rff.direct : Direct MU algorithm (Algorithm 2)
-############################################################
-
-#' Kernel-faithful NMF with Random Fourier Features (Direct MU)
+#' Kernel-faithful NMF with Random Fourier Features
 #'
 #' @description
 #' Solves the kernel-faithful NMF-KC problem
@@ -141,7 +124,7 @@ nmfkc.rff.nonneg <- function(Zraw, posneg.split = TRUE) {
 #'
 #' @param Y Non-negative \eqn{Q_{\mathrm{obs}} \times N} response matrix.
 #' @param Zp Non-negative \eqn{D \times N} matrix \eqn{Z_{+} = \max(Z, 0)},
-#'   where \eqn{Z} is produced by \code{\link{nmfkc.rff.apply}}.
+#'   where \eqn{Z} is produced by \code{\link{nmfkc.rff.random}}.
 #' @param Zn Non-negative \eqn{D \times N} matrix \eqn{Z_{-} = \max(-Z, 0)}.
 #' @param rank Integer. Number of latent components \eqn{Q} in \eqn{X}.
 #' @param maxit Maximum number of iterations (default 5000).
@@ -181,7 +164,7 @@ nmfkc.rff.nonneg <- function(Zraw, posneg.split = TRUE) {
 #' matrix factorizations. \emph{IEEE TPAMI}, 32(1), 45-55.
 #'
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.rff.params}},
-#'   \code{\link{nmfkc.rff.apply}}, \code{\link{nmfkc.rff.nonneg}},
+#'   \code{\link{nmfkc.rff.random}},
 #'   \code{\link{nmfkc.kernel.beta.nearest.med}},
 #'   \code{\link{predict.nmfkc.rff}}
 #'
@@ -191,21 +174,20 @@ nmfkc.rff.nonneg <- function(Zraw, posneg.split = TRUE) {
 #' U <- matrix(stats::rnorm(5 * 40), 5, 40)
 #' Y <- matrix(abs(stats::rnorm(8 * 40)), 8, 40)
 #' pars <- nmfkc.rff.params(p = 5, D = 50, beta = 0.5, seed = 1)
-#' Zraw <- nmfkc.rff.apply(U, pars)
-#' Zp <- pmax(Zraw, 0);  Zn <- pmax(-Zraw, 0)
-#' res <- nmfkc.rff.direct(Y, Zp, Zn, rank = 3, maxit = 200)
+#' Z <- nmfkc.rff.random(U, pars)                       # list(Zp, Zn)
+#' res <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = 3, maxit = 200)
 #' plot(res)
 #' summary(res)
 #' }
 #'
 #' @export
-nmfkc.rff.direct <- function(Y, Zp, Zn,
-                              rank = NULL,
-                              maxit = 5000,
-                              epsilon = 1e-4,
-                              res.init = NULL,
-                              print.trace = FALSE,
-                              ...) {
+nmfkc.rff <- function(Y, Zp, Zn,
+                       rank = NULL,
+                       maxit = 5000,
+                       epsilon = 1e-4,
+                       res.init = NULL,
+                       print.trace = FALSE,
+                       ...) {
   cl <- match.call()
   extra_args <- list(...)
   if (is.null(rank) && !is.null(extra_args$Q)) rank <- extra_args$Q
@@ -251,7 +233,7 @@ nmfkc.rff.direct <- function(Y, Zp, Zn,
   objfunc.iter <- numeric(maxit)
 
   if (isTRUE(print.trace))
-    cat(sprintf("nmfkc.rff.direct: Y(%d,%d) Z(%d,%d) rank=%d\n",
+    cat(sprintf("nmfkc.rff: Y(%d,%d) Z(%d,%d) rank=%d\n",
                 Q_obs, N, D_rff, N, Q))
 
   ## ---- iterations ----
@@ -299,7 +281,7 @@ nmfkc.rff.direct <- function(Y, Zp, Zn,
   runtime <- as.numeric((proc.time() - t0)[3])
 
   if (isTRUE(print.trace))
-    cat(sprintf("nmfkc.rff.direct: done in %d iterations, %.2fs, R2=%.4f\n",
+    cat(sprintf("nmfkc.rff: done in %d iterations, %.2fs, R2=%.4f\n",
                 iter, runtime, r.squared))
 
   result <- list(
@@ -350,7 +332,7 @@ nmfkc.rff.direct <- function(Y, Zp, Zn,
 #' @return A numeric matrix (\code{"response"} or \code{"prob"}) or a
 #'   character vector (\code{"class"}).
 #'
-#' @seealso \code{\link{nmfkc.rff.direct}}
+#' @seealso \code{\link{nmfkc.rff}}
 #'
 #' @examples
 #' \donttest{
@@ -358,9 +340,9 @@ nmfkc.rff.direct <- function(Y, Zp, Zn,
 #' U <- matrix(stats::rnorm(5 * 40), 5, 40)
 #' Y <- matrix(abs(stats::rnorm(8 * 40)), 8, 40)
 #' pars <- nmfkc.rff.params(p = 5, D = 50, beta = 0.5, seed = 1)
-#' Zraw <- nmfkc.rff.apply(U, pars); Zp <- pmax(Zraw, 0); Zn <- pmax(-Zraw, 0)
-#' res <- nmfkc.rff.direct(Y, Zp, Zn, rank = 3, maxit = 100)
-#' Yhat <- predict(res, newZp = Zp, newZn = Zn)
+#' Z <- nmfkc.rff.random(U, pars)
+#' res <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = 3, maxit = 100)
+#' Yhat <- predict(res, newZp = Z$Zp, newZn = Z$Zn)
 #' dim(Yhat)
 #' }
 #'
@@ -396,13 +378,13 @@ predict.nmfkc.rff <- function(object, newZp = NULL, newZn = NULL,
 #'
 #' @description
 #' Draws the objective-function trajectory for a fitted
-#' \code{\link{nmfkc.rff.direct}} model.
+#' \code{\link{nmfkc.rff}} model.
 #'
 #' @param x An \code{nmfkc.rff} object.
 #' @param ... Additional graphical parameters passed to \code{plot()}.
 #'
 #' @return Called for its side effect (plot). Returns \code{x} invisibly.
-#' @seealso \code{\link{nmfkc.rff.direct}}
+#' @seealso \code{\link{nmfkc.rff}}
 #' @export
 plot.nmfkc.rff <- function(x, ...) {
   extra_args <- list(...)
@@ -424,12 +406,12 @@ plot.nmfkc.rff <- function(x, ...) {
 #' Summary method for nmfkc.rff objects
 #'
 #' @description
-#' Produces a concise summary of a \code{\link{nmfkc.rff.direct}} fit.
+#' Produces a concise summary of a \code{\link{nmfkc.rff}} fit.
 #'
 #' @param object A fitted \code{nmfkc.rff} object.
 #' @param ... Unused.
 #' @return An object of class \code{"summary.nmfkc.rff"}.
-#' @seealso \code{\link{nmfkc.rff.direct}}
+#' @seealso \code{\link{nmfkc.rff}}
 #' @export
 summary.nmfkc.rff <- function(object, ...) {
   ans <- list(

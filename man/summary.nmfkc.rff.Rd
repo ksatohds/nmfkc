@@ -15,8 +15,8 @@
 An object of class \code{"summary.nmfkc.rff"}.
 }
 \description{
-Produces a concise summary of a \code{\link{nmfkc.rff.direct}} fit.
+Produces a concise summary of a \code{\link{nmfkc.rff}} fit.
 }
 \seealso{
-\code{\link{nmfkc.rff.direct}}
+\code{\link{nmfkc.rff}}
 }

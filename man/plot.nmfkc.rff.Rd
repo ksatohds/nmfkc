@@ -16,8 +16,8 @@ Called for its side effect (plot). Returns \code{x} invisibly.
 }
 \description{
 Draws the objective-function trajectory for a fitted
-\code{\link{nmfkc.rff.direct}} model.
+\code{\link{nmfkc.rff}} model.
 }
 \seealso{
-\code{\link{nmfkc.rff.direct}}
+\code{\link{nmfkc.rff}}
 }
