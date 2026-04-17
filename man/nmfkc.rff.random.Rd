@@ -4,43 +4,79 @@
 \alias{nmfkc.rff.random}
 \title{Compute Random Fourier Features of input data}
 \usage{
-nmfkc.rff.random(U, pars, nonneg = TRUE)
+nmfkc.rff.random(U, beta = NULL, D = ceiling(ncol(U)/2), nonneg = TRUE, ...)
 }
 \arguments{
 \item{U}{A \eqn{p \times N} numeric matrix; columns are data points.}
 
-\item{pars}{A list returned by \code{\link{nmfkc.rff.params}}.}
+\item{beta}{Positive scalar.  Gaussian kernel bandwidth parameter.
+Can be obtained via \code{\link{nmfkc.kernel.beta.nearest.med}}.
+May be \code{NULL} only when \code{pars} is supplied through
+\code{...}.}
+
+\item{D}{Integer. Number of random features. Defaults to
+\code{ceiling(ncol(U) / 2)}.  This default is intended for the
+\strong{training-time fresh generation} only; for test data, always
+supply \code{pars} via \code{...} to inherit the training \eqn{D}
+together with \eqn{\omega, b}.  For very large \eqn{N} the default
+may be excessive (iteration cost is \eqn{O(QD^2)}); choose a
+smaller \eqn{D} manually.  For very small \eqn{N}, RFF is not
+recommended; use a full kernel matrix with \code{\link{nmfkc}}
+instead.}
 
 \item{nonneg}{Logical. If \code{TRUE} (default), returns the posneg
-split as \code{list(Zp = max(Z, 0), Zn = max(-Z, 0))}. If
-\code{FALSE}, returns the raw sign-unrestricted \eqn{D \times N}
-matrix \eqn{Z}.}
+split as \code{list(Zp = max(Z, 0), Zn = max(-Z, 0), pars = ...)}.
+If \code{FALSE}, returns the raw sign-unrestricted \eqn{D \times N}
+matrix \eqn{Z} with the generating \code{pars} attached as
+attribute.}
+
+\item{...}{Hidden options:
+\itemize{
+\item \code{seed}: integer, \code{set.seed()} for reproducibility
+before generating \eqn{\omega, b}.
+\item \code{pars}: a list \code{list(omega, b, D, beta)} obtained
+from a previous call.  When supplied, \eqn{\omega, b} are
+reused and \code{beta}/\code{D} arguments are ignored.
+Use this to apply the same random map to test data.
+}}
 }
 \value{
-Either a list \code{list(Zp, Zn)} of non-negative matrices
-(when \code{nonneg = TRUE}) or a sign-unrestricted numeric matrix
-(when \code{nonneg = FALSE}).
+When \code{nonneg = TRUE}: a list with elements \code{Zp},
+\code{Zn} (non-negative matrices, each \eqn{D \times N}) and
+\code{pars}.  When \code{nonneg = FALSE}: a \eqn{D \times N}
+sign-unrestricted matrix with \code{attr(., "pars")} attached.
 }
 \description{
-Applies the RFF transform
+Generates RFF random parameters
+\eqn{\omega_d \sim \mathcal{N}(0, 2\beta I_p)},
+\eqn{b_d \sim \mathrm{Uniform}(0, 2\pi)} (Rahimi & Recht, 2007) and
+applies the RFF transform
 \deqn{z_d(u) = \sqrt{2/D}\, \cos(\omega_d^\top u + b_d)}
 to each column of \code{U}, yielding a \eqn{D \times N} feature matrix
-\eqn{Z} such that \eqn{Z^\top Z \approx K} (the Gaussian kernel matrix).
-The raw matrix \eqn{Z} is sign-unrestricted (contains negative values);
-by default this function returns the non-negative posneg split
-\eqn{(Z_{+}, Z_{-})} suitable for direct use with
-\code{\link{nmfkc.rff}}.
+\eqn{Z} such that \eqn{Z^\top Z \approx K} (the Gaussian kernel matrix
+with bandwidth \code{beta}).
+
+By default, the non-negative posneg split
+\eqn{(Z_{+}, Z_{-})} is returned, suitable for direct use with
+\code{\link{nmfkc.rff}}.  The generating parameters (\code{omega},
+\code{b}) are returned alongside so that the same random map can be
+reapplied to new data (e.g., a test set).
 }
 \examples{
-U <- matrix(stats::rnorm(5 * 20), 5, 20)
-pars <- nmfkc.rff.params(p = 5, D = 50, beta = 0.5, seed = 1)
-Z <- nmfkc.rff.random(U, pars)         # posneg split (default)
-dim(Z$Zp); dim(Z$Zn)                   # 50 x 20 each
+set.seed(1)
+U.train <- matrix(stats::rnorm(5 * 40), 5, 40)
+U.test  <- matrix(stats::rnorm(5 * 10), 5, 10)
 
-Zraw <- nmfkc.rff.random(U, pars, nonneg = FALSE)  # raw (signed)
-dim(Zraw)                              # 50 x 20
+## Training: only beta required; D defaults to ncol(U)/2
+Ztr <- nmfkc.rff.random(U.train, beta = 0.5, seed = 1)
+dim(Ztr$Zp)              # 20 x 40 (D = ceiling(40/2) = 20)
+
+## Test: reuse the same omega/b via pars
+Zte <- nmfkc.rff.random(U.test, pars = Ztr$pars)
+dim(Zte$Zp)              # 20 x 10
 
 }
 \seealso{
-\code{\link{nmfkc.rff.params}}, \code{\link{nmfkc.rff}}
+\code{\link{nmfkc.rff}},
+\code{\link{nmfkc.kernel.beta.nearest.med}}
 }

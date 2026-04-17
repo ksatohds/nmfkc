@@ -80,8 +80,7 @@ iteration is \eqn{O(QD^2)} and independent of \eqn{N}.
 set.seed(1)
 U <- matrix(stats::rnorm(5 * 40), 5, 40)
 Y <- matrix(abs(stats::rnorm(8 * 40)), 8, 40)
-pars <- nmfkc.rff.params(p = 5, D = 50, beta = 0.5, seed = 1)
-Z <- nmfkc.rff.random(U, pars)                       # list(Zp, Zn)
+Z <- nmfkc.rff.random(U, beta = 0.5, seed = 1)       # list(Zp, Zn, pars)
 res <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = 3, maxit = 200)
 plot(res)
 summary(res)
@@ -96,8 +95,7 @@ Ding, C., Li, T., & Jordan, M. I. (2010). Convex and semi-nonnegative
 matrix factorizations. \emph{IEEE TPAMI}, 32(1), 45-55.
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.rff.params}},
-\code{\link{nmfkc.rff.random}},
+\code{\link{nmfkc}}, \code{\link{nmfkc.rff.random}},
 \code{\link{nmfkc.kernel.beta.nearest.med}},
 \code{\link{predict.nmfkc.rff}}
 }
