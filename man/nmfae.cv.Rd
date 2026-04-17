@@ -40,6 +40,12 @@ When \code{Y2} is a kernel matrix created by \code{\link{nmfkc.kernel}}
 (detected via attributes), the symmetric kernel splitting convention is used:
 \code{Y2[train, train]} for training and \code{Y2[train, test]} for prediction.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \examples{
 Y <- t(iris[1:30, 1:4])
 res <- nmfae.cv(Y, rank = 2, rank.encoder = 2, nfolds = 5, maxit = 500)

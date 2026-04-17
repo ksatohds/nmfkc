@@ -69,6 +69,12 @@ By default, the non-negative posneg split
 \code{b}) are returned alongside so that the same random map can be
 reapplied to new data (e.g., a test set).
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \examples{
 set.seed(1)
 U.train <- matrix(stats::rnorm(5 * 40), 5, 40)

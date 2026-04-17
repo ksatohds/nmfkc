@@ -44,6 +44,12 @@ and pairs are evaluated element-wise (i.e., \eqn{(Q_1, R_1), (Q_2, R_2), \dots})
 When \code{rank.encoder} is explicitly specified, all combinations of \code{rank} and \code{rank.encoder}
 are evaluated via \code{expand.grid}.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \examples{
 Y <- t(iris[1:30, 1:4])
 # Default: rank.encoder=NULL -> paired rank=rank.encoder

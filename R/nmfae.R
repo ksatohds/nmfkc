@@ -377,6 +377,10 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 #' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{\Theta}.}
 #' \item{C.p.side}{P-value type used.}
 #'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @seealso \code{\link{nmfae}}, \code{\link{summary.nmfae.inference}}
 #' @export
 #' @examples
@@ -894,6 +898,11 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 #' @param ... Not used.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @seealso \code{\link{nmfae}}, \code{\link{plot.nmfae}}, \code{\link{nmfae.DOT}}
 #' @examples
 #' \donttest{
@@ -1165,6 +1174,10 @@ plot.predict.nmfae <- function(x, ...) {
 #' \item{folds}{List of length \code{div} containing the held-out element indices for each fold.}
 #' \item{QR}{Data frame with columns \code{Q} and \code{R} listing the evaluated pairs.}
 #'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @seealso \code{\link{nmfae}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @examples
@@ -1399,6 +1412,10 @@ plot.nmfae.ecv <- function(x, ...) {
 #' \item{sigma}{Residual standard error (RMSE), same scale as \eqn{Y_1}.}
 #' \item{objfunc.block}{Per-fold squared error totals.}
 #' \item{block}{Integer vector of fold assignments (1, ..., \code{div}) for each column.}
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
 #'
 #' @seealso \code{\link{nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.kernel.beta.cv}},
 #'   \code{\link{nmfkc.cv}}
@@ -1717,6 +1734,11 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #'   applies when \code{type = "YXCXY"}.
 #'
 #' @return A character string containing the DOT graph specification.
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @seealso \code{\link{nmfae}}
 #' @examples
 #' \donttest{

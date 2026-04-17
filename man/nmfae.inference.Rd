@@ -45,6 +45,12 @@ Performs post-estimation inference for \eqn{\Theta} in the three-layer NMF model
 Uses sandwich covariance estimation and one-step wild bootstrap with
 non-negative projection.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \examples{
 Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
 res <- nmfae(Y, rank=2, rank.encoder=2)

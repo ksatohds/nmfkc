@@ -66,6 +66,10 @@
 #'   \code{pars}.  When \code{nonneg = FALSE}: a \eqn{D \times N}
 #'   sign-unrestricted matrix with \code{attr(., "pars")} attached.
 #'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @seealso \code{\link{nmfkc.rff}},
 #'   \code{\link{nmfkc.kernel.beta.nearest.med}}
 #'
@@ -190,6 +194,10 @@ nmfkc.rff.random <- function(U, beta = NULL,
 #'   \item \code{runtime}: elapsed seconds.
 #'   \item \code{call}: the matched call.
 #' }
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
 #'
 #' @references
 #' Rahimi, A., & Recht, B. (2007). Random features for large-scale kernel

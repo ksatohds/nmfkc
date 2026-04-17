@@ -82,6 +82,12 @@ of a three-layer NMF model. Two graph types are supported:
 Edge widths are proportional to matrix element values, and edges below
 \code{threshold} are omitted for clarity.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \examples{
 \donttest{
 set.seed(1)

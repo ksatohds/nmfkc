@@ -37,6 +37,12 @@ Invisible \code{NULL}. Called for its side effect (plot).
 and \eqn{X_2} as side-by-side heatmaps. This provides an alternative to DOT graph
 visualization, especially when \eqn{Y_2} has many variables (e.g., kernel matrix).
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \examples{
 \donttest{
 set.seed(1)

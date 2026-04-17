@@ -95,6 +95,12 @@ All iteration-time matrix operations use only the precomputed
 \eqn{G_0 = Y Z^\top} (\eqn{Q_{\mathrm{obs}} \times D}), so the cost per
 iteration is \eqn{O(QD^2)} and independent of \eqn{N}.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \examples{
 \donttest{
 set.seed(1)
