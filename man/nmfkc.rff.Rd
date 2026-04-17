@@ -9,9 +9,9 @@ nmfkc.rff(
   Zp,
   Zn,
   rank = NULL,
+  warm.start = TRUE,
   maxit = 5000,
   epsilon = 1e-04,
-  res.init = NULL,
   print.trace = FALSE,
   ...
 )
@@ -26,22 +26,42 @@ where \eqn{Z} is produced by \code{\link{nmfkc.rff.random}}.}
 
 \item{rank}{Integer. Number of latent components \eqn{Q} in \eqn{X}.}
 
+\item{warm.start}{Logical. If \code{TRUE} (default), internally runs the
+posneg-split NMF via \code{\link{nmfkc}} on \code{Y, A = rbind(Zp, Zn)}
+and uses it to seed \eqn{X, H_{+}, H_{-}}.  This usually accelerates
+convergence.  If \code{FALSE}, \eqn{X, H_{+}, H_{-}} are initialized
+from Gaussian random draws (used in the research memo for comparison).
+Ignored when both \code{X.init} and \code{C.init} are supplied via
+\code{...}.}
+
 \item{maxit}{Maximum number of iterations (default 5000).}
 
 \item{epsilon}{Relative convergence tolerance on the objective
 (default 1e-4).}
 
-\item{res.init}{Optional \code{nmfkc} object for warm-start
-initialization.  Its \code{X} seeds the basis and
-\code{C[, 1:D]} / \code{C[, (D+1):(2D)]} seed \code{Hp} / \code{Hn}.
-Supply the result of running \code{\link{nmfkc}} on
-\code{Y, A = rbind(Zp, Zn)} (the posneg model).}
-
 \item{print.trace}{Logical. If \code{TRUE}, prints summary messages at
 start and end.}
 
-\item{...}{Additional arguments: \code{Q} is accepted as an alias for
-\code{rank} for backward compatibility.}
+\item{...}{Additional arguments:
+\itemize{
+\item \code{Q}: alias for \code{rank} (backward compatibility).
+\item \code{pars}: the \code{list(omega, b, D, beta)} obtained from
+\code{\link{nmfkc.rff.random}}.  When supplied, the RFF
+generating parameters are stored in the returned object
+(as \code{$pars}) so that \code{summary()} can report
+\code{beta} and the random map can be re-applied to new data.
+\item \code{X.init} (\eqn{Q_{\mathrm{obs}} \times Q}): explicit
+initial basis matrix.
+\item \code{C.init} (\eqn{Q \times 2D}): explicit initial
+coefficient matrix (first \eqn{D} columns are \eqn{H_{+}},
+last \eqn{D} are \eqn{H_{-}}).  Same layout as
+\code{$C} returned by \code{\link{nmfkc}} on
+\code{Y, A = rbind(Zp, Zn)}.
+}
+When both \code{X.init} and \code{C.init} are supplied, they are
+used directly; \code{warm.start} has no effect.  When only one is
+supplied, the missing one is filled by the posneg warm-start
+(mirrors \code{\link{nmfre}}'s behavior with \code{X.init} / \code{C.init}).}
 }
 \value{
 An object of class \code{c("nmfkc.rff", "nmfkc")} with elements
@@ -80,10 +100,15 @@ iteration is \eqn{O(QD^2)} and independent of \eqn{N}.
 set.seed(1)
 U <- matrix(stats::rnorm(5 * 40), 5, 40)
 Y <- matrix(abs(stats::rnorm(8 * 40)), 8, 40)
-Z <- nmfkc.rff.random(U, beta = 0.5, seed = 1)       # list(Zp, Zn, pars)
+Z <- nmfkc.rff.random(U, beta = 0.5, seed = 1)
+
+## Default: warm-start via posneg nmfkc() internally
 res <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = 3, maxit = 200)
-plot(res)
-summary(res)
+plot(res); summary(res)
+
+## Random initialization (for research reproduction)
+res_rand <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = 3, maxit = 200,
+                       warm.start = FALSE)
 }
 
 }

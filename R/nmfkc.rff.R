@@ -142,18 +142,38 @@ nmfkc.rff.random <- function(U, beta = NULL,
 #'   where \eqn{Z} is produced by \code{\link{nmfkc.rff.random}}.
 #' @param Zn Non-negative \eqn{D \times N} matrix \eqn{Z_{-} = \max(-Z, 0)}.
 #' @param rank Integer. Number of latent components \eqn{Q} in \eqn{X}.
+#' @param warm.start Logical. If \code{TRUE} (default), internally runs the
+#'   posneg-split NMF via \code{\link{nmfkc}} on \code{Y, A = rbind(Zp, Zn)}
+#'   and uses it to seed \eqn{X, H_{+}, H_{-}}.  This usually accelerates
+#'   convergence.  If \code{FALSE}, \eqn{X, H_{+}, H_{-}} are initialized
+#'   from Gaussian random draws (used in the research memo for comparison).
+#'   Ignored when both \code{X.init} and \code{C.init} are supplied via
+#'   \code{...}.
 #' @param maxit Maximum number of iterations (default 5000).
 #' @param epsilon Relative convergence tolerance on the objective
 #'   (default 1e-4).
-#' @param res.init Optional \code{nmfkc} object for warm-start
-#'   initialization.  Its \code{X} seeds the basis and
-#'   \code{C[, 1:D]} / \code{C[, (D+1):(2D)]} seed \code{Hp} / \code{Hn}.
-#'   Supply the result of running \code{\link{nmfkc}} on
-#'   \code{Y, A = rbind(Zp, Zn)} (the posneg model).
 #' @param print.trace Logical. If \code{TRUE}, prints summary messages at
 #'   start and end.
-#' @param ... Additional arguments: \code{Q} is accepted as an alias for
-#'   \code{rank} for backward compatibility.
+#' @param ... Additional arguments:
+#'   \itemize{
+#'     \item \code{Q}: alias for \code{rank} (backward compatibility).
+#'     \item \code{pars}: the \code{list(omega, b, D, beta)} obtained from
+#'           \code{\link{nmfkc.rff.random}}.  When supplied, the RFF
+#'           generating parameters are stored in the returned object
+#'           (as \code{$pars}) so that \code{summary()} can report
+#'           \code{beta} and the random map can be re-applied to new data.
+#'     \item \code{X.init} (\eqn{Q_{\mathrm{obs}} \times Q}): explicit
+#'           initial basis matrix.
+#'     \item \code{C.init} (\eqn{Q \times 2D}): explicit initial
+#'           coefficient matrix (first \eqn{D} columns are \eqn{H_{+}},
+#'           last \eqn{D} are \eqn{H_{-}}).  Same layout as
+#'           \code{$C} returned by \code{\link{nmfkc}} on
+#'           \code{Y, A = rbind(Zp, Zn)}.
+#'   }
+#'   When both \code{X.init} and \code{C.init} are supplied, they are
+#'   used directly; \code{warm.start} has no effect.  When only one is
+#'   supplied, the missing one is filled by the posneg warm-start
+#'   (mirrors \code{\link{nmfre}}'s behavior with \code{X.init} / \code{C.init}).
 #'
 #' @return An object of class \code{c("nmfkc.rff", "nmfkc")} with elements
 #' \itemize{
@@ -187,18 +207,23 @@ nmfkc.rff.random <- function(U, beta = NULL,
 #' set.seed(1)
 #' U <- matrix(stats::rnorm(5 * 40), 5, 40)
 #' Y <- matrix(abs(stats::rnorm(8 * 40)), 8, 40)
-#' Z <- nmfkc.rff.random(U, beta = 0.5, seed = 1)       # list(Zp, Zn, pars)
+#' Z <- nmfkc.rff.random(U, beta = 0.5, seed = 1)
+#'
+#' ## Default: warm-start via posneg nmfkc() internally
 #' res <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = 3, maxit = 200)
-#' plot(res)
-#' summary(res)
+#' plot(res); summary(res)
+#'
+#' ## Random initialization (for research reproduction)
+#' res_rand <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = 3, maxit = 200,
+#'                        warm.start = FALSE)
 #' }
 #'
 #' @export
 nmfkc.rff <- function(Y, Zp, Zn,
                        rank = NULL,
+                       warm.start = TRUE,
                        maxit = 5000,
                        epsilon = 1e-4,
-                       res.init = NULL,
                        print.trace = FALSE,
                        ...) {
   cl <- match.call()
@@ -206,6 +231,15 @@ nmfkc.rff <- function(Y, Zp, Zn,
   if (is.null(rank) && !is.null(extra_args$Q)) rank <- extra_args$Q
   if (is.null(rank)) stop("'rank' must be specified.")
   Q <- as.integer(rank)
+
+  ## Hidden init options (consistent with nmfre): X.init (Q_obs x Q),
+  ## C.init (Q x 2D).  When supplied, they override warm.start.
+  X.init <- extra_args$X.init
+  C.init <- extra_args$C.init
+
+  ## Hidden: RFF generating parameters (for summary display and
+  ## downstream reuse).  If supplied, stored in the returned object.
+  pars_rff <- extra_args$pars
 
   Q_obs <- nrow(Y)
   N     <- ncol(Y)
@@ -225,15 +259,31 @@ nmfkc.rff <- function(Y, Zp, Zn,
   Y_sqnorm <- sum(Y * Y)
 
   ## ---- initialization ----
-  if (!is.null(res.init)) {
-    if (is.null(res.init$X) || is.null(res.init$C))
-      stop("'res.init' must contain X and C matrices (e.g., from nmfkc()).")
-    X  <- res.init$X
-    if (ncol(res.init$C) != 2 * D_rff)
-      stop("res.init$C must have 2*D columns (posneg-split warm start).")
-    Hp <- res.init$C[, 1:D_rff, drop = FALSE]
-    Hn <- res.init$C[, (D_rff + 1):(2 * D_rff), drop = FALSE]
+  ## If X.init / C.init are supplied, use them directly.
+  ## Else if warm.start = TRUE, run posneg NMF to seed the MU iterations.
+  ## Else use Gaussian random initialization.
+  need_warm <- isTRUE(warm.start) &&
+               (is.null(X.init) || is.null(C.init))
+  if (need_warm) {
+    if (isTRUE(print.trace))
+      cat("nmfkc.rff: warm-starting via posneg nmfkc(..) ...\n")
+    res0 <- nmfkc(Y, A = rbind(Zp, Zn), rank = Q,
+                   maxit = maxit, epsilon = epsilon,
+                   print.dims = FALSE)
+    if (is.null(X.init)) X.init <- res0$X
+    if (is.null(C.init)) C.init <- res0$C
+  }
+
+  if (!is.null(X.init) && !is.null(C.init)) {
+    if (!identical(dim(X.init), c(Q_obs, Q)))
+      stop("X.init must have dimensions (nrow(Y), rank).")
+    if (!identical(dim(C.init), c(as.integer(Q), 2L * as.integer(D_rff))))
+      stop("C.init must have dimensions (rank, 2 * nrow(Zp)).")
+    X  <- X.init
+    Hp <- C.init[, 1:D_rff, drop = FALSE]
+    Hn <- C.init[, (D_rff + 1):(2 * D_rff), drop = FALSE]
   } else {
+    ## warm.start = FALSE and no explicit init supplied -> random
     X  <- matrix(abs(stats::rnorm(Q_obs * Q)) * 0.1, Q_obs, Q)
     Hp <- matrix(abs(stats::rnorm(Q * D_rff)) * 0.1, Q, D_rff)
     Hn <- matrix(abs(stats::rnorm(Q * D_rff)) * 0.01, Q, D_rff)
@@ -310,6 +360,7 @@ nmfkc.rff <- function(Y, Zp, Zn,
     runtime       = runtime,
     rank          = Q,
     D             = D_rff,
+    pars          = pars_rff,   # RFF generating parameters (may be NULL)
     call          = cl
   )
   class(result) <- c("nmfkc.rff", "nmfkc")
@@ -441,7 +492,8 @@ summary.nmfkc.rff <- function(object, ...) {
     Hp.sparsity = if (!is.null(object$Hp))
                     mean(object$Hp < 1e-4) else NA_real_,
     Hn.sparsity = if (!is.null(object$Hn))
-                    mean(object$Hn < 1e-4) else NA_real_
+                    mean(object$Hn < 1e-4) else NA_real_,
+    pars       = object$pars      # RFF generating params (may be NULL)
   )
   class(ans) <- "summary.nmfkc.rff"
   ans
@@ -464,6 +516,24 @@ print.summary.nmfkc.rff <- function(x, digits = max(3L, getOption("digits") - 3L
   cat(sprintf("  Y rows (Q_obs):   %d\n", x$Q_obs))
   cat(sprintf("  Rank (Q):         %d\n", x$Q))
   cat(sprintf("  RFF dim (D):      %d\n", x$D))
+
+  ## RFF generating parameters (if captured via pars argument)
+  if (!is.null(x$pars)) {
+    p_in  <- ncol(x$pars$omega)
+    o_dim <- dim(x$pars$omega)
+    cat("\nRFF parameters:\n")
+    cat(sprintf("  Input dim (p):    %d\n", p_in))
+    cat(sprintf("  beta (bandwidth): %s\n",
+                format(x$pars$beta, digits = digits)))
+    cat(sprintf("  omega:            %d x %d  (range [%s, %s])\n",
+                o_dim[1], o_dim[2],
+                format(min(x$pars$omega), digits = digits),
+                format(max(x$pars$omega), digits = digits)))
+    cat(sprintf("  b:                length %d  (range [%s, %s])\n",
+                length(x$pars$b),
+                format(min(x$pars$b), digits = digits),
+                format(max(x$pars$b), digits = digits)))
+  }
 
   cat("\nConvergence:\n")
   cat(sprintf("  Iterations:       %d\n", x$iter))

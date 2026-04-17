@@ -133,20 +133,52 @@ test_that("nmfkc.kernel.beta.nearest.med supports candidates argument", {
 })
 
 
-test_that("warm-start from nmfkc() works", {
+test_that("warm.start default (TRUE) triggers internal nmfkc() warm-start", {
   set.seed(1)
   p <- 4; N <- 30; Q_obs <- 5; Q <- 2
   U <- matrix(stats::rnorm(p * N), p, N)
   Y <- matrix(abs(stats::rnorm(Q_obs * N)), Q_obs, N)
-
   Z <- nmfkc.rff.random(U, beta = 0.5, D = 20, seed = 1)
-  Zaug <- rbind(Z$Zp, Z$Zn)
 
-  res_posneg <- nmfkc(Y, A = Zaug, rank = Q, maxit = 200, epsilon = 1e-5,
-                       print.dims = FALSE)
-  res_warm <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = Q, maxit = 100,
-                         res.init = res_posneg)
-
+  ## default: warm.start = TRUE, no explicit X.init/C.init
+  res_warm <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = Q, maxit = 100)
   expect_s3_class(res_warm, "nmfkc.rff")
   expect_true(all(res_warm$X >= 0))
+
+  ## warm.start = FALSE: random init
+  res_rand <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = Q, maxit = 100,
+                         warm.start = FALSE)
+  expect_s3_class(res_rand, "nmfkc.rff")
+  expect_true(all(res_rand$X >= 0))
+})
+
+
+test_that("explicit X.init / C.init override warm.start", {
+  set.seed(1)
+  p <- 4; N <- 30; Q_obs <- 5; Q <- 2
+  U <- matrix(stats::rnorm(p * N), p, N)
+  Y <- matrix(abs(stats::rnorm(Q_obs * N)), Q_obs, N)
+  Z <- nmfkc.rff.random(U, beta = 0.5, D = 20, seed = 1)
+  D_rff <- nrow(Z$Zp)
+
+  ## Externally compute a nmfkc warm-start and pass pieces explicitly.
+  res_posneg <- nmfkc(Y, A = rbind(Z$Zp, Z$Zn),
+                       rank = Q, maxit = 200, epsilon = 1e-5,
+                       print.dims = FALSE)
+
+  res_explicit <- nmfkc.rff(Y, Z$Zp, Z$Zn, rank = Q, maxit = 100,
+                             X.init = res_posneg$X, C.init = res_posneg$C)
+  expect_s3_class(res_explicit, "nmfkc.rff")
+
+  ## Dimension checks
+  expect_error(
+    nmfkc.rff(Y, Z$Zp, Z$Zn, rank = Q,
+              X.init = matrix(0, 2, 2), C.init = res_posneg$C),
+    "X.init.*dimensions"
+  )
+  expect_error(
+    nmfkc.rff(Y, Z$Zp, Z$Zn, rank = Q,
+              X.init = res_posneg$X, C.init = matrix(0, 1, 1)),
+    "C.init.*dimensions"
+  )
 })
