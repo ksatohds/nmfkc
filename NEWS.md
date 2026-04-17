@@ -7,6 +7,7 @@
 - `plot.nmfae.ecv()`: Heatmap cell text color is now always black for better readability on light-colored cells.
 - `nmfkc()`: `X.init = "runif"` now supports `nstart > 1` for multi-start initialization. Multiple random starting points are evaluated with 10 standard NMF iterations, and the best (lowest Frobenius error) is selected.
 - `nmfae()`, `nmfre()`: `r.squared` is now computed as `cor(Y, fitted)^2` (squared correlation between observed and fitted values), consistent with `nmfkc()`. Previously `nmfae()` used `1 - SS_res/SS_tot` and `nmfre()` used the same regression-style R-squared, which can behave unexpectedly for intercept-free non-negative models.
+- `nmfkc.kernel.beta.nearest.med()`: added a `candidates` argument controlling the bandwidth grid. Options: `"7points"` (new default, `t = {-1,-2/3,-1/3,0,1/3,2/3,1}`, matches the RFF-NMF research memo), `"4points"` (`t = {-1/2, 0, 1/2, 1}`), or a user-supplied numeric vector of \eqn{t} values. Previously the grid silently differed between the no-landmark (`Uk = NULL`; 4 points) and landmark (7 points) branches.
 
 ### **New Functions**
 - `nmfkc.net.DOT()`: Graphviz DOT visualization for symmetric NMF networks (`Y.symmetric = "bi"` or `"tri"`). Displays basis-to-node membership edges and inter-basis interaction edges (C matrix) with significance stars.
