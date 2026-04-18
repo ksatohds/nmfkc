@@ -753,6 +753,9 @@ nmfkc.net.DOT <- function(
 #' error.  For a signed data matrix, see \code{\link{nmfkc.signed}}.
 #'
 #' @param Y Symmetric (N x N) \strong{non-negative} adjacency matrix.
+#'   \code{NA} entries are automatically treated as masked edges
+#'   (equivalent to supplying \code{Y.weights} with 0 at those positions);
+#'   see the note on \code{Y.weights} below.
 #' @param rank Integer Q.
 #' @param type \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
 #' @param epsilon,maxit,verbose Standard.
@@ -769,7 +772,10 @@ nmfkc.net.DOT <- function(
 #' Typical usage by \code{\link{nmfkc.net.ecv}} is a binary mask
 #' (\eqn{W \in \{0,1\}}) holding out test edges on the upper triangle;
 #' real-valued weights for edge-level importance weighting are also
-#' supported.
+#' supported.  If \code{Y.weights} is \code{NULL} (default) and \code{Y}
+#' contains \code{NA}, a binary mask is auto-generated (0 at \code{NA}
+#' positions, 1 elsewhere), and the \code{NA} entries in \code{Y} are
+#' replaced by 0 so the multiplicative updates can proceed.
 #'
 #' \strong{Multi-start recommendation.} For \code{type = "signed"} the
 #' \eqn{C = C_{+} - C_{-}} bottleneck can take both positive and negative
@@ -815,6 +821,38 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     Y <- (Y + t(Y)) / 2
     if (verbose) message("nmfkc.net: symmetrized Y <- (Y + Y^T) / 2")
   }
+  N <- nrow(Y); Q <- as.integer(rank)
+  small <- 1e-16; t0 <- proc.time()
+
+  ## ---- Y.weights handling (supports auto-NA mask, user mask, logical) ----
+  ## Matches the convention of nmfkc() / nmfkc.signed(): if Y has NA and
+  ## Y.weights is NULL, a binary mask is auto-generated with 0 at the
+  ## NA positions and 1 elsewhere.  NA is then replaced by 0 in Y so the
+  ## multiplicative updates can proceed (masked entries contribute
+  ## nothing to the objective since W == 0 there).
+  has.weights <- !is.null(Y.weights)
+  if (is.null(Y.weights) && anyNA(Y)) {
+    Y.weights <- matrix(1, nrow = N, ncol = N)
+    Y.weights[is.na(Y)] <- 0
+    ## Also zero the symmetric mirror so W stays symmetric
+    Y.weights[is.na(t(Y))] <- 0
+    Y[is.na(Y)] <- 0
+    has.weights <- TRUE
+    if (verbose) message("nmfkc.net: auto-generated Y.weights mask from ",
+                         sum(Y.weights == 0), " NA entries in Y.")
+  } else if (has.weights) {
+    Y.weights <- as.matrix(Y.weights)
+    if (!all(dim(Y.weights) == c(N, N))) stop("Y.weights must be N x N.")
+    storage.mode(Y.weights) <- "double"  # coerce logical T/F to 1/0
+    if (!isSymmetric(Y.weights, tol = 1e-10))
+      Y.weights <- (Y.weights + t(Y.weights)) / 2
+    Y.weights[is.na(Y.weights)] <- 0
+    Y[is.na(Y) | Y.weights == 0] <- 0
+  } else if (anyNA(Y)) {
+    stop("Y contains NA; please impute, remove, or supply Y.weights.")
+  }
+  Wmat <- if (has.weights) Y.weights else NULL
+
   if (min(Y) < 0) {
     ## nmfkc.net is designed for non-negative adjacency matrices in network
     ## analysis.  `type = "signed"` means the middle coefficient matrix C is
@@ -827,16 +865,6 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
          "(Y is expected to be a non-negative adjacency matrix; ",
          "`type = \"signed\"` refers to the middle coefficient C, not Y).")
   }
-  N <- nrow(Y); Q <- as.integer(rank)
-  small <- 1e-16; t0 <- proc.time()
-
-  has.weights <- !is.null(Y.weights)
-  if (has.weights) {
-    Wmat <- as.matrix(Y.weights)
-    if (!all(dim(Wmat) == c(N, N))) stop("Y.weights must be N x N.")
-    if (!isSymmetric(Wmat, tol = 1e-10)) Wmat <- (Wmat + t(Wmat)) / 2
-    Wmat[is.na(Wmat)] <- 0
-  } else Wmat <- NULL
 
   ## ---- run_once dispatches to the appropriate MU kernel ----
   run_once <- function(X, C_or_Cp, Cn = NULL) {

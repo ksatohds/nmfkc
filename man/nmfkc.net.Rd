@@ -15,7 +15,10 @@ nmfkc.net(
 )
 }
 \arguments{
-\item{Y}{Symmetric (N x N) \strong{non-negative} adjacency matrix.}
+\item{Y}{Symmetric (N x N) \strong{non-negative} adjacency matrix.
+\code{NA} entries are automatically treated as masked edges
+(equivalent to supplying \code{Y.weights} with 0 at those positions);
+see the note on \code{Y.weights} below.}
 
 \item{rank}{Integer Q.}
 
@@ -36,7 +39,10 @@ Logical matrices (\code{TRUE} / \code{FALSE}) are also accepted.
 Typical usage by \code{\link{nmfkc.net.ecv}} is a binary mask
 (\eqn{W \in \{0,1\}}) holding out test edges on the upper triangle;
 real-valued weights for edge-level importance weighting are also
-supported.
+supported.  If \code{Y.weights} is \code{NULL} (default) and \code{Y}
+contains \code{NA}, a binary mask is auto-generated (0 at \code{NA}
+positions, 1 elsewhere), and the \code{NA} entries in \code{Y} are
+replaced by 0 so the multiplicative updates can proceed.
 
 \strong{Multi-start recommendation.} For \code{type = "signed"} the
 \eqn{C = C_{+} - C_{-}} bottleneck can take both positive and negative
