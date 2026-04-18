@@ -28,6 +28,16 @@ nmfkc.net(
 \code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
 \code{Y.weights}, \code{C.L1} (tri only), \code{X.L2.ortho}, \code{prefix}.
 
+\strong{\code{Y.weights}} is an optional non-negative N x N weight
+matrix (symmetric, same shape as \code{Y}).  When supplied, the loss
+becomes \eqn{\sum W_{ij} \, (Y_{ij} - \hat Y_{ij})^2}
+(\code{\link[stats]{lm}}()-style, \strong{linear} in \eqn{W}).
+Logical matrices (\code{TRUE} / \code{FALSE}) are also accepted.
+Typical usage by \code{\link{nmfkc.net.ecv}} is a binary mask
+(\eqn{W \in \{0,1\}}) holding out test edges on the upper triangle;
+real-valued weights for edge-level importance weighting are also
+supported.
+
 \strong{Multi-start recommendation.} For \code{type = "signed"} the
 \eqn{C = C_{+} - C_{-}} bottleneck can take both positive and negative
 values, so the objective has more local minima than for \code{"tri"}

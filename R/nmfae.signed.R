@@ -77,6 +77,17 @@
 #'       point (particularly the \eqn{C_{-} = 0} trap from warm-start
 #'       from non-negative tri-NMF-AE).  Use the default 1 for fast
 #'       development and raise for publication-grade runs.}
+#'     \item{\code{Y1.weights}}{Optional non-negative weight matrix
+#'       (P1 x N) or vector (length N) for \eqn{Y_1}, analogous to the
+#'       \code{weights} argument of \code{\link[stats]{lm}}.  Loss
+#'       becomes \eqn{\sum W_{ij} \, (Y_{1,ij} - \hat Y_{1,ij})^2}
+#'       (\code{lm()}-style, \strong{linear} in \eqn{W}).  Logical
+#'       matrices (\code{TRUE} / \code{FALSE}) are also accepted.
+#'       Used by \code{\link{nmfae.signed.ecv}} to hold out test
+#'       elements via a binary mask \eqn{W \in \{0,1\}}; real-valued
+#'       weights for importance weighting are also supported.  Default:
+#'       if \code{Y1} has \code{NA}, a binary mask is auto-generated
+#'       (0 for \code{NA}, 1 elsewhere).}
 #'     \item{\code{Cp.init}, \code{Cn.init}}{Explicit \eqn{Q \times R}
 #'       non-negative matrices for initialization.  Overrides warm.start.}
 #'     \item{\code{C.init}}{Explicit signed \eqn{Q \times R} matrix,
@@ -296,7 +307,9 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   ## ---- 5. Objective (weighted if Wmat present) ----
   compute_obj <- function(X1, Cp, Cn, X2) {
     Y1hat <- X1 %*% (Cp - Cn) %*% X2 %*% Y2
-    if (has.weights) sum((Wmat * (Y1 - Y1hat))^2) else sum((Y1 - Y1hat)^2)
+    ## lm()-style weighted least squares: L = sum(W * (Y1 - Y1hat)^2).
+    ## W = W^2 for binary {0,1} masks so this is unchanged for ECV.
+    if (has.weights) sum(Wmat * (Y1 - Y1hat)^2) else sum((Y1 - Y1hat)^2)
   }
 
   ## ---- 6. Main loop wrapped for multi-restart ----
@@ -479,15 +492,31 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   H <- C %*% X2 %*% Y2                          # Q x N, signed encoding
   Y1hat <- X1 %*% H
   resid <- Y1 - Y1hat
-  objfunc <- sum(resid * resid)
 
-  ## Goodness of fit
-  r.squared <- tryCatch(
-    stats::cor(as.vector(Y1hat), as.vector(Y1))^2,
-    error = function(e) NA_real_
-  )
-  sigma <- sqrt(objfunc / (P1 * N))
-  mae <- mean(abs(resid))
+  ## Goodness-of-fit statistics.  lm()-style weighted least squares:
+  ## the reported objfunc / sigma / mae use sum(W * resid^2) to match the
+  ## in-loop objective compute_obj().  For binary {0,1} masks (the
+  ## standard ECV / CV / NA-mask case) this restricts statistics to valid
+  ## elements; for real-valued weights it returns weighted averages.
+  if (has.weights) {
+    objfunc  <- sum(Wmat * resid^2)
+    valid    <- (Wmat > 0)
+    n.valid  <- sum(valid)
+    r.squared <- tryCatch(
+      stats::cor(as.vector(Y1hat)[valid], as.vector(Y1)[valid])^2,
+      error = function(e) NA_real_
+    )
+    sigma <- if (n.valid > 0) sqrt(objfunc / n.valid) else NA_real_
+    mae   <- if (sum(Wmat) > 0) sum(Wmat * abs(resid)) / sum(Wmat) else NA_real_
+  } else {
+    objfunc  <- sum(resid * resid)
+    r.squared <- tryCatch(
+      stats::cor(as.vector(Y1hat), as.vector(Y1))^2,
+      error = function(e) NA_real_
+    )
+    sigma <- sqrt(objfunc / (P1 * N))
+    mae   <- mean(abs(resid))
+  }
 
   ## Soft/hard clustering of encoding (only meaningful when H has interpretable sign)
   eps_bp <- 1e-16

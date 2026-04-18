@@ -59,12 +59,20 @@ of \eqn{X} (default \code{"Basis"}).
 \code{\link{nmfkc.rff.random}}; stored in the returned object so
 that \code{summary()} can report \eqn{\beta} and downstream
 \code{predict()} calls can regenerate features.
-\item \code{Y.weights}: \eqn{Q_{\mathrm{obs}} \times N} non-negative
-weight matrix (or length-\eqn{N} vector, or scalar).  When supplied,
-the loss becomes \eqn{\sum W \odot (Y - XCA)^2} and zero-weighted
-elements are masked (used by \code{\link{nmfkc.signed.cv}} /
-\code{\link{nmfkc.signed.ecv}}).  NA entries of \eqn{Y} are
-auto-masked to zero weight when \code{Y.weights} is \code{NULL}.
+\item \code{Y.weights}: Optional non-negative weight matrix
+(\eqn{Q_{\mathrm{obs}} \times N}) or vector (length \eqn{N}),
+analogous to the \code{weights} argument of
+\code{\link[stats]{lm}}.  Loss becomes
+\eqn{\sum W_{ij} \, (Y_{ij} - (XCA)_{ij})^2}
+(\code{lm()}-style, \strong{linear} in \eqn{W}).  Logical
+matrices (\code{TRUE} / \code{FALSE}) are also accepted.
+Typical usage by \code{\link{nmfkc.signed.cv}} /
+\code{\link{nmfkc.signed.ecv}} passes a binary mask
+\eqn{W \in \{0,1\}} to hold out test elements; real-valued
+weights for observation-level importance weighting are also
+supported.  Default \code{NULL}: if \code{Y} has \code{NA},
+a binary mask is auto-constructed (0 for \code{NA}, 1
+elsewhere); otherwise no weighting.
 \item \code{nstart}: number of random restarts.  \strong{Signed
 models have more local minima than non-negative ones} because
 \eqn{\Theta = C_{+} - C_{-}} can take both positive and negative

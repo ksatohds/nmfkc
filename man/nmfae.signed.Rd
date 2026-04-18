@@ -56,6 +56,17 @@ reduces the chance of being trapped at an inferior stationary
 point (particularly the \eqn{C_{-} = 0} trap from warm-start
 from non-negative tri-NMF-AE).  Use the default 1 for fast
 development and raise for publication-grade runs.}
+\item{\code{Y1.weights}}{Optional non-negative weight matrix
+(P1 x N) or vector (length N) for \eqn{Y_1}, analogous to the
+\code{weights} argument of \code{\link[stats]{lm}}.  Loss
+becomes \eqn{\sum W_{ij} \, (Y_{1,ij} - \hat Y_{1,ij})^2}
+(\code{lm()}-style, \strong{linear} in \eqn{W}).  Logical
+matrices (\code{TRUE} / \code{FALSE}) are also accepted.
+Used by \code{\link{nmfae.signed.ecv}} to hold out test
+elements via a binary mask \eqn{W \in \{0,1\}}; real-valued
+weights for importance weighting are also supported.  Default:
+if \code{Y1} has \code{NA}, a binary mask is auto-generated
+(0 for \code{NA}, 1 elsewhere).}
 \item{\code{Cp.init}, \code{Cn.init}}{Explicit \eqn{Q \times R}
 non-negative matrices for initialization.  Overrides warm.start.}
 \item{\code{C.init}}{Explicit signed \eqn{Q \times R} matrix,

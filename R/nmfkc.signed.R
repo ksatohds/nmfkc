@@ -89,12 +89,20 @@
 #'       \code{\link{nmfkc.rff.random}}; stored in the returned object so
 #'       that \code{summary()} can report \eqn{\beta} and downstream
 #'       \code{predict()} calls can regenerate features.
-#'     \item \code{Y.weights}: \eqn{Q_{\mathrm{obs}} \times N} non-negative
-#'       weight matrix (or length-\eqn{N} vector, or scalar).  When supplied,
-#'       the loss becomes \eqn{\sum W \odot (Y - XCA)^2} and zero-weighted
-#'       elements are masked (used by \code{\link{nmfkc.signed.cv}} /
-#'       \code{\link{nmfkc.signed.ecv}}).  NA entries of \eqn{Y} are
-#'       auto-masked to zero weight when \code{Y.weights} is \code{NULL}.
+#'     \item \code{Y.weights}: Optional non-negative weight matrix
+#'       (\eqn{Q_{\mathrm{obs}} \times N}) or vector (length \eqn{N}),
+#'       analogous to the \code{weights} argument of
+#'       \code{\link[stats]{lm}}.  Loss becomes
+#'       \eqn{\sum W_{ij} \, (Y_{ij} - (XCA)_{ij})^2}
+#'       (\code{lm()}-style, \strong{linear} in \eqn{W}).  Logical
+#'       matrices (\code{TRUE} / \code{FALSE}) are also accepted.
+#'       Typical usage by \code{\link{nmfkc.signed.cv}} /
+#'       \code{\link{nmfkc.signed.ecv}} passes a binary mask
+#'       \eqn{W \in \{0,1\}} to hold out test elements; real-valued
+#'       weights for observation-level importance weighting are also
+#'       supported.  Default \code{NULL}: if \code{Y} has \code{NA},
+#'       a binary mask is auto-constructed (0 for \code{NA}, 1
+#'       elsewhere); otherwise no weighting.
 #'     \item \code{nstart}: number of random restarts.  \strong{Signed
 #'       models have more local minima than non-negative ones} because
 #'       \eqn{\Theta = C_{+} - C_{-}} can take both positive and negative
@@ -312,7 +320,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
   compute_obj <- function(X, Cp, Cn) {
     Yhat <- X %*% (Cp - Cn) %*% A_diff
-    if (has.weights) sum((Wmat * (Y - Yhat))^2) else sum((Y - Yhat)^2)
+    ## lm()-style weighted least squares: L = sum(W * (Y - Yhat)^2).
+    ## W = W^2 for binary {0,1} masks so this is unchanged for ECV.
+    if (has.weights) sum(Wmat * (Y - Yhat)^2) else sum((Y - Yhat)^2)
   }
 
   if (!has.weights) {
@@ -442,7 +452,8 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   XB <- X %*% B                     # Q_obs x N, Yhat
   resid <- Y - XB
   if (has.weights) {
-    objfunc <- sum((Wmat * resid)^2)
+    ## lm()-style weighted least squares (matches compute_obj in the loop).
+    objfunc <- sum(Wmat * resid^2)
     valid <- (Wmat > 0)
     r.squared <- tryCatch(
       stats::cor(as.vector(XB)[valid], as.vector(Y)[valid])^2,
@@ -479,7 +490,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   n.total   <- Q_obs * N
   n.missing <- n.total - n.valid
   sigma     <- if (n.valid > 0)
-                 sqrt(sum((if (has.weights) (Wmat * resid)^2 else resid^2)) / n.valid)
+                 sqrt(sum(if (has.weights) Wmat * resid^2 else resid^2) / n.valid)
                else NA_real_
 
   result <- list(

@@ -1092,9 +1092,19 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints,
 #'   and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 #'   \itemize{
-#'     \item \code{Y.weights}: Optional numeric matrix (P x N) or vector (length N).
-#'       0 indicates missing/ignored values. If NULL (default), weights are automatically
-#'       set to 0 for NAs in Y, and 1 otherwise.
+#'     \item \code{Y.weights}: Optional weight matrix (P x N) or vector
+#'       (length N) with non-negative entries, analogous to the \code{weights}
+#'       argument of \code{\link[stats]{lm}}.  When supplied, the objective
+#'       becomes \eqn{\sum W_{ij} \, (Y_{ij} - (XB)_{ij})^2}
+#'       (i.e.\ \strong{linear} in \eqn{W}; \code{lm()}-style weighted
+#'       least squares).  Logical matrices (\code{TRUE} / \code{FALSE})
+#'       are also accepted and coerced to 1 / 0.  The primary use case is
+#'       missing-value masking for ECV / CV, where \eqn{W_{ij} \in \{0, 1\}}
+#'       (\code{FALSE} / \code{TRUE}) indicates held-out vs.\ used elements;
+#'       real-valued weights for observation-level importance weighting are
+#'       also supported.  Default \code{NULL}: if \code{Y} contains \code{NA}
+#'       a binary mask is auto-constructed (0 for \code{NA}, 1 elsewhere);
+#'       otherwise no weighting.
 #'     \item \code{X.L2.ortho}: Nonnegative penalty parameter for the orthogonality of \eqn{X} (default: 0).
 #'       It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
 #'       between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
@@ -1442,8 +1452,13 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN_At
         C <- C * (num_C / (den_C + .eps))
       }
-      resid <- Y.weights * (Y - XB)
-      obj <- sum(resid^2)
+      ## lm()-style weighted least squares: L = sum(W * (Y - XB)^2).
+      ## The multiplicative updates (num/den above) already carry W linearly,
+      ## so reporting the linear-W objective here makes MU target and reported
+      ## loss consistent for any non-negative W.  For binary W in {0,1}
+      ## (the standard ECV / CV / NA-mask case) this is identical to
+      ## sum((W*(Y-XB))^2) since W = W^2.
+      obj <- sum(Y.weights * (Y - XB)^2)
 
     }else{ # KL
       if(!is.X.scalar && X.restriction!="fixed"){
@@ -1511,8 +1526,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   XB <- X %*% B
 
   if(method=="EU"){
-    resid <- Y.weights * (Y - XB)
-    objfunc <- sum(resid^2)
+    ## lm()-style weighted least squares; see note above near line 1446.
+    objfunc <- sum(Y.weights * (Y - XB)^2)
   } else {
     term1 <- - (Y.weights * Y) * log(XB + .eps)
     term2 <- Y.weights * XB
@@ -1969,7 +1984,11 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response"
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments controlling CV and the internal \code{\link{nmfkc}} call:
 #'   \describe{
-#'     \item{\code{Y.weights}}{Optional numeric matrix or vector; 0 indicates missing/ignored values.}
+#'     \item{\code{Y.weights}}{Non-negative weight matrix or vector
+#'       (\code{lm()}-style: loss \eqn{\sum W \, r^2}).  Binary
+#'       \code{{0,1}} masks (\code{TRUE} / \code{FALSE} also accepted)
+#'       are the typical ECV usage -- 0/\code{FALSE} excludes an element.
+#'       See \code{\link{nmfkc}} for full details.}
 #'     \item{\code{div}}{Number of folds (\eqn{k}); default: \code{5}.}
 #'     \item{\code{seed}}{Integer seed for reproducible partitioning; default: \code{123}.}
 #'     \item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);
@@ -2434,8 +2453,9 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   CPCC and dist.cor;
 #'   \code{"fast"} skips the expensive distance-based criteria;
 #'   \code{"minimal"} returns only information criteria.
-#' @param ... Additional arguments: \code{Y.weights} (weight matrix,
-#'   default: all ones).
+#' @param ... Additional arguments: \code{Y.weights} (non-negative
+#'   weight matrix; \code{lm()}-style loss \eqn{\sum W \, r^2}; default:
+#'   all ones).  See \code{\link{nmfkc}} for full details.
 #'
 #' @return A list with components:
 #' \describe{
@@ -2496,8 +2516,9 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
   N_obs <- base::sum(Y.weights > 0)
 
   # --- Information Criteria ---
-  resid <- Y.weights * (Y - XB)
-  objfunc <- base::sum(resid^2)
+  ## lm()-style weighted least squares (linear W); matches the objective
+  ## reported by nmfkc() itself.
+  objfunc <- base::sum(Y.weights * (Y - XB)^2)
 
   if (X.restriction == "fixed") nparam.X <- 0
   else if (X.restriction == "totalSum") nparam.X <- base::prod(base::dim(X)) - 1

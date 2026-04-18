@@ -18,8 +18,9 @@ CPCC and dist.cor;
 \code{"fast"} skips the expensive distance-based criteria;
 \code{"minimal"} returns only information criteria.}
 
-\item{...}{Additional arguments: \code{Y.weights} (weight matrix,
-default: all ones).}
+\item{...}{Additional arguments: \code{Y.weights} (non-negative
+weight matrix; \code{lm()}-style loss \eqn{\sum W \, r^2}; default:
+all ones).  See \code{\link{nmfkc}} for full details.}
 }
 \value{
 A list with components:

@@ -612,7 +612,9 @@ nmfkc.net.DOT <- function(
   cc <- norm_XC(X, C); X <- cc$X; C <- cc$C
   compute_obj <- function(X, C) {
     Yhat <- X %*% C %*% t(X)
-    if (has.weights) sum((Wmat * (Y - Yhat))^2) else sum((Y - Yhat)^2)
+    ## lm()-style weighted least squares: L = sum(W * (Y - Yhat)^2).
+    ## W = W^2 for binary {0,1} masks, so this is unchanged for ECV.
+    if (has.weights) sum(Wmat * (Y - Yhat)^2) else sum((Y - Yhat)^2)
   }
   obj_prev <- compute_obj(X, C)
   objfunc.iter <- numeric(maxit)
@@ -680,7 +682,8 @@ nmfkc.net.DOT <- function(
   small <- 1e-16
   compute_obj <- function(X) {
     Yhat <- tcrossprod(X)
-    if (has.weights) sum((Wmat * (Y - Yhat))^2) else sum((Y - Yhat)^2)
+    ## lm()-style weighted least squares (linear W).
+    if (has.weights) sum(Wmat * (Y - Yhat)^2) else sum((Y - Yhat)^2)
   }
   obj_prev <- compute_obj(X)
   objfunc.iter <- numeric(maxit)
@@ -757,6 +760,16 @@ nmfkc.net.DOT <- function(
 #'   \code{seed} (default 123), \code{X.restriction}, \code{X.init},
 #'   \code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
 #'   \code{Y.weights}, \code{C.L1} (tri only), \code{X.L2.ortho}, \code{prefix}.
+#'
+#' \strong{\code{Y.weights}} is an optional non-negative N x N weight
+#' matrix (symmetric, same shape as \code{Y}).  When supplied, the loss
+#' becomes \eqn{\sum W_{ij} \, (Y_{ij} - \hat Y_{ij})^2}
+#' (\code{\link[stats]{lm}}()-style, \strong{linear} in \eqn{W}).
+#' Logical matrices (\code{TRUE} / \code{FALSE}) are also accepted.
+#' Typical usage by \code{\link{nmfkc.net.ecv}} is a binary mask
+#' (\eqn{W \in \{0,1\}}) holding out test edges on the upper triangle;
+#' real-valued weights for edge-level importance weighting are also
+#' supported.
 #'
 #' \strong{Multi-start recommendation.} For \code{type = "signed"} the
 #' \eqn{C = C_{+} - C_{-}} bottleneck can take both positive and negative
@@ -919,7 +932,8 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   ## ---- reconstruction and fit statistics ----
   Y1hat <- X %*% C %*% t(X)
   resid <- Y - Y1hat
-  objfunc <- if (has.weights) sum((Wmat * resid)^2) else sum(resid^2)
+  ## lm()-style weighted least squares (matches compute_obj inside the loop).
+  objfunc <- if (has.weights) sum(Wmat * resid^2) else sum(resid^2)
   r.squared <- tryCatch(stats::cor(as.vector(Y1hat), as.vector(Y))^2,
                         error = function(e) NA_real_)
   mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
@@ -971,7 +985,8 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   cc <- norm_XC(X, Cp, Cn); X <- cc$X; Cp <- cc$Cp; Cn <- cc$Cn
   compute_obj <- function(X, Cp, Cn) {
     Yhat <- X %*% (Cp - Cn) %*% t(X)
-    if (has.weights) sum((Wmat * (Y - Yhat))^2) else sum((Y - Yhat)^2)
+    ## lm()-style weighted least squares (linear W).
+    if (has.weights) sum(Wmat * (Y - Yhat)^2) else sum((Y - Yhat)^2)
   }
   obj_prev <- compute_obj(X, Cp, Cn)
   objfunc.iter <- numeric(maxit)

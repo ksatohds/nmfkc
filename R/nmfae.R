@@ -33,8 +33,17 @@
 #' @param verbose Logical. If \code{TRUE}, prints progress messages during fitting. Default is \code{FALSE}.
 #' @param ... Additional arguments:
 #'   \describe{
-#'     \item{\code{Y1.weights}}{Weight matrix (P1 x N) or vector for \eqn{Y_1}.
-#'       0 indicates missing/ignored elements. Default: auto-detect \code{NA}s.}
+#'     \item{\code{Y1.weights}}{Optional non-negative weight matrix
+#'       (P1 x N) or vector for \eqn{Y_1}, analogous to the
+#'       \code{weights} argument of \code{\link[stats]{lm}}.  Loss becomes
+#'       \eqn{\sum W_{ij} \, (Y_{1,ij} - \hat Y_{1,ij})^2}
+#'       (\code{lm()}-style, \strong{linear} in \eqn{W}).  Logical
+#'       matrices (\code{TRUE} / \code{FALSE}) are also accepted.
+#'       Typical ECV / CV usage passes a binary mask
+#'       \eqn{W \in \{0,1\}} for held-out elements; real-valued weights
+#'       for importance weighting are also supported.  Default: if
+#'       \code{Y1} has \code{NA}, a binary mask is auto-generated
+#'       (0 for \code{NA}, 1 elsewhere).}
 #'     \item{\code{C.L1}}{L1 regularization parameter for \eqn{C}. Default is 0.}
 #'     \item{\code{X1.L2.ortho}}{L2 orthogonality regularization for \eqn{X_1} columns. Default is 0.}
 #'     \item{\code{X2.L2.ortho}}{L2 orthogonality regularization for \eqn{X_2} rows. Default is 0.}
@@ -230,9 +239,14 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     C <- sweep(C, 2, rs, "*")
 
     # Objective function (with regularization penalties)
+    # lm()-style weighted least squares: L = sum(W * (Y1 - Y1hat)^2).
+    # The MU (num_X1, num_C, etc.) carries W linearly, so reporting the
+    # linear-W objective here keeps MU target and reported loss consistent.
+    # For binary W in {0,1} (standard ECV / NA-mask case) this is identical
+    # to sum((W*(Y1-Y1hat))^2) since W == W^2.
     Y1hat <- X1 %*% C %*% X2 %*% Y2
     if (has.weights) {
-      obj <- sum((W * (Y1 - Y1hat))^2)
+      obj <- sum(W * (Y1 - Y1hat)^2)
     } else {
       obj <- sum((Y1 - Y1hat)^2)
     }
@@ -1531,9 +1545,8 @@ nmfae.cv <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank, ...) {
     # Predict on test set
     Y1hat_test <- res_j$X1 %*% res_j$C %*% res_j$X2 %*% Y2_test
 
-    # Evaluate weighted error
-    resid <- W_test * (Y1_test - Y1hat_test)
-    objfunc.block[j] <- sum(resid^2)
+    # Evaluate weighted error (lm-style: sum(W * resid^2))
+    objfunc.block[j] <- sum(W_test * (Y1_test - Y1hat_test)^2)
     total_valid <- total_valid + sum(W_test > 0)
   }
 
