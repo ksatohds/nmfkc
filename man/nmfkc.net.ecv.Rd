@@ -2,10 +2,35 @@
 % Please edit documentation in R/nmfkc.net.R
 \name{nmfkc.net.ecv}
 \alias{nmfkc.net.ecv}
-\title{ECV for nmfkc.net (upper-triangle folds)}
+\title{Element-wise cross-validation for nmfkc.net / nmfkc.net.signed (upper-triangle folds)}
 \usage{
-nmfkc.net.ecv(Y, rank = 1:3, type = c("tri", "bi"), ...)
+nmfkc.net.ecv(Y, rank = 1:3, type = c("tri", "bi", "signed"), ...)
+}
+\arguments{
+\item{Y}{Symmetric N x N non-negative matrix.}
+
+\item{rank}{Integer vector of ranks to evaluate. Default \code{1:3}.}
+
+\item{type}{Model type: \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.}
+
+\item{...}{Passed to the underlying fitter; also accepts \code{nfolds}
+(default 5; \code{div} alias), \code{seed} (default 123).}
+}
+\value{
+A list with \code{objfunc}, \code{sigma}, \code{objfunc.fold},
+\code{folds}, \code{Q.grid}, \code{type}.
 }
 \description{
-ECV for nmfkc.net (upper-triangle folds)
+k-fold CV with folds taken over the upper triangle of the
+symmetric \eqn{Y} (mirrored to the lower triangle) to prevent information
+leakage through symmetry.  A single entry point covers all three symmetric
+NMF variants; \code{type} selects the fitting function:
+\itemize{
+\item \code{"tri"} (default): \code{\link{nmfkc.net}} with \eqn{C \ge 0}
+\item \code{"bi"}: \code{\link{nmfkc.net}} with \eqn{C = I_Q}
+\item \code{"signed"}: \code{\link{nmfkc.net.signed}} with signed \eqn{C}
+}
+}
+\seealso{
+\code{\link{nmfkc.net}}, \code{\link{nmfkc.net.signed}}
 }

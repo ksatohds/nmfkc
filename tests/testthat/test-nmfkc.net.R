@@ -81,13 +81,24 @@ test_that("nmfkc.net.DOT works for tri, bi, and signed", {
 })
 
 
-test_that("nmfkc.net.ecv runs on small data", {
+test_that("nmfkc.net.ecv supports tri/bi/signed via type argument", {
   Y <- make_test_network()
-  out <- nmfkc.net.ecv(Y, rank = c(1, 2), type = "tri",
-                       nfolds = 3, nstart = 3, maxit = 100)
-  expect_length(out$objfunc, 2)
-  expect_length(out$sigma, 2)
-  expect_s3_class(out, "nmfkc.net.ecv")
+
+  out_tri <- nmfkc.net.ecv(Y, rank = c(1, 2), type = "tri",
+                            nfolds = 3, nstart = 3, maxit = 100)
+  expect_length(out_tri$objfunc, 2)
+  expect_s3_class(out_tri, "nmfkc.net.ecv")
+  expect_equal(out_tri$type, "tri")
+
+  out_bi <- nmfkc.net.ecv(Y, rank = c(1, 2), type = "bi",
+                           nfolds = 3, nstart = 3, maxit = 100)
+  expect_equal(out_bi$type, "bi")
+
+  out_signed <- nmfkc.net.ecv(Y, rank = c(1, 2), type = "signed",
+                               nfolds = 3, nstart = 3, maxit = 100)
+  expect_s3_class(out_signed, "nmfkc.net.signed.ecv")
+  expect_s3_class(out_signed, "nmfkc.net.ecv")
+  expect_equal(out_signed$type, "signed")
 })
 
 

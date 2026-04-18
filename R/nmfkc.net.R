@@ -1087,9 +1087,30 @@ nmfkc.net.signed <- function(Y, rank = 2, epsilon = 1e-4, maxit = 5000,
 ## For general (non-binary) weights use (W + t(W))/2 instead.
 .nmfkc.net.mirror_mask <- function(W) W * t(W)
 
-#' @title ECV for nmfkc.net (upper-triangle folds)
+#' Element-wise cross-validation for nmfkc.net / nmfkc.net.signed (upper-triangle folds)
+#'
+#' @description k-fold CV with folds taken over the upper triangle of the
+#' symmetric \eqn{Y} (mirrored to the lower triangle) to prevent information
+#' leakage through symmetry.  A single entry point covers all three symmetric
+#' NMF variants; \code{type} selects the fitting function:
+#' \itemize{
+#'   \item \code{"tri"} (default): \code{\link{nmfkc.net}} with \eqn{C \ge 0}
+#'   \item \code{"bi"}: \code{\link{nmfkc.net}} with \eqn{C = I_Q}
+#'   \item \code{"signed"}: \code{\link{nmfkc.net.signed}} with signed \eqn{C}
+#' }
+#'
+#' @param Y Symmetric N x N non-negative matrix.
+#' @param rank Integer vector of ranks to evaluate. Default \code{1:3}.
+#' @param type Model type: \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
+#' @param ... Passed to the underlying fitter; also accepts \code{nfolds}
+#'   (default 5; \code{div} alias), \code{seed} (default 123).
+#'
+#' @return A list with \code{objfunc}, \code{sigma}, \code{objfunc.fold},
+#'   \code{folds}, \code{Q.grid}, \code{type}.
+#' @seealso \code{\link{nmfkc.net}}, \code{\link{nmfkc.net.signed}}
 #' @export
-nmfkc.net.ecv <- function(Y, rank = 1:3, type = c("tri", "bi"), ...) {
+nmfkc.net.ecv <- function(Y, rank = 1:3,
+                          type = c("tri", "bi", "signed"), ...) {
   type <- match.arg(type)
   ex <- list(...)
   nfolds <- if (!is.null(ex$nfolds)) ex$nfolds
@@ -1105,9 +1126,15 @@ nmfkc.net.ecv <- function(Y, rank = 1:3, type = c("tri", "bi"), ...) {
     test_ut <- folds[[k]]
     W <- matrix(1, N, N); W[test_ut] <- 0
     W <- .nmfkc.net.mirror_mask(W)
-    fit <- suppressMessages(do.call(nmfkc.net,
-             c(list(Y = Y, rank = q, type = type,
-                    Y.weights = W, verbose = FALSE), fit_args)))
+    if (type == "signed") {
+      fit <- suppressMessages(do.call(nmfkc.net.signed,
+               c(list(Y = Y, rank = q, Y.weights = W, verbose = FALSE),
+                 fit_args)))
+    } else {
+      fit <- suppressMessages(do.call(nmfkc.net,
+               c(list(Y = Y, rank = q, type = type,
+                      Y.weights = W, verbose = FALSE), fit_args)))
+    }
     Yhat <- fit$X %*% fit$C %*% t(fit$X)
     mean((Y[test_ut] - Yhat[test_ut])^2)
   }
@@ -1130,56 +1157,14 @@ nmfkc.net.ecv <- function(Y, rank = 1:3, type = c("tri", "bi"), ...) {
     message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f",
                     q, result_objfunc[i], result_sigma[i]))
   }
+  cls <- if (type == "signed")
+           c("nmfkc.net.signed.ecv", "nmfkc.net.ecv", "nmfkc.ecv")
+         else
+           c("nmfkc.net.ecv", "nmfkc.ecv")
   structure(list(objfunc = result_objfunc, sigma = result_sigma,
                  objfunc.fold = result_fold, folds = folds,
                  Q.grid = rank, type = type),
-            class = c("nmfkc.net.ecv", "nmfkc.ecv"))
-}
-
-#' @title ECV for nmfkc.net.signed (upper-triangle folds)
-#' @export
-nmfkc.net.signed.ecv <- function(Y, rank = 1:3, ...) {
-  ex <- list(...)
-  nfolds <- if (!is.null(ex$nfolds)) ex$nfolds
-            else if (!is.null(ex$div)) ex$div else 5
-  seed <- if (!is.null(ex$seed)) ex$seed else 123
-  Y <- as.matrix(Y); N <- nrow(Y)
-  folds <- .nmfkc.net.make_uppertri_folds(N, div = nfolds, seed = seed)
-  fit_args <- ex; fit_args$nfolds <- NULL; fit_args$div <- NULL
-  fit_args$rank <- NULL
-
-  run_one <- function(q, k) {
-    test_ut <- folds[[k]]
-    W <- matrix(1, N, N); W[test_ut] <- 0
-    W <- .nmfkc.net.mirror_mask(W)
-    fit <- suppressMessages(do.call(nmfkc.net.signed,
-             c(list(Y = Y, rank = q, Y.weights = W, verbose = FALSE),
-               fit_args)))
-    Yhat <- fit$X %*% fit$C %*% t(fit$X)
-    mean((Y[test_ut] - Yhat[test_ut])^2)
-  }
-
-  result_objfunc <- numeric(length(rank))
-  result_sigma   <- numeric(length(rank))
-  result_fold    <- vector("list", length(rank))
-  names(result_objfunc) <- sprintf("Q=%d", rank)
-  names(result_sigma)   <- sprintf("Q=%d", rank)
-  names(result_fold)    <- sprintf("Q=%d", rank)
-  message(sprintf("nmfkc.net.signed ECV: %d ranks, %d-fold, upper-triangle.",
-                  length(rank), nfolds))
-  for (i in seq_along(rank)) {
-    q <- rank[i]
-    objs <- numeric(nfolds)
-    for (k in 1:nfolds) objs[k] <- run_one(q, k)
-    result_fold[[i]]  <- objs
-    result_objfunc[i] <- mean(objs)
-    result_sigma[i]   <- sqrt(result_objfunc[i])
-    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f",
-                    q, result_objfunc[i], result_sigma[i]))
-  }
-  structure(list(objfunc = result_objfunc, sigma = result_sigma,
-                 objfunc.fold = result_fold, folds = folds, Q.grid = rank),
-            class = c("nmfkc.net.signed.ecv", "nmfkc.net.ecv", "nmfkc.ecv"))
+            class = cls)
 }
 
 
