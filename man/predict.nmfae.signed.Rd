@@ -26,6 +26,17 @@ Computes \eqn{\hat Y_1 = X_1 (C_{+} - C_{-}) X_2 Y_2^{\mathrm{new}}}.
 Since \eqn{\Theta = C_{+} - C_{-}} is signed, predictions may contain
 negative entries even when \eqn{Y_1 \ge 0} in training.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions.
+}
+
+\references{
+Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+}
 \seealso{
 \code{\link{nmfae.signed}}
 }

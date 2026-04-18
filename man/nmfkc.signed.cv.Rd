@@ -35,6 +35,11 @@ weighted refit with \eqn{X} fixed.
 This function is \strong{experimental}.
 }
 
+\references{
+Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+}
 \seealso{
 \code{\link{nmfkc.signed}}, \code{\link{nmfkc.signed.ecv}}
 }

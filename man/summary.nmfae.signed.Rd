@@ -18,6 +18,17 @@ An object of class \code{"summary.nmfae.signed"}.
 Produces a summary with dimensions, convergence, fit statistics,
 and structure diagnostics (sparsity and negative-mass ratio).
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions.
+}
+
+\references{
+Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+}
 \seealso{
 \code{\link{nmfae.signed}}
 }

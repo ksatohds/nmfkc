@@ -531,6 +531,15 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 #' @return A numeric matrix (\code{"response"} or \code{"prob"}) or a
 #'   character vector (\code{"class"}).
 #'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 predict.nmfkc.signed <- function(object, newA = NULL,
                                   type = c("response", "prob", "class"),
@@ -559,6 +568,15 @@ predict.nmfkc.signed <- function(object, newA = NULL,
 #' @param x An \code{nmfkc.signed} object.
 #' @param ... Passed to \code{plot()}.
 #' @return Invisible \code{x}.
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 plot.nmfkc.signed <- function(x, ...) {
   extra_args <- list(...)
@@ -577,6 +595,15 @@ plot.nmfkc.signed <- function(x, ...) {
 #' @param object An \code{nmfkc.signed} object.
 #' @param ... Unused.
 #' @return An object of class \code{"summary.nmfkc.signed"}.
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 summary.nmfkc.signed <- function(object, ...) {
   .negfrac <- function(M) {
@@ -623,6 +650,15 @@ summary.nmfkc.signed <- function(object, ...) {
 #' @param digits Number of significant digits.
 #' @param ... Unused.
 #' @return Invisible \code{x}.
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 print.summary.nmfkc.signed <- function(x,
                                         digits = max(3L, getOption("digits") - 3L),
@@ -708,6 +744,11 @@ print.summary.nmfkc.signed <- function(x,
 #'   \code{block} (integer fold assignment of length \eqn{N}).  Field
 #'   names match \code{\link{nmfkc.cv}}.
 #' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc.signed.ecv}}
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
   extra <- list(...)
@@ -786,6 +827,11 @@ nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
 #'   (RMSE), \code{objfunc.fold} (per-fold per-rank), \code{folds},
 #'   \code{Q.grid}.
 #' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc.signed.cv}}
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
   extra <- list(...)

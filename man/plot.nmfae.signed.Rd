@@ -17,6 +17,17 @@ Invisible \code{NULL}.
 \description{
 Displays the convergence trajectory of the objective function.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions.
+}
+
+\references{
+Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+}
 \seealso{
 \code{\link{nmfae.signed}}
 }

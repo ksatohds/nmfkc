@@ -128,6 +128,10 @@ Semi-Nonnegative Matrix Factorizations.
 
 Satoh, K. (2026).  Signed-Bottleneck NMF-AE: Signed-Bottleneck 3-Layer NMF
 (research memo, 2026-04-18).
+
+Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 }
 \seealso{
 \code{\link{nmfae}}, \code{\link{predict.nmfae.signed}},

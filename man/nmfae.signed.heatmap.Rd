@@ -47,6 +47,12 @@ bottleneck \eqn{C = C_{+} - C_{-}} is rendered with a diverging
 blue-white-red palette so positive and negative weights are visually
 distinguishable.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions.
+}
+
 \examples{
 \donttest{
 set.seed(1)
@@ -55,6 +61,11 @@ Y2 <- matrix(abs(rnorm(20)), 5, 4)
 res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 200)
 nmfae.signed.heatmap(res)
 }
+}
+\references{
+Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 }
 \seealso{
 \code{\link{nmfae.signed}}, \code{\link{nmfae.heatmap}}

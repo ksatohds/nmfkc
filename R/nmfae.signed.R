@@ -126,6 +126,11 @@
 #' res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 500)
 #' summary(res)
 #' }
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
                        epsilon = 1e-4, maxit = 5000,
@@ -562,6 +567,15 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 #' \item{C.p.side}{P-value side used.}
 #'
 #' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.inference}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
                                  wild.bootstrap = TRUE, ...) {
@@ -714,6 +728,15 @@ nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
 #' @param ... Unused.
 #' @return A numeric matrix (\code{"response"}) or factor (\code{"class"}).
 #' @seealso \code{\link{nmfae.signed}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 predict.nmfae.signed <- function(object, newY2 = NULL, Y1 = NULL,
                                type = c("response", "class"), ...) {
@@ -756,6 +779,15 @@ predict.nmfae.signed <- function(object, newY2 = NULL, Y1 = NULL,
 #' @param ... Additional graphical parameters.
 #' @return Invisible \code{NULL}.
 #' @seealso \code{\link{nmfae.signed}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 plot.nmfae.signed <- function(x, ...) {
   extra_args <- list(...)
@@ -779,6 +811,15 @@ plot.nmfae.signed <- function(x, ...) {
 #' @param ... Unused.
 #' @return An object of class \code{"summary.nmfae.signed"}.
 #' @seealso \code{\link{nmfae.signed}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 summary.nmfae.signed <- function(object, ...) {
   .sparsity <- function(M, thr = 1e-4) {
@@ -827,6 +868,15 @@ summary.nmfae.signed <- function(object, ...) {
 #' @param digits Number of significant digits.
 #' @param ... Unused.
 #' @return Invisible \code{x}.
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 print.summary.nmfae.signed <- function(x,
                                      digits = max(3L, getOption("digits") - 3L),
@@ -890,6 +940,15 @@ print.summary.nmfae.signed <- function(x,
 #' @param X2.rownames Character vector of length R for encoder labels.
 #' @return The renamed object (same class).
 #' @seealso \code{\link{nmfae.signed}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
   if (!is.null(X1.colnames)) {
@@ -951,6 +1010,15 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'   \code{objfunc} (MSE per pair), \code{sigma} (RMSE), \code{objfunc.fold}
 #'   (per-fold MSE), \code{folds}, \code{QR}, \code{paired}.
 #' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.ecv}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
   extra_ecv <- list(...)
@@ -1051,6 +1119,15 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
 #' @param ... Additional arguments (currently unused).
 #' @return An object of class \code{"summary.nmfae.signed.inference"}.
 #' @seealso \code{\link{nmfae.signed.inference}}, \code{\link{summary.nmfae.signed}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 summary.nmfae.signed.inference <- function(object, ...) {
   ans <- summary.nmfae.signed(object, ...)
@@ -1071,6 +1148,15 @@ summary.nmfae.signed.inference <- function(object, ...) {
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @seealso \code{\link{summary.nmfae.signed.inference}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 print.summary.nmfae.signed.inference <- function(x,
     digits = max(3L, getOption("digits") - 3L), ...) {
@@ -1157,6 +1243,15 @@ print.summary.nmfae.signed.inference <- function(x,
 #' res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 200)
 #' nmfae.signed.heatmap(res)
 #' }
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions.
+#'
+#' @references
+#' Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+#' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+#' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+#'
 #' @export
 nmfae.signed.heatmap <- function(x,
                                   Y1.label = NULL, X1.label = NULL,

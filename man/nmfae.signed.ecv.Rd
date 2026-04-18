@@ -40,6 +40,17 @@ select the decoder / encoder ranks \eqn{(Q, R)}.  Mirrors
 path (\code{Y1.weights}): test-fold elements are zero-weighted during
 fitting, and held-out MSE is computed on those elements.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions.
+}
+
+\references{
+Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
+semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
+Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+}
 \seealso{
 \code{\link{nmfae.signed}}, \code{\link{nmfae.ecv}}
 }
