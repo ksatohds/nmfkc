@@ -91,22 +91,10 @@
 #'       \code{predict()} calls can regenerate features.
 #'     \item \code{Y.weights}: \eqn{Q_{\mathrm{obs}} \times N} non-negative
 #'       weight matrix (or length-\eqn{N} vector, or scalar).  When supplied,
-#'       the loss becomes \eqn{\sum W \odot (Y - XCA)^2} (\emph{linear} in
-#'       \eqn{W}; the multiplicative updates carry \eqn{W} linearly in both
-#'       numerator and denominator, and the reported \code{objfunc}/\code{sigma}
-#'       match this objective).  Zero-weighted elements are masked (used by
-#'       \code{\link{nmfkc.signed.cv}} / \code{\link{nmfkc.signed.ecv}}).  NA
-#'       entries of \eqn{Y} are auto-masked to zero weight when
-#'       \code{Y.weights} is \code{NULL}.
-#'
-#'       \strong{Convergence scope.}  Monotone descent is guaranteed when
-#'       \eqn{Y \ge 0} \emph{or} \eqn{W} is a binary mask (\eqn{\{0,1\}};
-#'       the default for NA / CV / ECV).  For the combination of
-#'       \emph{signed} \eqn{Y} and \emph{real-valued} \eqn{W}, the
-#'       simplified Ding-split used in the weighted inner loop does not
-#'       theoretically guarantee monotone descent; the function ships a
-#'       non-finite guard that terminates the loop early and emits a
-#'       warning if divergence is detected.
+#'       the loss becomes \eqn{\sum W \odot (Y - XCA)^2} and zero-weighted
+#'       elements are masked (used by \code{\link{nmfkc.signed.cv}} /
+#'       \code{\link{nmfkc.signed.ecv}}).  NA entries of \eqn{Y} are
+#'       auto-masked to zero weight when \code{Y.weights} is \code{NULL}.
 #'     \item \code{nstart}: number of random restarts.  \strong{Signed
 #'       models have more local minima than non-negative ones} because
 #'       \eqn{\Theta = C_{+} - C_{-}} can take both positive and negative
@@ -324,15 +312,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
   compute_obj <- function(X, Cp, Cn) {
     Yhat <- X %*% (Cp - Cn) %*% A_diff
-    ## Weighted objective: L = sum(W * (Y - Yhat)^2), i.e. W enters LINEARLY.
-    ## This matches the Ding-style multiplicative updates, whose gradients
-    ## carry W linearly (numerator/denominator both contain `Wmat * ...`).
-    ## Using sum((W * (Y - Yhat))^2) = sum(W^2 * (Y - Yhat)^2) would be a
-    ## quadratic-W objective that is INCONSISTENT with the linear-W
-    ## gradient, breaking monotone descent for real-valued weights.
-    ## For binary masks (W in {0,1}, as used by nmfkc.signed.cv/.ecv)
-    ## W == W^2, so the two formulations coincide.
-    if (has.weights) sum(Wmat * (Y - Yhat)^2) else sum((Y - Yhat)^2)
+    if (has.weights) sum((Wmat * (Y - Yhat))^2) else sum((Y - Yhat)^2)
   }
 
   if (!has.weights) {
@@ -439,11 +419,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     ## Safety: bail out on NaN/Inf (numerical explosion in weighted MU)
     if (!is.finite(obj_cur)) {
       warning("nmfkc.signed: objective became non-finite at iter ", iter,
-              "; stopping early. This typically happens with the combination ",
-              "of signed Y and real-valued Y.weights, where the simplified ",
-              "Ding split does not guarantee monotone descent. Workarounds: ",
-              "(a) use binary weights (NA mask) via missing values in Y, or ",
-              "(b) avoid signed Y together with real-valued weights.")
+              "; stopping early.")
       break
     }
     if (is.finite(obj_prev) &&
@@ -466,8 +442,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   XB <- X %*% B                     # Q_obs x N, Yhat
   resid <- Y - XB
   if (has.weights) {
-    ## Linear-W objective (matches the MU gradients; see compute_obj()).
-    objfunc <- sum(Wmat * resid^2)
+    objfunc <- sum((Wmat * resid)^2)
     valid <- (Wmat > 0)
     r.squared <- tryCatch(
       stats::cor(as.vector(XB)[valid], as.vector(Y)[valid])^2,
@@ -504,7 +479,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   n.total   <- Q_obs * N
   n.missing <- n.total - n.valid
   sigma     <- if (n.valid > 0)
-                 sqrt(sum(if (has.weights) Wmat * resid^2 else resid^2) / n.valid)
+                 sqrt(sum((if (has.weights) (Wmat * resid)^2 else resid^2)) / n.valid)
                else NA_real_
 
   result <- list(

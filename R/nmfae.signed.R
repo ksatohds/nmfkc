@@ -296,15 +296,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   ## ---- 5. Objective (weighted if Wmat present) ----
   compute_obj <- function(X1, Cp, Cn, X2) {
     Y1hat <- X1 %*% (Cp - Cn) %*% X2 %*% Y2
-    ## Weighted objective: L = sum(W * (Y1 - Y1hat)^2), i.e. W enters LINEARLY.
-    ## This matches the Ding-style multiplicative updates, whose gradients
-    ## contain W linearly (e.g. `Wmat * Y1`, `Wmat * XCpF` in the weighted
-    ## path; see lines ~358, 374, 389). Using sum((W*(Y1-Y1hat))^2) =
-    ## sum(W^2*(Y1-Y1hat)^2) would be a quadratic-W objective that is
-    ## INCONSISTENT with the linear-W gradient, breaking monotone descent
-    ## for real-valued weights. For binary masks (W in {0,1}, used by
-    ## nmfae.signed.ecv) W == W^2, so the two formulations coincide.
-    if (has.weights) sum(Wmat * (Y1 - Y1hat)^2) else sum((Y1 - Y1hat)^2)
+    if (has.weights) sum((Wmat * (Y1 - Y1hat))^2) else sum((Y1 - Y1hat)^2)
   }
 
   ## ---- 6. Main loop wrapped for multi-restart ----
@@ -487,32 +479,15 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   H <- C %*% X2 %*% Y2                          # Q x N, signed encoding
   Y1hat <- X1 %*% H
   resid <- Y1 - Y1hat
+  objfunc <- sum(resid * resid)
 
-  ## Goodness-of-fit statistics. Keep the reported `objfunc` / `sigma` / `mae`
-  ## consistent with the weighted training objective (linear W; matches
-  ## compute_obj() above and the MU gradients). For binary masks this
-  ## restricts the statistics to valid cells; for real-valued weights it
-  ## returns the weighted averages.
-  if (has.weights) {
-    objfunc <- sum(Wmat * resid^2)              # linear W, matches compute_obj
-    valid <- (Wmat > 0)
-    n.valid <- sum(valid)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(Y1hat)[valid], as.vector(Y1)[valid])^2,
-      error = function(e) NA_real_
-    )
-    sigma <- if (n.valid > 0) sqrt(objfunc / n.valid) else NA_real_
-    mae   <- if (sum(Wmat) > 0)
-               sum(Wmat * abs(resid)) / sum(Wmat) else NA_real_
-  } else {
-    objfunc <- sum(resid * resid)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(Y1hat), as.vector(Y1))^2,
-      error = function(e) NA_real_
-    )
-    sigma <- sqrt(objfunc / (P1 * N))
-    mae   <- mean(abs(resid))
-  }
+  ## Goodness of fit
+  r.squared <- tryCatch(
+    stats::cor(as.vector(Y1hat), as.vector(Y1))^2,
+    error = function(e) NA_real_
+  )
+  sigma <- sqrt(objfunc / (P1 * N))
+  mae <- mean(abs(resid))
 
   ## Soft/hard clustering of encoding (only meaningful when H has interpretable sign)
   eps_bp <- 1e-16
