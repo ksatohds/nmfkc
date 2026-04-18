@@ -23,10 +23,18 @@ nmfkc.net(
 
 \item{epsilon, maxit, verbose}{Standard.}
 
-\item{...}{Hidden options: \code{nstart} (default 20 for tri/bi, 50 for
-signed), \code{seed} (default 123), \code{X.restriction}, \code{X.init},
+\item{...}{Hidden options: \code{nstart} (default 1; see note below),
+\code{seed} (default 123), \code{X.restriction}, \code{X.init},
 \code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
-\code{Y.weights}, \code{C.L1} (tri only), \code{X.L2.ortho}, \code{prefix}.}
+\code{Y.weights}, \code{C.L1} (tri only), \code{X.L2.ortho}, \code{prefix}.
+
+\strong{Multi-start recommendation.} For \code{type = "signed"} the
+\eqn{C = C_{+} - C_{-}} bottleneck can take both positive and negative
+values, so the objective has more local minima than for \code{"tri"}
+or \code{"bi"}.  A larger \code{nstart} (e.g., 10-50) is recommended
+during exploration to reduce the chance of being trapped at a
+suboptimal stationary point.  The default 1 is intended for fast
+development; raise for publication-grade runs.}
 }
 \value{
 Object of class \code{c("nmfkc.net.<type>", "nmfkc.net", "nmfkc")}.
@@ -46,10 +54,15 @@ cube-root damping (He et al. 2011).
 \eqn{Y \approx X (C_{+} - C_{-}) X^\top} with \eqn{X \ge 0} and signed
 \eqn{C = C_{+} - C_{-}}.  Preserves the soft-clustering interpretation
 of \eqn{X} while allowing negative off-diagonals of \eqn{C}
-(inter-cluster \emph{repulsion}).  Dispatches internally to
-\code{\ink{nmfkc.net}}.  Uses \code{nstart = 50} by default.
+(inter-cluster \emph{repulsion}).
 }
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \seealso{
 \code{\link{nmfkc.net.ecv}}, \code{\link{nmfkc.net.DOT}}
 }

@@ -18,7 +18,8 @@
 #' property of symmetric NMF.
 #'
 #' @param object A fitted model returned by \code{nmfkc()} with
-#'   \code{Y.symmetric = "bi"} or \code{"tri"}.
+#'   \code{Y.symmetric = "bi"} or \code{"tri"}, or the newer
+#'   \code{\link{nmfkc.net}} with \code{type = "bi"} or \code{"tri"}.
 #' @param Y The original symmetric matrix (P x P).
 #' @param wild.bootstrap Logical; if TRUE (default), perform wild bootstrap
 #'   inference for the C matrix.
@@ -41,10 +42,14 @@
 #'               0,0,1,0,1,1,
 #'               0,0,0,1,0,1,
 #'               0,0,0,1,1,0), 6, 6)
-#' res <- nmfkc(Y, rank = 2, Y.symmetric = "tri", nstart = 20)
+#' res <- nmfkc.net(Y, rank = 2, type = "tri", nstart = 20)
 #' res_inf <- nmfkc.net.inference(res, Y)
 #' summary(res_inf)
 #' }
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
 #'
 #' @export
 nmfkc.net.inference <- function(object, Y, wild.bootstrap = TRUE, ...) {
@@ -81,8 +86,8 @@ nmfkc.net.inference <- function(object, Y, wild.bootstrap = TRUE, ...) {
     result$coefficients <- cf
   }
 
-  class(result) <- c("nmfkc.net.inference", "nmfkc.inference",
-                      "nmf.inference", "nmfkc", "nmf")
+  class(result) <- c("nmfkc.net.inference", "nmfkc.net",
+                      "nmfkc.inference", "nmf.inference", "nmfkc", "nmf")
   result
 }
 
@@ -227,7 +232,8 @@ print.summary.nmfkc.net.inference <- function(x,
 #' }
 #'
 #' @param result A list returned by \code{nmfkc()} with
-#'   \code{Y.symmetric = "bi"} or \code{"tri"}.
+#'   \code{Y.symmetric = "bi"} or \code{"tri"}, or the newer
+#'   \code{\link{nmfkc.net}} with \code{type = "bi"} or \code{"tri"}.
 #'   If inference results are present (from \code{\link{nmfkc.net.inference}}),
 #'   C edges are decorated with significance stars.
 #' @param threshold Minimum coefficient value to display an edge.
@@ -250,7 +256,7 @@ print.summary.nmfkc.net.inference <- function(x,
 #'   matrix: positive entries rendered as solid edges and negative as
 #'   dashed, with edge visibility threshold on \eqn{|C|}.  Default is
 #'   \code{inherits(result, "nmfkc.net.signed")} so that results from
-#'   \code{\ink{nmfkc.net}} are auto-detected.
+#'   \code{\link{nmfkc.net}} are auto-detected.
 #' @param cluster.box Style of cluster box: \code{"none"}, \code{"normal"},
 #'   \code{"faint"}, \code{"invisible"}.
 #' @param layout Graphviz layout engine: \code{"fdp"}, \code{"dot"},
@@ -275,10 +281,14 @@ print.summary.nmfkc.net.inference <- function(x,
 #'               0,0,1,0,1,1,
 #'               0,0,0,1,0,1,
 #'               0,0,0,1,1,0), 6, 6)
-#' res <- nmfkc(Y, rank = 2, Y.symmetric = "tri", nstart = 20)
+#' res <- nmfkc.net(Y, rank = 2, type = "tri", nstart = 20)
 #' dot <- nmfkc.net.DOT(res)
 #' plot(dot)
 #' }
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
 #'
 #' @export
 nmfkc.net.DOT <- function(
@@ -728,20 +738,31 @@ nmfkc.net.DOT <- function(
 #'     \eqn{Y \approx X (C_{+} - C_{-}) X^\top} with \eqn{X \ge 0} and signed
 #'     \eqn{C = C_{+} - C_{-}}.  Preserves the soft-clustering interpretation
 #'     of \eqn{X} while allowing negative off-diagonals of \eqn{C}
-#'     (inter-cluster \emph{repulsion}).  Dispatches internally to
-#'     \code{\ink{nmfkc.net}}.  Uses \code{nstart = 50} by default.
+#'     (inter-cluster \emph{repulsion}).
 #' }
 #' @param Y Symmetric (N x N) non-negative matrix.
 #' @param rank Integer Q.
 #' @param type \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
 #' @param epsilon,maxit,verbose Standard.
-#' @param ... Hidden options: \code{nstart} (default 20 for tri/bi, 50 for
-#'   signed), \code{seed} (default 123), \code{X.restriction}, \code{X.init},
+#' @param ... Hidden options: \code{nstart} (default 1; see note below),
+#'   \code{seed} (default 123), \code{X.restriction}, \code{X.init},
 #'   \code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
 #'   \code{Y.weights}, \code{C.L1} (tri only), \code{X.L2.ortho}, \code{prefix}.
+#'
+#' \strong{Multi-start recommendation.} For \code{type = "signed"} the
+#' \eqn{C = C_{+} - C_{-}} bottleneck can take both positive and negative
+#' values, so the objective has more local minima than for \code{"tri"}
+#' or \code{"bi"}.  A larger \code{nstart} (e.g., 10-50) is recommended
+#' during exploration to reduce the chance of being trapped at a
+#' suboptimal stationary point.  The default 1 is intended for fast
+#' development; raise for publication-grade runs.
 #' @return Object of class \code{c("nmfkc.net.<type>", "nmfkc.net", "nmfkc")}.
 #'   For \code{type = "signed"} the return also carries \code{$Cp, $Cn}.
 #' @seealso \code{\link{nmfkc.net.ecv}}, \code{\link{nmfkc.net.DOT}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @export
 nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
                       epsilon = 1e-4, maxit = 5000,
@@ -750,9 +771,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   type <- match.arg(type)
   ex <- list(...)
 
-  nstart        <- if (!is.null(ex$nstart))        ex$nstart
-                   else if (type == "signed")      50L
-                   else                            20L
+  nstart        <- if (!is.null(ex$nstart))        ex$nstart        else 1L
   seed          <- if (!is.null(ex$seed))          ex$seed          else 123L
   X.restriction <- if (!is.null(ex$X.restriction)) ex$X.restriction
                    else if (type == "bi")          "none"
@@ -896,7 +915,8 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 
   result <- list(
     call = cl,
-    X = X, C = C, Cp = Cp, Cn = Cn, Y1hat = Y1hat,
+    X = X, C = C, Cp = Cp, Cn = Cn,
+    XB = Y1hat, Y1hat = Y1hat,          # XB alias for fitted.nmf compatibility
     X.prob = X.prob, X.cluster = X.cluster,
     rank = Q, dims = c(N = N),
     type = type,
@@ -906,7 +926,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     runtime = as.numeric((proc.time() - t0)[3]),
     X.restriction = X.restriction
   )
-  class(result) <- c(paste0("nmfkc.net.", type), "nmfkc.net", "nmfkc")
+  class(result) <- c(paste0("nmfkc.net.", type), "nmfkc.net", "nmfkc", "nmf")
   result
 }
 
@@ -1039,6 +1059,10 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 #' @return A list with \code{objfunc}, \code{sigma}, \code{objfunc.fold},
 #'   \code{folds}, \code{Q.grid}, \code{type}.
 #' @seealso \code{\link{nmfkc.net}}
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @export
 nmfkc.net.ecv <- function(Y, rank = 1:3,
                           type = c("tri", "bi", "signed"), ...) {
@@ -1169,7 +1193,7 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
 #' @param object An \code{nmfkc.net.signed} object.
 #' @param ... Unused.
 #' @return An object of class \code{"summary.nmfkc.net.signed"}.
-#' @seealso \code{\ink{nmfkc.net}}
+#' @seealso \code{\link{nmfkc.net}}
 #' @export
 summary.nmfkc.net.signed <- function(object, ...) {
   ans <- summary.nmfkc.net(object, ...)

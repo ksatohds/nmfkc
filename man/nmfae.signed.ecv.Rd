@@ -21,8 +21,9 @@ nmfae.signed.ecv(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...)
 \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
 \item{\code{seed}}{RNG seed for fold assignment.  Default 123.}
 \item{\code{nstart}}{Number of random restarts per fit.  Default 1.
-Use \code{nstart >= 5} for reproducible rank selection on signed
-data.}
+Signed models have more local minima (the bottleneck can carry
+both signs), so \code{nstart >= 10} is recommended for
+reproducible rank selection.}
 \item Other args (\code{epsilon}, \code{maxit}, \code{warm.start},
 etc.) are passed to \code{nmfae.signed}.
 }}

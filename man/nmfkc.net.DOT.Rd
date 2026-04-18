@@ -28,7 +28,8 @@ nmfkc.net.DOT(
 }
 \arguments{
 \item{result}{A list returned by \code{nmfkc()} with
-\code{Y.symmetric = "bi"} or \code{"tri"}.
+\code{Y.symmetric = "bi"} or \code{"tri"}, or the newer
+\code{\link{nmfkc.net}} with \code{type = "bi"} or \code{"tri"}.
 If inference results are present (from \code{\link{nmfkc.net.inference}}),
 C edges are decorated with significance stars.}
 
@@ -65,7 +66,7 @@ between basis nodes. NULL = auto-detect (TRUE for tri, FALSE for bi).}
 matrix: positive entries rendered as solid edges and negative as
 dashed, with edge visibility threshold on \eqn{|C|}.  Default is
 \code{inherits(result, "nmfkc.net.signed")} so that results from
-\code{\ink{nmfkc.net}} are auto-detected.}
+\code{\link{nmfkc.net}} are auto-detected.}
 
 \item{cluster.box}{Style of cluster box: \code{"none"}, \code{"normal"},
 \code{"faint"}, \code{"invisible"}.}
@@ -96,6 +97,12 @@ The resulting diagram displays:
 from C matrix (for tri-symmetric models only).
 }
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \examples{
 \donttest{
 library(nmfkc)
@@ -105,7 +112,7 @@ Y <- matrix(c(0,1,1,0,0,0,
               0,0,1,0,1,1,
               0,0,0,1,0,1,
               0,0,0,1,1,0), 6, 6)
-res <- nmfkc(Y, rank = 2, Y.symmetric = "tri", nstart = 20)
+res <- nmfkc.net(Y, rank = 2, type = "tri", nstart = 20)
 dot <- nmfkc.net.DOT(res)
 plot(dot)
 }

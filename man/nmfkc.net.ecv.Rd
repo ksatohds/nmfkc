@@ -31,6 +31,12 @@ NMF variants; \code{type} selects the fitting function:
 \item \code{"signed"}: \code{\link{nmfkc.net}} with signed \eqn{C = C_{+} - C_{-}}
 }
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \seealso{
 \code{\link{nmfkc.net}}
 }

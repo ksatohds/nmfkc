@@ -47,11 +47,15 @@ while still benefiting from good \eqn{X_1, X_2} initialization.
 Ignored when \eqn{Y_1} has negative entries.}
 \item{\code{nstart}}{Integer, default 1 (cf. \code{\link{kmeans}}).
 Number of random restarts for \eqn{C_{+}, C_{-}}.  Each restart
-uses seed \code{seed + 10 * (s-1)}.  Returns the best run by
-final objective.  Because random \eqn{C} init has multiple local
-minima (and warm-start from tri-NMF-AE traps \eqn{C_{-} = 0}),
-\code{nstart >= 5} is recommended for production use on signed-
-bottleneck-benefiting data (e.g., anti-correlated properties).}
+uses seed \code{seed + 7919 * (s-1)}.  Returns the best run by
+final objective.  \strong{Signed models have more local minima
+than non-negative ones} because the bottleneck
+\eqn{\Theta = C_{+} - C_{-}} can take both positive and negative
+values; during exploration a larger \code{nstart} (e.g., 10-50)
+reduces the chance of being trapped at an inferior stationary
+point (particularly the \eqn{C_{-} = 0} trap from warm-start
+from non-negative tri-NMF-AE).  Use the default 1 for fast
+development and raise for publication-grade runs.}
 \item{\code{Cp.init}, \code{Cn.init}}{Explicit \eqn{Q \times R}
 non-negative matrices for initialization.  Overrides warm.start.}
 \item{\code{C.init}}{Explicit signed \eqn{Q \times R} matrix,

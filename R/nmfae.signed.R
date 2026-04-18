@@ -68,11 +68,15 @@
 #'       Ignored when \eqn{Y_1} has negative entries.}
 #'     \item{\code{nstart}}{Integer, default 1 (cf. \code{\link{kmeans}}).
 #'       Number of random restarts for \eqn{C_{+}, C_{-}}.  Each restart
-#'       uses seed \code{seed + 10 * (s-1)}.  Returns the best run by
-#'       final objective.  Because random \eqn{C} init has multiple local
-#'       minima (and warm-start from tri-NMF-AE traps \eqn{C_{-} = 0}),
-#'       \code{nstart >= 5} is recommended for production use on signed-
-#'       bottleneck-benefiting data (e.g., anti-correlated properties).}
+#'       uses seed \code{seed + 7919 * (s-1)}.  Returns the best run by
+#'       final objective.  \strong{Signed models have more local minima
+#'       than non-negative ones} because the bottleneck
+#'       \eqn{\Theta = C_{+} - C_{-}} can take both positive and negative
+#'       values; during exploration a larger \code{nstart} (e.g., 10-50)
+#'       reduces the chance of being trapped at an inferior stationary
+#'       point (particularly the \eqn{C_{-} = 0} trap from warm-start
+#'       from non-negative tri-NMF-AE).  Use the default 1 for fast
+#'       development and raise for publication-grade runs.}
 #'     \item{\code{Cp.init}, \code{Cn.init}}{Explicit \eqn{Q \times R}
 #'       non-negative matrices for initialization.  Overrides warm.start.}
 #'     \item{\code{C.init}}{Explicit signed \eqn{Q \times R} matrix,
@@ -137,7 +141,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   R <- as.integer(rank.encoder)
 
   warm.start <- if (!is.null(extra_args$warm.start)) extra_args$warm.start else TRUE
-  nstart  <- if (!is.null(extra_args$nstart))  extra_args$nstart  else 50L
+  nstart  <- if (!is.null(extra_args$nstart))  extra_args$nstart  else 1L
   Y1.weights <- if (!is.null(extra_args$Y1.weights)) extra_args$Y1.weights else NULL
   Cp.init    <- extra_args$Cp.init
   Cn.init    <- extra_args$Cn.init
@@ -159,9 +163,10 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   }
 
   ## ---- 2. Input preparation & validation ----
+  ## NA in Y1 is auto-masked via Y1.weights (matches nmfae() behavior);
+  ## NA in Y2 is still an error since Y2 is not weighted.
   Y1 <- as.matrix(Y1); storage.mode(Y1) <- "double"
   Y2 <- as.matrix(Y2); storage.mode(Y2) <- "double"
-  if (any(is.na(Y1))) stop("Y1 contains NA; please impute or remove.")
   if (any(is.na(Y2))) stop("Y2 contains NA; please impute or remove.")
   if (min(Y2) < 0) stop("Y2 must be non-negative.")
   if (ncol(Y1) != ncol(Y2)) stop("Y1 and Y2 must have the same number of columns (N).")
@@ -513,7 +518,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     mae = mae,
     niter = niter,
     runtime = diff.time,
-    n.missing = 0L,
+    n.missing = if (has.weights) sum(Wmat == 0) else 0L,
     n.total = P1 * N,
     Y.signed = Y1_signed
   )
@@ -936,8 +941,9 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'     \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
 #'     \item{\code{seed}}{RNG seed for fold assignment.  Default 123.}
 #'     \item{\code{nstart}}{Number of random restarts per fit.  Default 1.
-#'       Use \code{nstart >= 5} for reproducible rank selection on signed
-#'       data.}
+#'       Signed models have more local minima (the bottleneck can carry
+#'       both signs), so \code{nstart >= 10} is recommended for
+#'       reproducible rank selection.}
 #'     \item Other args (\code{epsilon}, \code{maxit}, \code{warm.start},
 #'       etc.) are passed to \code{nmfae.signed}.
 #'   }
@@ -1030,4 +1036,189 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
                  paired = is.null(R))
   class(result) <- c("nmfae.signed.ecv", "nmfae.ecv")
   result
+}
+
+
+## ==============================================================
+#' @title Summary method for nmfae.signed.inference objects
+#' @description
+#' Produces a summary of a fitted Signed-Bottleneck NMF-AE model with
+#' inference results.  Extends \code{\link{summary.nmfae.signed}} by
+#' attaching the \code{coefficients} table and p-value side from
+#' \code{\link{nmfae.signed.inference}}.
+#'
+#' @param object An object of class \code{"nmfae.signed.inference"}.
+#' @param ... Additional arguments (currently unused).
+#' @return An object of class \code{"summary.nmfae.signed.inference"}.
+#' @seealso \code{\link{nmfae.signed.inference}}, \code{\link{summary.nmfae.signed}}
+#' @export
+summary.nmfae.signed.inference <- function(object, ...) {
+  ans <- summary.nmfae.signed(object, ...)
+  ans$coefficients <- object$coefficients
+  ans$C.p.side     <- object$C.p.side
+  ans$sigma2.used  <- object$sigma2.used
+  class(ans) <- c("summary.nmfae.signed.inference",
+                   "summary.nmfae.signed", "summary.nmfae.inference")
+  ans
+}
+
+#' @title Print method for summary.nmfae.signed.inference objects
+#' @description
+#' Prints the Signed-Bottleneck NMF-AE summary followed by the
+#' coefficients table of Theta.
+#' @param x An object of class \code{"summary.nmfae.signed.inference"}.
+#' @param digits Minimum number of significant digits.
+#' @param ... Additional arguments (currently unused).
+#' @return Called for its side effect (printing). Returns \code{x} invisibly.
+#' @seealso \code{\link{summary.nmfae.signed.inference}}
+#' @export
+print.summary.nmfae.signed.inference <- function(x,
+    digits = max(3L, getOption("digits") - 3L), ...) {
+  print.summary.nmfae.signed(x, digits = digits, ...)
+
+  if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
+    cf <- x$coefficients
+    p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "two.sided"
+    p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
+
+    sig_stars <- function(p) {
+      ifelse(!is.finite(p), " ",
+        ifelse(p < 0.001, "***",
+          ifelse(p < 0.01, "**",
+            ifelse(p < 0.05, "*",
+              ifelse(p < 0.1, ".", " ")))))
+    }
+    format_pval <- function(p) {
+      ifelse(!is.finite(p), "      NA",
+        ifelse(p < 2.2e-16, "  <2e-16",
+          formatC(p, format = "g", digits = 4, width = 8)))
+    }
+
+    n_total <- nrow(cf)
+    n_sig <- sum(cf$p_value < 0.05, na.rm = TRUE)
+    cat(sprintf("\nTheta coefficients: %d total, %d significant (p < 0.05)\n",
+                n_total, n_sig))
+    rnames <- paste0(cf$Basis, ":", cf$Covariate)
+    est <- formatC(cf$Estimate, format = "f", digits = 3, width = 9)
+    se  <- formatC(cf$SE,       format = "f", digits = 3, width = 10)
+    bse <- formatC(cf$BSE,      format = "f", digits = 3, width = 6)
+    zv  <- formatC(cf$z_value,  format = "f", digits = 2, width = 7)
+    pv_str <- format_pval(cf$p_value)
+    stars <- sig_stars(cf$p_value)
+    max_lw <- max(nchar(rnames))
+    hdr <- sprintf("%s %s %s %s %s",
+                   formatC("Estimate",   width = 9),
+                   formatC("Std. Error", width = 10),
+                   formatC("(Boot)",     width = 6),
+                   formatC("z value",    width = 7),
+                   formatC(p_header,     width = 8))
+    cat(sprintf("%s %s\n", formatC("Dec:Enc", width = max_lw), hdr))
+    for (i in seq_len(n_total)) {
+      cat(sprintf("%s %s %s %s %s %s %s\n",
+                  formatC(rnames[i], width = max_lw),
+                  est[i], se[i], bse[i], zv[i], pv_str[i], stars[i]))
+    }
+    cat("---\n")
+    cat("Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n")
+  }
+  cat("\n")
+  invisible(x)
+}
+
+
+## ==============================================================
+#' @title Heatmap visualization of nmfae.signed factor matrices
+#' @description
+#' Displays the factor blocks of a \code{\link{nmfae.signed}} fit as
+#' side-by-side heatmaps.  Non-negative blocks (\eqn{X_1, C_{+}, C_{-},
+#' X_2}) use the white-orange-red palette; the signed combined
+#' bottleneck \eqn{C = C_{+} - C_{-}} is rendered with a diverging
+#' blue-white-red palette so positive and negative weights are visually
+#' distinguishable.
+#'
+#' @param x An object of class \code{"nmfae.signed"}.
+#' @param Y1.label Character vector for rows of \eqn{X_1}.
+#' @param X1.label Decoder basis labels.
+#' @param X2.label Encoder basis labels.
+#' @param Y2.label Input variable labels.
+#' @param palette.pos Palette for non-negative blocks. Default white-orange-red.
+#' @param palette.signed Palette for signed \eqn{C}. Default blue-white-red.
+#' @param show.C Logical. If \code{TRUE} (default), shows the combined
+#'   signed \eqn{C = C_{+} - C_{-}} as a separate panel.
+#' @param ... Not used.
+#'
+#' @return Invisible \code{NULL}. Called for its side effect (plot).
+#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.heatmap}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y1 <- matrix(abs(rnorm(12)), 3, 4)
+#' Y2 <- matrix(abs(rnorm(20)), 5, 4)
+#' res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 200)
+#' nmfae.signed.heatmap(res)
+#' }
+#' @export
+nmfae.signed.heatmap <- function(x,
+                                  Y1.label = NULL, X1.label = NULL,
+                                  X2.label = NULL, Y2.label = NULL,
+                                  palette.pos = NULL,
+                                  palette.signed = NULL,
+                                  show.C = TRUE, ...) {
+  if (!inherits(x, "nmfae.signed"))
+    stop("x must be of class 'nmfae.signed'.")
+  if (is.null(palette.pos))
+    palette.pos <- grDevices::colorRampPalette(c("white", "orange", "red"))(64)
+  if (is.null(palette.signed))
+    palette.signed <- grDevices::colorRampPalette(
+      c("blue", "white", "red"))(64)
+
+  X1 <- x$X1; Cp <- x$Cp; Cn <- x$Cn; X2 <- x$X2
+  C  <- if (!is.null(x$C)) x$C else (Cp - Cn)
+  Q  <- ncol(X1); R  <- nrow(X2)
+  P1 <- nrow(X1); P2 <- ncol(X2)
+
+  if (is.null(Y1.label)) Y1.label <- rownames(X1)
+  if (is.null(X1.label)) X1.label <- colnames(X1)
+  if (is.null(X2.label)) X2.label <- rownames(X2)
+  if (is.null(Y2.label)) Y2.label <- colnames(X2)
+  if (is.null(Y1.label)) Y1.label <- as.character(seq_len(P1))
+  if (is.null(X1.label)) X1.label <- paste0("Dec", seq_len(Q))
+  if (is.null(X2.label)) X2.label <- paste0("Enc", seq_len(R))
+  if (is.null(Y2.label)) Y2.label <- as.character(seq_len(P2))
+
+  .heat <- function(mat, title, pal, zlim = NULL) {
+    m <- mat[nrow(mat):1, , drop = FALSE]
+    if (is.null(zlim)) zlim <- range(m, finite = TRUE)
+    graphics::image(x = seq_len(ncol(m)), y = seq_len(nrow(m)),
+                    z = t(m), col = pal, zlim = zlim, axes = FALSE,
+                    xlab = "", ylab = "", main = title)
+    graphics::axis(1, at = seq_len(ncol(m)), labels = colnames(m),
+                   las = 2, cex.axis = 0.7)
+    graphics::axis(2, at = seq_len(nrow(m)), labels = rev(rownames(m)),
+                   las = 1, cex.axis = 0.7)
+    graphics::box()
+  }
+
+  n.panels <- if (isTRUE(show.C)) 5 else 4
+  old.par <- graphics::par(no.readonly = TRUE)
+  on.exit(graphics::par(old.par), add = TRUE)
+  graphics::par(mfrow = c(1, n.panels), mar = c(4, 3, 2, 1))
+
+  rownames(X1) <- Y1.label; colnames(X1) <- X1.label
+  rownames(Cp) <- X1.label; colnames(Cp) <- X2.label
+  rownames(Cn) <- X1.label; colnames(Cn) <- X2.label
+  rownames(X2) <- X2.label; colnames(X2) <- Y2.label
+  rownames(C)  <- X1.label; colnames(C)  <- X2.label
+
+  .heat(X1, expression(X[1]), palette.pos)
+  .heat(Cp, expression(C["+"]), palette.pos)
+  .heat(Cn, expression(C["-"]), palette.pos)
+  if (isTRUE(show.C)) {
+    cmax <- max(abs(C), na.rm = TRUE)
+    .heat(C, expression(C == C["+"] - C["-"]),
+          palette.signed, zlim = c(-cmax, cmax))
+  }
+  .heat(X2, expression(X[2]), palette.pos)
+
+  invisible(NULL)
 }

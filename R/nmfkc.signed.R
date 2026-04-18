@@ -95,6 +95,15 @@
 #'       elements are masked (used by \code{\link{nmfkc.signed.cv}} /
 #'       \code{\link{nmfkc.signed.ecv}}).  NA entries of \eqn{Y} are
 #'       auto-masked to zero weight when \code{Y.weights} is \code{NULL}.
+#'     \item \code{nstart}: number of random restarts.  \strong{Signed
+#'       models have more local minima than non-negative ones} because
+#'       \eqn{\Theta = C_{+} - C_{-}} can take both positive and negative
+#'       values.  Since \code{nmfkc.signed()} itself does not loop over
+#'       restarts (callers control it), set the outer-loop size via e.g.
+#'       running the function several times with different \code{seed}
+#'       and keeping the fit with the smallest \code{$objfunc}.  A
+#'       restart budget of 10-50 is recommended for publication-grade
+#'       runs on signed data.
 #'   }
 #'
 #' @return An object of class \code{c("nmfkc.signed", "nmfkc")} with
@@ -463,26 +472,42 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
   runtime <- as.numeric((proc.time() - t0)[3])
 
+  ## Fields matching the main `nmfkc()` object for S3 method inheritance
+  dims_str <- sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)",
+                      Q_obs, N, Q_obs, Q, Q, D, D, N)
+  n.valid   <- if (has.weights) sum(Wmat > 0) else Q_obs * N
+  n.total   <- Q_obs * N
+  n.missing <- n.total - n.valid
+  sigma     <- if (n.valid > 0)
+                 sqrt(sum((if (has.weights) (Wmat * resid)^2 else resid^2)) / n.valid)
+               else NA_real_
+
   result <- list(
     X             = X,
     Cp            = Cp,
     Cn            = Cn,
     C             = C,
     B             = B,
+    XB            = XB,              # reconstruction (alias for fitted.nmf)
     objfunc.iter  = objfunc.iter,
     objfunc       = objfunc,
     r.squared     = r.squared,
+    sigma         = sigma,
     mae           = mae,
     iter          = iter,
     runtime       = runtime,
     rank          = Q,
     D             = D,
+    dims          = dims_str,
+    method        = "EU",
+    n.missing     = n.missing,
+    n.total       = n.total,
     X.restriction = X.restriction,
     Y.signed      = !Y_is_nonneg,
     pars          = pars_rff,
     call          = cl
   )
-  class(result) <- c("nmfkc.signed", "nmfkc")
+  class(result) <- c("nmfkc.signed", "nmfkc", "nmf")
   result
 }
 
@@ -679,7 +704,9 @@ print.summary.nmfkc.signed <- function(x,
 #' This function is \strong{experimental}.
 #'
 #' @return A list with \code{objfunc} (mean squared prediction error),
-#'   \code{sigma} (RMSE), \code{objfunc.fold} (per-fold), \code{folds}.
+#'   \code{sigma} (RMSE), \code{objfunc.block} (per-fold MSE vector),
+#'   \code{block} (integer fold assignment of length \eqn{N}).  Field
+#'   names match \code{\link{nmfkc.cv}}.
 #' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc.signed.ecv}}
 #' @export
 nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
@@ -713,7 +740,11 @@ nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
 
   ## Per-fold: fit on train columns (via Y.weights = 0 on test columns),
   ## then score on held-out columns using Yhat = X C A
-  objfunc.fold <- numeric(nfolds)
+  objfunc.block <- numeric(nfolds)
+  ## block: integer vector of length N assigning each column to a fold
+  ## (matches main nmfkc.cv's output shape).
+  block <- integer(N)
+  for (k in 1:nfolds) block[folds[[k]]] <- k
   for (k in 1:nfolds) {
     test_cols <- folds[[k]]
     W <- matrix(1, nrow = nrow(Y), ncol = N)
@@ -723,13 +754,13 @@ nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
       c(list(Y = Y, A = A, rank = rank, verbose = FALSE,
              Y.weights = W), fit_args)))
     Yhat_test <- fit$X %*% fit$C %*% A[, test_cols, drop = FALSE]
-    objfunc.fold[k] <- mean((Y[, test_cols, drop = FALSE] - Yhat_test)^2)
+    objfunc.block[k] <- mean((Y[, test_cols, drop = FALSE] - Yhat_test)^2)
   }
   structure(list(
-    objfunc = mean(objfunc.fold),
-    sigma = sqrt(mean(objfunc.fold)),
-    objfunc.fold = objfunc.fold,
-    folds = folds
+    objfunc = mean(objfunc.block),
+    sigma = sqrt(mean(objfunc.block)),
+    objfunc.block = objfunc.block,
+    block = block
   ), class = c("nmfkc.signed.cv", "nmfkc.cv"))
 }
 

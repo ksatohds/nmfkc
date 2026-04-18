@@ -20,7 +20,9 @@ nmfkc.signed.cv(Y, A, rank = 2, ...)
 }
 \value{
 A list with \code{objfunc} (mean squared prediction error),
-\code{sigma} (RMSE), \code{objfunc.fold} (per-fold), \code{folds}.
+\code{sigma} (RMSE), \code{objfunc.block} (per-fold MSE vector),
+\code{block} (integer fold assignment of length \eqn{N}).  Field
+names match \code{\link{nmfkc.cv}}.
 }
 \description{
 Column-wise k-fold CV by held-out samples: for each

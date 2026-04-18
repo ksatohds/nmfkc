@@ -18,5 +18,5 @@ An object of class \code{"summary.nmfkc.net.signed"}.
 Summary method for nmfkc.net.signed objects
 }
 \seealso{
-\code{\ink{nmfkc.net}}
+\code{\link{nmfkc.net}}
 }

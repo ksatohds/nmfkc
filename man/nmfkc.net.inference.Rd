@@ -8,7 +8,8 @@ nmfkc.net.inference(object, Y, wild.bootstrap = TRUE, ...)
 }
 \arguments{
 \item{object}{A fitted model returned by \code{nmfkc()} with
-\code{Y.symmetric = "bi"} or \code{"tri"}.}
+\code{Y.symmetric = "bi"} or \code{"tri"}, or the newer
+\code{\link{nmfkc.net}} with \code{type = "bi"} or \code{"tri"}.}
 
 \item{Y}{The original symmetric matrix (P x P).}
 
@@ -31,6 +32,12 @@ This is a wrapper around \code{\link{nmfkc.inference}} that automatically
 sets the covariate matrix to \eqn{A = X^\top}, which is the defining
 property of symmetric NMF.
 }
+\section{Lifecycle}{
+
+This function is \strong{experimental}. The interface may change in
+future versions; details are to be described in an upcoming paper.
+}
+
 \examples{
 \donttest{
 library(nmfkc)
@@ -40,7 +47,7 @@ Y <- matrix(c(0,1,1,0,0,0,
               0,0,1,0,1,1,
               0,0,0,1,0,1,
               0,0,0,1,1,0), 6, 6)
-res <- nmfkc(Y, rank = 2, Y.symmetric = "tri", nstart = 20)
+res <- nmfkc.net(Y, rank = 2, type = "tri", nstart = 20)
 res_inf <- nmfkc.net.inference(res, Y)
 summary(res_inf)
 }

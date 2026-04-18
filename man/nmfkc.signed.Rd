@@ -65,6 +65,15 @@ the loss becomes \eqn{\sum W \odot (Y - XCA)^2} and zero-weighted
 elements are masked (used by \code{\link{nmfkc.signed.cv}} /
 \code{\link{nmfkc.signed.ecv}}).  NA entries of \eqn{Y} are
 auto-masked to zero weight when \code{Y.weights} is \code{NULL}.
+\item \code{nstart}: number of random restarts.  \strong{Signed
+models have more local minima than non-negative ones} because
+\eqn{\Theta = C_{+} - C_{-}} can take both positive and negative
+values.  Since \code{nmfkc.signed()} itself does not loop over
+restarts (callers control it), set the outer-loop size via e.g.
+running the function several times with different \code{seed}
+and keeping the fit with the smallest \code{$objfunc}.  A
+restart budget of 10-50 is recommended for publication-grade
+runs on signed data.
 }}
 }
 \value{
