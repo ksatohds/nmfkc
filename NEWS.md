@@ -10,8 +10,14 @@
 - `nmfkc.kernel.beta.nearest.med()`: added a `candidates` argument controlling the bandwidth grid. Options: `"7points"` (new default, `t = {-1,-2/3,-1/3,0,1/3,2/3,1}`), `"4points"` (`t = {-1/2, 0, 1/2, 1}`), or a user-supplied numeric vector of \eqn{t} values. Previously the grid silently differed between the no-landmark (`Uk = NULL`; 4 points) and landmark (7 points) branches.
 
 ### **New Functions**
-- `nmfkc.net.DOT()`: Graphviz DOT visualization for symmetric NMF networks (`Y.symmetric = "bi"` or `"tri"`). Displays basis-to-node membership edges and inter-basis interaction edges (C matrix) with significance stars.
+- `nmfkc.net()`: Dedicated entry point for symmetric NMF of network data (\eqn{Y \approx X C X^\top}, \eqn{X, C \ge 0}).  Uses the correct Frobenius-full bilateral gradient (supersedes the one-sided approximation in `nmfkc(Y.symmetric = ...)`).  Supports `type = "tri"` (default) and `type = "bi"` (with cube-root damping, He et al. 2011).  `C` is symmetric by design; initialization is symmetrized so the bilateral gradient is exact throughout iteration.
+- `nmfkc.net.signed()`: Symmetric NMF with signed `C = Cp - Cn` (\eqn{X \ge 0} preserves soft clustering; \eqn{C} allows inter-cluster repulsion).  Uses bilateral gradient + Ding et al. (2010) sign-splitting.
+- `nmfkc.net.ecv()`, `nmfkc.net.signed.ecv()`: Element-wise cross-validation with upper-triangle folds (mirrored to the lower triangle to prevent symmetry leakage).
+- `nmfkc.net.DOT()`: Graphviz DOT visualization for symmetric NMF networks. Displays basis-to-node membership edges and inter-basis interaction edges (C matrix) with significance stars. Now has `signed` parameter (auto-detected from class) to render negative `C` entries as dashed edges.
 - `nmfkc.net.inference()`: Statistical inference for symmetric NMF. Wrapper around `nmfkc.inference()` with `A = t(X)`. Returns off-diagonal C coefficients with sandwich SE and wild bootstrap.
+
+### **Deprecations**
+- `nmfkc(Y, Y.symmetric = "bi"|"tri")`: **Deprecated** in favor of `nmfkc.net(Y, type = "bi"|"tri")`.  The old implementation uses a one-sided gradient approximation that empirically converges for \eqn{C \ge 0} but is theoretically incorrect and does not extend to signed \eqn{C}.  The deprecated branch still works in v0.6.8 (with a deprecation warning) and will be removed in a future release.
 
 ### **Parameter Renames** (old names remain usable for backward compatibility)
 - `nmf.sem.DOT()`: `weight_scale_y2f` → `weight_scale_c2`, `weight_scale_fy1` → `weight_scale_x1` (matrix-name-based naming, consistent with `nmfae.DOT()` and `nmfkc.DOT()`).

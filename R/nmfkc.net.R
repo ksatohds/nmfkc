@@ -246,6 +246,11 @@ print.summary.nmfkc.net.inference <- function(x,
 #' @param X.title Cluster title for basis nodes.
 #' @param show.theta Logical or NULL. Whether to draw C edges
 #'   between basis nodes. NULL = auto-detect (TRUE for tri, FALSE for bi).
+#' @param signed Logical. If \code{TRUE}, \eqn{C} is treated as a signed
+#'   matrix: positive entries rendered as solid edges and negative as
+#'   dashed, with edge visibility threshold on \eqn{|C|}.  Default is
+#'   \code{inherits(result, "nmfkc.net.signed")} so that results from
+#'   \code{\link{nmfkc.net.signed}} are auto-detected.
 #' @param cluster.box Style of cluster box: \code{"none"}, \code{"normal"},
 #'   \code{"faint"}, \code{"invisible"}.
 #' @param layout Graphviz layout engine: \code{"fdp"}, \code{"dot"},
@@ -291,6 +296,7 @@ nmfkc.net.DOT <- function(
     Y.title         = "Nodes (Y)",
     X.title         = "Basis (X)",
     show.theta      = NULL,
+    signed          = inherits(result, "nmfkc.net.signed"),
     cluster.box     = c("none", "normal", "faint", "invisible"),
     layout          = c("fdp", "dot", "neato", "circo", "twopi"),
     X.color         = NULL,
@@ -367,20 +373,21 @@ nmfkc.net.DOT <- function(
   }
 
   ## ---------------------------------------------------------
-  ## Membership probability: B.prob (Q x P), columns sum to 1
+  ## Membership probability: H (P x Q, each row sums to 1)
+  ## New nmfkc.net objects carry $X.prob; legacy nmfkc(Y.symmetric=...)
+  ## objects carry $B.prob (Q x P) which we transpose.
   ## ---------------------------------------------------------
-  B_prob <- result$B.prob
-  if (is.null(B_prob)) {
+  if (!is.null(result$X.prob)) {
+    H <- result$X.prob
+  } else if (!is.null(result$B.prob)) {
+    H <- t(result$B.prob)
+  } else if (!is.null(result$B)) {
     B_raw <- result$B
-    if (!is.null(B_raw)) {
-      cs <- colSums(B_raw)
-      cs[cs == 0] <- 1
-      B_prob <- sweep(B_raw, 2, cs, "/")
-    } else {
-      stop("result must contain B.prob or B.")
-    }
+    cs <- colSums(B_raw); cs[cs == 0] <- 1
+    H <- t(sweep(B_raw, 2, cs, "/"))
+  } else {
+    stop("result must contain X.prob, B.prob, or B.")
   }
-  H <- t(B_prob)   # P x Q, each row sums to 1
 
   ## ---------------------------------------------------------
   ## Colors: basis nodes and outer nodes
@@ -523,27 +530,43 @@ nmfkc.net.DOT <- function(
 
   ## ---------------------------------------------------------
   ## C edges: Basis <-> Basis (inter-group interaction, tri only)
+  ## When `signed = TRUE`: positive C rendered solid, negative C dashed.
+  ## When `signed = FALSE` (default for non-signed): all edges dashed.
   ## ---------------------------------------------------------
   if (isTRUE(show.theta) && Q >= 2) {
+    default_style <- if (isTRUE(signed)) "solid" else "dashed"
     scr <- paste0(scr,
       '\n  // Inter-basis interaction edges (C, off-diagonal)\n',
-      '  edge [color=black, fontcolor=black, style=dashed, dir=none];\n')
+      sprintf('  edge [color=black, fontcolor=black, style=%s, dir=none];\n',
+              default_style))
 
+    ## Visibility threshold: abs(val) >= threshold for signed; val >= threshold otherwise
+    visible_val <- function(v) {
+      if (isTRUE(signed)) abs(v) else v
+    }
     max_C_off <- suppressWarnings(
-      max(C_mat[upper.tri(C_mat)], na.rm = TRUE))
+      max(visible_val(C_mat[upper.tri(C_mat)]), na.rm = TRUE))
     if (is.finite(max_C_off) && max_C_off > 0) {
       for (q in seq_len(Q - 1)) {
         for (r in (q + 1):Q) {
           val <- C_mat[q, r]
+          v_show <- visible_val(val)
           show_edge <- if (!is.null(C_show)) C_show[q, r]
-                       else is.finite(val) && val >= threshold
+                       else is.finite(v_show) && v_show >= threshold
           if (show_edge) {
-            pen <- pw(val, max_C_off, weight_scale_xx)
+            pen <- pw(v_show, max_C_off, weight_scale_xx)
             lab <- fmtc(val)
             if (!is.null(C_stars)) lab <- paste0(lab, C_stars[q, r])
-            scr <- paste0(scr,
-              sprintf('  %s -> %s [label="%s", penwidth=%.2f, dir=none];\n',
-                      X_ids[q], X_ids[r], lab, pen))
+            if (isTRUE(signed) && val < 0) {
+              ## Negative C: dashed style, overriding the solid default
+              scr <- paste0(scr,
+                sprintf('  %s -> %s [label="%s", penwidth=%.2f, style=dashed, dir=none];\n',
+                        X_ids[q], X_ids[r], lab, pen))
+            } else {
+              scr <- paste0(scr,
+                sprintf('  %s -> %s [label="%s", penwidth=%.2f, dir=none];\n',
+                        X_ids[q], X_ids[r], lab, pen))
+            }
           }
         }
       }
@@ -556,4 +579,729 @@ nmfkc.net.DOT <- function(
   result <- paste0(scr, "}\n")
   class(result) <- c("nmfkc.net.DOT", "nmfkc.DOT")
   result
+}
+
+
+.nmfkc.net.run_once <- function(Y, X, C, maxit, epsilon,
+                                X.restriction, C.L1, X.L2.ortho,
+                                Wmat, has.weights) {
+  N <- nrow(Y); Q <- ncol(X)
+  small <- 1e-16
+  norm_XC <- function(X, C) {
+    if (X.restriction %in% c("fixed", "none")) return(list(X = X, C = C))
+    cs <- colSums(X) + small
+    if (X.restriction == "colSums") {
+      d <- cs
+    } else if (X.restriction == "colSqSums") {
+      d <- sqrt(colSums(X * X)) + small
+    } else d <- cs
+    X <- sweep(X, 2, d, "/")
+    C <- sweep(C, 1, d, "*"); C <- sweep(C, 2, d, "*")
+    list(X = X, C = C)
+  }
+  cc <- norm_XC(X, C); X <- cc$X; C <- cc$C
+  compute_obj <- function(X, C) {
+    Yhat <- X %*% C %*% t(X)
+    if (has.weights) sum((Wmat * (Y - Yhat))^2) else sum((Y - Yhat)^2)
+  }
+  obj_prev <- compute_obj(X, C)
+  objfunc.iter <- numeric(maxit)
+  iter <- 0L
+  for (iter in seq_len(maxit)) {
+    tX <- t(X)
+
+    ## ---- C update (symmetric tri) ----
+    if (has.weights) {
+      Yhat <- X %*% C %*% tX
+      num_C <- tX %*% (Wmat * Y) %*% X
+      den_C <- tX %*% (Wmat * Yhat) %*% X
+    } else {
+      num_C <- tX %*% Y %*% X
+      P <- tX %*% X
+      den_C <- P %*% C %*% P
+    }
+    if (C.L1 > 0) den_C <- den_C + (C.L1 / 2)
+    C <- C * (num_C / (den_C + small))
+
+    ## ---- X update (bilateral gradient for Y = X C X^T, symmetric C) ----
+    ##   num = (W*Y) X (C + C^T)
+    ##   den = (W*Yhat) X (C + C^T)
+    tX <- t(X)
+    Yhat <- X %*% C %*% tX
+    Ssym <- C + t(C)
+    if (has.weights) {
+      WY <- Wmat * Y; WYhat <- Wmat * Yhat
+    } else {
+      WY <- Y; WYhat <- Yhat
+    }
+    num_X <- WY    %*% X %*% Ssym
+    den_X <- WYhat %*% X %*% Ssym
+    if (X.L2.ortho > 0) {
+      XtX <- crossprod(X); diag(XtX) <- 0
+      den_X <- den_X + X.L2.ortho * (X %*% XtX)
+    }
+    X <- X * (num_X / (den_X + small))
+
+    cc <- norm_XC(X, C); X <- cc$X; C <- cc$C
+
+    obj_cur <- compute_obj(X, C)
+    objfunc.iter[iter] <- obj_cur
+    if (iter > 1) {
+      rel <- abs(obj_prev - obj_cur) / (abs(obj_prev) + small)
+      if (rel < epsilon) break
+    }
+    obj_prev <- obj_cur
+  }
+  list(X = X, C = C, iter = iter,
+       objfunc.iter = objfunc.iter[seq_len(iter)],
+       objfunc = obj_prev)
+}
+
+
+## ==============================================================
+## Internal runner for bi-symmetric: Y ~ X X^T (C = I_Q fixed)
+## Cube-root damping (He et al. 2011) for monotone descent.
+## ==============================================================
+
+.nmfkc.net.run_once_bi <- function(Y, X, maxit, epsilon,
+                                    X.restriction, X.L2.ortho,
+                                    Wmat, has.weights) {
+  N <- nrow(Y); Q <- ncol(X)
+  small <- 1e-16
+  compute_obj <- function(X) {
+    Yhat <- tcrossprod(X)
+    if (has.weights) sum((Wmat * (Y - Yhat))^2) else sum((Y - Yhat)^2)
+  }
+  obj_prev <- compute_obj(X)
+  objfunc.iter <- numeric(maxit)
+  iter <- 0L
+  for (iter in seq_len(maxit)) {
+    Yhat <- tcrossprod(X)
+    if (has.weights) {
+      num_X <- (Wmat * Y)    %*% X
+      den_X <- (Wmat * Yhat) %*% X
+    } else {
+      num_X <- Y %*% X
+      den_X <- X %*% crossprod(X)
+    }
+    if (X.L2.ortho > 0) {
+      XtX <- crossprod(X); diag(XtX) <- 0
+      den_X <- den_X + X.L2.ortho * (X %*% XtX)
+    }
+    update_ratio <- num_X / (den_X + small)
+    X <- X * update_ratio^(1/3)
+
+    if (X.restriction == "colSums") {
+      cs <- colSums(X) + small
+      X <- sweep(X, 2, cs, "/")
+    } else if (X.restriction == "colSqSums") {
+      d <- sqrt(colSums(X * X)) + small
+      X <- sweep(X, 2, d, "/")
+    }
+    obj_cur <- compute_obj(X)
+    objfunc.iter[iter] <- obj_cur
+    if (iter > 1) {
+      rel <- abs(obj_prev - obj_cur) / (abs(obj_prev) + small)
+      if (rel < epsilon) break
+    }
+    obj_prev <- obj_cur
+  }
+  list(X = X, C = diag(Q), iter = iter,
+       objfunc.iter = objfunc.iter[seq_len(iter)],
+       objfunc = obj_prev)
+}
+
+
+## ==============================================================
+#' @title Symmetric NMF for networks (bi / tri, bilateral gradient)
+#' @description
+#' Fits symmetric NMF models for network data with correct
+#' multiplicative updates:
+#' \itemize{
+#'   \item \strong{tri} (\code{type="tri"}, default):
+#'     \eqn{Y \approx X C X^\top} with \eqn{X, C \ge 0} (both non-negative;
+#'     \eqn{C} symmetric by design).  Uses Frobenius-full bilateral gradient.
+#'   \item \strong{bi} (\code{type="bi"}):
+#'     \eqn{Y \approx X X^\top} (\eqn{C} fixed to \eqn{I_Q}),
+#'     cube-root damping (He et al. 2011).
+#' }
+#' @param Y Symmetric (N x N) non-negative matrix.
+#' @param rank Integer Q.
+#' @param type \code{"tri"} (default) or \code{"bi"}.
+#' @param epsilon,maxit,verbose Standard.
+#' @param ... Hidden options: \code{nstart} (default 20), \code{seed}
+#'   (default 123), \code{X.restriction}, \code{X.init}, \code{C.init},
+#'   \code{Y.weights}, \code{C.L1}, \code{X.L2.ortho}, \code{prefix}.
+#' @return Object of class \code{c("nmfkc.net.<type>", "nmfkc.net", "nmfkc")}.
+#' @export
+nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi"),
+                      epsilon = 1e-4, maxit = 5000,
+                      verbose = FALSE, ...) {
+  cl <- match.call()
+  type <- match.arg(type)
+  ex <- list(...)
+  nstart        <- if (!is.null(ex$nstart))        ex$nstart        else 20L
+  seed          <- if (!is.null(ex$seed))          ex$seed          else 123L
+  X.restriction <- if (!is.null(ex$X.restriction)) ex$X.restriction
+                   else if (type == "bi") "none" else "colSums"
+  X.restriction <- match.arg(X.restriction,
+                             c("colSums", "colSqSums", "none", "fixed"))
+  X.init        <- if (!is.null(ex$X.init))        ex$X.init        else "random"
+  C.init        <- ex$C.init
+  Y.weights     <- ex$Y.weights
+  C.L1          <- if (!is.null(ex$C.L1))          ex$C.L1          else 0
+  X.L2.ortho    <- if (!is.null(ex$X.L2.ortho))    ex$X.L2.ortho    else 0
+  prefix        <- if (!is.null(ex$prefix))        ex$prefix        else "Basis"
+
+  Y <- as.matrix(Y); storage.mode(Y) <- "double"
+  if (nrow(Y) != ncol(Y)) stop("Y must be square for nmfkc.net.")
+  if (!isSymmetric(Y, tol = 1e-10)) {
+    Y <- (Y + t(Y)) / 2
+    if (verbose) message("nmfkc.net: symmetrized Y <- (Y + Y^T) / 2")
+  }
+  if (min(Y) < 0) stop("nmfkc.net requires Y >= 0 (use nmfkc.net.signed for signed C).")
+  N <- nrow(Y); Q <- as.integer(rank)
+  small <- 1e-16; t0 <- proc.time()
+
+  has.weights <- !is.null(Y.weights)
+  if (has.weights) {
+    Wmat <- as.matrix(Y.weights)
+    if (!all(dim(Wmat) == c(N, N))) stop("Y.weights must be N x N.")
+    if (!isSymmetric(Wmat, tol = 1e-10)) Wmat <- (Wmat + t(Wmat)) / 2
+    Wmat[is.na(Wmat)] <- 0
+  } else Wmat <- NULL
+
+  run_once <- function(X, C) {
+    if (type == "bi") {
+      .nmfkc.net.run_once_bi(Y, X, maxit, epsilon,
+                              X.restriction, X.L2.ortho, Wmat, has.weights)
+    } else {
+      .nmfkc.net.run_once(Y, X, C, maxit, epsilon,
+                          X.restriction, C.L1, X.L2.ortho, Wmat, has.weights)
+    }
+  }
+
+  best <- NULL
+  explicit_X <- is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)
+  for (s in seq_len(nstart)) {
+    s_seed <- seed + 7919L * (s - 1L)
+    if (explicit_X) {
+      X0 <- as.matrix(X.init)
+      if (!identical(dim(X0), c(N, Q)))
+        stop("X.init must have dimensions (nrow(Y), rank).")
+    } else {
+      set.seed(s_seed)
+      X0 <- matrix(abs(stats::rnorm(N * Q)) * 0.1, N, Q)
+    }
+    if (type == "bi") {
+      C0 <- diag(Q)
+    } else if (!is.null(C.init)) {
+      C0 <- as.matrix(C.init)
+      if (!identical(dim(C0), c(Q, Q)))
+        stop("C.init must have dimensions (rank, rank).")
+      if (any(C0 < 0)) stop("C.init must be non-negative.")
+      ## Enforce symmetric C (Y = X C X^T with Y symmetric)
+      if (!isSymmetric(C0, tol = 1e-10)) {
+        warning("nmfkc.net: C.init symmetrized via (C + C^T)/2.")
+        C0 <- (C0 + t(C0)) / 2
+      }
+    } else {
+      set.seed(s_seed + 1L)
+      C0 <- matrix(abs(stats::rnorm(Q * Q)) * 0.1, Q, Q)
+      C0 <- (C0 + t(C0)) / 2       # SYMMETRIZE: preserves bilateral gradient exactness
+    }
+    out <- run_once(X0, C0)
+    if (is.null(best) || out$objfunc < best$objfunc) best <- out
+  }
+  X <- best$X; C <- best$C
+  objfunc.iter <- best$objfunc.iter
+  iter <- best$iter
+
+  if (Q > 1 && X.restriction != "fixed") {
+    idx <- order(as.vector(matrix(seq_len(N) / N, nrow = 1) %*% X))
+    X <- X[, idx, drop = FALSE]
+    C <- C[idx, idx, drop = FALSE]
+  }
+
+  rownames(X) <- rownames(Y)
+  colnames(X) <- paste0(prefix, seq_len(Q))
+  rownames(C) <- colnames(C) <- paste0(prefix, seq_len(Q))
+
+  Y1hat <- X %*% C %*% t(X)
+  resid <- Y - Y1hat
+  objfunc <- if (has.weights) sum((Wmat * resid)^2) else sum(resid^2)
+  r.squared <- tryCatch(stats::cor(as.vector(Y1hat), as.vector(Y))^2,
+                        error = function(e) NA_real_)
+  mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
+         else mean(abs(resid))
+
+  ## X.prob: each row sums to 1 (node i's membership proportion across bases)
+  X.prob <- X / (rowSums(X) + small)
+  X.cluster <- apply(X.prob, 1, which.max)
+
+  result <- list(
+    call = cl,
+    X = X, C = C, Y1hat = Y1hat,
+    X.prob = X.prob, X.cluster = X.cluster,
+    rank = Q, dims = c(N = N),
+    type = type,
+    objfunc = objfunc, objfunc.iter = objfunc.iter,
+    r.squared = r.squared, mae = mae,
+    iter = iter,
+    runtime = as.numeric((proc.time() - t0)[3]),
+    X.restriction = X.restriction
+  )
+  class(result) <- c(paste0("nmfkc.net.", type), "nmfkc.net", "nmfkc")
+  result
+}
+
+
+## ==============================================================
+## Signed: symmetric tri-NMF with signed C = Cp - Cn
+## (X >= 0 for soft clustering; C signed for inter-cluster repulsion)
+## ==============================================================
+
+.nmfkc.net.signed.run_once <- function(Y, X, Cp, Cn, maxit, epsilon,
+                                       X.restriction, Wmat, has.weights) {
+  N <- nrow(Y); Q <- ncol(X)
+  small <- 1e-16
+  norm_XC <- function(X, Cp, Cn) {
+    if (X.restriction %in% c("fixed", "none"))
+      return(list(X = X, Cp = Cp, Cn = Cn))
+    cs <- colSums(X) + small
+    d <- switch(X.restriction,
+                colSums   = cs,
+                colSqSums = sqrt(colSums(X * X)) + small,
+                cs)
+    X <- sweep(X, 2, d, "/")
+    Cp <- sweep(Cp, 1, d, "*"); Cp <- sweep(Cp, 2, d, "*")
+    Cn <- sweep(Cn, 1, d, "*"); Cn <- sweep(Cn, 2, d, "*")
+    list(X = X, Cp = Cp, Cn = Cn)
+  }
+  cc <- norm_XC(X, Cp, Cn); X <- cc$X; Cp <- cc$Cp; Cn <- cc$Cn
+  compute_obj <- function(X, Cp, Cn) {
+    Yhat <- X %*% (Cp - Cn) %*% t(X)
+    if (has.weights) sum((Wmat * (Y - Yhat))^2) else sum((Y - Yhat)^2)
+  }
+  obj_prev <- compute_obj(X, Cp, Cn)
+  objfunc.iter <- numeric(maxit)
+  iter <- 0L
+
+  for (iter in seq_len(maxit)) {
+    tX <- t(X)
+    P <- tX %*% X
+
+    ## ---- Cp, Cn update (Ding sign split) ----
+    if (has.weights) {
+      Yh_p <- X %*% Cp %*% tX
+      Yh_n <- X %*% Cn %*% tX
+      G    <- tX %*% (Wmat * Y) %*% X
+      Hp   <- tX %*% (Wmat * Yh_p) %*% X
+      Hn   <- tX %*% (Wmat * Yh_n) %*% X
+    } else {
+      G  <- tX %*% Y %*% X
+      Hp <- P %*% Cp %*% P
+      Hn <- P %*% Cn %*% P
+    }
+    Cp <- Cp * (G + Hn) / (Hp + small)
+    if (has.weights) {
+      Yh_p <- X %*% Cp %*% tX
+      Hp   <- tX %*% (Wmat * Yh_p) %*% X
+    } else Hp <- P %*% Cp %*% P
+    Cn <- Cn * (Hp) / (G + Hn + small)
+
+    ## ---- X update (bilateral + Ding split, exact for symmetric Cp, Cn) ----
+    tX <- t(X)
+    Sp <- Cp + t(Cp); Sn <- Cn + t(Cn)
+    Yh_p <- X %*% Cp %*% tX
+    Yh_n <- X %*% Cn %*% tX
+    if (has.weights) {
+      WY   <- Wmat * Y;    WYhp <- Wmat * Yh_p;    WYhn <- Wmat * Yh_n
+    } else {
+      WY <- Y; WYhp <- Yh_p; WYhn <- Yh_n
+    }
+    num_X <- WY %*% X %*% Sp + WYhp %*% X %*% Sn + WYhn %*% X %*% Sp
+    den_X <- WY %*% X %*% Sn + WYhp %*% X %*% Sp + WYhn %*% X %*% Sn
+    X <- X * (num_X / (den_X + small))
+
+    cc <- norm_XC(X, Cp, Cn); X <- cc$X; Cp <- cc$Cp; Cn <- cc$Cn
+
+    obj_cur <- compute_obj(X, Cp, Cn)
+    objfunc.iter[iter] <- obj_cur
+    if (iter > 1) {
+      rel <- abs(obj_prev - obj_cur) / (abs(obj_prev) + small)
+      if (rel < epsilon) break
+    }
+    obj_prev <- obj_cur
+  }
+  list(X = X, Cp = Cp, Cn = Cn, iter = iter,
+       objfunc.iter = objfunc.iter[seq_len(iter)],
+       objfunc = obj_prev)
+}
+
+
+#' @title Symmetric NMF for networks with signed C (soft-clustering + repulsion)
+#' @description
+#' Fits \eqn{Y \approx X (C_{+} - C_{-}) X^\top} with \eqn{X, C_{+}, C_{-} \ge 0}.
+#' \eqn{X \ge 0} preserves the soft-clustering interpretation, while
+#' \eqn{C = C_{+} - C_{-}} may carry negative off-diagonals representing
+#' inter-cluster \emph{repulsion}.  Uses the bilateral gradient update
+#' with Ding et al. (2010) sign-splitting.  \eqn{C} is symmetric by design;
+#' \eqn{C_{+}, C_{-}} are symmetrized at initialization.
+#' @param Y Symmetric (N x N) non-negative matrix.
+#' @param rank Integer Q.
+#' @param epsilon,maxit,verbose Standard.
+#' @param ... Hidden options: \code{nstart} (default 50), \code{seed}
+#'   (default 123), \code{Y.weights}, \code{X.restriction},
+#'   \code{X.init}, \code{Cp.init}, \code{Cn.init}, \code{prefix}.
+#' @return Object of class \code{c("nmfkc.net.signed", "nmfkc.net", "nmfkc")}.
+#' @export
+nmfkc.net.signed <- function(Y, rank = 2, epsilon = 1e-4, maxit = 5000,
+                             verbose = FALSE, ...) {
+  cl <- match.call()
+  ex <- list(...)
+  nstart        <- if (!is.null(ex$nstart))        ex$nstart        else 50L
+  seed          <- if (!is.null(ex$seed))          ex$seed          else 123L
+  X.restriction <- if (!is.null(ex$X.restriction)) ex$X.restriction else "colSums"
+  X.restriction <- match.arg(X.restriction,
+                             c("colSums", "colSqSums", "none", "fixed"))
+  X.init        <- if (!is.null(ex$X.init))        ex$X.init        else "random"
+  Cp.init       <- ex$Cp.init; Cn.init <- ex$Cn.init
+  Y.weights     <- ex$Y.weights
+  prefix        <- if (!is.null(ex$prefix))        ex$prefix        else "Basis"
+
+  Y <- as.matrix(Y); storage.mode(Y) <- "double"
+  if (nrow(Y) != ncol(Y)) stop("Y must be square.")
+  if (!isSymmetric(Y, tol = 1e-10)) Y <- (Y + t(Y)) / 2
+  if (min(Y) < 0)
+    warning("Y has negative entries; derivation assumes Y >= 0.")
+  N <- nrow(Y); Q <- as.integer(rank)
+  small <- 1e-16; t0 <- proc.time()
+
+  has.weights <- !is.null(Y.weights)
+  if (has.weights) {
+    Wmat <- as.matrix(Y.weights)
+    if (!all(dim(Wmat) == c(N, N))) stop("Y.weights must be N x N.")
+    if (!isSymmetric(Wmat, tol = 1e-10)) Wmat <- (Wmat + t(Wmat)) / 2
+    Wmat[is.na(Wmat)] <- 0
+  } else Wmat <- NULL
+
+  run_once <- function(X, Cp, Cn) {
+    .nmfkc.net.signed.run_once(Y, X, Cp, Cn, maxit, epsilon,
+                                X.restriction, Wmat, has.weights)
+  }
+
+  best <- NULL
+  explicit_X <- is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)
+  for (s in seq_len(nstart)) {
+    s_seed <- seed + 7919L * (s - 1L)
+    if (explicit_X) {
+      X0 <- as.matrix(X.init)
+    } else {
+      set.seed(s_seed)
+      X0 <- matrix(abs(stats::rnorm(N * Q)) * 0.1, N, Q)
+    }
+    if (!is.null(Cp.init) && !is.null(Cn.init)) {
+      Cp0 <- as.matrix(Cp.init); Cn0 <- as.matrix(Cn.init)
+      ## Enforce symmetric Cp, Cn (C = Cp - Cn is symmetric by design)
+      if (!isSymmetric(Cp0, tol = 1e-10) || !isSymmetric(Cn0, tol = 1e-10)) {
+        warning("nmfkc.net.signed: Cp.init/Cn.init symmetrized via (M + M^T)/2.")
+        Cp0 <- (Cp0 + t(Cp0)) / 2
+        Cn0 <- (Cn0 + t(Cn0)) / 2
+      }
+    } else {
+      set.seed(s_seed + 1L)
+      C0 <- matrix(stats::runif(Q * Q, min = -1, max = 1), Q, Q)
+      C0 <- (C0 + t(C0)) / 2       # SYMMETRIZE before sign split
+      Cp0 <- pmax(C0, 0); Cn0 <- pmax(-C0, 0)
+    }
+    out <- run_once(X0, Cp0, Cn0)
+    if (is.null(best) || out$objfunc < best$objfunc) best <- out
+  }
+  X <- best$X; Cp <- best$Cp; Cn <- best$Cn
+  objfunc.iter <- best$objfunc.iter
+  iter <- best$iter
+
+  if (Q > 1 && X.restriction != "fixed") {
+    idx <- order(as.vector(matrix(seq_len(N) / N, nrow = 1) %*% X))
+    X  <- X[, idx, drop = FALSE]
+    Cp <- Cp[idx, idx, drop = FALSE]
+    Cn <- Cn[idx, idx, drop = FALSE]
+  }
+
+  rownames(X) <- rownames(Y)
+  colnames(X) <- paste0(prefix, seq_len(Q))
+  rownames(Cp) <- colnames(Cp) <- paste0(prefix, seq_len(Q))
+  rownames(Cn) <- colnames(Cn) <- paste0(prefix, seq_len(Q))
+  C  <- Cp - Cn
+  rownames(C) <- colnames(C) <- paste0(prefix, seq_len(Q))
+
+  Y1hat <- X %*% C %*% t(X)
+  resid <- Y - Y1hat
+  objfunc <- if (has.weights) sum((Wmat * resid)^2) else sum(resid^2)
+  r.squared <- tryCatch(stats::cor(as.vector(Y1hat), as.vector(Y))^2,
+                        error = function(e) NA_real_)
+  mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
+         else mean(abs(resid))
+
+  X.prob <- X / (rowSums(X) + small)
+  X.cluster <- apply(X.prob, 1, which.max)
+
+  result <- list(
+    call = cl,
+    X = X, Cp = Cp, Cn = Cn, C = C, Y1hat = Y1hat,
+    X.prob = X.prob, X.cluster = X.cluster,
+    rank = Q, dims = c(N = N),
+    objfunc = objfunc, objfunc.iter = objfunc.iter,
+    r.squared = r.squared, mae = mae,
+    iter = iter,
+    runtime = as.numeric((proc.time() - t0)[3]),
+    X.restriction = X.restriction
+  )
+  class(result) <- c("nmfkc.net.signed", "nmfkc.net", "nmfkc")
+  result
+}
+
+
+## ==============================================================
+## ECV: upper-triangle element-wise cross-validation
+## ==============================================================
+
+.nmfkc.net.make_uppertri_folds <- function(N, div = 5, seed = 123) {
+  if (!is.null(seed)) set.seed(seed)
+  ut_idx <- which(upper.tri(matrix(0, N, N), diag = TRUE))
+  perm <- sample(ut_idx)
+  n <- length(perm)
+  chunk <- n %/% div; rem <- n %% div
+  folds <- vector("list", div)
+  s <- 1L
+  for (k in 1:div) {
+    sz <- chunk + ifelse(k <= rem, 1L, 0L)
+    folds[[k]] <- perm[s:(s + sz - 1L)]
+    s <- s + sz
+  }
+  folds
+}
+
+## Mirror a 0/1 mask to be symmetric via AND (upper & lower both retained).
+## For general (non-binary) weights use (W + t(W))/2 instead.
+.nmfkc.net.mirror_mask <- function(W) W * t(W)
+
+#' @title ECV for nmfkc.net (upper-triangle folds)
+#' @export
+nmfkc.net.ecv <- function(Y, rank = 1:3, type = c("tri", "bi"), ...) {
+  type <- match.arg(type)
+  ex <- list(...)
+  nfolds <- if (!is.null(ex$nfolds)) ex$nfolds
+            else if (!is.null(ex$div)) ex$div else 5
+  seed <- if (!is.null(ex$seed)) ex$seed else 123
+  Y <- as.matrix(Y); N <- nrow(Y)
+  folds <- .nmfkc.net.make_uppertri_folds(N, div = nfolds, seed = seed)
+
+  fit_args <- ex; fit_args$nfolds <- NULL; fit_args$div <- NULL
+  fit_args$rank <- NULL; fit_args$type <- NULL
+
+  run_one <- function(q, k) {
+    test_ut <- folds[[k]]
+    W <- matrix(1, N, N); W[test_ut] <- 0
+    W <- .nmfkc.net.mirror_mask(W)
+    fit <- suppressMessages(do.call(nmfkc.net,
+             c(list(Y = Y, rank = q, type = type,
+                    Y.weights = W, verbose = FALSE), fit_args)))
+    Yhat <- fit$X %*% fit$C %*% t(fit$X)
+    mean((Y[test_ut] - Yhat[test_ut])^2)
+  }
+
+  result_objfunc <- numeric(length(rank))
+  result_sigma   <- numeric(length(rank))
+  result_fold    <- vector("list", length(rank))
+  names(result_objfunc) <- sprintf("Q=%d", rank)
+  names(result_sigma)   <- sprintf("Q=%d", rank)
+  names(result_fold)    <- sprintf("Q=%d", rank)
+  message(sprintf("nmfkc.net ECV (type=%s): %d ranks, %d-fold, upper-triangle.",
+                  type, length(rank), nfolds))
+  for (i in seq_along(rank)) {
+    q <- rank[i]
+    objs <- numeric(nfolds)
+    for (k in 1:nfolds) objs[k] <- run_one(q, k)
+    result_fold[[i]]  <- objs
+    result_objfunc[i] <- mean(objs)
+    result_sigma[i]   <- sqrt(result_objfunc[i])
+    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f",
+                    q, result_objfunc[i], result_sigma[i]))
+  }
+  structure(list(objfunc = result_objfunc, sigma = result_sigma,
+                 objfunc.fold = result_fold, folds = folds,
+                 Q.grid = rank, type = type),
+            class = c("nmfkc.net.ecv", "nmfkc.ecv"))
+}
+
+#' @title ECV for nmfkc.net.signed (upper-triangle folds)
+#' @export
+nmfkc.net.signed.ecv <- function(Y, rank = 1:3, ...) {
+  ex <- list(...)
+  nfolds <- if (!is.null(ex$nfolds)) ex$nfolds
+            else if (!is.null(ex$div)) ex$div else 5
+  seed <- if (!is.null(ex$seed)) ex$seed else 123
+  Y <- as.matrix(Y); N <- nrow(Y)
+  folds <- .nmfkc.net.make_uppertri_folds(N, div = nfolds, seed = seed)
+  fit_args <- ex; fit_args$nfolds <- NULL; fit_args$div <- NULL
+  fit_args$rank <- NULL
+
+  run_one <- function(q, k) {
+    test_ut <- folds[[k]]
+    W <- matrix(1, N, N); W[test_ut] <- 0
+    W <- .nmfkc.net.mirror_mask(W)
+    fit <- suppressMessages(do.call(nmfkc.net.signed,
+             c(list(Y = Y, rank = q, Y.weights = W, verbose = FALSE),
+               fit_args)))
+    Yhat <- fit$X %*% fit$C %*% t(fit$X)
+    mean((Y[test_ut] - Yhat[test_ut])^2)
+  }
+
+  result_objfunc <- numeric(length(rank))
+  result_sigma   <- numeric(length(rank))
+  result_fold    <- vector("list", length(rank))
+  names(result_objfunc) <- sprintf("Q=%d", rank)
+  names(result_sigma)   <- sprintf("Q=%d", rank)
+  names(result_fold)    <- sprintf("Q=%d", rank)
+  message(sprintf("nmfkc.net.signed ECV: %d ranks, %d-fold, upper-triangle.",
+                  length(rank), nfolds))
+  for (i in seq_along(rank)) {
+    q <- rank[i]
+    objs <- numeric(nfolds)
+    for (k in 1:nfolds) objs[k] <- run_one(q, k)
+    result_fold[[i]]  <- objs
+    result_objfunc[i] <- mean(objs)
+    result_sigma[i]   <- sqrt(result_objfunc[i])
+    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f",
+                    q, result_objfunc[i], result_sigma[i]))
+  }
+  structure(list(objfunc = result_objfunc, sigma = result_sigma,
+                 objfunc.fold = result_fold, folds = folds, Q.grid = rank),
+            class = c("nmfkc.net.signed.ecv", "nmfkc.net.ecv", "nmfkc.ecv"))
+}
+
+
+## ==============================================================
+## Summary methods for nmfkc.net and nmfkc.net.signed
+## (Format unified with print.summary.nmfkc)
+## ==============================================================
+
+#' Summary method for nmfkc.net objects
+#' @param object An \code{nmfkc.net} object.
+#' @param ... Unused.
+#' @return An object of class \code{"summary.nmfkc.net"}.
+#' @seealso \code{\link{nmfkc.net}}
+#' @export
+summary.nmfkc.net <- function(object, ...) {
+  N <- object$dims["N"]; Q <- object$rank
+  small <- 1e-16
+  dims_str <- sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)X'", N, N, N, Q, Q, Q)
+
+  ans <- list(
+    call = object$call,
+    dims = dims_str,
+    rank = Q,
+    type = if (!is.null(object$type)) object$type else "tri",
+    iter = object$iter,
+    runtime = sprintf("%.2fsec", object$runtime),
+
+    objfunc   = object$objfunc,
+    r.squared = object$r.squared,
+    mae       = object$mae,
+
+    X.sparsity      = mean(object$X  < 1e-4),
+    C.sparsity      = mean(abs(object$C) < 1e-4),
+
+    X.range = range(object$X),
+    C.range = range(object$C),
+    X.cluster.counts = table(object$X.cluster)
+  )
+  class(ans) <- "summary.nmfkc.net"
+  ans
+}
+
+#' Print method for summary.nmfkc.net objects
+#' @param x An object of class \code{"summary.nmfkc.net"}.
+#' @param digits Minimum number of significant digits.
+#' @param ... Unused.
+#' @return Invisible \code{x}.
+#' @seealso \code{\link{summary.nmfkc.net}}
+#' @export
+print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
+  cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n\n", sep = "")
+
+  cat("Dimensions:", x$dims, "\n")
+  cat("Rank (Q):   ", x$rank, "\n")
+  cat("Type:       ", x$type, "\n")
+  cat("Runtime:    ", x$runtime, "\n")
+  cat("Iterations: ", x$iter, "\n")
+
+  cat("\nStatistics:\n")
+  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
+  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
+  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+
+  cat("\nStructure Diagnostics:\n")
+  cat("  Basis (X) Sparsity:  ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
+  cat("  C    Sparsity:       ", sprintf("%.1f%%", x$C.sparsity * 100), "(|C| < 1e-4)\n")
+  cat("  X range:             ", sprintf("[%.3g, %.3g]", x$X.range[1], x$X.range[2]), "\n")
+  cat("  C range:             ", sprintf("[%.3g, %.3g]", x$C.range[1], x$C.range[2]), "\n")
+
+  cat("\nCluster sizes (hard assignment by argmax of X):\n  ")
+  print(x$X.cluster.counts)
+  cat("\n")
+  invisible(x)
+}
+
+#' Summary method for nmfkc.net.signed objects
+#' @param object An \code{nmfkc.net.signed} object.
+#' @param ... Unused.
+#' @return An object of class \code{"summary.nmfkc.net.signed"}.
+#' @seealso \code{\link{nmfkc.net.signed}}
+#' @export
+summary.nmfkc.net.signed <- function(object, ...) {
+  ans <- summary.nmfkc.net(object, ...)
+  ans$Cp.range <- range(object$Cp)
+  ans$Cn.range <- range(object$Cn)
+  ans$neg.frac <- sum(pmax(-object$C, 0)) / (sum(abs(object$C)) + 1e-16)
+  class(ans) <- c("summary.nmfkc.net.signed", "summary.nmfkc.net")
+  ans
+}
+
+#' Print method for summary.nmfkc.net.signed objects
+#' @param x An object of class \code{"summary.nmfkc.net.signed"}.
+#' @param digits Minimum number of significant digits.
+#' @param ... Unused.
+#' @return Invisible \code{x}.
+#' @seealso \code{\link{summary.nmfkc.net.signed}}
+#' @export
+print.summary.nmfkc.net.signed <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
+  cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n\n", sep = "")
+
+  cat("Dimensions:", x$dims, "\n")
+  cat("Rank (Q):   ", x$rank, "\n")
+  cat("Type:       ", "signed (C = Cp - Cn)\n")
+  cat("Runtime:    ", x$runtime, "\n")
+  cat("Iterations: ", x$iter, "\n")
+
+  cat("\nStatistics:\n")
+  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
+  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
+  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+
+  cat("\nStructure Diagnostics:\n")
+  cat("  Basis (X) Sparsity:  ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
+  cat("  C    Sparsity:       ", sprintf("%.1f%%", x$C.sparsity * 100), "(|C| < 1e-4)\n")
+  cat("  X range:             ", sprintf("[%.3g, %.3g]", x$X.range[1], x$X.range[2]), "\n")
+  cat("  Cp range:            ", sprintf("[%.3g, %.3g]", x$Cp.range[1], x$Cp.range[2]), "\n")
+  cat("  Cn range:            ", sprintf("[%.3g, %.3g]", x$Cn.range[1], x$Cn.range[2]), "\n")
+  cat("  C range:             ", sprintf("[%.3g, %.3g]", x$C.range[1], x$C.range[2]), "\n")
+  cat("  Negative mass:       ", sprintf("%.1f%% (of sum |C|)", 100 * x$neg.frac), "\n")
+
+  cat("\nCluster sizes (hard assignment by argmax of X):\n  ")
+  print(x$X.cluster.counts)
+  cat("\n")
+  invisible(x)
 }

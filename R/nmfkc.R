@@ -1249,6 +1249,17 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   C.init <- if (!is.null(extra_args$C.init)) extra_args$C.init else NULL
   Y.symmetric <- if (!base::is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else "none"
   Y.symmetric <- base::match.arg(Y.symmetric, c("none", "bi", "tri"))
+  if (Y.symmetric != "none") {
+    .Deprecated(
+      new = "nmfkc.net",
+      msg = paste0(
+        "Y.symmetric = \"", Y.symmetric, "\" in nmfkc() is deprecated.\n",
+        "Use nmfkc.net(Y, rank, type = \"", Y.symmetric, "\") instead, ",
+        "which implements the correct Frobenius bilateral-gradient updates.\n",
+        "See help(nmfkc.net) and help(nmfkc.net.signed)."
+      )
+    )
+  }
 
   prefix <- if (!base::is.null(extra_args$prefix)) extra_args$prefix else "Basis"
   print.trace <- if (!base::is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
