@@ -740,7 +740,16 @@ nmfkc.net.DOT <- function(
 #'     of \eqn{X} while allowing negative off-diagonals of \eqn{C}
 #'     (inter-cluster \emph{repulsion}).
 #' }
-#' @param Y Symmetric (N x N) non-negative matrix.
+#'
+#' \strong{Non-negative adjacency matrix assumption.} All three types
+#' assume \eqn{Y \ge 0} (a non-negative adjacency/affinity matrix).
+#' The qualifier \dQuote{signed} in \code{type = "signed"} refers to the
+#' middle coefficient \eqn{C}, not to \eqn{Y} itself.  The underlying
+#' Ding, Li & Jordan (2010) sign-splitting updates require \eqn{Y \ge 0}
+#' to guarantee monotone descent; supplying a signed \eqn{Y} triggers an
+#' error.  For a signed data matrix, see \code{\link{nmfkc.signed}}.
+#'
+#' @param Y Symmetric (N x N) \strong{non-negative} adjacency matrix.
 #' @param rank Integer Q.
 #' @param type \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
 #' @param epsilon,maxit,verbose Standard.
@@ -794,10 +803,16 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     if (verbose) message("nmfkc.net: symmetrized Y <- (Y + Y^T) / 2")
   }
   if (min(Y) < 0) {
-    if (type == "signed")
-      warning("nmfkc.net(type='signed'): Y has negative entries; derivation assumes Y >= 0.")
-    else
-      stop("nmfkc.net(type='", type, "') requires Y >= 0 (use type='signed' for general C).")
+    ## nmfkc.net is designed for non-negative adjacency matrices in network
+    ## analysis.  `type = "signed"` means the middle coefficient matrix C is
+    ## allowed to be signed (enabling inhibitory/excitatory latent factor
+    ## interactions), NOT that Y itself can be signed.  The Ding-style
+    ## multiplicative updates require Y >= 0 in all three types; allowing a
+    ## signed Y here would silently violate the monotone descent guarantee
+    ## (the C+/C- numerators could go negative).
+    stop("nmfkc.net(type='", type, "') requires Y >= 0 ",
+         "(Y is expected to be a non-negative adjacency matrix; ",
+         "`type = \"signed\"` refers to the middle coefficient C, not Y).")
   }
   N <- nrow(Y); Q <- as.integer(rank)
   small <- 1e-16; t0 <- proc.time()

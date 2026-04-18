@@ -15,7 +15,7 @@ nmfkc.net(
 )
 }
 \arguments{
-\item{Y}{Symmetric (N x N) non-negative matrix.}
+\item{Y}{Symmetric (N x N) \strong{non-negative} adjacency matrix.}
 
 \item{rank}{Integer Q.}
 
@@ -56,6 +56,14 @@ cube-root damping (He et al. 2011).
 of \eqn{X} while allowing negative off-diagonals of \eqn{C}
 (inter-cluster \emph{repulsion}).
 }
+
+\strong{Non-negative adjacency matrix assumption.} All three types
+assume \eqn{Y \ge 0} (a non-negative adjacency/affinity matrix).
+The qualifier \dQuote{signed} in \code{type = "signed"} refers to the
+middle coefficient \eqn{C}, not to \eqn{Y} itself.  The underlying
+Ding, Li & Jordan (2010) sign-splitting updates require \eqn{Y \ge 0}
+to guarantee monotone descent; supplying a signed \eqn{Y} triggers an
+error.  For a signed data matrix, see \code{\link{nmfkc.signed}}.
 }
 \section{Lifecycle}{
 

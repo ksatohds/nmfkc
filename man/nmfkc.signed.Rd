@@ -61,19 +61,33 @@ that \code{summary()} can report \eqn{\beta} and downstream
 \code{predict()} calls can regenerate features.
 \item \code{Y.weights}: \eqn{Q_{\mathrm{obs}} \times N} non-negative
 weight matrix (or length-\eqn{N} vector, or scalar).  When supplied,
-the loss becomes \eqn{\sum W \odot (Y - XCA)^2} and zero-weighted
-elements are masked (used by \code{\link{nmfkc.signed.cv}} /
-\code{\link{nmfkc.signed.ecv}}).  NA entries of \eqn{Y} are
-auto-masked to zero weight when \code{Y.weights} is \code{NULL}.
-\item \code{nstart}: number of random restarts.  \strong{Signed
-models have more local minima than non-negative ones} because
-\eqn{\Theta = C_{+} - C_{-}} can take both positive and negative
-values.  Since \code{nmfkc.signed()} itself does not loop over
-restarts (callers control it), set the outer-loop size via e.g.
-running the function several times with different \code{seed}
-and keeping the fit with the smallest \code{$objfunc}.  A
-restart budget of 10-50 is recommended for publication-grade
-runs on signed data.
+the loss becomes \eqn{\sum W \odot (Y - XCA)^2} (\emph{linear} in
+\eqn{W}; the multiplicative updates carry \eqn{W} linearly in both
+numerator and denominator, and the reported \code{objfunc}/\code{sigma}
+match this objective).  Zero-weighted elements are masked (used by
+\code{\link{nmfkc.signed.cv}} / \code{\link{nmfkc.signed.ecv}}).  NA
+entries of \eqn{Y} are auto-masked to zero weight when
+\code{Y.weights} is \code{NULL}.
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{  \\strong\{Convergence scope.\}  Monotone descent is guaranteed when
+  \eqn{Y \ge 0} \\emph\{or\} \eqn{W} is a binary mask (\eqn{\{0,1\}};
+  the default for NA / CV / ECV).  For the combination of
+  \\emph\{signed\} \eqn{Y} and \\emph\{real-valued\} \eqn{W}, the
+  simplified Ding-split used in the weighted inner loop does not
+  theoretically guarantee monotone descent; the function ships a
+  non-finite guard that terminates the loop early and emits a
+  warning if divergence is detected.
+\\item \code{nstart}: number of random restarts.  \\strong\{Signed
+  models have more local minima than non-negative ones\} because
+  \eqn{\Theta = C_{+} - C_{-}} can take both positive and negative
+  values.  Since \code{nmfkc.signed()} itself does not loop over
+  restarts (callers control it), set the outer-loop size via e.g.
+  running the function several times with different \code{seed}
+  and keeping the fit with the smallest \code{$objfunc}.  A
+  restart budget of 10-50 is recommended for publication-grade
+  runs on signed data.
+}\if{html}{\out{</div>}}
+
 }}
 }
 \value{
