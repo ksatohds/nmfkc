@@ -250,7 +250,7 @@ print.summary.nmfkc.net.inference <- function(x,
 #'   matrix: positive entries rendered as solid edges and negative as
 #'   dashed, with edge visibility threshold on \eqn{|C|}.  Default is
 #'   \code{inherits(result, "nmfkc.net.signed")} so that results from
-#'   \code{\link{nmfkc.net.signed}} are auto-detected.
+#'   \code{\ink{nmfkc.net}} are auto-detected.
 #' @param cluster.box Style of cluster box: \code{"none"}, \code{"normal"},
 #'   \code{"faint"}, \code{"invisible"}.
 #' @param layout Graphviz layout engine: \code{"fdp"}, \code{"dot"},
@@ -713,10 +713,10 @@ nmfkc.net.DOT <- function(
 
 
 ## ==============================================================
-#' @title Symmetric NMF for networks (bi / tri, bilateral gradient)
+#' @title Symmetric NMF for networks (tri / bi / signed)
 #' @description
-#' Fits symmetric NMF models for network data with correct
-#' multiplicative updates:
+#' Single entry point for symmetric NMF of network data with correct
+#' multiplicative updates.  Three model types are supported via \code{type}:
 #' \itemize{
 #'   \item \strong{tri} (\code{type="tri"}, default):
 #'     \eqn{Y \approx X C X^\top} with \eqn{X, C \ge 0} (both non-negative;
@@ -724,30 +724,45 @@ nmfkc.net.DOT <- function(
 #'   \item \strong{bi} (\code{type="bi"}):
 #'     \eqn{Y \approx X X^\top} (\eqn{C} fixed to \eqn{I_Q}),
 #'     cube-root damping (He et al. 2011).
+#'   \item \strong{signed} (\code{type="signed"}):
+#'     \eqn{Y \approx X (C_{+} - C_{-}) X^\top} with \eqn{X \ge 0} and signed
+#'     \eqn{C = C_{+} - C_{-}}.  Preserves the soft-clustering interpretation
+#'     of \eqn{X} while allowing negative off-diagonals of \eqn{C}
+#'     (inter-cluster \emph{repulsion}).  Dispatches internally to
+#'     \code{\ink{nmfkc.net}}.  Uses \code{nstart = 50} by default.
 #' }
 #' @param Y Symmetric (N x N) non-negative matrix.
 #' @param rank Integer Q.
-#' @param type \code{"tri"} (default) or \code{"bi"}.
+#' @param type \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
 #' @param epsilon,maxit,verbose Standard.
-#' @param ... Hidden options: \code{nstart} (default 20), \code{seed}
-#'   (default 123), \code{X.restriction}, \code{X.init}, \code{C.init},
-#'   \code{Y.weights}, \code{C.L1}, \code{X.L2.ortho}, \code{prefix}.
+#' @param ... Hidden options: \code{nstart} (default 20 for tri/bi, 50 for
+#'   signed), \code{seed} (default 123), \code{X.restriction}, \code{X.init},
+#'   \code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
+#'   \code{Y.weights}, \code{C.L1} (tri only), \code{X.L2.ortho}, \code{prefix}.
 #' @return Object of class \code{c("nmfkc.net.<type>", "nmfkc.net", "nmfkc")}.
+#'   For \code{type = "signed"} the return also carries \code{$Cp, $Cn}.
+#' @seealso \code{\link{nmfkc.net.ecv}}, \code{\link{nmfkc.net.DOT}}
 #' @export
-nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi"),
+nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
                       epsilon = 1e-4, maxit = 5000,
                       verbose = FALSE, ...) {
   cl <- match.call()
   type <- match.arg(type)
   ex <- list(...)
-  nstart        <- if (!is.null(ex$nstart))        ex$nstart        else 20L
+
+  nstart        <- if (!is.null(ex$nstart))        ex$nstart
+                   else if (type == "signed")      50L
+                   else                            20L
   seed          <- if (!is.null(ex$seed))          ex$seed          else 123L
   X.restriction <- if (!is.null(ex$X.restriction)) ex$X.restriction
-                   else if (type == "bi") "none" else "colSums"
+                   else if (type == "bi")          "none"
+                   else                            "colSums"
   X.restriction <- match.arg(X.restriction,
                              c("colSums", "colSqSums", "none", "fixed"))
   X.init        <- if (!is.null(ex$X.init))        ex$X.init        else "random"
-  C.init        <- ex$C.init
+  C.init        <- ex$C.init       # tri only
+  Cp.init       <- ex$Cp.init      # signed only
+  Cn.init       <- ex$Cn.init      # signed only
   Y.weights     <- ex$Y.weights
   C.L1          <- if (!is.null(ex$C.L1))          ex$C.L1          else 0
   X.L2.ortho    <- if (!is.null(ex$X.L2.ortho))    ex$X.L2.ortho    else 0
@@ -759,7 +774,12 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi"),
     Y <- (Y + t(Y)) / 2
     if (verbose) message("nmfkc.net: symmetrized Y <- (Y + Y^T) / 2")
   }
-  if (min(Y) < 0) stop("nmfkc.net requires Y >= 0 (use nmfkc.net.signed for signed C).")
+  if (min(Y) < 0) {
+    if (type == "signed")
+      warning("nmfkc.net(type='signed'): Y has negative entries; derivation assumes Y >= 0.")
+    else
+      stop("nmfkc.net(type='", type, "') requires Y >= 0 (use type='signed' for general C).")
+  }
   N <- nrow(Y); Q <- as.integer(rank)
   small <- 1e-16; t0 <- proc.time()
 
@@ -771,16 +791,21 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi"),
     Wmat[is.na(Wmat)] <- 0
   } else Wmat <- NULL
 
-  run_once <- function(X, C) {
+  ## ---- run_once dispatches to the appropriate MU kernel ----
+  run_once <- function(X, C_or_Cp, Cn = NULL) {
     if (type == "bi") {
       .nmfkc.net.run_once_bi(Y, X, maxit, epsilon,
                               X.restriction, X.L2.ortho, Wmat, has.weights)
+    } else if (type == "signed") {
+      .nmfkc.net.signed.run_once(Y, X, C_or_Cp, Cn, maxit, epsilon,
+                                  X.restriction, Wmat, has.weights)
     } else {
-      .nmfkc.net.run_once(Y, X, C, maxit, epsilon,
+      .nmfkc.net.run_once(Y, X, C_or_Cp, maxit, epsilon,
                           X.restriction, C.L1, X.L2.ortho, Wmat, has.weights)
     }
   }
 
+  ## ---- multi-start ----
   best <- NULL
   explicit_X <- is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)
   for (s in seq_len(nstart)) {
@@ -793,40 +818,71 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi"),
       set.seed(s_seed)
       X0 <- matrix(abs(stats::rnorm(N * Q)) * 0.1, N, Q)
     }
+
     if (type == "bi") {
-      C0 <- diag(Q)
-    } else if (!is.null(C.init)) {
-      C0 <- as.matrix(C.init)
-      if (!identical(dim(C0), c(Q, Q)))
-        stop("C.init must have dimensions (rank, rank).")
-      if (any(C0 < 0)) stop("C.init must be non-negative.")
-      ## Enforce symmetric C (Y = X C X^T with Y symmetric)
-      if (!isSymmetric(C0, tol = 1e-10)) {
-        warning("nmfkc.net: C.init symmetrized via (C + C^T)/2.")
-        C0 <- (C0 + t(C0)) / 2
+      out <- run_once(X0, diag(Q))
+    } else if (type == "signed") {
+      if (!is.null(Cp.init) && !is.null(Cn.init)) {
+        Cp0 <- as.matrix(Cp.init); Cn0 <- as.matrix(Cn.init)
+        if (!isSymmetric(Cp0, tol = 1e-10) || !isSymmetric(Cn0, tol = 1e-10)) {
+          warning("nmfkc.net(type='signed'): Cp.init/Cn.init symmetrized via (M + M^T)/2.")
+          Cp0 <- (Cp0 + t(Cp0)) / 2
+          Cn0 <- (Cn0 + t(Cn0)) / 2
+        }
+      } else {
+        set.seed(s_seed + 1L)
+        C0 <- matrix(stats::runif(Q * Q, min = -1, max = 1), Q, Q)
+        C0 <- (C0 + t(C0)) / 2       # symmetrize before sign split
+        Cp0 <- pmax(C0, 0); Cn0 <- pmax(-C0, 0)
       }
-    } else {
-      set.seed(s_seed + 1L)
-      C0 <- matrix(abs(stats::rnorm(Q * Q)) * 0.1, Q, Q)
-      C0 <- (C0 + t(C0)) / 2       # SYMMETRIZE: preserves bilateral gradient exactness
+      out <- run_once(X0, Cp0, Cn0)
+    } else {  # tri
+      if (!is.null(C.init)) {
+        C0 <- as.matrix(C.init)
+        if (!identical(dim(C0), c(Q, Q)))
+          stop("C.init must have dimensions (rank, rank).")
+        if (any(C0 < 0)) stop("C.init must be non-negative for type='tri'.")
+        if (!isSymmetric(C0, tol = 1e-10)) {
+          warning("nmfkc.net: C.init symmetrized via (C + C^T)/2.")
+          C0 <- (C0 + t(C0)) / 2
+        }
+      } else {
+        set.seed(s_seed + 1L)
+        C0 <- matrix(abs(stats::rnorm(Q * Q)) * 0.1, Q, Q)
+        C0 <- (C0 + t(C0)) / 2       # symmetrize for exact bilateral gradient
+      }
+      out <- run_once(X0, C0)
     }
-    out <- run_once(X0, C0)
     if (is.null(best) || out$objfunc < best$objfunc) best <- out
   }
-  X <- best$X; C <- best$C
+
+  ## ---- extract best result ----
+  X <- best$X
   objfunc.iter <- best$objfunc.iter
   iter <- best$iter
+  if (type == "signed") {
+    Cp <- best$Cp; Cn <- best$Cn; C <- Cp - Cn
+  } else {
+    C <- best$C; Cp <- NULL; Cn <- NULL
+  }
 
+  ## ---- centroid reorder ----
   if (Q > 1 && X.restriction != "fixed") {
     idx <- order(as.vector(matrix(seq_len(N) / N, nrow = 1) %*% X))
     X <- X[, idx, drop = FALSE]
     C <- C[idx, idx, drop = FALSE]
+    if (!is.null(Cp)) Cp <- Cp[idx, idx, drop = FALSE]
+    if (!is.null(Cn)) Cn <- Cn[idx, idx, drop = FALSE]
   }
 
+  ## ---- names ----
   rownames(X) <- rownames(Y)
   colnames(X) <- paste0(prefix, seq_len(Q))
   rownames(C) <- colnames(C) <- paste0(prefix, seq_len(Q))
+  if (!is.null(Cp)) { rownames(Cp) <- colnames(Cp) <- paste0(prefix, seq_len(Q)) }
+  if (!is.null(Cn)) { rownames(Cn) <- colnames(Cn) <- paste0(prefix, seq_len(Q)) }
 
+  ## ---- reconstruction and fit statistics ----
   Y1hat <- X %*% C %*% t(X)
   resid <- Y - Y1hat
   objfunc <- if (has.weights) sum((Wmat * resid)^2) else sum(resid^2)
@@ -835,13 +891,12 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi"),
   mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
          else mean(abs(resid))
 
-  ## X.prob: each row sums to 1 (node i's membership proportion across bases)
   X.prob <- X / (rowSums(X) + small)
   X.cluster <- apply(X.prob, 1, which.max)
 
   result <- list(
     call = cl,
-    X = X, C = C, Y1hat = Y1hat,
+    X = X, C = C, Cp = Cp, Cn = Cn, Y1hat = Y1hat,
     X.prob = X.prob, X.cluster = X.cluster,
     rank = Q, dims = c(N = N),
     type = type,
@@ -940,130 +995,6 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi"),
 }
 
 
-#' @title Symmetric NMF for networks with signed C (soft-clustering + repulsion)
-#' @description
-#' Fits \eqn{Y \approx X (C_{+} - C_{-}) X^\top} with \eqn{X, C_{+}, C_{-} \ge 0}.
-#' \eqn{X \ge 0} preserves the soft-clustering interpretation, while
-#' \eqn{C = C_{+} - C_{-}} may carry negative off-diagonals representing
-#' inter-cluster \emph{repulsion}.  Uses the bilateral gradient update
-#' with Ding et al. (2010) sign-splitting.  \eqn{C} is symmetric by design;
-#' \eqn{C_{+}, C_{-}} are symmetrized at initialization.
-#' @param Y Symmetric (N x N) non-negative matrix.
-#' @param rank Integer Q.
-#' @param epsilon,maxit,verbose Standard.
-#' @param ... Hidden options: \code{nstart} (default 50), \code{seed}
-#'   (default 123), \code{Y.weights}, \code{X.restriction},
-#'   \code{X.init}, \code{Cp.init}, \code{Cn.init}, \code{prefix}.
-#' @return Object of class \code{c("nmfkc.net.signed", "nmfkc.net", "nmfkc")}.
-#' @export
-nmfkc.net.signed <- function(Y, rank = 2, epsilon = 1e-4, maxit = 5000,
-                             verbose = FALSE, ...) {
-  cl <- match.call()
-  ex <- list(...)
-  nstart        <- if (!is.null(ex$nstart))        ex$nstart        else 50L
-  seed          <- if (!is.null(ex$seed))          ex$seed          else 123L
-  X.restriction <- if (!is.null(ex$X.restriction)) ex$X.restriction else "colSums"
-  X.restriction <- match.arg(X.restriction,
-                             c("colSums", "colSqSums", "none", "fixed"))
-  X.init        <- if (!is.null(ex$X.init))        ex$X.init        else "random"
-  Cp.init       <- ex$Cp.init; Cn.init <- ex$Cn.init
-  Y.weights     <- ex$Y.weights
-  prefix        <- if (!is.null(ex$prefix))        ex$prefix        else "Basis"
-
-  Y <- as.matrix(Y); storage.mode(Y) <- "double"
-  if (nrow(Y) != ncol(Y)) stop("Y must be square.")
-  if (!isSymmetric(Y, tol = 1e-10)) Y <- (Y + t(Y)) / 2
-  if (min(Y) < 0)
-    warning("Y has negative entries; derivation assumes Y >= 0.")
-  N <- nrow(Y); Q <- as.integer(rank)
-  small <- 1e-16; t0 <- proc.time()
-
-  has.weights <- !is.null(Y.weights)
-  if (has.weights) {
-    Wmat <- as.matrix(Y.weights)
-    if (!all(dim(Wmat) == c(N, N))) stop("Y.weights must be N x N.")
-    if (!isSymmetric(Wmat, tol = 1e-10)) Wmat <- (Wmat + t(Wmat)) / 2
-    Wmat[is.na(Wmat)] <- 0
-  } else Wmat <- NULL
-
-  run_once <- function(X, Cp, Cn) {
-    .nmfkc.net.signed.run_once(Y, X, Cp, Cn, maxit, epsilon,
-                                X.restriction, Wmat, has.weights)
-  }
-
-  best <- NULL
-  explicit_X <- is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)
-  for (s in seq_len(nstart)) {
-    s_seed <- seed + 7919L * (s - 1L)
-    if (explicit_X) {
-      X0 <- as.matrix(X.init)
-    } else {
-      set.seed(s_seed)
-      X0 <- matrix(abs(stats::rnorm(N * Q)) * 0.1, N, Q)
-    }
-    if (!is.null(Cp.init) && !is.null(Cn.init)) {
-      Cp0 <- as.matrix(Cp.init); Cn0 <- as.matrix(Cn.init)
-      ## Enforce symmetric Cp, Cn (C = Cp - Cn is symmetric by design)
-      if (!isSymmetric(Cp0, tol = 1e-10) || !isSymmetric(Cn0, tol = 1e-10)) {
-        warning("nmfkc.net.signed: Cp.init/Cn.init symmetrized via (M + M^T)/2.")
-        Cp0 <- (Cp0 + t(Cp0)) / 2
-        Cn0 <- (Cn0 + t(Cn0)) / 2
-      }
-    } else {
-      set.seed(s_seed + 1L)
-      C0 <- matrix(stats::runif(Q * Q, min = -1, max = 1), Q, Q)
-      C0 <- (C0 + t(C0)) / 2       # SYMMETRIZE before sign split
-      Cp0 <- pmax(C0, 0); Cn0 <- pmax(-C0, 0)
-    }
-    out <- run_once(X0, Cp0, Cn0)
-    if (is.null(best) || out$objfunc < best$objfunc) best <- out
-  }
-  X <- best$X; Cp <- best$Cp; Cn <- best$Cn
-  objfunc.iter <- best$objfunc.iter
-  iter <- best$iter
-
-  if (Q > 1 && X.restriction != "fixed") {
-    idx <- order(as.vector(matrix(seq_len(N) / N, nrow = 1) %*% X))
-    X  <- X[, idx, drop = FALSE]
-    Cp <- Cp[idx, idx, drop = FALSE]
-    Cn <- Cn[idx, idx, drop = FALSE]
-  }
-
-  rownames(X) <- rownames(Y)
-  colnames(X) <- paste0(prefix, seq_len(Q))
-  rownames(Cp) <- colnames(Cp) <- paste0(prefix, seq_len(Q))
-  rownames(Cn) <- colnames(Cn) <- paste0(prefix, seq_len(Q))
-  C  <- Cp - Cn
-  rownames(C) <- colnames(C) <- paste0(prefix, seq_len(Q))
-
-  Y1hat <- X %*% C %*% t(X)
-  resid <- Y - Y1hat
-  objfunc <- if (has.weights) sum((Wmat * resid)^2) else sum(resid^2)
-  r.squared <- tryCatch(stats::cor(as.vector(Y1hat), as.vector(Y))^2,
-                        error = function(e) NA_real_)
-  mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
-         else mean(abs(resid))
-
-  X.prob <- X / (rowSums(X) + small)
-  X.cluster <- apply(X.prob, 1, which.max)
-
-  result <- list(
-    call = cl,
-    X = X, Cp = Cp, Cn = Cn, C = C, Y1hat = Y1hat,
-    X.prob = X.prob, X.cluster = X.cluster,
-    rank = Q, dims = c(N = N),
-    objfunc = objfunc, objfunc.iter = objfunc.iter,
-    r.squared = r.squared, mae = mae,
-    iter = iter,
-    runtime = as.numeric((proc.time() - t0)[3]),
-    X.restriction = X.restriction
-  )
-  class(result) <- c("nmfkc.net.signed", "nmfkc.net", "nmfkc")
-  result
-}
-
-
-## ==============================================================
 ## ECV: upper-triangle element-wise cross-validation
 ## ==============================================================
 
@@ -1087,7 +1018,7 @@ nmfkc.net.signed <- function(Y, rank = 2, epsilon = 1e-4, maxit = 5000,
 ## For general (non-binary) weights use (W + t(W))/2 instead.
 .nmfkc.net.mirror_mask <- function(W) W * t(W)
 
-#' Element-wise cross-validation for nmfkc.net / nmfkc.net.signed (upper-triangle folds)
+#' Element-wise cross-validation for nmfkc.net (upper-triangle folds)
 #'
 #' @description k-fold CV with folds taken over the upper triangle of the
 #' symmetric \eqn{Y} (mirrored to the lower triangle) to prevent information
@@ -1096,7 +1027,7 @@ nmfkc.net.signed <- function(Y, rank = 2, epsilon = 1e-4, maxit = 5000,
 #' \itemize{
 #'   \item \code{"tri"} (default): \code{\link{nmfkc.net}} with \eqn{C \ge 0}
 #'   \item \code{"bi"}: \code{\link{nmfkc.net}} with \eqn{C = I_Q}
-#'   \item \code{"signed"}: \code{\link{nmfkc.net.signed}} with signed \eqn{C}
+#'   \item \code{"signed"}: \code{\link{nmfkc.net}} with signed \eqn{C = C_{+} - C_{-}}
 #' }
 #'
 #' @param Y Symmetric N x N non-negative matrix.
@@ -1107,7 +1038,7 @@ nmfkc.net.signed <- function(Y, rank = 2, epsilon = 1e-4, maxit = 5000,
 #'
 #' @return A list with \code{objfunc}, \code{sigma}, \code{objfunc.fold},
 #'   \code{folds}, \code{Q.grid}, \code{type}.
-#' @seealso \code{\link{nmfkc.net}}, \code{\link{nmfkc.net.signed}}
+#' @seealso \code{\link{nmfkc.net}}
 #' @export
 nmfkc.net.ecv <- function(Y, rank = 1:3,
                           type = c("tri", "bi", "signed"), ...) {
@@ -1126,15 +1057,9 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
     test_ut <- folds[[k]]
     W <- matrix(1, N, N); W[test_ut] <- 0
     W <- .nmfkc.net.mirror_mask(W)
-    if (type == "signed") {
-      fit <- suppressMessages(do.call(nmfkc.net.signed,
-               c(list(Y = Y, rank = q, Y.weights = W, verbose = FALSE),
-                 fit_args)))
-    } else {
-      fit <- suppressMessages(do.call(nmfkc.net,
-               c(list(Y = Y, rank = q, type = type,
-                      Y.weights = W, verbose = FALSE), fit_args)))
-    }
+    fit <- suppressMessages(do.call(nmfkc.net,
+             c(list(Y = Y, rank = q, type = type,
+                    Y.weights = W, verbose = FALSE), fit_args)))
     Yhat <- fit$X %*% fit$C %*% t(fit$X)
     mean((Y[test_ut] - Yhat[test_ut])^2)
   }
@@ -1244,7 +1169,7 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
 #' @param object An \code{nmfkc.net.signed} object.
 #' @param ... Unused.
 #' @return An object of class \code{"summary.nmfkc.net.signed"}.
-#' @seealso \code{\link{nmfkc.net.signed}}
+#' @seealso \code{\ink{nmfkc.net}}
 #' @export
 summary.nmfkc.net.signed <- function(object, ...) {
   ans <- summary.nmfkc.net(object, ...)

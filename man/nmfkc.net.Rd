@@ -2,12 +2,12 @@
 % Please edit documentation in R/nmfkc.net.R
 \name{nmfkc.net}
 \alias{nmfkc.net}
-\title{Symmetric NMF for networks (bi / tri, bilateral gradient)}
+\title{Symmetric NMF for networks (tri / bi / signed)}
 \usage{
 nmfkc.net(
   Y,
   rank = 2,
-  type = c("tri", "bi"),
+  type = c("tri", "bi", "signed"),
   epsilon = 1e-04,
   maxit = 5000,
   verbose = FALSE,
@@ -19,20 +19,22 @@ nmfkc.net(
 
 \item{rank}{Integer Q.}
 
-\item{type}{\code{"tri"} (default) or \code{"bi"}.}
+\item{type}{\code{"tri"} (default), \code{"bi"}, or \code{"signed"}.}
 
 \item{epsilon, maxit, verbose}{Standard.}
 
-\item{...}{Hidden options: \code{nstart} (default 20), \code{seed}
-(default 123), \code{X.restriction}, \code{X.init}, \code{C.init},
-\code{Y.weights}, \code{C.L1}, \code{X.L2.ortho}, \code{prefix}.}
+\item{...}{Hidden options: \code{nstart} (default 20 for tri/bi, 50 for
+signed), \code{seed} (default 123), \code{X.restriction}, \code{X.init},
+\code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
+\code{Y.weights}, \code{C.L1} (tri only), \code{X.L2.ortho}, \code{prefix}.}
 }
 \value{
 Object of class \code{c("nmfkc.net.<type>", "nmfkc.net", "nmfkc")}.
+For \code{type = "signed"} the return also carries \code{$Cp, $Cn}.
 }
 \description{
-Fits symmetric NMF models for network data with correct
-multiplicative updates:
+Single entry point for symmetric NMF of network data with correct
+multiplicative updates.  Three model types are supported via \code{type}:
 \itemize{
 \item \strong{tri} (\code{type="tri"}, default):
 \eqn{Y \approx X C X^\top} with \eqn{X, C \ge 0} (both non-negative;
@@ -40,5 +42,14 @@ multiplicative updates:
 \item \strong{bi} (\code{type="bi"}):
 \eqn{Y \approx X X^\top} (\eqn{C} fixed to \eqn{I_Q}),
 cube-root damping (He et al. 2011).
+\item \strong{signed} (\code{type="signed"}):
+\eqn{Y \approx X (C_{+} - C_{-}) X^\top} with \eqn{X \ge 0} and signed
+\eqn{C = C_{+} - C_{-}}.  Preserves the soft-clustering interpretation
+of \eqn{X} while allowing negative off-diagonals of \eqn{C}
+(inter-cluster \emph{repulsion}).  Dispatches internally to
+\code{\ink{nmfkc.net}}.  Uses \code{nstart = 50} by default.
 }
+}
+\seealso{
+\code{\link{nmfkc.net.ecv}}, \code{\link{nmfkc.net.DOT}}
 }

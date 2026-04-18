@@ -45,12 +45,13 @@ test_that("nmfkc.net (bi) fits with C = I_Q fixed", {
 })
 
 
-test_that("nmfkc.net.signed produces signed C", {
+test_that("nmfkc.net(type='signed') produces signed C", {
   Y <- make_test_network()
-  res <- nmfkc.net.signed(Y, rank = 2, nstart = 5, maxit = 200)
+  res <- nmfkc.net(Y, rank = 2, type = "signed", nstart = 5, maxit = 200)
 
   expect_s3_class(res, "nmfkc.net.signed")
   expect_s3_class(res, "nmfkc.net")
+  expect_s3_class(res, "nmfkc")
   expect_true(all(res$X >= 0))
   expect_true(all(res$Cp >= 0))
   expect_true(all(res$Cn >= 0))
@@ -62,11 +63,33 @@ test_that("nmfkc.net.signed produces signed C", {
 })
 
 
+test_that("nmfkc.net return structure is uniform (Cp/Cn NULL for tri/bi)", {
+  Y <- make_test_network()
+  res_tri    <- nmfkc.net(Y, rank = 2, type = "tri",    nstart = 3, maxit = 100)
+  res_bi     <- nmfkc.net(Y, rank = 2, type = "bi",     nstart = 3, maxit = 100)
+  res_signed <- nmfkc.net(Y, rank = 2, type = "signed", nstart = 3, maxit = 100)
+
+  ## Uniform field presence
+  for (res in list(res_tri, res_bi, res_signed)) {
+    expect_true("X"  %in% names(res))
+    expect_true("C"  %in% names(res))
+    expect_true("Cp" %in% names(res))
+    expect_true("Cn" %in% names(res))
+  }
+  ## Cp, Cn are NULL for tri/bi
+  expect_null(res_tri$Cp); expect_null(res_tri$Cn)
+  expect_null(res_bi$Cp);  expect_null(res_bi$Cn)
+  ## Cp, Cn are matrices for signed
+  expect_true(is.matrix(res_signed$Cp))
+  expect_true(is.matrix(res_signed$Cn))
+})
+
+
 test_that("nmfkc.net.DOT works for tri, bi, and signed", {
   Y <- make_test_network()
   res_tri    <- nmfkc.net(Y, rank = 2, type = "tri", nstart = 3, maxit = 100)
   res_bi     <- nmfkc.net(Y, rank = 2, type = "bi",  nstart = 3, maxit = 100)
-  res_signed <- nmfkc.net.signed(Y, rank = 2, nstart = 3, maxit = 100)
+  res_signed <- nmfkc.net(Y, rank = 2, type = "signed", nstart = 3, maxit = 100)
 
   dot_tri <- nmfkc.net.DOT(res_tri)
   expect_s3_class(dot_tri, "nmfkc.DOT")

@@ -65,7 +65,7 @@ between basis nodes. NULL = auto-detect (TRUE for tri, FALSE for bi).}
 matrix: positive entries rendered as solid edges and negative as
 dashed, with edge visibility threshold on \eqn{|C|}.  Default is
 \code{inherits(result, "nmfkc.net.signed")} so that results from
-\code{\link{nmfkc.net.signed}} are auto-detected.}
+\code{\ink{nmfkc.net}} are auto-detected.}
 
 \item{cluster.box}{Style of cluster box: \code{"none"}, \code{"normal"},
 \code{"faint"}, \code{"invisible"}.}

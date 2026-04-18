@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.net.R
 \name{nmfkc.net.ecv}
 \alias{nmfkc.net.ecv}
-\title{Element-wise cross-validation for nmfkc.net / nmfkc.net.signed (upper-triangle folds)}
+\title{Element-wise cross-validation for nmfkc.net (upper-triangle folds)}
 \usage{
 nmfkc.net.ecv(Y, rank = 1:3, type = c("tri", "bi", "signed"), ...)
 }
@@ -28,9 +28,9 @@ NMF variants; \code{type} selects the fitting function:
 \itemize{
 \item \code{"tri"} (default): \code{\link{nmfkc.net}} with \eqn{C \ge 0}
 \item \code{"bi"}: \code{\link{nmfkc.net}} with \eqn{C = I_Q}
-\item \code{"signed"}: \code{\link{nmfkc.net.signed}} with signed \eqn{C}
+\item \code{"signed"}: \code{\link{nmfkc.net}} with signed \eqn{C = C_{+} - C_{-}}
 }
 }
 \seealso{
-\code{\link{nmfkc.net}}, \code{\link{nmfkc.net.signed}}
+\code{\link{nmfkc.net}}
 }
