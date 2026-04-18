@@ -9,7 +9,15 @@
 - `nmfae()`, `nmfre()`: `r.squared` is now computed as `cor(Y, fitted)^2` (squared correlation between observed and fitted values), consistent with `nmfkc()`. Previously `nmfae()` used `1 - SS_res/SS_tot` and `nmfre()` used the same regression-style R-squared, which can behave unexpectedly for intercept-free non-negative models.
 - `nmfkc.kernel.beta.nearest.med()`: added a `candidates` argument controlling the bandwidth grid. Options: `"7points"` (new default, `t = {-1,-2/3,-1/3,0,1/3,2/3,1}`), `"4points"` (`t = {-1/2, 0, 1/2, 1}`), or a user-supplied numeric vector of \eqn{t} values. Previously the grid silently differed between the no-landmark (`Uk = NULL`; 4 points) and landmark (7 points) branches.
 
-### **New Functions**
+### **New Functions (Signed NMF family)**
+- `nmfkc.signed()`: NMF-KC with signed covariate/coefficient.  Model \eqn{Y \approx X \Theta A} with \eqn{X \ge 0}, \eqn{\Theta = C_{+} - C_{-}} (signed), \eqn{A} real-valued.  Uses Ding et al. (2010) sign-splitting + Direct MU; \eqn{Y} may also contain negative entries (semi-NMF regression).  Supports `Y.weights` for element-wise masking.
+- `nmfkc.signed.cv()`, `nmfkc.signed.ecv()`: column-wise and element-wise k-fold CV for rank selection on signed data.
+- `nmfae.signed()`: Three-layer autoencoder with \strong{signed bottleneck} \eqn{Y_1 \approx X_1 (C_{+} - C_{-}) X_2 Y_2}.  \eqn{X_1, X_2 \ge 0} preserve soft clustering on both decoder and encoder sides while the bottleneck \eqn{\Theta} can carry negative weights (e.g., anti-correlated properties).  Hybrid warm-start (from `nmfae()`) + Direct MU with multi-restart.
+- `nmfae.signed.ecv()`: element-wise CV for (decoder-rank, encoder-rank) selection.
+- `nmfae.signed.inference()`: sandwich SE + wild bootstrap for \eqn{\Theta} (no non-negativity projection on \eqn{\Theta} since it is signed).
+- S3 methods `predict.*.signed()`, `plot.*.signed()`, `summary.*.signed()`, and `nmfae.signed.rename()` helper.
+
+### **New Functions (Network NMF family)**
 - `nmfkc.net()`: Single unified entry point for symmetric NMF of network data, with `type = "tri" | "bi" | "signed"`.  All three variants use the Frobenius-full bilateral gradient (supersedes the one-sided approximation in `nmfkc(Y.symmetric = ...)`).  `type = "signed"` supports signed \eqn{C = C_{+} - C_{-}} via Ding et al. (2010) sign-splitting, preserving \eqn{X \ge 0} for soft clustering while allowing inter-cluster repulsion.  The returned object's fields are uniform across types: \code{$Cp} and \code{$Cn} are \code{NULL} for tri/bi, and populated matrices for signed.  \code{$C} is always populated (identity for bi, non-negative for tri, signed for signed).
 - `nmfkc.net.ecv()`: Element-wise cross-validation with upper-triangle folds (mirrored to the lower triangle to prevent symmetry leakage). Unified entry point for `type = "tri" | "bi" | "signed"` (dispatches to `nmfkc.net()` or `nmfkc.net.signed()` internally).
 - `nmfkc.net.DOT()`: Graphviz DOT visualization for symmetric NMF networks. Displays basis-to-node membership edges and inter-basis interaction edges (C matrix) with significance stars. Now has `signed` parameter (auto-detected from class) to render negative `C` entries as dashed edges.
