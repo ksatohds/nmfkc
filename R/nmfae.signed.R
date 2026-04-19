@@ -1032,8 +1032,8 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'       Signed models have more local minima (the bottleneck can carry
 #'       both signs), so \code{nstart >= 10} is recommended for
 #'       reproducible rank selection.}
-#'     \item Other args (\code{epsilon}, \code{maxit}, \code{warm.start},
-#'       etc.) are passed to \code{nmfae.signed}.
+#'     \item{Other args}{\code{epsilon}, \code{maxit}, \code{warm.start},
+#'       etc.\ are passed to \code{\link{nmfae.signed}}.}
 #'   }
 #' @return An object of class \code{c("nmfae.signed.ecv", "nmfae.ecv")} with
 #'   \code{objfunc} (MSE per pair), \code{sigma} (RMSE), \code{objfunc.fold}
