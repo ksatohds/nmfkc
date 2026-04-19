@@ -19,7 +19,7 @@
 
 ### **New Functions (Network NMF family)**
 - `nmfkc.net()`: Single unified entry point for symmetric NMF of network data, with `type = "tri" | "bi" | "signed"`.  All three variants use the Frobenius-full bilateral gradient (supersedes the one-sided approximation in `nmfkc(Y.symmetric = ...)`).  `type = "signed"` supports signed \eqn{C = C_{+} - C_{-}} via Ding et al. (2010) sign-splitting, preserving \eqn{X \ge 0} for soft clustering while allowing inter-cluster repulsion.  The returned object's fields are uniform across types: \code{$Cp} and \code{$Cn} are \code{NULL} for tri/bi, and populated matrices for signed.  \code{$C} is always populated (identity for bi, non-negative for tri, signed for signed).
-- `nmfkc.net.ecv()`: Element-wise cross-validation with upper-triangle folds (mirrored to the lower triangle to prevent symmetry leakage). Unified entry point for `type = "tri" | "bi" | "signed"` (dispatches to `nmfkc.net()` or `nmfkc.net.signed()` internally).
+- `nmfkc.net.ecv()`: Element-wise cross-validation with upper-triangle folds (mirrored to the lower triangle to prevent symmetry leakage). Unified entry point for `type = "tri" | "bi" | "signed"` (calls `nmfkc.net()` with the matching `type` for each fold).
 - `nmfkc.net.DOT()`: Graphviz DOT visualization for symmetric NMF networks. Displays basis-to-node membership edges and inter-basis interaction edges (C matrix) with significance stars. Now has `signed` parameter (auto-detected from class) to render negative `C` entries as dashed edges.
 - `nmfkc.net.inference()`: Statistical inference for symmetric NMF. Wrapper around `nmfkc.inference()` with `A = t(X)`. Returns off-diagonal C coefficients with sandwich SE and wild bootstrap.
 

@@ -1266,7 +1266,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         "Y.symmetric = \"", Y.symmetric, "\" in nmfkc() is deprecated.\n",
         "Use nmfkc.net(Y, rank, type = \"", Y.symmetric, "\") instead, ",
         "which implements the correct Frobenius bilateral-gradient updates.\n",
-        "See help(nmfkc.net) and help(nmfkc.net.signed)."
+        "See help(nmfkc.net) (all three types: \"tri\", \"bi\", \"signed\")."
       )
     )
   }

@@ -19,8 +19,9 @@
 # C_- so that X Θ A is unchanged.
 #
 # The primary application is kernel approximation via Random Fourier
-# Features (nmfkc.rff.random), but A can be any real-valued matrix
-# (PCA scores, wavelet coefficients, neural-net activations, ...).
+# Features (RFF; Rahimi & Recht 2007), but A can be any real-valued
+# matrix (PCA scores, wavelet coefficients, neural-net activations,
+# RFF features, ...).
 #
 # References:
 #   Ding, C. H. Q., Li, T., & Jordan, M. I. (2010).  Convex and
@@ -56,9 +57,10 @@
 #' @param A Real-valued \eqn{D \times N} covariate matrix (signed).
 #'   A single matrix is passed; its positive and negative parts
 #'   \eqn{A_{+} = \max(A, 0)} and \eqn{A_{-} = \max(-A, 0)} are computed
-#'   internally.  To reuse the same random map for new data when \eqn{A}
-#'   is RFF features, use \code{\link{nmfkc.rff.random}(..., nonneg = FALSE)}
-#'   whose output has \code{attr(., "pars")} attached.
+#'   internally.  When using Random Fourier Features (Rahimi & Recht
+#'   2007) as \eqn{A}, supply the RFF parameters via the hidden
+#'   \code{pars} argument so that \code{predict()} can regenerate
+#'   features for new data (see \code{pars} entry in \code{\dots} below).
 #' @param rank Integer.  Number of latent components \eqn{Q} in \eqn{X}.
 #' @param epsilon Relative convergence tolerance on the objective
 #'   (default \code{1e-4}).
@@ -85,10 +87,14 @@
 #'     \item \code{seed}: RNG seed for random initialization (default 123).
 #'     \item \code{prefix}: name prefix for rows of \eqn{C} and columns
 #'       of \eqn{X} (default \code{"Basis"}).
-#'     \item \code{pars}: list \code{list(omega, b, D, beta)} from
-#'       \code{\link{nmfkc.rff.random}}; stored in the returned object so
-#'       that \code{summary()} can report \eqn{\beta} and downstream
-#'       \code{predict()} calls can regenerate features.
+#'     \item \code{pars}: optional list \code{list(omega, b, D, beta)}
+#'       of Random Fourier Feature parameters (Rahimi & Recht 2007;
+#'       \code{omega}: frequency matrix, \code{b}: phase offset,
+#'       \code{D}: feature dimension, \code{beta}: bandwidth).  When
+#'       supplied, it is stored in the returned object so that
+#'       \code{summary()} can report \eqn{\beta} and downstream
+#'       \code{predict()} calls can regenerate RFF features for new
+#'       data.  If \code{A} is not RFF features, leave this \code{NULL}.
 #'     \item \code{Y.weights}: Optional non-negative weight matrix
 #'       (\eqn{Q_{\mathrm{obs}} \times N}) or vector (length \eqn{N}),
 #'       analogous to the \code{weights} argument of
@@ -145,22 +151,26 @@
 #' Rahimi, A., & Recht, B. (2007).  Random features for large-scale
 #' kernel machines.  \emph{Advances in NIPS}, 20.
 #'
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.rff.random}},
-#'   \code{\link{predict.nmfkc.signed}}
+#' @seealso \code{\link{nmfkc}}, \code{\link{predict.nmfkc.signed}}
 #'
 #' @examples
 #' \donttest{
 #' set.seed(1)
-#' ## Example 1: signed A (RFF features), non-negative Y
-#' U <- matrix(stats::rnorm(5 * 40), 5, 40)
-#' Y <- matrix(abs(stats::rnorm(8 * 40)), 8, 40)
-#' Z <- nmfkc.rff.random(U, beta = 0.5, seed = 1, nonneg = FALSE)
-#' res1 <- nmfkc.signed(Y, A = Z, rank = 3, maxit = 200)
+#' ## Example 1: signed A (e.g., hand-built RFF features), non-negative Y
+#' ## Build simple signed features Z = sqrt(2/D) * cos(omega^T U + b):
+#' U     <- matrix(stats::rnorm(5 * 40), 5, 40)           # raw input
+#' D     <- 20                                            # feature dim
+#' omega <- matrix(stats::rnorm(5 * D), 5, D)             # random freqs
+#' b     <- stats::runif(D, 0, 2 * pi)                    # phase
+#' Z     <- sqrt(2 / D) *
+#'            cos(t(omega) %*% U + matrix(b, D, 40))      # D x 40, signed
+#' Y     <- matrix(abs(stats::rnorm(8 * 40)), 8, 40)
+#' res1  <- nmfkc.signed(Y, A = Z, rank = 3, maxit = 200)
 #'
 #' ## Example 2: signed Y (regression)
-#' Y2 <- matrix(stats::rnorm(8 * 40), 8, 40)           # signed response
-#' res2 <- nmfkc.signed(Y2, A = Z, rank = 3, maxit = 200,
-#'                       warm.start = FALSE)
+#' Y2    <- matrix(stats::rnorm(8 * 40), 8, 40)           # signed response
+#' res2  <- nmfkc.signed(Y2, A = Z, rank = 3, maxit = 200,
+#'                        warm.start = FALSE)
 #' }
 #'
 #' @export
