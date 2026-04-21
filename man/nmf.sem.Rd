@@ -36,10 +36,14 @@ Must satisfy \code{ncol(Y1) == ncol(Y2)}.}
 \item \code{"nndsvd"} (default): Non-negative Double SVD with
 additive randomness (NNDSVDar; Boutsidis & Gallopoulos 2008),
 computed internally via \code{.nndsvdar(Y1, Q)}.  Requires
-\eqn{Q \le \min(P_1, N)}; otherwise falls back to \code{"runif"}.
+\eqn{Q \le \min(P_1, N)} (over-rank case falls back to
+\code{"runif"}).  Uses a full SVD of \eqn{Y_1}, so for very
+large \eqn{Y_1} consider switching to \code{"kmeans"} to
+avoid SVD memory / compute cost.
 \item \code{"kmeans"}: k-means on the columns of \eqn{Y_1}
 (samples clustered into \eqn{Q} groups); the transposed
-cluster centers become \eqn{X}.
+cluster centers become \eqn{X}.  Scales well for large
+\eqn{Y_1}; this is the default of \code{\link{nmfkc}}.
 \item \code{"kmeansar"}: \code{"kmeans"} followed by filling
 zero entries of \eqn{X} with \eqn{\mathrm{Uniform}(0,
       \bar Y_1 / 100)} (NNDSVDar-style additive randomness to
@@ -51,7 +55,7 @@ negative entries are projected to 0.
 }
 In all cases the result is column-normalized to \code{colSums(X) = 1}
 before iteration.  The menu mirrors \code{\link{nmfkc}}'s
-\code{X.init} option for consistency.}
+\code{X.init} option for consistency across the package.}
 
 \item{X.L2.ortho}{L2 orthogonality penalty for \code{X}. This controls
 the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
