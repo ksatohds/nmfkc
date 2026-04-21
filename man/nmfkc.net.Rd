@@ -44,6 +44,33 @@ contains \code{NA}, a binary mask is auto-generated (0 at \code{NA}
 positions, 1 elsewhere), and the \code{NA} entries in \code{Y} are
 replaced by 0 so the multiplicative updates can proceed.
 
+\strong{\code{X.init}} controls the initialization of the N x Q basis
+matrix \eqn{X}.  Accepted values:
+\itemize{
+\item \code{"kmeans"} (default): k-means on the rows of \eqn{Y}
+(equivalently columns, since \eqn{Y} is symmetric); the Q
+cluster centers become the columns of \eqn{X}.  Each node is
+treated as an N-dimensional connectivity profile, so clusters
+correspond to nodes with similar neighborhood structure --
+essentially a fast proxy for spectral clustering (Kuang, Yun &
+Park 2015, \emph{SymNMF}).  Scales well and is the recommended
+default for network data.
+\item \code{"kmeansar"}: \code{"kmeans"} followed by filling zero
+entries of \eqn{X} with \eqn{\mathrm{Uniform}(0, \bar Y / 100)}
+to escape trivial stationary points.
+\item \code{"nndsvd"}: Non-negative Double SVD with additive
+randomness (NNDSVDar).  Requires a full SVD of \eqn{Y}, so for
+very large networks (N > a few thousand) \code{"kmeans"} is
+preferable.
+\item \code{"runif"}: Uniform random entries in \eqn{[0, 1]}.
+\item \code{"random"}: Legacy default (pre-v0.6.8), equivalent to
+\code{abs(rnorm(N * Q)) * 0.1}.  Kept for backward compatibility.
+\item A numeric N x Q matrix supplied by the user (used as-is).
+}
+When \code{nstart > 1}, each restart uses a distinct seed so that
+k-means / runif / NNDSVDar produce different candidate initial
+values across the multi-start loop.
+
 \strong{Multi-start recommendation.} For \code{type = "signed"} the
 \eqn{C = C_{+} - C_{-}} bottleneck can take both positive and negative
 values, so the objective has more local minima than for \code{"tri"}
