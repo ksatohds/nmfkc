@@ -43,24 +43,30 @@ features for new data (see \code{pars} entry in \code{\dots} below).}
 \eqn{C_{+}, C_{-}}.  One of \code{"colSums"} (default,
 \eqn{\mathrm{colSums}(X) = 1}), \code{"colSqSums"},
 \code{"totalSum"}, \code{"none"}, \code{"fixed"}.
-\item \code{X.init}: initialization for \eqn{X}.  Either
-\code{"random"} (default), \code{"nndsvd"} (requires \eqn{Y \ge 0}),
-or an explicit \eqn{Q_{\mathrm{obs}} \times Q} numeric matrix.
+\item \code{X.init}: initialization strategy for the basis matrix
+\eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
+menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
+\code{"kmeansar"}, \code{"nndsvd"}, \code{"runif"}, or a
+user-supplied \eqn{Q_{\mathrm{obs}} \times Q} non-negative
+numeric matrix.  String methods delegate to the shared
+internal helper \code{.init_X_method()} (see \code{\link{nmfkc}}
+for the definitions of each method).  For signed \eqn{Y},
+\code{"kmeans"} cluster centers may contain negative entries;
+they are clipped to zero to satisfy \eqn{X \ge 0}, and any
+column that collapses to all-zeros is re-filled with small
+\eqn{\mathrm{Uniform}(0, 0.1)} noise.
 \item \code{C.init}: explicit initial \eqn{Q \times D} coefficient
 matrix \eqn{\Theta} (signed).  Split internally.
 \item \code{warm.start}: logical (default \code{TRUE}).  If
 \code{TRUE} \strong{and \eqn{Y \ge 0}}, runs
 \code{nmfkc(Y, A = rbind(A_+, A_-), rank = Q)} internally to
-seed \eqn{X, C_{+}, C_{-}}.  When the warm-start path is
-active, the user's \code{X.init}, \code{seed}, \code{nstart},
-and \code{X.restriction} arguments are forwarded to the
-internal \code{\link{nmfkc}} call so that initialization
-choices propagate (one exception: \code{X.init = "random"} is
-a \code{nmfkc.signed()}-specific legacy string meaning
-\code{abs(rnorm) * 0.1} and is not recognized by
-\code{\link{nmfkc}}; in that case the warm-start falls back to
-\code{\link{nmfkc}}'s own default, \code{"kmeans"}).  Ignored
-when \eqn{Y} has negative entries (warm-start is disabled).
+seed \eqn{X, C_{+}, C_{-}}.  The user's \code{X.init},
+\code{seed}, \code{nstart}, and \code{X.restriction} are
+forwarded to the internal \code{\link{nmfkc}} call so that
+initialization choices propagate consistently between the
+warm-start and the signed MU loop.  Ignored when \eqn{Y} has
+negative entries (warm-start is disabled; \code{X.init} is
+used directly by the signed branch instead).
 \item \code{seed}: RNG seed for random initialization (default 123).
 \item \code{prefix}: name prefix for rows of \eqn{C} and columns
 of \eqn{X} (default \code{"Basis"}).

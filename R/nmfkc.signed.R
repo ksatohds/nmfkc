@@ -74,24 +74,30 @@
 #'       \eqn{C_{+}, C_{-}}.  One of \code{"colSums"} (default,
 #'       \eqn{\mathrm{colSums}(X) = 1}), \code{"colSqSums"},
 #'       \code{"totalSum"}, \code{"none"}, \code{"fixed"}.
-#'     \item \code{X.init}: initialization for \eqn{X}.  Either
-#'       \code{"random"} (default), \code{"nndsvd"} (requires \eqn{Y \ge 0}),
-#'       or an explicit \eqn{Q_{\mathrm{obs}} \times Q} numeric matrix.
+#'     \item \code{X.init}: initialization strategy for the basis matrix
+#'       \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
+#'       menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
+#'       \code{"kmeansar"}, \code{"nndsvd"}, \code{"runif"}, or a
+#'       user-supplied \eqn{Q_{\mathrm{obs}} \times Q} non-negative
+#'       numeric matrix.  String methods delegate to the shared
+#'       internal helper \code{.init_X_method()} (see \code{\link{nmfkc}}
+#'       for the definitions of each method).  For signed \eqn{Y},
+#'       \code{"kmeans"} cluster centers may contain negative entries;
+#'       they are clipped to zero to satisfy \eqn{X \ge 0}, and any
+#'       column that collapses to all-zeros is re-filled with small
+#'       \eqn{\mathrm{Uniform}(0, 0.1)} noise.
 #'     \item \code{C.init}: explicit initial \eqn{Q \times D} coefficient
 #'       matrix \eqn{\Theta} (signed).  Split internally.
 #'     \item \code{warm.start}: logical (default \code{TRUE}).  If
 #'       \code{TRUE} \strong{and \eqn{Y \ge 0}}, runs
 #'       \code{nmfkc(Y, A = rbind(A_+, A_-), rank = Q)} internally to
-#'       seed \eqn{X, C_{+}, C_{-}}.  When the warm-start path is
-#'       active, the user's \code{X.init}, \code{seed}, \code{nstart},
-#'       and \code{X.restriction} arguments are forwarded to the
-#'       internal \code{\link{nmfkc}} call so that initialization
-#'       choices propagate (one exception: \code{X.init = "random"} is
-#'       a \code{nmfkc.signed()}-specific legacy string meaning
-#'       \code{abs(rnorm) * 0.1} and is not recognized by
-#'       \code{\link{nmfkc}}; in that case the warm-start falls back to
-#'       \code{\link{nmfkc}}'s own default, \code{"kmeans"}).  Ignored
-#'       when \eqn{Y} has negative entries (warm-start is disabled).
+#'       seed \eqn{X, C_{+}, C_{-}}.  The user's \code{X.init},
+#'       \code{seed}, \code{nstart}, and \code{X.restriction} are
+#'       forwarded to the internal \code{\link{nmfkc}} call so that
+#'       initialization choices propagate consistently between the
+#'       warm-start and the signed MU loop.  Ignored when \eqn{Y} has
+#'       negative entries (warm-start is disabled; \code{X.init} is
+#'       used directly by the signed branch instead).
 #'     \item \code{seed}: RNG seed for random initialization (default 123).
 #'     \item \code{prefix}: name prefix for rows of \eqn{C} and columns
 #'       of \eqn{X} (default \code{"Basis"}).
@@ -198,7 +204,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   X.restriction <- match.arg(X.restriction,
     c("colSums", "colSqSums", "totalSum", "none", "fixed"))
 
-  X.init     <- if (!is.null(extra_args$X.init))     extra_args$X.init     else "random"
+  X.init     <- if (!is.null(extra_args$X.init))     extra_args$X.init     else "kmeans"
   C.init     <- if (!is.null(extra_args$C.init))     extra_args$C.init     else NULL
   warm.start <- if (!is.null(extra_args$warm.start)) extra_args$warm.start else TRUE
   seed       <- if (!is.null(extra_args$seed))       extra_args$seed       else 123L
@@ -292,12 +298,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
                       epsilon = epsilon, maxit = maxit, verbose = FALSE,
                       seed = seed, X.restriction = X.restriction)
     if (has.weights) warm_args$Y.weights <- Y.weights
-    ## Forward X.init to nmfkc() so that user-selected initialization
-    ## (e.g., "nndsvd", "kmeans", or a user-supplied matrix) propagates
-    ## into the posneg warm-start.  "random" is a nmfkc.signed()-specific
-    ## string (= abs(rnorm)*0.1) not recognized by nmfkc(); in that case
-    ## fall back to nmfkc()'s own default ("kmeans") for the warm-start.
-    if (!identical(X.init, "random")) warm_args$X.init <- X.init
+    ## Forward X.init (accepts the same menu as nmfkc()) so that the user's
+    ## chosen initialization propagates into the posneg warm-start.
+    warm_args$X.init <- X.init
     ## Forward nstart if the user supplied it (nmfkc() default is 1).
     if (!is.null(extra_args$nstart)) warm_args$nstart <- extra_args$nstart
     res0 <- do.call(nmfkc, warm_args)
@@ -305,21 +308,32 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     Cp <- res0$C[, 1:D, drop = FALSE]
     Cn <- res0$C[, (D + 1):(2 * D), drop = FALSE]
   } else {
-    ## 5b. Explicit X.init / random
+    ## 5b. No warm-start: delegate to the shared .init_X_method() helper
+    ## (same menu as nmfkc() / nmf.sem(): "kmeans", "kmeansar", "nndsvd",
+    ## "runif", or a user-supplied Q_obs x Q matrix).
     if (explicit_X_mat) {
       X <- as.matrix(X.init)
       if (!identical(dim(X), c(Q_obs, Q)))
         stop("X.init must have dimensions (nrow(Y), rank).")
-    } else if (identical(X.init, "nndsvd") && Y_is_nonneg) {
-      ## Simple NNDSVD-like deterministic init via SVD of Y
-      sv <- svd(Y, nu = Q, nv = 0)
-      X  <- pmax(sv$u, 0)
+      X[X < 0] <- 0
+    } else if (is.character(X.init)) {
+      ## For signed Y, kmeans cluster centers may contain negative values;
+      ## clip to non-negative since X must satisfy X >= 0.  .init_X_method's
+      ## "nndsvd" (NNDSVDar) and "runif" paths are already non-negative.
+      X <- .init_X_method(X.init, Y, Q, seed = seed)
+      X[X < 0] <- 0
+      ## Safety: if any column collapses to zero (can happen with kmeans
+      ## on signed Y where a whole cluster mean is non-positive), fill with
+      ## small positive noise so MU iterations can escape.
       bad <- colSums(X) < 1e-10
-      if (any(bad)) X[, bad] <- matrix(abs(stats::rnorm(Q_obs * sum(bad))) * 0.1,
-                                        Q_obs, sum(bad))
+      if (any(bad)) {
+        X[, bad] <- matrix(stats::runif(Q_obs * sum(bad), 0, 0.1),
+                           Q_obs, sum(bad))
+      }
     } else {
-      set.seed(seed)
-      X <- matrix(abs(stats::rnorm(Q_obs * Q)) * 0.1, Q_obs, Q)
+      stop("X.init must be one of \"kmeans\", \"kmeansar\", \"nndsvd\", ",
+           "\"runif\", or a (nrow(Y) x rank) numeric matrix; got ",
+           class(X.init)[1], ".")
     }
     ## C.init or random
     if (!is.null(C.init)) {
