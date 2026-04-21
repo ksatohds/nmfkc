@@ -51,8 +51,16 @@ matrix \eqn{\Theta} (signed).  Split internally.
 \item \code{warm.start}: logical (default \code{TRUE}).  If
 \code{TRUE} \strong{and \eqn{Y \ge 0}}, runs
 \code{nmfkc(Y, A = rbind(A_+, A_-), rank = Q)} internally to
-seed \eqn{X, C_{+}, C_{-}}.  Ignored when \eqn{Y} has negative
-entries.
+seed \eqn{X, C_{+}, C_{-}}.  When the warm-start path is
+active, the user's \code{X.init}, \code{seed}, \code{nstart},
+and \code{X.restriction} arguments are forwarded to the
+internal \code{\link{nmfkc}} call so that initialization
+choices propagate (one exception: \code{X.init = "random"} is
+a \code{nmfkc.signed()}-specific legacy string meaning
+\code{abs(rnorm) * 0.1} and is not recognized by
+\code{\link{nmfkc}}; in that case the warm-start falls back to
+\code{\link{nmfkc}}'s own default, \code{"kmeans"}).  Ignored
+when \eqn{Y} has negative entries (warm-start is disabled).
 \item \code{seed}: RNG seed for random initialization (default 123).
 \item \code{prefix}: name prefix for rows of \eqn{C} and columns
 of \eqn{X} (default \code{"Basis"}).
