@@ -8,7 +8,7 @@ nmf.sem(
   Y1,
   Y2,
   rank = NULL,
-  X.init = NULL,
+  X.init = "nndsvd",
   X.L2.ortho = 100,
   C1.L1 = 1,
   C2.L1 = 0.1,
@@ -30,9 +30,28 @@ Must satisfy \code{ncol(Y1) == ncol(Y2)}.}
 \eqn{Q} is taken from a hidden argument in \code{...} or defaults to
 \code{nrow(Y2)}.}
 
-\item{X.init}{Optional non-negative initialization for the basis matrix
-\code{X} (\eqn{P_1 \times Q}). If supplied, it is projected to be
-non-negative and column-normalized.}
+\item{X.init}{Initialization strategy for the basis matrix
+\code{X} (\eqn{P_1 \times Q}).  One of:
+\itemize{
+\item \code{"nndsvd"} (default): Non-negative Double SVD with
+additive randomness (NNDSVDar; Boutsidis & Gallopoulos 2008),
+computed internally via \code{.nndsvdar(Y1, Q)}.  Requires
+\eqn{Q \le \min(P_1, N)}; otherwise falls back to \code{"runif"}.
+\item \code{"kmeans"}: k-means on the columns of \eqn{Y_1}
+(samples clustered into \eqn{Q} groups); the transposed
+cluster centers become \eqn{X}.
+\item \code{"kmeansar"}: \code{"kmeans"} followed by filling
+zero entries of \eqn{X} with \eqn{\mathrm{Uniform}(0,
+      \bar Y_1 / 100)} (NNDSVDar-style additive randomness to
+escape trivial stationary points).
+\item \code{"runif"}: Uniform random entries in \eqn{[0, 1]}.
+\item A numeric \eqn{P_1 \times Q} matrix supplied by the user;
+negative entries are projected to 0.
+\item \code{NULL}: backward-compatible alias for \code{"nndsvd"}.
+}
+In all cases the result is column-normalized to \code{colSums(X) = 1}
+before iteration.  The menu mirrors \code{\link{nmfkc}}'s
+\code{X.init} option for consistency.}
 
 \item{X.L2.ortho}{L2 orthogonality penalty for \code{X}. This controls
 the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)

@@ -8,7 +8,7 @@ nmf.sem.cv(
   Y1,
   Y2,
   rank = NULL,
-  X.init = NULL,
+  X.init = "nndsvd",
   X.L2.ortho = 100,
   C1.L1 = 1,
   C2.L1 = 0.1,
@@ -28,7 +28,11 @@ Must satisfy \code{ncol(Y1) == ncol(Y2)}.}
 \item{rank}{Integer; rank (number of latent factors) passed to \code{nmf.sem}.
 If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \code{nrow(Y2)}).}
 
-\item{X.init}{Optional initialization for \code{X} (as in \code{nmf.sem}).}
+\item{X.init}{Initialization strategy for \code{X}, forwarded to
+\code{\link{nmf.sem}}.  One of \code{"nndsvd"} (default),
+\code{"kmeans"}, \code{"kmeansar"}, \code{"runif"}, a numeric
+\eqn{P_1 \times Q} matrix, or \code{NULL} (alias for
+\code{"nndsvd"}).  See \code{\link{nmf.sem}} for details.}
 
 \item{X.L2.ortho}{L2 orthogonality penalty for \code{X}.}
 

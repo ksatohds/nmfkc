@@ -669,42 +669,28 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     X <- X.init
   } else if (is.character(X.init)) {
     if (!is.null(seed)) set.seed(seed)
-    if (X.init == "kmeans" || X.init == "kmeansar") {
-      res.kmeans <- if (ncol(Y) >= Q) {
-        tryCatch(stats::kmeans(t(Y_init), centers = Q, iter.max = maxit, nstart = nstart),
-                 error = function(e) NULL)
-      } else { NULL }
-      if (!is.null(res.kmeans)) X <- t(res.kmeans$centers)
-      else X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-      if (X.init == "kmeansar") {
-        avg_Y <- mean(Y)
-        idx_zero <- which(X == 0)
-        if (length(idx_zero) > 0) X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
-      }
-    } else if (X.init == "runif") {
-      if (nstart <= 1) {
-        X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-      } else {
-        best_obj <- Inf
-        P <- nrow(Y_init); N <- ncol(Y_init)
-        for (s in seq_len(nstart)) {
-          Xs <- matrix(stats::runif(P * Q), nrow = P, ncol = Q)
-          Bs <- matrix(stats::runif(Q * N), nrow = Q, ncol = N)
-          for (iter in 1:10) {
-            Bs <- Bs * (t(Xs) %*% Y_init) / (t(Xs) %*% Xs %*% Bs + .eps)
-            Xs <- Xs * (Y_init %*% t(Bs)) / (Xs %*% Bs %*% t(Bs) + .eps)
-          }
-          obj <- sum((Y_init - Xs %*% Bs)^2)
-          if (obj < best_obj) { best_obj <- obj; X <- Xs }
+    ## runif with nstart > 1 is an nmfkc-specific multi-start feature (10
+    ## inner MU iterations per restart to rank the candidate seeds); all
+    ## other string methods delegate to the shared .init_X_method().
+    if (X.init == "runif" && nstart > 1) {
+      best_obj <- Inf
+      P <- nrow(Y_init); N <- ncol(Y_init)
+      for (s in seq_len(nstart)) {
+        Xs <- matrix(stats::runif(P * Q), nrow = P, ncol = Q)
+        Bs <- matrix(stats::runif(Q * N), nrow = Q, ncol = N)
+        for (iter in 1:10) {
+          Bs <- Bs * (t(Xs) %*% Y_init) / (t(Xs) %*% Xs %*% Bs + .eps)
+          Xs <- Xs * (Y_init %*% t(Bs)) / (Xs %*% Bs %*% t(Bs) + .eps)
         }
+        obj <- sum((Y_init - Xs %*% Bs)^2)
+        if (obj < best_obj) { best_obj <- obj; X <- Xs }
       }
     } else {
-      # nndsvd: requires Q <= min(P, N)
-      if (Q > min(nrow(Y), ncol(Y))) {
-        X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-      } else {
-        X <- .nndsvdar(Y_init, Q)
-      }
+      ## Seed was already applied just above (`set.seed(seed)`), so pass
+      ## seed = NULL to avoid double-setting; pass the outer MU maxit as
+      ## kmeans iter.max to preserve pre-refactor behavior.
+      X <- .init_X_method(X.init, Y_init, Q,
+                          seed = NULL, nstart = nstart, kmeans.maxit = maxit)
     }
   } else if (ncol(Y) == Q) {
     X <- Y_init
@@ -757,6 +743,57 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+## Internal: X initialization by named method.
+## Shared across NMF variants (nmfkc, nmf.sem, ...) to avoid duplication
+## of the "nndsvd" / "kmeans" / "kmeansar" / "runif" dispatch logic.
+##
+## @param method  One of "nndsvd", "kmeans", "kmeansar", "runif".
+## @param Y       A P x N reference matrix used for SVD (nndsvd) or
+##                column clustering (kmeans/kmeansar).  For "runif" only
+##                its dimensions matter.  Must contain no NA.
+## @param Q       Target rank.
+## @param seed    Optional RNG seed (integer).  If not \code{NULL},
+##                \code{set.seed(seed)} is called before any random step
+##                so the result is reproducible.  Caller may also pre-seed
+##                and pass \code{NULL} to leave the stream untouched.
+## @param nstart  Number of restarts for \code{\link[stats]{kmeans}}
+##                (used only by "kmeans" / "kmeansar").  Default 10.
+## @param kmeans.maxit   \code{iter.max} for \code{\link[stats]{kmeans}}.
+##                Default 100.
+## @return A P x Q non-negative matrix.  Column normalization is the
+##         caller's responsibility.
+.init_X_method <- function(method, Y, Q,
+                            seed = NULL,
+                            nstart = 10,
+                            kmeans.maxit = 100) {
+  if (!is.null(seed)) set.seed(seed)
+  P <- nrow(Y); N <- ncol(Y)
+  if (identical(method, "nndsvd")) {
+    if (Q <= min(P, N)) .nndsvdar(Y, Q)
+    else matrix(stats::runif(P * Q), P, Q)
+  } else if (identical(method, "kmeans") || identical(method, "kmeansar")) {
+    res.kmeans <- if (N >= Q) {
+      tryCatch(stats::kmeans(t(Y), centers = Q,
+                             iter.max = kmeans.maxit,
+                             nstart = nstart),
+               error = function(e) NULL)
+    } else NULL
+    X <- if (!is.null(res.kmeans)) t(res.kmeans$centers)
+         else matrix(stats::runif(P * Q), P, Q)
+    if (identical(method, "kmeansar")) {
+      avg_Y <- mean(Y)
+      idx_zero <- which(X == 0)
+      if (length(idx_zero) > 0)
+        X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
+    }
+    X
+  } else if (identical(method, "runif")) {
+    matrix(stats::runif(P * Q), P, Q)
+  } else {
+    stop(".init_X_method: method must be one of \"nndsvd\", \"kmeans\", ",
+         "\"kmeansar\", \"runif\"; got \"", method, "\".")
+  }
+}
 
 
 

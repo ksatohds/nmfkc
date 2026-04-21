@@ -38,9 +38,28 @@
 #' @param rank Integer; number of latent factors \eqn{Q}. If \code{NULL},
 #'   \eqn{Q} is taken from a hidden argument in \code{...} or defaults to
 #'   \code{nrow(Y2)}.
-#' @param X.init Optional non-negative initialization for the basis matrix
-#'   \code{X} (\eqn{P_1 \times Q}). If supplied, it is projected to be
-#'   non-negative and column-normalized.
+#' @param X.init Initialization strategy for the basis matrix
+#'   \code{X} (\eqn{P_1 \times Q}).  One of:
+#'   \itemize{
+#'     \item \code{"nndsvd"} (default): Non-negative Double SVD with
+#'       additive randomness (NNDSVDar; Boutsidis & Gallopoulos 2008),
+#'       computed internally via \code{.nndsvdar(Y1, Q)}.  Requires
+#'       \eqn{Q \le \min(P_1, N)}; otherwise falls back to \code{"runif"}.
+#'     \item \code{"kmeans"}: k-means on the columns of \eqn{Y_1}
+#'       (samples clustered into \eqn{Q} groups); the transposed
+#'       cluster centers become \eqn{X}.
+#'     \item \code{"kmeansar"}: \code{"kmeans"} followed by filling
+#'       zero entries of \eqn{X} with \eqn{\mathrm{Uniform}(0,
+#'       \bar Y_1 / 100)} (NNDSVDar-style additive randomness to
+#'       escape trivial stationary points).
+#'     \item \code{"runif"}: Uniform random entries in \eqn{[0, 1]}.
+#'     \item A numeric \eqn{P_1 \times Q} matrix supplied by the user;
+#'       negative entries are projected to 0.
+#'     \item \code{NULL}: backward-compatible alias for \code{"nndsvd"}.
+#'   }
+#'   In all cases the result is column-normalized to \code{colSums(X) = 1}
+#'   before iteration.  The menu mirrors \code{\link{nmfkc}}'s
+#'   \code{X.init} option for consistency.
 #' @param X.L2.ortho L2 orthogonality penalty for \code{X}. This controls
 #'   the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
 #'   \rVert_F^2}. Default: \code{100}.
@@ -102,7 +121,7 @@
 nmf.sem <- function(
     Y1, Y2,
     rank = NULL,
-    X.init = NULL,
+    X.init = "nndsvd",
     X.L2.ortho = 100.0,
     C1.L1 = 1.0,
     C2.L1 = 0.1,
@@ -141,12 +160,13 @@ nmf.sem <- function(
   mat1norm <- function(A) max(colSums(abs(A)))
 
   # ---------------------------- init X,C1,C2 --------------------------
-  if (is.null(X.init)) {
-    if (Q <= min(P1, N)) {
-      X <- .nndsvdar(Y1, Q)
-    } else {
-      X <- matrix(stats::runif(P1 * Q), nrow = P1, ncol = Q)
-    }
+  ## X.init dispatch: delegate string methods to the shared internal
+  ## helper .init_X_method() (defined in R/nmfkc.R).  Accepts:
+  ##   "nndsvd" (default), "kmeans", "kmeansar", "runif",
+  ##   a numeric P1 x Q matrix, or NULL (alias for "nndsvd").
+  if (is.null(X.init)) X.init <- "nndsvd"
+  if (is.character(X.init)) {
+    X <- .init_X_method(X.init, Y1, Q)
   } else {
     X <- as.matrix(X.init)
     if (!all(dim(X) == c(P1, Q))) {
@@ -528,7 +548,11 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
 #'   Must satisfy \code{ncol(Y1) == ncol(Y2)}.
 #' @param rank Integer; rank (number of latent factors) passed to \code{nmf.sem}.
 #'   If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \code{nrow(Y2)}).
-#' @param X.init Optional initialization for \code{X} (as in \code{nmf.sem}).
+#' @param X.init Initialization strategy for \code{X}, forwarded to
+#'   \code{\link{nmf.sem}}.  One of \code{"nndsvd"} (default),
+#'   \code{"kmeans"}, \code{"kmeansar"}, \code{"runif"}, a numeric
+#'   \eqn{P_1 \times Q} matrix, or \code{NULL} (alias for
+#'   \code{"nndsvd"}).  See \code{\link{nmf.sem}} for details.
 #' @param X.L2.ortho L2 orthogonality penalty for \code{X}.
 #' @param C1.L1 L1 sparsity penalty for \code{C1} (\eqn{\Theta_1}).
 #' @param C2.L1 L1 sparsity penalty for \code{C2} (\eqn{\Theta_2}).
@@ -554,7 +578,7 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
 nmf.sem.cv <- function(
     Y1, Y2,
     rank = NULL,
-    X.init = NULL,
+    X.init = "nndsvd",
     X.L2.ortho = 100.0,
     C1.L1 = 1.0,        # L1 sparsity for C1 (Theta1)
     C2.L1 = 0.1,        # L1 sparsity for C2 (Theta2)
