@@ -78,17 +78,38 @@
 #'   Default: \code{20000}.
 #' @param seed Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
 #'   Default: \code{123}.
-#' @param ... Additional hidden arguments:
+#' @param ... Additional hidden arguments controlling the optional
+#'   feedforward baseline (used both as an \eqn{X} warm-start and as
+#'   the reference for \code{SC.map}, the input-output structural
+#'   fidelity defined in Satoh (2025) §4.SC.map):
 #'   \describe{
-#'     \item{\code{M.simple}}{Optional \eqn{P_1 \times P_2} feedforward
-#'       baseline mapping.  When supplied, \code{nmf.sem} computes
-#'       \code{SC.map} = \eqn{\mathrm{cor}(\mathrm{vec}(M_{\mathrm{model}}),
-#'       \mathrm{vec}(M_{\mathrm{simple}}))} and stores it in the
-#'       returned list.}
-#'     \item{\code{nmfkc.baseline}}{Convenience: an \code{\link{nmfkc}}
-#'       fit object (with \code{$X} and \code{$C}); if supplied without
-#'       \code{M.simple}, the baseline is constructed as
-#'       \code{nmfkc.baseline$X \%*\% nmfkc.baseline$C}.}
+#'     \item{\code{nmfkc.baseline}}{Controls whether a feedforward
+#'       \code{\link{nmfkc}}(Y1, A = Y2) fit is used as baseline.
+#'       Possible values:
+#'       \itemize{
+#'         \item Default (not given) — \code{nmf.sem} runs
+#'           \code{\link{nmfkc}} \strong{internally} when \code{X.init}
+#'           is a string method (\code{"nndsvd"}, \code{"kmeans"},
+#'           \dots) or \code{NULL}, forwarding \code{X.init},
+#'           \code{X.L2.ortho}, \code{epsilon}, \code{maxit},
+#'           \code{seed}.  The fitted \eqn{X} of the baseline is then
+#'           used as warm-start for the nmf.sem MU iterations, and
+#'           \code{SC.map} is computed.  This means
+#'           \code{nmf.sem(Y1, Y2, rank = Q)} runs end-to-end without
+#'           a prior \code{nmfkc} call.
+#'         \item \code{TRUE} — same as above, but force the internal
+#'           \code{\link{nmfkc}} call even when \code{X.init} is a
+#'           user-supplied matrix (the matrix is overridden).
+#'         \item \code{FALSE} — opt out; no internal call,
+#'           \code{SC.map = NA} (pre-v0.6.8 behavior).
+#'         \item An \code{\link{nmfkc}} result (list with \code{$X}
+#'           and \code{$C}) — use as the baseline directly (no
+#'           internal call); also adopted as \code{X.init} when the
+#'           latter is a string / NULL.
+#'       }}
+#'     \item{\code{M.simple}}{Optional \eqn{P_1 \times P_2} pre-computed
+#'       baseline mapping.  Takes precedence over \code{nmfkc.baseline}
+#'       for the SC.map calculation but does not affect warm-start.}
 #'     \item{\code{Q}}{Backward-compat alias for \code{rank}.}
 #'   }
 #'
@@ -181,6 +202,72 @@ nmf.sem <- function(
   .eps <- 1e-10
   .xnorm  <- function(X) sweep(X, 2, pmax(colSums(X), .eps), "/")
   mat1norm <- function(A) max(colSums(abs(A)))
+
+  # ---------- (optional) internal nmfkc warm-start + SC.map baseline --
+  ## Resolution rules for `nmfkc.baseline`:
+  ##   * not given (default): if X.init is a string method (or NULL),
+  ##     run nmfkc(Y1, A = Y2) INTERNALLY using the same X.init,
+  ##     X.L2.ortho, epsilon, maxit, seed; use its X as warm-start
+  ##     and X * C as M.simple for SC.map.  This is the typical
+  ##     workflow described in Satoh (2025) and means
+  ##       res <- nmf.sem(Y1, Y2, rank = Q)
+  ##     can run end-to-end without first calling nmfkc().
+  ##   * TRUE: same as above (explicit opt-in even when X.init is a
+  ##     user-supplied matrix; the matrix is overridden by nmfkc's X).
+  ##   * FALSE: opt-out — no internal nmfkc, no warm-start, SC.map = NA
+  ##     (equivalent to pre-v0.6.8 behavior).
+  ##   * an nmfkc result (list with $X and $C): use as the baseline
+  ##     for SC.map and as warm-start for X.init (no internal call).
+  baseline_for_scmap <- NULL
+
+  user_baseline    <- extra_args$nmfkc.baseline
+  user_M.simple    <- extra_args$M.simple
+
+  baseline_is_obj  <- is.list(user_baseline) &&
+                      !is.null(user_baseline$X) && !is.null(user_baseline$C)
+  baseline_is_TRUE <- isTRUE(user_baseline)
+  baseline_is_FALSE <- isFALSE(user_baseline)
+  baseline_is_default <- is.null(user_baseline)
+
+  ## Default auto-run when baseline is unspecified AND X.init is a string
+  ## method (NULL is treated as "nndsvd" string).
+  auto_nmfkc <- if (baseline_is_FALSE) {
+    FALSE
+  } else if (baseline_is_TRUE) {
+    TRUE
+  } else if (baseline_is_obj) {
+    FALSE
+  } else if (baseline_is_default) {
+    is.null(X.init) || is.character(X.init)
+  } else {
+    FALSE
+  }
+
+  if (auto_nmfkc) {
+    ## Internal nmfkc call.  Forward only the genuinely shared options
+    ## (X.init, X.L2.ortho, epsilon, maxit, seed); the nmf.sem-specific
+    ## C1.L1 / C2.L1 do not apply to the feedforward baseline model.
+    nmfkc_xinit <- if (is.null(X.init)) "nndsvd" else X.init
+    baseline_for_scmap <- nmfkc(
+      Y = Y1, A = Y2, Q = Q,
+      X.init = nmfkc_xinit,
+      X.L2.ortho = X.L2.ortho,
+      epsilon = epsilon,
+      maxit = maxit,
+      seed = seed,
+      verbose = FALSE,
+      print.dims = FALSE
+    )
+    ## Override X.init with the nmfkc-fitted X for nmf.sem warm-start
+    X.init <- baseline_for_scmap$X
+  } else if (baseline_is_obj) {
+    baseline_for_scmap <- user_baseline
+    ## When the user supplies an nmfkc result AND X.init is still a
+    ## string / NULL, also use baseline$X as warm-start (rmd workflow).
+    if (is.null(X.init) || is.character(X.init)) {
+      X.init <- baseline_for_scmap$X
+    }
+  }
 
   # ---------------------------- init X,C1,C2 --------------------------
   ## X.init dispatch: delegate string methods to the shared internal
@@ -321,21 +408,18 @@ nmf.sem <- function(
 
   ## -------------------- input-output structural fidelity (SC.map) -----
   ## SC.map = cor(vec(M.model), vec(M.simple)), where M.simple = X0 * Theta0
-  ## is the "feedforward baseline" mapping -- typically the X %*% C from
-  ## a prior nmfkc(Y1, A = Y2) fit used as warm-start (see Satoh 2025
-  ## §4.SC.map).  Computed automatically when the user supplies one of
-  ## the following hidden args via ...:
-  ##   M.simple        — pre-computed P1 x P2 baseline mapping
-  ##   nmfkc.baseline  — an nmfkc() result with $X (P1 x Q) and $C (Q x P2);
-  ##                     M.simple is computed as nmfkc.baseline$X %*%
-  ##                     nmfkc.baseline$C
+  ## is the feedforward baseline mapping (Satoh 2025 §4.SC.map).
+  ## `baseline_for_scmap` was set above to either:
+  ##   - the result of an internal nmfkc call (default auto path), or
+  ##   - the user-supplied `nmfkc.baseline` list, or
+  ##   - NULL if the user opted out (nmfkc.baseline = FALSE) or
+  ##     supplied X.init as a numeric matrix without nmfkc.baseline.
+  ## A user-supplied `M.simple` matrix takes precedence over both.
   SC.map <- NA_real_
-  M.simple <- if (!is.null(extra_args$M.simple)) extra_args$M.simple else NULL
-  if (is.null(M.simple) && !is.null(extra_args$nmfkc.baseline)) {
-    bl <- extra_args$nmfkc.baseline
-    if (!is.null(bl$X) && !is.null(bl$C))
-      M.simple <- bl$X %*% bl$C
-  }
+  M.simple <- if (!is.null(user_M.simple)) user_M.simple
+              else if (!is.null(baseline_for_scmap))
+                baseline_for_scmap$X %*% baseline_for_scmap$C
+              else NULL
   if (!is.null(M.simple) && !anyNA(M.model)) {
     M.simple <- as.matrix(M.simple)
     if (all(dim(M.simple) == dim(M.model))) {

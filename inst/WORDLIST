@@ -21,6 +21,7 @@ calc
 circ
 Cn
 CPCC
+compat
 cv
 Denormalize
 denormalized
@@ -38,6 +39,7 @@ eqn
 et
 Factorizations
 factorizations
+feedforward
 Frobenius
 Gallopoulos
 ge

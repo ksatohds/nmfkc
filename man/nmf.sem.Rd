@@ -77,17 +77,38 @@ Default: \code{20000}.}
 \item{seed}{Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
 Default: \code{123}.}
 
-\item{...}{Additional hidden arguments:
+\item{...}{Additional hidden arguments controlling the optional
+feedforward baseline (used both as an \eqn{X} warm-start and as
+the reference for \code{SC.map}, the input-output structural
+fidelity defined in Satoh (2025) §4.SC.map):
 \describe{
-\item{\code{M.simple}}{Optional \eqn{P_1 \times P_2} feedforward
-baseline mapping.  When supplied, \code{nmf.sem} computes
-\code{SC.map} = \eqn{\mathrm{cor}(\mathrm{vec}(M_{\mathrm{model}}),
-      \mathrm{vec}(M_{\mathrm{simple}}))} and stores it in the
-returned list.}
-\item{\code{nmfkc.baseline}}{Convenience: an \code{\link{nmfkc}}
-fit object (with \code{$X} and \code{$C}); if supplied without
-\code{M.simple}, the baseline is constructed as
-\code{nmfkc.baseline$X \%*\% nmfkc.baseline$C}.}
+\item{\code{nmfkc.baseline}}{Controls whether a feedforward
+\code{\link{nmfkc}}(Y1, A = Y2) fit is used as baseline.
+Possible values:
+\itemize{
+\item Default (not given) — \code{nmf.sem} runs
+\code{\link{nmfkc}} \strong{internally} when \code{X.init}
+is a string method (\code{"nndsvd"}, \code{"kmeans"},
+\dots) or \code{NULL}, forwarding \code{X.init},
+\code{X.L2.ortho}, \code{epsilon}, \code{maxit},
+\code{seed}.  The fitted \eqn{X} of the baseline is then
+used as warm-start for the nmf.sem MU iterations, and
+\code{SC.map} is computed.  This means
+\code{nmf.sem(Y1, Y2, rank = Q)} runs end-to-end without
+a prior \code{nmfkc} call.
+\item \code{TRUE} — same as above, but force the internal
+\code{\link{nmfkc}} call even when \code{X.init} is a
+user-supplied matrix (the matrix is overridden).
+\item \code{FALSE} — opt out; no internal call,
+\code{SC.map = NA} (pre-v0.6.8 behavior).
+\item An \code{\link{nmfkc}} result (list with \code{$X}
+and \code{$C}) — use as the baseline directly (no
+internal call); also adopted as \code{X.init} when the
+latter is a string / NULL.
+}}
+\item{\code{M.simple}}{Optional \eqn{P_1 \times P_2} pre-computed
+baseline mapping.  Takes precedence over \code{nmfkc.baseline}
+for the SC.map calculation but does not affect warm-start.}
 \item{\code{Q}}{Backward-compat alias for \code{rank}.}
 }}
 }
