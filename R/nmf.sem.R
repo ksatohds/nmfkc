@@ -360,7 +360,9 @@ nmf.sem <- function(
 #' large \code{support_rate} indicates strong evidence that the entry is
 #' meaningfully positive.  Significance markers follow the lavaan
 #' convention with the natural correspondence \eqn{p = 1 - \mathrm{sup}}:
-#' \code{*} (sup > 0.95), \code{**} (sup > 0.99), \code{***} (sup > 0.999).
+#' \code{*} (sup >= 0.95), \code{**} (sup >= 0.99), \code{***}
+#' (sup >= 0.999).  Cutoffs are inclusive to match the convention of
+#' the post-processing script used in Satoh (2025).
 #'
 #' @param object A fitted object returned by \code{\link{nmf.sem}}.  Must
 #'   contain \code{X}, \code{C1}, \code{C2}.
@@ -368,7 +370,7 @@ nmf.sem <- function(
 #'   used in \code{nmf.sem()}.
 #' @param Y2 Exogenous variable matrix (P2 x N).  Same.
 #' @param B Number of bootstrap replicates.  Default \code{1000}; required
-#'   for the \code{***} threshold (sup > 0.999).  Reduce to 500 for
+#'   for the \code{***} threshold (sup >= 0.999).  Reduce to 500 for
 #'   exploratory speed (only \code{*} / \code{**} stay reliable).
 #' @param threshold Display threshold \eqn{\delta} for the support rate
 #'   \eqn{\Pr_{\mathrm{boot}}(\hat c^{(b)} > \delta)}.  Default
@@ -638,12 +640,18 @@ nmf.sem.inference <- function(object, Y1, Y2,
   C2.ci.lower <- apply_finite(C2.array, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
   C2.ci.upper <- apply_finite(C2.array, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
 
-  ## Significance markers from support rate (one-sided; lavaan-style)
+  ## Significance markers from support rate (one-sided; lavaan-style).
+  ## Cutoffs are inclusive (>=) so that with B = 1000 the boundary cases
+  ## support_rate == 1.000 / 0.999 / 0.99 / 0.95 (one rep above / at the
+  ## boundary) are awarded the corresponding stars.  This matches the
+  ## convention used in the post-processing script that generates the
+  ## figures in Satoh (2025), arXiv:2512.18250 (see summarize_path_cis.R
+  ## in the manuscript repository).
   sig.from.support <- function(s) {
     ifelse(!is.finite(s), " ",
-      ifelse(s > 0.999, "***",
-        ifelse(s > 0.99,  "**",
-          ifelse(s > 0.95, "*", " "))))
+      ifelse(s >= 0.999, "***",
+        ifelse(s >= 0.99,  "**",
+          ifelse(s >= 0.95, "*", " "))))
   }
 
   ## ----------------------------------------------------------------

@@ -27,7 +27,7 @@ used in \code{nmf.sem()}.}
 \item{Y2}{Exogenous variable matrix (P2 x N).  Same.}
 
 \item{B}{Number of bootstrap replicates.  Default \code{1000}; required
-for the \code{***} threshold (sup > 0.999).  Reduce to 500 for
+for the \code{***} threshold (sup >= 0.999).  Reduce to 500 for
 exploratory speed (only \code{*} / \code{**} stay reliable).}
 
 \item{threshold}{Display threshold \eqn{\delta} for the support rate
@@ -118,7 +118,9 @@ This is a one-sided counterpart of the classical \eqn{p}-value:
 large \code{support_rate} indicates strong evidence that the entry is
 meaningfully positive.  Significance markers follow the lavaan
 convention with the natural correspondence \eqn{p = 1 - \mathrm{sup}}:
-\code{*} (sup > 0.95), \code{**} (sup > 0.99), \code{***} (sup > 0.999).
+\code{*} (sup >= 0.95), \code{**} (sup >= 0.99), \code{***}
+(sup >= 0.999).  Cutoffs are inclusive to match the convention of
+the post-processing script used in Satoh (2025).
 }
 \section{Lifecycle}{
 
