@@ -98,9 +98,11 @@ summary.nmf.sem <- function(object, ...) {
               object$amplification, object$amplification.bound))
 
   cat("\nFit statistics:\n")
-  if (!is.na(object$SC.cov))
+  if (!is.null(object$SC.map) && is.finite(object$SC.map))
+    cat(sprintf("  SC.map (mapping correlation):    %.4f\n", object$SC.map))
+  if (!is.null(object$SC.cov) && is.finite(object$SC.cov))
     cat(sprintf("  SC.cov (covariance correlation): %.4f\n", object$SC.cov))
-  if (!is.na(object$MAE))
+  if (!is.null(object$MAE)   && is.finite(object$MAE))
     cat(sprintf("  MAE (mean absolute error):       %.4f\n", object$MAE))
 
   # Coefficients from inference

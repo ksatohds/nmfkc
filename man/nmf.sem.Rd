@@ -77,7 +77,19 @@ Default: \code{20000}.}
 \item{seed}{Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
 Default: \code{123}.}
 
-\item{...}{Additional arguments (reserved for future use).}
+\item{...}{Additional hidden arguments:
+\describe{
+\item{\code{M.simple}}{Optional \eqn{P_1 \times P_2} feedforward
+baseline mapping.  When supplied, \code{nmf.sem} computes
+\code{SC.map} = \eqn{\mathrm{cor}(\mathrm{vec}(M_{\mathrm{model}}),
+      \mathrm{vec}(M_{\mathrm{simple}}))} and stores it in the
+returned list.}
+\item{\code{nmfkc.baseline}}{Convenience: an \code{\link{nmfkc}}
+fit object (with \code{$X} and \code{$C}); if supplied without
+\code{M.simple}, the baseline is constructed as
+\code{nmfkc.baseline$X \%*\% nmfkc.baseline$C}.}
+\item{\code{Q}}{Backward-compat alias for \code{rank}.}
+}}
 }
 \value{
 A list with components:
@@ -99,7 +111,14 @@ A list with components:
 \eqn{\lVert X \Theta_1 \rVert_{1,\mathrm{op}} < 1}, otherwise \code{Inf}.}
 \item{Q}{Effective latent dimension used in the fit.}
 \item{SC.cov}{Correlation between sample and model-implied covariance
-(flattened) of \eqn{Y_1}.}
+(flattened) of \eqn{Y_1}.  See \emph{second-moment fidelity} in
+Satoh (2025).}
+\item{SC.map}{Correlation between the equilibrium operator
+\eqn{M_{\mathrm{model}}} and a feedforward baseline mapping
+\eqn{M_{\mathrm{simple}} = X_0 \Theta_0}, computed only when the
+baseline is supplied via \code{M.simple} or \code{nmfkc.baseline}
+in \code{...}; otherwise \code{NA}.  See \emph{input-output
+structural fidelity} in Satoh (2025).}
 \item{MAE}{Mean absolute error between \eqn{Y_1} and its equilibrium
 prediction \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.}
 \item{objfunc}{Vector of reconstruction losses per iteration.}

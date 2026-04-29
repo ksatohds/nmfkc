@@ -78,7 +78,19 @@
 #'   Default: \code{20000}.
 #' @param seed Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
 #'   Default: \code{123}.
-#' @param ... Additional arguments (reserved for future use).
+#' @param ... Additional hidden arguments:
+#'   \describe{
+#'     \item{\code{M.simple}}{Optional \eqn{P_1 \times P_2} feedforward
+#'       baseline mapping.  When supplied, \code{nmf.sem} computes
+#'       \code{SC.map} = \eqn{\mathrm{cor}(\mathrm{vec}(M_{\mathrm{model}}),
+#'       \mathrm{vec}(M_{\mathrm{simple}}))} and stores it in the
+#'       returned list.}
+#'     \item{\code{nmfkc.baseline}}{Convenience: an \code{\link{nmfkc}}
+#'       fit object (with \code{$X} and \code{$C}); if supplied without
+#'       \code{M.simple}, the baseline is constructed as
+#'       \code{nmfkc.baseline$X \%*\% nmfkc.baseline$C}.}
+#'     \item{\code{Q}}{Backward-compat alias for \code{rank}.}
+#'   }
 #'
 #' @return A list with components:
 #'   \item{X}{Estimated basis matrix (\eqn{P_1 \times Q}).}
@@ -99,7 +111,14 @@
 #'     \eqn{\lVert X \Theta_1 \rVert_{1,\mathrm{op}} < 1}, otherwise \code{Inf}.}
 #'   \item{Q}{Effective latent dimension used in the fit.}
 #'   \item{SC.cov}{Correlation between sample and model-implied covariance
-#'     (flattened) of \eqn{Y_1}.}
+#'     (flattened) of \eqn{Y_1}.  See \emph{second-moment fidelity} in
+#'     Satoh (2025).}
+#'   \item{SC.map}{Correlation between the equilibrium operator
+#'     \eqn{M_{\mathrm{model}}} and a feedforward baseline mapping
+#'     \eqn{M_{\mathrm{simple}} = X_0 \Theta_0}, computed only when the
+#'     baseline is supplied via \code{M.simple} or \code{nmfkc.baseline}
+#'     in \code{...}; otherwise \code{NA}.  See \emph{input-output
+#'     structural fidelity} in Satoh (2025).}
 #'   \item{MAE}{Mean absolute error between \eqn{Y_1} and its equilibrium
 #'     prediction \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.}
 #'   \item{objfunc}{Vector of reconstruction losses per iteration.}
@@ -300,6 +319,37 @@ nmf.sem <- function(
     MAE      <- mean(abs(Y1 - Y1_hat))
   }
 
+  ## -------------------- input-output structural fidelity (SC.map) -----
+  ## SC.map = cor(vec(M.model), vec(M.simple)), where M.simple = X0 * Theta0
+  ## is the "feedforward baseline" mapping -- typically the X %*% C from
+  ## a prior nmfkc(Y1, A = Y2) fit used as warm-start (see Satoh 2025
+  ## §4.SC.map).  Computed automatically when the user supplies one of
+  ## the following hidden args via ...:
+  ##   M.simple        — pre-computed P1 x P2 baseline mapping
+  ##   nmfkc.baseline  — an nmfkc() result with $X (P1 x Q) and $C (Q x P2);
+  ##                     M.simple is computed as nmfkc.baseline$X %*%
+  ##                     nmfkc.baseline$C
+  SC.map <- NA_real_
+  M.simple <- if (!is.null(extra_args$M.simple)) extra_args$M.simple else NULL
+  if (is.null(M.simple) && !is.null(extra_args$nmfkc.baseline)) {
+    bl <- extra_args$nmfkc.baseline
+    if (!is.null(bl$X) && !is.null(bl$C))
+      M.simple <- bl$X %*% bl$C
+  }
+  if (!is.null(M.simple) && !anyNA(M.model)) {
+    M.simple <- as.matrix(M.simple)
+    if (all(dim(M.simple) == dim(M.model))) {
+      SC.map <- tryCatch(
+        stats::cor(as.numeric(M.simple), as.numeric(M.model)),
+        error = function(e) NA_real_
+      )
+    } else {
+      warning("M.simple has dimension ", paste(dim(M.simple), collapse = "x"),
+              " but M.model is ", paste(dim(M.model), collapse = "x"),
+              "; SC.map not computed.")
+    }
+  }
+
   out <- list(
     X                   = X,
     C1                  = C1,
@@ -314,6 +364,7 @@ nmf.sem <- function(
     amplification.bound = amplification.bound,
     Q                   = Q,
     SC.cov              = SC.cov,
+    SC.map              = SC.map,
     MAE                 = MAE,
     objfunc             = objfunc[1:it],
     objfunc.full        = objfunc.full[1:it],
