@@ -1258,11 +1258,17 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #'   labels for the Y2, factor, and Y1 clusters.
 #' @param hide.isolated Logical. If \code{TRUE} (default), Y1 and Y2 nodes
 #'   that have no edges at or above \code{threshold} are excluded from the graph.
-#' @param sig.level Significance level for filtering C2 edges when inference
-#'   results are present. If \code{result} contains a \code{coefficients} data
-#'   frame (from \code{\link{nmf.sem.inference}}), only edges with
-#'   \code{p_value < sig.level} are drawn, with significance stars appended.
-#'   Set to \code{NULL} to disable filtering. Default is \code{0.1}.
+#' @param sig.level Significance level for filtering structural edges
+#'   (\eqn{C_1} feedback and \eqn{C_2} exogenous loadings) when
+#'   inference results are present.  If \code{result} contains a
+#'   \code{coefficients} data frame from \code{\link{nmf.sem.inference}},
+#'   only edges with \code{p_value < sig.level} are drawn, with
+#'   significance stars (\code{*} \code{**} \code{***}) appended to
+#'   the edge label.  The \eqn{X} (factor-to-\eqn{Y_1}) edges are
+#'   never starred since the basis is not the inference target.
+#'   Set to \code{NULL} to disable significance filtering and fall
+#'   back to the \code{threshold} magnitude filter for both \eqn{C_1}
+#'   and \eqn{C_2}.  Default is \code{0.1}.
 #'
 #' @return A character string representing a valid Graphviz DOT script.
 #'
@@ -1464,29 +1470,66 @@ nmf.sem.DOT <- function(result,
   fmtc   <- function(x) .nmfkc_dot_format_coef(x, digits)
 
   ## ---------------------------------------------------------------
-  ## Significance stars for C2 edges (from nmf.sem.inference)
+  ## Significance stars for C1 (feedback) and C2 (exogenous) edges,
+  ## both from nmf.sem.inference().  X (F -> Y1) edges are NOT
+  ## starred even when inference results are present, since the
+  ## basis is not the inference target.
+  ##
+  ## Filters by the optional `Type` column ("C1" / "C2") if present
+  ## (newer inference output); falls back to row-name matching for
+  ## back-compatibility with pre-v0.6.8 inference output that only
+  ## carried C2.
   ## ---------------------------------------------------------------
-  C2_stars <- NULL
-  C2_show  <- NULL
+  pval_to_stars <- function(p) {
+    if (!is.finite(p)) ""
+    else if (p < 0.001) "***"
+    else if (p < 0.01)  "**"
+    else if (p < 0.05)  "*"
+    else                ""
+  }
+
+  C1_stars <- NULL; C1_show <- NULL
+  C2_stars <- NULL; C2_show <- NULL
   if (!is.null(result$coefficients)) {
+    cf        <- result$coefficients
+    fac_names <- rownames(C2)
+    y1_names  <- colnames(C1)
+    y2_names  <- colnames(C2)
+
+    has_type <- !is.null(cf$Type)
+    cf_C1 <- if (has_type) cf[cf$Type == "C1", , drop = FALSE] else NULL
+    cf_C2 <- if (has_type) cf[cf$Type == "C2", , drop = FALSE] else cf
+
+    ## ---- C2 stars (Y2 -> F) ----
     C2_stars <- matrix("", nrow = Q, ncol = P2)
     C2_pval  <- matrix(NA_real_, nrow = Q, ncol = P2)
-    cf <- result$coefficients
-    fac_names <- rownames(C2)
-    exo_names <- colnames(C2)
-    for (k in seq_len(nrow(cf))) {
-      q  <- match(cf$Basis[k], fac_names)
-      p2 <- match(cf$Covariate[k], exo_names)
-      if (!is.na(q) && !is.na(p2) && !is.na(cf$p_value[k])) {
-        p <- cf$p_value[k]
-        C2_pval[q, p2] <- p
-        if (p < 0.001)      C2_stars[q, p2] <- "***"
-        else if (p < 0.01)  C2_stars[q, p2] <- "**"
-        else if (p < 0.05)  C2_stars[q, p2] <- "*"
+    for (k in seq_len(nrow(cf_C2))) {
+      q  <- match(cf_C2$Basis[k], fac_names)
+      p2 <- match(cf_C2$Covariate[k], y2_names)
+      if (!is.na(q) && !is.na(p2) && !is.na(cf_C2$p_value[k])) {
+        C2_pval[q, p2]  <- cf_C2$p_value[k]
+        C2_stars[q, p2] <- pval_to_stars(cf_C2$p_value[k])
       }
     }
     if (!is.null(sig.level)) {
       C2_show <- !is.na(C2_pval) & C2_pval < sig.level
+    }
+
+    ## ---- C1 stars (Y1 -> F, feedback) ----
+    if (!is.null(cf_C1) && nrow(cf_C1) > 0L) {
+      C1_stars <- matrix("", nrow = Q, ncol = P1)
+      C1_pval  <- matrix(NA_real_, nrow = Q, ncol = P1)
+      for (k in seq_len(nrow(cf_C1))) {
+        q  <- match(cf_C1$Basis[k], fac_names)
+        p1 <- match(cf_C1$Covariate[k], y1_names)
+        if (!is.na(q) && !is.na(p1) && !is.na(cf_C1$p_value[k])) {
+          C1_pval[q, p1]  <- cf_C1$p_value[k]
+          C1_stars[q, p1] <- pval_to_stars(cf_C1$p_value[k])
+        }
+      }
+      if (!is.null(sig.level)) {
+        C1_show <- !is.na(C1_pval) & C1_pval < sig.level
+      }
     }
   }
 
@@ -1557,9 +1600,15 @@ nmf.sem.DOT <- function(result,
     for (q in seq_len(Q)) {
       for (p1 in idx_y1) {
         weight <- C1[q, p1]
-        if (is.finite(weight) && weight >= threshold) {
+        ## When inference results provide C1 p-values, prefer the
+        ## significance-based filter (parallels the C2 branch above);
+        ## otherwise fall back to the magnitude threshold.
+        show <- if (!is.null(C1_show)) C1_show[q, p1]
+                else is.finite(weight) && weight >= threshold
+        if (show) {
           pen <- pw(weight, max_C1, weight_scale_feedback)
           lab <- fmtc(weight)
+          if (!is.null(C1_stars)) lab <- paste0(lab, C1_stars[q, p1])
           path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
                           Y1_ids[p1], F_ids[q], lab, pen)
           dot_script <- paste0(dot_script, path)

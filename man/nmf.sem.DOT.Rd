@@ -37,11 +37,17 @@ nmf.sem.DOT(
 
 \item{threshold}{Minimum coefficient value needed for an edge to be drawn.}
 
-\item{sig.level}{Significance level for filtering C2 edges when inference
-results are present. If \code{result} contains a \code{coefficients} data
-frame (from \code{\link{nmf.sem.inference}}), only edges with
-\code{p_value < sig.level} are drawn, with significance stars appended.
-Set to \code{NULL} to disable filtering. Default is \code{0.1}.}
+\item{sig.level}{Significance level for filtering structural edges
+(\eqn{C_1} feedback and \eqn{C_2} exogenous loadings) when
+inference results are present.  If \code{result} contains a
+\code{coefficients} data frame from \code{\link{nmf.sem.inference}},
+only edges with \code{p_value < sig.level} are drawn, with
+significance stars (\code{*} \code{**} \code{***}) appended to
+the edge label.  The \eqn{X} (factor-to-\eqn{Y_1}) edges are
+never starred since the basis is not the inference target.
+Set to \code{NULL} to disable significance filtering and fall
+back to the \code{threshold} magnitude filter for both \eqn{C_1}
+and \eqn{C_2}.  Default is \code{0.1}.}
 
 \item{rankdir}{Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).}
 
