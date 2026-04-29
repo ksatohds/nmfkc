@@ -225,7 +225,44 @@ coef.nmf <- function(object, ...) {
 #' @rdname coef.nmf
 #' @export
 coef.nmf.sem <- function(object, ...) {
-  if (!is.null(object$coefficients)) object$coefficients else object$C2
+  ## With inference: return the unified coefficients data frame (rows for
+  ## both C1 and C2, with CI / support_rate / sig columns).
+  if (!is.null(object$coefficients)) return(object$coefficients)
+
+  ## Without inference: return a long-format data frame with rows for
+  ## every entry of C1 (feedback) and C2 (exogenous), so the column
+  ## layout matches `coef(res_inf)`.  Users can post-hoc filter via
+  ## `subset(coef(res), Type == "C1")` regardless of whether
+  ## nmf.sem.inference() has been run.
+  C1 <- object$C1
+  C2 <- object$C2
+  if (is.null(C1) || is.null(C2)) {
+    ## Fallback (shouldn't normally happen for an nmf.sem result)
+    return(if (!is.null(C2)) C2 else C1)
+  }
+  Q  <- nrow(C1)
+  P1 <- ncol(C1)
+  P2 <- ncol(C2)
+  bas <- if (!is.null(rownames(C1))) rownames(C1) else paste0("Factor", seq_len(Q))
+  y1  <- if (!is.null(colnames(C1))) colnames(C1) else paste0("Y1_", seq_len(P1))
+  y2  <- if (!is.null(colnames(C2))) colnames(C2) else paste0("Y2_", seq_len(P2))
+  C1_block <- data.frame(
+    Type      = "C1",
+    Basis     = rep(bas, times = P1),
+    Covariate = rep(y1,  each  = Q),
+    Estimate  = as.vector(C1),
+    stringsAsFactors = FALSE
+  )
+  C2_block <- data.frame(
+    Type      = "C2",
+    Basis     = rep(bas, times = P2),
+    Covariate = rep(y2,  each  = Q),
+    Estimate  = as.vector(C2),
+    stringsAsFactors = FALSE
+  )
+  out <- rbind(C1_block, C2_block)
+  rownames(out) <- NULL
+  out
 }
 
 
