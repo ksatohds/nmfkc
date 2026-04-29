@@ -324,44 +324,106 @@ nmf.sem <- function(
 }
 
 
-#' @title Statistical inference for the exogenous parameter matrix C2
+#' @title Statistical inference for NMF-SEM via X-fixed full pair bootstrap
 #' @description
-#' \code{nmf.sem.inference} performs statistical inference on the exogenous
-#' parameter matrix \eqn{C_2} from a fitted \code{nmf.sem} model, conditional
-#' on the estimated basis matrix \eqn{\hat{X}} and the endogenous parameter
-#' matrix \eqn{\hat{C}_1}.
+#' \code{nmf.sem.inference} performs statistical inference on the structural
+#' coefficient matrices \eqn{C_1} (latent feedback, \eqn{\Theta_1}) and
+#' \eqn{C_2} (exogenous loading, \eqn{\Theta_2}) from a fitted
+#' \code{\link{nmf.sem}} model.
 #'
-#' Under the working model \eqn{R = Y_1 - X C_1 Y_1 \approx X C_2 Y_2 + \varepsilon},
-#' inference on \eqn{C_2} is conducted via sandwich covariance estimation and
-#' one-step wild bootstrap with non-negative projection.
+#' The procedure is a \strong{full pair bootstrap} that holds the basis
+#' matrix \eqn{\hat X} from the original fit fixed across all replicates
+#' (which avoids label switching and gives a clean conditional
+#' interpretation: ``uncertainty of the structural coefficients given the
+#' measurement model''):
+#' \enumerate{
+#'   \item For each replicate \eqn{b = 1, \dots, B}, resample column indices
+#'     \eqn{(i_1, \dots, i_N)} with replacement from \eqn{\{1, \dots, N\}}
+#'     and form \eqn{Y_1^{(b)} = Y_1[, i]}, \eqn{Y_2^{(b)} = Y_2[, i]}.
+#'   \item Re-estimate \eqn{(C_1^{(b)}, C_2^{(b)})} by running the
+#'     \code{\link{nmf.sem}} multiplicative updates \emph{with \eqn{X = \hat X}
+#'     held fixed} (no \eqn{X} update; no centroid sort), using the same
+#'     \code{C1.L1}, \code{C2.L1} as the original fit.
+#'   \item Discard replicates that violate stationarity
+#'     (\eqn{\rho(X C_1^{(b)}) \ge 1}) or have an amplification ratio
+#'     exceeding the geometric-series bound by more than 1\%.
+#' }
+#' Because \eqn{C_1, C_2 \ge 0} are non-negative by construction, exact
+#' zeros are essentially never observed in the bootstrap distribution.
+#' Significance is assessed via a \strong{support rate} at a small display
+#' threshold \eqn{\delta} (default \code{0.01}):
+#' \deqn{
+#'   \mathrm{sup}(c) \;=\; \frac{1}{|\mathrm{valid}|}
+#'     \sum_{b \in \mathrm{valid}} \mathbf{1}\!\left( \hat c^{(b)} > \delta \right).
+#' }
+#' This is a one-sided counterpart of the classical \eqn{p}-value:
+#' large \code{support_rate} indicates strong evidence that the entry is
+#' meaningfully positive.  Significance markers follow the lavaan
+#' convention with the natural correspondence \eqn{p = 1 - \mathrm{sup}}:
+#' \code{*} (sup > 0.95), \code{**} (sup > 0.99), \code{***} (sup > 0.999).
 #'
-#' @param object A list returned by \code{\link{nmf.sem}}, containing at least
-#'   \code{X}, \code{C1}, and \code{C2}.
-#' @param Y1 Endogenous variable matrix (P1 x N). Must match the data used in
-#'   \code{nmf.sem()}.
-#' @param Y2 Exogenous variable matrix (P2 x N). Must match the data used in
-#'   \code{nmf.sem()}.
-#' @param wild.bootstrap Logical. If \code{TRUE} (default), performs wild bootstrap
-#'   for confidence intervals and bootstrap standard errors.
-#' @param ... Additional arguments:
+#' @param object A fitted object returned by \code{\link{nmf.sem}}.  Must
+#'   contain \code{X}, \code{C1}, \code{C2}.
+#' @param Y1 Endogenous variable matrix (P1 x N).  Must match the data
+#'   used in \code{nmf.sem()}.
+#' @param Y2 Exogenous variable matrix (P2 x N).  Same.
+#' @param B Number of bootstrap replicates.  Default \code{1000}; required
+#'   for the \code{***} threshold (sup > 0.999).  Reduce to 500 for
+#'   exploratory speed (only \code{*} / \code{**} stay reliable).
+#' @param threshold Display threshold \eqn{\delta} for the support rate
+#'   \eqn{\Pr_{\mathrm{boot}}(\hat c^{(b)} > \delta)}.  Default
+#'   \code{0.01}; entries below this magnitude are treated as effectively
+#'   zero in the path diagram.
+#' @param ci.level Confidence level for the percentile bootstrap CI.
+#'   Default \code{0.95}.
+#' @param C1.L1,C2.L1 L1 sparsity penalties used by the original
+#'   \code{\link{nmf.sem}} fit.  These must match the fit's hyperparameters
+#'   for the bootstrap to estimate the correct model.  Defaults
+#'   (\code{1.0}, \code{0.1}) match \code{nmf.sem}'s defaults but you
+#'   should pass the actual values used.
+#' @param seed Base RNG seed for the bootstrap.  Each replicate uses
+#'   \code{seed + b} (resampling) and \code{seed + 1000 + b}
+#'   (\eqn{C_1, C_2} initialization).  Default \code{123}.
+#' @param ... Hidden options:
 #'   \describe{
-#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
-#'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
-#'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
-#'     \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
-#'     \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
-#'     \item{\code{cov.ridge}}{Ridge stabilization for information matrix inversion. Default is 1e-8.}
-#'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+#'     \item{\code{epsilon}}{Convergence tolerance for the inner fixed-X MU
+#'       loop.  Default \code{1e-6}.}
+#'     \item{\code{maxit}}{Maximum iterations for the inner MU loop.
+#'       Default \code{5000}.}
+#'     \item{\code{ncores}}{Number of parallel workers.  Default \code{1}
+#'       (serial).  Cross-platform: uses \code{parallel::mclapply} on
+#'       Linux/macOS and \code{parallel::parLapply} (PSOCK cluster) on
+#'       Windows.}
+#'     \item{\code{print.trace}}{Logical, print progress.  Default
+#'       \code{FALSE}.}
 #'   }
 #'
-#' @return The input \code{object} with additional inference components:
-#' \item{sigma2.used}{Estimated \eqn{\sigma^2} used for inference.}
-#' \item{C2.se}{Sandwich standard errors for \eqn{C_2} (Q x P2 matrix).}
-#' \item{C2.se.boot}{Bootstrap standard errors for \eqn{C_2} (Q x P2 matrix).}
-#' \item{C2.ci.lower}{Lower CI bounds for \eqn{C_2} (Q x P2 matrix).}
-#' \item{C2.ci.upper}{Upper CI bounds for \eqn{C_2} (Q x P2 matrix).}
-#' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{C_2}.}
-#' \item{C2.p.side}{P-value type used.}
+#' @return The input \code{object} with additional bootstrap inference
+#'   components:
+#' \item{coefficients}{Data frame with rows for every entry of \eqn{C_1}
+#'   and \eqn{C_2} and columns \code{Type} ("C1" / "C2"), \code{Basis},
+#'   \code{Covariate}, \code{Estimate}, \code{CI_low}, \code{CI_high},
+#'   \code{support_rate}, \code{p_value} (\eqn{= 1 - \mathrm{support\_rate}},
+#'   for compatibility with downstream consumers such as
+#'   \code{\link{nmf.sem.DOT}}), and \code{sig}.}
+#' \item{C1.support.rate, C2.support.rate}{Per-element support rates
+#'   (Q x P1 and Q x P2 matrices).}
+#' \item{C1.ci.lower, C1.ci.upper, C2.ci.lower, C2.ci.upper}{Per-element
+#'   percentile CI bounds.}
+#' \item{C1.array, C2.array}{Bootstrap distributions: 3D arrays of shape
+#'   B x Q x P1 (and B x Q x P2).  Invalid replicates contain \code{NA}.}
+#' \item{rho.boot, AR.boot, iter.boot}{Per-replicate spectral radius,
+#'   amplification ratio, and inner-loop iteration count.}
+#' \item{bootstrap.B, bootstrap.threshold, bootstrap.ci.level}{Inputs
+#'   recorded for reproducibility.}
+#' \item{bootstrap.n.valid, bootstrap.n.invalid}{Validity counts.}
+#'
+#' @section Lifecycle:
+#' This function's interface changed at v0.6.8: the legacy 1-step Newton
+#' wild bootstrap (with sandwich SE) has been replaced by the full pair
+#' bootstrap described above, following the paper revision.  The fields
+#' \code{sigma2.used}, \code{C2.se}, \code{C2.se.boot}, \code{C2.p.side}
+#' that the previous implementation produced are no longer present.
 #'
 #' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.DOT}}
 #' @references
@@ -370,163 +432,274 @@ nmf.sem <- function(
 #'   arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 #' @export
 #' @examples
+#' \donttest{
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
-#' res <- nmf.sem(Y1, Y2, rank = 2)
-#' res2 <- nmf.sem.inference(res, Y1, Y2)
-#' res2$coefficients
-#'
-nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
+#' res  <- nmf.sem(Y1, Y2, rank = 2)
+#' res2 <- nmf.sem.inference(res, Y1, Y2, B = 200)  # quick demo
+#' head(res2$coefficients)
+#' }
+nmf.sem.inference <- function(object, Y1, Y2,
+                               B = 1000L,
+                               threshold = 0.01,
+                               ci.level = 0.95,
+                               C1.L1 = 1.0,
+                               C2.L1 = 0.1,
+                               seed = 123L,
+                               ...) {
   if (is.null(object$X) || is.null(object$C1) || is.null(object$C2))
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
 
-  extra_args <- base::list(...)
-  wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
-  wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
-  wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
-  sandwich    <- if (!is.null(extra_args$sandwich))     extra_args$sandwich    else TRUE
-  C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
-  cov.ridge   <- if (!is.null(extra_args$cov.ridge))   extra_args$cov.ridge   else 1e-8
+  extra_args  <- base::list(...)
+  epsilon     <- if (!is.null(extra_args$epsilon))     extra_args$epsilon     else 1e-6
+  maxit       <- if (!is.null(extra_args$maxit))       extra_args$maxit       else 5000L
+  ncores      <- if (!is.null(extra_args$ncores))      extra_args$ncores      else 1L
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
 
   Y1 <- base::as.matrix(Y1)
   Y2 <- base::as.matrix(Y2)
+  if (ncol(Y1) != ncol(Y2)) stop("Y1 and Y2 must have the same number of columns.")
 
-  X     <- object$X    # P1 x Q
-  C1    <- object$C1   # Q x P1
-  C2    <- object$C2   # Q x P2
+  X.hat  <- object$X
+  C1.hat <- object$C1
+  C2.hat <- object$C2
 
-  Q  <- base::ncol(X)
-  P1 <- base::nrow(Y1)
-  P2 <- base::nrow(Y2)
-  N  <- base::ncol(Y1)
+  Q  <- ncol(X.hat)
+  P1 <- nrow(Y1)
+  P2 <- nrow(Y2)
+  N  <- ncol(Y1)
+  if (nrow(X.hat) != P1)
+    stop("nrow(X) must equal nrow(Y1); did Y1 change shape?")
+  if (Q < 1L) stop("Inferred rank Q < 1.")
 
-  # Residual after removing endogenous feedback: R = Y1 - X*C1*Y1
-  R_endo <- Y1 - X %*% C1 %*% Y1          # P1 x N
-  R_C2   <- R_endo - X %*% C2 %*% Y2      # P1 x N  (full residual)
+  ## ----------------------------------------------------------------
+  ## one_boot: a single bootstrap replicate.
+  ## Closure captures Y1, Y2, X.hat, C1.L1, C2.L1, Q, P1, P2, N,
+  ## epsilon, maxit, seed.  Returns a list with valid flag plus
+  ## (C1, C2, rho, AR, iter) when valid, or NA placeholders otherwise.
+  ## ----------------------------------------------------------------
+  one_boot <- function(b) {
+    ## Sample column indices with replacement (pair bootstrap)
+    set.seed(seed + b)
+    idx  <- sample.int(N, size = N, replace = TRUE)
+    Y1_b <- Y1[, idx, drop = FALSE]
+    Y2_b <- Y2[, idx, drop = FALSE]
 
-  # sigma2 estimate
-  denom <- base::max(P1 * N - Q * P2, 1)
-  sigma2.used <- base::sum(R_C2^2) / denom
-
-  # Information matrix: I = sigma^{-2} (Y2*Y2' x X'X)
-  XtX  <- base::crossprod(X)                # Q x Q
-  Y2Y2 <- base::tcrossprod(Y2)              # P2 x P2
-  Info_core <- base::kronecker(Y2Y2, XtX)   # QP2 x QP2
-  Info <- Info_core / base::max(sigma2.used, 1e-12)
-  Info <- Info + base::diag(cov.ridge, base::nrow(Info))
-
-  Hinv <- base::tryCatch(base::solve(Info), error = function(e) {
-    if (base::requireNamespace("MASS", quietly = TRUE)) MASS::ginv(Info)
-    else base::stop("Information matrix singular; install MASS package.")
-  })
-
-  # Sandwich covariance: V = Hinv J Hinv
-  V_sand <- NULL
-  if (base::isTRUE(sandwich)) {
-    Xt <- base::t(X)
-    J <- base::matrix(0, Q * P2, Q * P2)
-    for (n in 1:N) {
-      y2_n <- Y2[, n, drop = FALSE]       # P2 x 1
-      r_n  <- R_C2[, n, drop = FALSE]     # P1 x 1
-      g_n  <- Xt %*% r_n                  # Q x 1
-      S_n  <- -(g_n %*% base::t(y2_n)) / base::max(sigma2.used, 1e-12)  # Q x P2
-      s_n  <- base::as.vector(S_n)
-      J    <- J + base::tcrossprod(s_n)
-    }
-    if (N > 1) J <- (N / (N - 1)) * J    # CR1 correction
-    V_sand <- Hinv %*% J %*% Hinv
-  }
-
-  C.vec.cov <- if (!is.null(V_sand)) V_sand else Hinv
-
-  # Sandwich SE
-  se_vec <- base::sqrt(base::pmax(base::diag(C.vec.cov), 0))
-  C2.se <- base::matrix(se_vec, nrow = Q, ncol = P2, byrow = FALSE)
-
-  # ---- Wild bootstrap (one-step Newton) ----
-  C2.se.boot  <- NULL
-  C2.ci.lower <- NULL
-  C2.ci.upper <- NULL
-
-  if (base::isTRUE(wild.bootstrap)) {
-    base::set.seed(wild.seed)
-    Xt <- base::t(X)
-    score_mat <- base::matrix(0, Q * P2, N)
-    for (n in 1:N) {
-      y2_n <- Y2[, n, drop = FALSE]
-      r_n  <- R_C2[, n, drop = FALSE]
-      g_n  <- Xt %*% r_n
-      G_n  <- -(g_n %*% base::t(y2_n)) / base::max(sigma2.used, 1e-12)
-      score_mat[, n] <- base::as.vector(G_n)
+    ## Independent random init for C1, C2 (X is held at X.hat)
+    set.seed(seed + 1000L + b)
+    C1 <- matrix(stats::runif(Q * P1, 0.01, 0.1),  nrow = Q)
+    C2 <- matrix(stats::runif(Q * P2, 0.001, 0.01), nrow = Q, ncol = P2)
+    min_dim <- min(Q, P2)
+    if (min_dim >= 1L) {
+      for (i in 1:min_dim) C2[i, i] <- stats::runif(1, 0.1, 0.2)
     }
 
-    C2_hat_vec <- base::as.vector(C2)
-    C2_boot <- base::matrix(NA_real_, nrow = Q * P2, ncol = wild.B)
-    for (b in 1:wild.B) {
-      w <- stats::rexp(N, rate = 1) - 1       # Exp(1)-centered multiplier
-      grad_b <- base::as.vector(score_mat %*% w)
-      c_b <- C2_hat_vec - base::as.vector(Hinv %*% grad_b)
-      c_b <- base::pmax(c_b, 0)               # project onto C2 >= 0
-      C2_boot[, b] <- c_b
+    .eps_local <- 1e-10
+    Xt  <- t(X.hat)
+    XtX <- Xt %*% X.hat
+    Y1tY1_b <- tcrossprod(Y1_b)        # P1 x P1
+    XtY1_b  <- Xt %*% Y1_b              # Q x N (re-used via crossprods below)
+    XtY1Y1t <- XtY1_b %*% t(Y1_b)       # Q x P1   = Xt %*% Y1_b %*% t(Y1_b)
+    XtY1Y2t <- XtY1_b %*% t(Y2_b)       # Q x P2
+    prev_loss <- Inf
+    iter_used <- 0L
+
+    ## Fixed-X MU loop on (C1, C2)
+    for (it in seq_len(maxit)) {
+      M_b <- C1 %*% Y1_b + C2 %*% Y2_b   # Q x N latent representation
+
+      ## C1 update
+      Den_C1 <- XtX %*% M_b %*% t(Y1_b) + C1.L1 + .eps_local
+      C1 <- C1 * (XtY1Y1t / Den_C1)
+
+      ## C2 update (uses updated C1 via fresh M_b)
+      M_b <- C1 %*% Y1_b + C2 %*% Y2_b
+      Den_C2 <- XtX %*% M_b %*% t(Y2_b) + C2.L1 + .eps_local
+      C2 <- C2 * (XtY1Y2t / Den_C2)
+
+      ## Convergence check (relative change in reconstruction loss)
+      XB <- X.hat %*% (C1 %*% Y1_b + C2 %*% Y2_b)
+      loss <- sum((Y1_b - XB)^2)
+      if (it >= 10L) {
+        rel <- abs(loss - prev_loss) / max(abs(loss), 1)
+        if (rel <= epsilon) { iter_used <- it; break }
+      }
+      prev_loss <- loss
+      iter_used <- it
     }
 
-    # Bootstrap SE
-    sd_vec <- base::apply(C2_boot, 1, stats::sd, na.rm = TRUE)
-    C2.se.boot <- base::matrix(sd_vec, nrow = Q, ncol = P2, byrow = FALSE)
+    ## ---- Validity checks (mirrors the paper's bootstrap helper) ----
+    XC1_b <- X.hat %*% C1
+    rho <- tryCatch(
+      max(abs(eigen(XC1_b, only.values = TRUE, symmetric = FALSE)$values)),
+      error = function(e) NA_real_
+    )
+    norm1_XC1 <- max(colSums(abs(XC1_b)))
+    AR_bound <- if (is.finite(norm1_XC1) && norm1_XC1 < 1)
+                  1 / (1 - norm1_XC1)
+                else Inf
 
-    # Bootstrap CI
-    alpha <- 1 - wild.level
-    lo <- base::apply(C2_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
-    hi <- base::apply(C2_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
-    C2.ci.lower <- base::matrix(lo, nrow = Q, ncol = P2, byrow = FALSE)
-    C2.ci.upper <- base::matrix(hi, nrow = Q, ncol = P2, byrow = FALSE)
+    if (!is.finite(rho) || rho >= 1) {
+      return(list(valid = FALSE, C1 = NULL, C2 = NULL,
+                  rho = rho, AR = NA_real_, iter = iter_used))
+    }
+    I_mat   <- diag(Q)
+    Linv    <- tryCatch(solve(I_mat - XC1_b), error = function(e) NULL)
+    if (is.null(Linv)) {
+      return(list(valid = FALSE, C1 = NULL, C2 = NULL,
+                  rho = rho, AR = NA_real_, iter = iter_used))
+    }
+    XC2_b   <- X.hat %*% C2
+    M.model <- Linv %*% XC2_b
+    AR <- max(colSums(abs(M.model))) / (max(colSums(abs(XC2_b))) + .eps_local)
+    if (!is.finite(AR) || AR > AR_bound * 1.01) {
+      return(list(valid = FALSE, C1 = NULL, C2 = NULL,
+                  rho = rho, AR = AR, iter = iter_used))
+    }
+
+    list(valid = TRUE, C1 = C1, C2 = C2,
+         rho = rho, AR = AR, iter = iter_used)
   }
 
-  # ---- Coefficients table ----
-  Estimate <- base::as.vector(C2)
-  SE  <- base::as.vector(C2.se)
-  BSE <- if (!is.null(C2.se.boot)) base::as.vector(C2.se.boot) else base::rep(NA_real_, base::length(Estimate))
-  z_value <- base::ifelse(SE > 0, Estimate / SE, NA_real_)
+  ## ----------------------------------------------------------------
+  ## Run the B replicates (parallel on Linux/macOS via mclapply,
+  ## PSOCK cluster on Windows; serial when ncores == 1).
+  ## ----------------------------------------------------------------
+  if (print.trace)
+    base::message(sprintf("  Bootstrap: B=%d, ncores=%d, threshold=%.3g, ci.level=%.2f",
+                          B, ncores, threshold, ci.level))
 
-  if (C.p.side == "one.sided") {
-    p_value <- base::ifelse(base::is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
-  } else {
-    p_value <- base::ifelse(base::is.finite(z_value), 1 - stats::pchisq(z_value^2, df = 1), NA_real_)
-  }
-
-  rlabs <- if (!is.null(base::rownames(C2))) base::rownames(C2) else base::paste0("Factor", 1:Q)
-  clabs <- if (!is.null(base::colnames(C2))) base::colnames(C2) else base::paste0("Y2_", 1:P2)
-
-  coefficients <- base::data.frame(
-    Basis     = base::rep(rlabs, times = P2),
-    Covariate = base::rep(clabs, each = Q),
-    Estimate  = Estimate,
-    SE        = SE,
-    BSE       = BSE,
-    z_value   = z_value,
-    p_value   = p_value,
-    CI_low    = if (!is.null(C2.ci.lower)) base::as.vector(C2.ci.lower) else NA_real_,
-    CI_high   = if (!is.null(C2.ci.upper)) base::as.vector(C2.ci.upper) else NA_real_,
-    row.names = NULL, stringsAsFactors = FALSE
-  )
-
-  if (print.trace) {
-    if (base::isTRUE(wild.bootstrap)) {
-      base::message("  Inference: sandwich SE + wild bootstrap done.")
+  if (ncores > 1L) {
+    if (.Platform$OS.type == "windows") {
+      cl <- parallel::makeCluster(ncores)
+      on.exit(parallel::stopCluster(cl), add = TRUE)
+      parallel::clusterExport(cl,
+        varlist = c("Y1", "Y2", "X.hat", "C1.L1", "C2.L1",
+                    "Q", "P1", "P2", "N", "epsilon", "maxit", "seed"),
+        envir = environment())
+      res_list <- parallel::parLapply(cl, seq_len(B), one_boot)
     } else {
-      base::message("  Inference: sandwich SE done (wild bootstrap skipped).")
+      res_list <- parallel::mclapply(seq_len(B), one_boot, mc.cores = ncores)
     }
+  } else {
+    res_list <- lapply(seq_len(B), one_boot)
   }
 
-  object$sigma2.used  <- sigma2.used
-  object$C2.se        <- C2.se
-  object$C2.se.boot   <- C2.se.boot
-  object$C2.ci.lower  <- C2.ci.lower
-  object$C2.ci.upper  <- C2.ci.upper
-  object$coefficients <- coefficients
-  object$C2.p.side    <- C.p.side
-  return(object)
+  ## ----------------------------------------------------------------
+  ## Aggregate replicates into 3D arrays (B x Q x P1) and (B x Q x P2)
+  ## ----------------------------------------------------------------
+  C1.array <- array(NA_real_, dim = c(B, Q, P1))
+  C2.array <- array(NA_real_, dim = c(B, Q, P2))
+  rho.vec  <- rep(NA_real_, B)
+  AR.vec   <- rep(NA_real_, B)
+  iter.vec <- rep(NA_integer_, B)
+  valid.vec <- logical(B)
+
+  for (b in seq_len(B)) {
+    r <- res_list[[b]]
+    if (is.null(r) || inherits(r, "try-error")) next
+    valid.vec[b] <- isTRUE(r$valid)
+    if (!is.null(r$rho))  rho.vec[b]  <- r$rho
+    if (!is.null(r$AR))   AR.vec[b]   <- r$AR
+    if (!is.null(r$iter)) iter.vec[b] <- as.integer(r$iter)
+    if (valid.vec[b]) {
+      C1.array[b, , ] <- r$C1
+      C2.array[b, , ] <- r$C2
+    }
+  }
+  n.valid <- sum(valid.vec)
+
+  if (n.valid < 10L) {
+    warning(sprintf("Only %d / %d bootstrap replicates were valid; CIs / support rates may be unreliable. Consider checking convergence (raise maxit, lower epsilon) or the stationarity of the original fit (rho < 1).",
+                    n.valid, B))
+  }
+
+  ## ----------------------------------------------------------------
+  ## Per-element summary: support rate at threshold, percentile CI
+  ## ----------------------------------------------------------------
+  alpha <- 1 - ci.level
+
+  apply_finite <- function(arr, FUN) {
+    apply(arr, c(2, 3), function(v) {
+      v <- v[is.finite(v)]
+      if (!length(v)) NA_real_ else FUN(v)
+    })
+  }
+
+  C1.support  <- apply_finite(C1.array, function(v) mean(v > threshold))
+  C2.support  <- apply_finite(C2.array, function(v) mean(v > threshold))
+  C1.ci.lower <- apply_finite(C1.array, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
+  C1.ci.upper <- apply_finite(C1.array, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
+  C2.ci.lower <- apply_finite(C2.array, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
+  C2.ci.upper <- apply_finite(C2.array, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
+
+  ## Significance markers from support rate (one-sided; lavaan-style)
+  sig.from.support <- function(s) {
+    ifelse(!is.finite(s), " ",
+      ifelse(s > 0.999, "***",
+        ifelse(s > 0.99,  "**",
+          ifelse(s > 0.95, "*", " "))))
+  }
+
+  ## ----------------------------------------------------------------
+  ## Build coefficients table (rows for both C1 and C2)
+  ## p_value = 1 - support_rate is provided so that downstream
+  ## consumers (e.g., nmf.sem.DOT) that filter / star by p_value
+  ## continue to work without modification.
+  ## ----------------------------------------------------------------
+  Q_lab  <- if (!is.null(rownames(C1.hat))) rownames(C1.hat) else paste0("Factor", 1:Q)
+  Y1_lab <- if (!is.null(colnames(C1.hat))) colnames(C1.hat) else paste0("Y1_", 1:P1)
+  Y2_lab <- if (!is.null(colnames(C2.hat))) colnames(C2.hat) else paste0("Y2_", 1:P2)
+
+  build_block <- function(type_label, Mhat, sup, lo, hi, basislabs, varlabs) {
+    Q_local <- nrow(Mhat); P_local <- ncol(Mhat)
+    s_vec <- as.vector(sup)
+    data.frame(
+      Type         = type_label,
+      Basis        = rep(basislabs, times = P_local),
+      Covariate    = rep(varlabs,   each  = Q_local),
+      Estimate     = as.vector(Mhat),
+      CI_low       = as.vector(lo),
+      CI_high      = as.vector(hi),
+      support_rate = s_vec,
+      p_value      = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
+      sig          = sig.from.support(s_vec),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  C1_block <- build_block("C1", C1.hat, C1.support, C1.ci.lower, C1.ci.upper, Q_lab, Y1_lab)
+  C2_block <- build_block("C2", C2.hat, C2.support, C2.ci.lower, C2.ci.upper, Q_lab, Y2_lab)
+  coefficients <- rbind(C1_block, C2_block)
+  rownames(coefficients) <- NULL
+
+  if (print.trace)
+    base::message(sprintf("  Bootstrap done: %d / %d valid replicates.", n.valid, B))
+
+  ## ----------------------------------------------------------------
+  ## Append to object and return
+  ## ----------------------------------------------------------------
+  object$bootstrap.B          <- B
+  object$bootstrap.threshold  <- threshold
+  object$bootstrap.ci.level   <- ci.level
+  object$bootstrap.n.valid    <- n.valid
+  object$bootstrap.n.invalid  <- B - n.valid
+  object$rho.boot             <- rho.vec
+  object$AR.boot              <- AR.vec
+  object$iter.boot            <- iter.vec
+  object$C1.array             <- C1.array
+  object$C2.array             <- C2.array
+  object$C1.support.rate      <- C1.support
+  object$C2.support.rate      <- C2.support
+  object$C1.ci.lower          <- C1.ci.lower
+  object$C1.ci.upper          <- C1.ci.upper
+  object$C2.ci.lower          <- C2.ci.lower
+  object$C2.ci.upper          <- C2.ci.upper
+  object$coefficients         <- coefficients
+
+  if (!inherits(object, "nmf.sem.inference"))
+    class(object) <- c("nmf.sem.inference", class(object))
+  object
 }
 
 
