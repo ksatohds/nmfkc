@@ -105,54 +105,75 @@ summary.nmf.sem <- function(object, ...) {
 
   # Coefficients from inference
   if (!is.null(object$coefficients) && is.data.frame(object$coefficients)) {
-    cat("\nC2 Coefficients (Covariate -> Basis):\n")
     cf <- object$coefficients
-    p_side <- if (!is.null(object$C2.p.side)) object$C2.p.side else "one.sided"
-    p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
 
-    rnames <- paste0(cf$Covariate, ":", cf$Basis)
-    est <- formatC(cf$Estimate, format = "f", digits = 4, width = 10)
-    se  <- formatC(cf$SE, format = "f", digits = 4, width = 10)
-    zv  <- formatC(cf$z_value, format = "f", digits = 2, width = 7)
-    pv  <- cf$p_value
-    pv_str <- ifelse(!is.finite(pv), "      NA",
-               ifelse(pv < 2.2e-16, "  <2e-16",
-                 formatC(pv, format = "g", digits = 4, width = 8)))
-    stars <- ifelse(!is.finite(pv), " ",
-               ifelse(pv < 0.001, "***",
-                 ifelse(pv < 0.01, "**",
-                   ifelse(pv < 0.05, "*",
-                     ifelse(pv < 0.1, ".", " ")))))
+    ## Bootstrap meta-info (new full-pair-bootstrap inference; v0.6.8+)
+    has_boot <- !is.null(object$bootstrap.B)
+    if (has_boot) {
+      cat(sprintf("\nBootstrap inference (X-fixed full pair bootstrap):\n"))
+      cat(sprintf("  B = %d, valid = %d, threshold = %g, ci.level = %g\n",
+                  object$bootstrap.B,
+                  if (!is.null(object$bootstrap.n.valid)) object$bootstrap.n.valid else NA_integer_,
+                  if (!is.null(object$bootstrap.threshold)) object$bootstrap.threshold else NA_real_,
+                  if (!is.null(object$bootstrap.ci.level)) object$bootstrap.ci.level else NA_real_))
+    }
 
-    has_bse <- "BSE" %in% names(cf) && any(is.finite(cf$BSE))
-    max_lw <- max(nchar(rnames))
-
-    if (has_bse) {
-      bse <- formatC(cf$BSE, format = "f", digits = 4, width = 8)
-      hdr <- sprintf("%s %s %s %s %s %s",
-                     formatC("Estimate", width = 10),
-                     formatC("Std. Error", width = 10),
-                     formatC("(Boot)", width = 8),
-                     formatC("z value", width = 7),
-                     formatC(p_header, width = 8), "")
-      cat(sprintf("%s %s\n", formatC("", width = max_lw), hdr))
+    ## Print one block per Type ("C1" feedback / "C2" exogenous) when
+    ## present.  Falls back to a single block for legacy inference output
+    ## that lacks the Type column.
+    print_block <- function(block, title) {
+      if (nrow(block) == 0L) return(invisible(NULL))
+      cat(sprintf("\n%s\n", title))
+      rnames <- paste0(block$Covariate, " -> ", block$Basis)
+      est <- formatC(block$Estimate, format = "g", digits = 4, width = 10)
+      cl  <- if ("CI_low"  %in% names(block))
+               formatC(block$CI_low,  format = "g", digits = 3, width = 10) else NULL
+      cu  <- if ("CI_high" %in% names(block))
+               formatC(block$CI_high, format = "g", digits = 3, width = 10) else NULL
+      sup <- if ("support_rate" %in% names(block))
+               formatC(block$support_rate, format = "f", digits = 3, width = 8) else NULL
+      pv  <- block$p_value
+      pv_str <- ifelse(!is.finite(pv), "      NA",
+                 ifelse(pv < 2.2e-16, "  <2e-16",
+                   formatC(pv, format = "g", digits = 4, width = 8)))
+      stars <- if ("sig" %in% names(block)) {
+                 block$sig
+               } else {
+                 ifelse(!is.finite(pv), " ",
+                   ifelse(pv < 0.001, "***",
+                     ifelse(pv < 0.01, "**",
+                       ifelse(pv < 0.05, "*",
+                         ifelse(pv < 0.1, ".", " ")))))
+               }
+      max_lw <- max(nchar(rnames))
+      hdr_parts <- c(formatC("Estimate", width = 10))
+      if (!is.null(cl)) hdr_parts <- c(hdr_parts, formatC("CI_low",  width = 10))
+      if (!is.null(cu)) hdr_parts <- c(hdr_parts, formatC("CI_high", width = 10))
+      if (!is.null(sup)) hdr_parts <- c(hdr_parts, formatC("support", width = 8))
+      hdr_parts <- c(hdr_parts, formatC("Pr(>0)", width = 8), "")
+      cat(sprintf("%s %s\n", formatC("", width = max_lw),
+                  paste(hdr_parts, collapse = " ")))
       for (i in seq_along(rnames)) {
-        cat(sprintf("%s %s %s %s %s %s %s\n",
+        row_parts <- c(est[i])
+        if (!is.null(cl))  row_parts <- c(row_parts, cl[i])
+        if (!is.null(cu))  row_parts <- c(row_parts, cu[i])
+        if (!is.null(sup)) row_parts <- c(row_parts, sup[i])
+        row_parts <- c(row_parts, pv_str[i], stars[i])
+        cat(sprintf("%s %s\n",
                     formatC(rnames[i], width = max_lw),
-                    est[i], se[i], bse[i], zv[i], pv_str[i], stars[i]))
+                    paste(row_parts, collapse = " ")))
       }
+    }
+
+    if (!is.null(cf$Type)) {
+      ## v0.6.8+ inference: separate C1 / C2 blocks
+      cf_C1 <- cf[cf$Type == "C1", , drop = FALSE]
+      cf_C2 <- cf[cf$Type == "C2", , drop = FALSE]
+      print_block(cf_C1, "C1 Coefficients (Y1 -> Factor; feedback Theta_1):")
+      print_block(cf_C2, "C2 Coefficients (Y2 -> Factor; exogenous Theta_2):")
     } else {
-      hdr <- sprintf("%s %s %s %s %s",
-                     formatC("Estimate", width = 10),
-                     formatC("Std. Error", width = 10),
-                     formatC("z value", width = 7),
-                     formatC(p_header, width = 8), "")
-      cat(sprintf("%s %s\n", formatC("", width = max_lw), hdr))
-      for (i in seq_along(rnames)) {
-        cat(sprintf("%s %s %s %s %s %s\n",
-                    formatC(rnames[i], width = max_lw),
-                    est[i], se[i], zv[i], pv_str[i], stars[i]))
-      }
+      ## Legacy inference output (only C2)
+      print_block(cf, "C2 Coefficients (Covariate -> Basis):")
     }
     cat("---\n")
     cat("Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n")
