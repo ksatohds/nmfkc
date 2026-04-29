@@ -543,7 +543,12 @@ nmf.sem.inference <- function(object, Y1, Y2,
       return(list(valid = FALSE, C1 = NULL, C2 = NULL,
                   rho = rho, AR = NA_real_, iter = iter_used))
     }
-    I_mat   <- diag(Q)
+    ## XC1_b = X (P1 x Q) %*% C1 (Q x P1) is P1 x P1, so the identity
+    ## here must be P1 x P1 too.  (Earlier draft used diag(Q) which is
+    ## conformable only when Q == P1, otherwise solve() throws an error
+    ## that the tryCatch swallowed -- causing every replicate to be
+    ## marked invalid with AR = NA.)
+    I_mat   <- diag(nrow(XC1_b))
     Linv    <- tryCatch(solve(I_mat - XC1_b), error = function(e) NULL)
     if (is.null(Linv)) {
       return(list(valid = FALSE, C1 = NULL, C2 = NULL,
