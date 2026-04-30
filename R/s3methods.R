@@ -44,18 +44,58 @@ plot.nmfre <- function(x, ...) {
 }
 
 #' @rdname plot.nmfre
+#' @param which For \code{plot.nmf.sem}: which objective to plot.
+#'   One of \code{"full"} (default; \code{loss + penalties}, the actual
+#'   monotonically-decreasing quantity that the multiplicative updates
+#'   minimize), \code{"reconstruction"} (Frobenius distance only,
+#'   \eqn{\| Y_1 - X B \|_F^2}), or \code{"both"} (overlay both with a
+#'   legend).  \code{"both"} is useful for diagnosing whether
+#'   regularization is actively shaping the solution: if the two curves
+#'   diverge, the penalties are pulling the optimizer away from the
+#'   pure least-squares minimum.
 #' @export
-plot.nmf.sem <- function(x, ...) {
+plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
+  which <- match.arg(which)
   extra_args <- list(...)
-  args <- list(x = x$objfunc)
-  if (is.null(extra_args$main)) {
-    args$main <- paste0("MAE = ", round(x$MAE, 3), ", SC.cov = ", round(x$SC.cov, 3))
+
+  ## Pick the iteration trace(s) to plot.  Older nmf.sem objects may
+  ## carry only x$objfunc (reconstruction loss); fall back gracefully.
+  has_full <- !is.null(x$objfunc.full)
+  if (which == "full" && !has_full) which <- "reconstruction"
+
+  if (which == "both" && has_full) {
+    y_full <- x$objfunc.full
+    y_rec  <- x$objfunc
+    iter_idx <- seq_along(y_full)
+    main_default <- sprintf("MAE = %s, SC.cov = %s",
+                            round(x$MAE, 3), round(x$SC.cov, 3))
+    if (is.null(extra_args$main)) extra_args$main <- main_default
+    if (is.null(extra_args$xlab)) extra_args$xlab <- "iter"
+    if (is.null(extra_args$ylab)) extra_args$ylab <- "objective"
+    do.call(plot, c(list(iter_idx, y_full, type = "l", lwd = 2,
+                          col = "black"), extra_args))
+    graphics::lines(iter_idx, y_rec, col = "tomato", lwd = 1.5, lty = 2)
+    graphics::legend("topright",
+                     legend = c("loss + penalties (full)", "reconstruction only"),
+                     col    = c("black", "tomato"),
+                     lty    = c(1, 2), lwd = c(2, 1.5),
+                     bty    = "n", cex = 0.85)
+  } else {
+    y <- if (which == "full") x$objfunc.full else x$objfunc
+    args <- list(x = y)
+    if (is.null(extra_args$main)) {
+      label <- if (which == "full") "loss + penalties"
+               else "reconstruction only"
+      args$main <- sprintf("%s | MAE = %s, SC.cov = %s",
+                           label, round(x$MAE, 3), round(x$SC.cov, 3))
+    }
+    if (is.null(extra_args$xlab)) args$xlab <- "iter"
+    if (is.null(extra_args$ylab))
+      args$ylab <- if (which == "full") "objfunc.full" else "objfunc"
+    if (is.null(extra_args$type)) args$type <- "l"
+    all_args <- c(args, extra_args)
+    do.call("plot", all_args)
   }
-  if (is.null(extra_args$xlab)) args$xlab <- "iter"
-  if (is.null(extra_args$ylab)) args$ylab <- "objfunc"
-  if (is.null(extra_args$type)) args$type <- "l"
-  all_args <- c(args, extra_args)
-  do.call("plot", all_args)
   invisible(NULL)
 }
 
