@@ -133,7 +133,11 @@
 #' @param wild.bootstrap Logical. If \code{TRUE} (default), perform wild bootstrap inference
 #'   on \eqn{\Theta}.
 #' @param epsilon Convergence tolerance for relative change in objective (default 1e-5).
-#' @param maxit Maximum number of iterations (default 50000).
+#' @param maxit Maximum number of iterations.  Default \code{5000}
+#'   (matches \code{\link{nmfkc}} and the other MU functions in the
+#'   package).  When the cap is hit without meeting the relative-
+#'   tolerance criterion, a \code{"maximum iterations (...) reached..."}
+#'   warning is emitted so users notice unconverged fits.
 #' @param ... Additional arguments for initialization, variance control, dfU control,
 #'   optimization, and inference settings.
 #'   \itemize{
@@ -287,7 +291,7 @@
 #'
 nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
                   wild.bootstrap = TRUE, epsilon = 1e-5,
-                  maxit = 50000, ...) {
+                  maxit = 5000, ...) {
 
   extra_args <- base::list(...)
   # backward compatibility
