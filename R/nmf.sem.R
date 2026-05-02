@@ -352,6 +352,10 @@ nmf.sem <- function(
       if (epsilon_iter <= epsilon) break
     }
   }
+  ## Warn when the MU loop exhausts maxit without meeting the
+  ## relative-tolerance criterion (matches the nmfkc() convention).
+  if (it == maxit && exists("epsilon_iter") && epsilon_iter > abs(epsilon))
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
 
   # ------------------ reorder factors (nmfkc centroid order) ----------
   centroid <- as.numeric((1:nrow(X)) / nrow(X)) %*% X
