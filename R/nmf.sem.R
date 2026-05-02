@@ -75,7 +75,8 @@
 #'   Iterations stop when the relative change in reconstruction loss falls
 #'   below this value. Default: \code{1e-6}.
 #' @param maxit Maximum number of iterations for the multiplicative updates.
-#'   Default: \code{20000}.
+#'   Default: \code{5000} (matches \code{\link{nmfkc}} and other MU
+#'   functions in the package).
 #' @param seed Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
 #'   Default: \code{123}.
 #' @param ... Additional hidden arguments controlling the optional
@@ -170,7 +171,7 @@ nmf.sem <- function(
     C1.L1 = 1.0,
     C2.L1 = 0.1,
     epsilon = 1e-6,
-    maxit = 20000,
+    maxit = 5000,
     seed  = 123,
     ...
 ) {
@@ -913,7 +914,7 @@ nmf.sem.cv <- function(
     C1.L1 = 1.0,        # L1 sparsity for C1 (Theta1)
     C2.L1 = 0.1,        # L1 sparsity for C2 (Theta2)
     epsilon = 1e-6,     # Convergence tolerance passed to nmf.sem
-    maxit = 20000,
+    maxit = 5000,
     ...
 ){
   extra_cv <- base::list(...)

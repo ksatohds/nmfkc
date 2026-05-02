@@ -13,7 +13,7 @@ nmf.sem(
   C1.L1 = 1,
   C2.L1 = 0.1,
   epsilon = 1e-06,
-  maxit = 20000,
+  maxit = 5000,
   seed = 123,
   ...
 )
@@ -72,7 +72,8 @@ Iterations stop when the relative change in reconstruction loss falls
 below this value. Default: \code{1e-6}.}
 
 \item{maxit}{Maximum number of iterations for the multiplicative updates.
-Default: \code{20000}.}
+Default: \code{5000} (matches \code{\link{nmfkc}} and other MU
+functions in the package).}
 
 \item{seed}{Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
 Default: \code{123}.}

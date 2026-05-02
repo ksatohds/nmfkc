@@ -13,7 +13,7 @@ nmf.sem.cv(
   C1.L1 = 1,
   C2.L1 = 0.1,
   epsilon = 1e-06,
-  maxit = 20000,
+  maxit = 5000,
   ...
 )
 }
