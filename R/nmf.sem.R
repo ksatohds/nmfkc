@@ -459,7 +459,10 @@ nmf.sem <- function(
     objfunc.full        = objfunc.full[1:it],
     iter                = it
   )
-  class(out) <- "nmf.sem"
+  ## Carry both the canonical NMF-FFB class (paper-aligned, primary) and
+  ## the legacy "nmf.sem" class (back-compat).  S3 methods registered on
+  ## either class are dispatched correctly via inheritance.
+  class(out) <- c("nmf.ffb", "nmf.sem")
   out
 }
 
@@ -851,8 +854,15 @@ nmf.sem.inference <- function(object, Y1, Y2,
   object$C2.ci.upper          <- C2.ci.upper
   object$coefficients         <- coefficients
 
+  ## Add NMF-FFB inference class on top of the legacy SEM class.
+  ## Final class vector for a typical input:
+  ##   c("nmf.ffb.inference", "nmf.sem.inference", "nmf.ffb", "nmf.sem")
+  ## Existing S3 methods (e.g. summary.nmf.sem) still dispatch via
+  ## inheritance.
   if (!inherits(object, "nmf.sem.inference"))
     class(object) <- c("nmf.sem.inference", class(object))
+  if (!inherits(object, "nmf.ffb.inference"))
+    class(object) <- c("nmf.ffb.inference", class(object))
   object
 }
 
