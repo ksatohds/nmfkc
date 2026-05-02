@@ -1,4 +1,4 @@
-# nmf.sem.R — NMF-SEM related functions
+# nmf.sem.R — NMF-FFB (formerly NMF-SEM) related functions
 # nmf.sem, nmf.sem.cv, nmf.sem.split, nmf.sem.DOT
 
 #------------------------------------------------------------------------------
@@ -7,10 +7,10 @@
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
-#' @title NMF-SEM Main Estimation Algorithm
+#' @title NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)
 #'
 #' @description
-#' Fits the NMF-SEM model
+#' Fits the NMF-FFB model
 #' \deqn{
 #'   Y_1 \approx X \bigl( \Theta_1 Y_1 + \Theta_2 Y_2 \bigr)
 #' }
@@ -148,7 +148,7 @@
 #'   \item{iter}{Number of iterations actually performed.}
 #'
 #' @examples
-#' # Simple NMF-SEM with iris data (non-negative)
+#' # Simple NMF-FFB with iris data (non-negative)
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]  # Sepal
 #' Y2 <- Y[3:4, ]  # Petal
@@ -467,7 +467,7 @@ nmf.sem <- function(
 }
 
 
-#' @title Statistical inference for NMF-SEM via X-fixed full pair bootstrap
+#' @title Statistical inference for NMF-FFB via X-fixed full pair bootstrap
 #' @description
 #' \code{nmf.sem.inference} performs statistical inference on the structural
 #' coefficient matrices \eqn{C_1} (latent feedback, \eqn{\Theta_1}) and
@@ -867,10 +867,10 @@ nmf.sem.inference <- function(object, Y1, Y2,
 }
 
 
-#' @title Cross-Validation for NMF-SEM
+#' @title Cross-Validation for NMF-FFB
 #' @description
 #' Performs K-fold cross-validation to evaluate the equilibrium mapping of
-#' the NMF-SEM model.
+#' the NMF-FFB model.
 #'
 #' For each fold, \code{nmf.sem} is fitted on the training samples,
 #' yielding an equilibrium mapping \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.
@@ -935,7 +935,7 @@ nmf.sem.cv <- function(
   # ------------------------------------------------------------------
   # 1. Basic input checks
   #
-  # NMF-SEM requires non-negative matrices. We also require that Y1 and Y2
+  # NMF-FFB requires non-negative matrices. We also require that Y1 and Y2
   # share the same number of samples (columns) to allow paired CV splits.
   # ------------------------------------------------------------------
   if (!is.matrix(Y1)) Y1 <- as.matrix(Y1)
@@ -1093,7 +1093,7 @@ nmf.sem.cv <- function(
   #
   # The overall CV criterion is the average MAE across all folds.
   # This is typically minimized over hyperparameter grids
-  # (e.g., rank, X.L2.ortho, C1.L1, C2.L1) when tuning NMF-SEM.
+  # (e.g., rank, X.L2.ortho, C1.L1, C2.L1) when tuning NMF-FFB.
   # ------------------------------------------------------------------
   objfunc <- mean(objfunc.block)
   return(objfunc)
@@ -1101,11 +1101,11 @@ nmf.sem.cv <- function(
 
 
 
-#' @title Heuristic Variable Splitting for NMF-SEM
+#' @title Heuristic Variable Splitting for NMF-FFB
 #'
 #' @description
 #' Infers a heuristic partition of observed variables into exogenous (\eqn{Y_2})
-#' and endogenous (\eqn{Y_1}) blocks for use in NMF-SEM.
+#' and endogenous (\eqn{Y_1}) blocks for use in NMF-FFB.
 #' The method is based on positive-SEM logic, causal ordering, and optional
 #' sign alignment using the first principal component (PC1).
 #'
@@ -1175,7 +1175,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
   # --------------------------------------------------------------------
   # Preprocessing Step 1: Standardize all variables
   #
-  # Variables are centered and scaled (mean 0, sd 1). NMF-SEM requires
+  # Variables are centered and scaled (mean 0, sd 1). NMF-FFB requires
   # non-negative matrices, but the purpose of this function is only to
   # infer variable roles (Y1/Y2), so standardized values are allowed.
   #
@@ -1190,7 +1190,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
   # --------------------------------------------------------------------
   # Preprocessing Step 2: Optional sign flipping based on PC1 alignment
   #
-  # In positive SEM (and NMF-SEM), variables should ideally have
+  # In positive SEM (and NMF-FFB), variables should ideally have
   # consistent sign orientation. To enforce this heuristic, variables
   # negatively correlated with the first principal component are flipped.
   #
@@ -1356,10 +1356,10 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 ############################################################
 
 ############################################################
-## 1. nmf.sem.DOT  (for NMF-SEM visualization)
+## 1. nmf.sem.DOT  (for NMF-FFB visualization)
 ############################################################
 
-#' Generate a Graphviz DOT Diagram for an NMF-SEM Model
+#' Generate a Graphviz DOT Diagram for an NMF-FFB Model
 #'
 #' @description
 #' Creates a Graphviz DOT script that visualizes the structural network

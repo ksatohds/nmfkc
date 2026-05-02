@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,7 +22,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -41,6 +41,78 @@
       <small>Source: <a href="https://github.com/ksatohds/nmfkc/blob/HEAD/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.6.8" id="nmfkc-068">nmfkc 0.6.8<a class="anchor" aria-label="anchor" href="#nmfkc-068"></a></h2>
+<div class="section level4">
+<h4 id="bug-fixes-0-6-8"><strong>Bug Fixes</strong><a class="anchor" aria-label="anchor" href="#bug-fixes-0-6-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfkc.html">nmfkc()</a></code>: Fixed C matrix asymmetry in tri-symmetric NMF (<code>Y.symmetric = "tri"</code>). The C update was using stale B and XB computed from the old X; now B and XB are recomputed after X is updated. Also fixed column reordering to permute both rows and columns of C. Previously the relative asymmetry could reach ~46%; now it is at machine precision (~1e-14).</li>
+</ul></div>
+<div class="section level4">
+<h4 id="improvements-0-6-8"><strong>Improvements</strong><a class="anchor" aria-label="anchor" href="#improvements-0-6-8"></a></h4>
+<ul><li>
+<code><a href="../reference/plot.nmfae.ecv.html">plot.nmfae.ecv()</a></code>: Heatmap cell text color is now always black for better readability on light-colored cells.</li>
+<li>
+<code><a href="../reference/nmfkc.html">nmfkc()</a></code>: <code>X.init = "runif"</code> now supports <code>nstart &gt; 1</code> for multi-start initialization. Multiple random starting points are evaluated with 10 standard NMF iterations, and the best (lowest Frobenius error) is selected.</li>
+<li>
+<code><a href="../reference/nmfae.html">nmfae()</a></code>, <code><a href="../reference/nmfre.html">nmfre()</a></code>: <code>r.squared</code> is now computed as <code>cor(Y, fitted)^2</code> (squared correlation between observed and fitted values), consistent with <code><a href="../reference/nmfkc.html">nmfkc()</a></code>. Previously <code><a href="../reference/nmfae.html">nmfae()</a></code> used <code>1 - SS_res/SS_tot</code> and <code><a href="../reference/nmfre.html">nmfre()</a></code> used the same regression-style R-squared, which can behave unexpectedly for intercept-free non-negative models.</li>
+<li>
+<code><a href="../reference/nmfkc.kernel.beta.nearest.med.html">nmfkc.kernel.beta.nearest.med()</a></code>: added a <code>candidates</code> argument controlling the bandwidth grid. Options: <code>"7points"</code> (new default, <code>t = {-1,-2/3,-1/3,0,1/3,2/3,1}</code>), <code>"4points"</code> (<code>t = {-1/2, 0, 1/2, 1}</code>), or a user-supplied numeric vector of  values. Previously the grid silently differed between the no-landmark (<code>Uk = NULL</code>; 4 points) and landmark (7 points) branches.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="new-functions-signed-nmf-family-0-6-8"><strong>New Functions (Signed NMF family)</strong><a class="anchor" aria-label="anchor" href="#new-functions-signed-nmf-family-0-6-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code>: NMF-KC with signed covariate/coefficient. Model  with ,  (signed),  real-valued. Uses Ding et al. (2010) sign-splitting + Direct MU;  may also contain negative entries (semi-NMF regression). Supports <code>Y.weights</code> for element-wise masking.</li>
+<li>
+<code><a href="../reference/nmfkc.signed.cv.html">nmfkc.signed.cv()</a></code>, <code><a href="../reference/nmfkc.signed.ecv.html">nmfkc.signed.ecv()</a></code>: column-wise and element-wise k-fold CV for rank selection on signed data.</li>
+<li>
+<code><a href="../reference/nmfae.signed.html">nmfae.signed()</a></code>: Three-layer autoencoder with  .  preserve soft clustering on both decoder and encoder sides while the bottleneck  can carry negative weights (e.g., anti-correlated properties). Hybrid warm-start (from <code><a href="../reference/nmfae.html">nmfae()</a></code>) + Direct MU with multi-restart.</li>
+<li>
+<code><a href="../reference/nmfae.signed.ecv.html">nmfae.signed.ecv()</a></code>: element-wise CV for (decoder-rank, encoder-rank) selection.</li>
+<li>
+<code><a href="../reference/nmfae.signed.inference.html">nmfae.signed.inference()</a></code>: sandwich SE + wild bootstrap for  (no non-negativity projection on  since it is signed).</li>
+<li>S3 methods <code>predict.*.signed()</code>, <code>plot.*.signed()</code>, <code>summary.*.signed()</code>, and <code><a href="../reference/nmfae.signed.rename.html">nmfae.signed.rename()</a></code> helper.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="new-functions-network-nmf-family-0-6-8"><strong>New Functions (Network NMF family)</strong><a class="anchor" aria-label="anchor" href="#new-functions-network-nmf-family-0-6-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>: Single unified entry point for symmetric NMF of network data, with <code>type = "tri" | "bi" | "signed"</code>. All three variants use the Frobenius-full bilateral gradient (supersedes the one-sided approximation in <code>nmfkc(Y.symmetric = ...)</code>). <code>type = "signed"</code> supports signed  via Ding et al. (2010) sign-splitting, preserving  for soft clustering while allowing inter-cluster repulsion. The returned object’s fields are uniform across types:  and  are  for tri/bi, and populated matrices for signed.  is always populated (identity for bi, non-negative for tri, signed for signed).</li>
+<li>
+<code><a href="../reference/nmfkc.net.ecv.html">nmfkc.net.ecv()</a></code>: Element-wise cross-validation with upper-triangle folds (mirrored to the lower triangle to prevent symmetry leakage). Unified entry point for <code>type = "tri" | "bi" | "signed"</code> (calls <code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code> with the matching <code>type</code> for each fold).</li>
+<li>
+<code><a href="../reference/nmfkc.net.DOT.html">nmfkc.net.DOT()</a></code>: Graphviz DOT visualization for symmetric NMF networks. Displays basis-to-node membership edges and inter-basis interaction edges (C matrix) with significance stars. Now has <code>signed</code> parameter (auto-detected from class) to render negative <code>C</code> entries as dashed edges.</li>
+<li>
+<code><a href="../reference/nmfkc.net.inference.html">nmfkc.net.inference()</a></code>: Statistical inference for symmetric NMF. Wrapper around <code><a href="../reference/nmfkc.inference.html">nmfkc.inference()</a></code> with <code>A = t(X)</code>. Returns off-diagonal C coefficients with sandwich SE and wild bootstrap.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="deprecations-0-6-8"><strong>Deprecations</strong><a class="anchor" aria-label="anchor" href="#deprecations-0-6-8"></a></h4>
+<ul><li>
+<code>nmfkc(Y, Y.symmetric = "bi"|"tri")</code>: <strong>Deprecated</strong> in favor of <code>nmfkc.net(Y, type = "bi"|"tri")</code>. The old implementation uses a one-sided gradient approximation that empirically converges for  but is theoretically incorrect and does not extend to signed . The deprecated branch still works in v0.6.8 (with a deprecation warning) and will be removed in a future release.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="parameter-renames-old-names-remain-usable-for-backward-compatibility-0-6-8">
+<strong>Parameter Renames</strong> (old names remain usable for backward compatibility)<a class="anchor" aria-label="anchor" href="#parameter-renames-old-names-remain-usable-for-backward-compatibility-0-6-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmf.sem.DOT.html">nmf.sem.DOT()</a></code>: <code>weight_scale_y2f</code> → <code>weight_scale_c2</code>, <code>weight_scale_fy1</code> → <code>weight_scale_x1</code> (matrix-name-based naming, consistent with <code><a href="../reference/nmfae.DOT.html">nmfae.DOT()</a></code> and <code><a href="../reference/nmfkc.DOT.html">nmfkc.DOT()</a></code>).</li>
+<li>
+<code><a href="../reference/nmf.sem.DOT.html">nmf.sem.DOT()</a></code>: <code>sig.level</code> moved to after <code>threshold</code> for consistency with other <code>.DOT</code> functions.</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.6.7" id="nmfkc-067">nmfkc 0.6.7<a class="anchor" aria-label="anchor" href="#nmfkc-067"></a></h2><p class="text-muted">CRAN release: 2026-04-15</p>
+<div class="section level4">
+<h4 id="bug-fixes-0-6-7"><strong>Bug Fixes</strong><a class="anchor" aria-label="anchor" href="#bug-fixes-0-6-7"></a></h4>
+<ul><li>Added <code><a href="../reference/fitted.nmf.html">fitted.nmfae()</a></code> and <code><a href="../reference/residuals.nmf.html">residuals.nmfae()</a></code> S3 methods; previously <code><a href="https://rdrr.io/r/stats/fitted.values.html" class="external-link">fitted()</a></code> on an <code>nmfae</code> object silently returned <code>NULL</code> because the wrong field name (<code>$XB</code> instead of <code>$Y1hat</code>) was used.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="naming-unification-old-names-remain-usable-for-backward-compatibility-0-6-7">
+<strong>Naming Unification</strong> (old names remain usable for backward compatibility)<a class="anchor" aria-label="anchor" href="#naming-unification-old-names-remain-usable-for-backward-compatibility-0-6-7"></a></h4>
+<ul><li>Coefficient tables: all inference functions now use <code>Basis</code> / <code>Covariate</code> columns (was <code>Factor</code>/<code>Exogenous</code> in <code><a href="../reference/nmf.sem.inference.html">nmf.sem.inference()</a></code>, <code>Decoder</code>/<code>Encoder</code> in <code><a href="../reference/nmfae.inference.html">nmfae.inference()</a></code>).</li>
+<li>Wild bootstrap defaults unified: <code>wild.B = 500</code>, <code>wild.seed = 123</code> across all inference functions.</li>
+<li>First argument of all <code>.DOT</code> functions renamed to <code>result</code> for consistency.</li>
+<li>CV tuning parameters (<code>nfolds</code>, <code>seed</code>, <code>shuffle</code>) moved to <code>...</code> in <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfae.ecv.html">nmfae.ecv()</a></code>, <code><a href="../reference/nmfae.cv.html">nmfae.cv()</a></code>, <code><a href="../reference/nmf.sem.cv.html">nmf.sem.cv()</a></code>; <code>div</code> also accepted for backward compatibility.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.6.6" id="nmfkc-066">nmfkc 0.6.6<a class="anchor" aria-label="anchor" href="#nmfkc-066"></a></h2>
 <div class="section level4">
@@ -70,9 +142,6 @@
 </li>
 <li>
 <code><a href="../reference/nmfre.dfU.scan.html">nmfre.dfU.scan()</a></code>, <code><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv()</a></code>: <code>Q</code> → <code>rank</code>
-</li>
-<li>
-<code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfae.ecv.html">nmfae.ecv()</a></code>, <code><a href="../reference/nmfae.cv.html">nmfae.cv()</a></code>, <code><a href="../reference/nmf.sem.cv.html">nmf.sem.cv()</a></code>: <code>div</code> → <code>nfolds</code>
 </li>
 <li>
 <code><a href="../reference/nmfkc.residual.plot.html">nmfkc.residual.plot()</a></code>: <code>Y_XB_palette</code> → <code>fitted.palette</code>, <code>E_palette</code> → <code>residual.palette</code>

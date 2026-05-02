@@ -104,7 +104,7 @@ plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
 
 #' @title Summary method for nmf.sem objects
 #' @description
-#' Produces a formatted summary of a fitted NMF-SEM model, including
+#' Produces a formatted summary of a fitted NMF-FFB model, including
 #' matrix dimensions, convergence, stability diagnostics, fit statistics,
 #' and inference results (if available).
 #'
@@ -125,7 +125,7 @@ summary.nmf.sem <- function(object, ...) {
   Q  <- ncol(object$X)
   P2 <- ncol(object$C2)
 
-  cat(sprintf("NMF-SEM: Y1(%d,N) = X(%d,%d) [C1(%d,%d) Y1 + C2(%d,%d) Y2]\n",
+  cat(sprintf("NMF-FFB: Y1(%d,N) = X(%d,%d) [C1(%d,%d) Y1 + C2(%d,%d) Y2]\n",
               P1, P1, Q, Q, P1, Q, P2))
   cat(sprintf("Iterations: %d\n", object$iter))
 

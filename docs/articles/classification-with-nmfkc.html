@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,7 +41,7 @@
 <li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul>
@@ -206,10 +206,13 @@ kernel.</p>
 <span><span class="co"># Cross-validation for fine-tuning (using generated candidates)</span></span>
 <span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.kernel.beta.cv.html">nmfkc.kernel.beta.cv</a></span><span class="op">(</span><span class="va">Y_iris</span>, rank <span class="op">=</span> <span class="va">rank_iris</span>, U <span class="op">=</span> <span class="va">U_iris</span>, </span>
 <span>                               beta <span class="op">=</span> <span class="va">res_beta</span><span class="op">$</span><span class="va">beta_candidates</span>, plot <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="co">#&gt; beta=1.10348457794195...0.1sec</span></span>
-<span><span class="co">#&gt; beta=11.0348457794195...0.1sec</span></span>
+<span><span class="co">#&gt; beta=11034.8457794195...0sec</span></span>
+<span><span class="co">#&gt; beta=2377.38545463332...0sec</span></span>
+<span><span class="co">#&gt; beta=512.192169503925...0.1sec</span></span>
 <span><span class="co">#&gt; beta=110.348457794195...0.1sec</span></span>
-<span><span class="co">#&gt; beta=1103.48457794195...0sec</span></span>
+<span><span class="co">#&gt; beta=23.7738545463332...0.1sec</span></span>
+<span><span class="co">#&gt; beta=5.12192169503925...0.1sec</span></span>
+<span><span class="co">#&gt; beta=1.10348457794195...0.1sec</span></span>
 <span><span class="va">best_beta</span> <span class="op">&lt;-</span> <span class="va">cv_res</span><span class="op">$</span><span class="va">beta</span></span>
 <span></span>
 <span><span class="co"># 2. Fit Kernel NMF-LAB</span></span>
@@ -223,13 +226,13 @@ kernel.</p>
 <span><span class="co">#&gt;             label</span></span>
 <span><span class="co">#&gt; fitted.label setosa versicolor virginica</span></span>
 <span><span class="co">#&gt;   setosa         50          0         0</span></span>
-<span><span class="co">#&gt;   versicolor      0         49         4</span></span>
-<span><span class="co">#&gt;   virginica       0          1        46</span></span>
+<span><span class="co">#&gt;   versicolor      0         49         2</span></span>
+<span><span class="co">#&gt;   virginica       0          1        48</span></span>
 <span></span>
 <span><span class="co"># Calculate Accuracy</span></span>
 <span><span class="va">acc_kernel</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">f_kernel</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">f_kernel</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"Kernel Model Accuracy: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">acc_kernel</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"%\n"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Kernel Model Accuracy: 96.67%</span></span></code></pre></div>
+<span><span class="co">#&gt; Kernel Model Accuracy: 98%</span></span></code></pre></div>
 <p><strong>Result:</strong> The accuracy jumps significantly (often
 &gt;96%). The kernel successfully separates the complex boundaries.</p>
 </div>

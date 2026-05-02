@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,7 +41,7 @@
 <li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul>
@@ -275,7 +275,7 @@ using Cross-Validation.</p>
 <span><span class="co"># Note: We use the same rank (rank=3) as selected above.</span></span>
 <span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.kernel.beta.cv.html">nmfkc.kernel.beta.cv</a></span><span class="op">(</span><span class="va">Y</span>, rank <span class="op">=</span> <span class="va">rank</span>, U <span class="op">=</span> <span class="va">U</span>, beta <span class="op">=</span> <span class="va">beta_candidates</span>, plot <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; beta=2e-05...0.1sec</span></span>
-<span><span class="co">#&gt; beta=5e-05...0sec</span></span>
+<span><span class="co">#&gt; beta=5e-05...0.1sec</span></span>
 <span><span class="co">#&gt; beta=1e-04...0.1sec</span></span>
 <span><span class="co">#&gt; beta=2e-04...0sec</span></span>
 <span><span class="co">#&gt; beta=5e-04...0sec</span></span>
@@ -312,7 +312,7 @@ trends, showing how themes like “Nation Building” vs “Global Affairs”
 have evolved over centuries.</li>
 </ul>
 <!-- end list --><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span>, mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">4</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">oldpar</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span>, mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">4</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Prepare Axis Labels (Rounded to integers)</span></span>
 <span><span class="va">at_points</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>, length.out <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span>
@@ -331,6 +331,8 @@ have evolved over centuries.</li>
 <span><span class="co"># Legend</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/legend.html" class="external-link">legend</a></span><span class="op">(</span><span class="st">"topright"</span>, legend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Topic"</span>, <span class="fl">1</span><span class="op">:</span><span class="va">rank</span><span class="op">)</span>, fill <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="op">(</span><span class="va">rank</span><span class="op">+</span><span class="fl">1</span><span class="op">)</span>, bg<span class="op">=</span><span class="st">"white"</span>, cex<span class="op">=</span><span class="fl">0.8</span><span class="op">)</span></span></code></pre></div>
 <p><img src="topic-modeling-with-nmfkc_files/figure-html/plot-comparison-1.png" width="768"></p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span><span class="va">oldpar</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

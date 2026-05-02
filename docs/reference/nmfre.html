@@ -53,7 +53,7 @@ repeated constrained re-optimization."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -68,7 +68,7 @@ repeated constrained re-optimization."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -124,7 +124,7 @@ repeated constrained re-optimization.</p>
 <span>  df.rate <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  wild.bootstrap <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  epsilon <span class="op">=</span> <span class="fl">1e-05</span>,</span>
-<span>  maxit <span class="op">=</span> <span class="fl">50000</span>,</span>
+<span>  maxit <span class="op">=</span> <span class="fl">5000</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -165,7 +165,11 @@ on \(\Theta\).</p></dd>
 
 
 <dt id="arg-maxit">maxit<a class="anchor" aria-label="anchor" href="#arg-maxit"></a></dt>
-<dd><p>Maximum number of iterations (default 50000).</p></dd>
+<dd><p>Maximum number of iterations.  Default <code>5000</code>
+(matches <code><a href="nmfkc.html">nmfkc</a></code> and the other MU functions in the
+package).  When the cap is hit without meeting the relative-
+tolerance criterion, a <code>"maximum iterations (...) reached..."</code>
+warning is emitted so users notice unconverged fits.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -382,7 +386,7 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> NMF-RE: Y(1,50) = X(1,1) [C(1,2) A + U(1,50)]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 4 (converged, epsilon = 1e-05)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared: 0.9047 (XB+blup), 0.6005 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared: 0.9515 (XB+blup), 0.6511 (XB)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Variance components:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 1  (residual)</span>
@@ -414,7 +418,7 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-in"><span><span class="op">}</span><span class="co"># }</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> NMF-RE: Y(4,27) = X(4,1) [C(1,2) A + U(1,27)]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 2 (converged, epsilon = 1e-05)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared: 0.5654 (XB+blup), 0.4167 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared: 0.5739 (XB+blup), 0.4167 (XB)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Variance components:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 1  (residual)</span>

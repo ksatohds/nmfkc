@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,7 +41,7 @@
 <li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul>
@@ -258,7 +258,7 @@ and the coefficient table with significance stars.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
 <span><span class="co">#&gt; NMF-RE: Y(4,27) = X(4,1) [C(1,2) A + U(1,27)]</span></span>
 <span><span class="co">#&gt; Iterations: 2 (converged, epsilon = 1e-05)</span></span>
-<span><span class="co">#&gt; R-squared: 0.5654 (XB+blup), 0.4167 (XB)</span></span>
+<span><span class="co">#&gt; R-squared: 0.5739 (XB+blup), 0.4167 (XB)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Variance components:</span></span>
 <span><span class="co">#&gt;   sigma2 = 1  (residual)</span></span>
@@ -490,7 +490,7 @@ standard NMF covariate model (no random effects).</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"R-squared (XB):      "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">r.squared.fixed</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; R-squared (XB):       0.4167</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"R-squared (XB+blup): "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">r.squared</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; R-squared (XB+blup):  0.5654</span></span>
+<span><span class="co">#&gt; R-squared (XB+blup):  0.5739</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"ICC:                 "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">ICC</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ICC:                  0.0588</span></span></code></pre></div>
 <p>The improvement from fixed-only <span class="math inline">\(R^2\)</span> to BLUP <span class="math inline">\(R^2\)</span> quantifies the contribution of

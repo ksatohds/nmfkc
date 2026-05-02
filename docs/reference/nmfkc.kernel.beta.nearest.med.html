@@ -31,7 +31,7 @@ Optionally, columns of U can be randomly subsampled via sample.size to reduce co
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,7 +46,7 @@ Optionally, columns of U can be randomly subsampled via sample.size to reduce co
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -123,7 +123,9 @@ of <code>U</code> (without replacement) before computing distances, to reduce co
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Additional arguments (ignored; reserved for future use).</p></dd>
+<dd><p>Additional arguments.  Hidden option <code>candidates</code> controls
+the candidate grid: one of <code>"7points"</code> (default), <code>"4points"</code>,
+or a numeric vector of \(t\) values.  See Details.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -142,14 +144,23 @@ a named vector <code>c(U=..., Uk=...)</code> when <code>Uk</code> is provided.</
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p><strong>Candidate grid:</strong>
-Along with <code>beta</code>, the function returns <code>beta_candidates</code>, a small logarithmic grid
-suitable for cross-validation.</p>
-<p>In the landmark case (<code>Uk</code> provided), the grid is designed to be symmetric on the
-bandwidth scale \(\sigma\) around \(\sigma_0\) over one decade:
-$$\sigma = \sigma_0 \times 10^{t}, \quad t \in \{-1,-2/3,-1/3,0,1/3,2/3,1\}.$$
-Using \(\beta = 1/(2\sigma^2)\), this corresponds to
-$$\beta = \beta_0 \times 10^{-2t}.$$</p>
-<p>When <code>Uk</code> is <code>NULL</code>, a shorter coarse grid may be returned (see <code>Value</code>).</p>
+Along with <code>beta</code>, the function returns <code>beta_candidates</code>, a
+logarithmic grid suitable for cross-validation.  The grid is symmetric on
+the bandwidth scale \(\sigma\) around \(\sigma_0\):
+$$\sigma = \sigma_0 \times 10^{t},$$
+and since \(\beta = 1/(2\sigma^2)\), this corresponds to
+\(\beta = \beta_0 \times 10^{-2t}\).</p>
+<p>The grid of \(t\) values can be customized through the hidden argument
+<code>candidates</code> (passed via <code>...</code>):</p><ul><li><p><code>"7points"</code> (default): \(t \in \{-1,-2/3,-1/3,0,1/3,2/3,1\}\)
+(7 candidates spanning one decade, matches the grid used in the
+RFF-NMF research memo).</p></li>
+<li><p><code>"4points"</code>: \(t \in \{-1/2, 0, 1/2, 1\}\) yielding
+\(\beta_0 \times 10^{(1,0,-1,-2)}\) (the legacy short grid).</p></li>
+<li><p>A numeric vector: user-specified \(t\) values.  The grid returned
+is \(\beta_0 \times 10^{-2t}\).</p></li>
+</ul><p>Prior to version 0.6.8, the grid depended on whether <code>Uk</code> was
+supplied (4 candidates for <code>Uk = NULL</code>, 7 for supplied <code>Uk</code>).
+The current implementation unifies both branches via <code>candidates</code>.</p>
 <p><strong>Notes:</strong></p><ul><li><p>When <code>Uk</code> is identical to <code>U</code>, the function detects this case and excludes
 self-distances (distance 0) to avoid \(\sigma_0=0\).</p></li>
 <li><p><code>sample.size</code> performs random subsampling without setting a seed. For reproducible
@@ -163,14 +174,16 @@ results, set <code><a href="https://rdrr.io/r/base/Random.html" class="external-
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Basic (nearest-neighbor within U)</span></span></span>
-<span class="r-in"><span><span class="co"># beta_info &lt;- nmfkc.kernel.beta.nearest.med(U)</span></span></span>
-<span class="r-in"><span><span class="co"># beta0 &lt;- beta_info$beta</span></span></span>
-<span class="r-in"><span><span class="co"># betas &lt;- beta_info$beta_candidates</span></span></span>
+<span class="r-in"><span><span class="va">U</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">20</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">beta_info</span> <span class="op">&lt;-</span> <span class="fu">nmfkc.kernel.beta.nearest.med</span><span class="op">(</span><span class="va">U</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">beta0</span> <span class="op">&lt;-</span> <span class="va">beta_info</span><span class="op">$</span><span class="va">beta</span></span></span>
+<span class="r-in"><span><span class="va">betas</span> <span class="op">&lt;-</span> <span class="va">beta_info</span><span class="op">$</span><span class="va">beta_candidates</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># With landmarks (nearest-landmark distances)</span></span></span>
-<span class="r-in"><span><span class="co"># beta_info &lt;- nmfkc.kernel.beta.nearest.med(U, Uk)</span></span></span>
-<span class="r-in"><span><span class="co"># beta0 &lt;- beta_info$beta</span></span></span>
-<span class="r-in"><span><span class="co"># betas &lt;- beta_info$beta_candidates</span></span></span>
+<span class="r-in"><span><span class="va">Uk</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="va">beta_info2</span> <span class="op">&lt;-</span> <span class="fu">nmfkc.kernel.beta.nearest.med</span><span class="op">(</span><span class="va">U</span>, <span class="va">Uk</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

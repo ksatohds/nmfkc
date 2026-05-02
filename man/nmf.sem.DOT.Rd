@@ -3,7 +3,7 @@
 \name{nmf.ffb.DOT}
 \alias{nmf.ffb.DOT}
 \alias{nmf.sem.DOT}
-\title{Generate a Graphviz DOT Diagram for an NMF-SEM Model}
+\title{Generate a Graphviz DOT Diagram for an NMF-FFB Model}
 \usage{
 nmf.ffb.DOT(result, ...)
 

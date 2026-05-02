@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,7 +22,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -65,34 +65,34 @@
         <dd>Extract fitted values from NMF models</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.cv.html">nmf.sem.cv()</a></code>
+          <code><a href="nmf.sem.cv.html">nmf.ffb.cv()</a></code> <code><a href="nmf.sem.cv.html">nmf.sem.cv()</a></code>
 
         </dt>
-        <dd>Cross-Validation for NMF-SEM</dd>
+        <dd>Cross-Validation for NMF-FFB</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.DOT.html">nmf.sem.DOT()</a></code>
+          <code><a href="nmf.sem.DOT.html">nmf.ffb.DOT()</a></code> <code><a href="nmf.sem.DOT.html">nmf.sem.DOT()</a></code>
 
         </dt>
-        <dd>Generate a Graphviz DOT Diagram for an NMF-SEM Model</dd>
+        <dd>Generate a Graphviz DOT Diagram for an NMF-FFB Model</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.inference.html">nmf.sem.inference()</a></code>
+          <code><a href="nmf.sem.inference.html">nmf.ffb.inference()</a></code> <code><a href="nmf.sem.inference.html">nmf.sem.inference()</a></code>
 
         </dt>
-        <dd>Statistical inference for the exogenous parameter matrix C2</dd>
+        <dd>Statistical inference for NMF-FFB via X-fixed full pair bootstrap</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.html">nmf.sem()</a></code>
+          <code><a href="nmf.sem.html">nmf.ffb()</a></code> <code><a href="nmf.sem.html">nmf.sem()</a></code>
 
         </dt>
-        <dd>NMF-SEM Main Estimation Algorithm</dd>
+        <dd>NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.split.html">nmf.sem.split()</a></code>
+          <code><a href="nmf.sem.split.html">nmf.ffb.split()</a></code> <code><a href="nmf.sem.split.html">nmf.sem.split()</a></code>
 
         </dt>
-        <dd>Heuristic Variable Splitting for NMF-SEM</dd>
+        <dd>Heuristic Variable Splitting for NMF-FFB</dd>
       </dl><dl><dt>
 
           <code><a href="nmfae.cv.html">nmfae.cv()</a></code>
@@ -141,6 +141,36 @@
 
         </dt>
         <dd>Rename decoder and encoder bases</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfae.signed.ecv.html">nmfae.signed.ecv()</a></code>
+
+        </dt>
+        <dd>Element-wise Cross-Validation for Signed-Bottleneck NMF-AE</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfae.signed.heatmap.html">nmfae.signed.heatmap()</a></code>
+
+        </dt>
+        <dd>Heatmap visualization of nmfae.signed factor matrices</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfae.signed.inference.html">nmfae.signed.inference()</a></code>
+
+        </dt>
+        <dd>Statistical Inference for Signed-Bottleneck NMF-AE Signed Bottleneck</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfae.signed.html">nmfae.signed()</a></code>
+
+        </dt>
+        <dd>Signed-Bottleneck NMF-AE: Three-Layer NMF-AE with Signed Bottleneck</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfae.signed.rename.html">nmfae.signed.rename()</a></code>
+
+        </dt>
+        <dd>Rename Dec/Enc labels on nmfae.signed objects</dd>
       </dl><dl><dt>
 
           <code><a href="nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv()</a></code>
@@ -239,6 +269,30 @@
         <dd>Create a kernel matrix from covariates</dd>
       </dl><dl><dt>
 
+          <code><a href="nmfkc.net.DOT.html">nmfkc.net.DOT()</a></code>
+
+        </dt>
+        <dd>Generate a Graphviz DOT Diagram for a Symmetric NMF Network</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.net.ecv.html">nmfkc.net.ecv()</a></code>
+
+        </dt>
+        <dd>Element-wise cross-validation for nmfkc.net (upper-triangle folds)</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.net.inference.html">nmfkc.net.inference()</a></code>
+
+        </dt>
+        <dd>Statistical Inference for Symmetric NMF Parameters</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.net.html">nmfkc.net()</a></code>
+
+        </dt>
+        <dd>Symmetric NMF for networks (tri / bi / signed)</dd>
+      </dl><dl><dt>
+
           <code><a href="nmfkc.normalize.html">nmfkc.normalize()</a></code>
 
         </dt>
@@ -261,6 +315,24 @@
 
         </dt>
         <dd>Plot Diagnostics: Original, Fitted, and Residual Matrices as Heatmaps</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.signed.cv.html">nmfkc.signed.cv()</a></code>
+
+        </dt>
+        <dd>Column-wise k-fold cross-validation for nmfkc.signed</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.signed.ecv.html">nmfkc.signed.ecv()</a></code>
+
+        </dt>
+        <dd>Element-wise cross-validation for nmfkc.signed</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.signed.html">nmfkc.signed()</a></code>
+
+        </dt>
+        <dd>NMF-KC with signed covariate matrix</dd>
       </dl><dl><dt>
 
           <code><a href="nmfre.dfU.scan.html">nmfre.dfU.scan()</a></code>
@@ -305,6 +377,12 @@
         <dd><code>plot.nmfae</code> displays the convergence trajectory of the objective function across iterations. The title shows the achieved \(R^2\).</dd>
       </dl><dl><dt>
 
+          <code><a href="plot.nmfae.signed.html">plot(<i>&lt;nmfae.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot method for nmfae.signed (convergence)</dd>
+      </dl><dl><dt>
+
           <code><a href="plot.nmfkc.DOT.html">plot(<i>&lt;nmfkc.DOT&gt;</i>)</a></code>
 
         </dt>
@@ -315,6 +393,12 @@
 
         </dt>
         <dd>Plot method for objects of class <code>nmfkc</code></dd>
+      </dl><dl><dt>
+
+          <code><a href="plot.nmfkc.signed.html">plot(<i>&lt;nmfkc.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot method for nmfkc.signed (convergence)</dd>
       </dl><dl><dt>
 
           <code><a href="plot.nmfre.html">plot(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="plot.nmfre.html">plot(<i>&lt;nmf.sem&gt;</i>)</a></code>
@@ -335,10 +419,22 @@
         <dd>Predict method for nmfae objects</dd>
       </dl><dl><dt>
 
+          <code><a href="predict.nmfae.signed.html">predict(<i>&lt;nmfae.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Predict method for nmfae.signed</dd>
+      </dl><dl><dt>
+
           <code><a href="predict.nmfkc.html">predict(<i>&lt;nmfkc&gt;</i>)</a></code>
 
         </dt>
         <dd>Prediction method for objects of class <code>nmfkc</code></dd>
+      </dl><dl><dt>
+
+          <code><a href="predict.nmfkc.signed.html">predict(<i>&lt;nmfkc.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Predict method for nmfkc.signed</dd>
       </dl><dl><dt>
 
           <code><a href="print.nmf.inference.html">print(<i>&lt;nmf.inference&gt;</i>)</a></code>
@@ -359,16 +455,52 @@
         <dd>Print method for summary.nmfae objects</dd>
       </dl><dl><dt>
 
+          <code><a href="print.summary.nmfae.signed.inference.html">print(<i>&lt;summary.nmfae.signed.inference&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for summary.nmfae.signed.inference objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.summary.nmfae.signed.html">print(<i>&lt;summary.nmfae.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for summary.nmfae.signed</dd>
+      </dl><dl><dt>
+
           <code><a href="print.summary.nmfkc.inference.html">print(<i>&lt;summary.nmfkc.inference&gt;</i>)</a></code>
 
         </dt>
         <dd>Print method for summary.nmfkc.inference objects</dd>
       </dl><dl><dt>
 
+          <code><a href="print.summary.nmfkc.net.inference.html">print(<i>&lt;summary.nmfkc.net.inference&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for summary.nmfkc.net.inference objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.summary.nmfkc.net.html">print(<i>&lt;summary.nmfkc.net&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for summary.nmfkc.net objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.summary.nmfkc.net.signed.html">print(<i>&lt;summary.nmfkc.net.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for summary.nmfkc.net.signed objects</dd>
+      </dl><dl><dt>
+
           <code><a href="print.summary.nmfkc.html">print(<i>&lt;summary.nmfkc&gt;</i>)</a></code>
 
         </dt>
         <dd>Print method for <code>summary.nmfkc</code> objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.summary.nmfkc.signed.html">print(<i>&lt;summary.nmfkc.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for summary.nmfkc.signed</dd>
       </dl><dl><dt>
 
           <code><a href="residuals.nmf.html">residuals(<i>&lt;nmf&gt;</i>)</a></code> <code><a href="residuals.nmf.html">residuals(<i>&lt;nmfae&gt;</i>)</a></code> <code><a href="residuals.nmf.html">residuals(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="residuals.nmf.html">residuals(<i>&lt;nmf.sem&gt;</i>)</a></code>
@@ -395,16 +527,52 @@
         <dd>Summary method for nmfae objects</dd>
       </dl><dl><dt>
 
+          <code><a href="summary.nmfae.signed.inference.html">summary(<i>&lt;nmfae.signed.inference&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Summary method for nmfae.signed.inference objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="summary.nmfae.signed.html">summary(<i>&lt;nmfae.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Summary method for nmfae.signed</dd>
+      </dl><dl><dt>
+
           <code><a href="summary.nmfkc.inference.html">summary(<i>&lt;nmfkc.inference&gt;</i>)</a></code>
 
         </dt>
         <dd>Summary method for nmfkc.inference objects</dd>
       </dl><dl><dt>
 
+          <code><a href="summary.nmfkc.net.inference.html">summary(<i>&lt;nmfkc.net.inference&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Summary method for nmfkc.net.inference objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="summary.nmfkc.net.html">summary(<i>&lt;nmfkc.net&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Summary method for nmfkc.net objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="summary.nmfkc.net.signed.html">summary(<i>&lt;nmfkc.net.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Summary method for nmfkc.net.signed objects</dd>
+      </dl><dl><dt>
+
           <code><a href="summary.nmfkc.html">summary(<i>&lt;nmfkc&gt;</i>)</a></code>
 
         </dt>
         <dd>Summary method for objects of class <code>nmfkc</code></dd>
+      </dl><dl><dt>
+
+          <code><a href="summary.nmfkc.signed.html">summary(<i>&lt;nmfkc.signed&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Summary method for nmfkc.signed</dd>
       </dl><dl><dt>
 
           <code><a href="summary.nmfre.html">summary(<i>&lt;nmfre&gt;</i>)</a></code>

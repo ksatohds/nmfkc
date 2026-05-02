@@ -3,7 +3,7 @@
 \name{nmf.ffb}
 \alias{nmf.ffb}
 \alias{nmf.sem}
-\title{NMF-SEM Main Estimation Algorithm}
+\title{NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)}
 \usage{
 nmf.ffb(
   Y1,
@@ -163,7 +163,7 @@ prediction \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.}
 \item{iter}{Number of iterations actually performed.}
 }
 \description{
-Fits the NMF-SEM model
+Fits the NMF-FFB model
 \deqn{
   Y_1 \approx X \bigl( \Theta_1 Y_1 + \Theta_2 Y_2 \bigr)
 }
@@ -184,7 +184,7 @@ Internally, the latent feedback and exogenous loading matrices are stored as
 respectively.
 }
 \examples{
-# Simple NMF-SEM with iris data (non-negative)
+# Simple NMF-FFB with iris data (non-negative)
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]  # Sepal
 Y2 <- Y[3:4, ]  # Petal

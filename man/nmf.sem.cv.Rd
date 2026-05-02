@@ -3,7 +3,7 @@
 \name{nmf.ffb.cv}
 \alias{nmf.ffb.cv}
 \alias{nmf.sem.cv}
-\title{Cross-Validation for NMF-SEM}
+\title{Cross-Validation for NMF-FFB}
 \usage{
 nmf.ffb.cv(...)
 
@@ -58,7 +58,7 @@ A numeric scalar: mean MAE across CV folds.
 }
 \description{
 Performs K-fold cross-validation to evaluate the equilibrium mapping of
-the NMF-SEM model.
+the NMF-FFB model.
 
 For each fold, \code{nmf.sem} is fitted on the training samples,
 yielding an equilibrium mapping \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.

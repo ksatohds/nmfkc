@@ -3,7 +3,7 @@
 \name{nmf.ffb.inference}
 \alias{nmf.ffb.inference}
 \alias{nmf.sem.inference}
-\title{Statistical inference for NMF-SEM via X-fixed full pair bootstrap}
+\title{Statistical inference for NMF-FFB via X-fixed full pair bootstrap}
 \usage{
 nmf.ffb.inference(
   object,

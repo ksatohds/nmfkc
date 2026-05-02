@@ -3,7 +3,7 @@
 \name{nmf.ffb.split}
 \alias{nmf.ffb.split}
 \alias{nmf.sem.split}
-\title{Heuristic Variable Splitting for NMF-SEM}
+\title{Heuristic Variable Splitting for NMF-FFB}
 \usage{
 nmf.ffb.split(x, ...)
 
@@ -50,7 +50,7 @@ Integer giving the number of exogenous variables.}
 }
 \description{
 Infers a heuristic partition of observed variables into exogenous (\eqn{Y_2})
-and endogenous (\eqn{Y_1}) blocks for use in NMF-SEM.
+and endogenous (\eqn{Y_1}) blocks for use in NMF-FFB.
 The method is based on positive-SEM logic, causal ordering, and optional
 sign alignment using the first principal component (PC1).
 

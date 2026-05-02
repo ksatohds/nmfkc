@@ -25,7 +25,7 @@ Initialization uses a three-step NMF procedure via nmfkc:
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,7 +40,7 @@ Initialization uses a three-step NMF procedure via nmfkc:
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -129,8 +129,17 @@ Default is <code>rank</code>. For backward compatibility, <code>R</code> is acce
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments:</p><dl><dt><code>Y1.weights</code></dt>
-<dd><p>Weight matrix (P1 x N) or vector for \(Y_1\).
-0 indicates missing/ignored elements. Default: auto-detect <code>NA</code>s.</p></dd>
+<dd><p>Optional non-negative weight matrix
+(P1 x N) or vector for \(Y_1\), analogous to the
+<code>weights</code> argument of <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></code>.  Loss becomes
+\(\sum W_{ij} \, (Y_{1,ij} - \hat Y_{1,ij})^2\)
+(<code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>-style, <strong>linear</strong> in \(W\)).  Logical
+matrices (<code>TRUE</code> / <code>FALSE</code>) are also accepted.
+Typical ECV / CV usage passes a binary mask
+\(W \in \{0,1\}\) for held-out elements; real-valued weights
+for importance weighting are also supported.  Default: if
+<code>Y1</code> has <code>NA</code>, a binary mask is auto-generated
+(0 for <code>NA</code>, 1 elsewhere).</p></dd>
 
 <dt><code>C.L1</code></dt>
 <dd><p>L1 regularization parameter for \(C\). Default is 0.</p></dd>
@@ -216,7 +225,7 @@ An Artificial Intelligence (AI) Framework for Computational Science and Engineer
 <span class="r-in"><span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">0</span>,<span class="fl">1</span>,<span class="fl">0</span>, <span class="fl">0</span>,<span class="fl">1</span>,<span class="fl">0</span>,<span class="fl">1</span>, <span class="fl">1</span>,<span class="fl">1</span>,<span class="fl">0</span>,<span class="fl">0</span><span class="op">)</span>, nrow<span class="op">=</span><span class="fl">3</span>, byrow<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">nmfae</span><span class="op">(</span><span class="va">Y</span>, rank<span class="op">=</span><span class="fl">2</span>, rank.encoder<span class="op">=</span><span class="fl">2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">res</span><span class="op">$</span><span class="va">r.squared</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.7480689</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.7842934</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Heteroencoder example</span></span></span>
 <span class="r-in"><span><span class="va">Y1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">0</span>,<span class="fl">0</span>,<span class="fl">1</span><span class="op">)</span>, nrow<span class="op">=</span><span class="fl">2</span><span class="op">)</span></span></span>
