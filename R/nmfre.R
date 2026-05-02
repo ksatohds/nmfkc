@@ -597,6 +597,13 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
     converged <- FALSE
   }
 
+  ## Warn when the MU loop exhausted maxit without meeting the
+  ## relative-tolerance criterion (matches nmfkc() / nmf.sem()
+  ## convention).  The non-finite-objective break path issues its
+  ## own diagnostic via stop_reason; here we only fire on maxit.
+  if (identical(stop_reason, "maxit") && iter_done == maxit)
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
+
   # ---- reorder basis ----
   if (ncol(X) > 1) {
     w_ord <- matrix((1:P) / P, nrow = 1)

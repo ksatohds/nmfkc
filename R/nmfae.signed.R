@@ -432,6 +432,12 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     }
     obj_prev <- obj_cur
     }  # end for iter
+    ## Warn when the MU loop exhausts maxit without convergence
+    ## (matches nmfkc() / nmf.sem() convention).  Each restart inside
+    ## the multi-start loop emits its own warning if it fails to
+    ## converge, so users see how many restarts hit the cap.
+    if (iter == maxit && exists("rel") && rel >= epsilon)
+      warning(paste0("maximum iterations (", maxit, ") reached..."))
     list(X1 = X1, X2 = X2, Cp = Cp, Cn = Cn,
          objfunc.iter = objfunc.iter[seq_len(iter)], niter = iter,
          objfunc = obj_prev)

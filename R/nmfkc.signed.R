@@ -477,6 +477,13 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         abs(obj_prev - obj_cur) / max(abs(obj_prev), 1e-12) < epsilon) break
     obj_prev <- obj_cur
   }
+  ## Warn when the MU loop exhausts maxit without meeting the
+  ## relative-tolerance criterion (matches nmfkc() / nmf.sem() convention).
+  ## The non-finite-objective early break above already issued its own
+  ## warning, so we additionally guard against double-warning here.
+  if (iter == maxit && is.finite(obj_cur) && is.finite(obj_prev) &&
+      abs(obj_prev - obj_cur) / max(abs(obj_prev), 1e-12) >= epsilon)
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
   objfunc.iter <- objfunc.iter[seq_len(iter)]
 
   ## --- 7. Post-processing: sort columns of X (nmfkc-style centroid order) ---

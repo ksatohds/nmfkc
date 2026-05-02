@@ -275,6 +275,10 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
       }
     }
   }
+  ## Warn when the MU loop exhausts maxit without meeting the
+  ## relative-tolerance criterion (matches nmfkc() / nmf.sem() convention).
+  if (iter == maxit && exists("rel_change") && rel_change >= epsilon)
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
 
   niter <- iter
   objfunc.iter <- objfunc.iter[1:niter]

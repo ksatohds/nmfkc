@@ -664,6 +664,8 @@ nmfkc.net.DOT <- function(
     }
     obj_prev <- obj_cur
   }
+  if (iter == maxit && exists("rel") && rel >= epsilon)
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
   list(X = X, C = C, iter = iter,
        objfunc.iter = objfunc.iter[seq_len(iter)],
        objfunc = obj_prev)
@@ -719,6 +721,8 @@ nmfkc.net.DOT <- function(
     }
     obj_prev <- obj_cur
   }
+  if (iter == maxit && exists("rel") && rel >= epsilon)
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
   list(X = X, C = diag(Q), iter = iter,
        objfunc.iter = objfunc.iter[seq_len(iter)],
        objfunc = obj_prev)
@@ -1109,6 +1113,8 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     }
     obj_prev <- obj_cur
   }
+  if (iter == maxit && exists("rel") && rel >= epsilon)
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
   list(X = X, Cp = Cp, Cn = Cn, iter = iter,
        objfunc.iter = objfunc.iter[seq_len(iter)],
        objfunc = obj_prev)
