@@ -88,7 +88,7 @@ $$Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)$$
 | `nmfae()` / `nmfae.inference()` | NMF Autoencoder + inference |
 | `nmfkc.rank()` | Rank selection via elbow, cross-validation, ECV, and CPCC |
 | `nmfkc.inference()` | Sandwich SE and wild bootstrap p-values for `nmfkc` |
-| `nmfkc.DOT()` / `nmfkc.ar.DOT()` / `nmf.sem.DOT()` / `nmfae.DOT()` | Graphviz path diagrams; render with `plot()` |
+| `nmfkc.DOT()` / `nmfkc.ar.DOT()` / `nmf.ffb.DOT()` / `nmfae.DOT()` | Graphviz path diagrams; render with `plot()` |
 
 S3 methods `coef()`, `fitted()`, `residuals()`, `plot()`, `summary()`, `predict()` are available for all model classes. See `?nmfkc` or `browseVignettes("nmfkc")` for the full function list.
 
