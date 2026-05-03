@@ -19,6 +19,9 @@ nmf.sem.split(
 \item{x}{A numeric matrix or data frame with
 \strong{rows = samples} and \strong{columns = observed variables}.}
 
+\item{...}{Reserved for future use; currently unused (also accepted
+by the \code{\link{nmf.ffb.split}} alias for argument forwarding).}
+
 \item{n.exogenous}{Optional integer specifying the number of exogenous variables
 (\eqn{Y_2}). If \code{NULL}, the number is inferred automatically by the
 coefficient cut-off rule.}

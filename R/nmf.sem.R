@@ -1137,6 +1137,8 @@ nmf.sem.cv <- function(
 #'   (Default: \code{TRUE})
 #' @param verbose Logical; if \code{TRUE}, prints progress messages and the
 #'   resulting variable split. (Default: \code{FALSE})
+#' @param ... Reserved for future use; currently unused (also accepted
+#'   by the \code{\link{nmf.ffb.split}} alias for argument forwarding).
 #'
 #' @return A list with:
 #'   \item{endogenous.variables}{

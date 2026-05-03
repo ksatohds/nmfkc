@@ -1,9 +1,74 @@
-# nmfkc 0.6.8
+# nmfkc 0.7.2
+
+### **Headline: NMF-FFB rebrand and full bootstrap inference**
+- `nmf.ffb*` family added as the canonical alias for `nmf.sem*` (Satoh
+  2025, arXiv:2512.18250 adopts "NMF-FFB" — Non-negative Matrix
+  Factorization with Feed-Forward + Feedback — as the model's
+  canonical name).  `nmf.sem*` continues to work and shares the same
+  return classes (`c("nmf.ffb", "nmf.sem")` and
+  `c("nmf.ffb.inference", "nmf.sem.inference", ...)`), so existing
+  scripts are unaffected.
+- `nmf.sem.inference()` / `nmf.ffb.inference()`: replaced the legacy
+  1-step Newton wild bootstrap with a **full X-fixed pair bootstrap**.
+  Resamples columns of (Y1, Y2), refits (C1, C2) with X held at the
+  original fit, and reports per-element `support_rate = mean(|c_b| >
+  threshold)` together with percentile CIs.  Significance markers
+  (`*` / `**` / `***` at sup > 0.95 / 0.99 / 0.999) follow the lavaan
+  convention.  Both Theta_1 (feedback) and Theta_2 (exogenous) are
+  inference targets (previous version covered only Theta_2).
+- `nmf.sem()` / `nmf.ffb()`: now runs `nmfkc(Y1, A = Y2)`
+  **internally by default** when `X.init` is a string method,
+  forwarding `X.init`, `X.L2.ortho`, `epsilon`, `maxit`, `seed`.  The
+  feedforward fit is used both as the X warm-start and as the
+  baseline for `SC.map`.  `nmfkc.baseline = FALSE` opts out.
 
 ### **Bug Fixes**
+- `nmf.sem.inference()`: fixed dimension bug in the Leontief identity
+  matrix (`I_mat <- diag(Q)` should have been `diag(P1)`); previously
+  every replicate was silently marked invalid when `P1 != Q`.
+- `nmfkc.net()`: now auto-masks NA entries of `Y` (parity with the
+  other four NMF variants); previously errored at the `min(Y) < 0`
+  check when `Y` contained NA.
 - `nmfkc()`: Fixed C matrix asymmetry in tri-symmetric NMF (`Y.symmetric = "tri"`). The C update was using stale B and XB computed from the old X; now B and XB are recomputed after X is updated. Also fixed column reordering to permute both rows and columns of C. Previously the relative asymmetry could reach ~46%; now it is at machine precision (~1e-14).
 
 ### **Improvements**
+- `Y.weights` semantics unified to `lm()`-style weighted least squares
+  across `nmfkc()`, `nmfae()`, `nmfkc.net()`, `nmfkc.signed()`,
+  `nmfae.signed()`: loss is now `sum(W * (Y - Yhat)^2)` (linear in W,
+  matching `lm()`'s `weights` argument).  Binary masks (W ∈ {0, 1};
+  the standard ECV / NA-mask case) are unaffected since W = W^2.
+- All MU functions now emit a `"maximum iterations (N) reached..."`
+  warning when `maxit` is exhausted without meeting the relative-
+  tolerance criterion (previously silent in `nmfae`, `nmfae.signed`,
+  `nmfkc.net`, `nmfkc.signed`, `nmfre`, and `nmf.sem`).
+- All MU functions now share `maxit = 5000` as the default (was 5000
+  / 20000 / 50000 inconsistently).  Together with the maxit warning
+  above, users see explicit feedback when 5000 is insufficient and
+  can opt into a larger cap.
+- New shared internal helper `.init_X_method()` for X initialization
+  via `"nndsvd"` / `"kmeans"` / `"kmeansar"` / `"runif"` / numeric
+  matrix.  All NMF families now use the same dispatch logic; previous
+  ad-hoc inline implementations are removed.
+- `nmf.sem()` returns `SC.map` (input-output structural fidelity:
+  correlation between the equilibrium operator and the feedforward
+  baseline mapping; Satoh 2025 §4.SC.map) automatically when
+  `nmfkc.baseline` is supplied or computed internally.
+- `summary.nmf.sem()`: rewritten to display the full-bootstrap
+  inference output — separate Theta_1 / Theta_2 blocks with
+  `Estimate | CI_low | CI_high | support | Pr(>0) | sig`, plus a
+  bootstrap meta-info header.
+- `coef.nmf.sem()`: now returns a long-format data frame with rows
+  for every entry of both C1 and C2 (`Type | Basis | Covariate |
+  Estimate`); previously returned only the C2 matrix when no
+  inference had been run.  Schema matches the inference-augmented
+  output for uniformity.
+- `plot.nmf.sem()`: default trace is now `objfunc.full` (loss +
+  penalties — the actual monotonically-decreasing quantity that the
+  multiplicative updates minimize) instead of `objfunc` (reconstruction
+  only).  New argument `which = "full" | "reconstruction" | "both"`.
+- `nmf.sem.DOT()`: significance stars now appear on Theta_1 (feedback
+  Y1 → F) edges in addition to Theta_2 (exogenous Y2 → F); X (F → Y1)
+  edges remain unstarred since the basis is not the inference target.
 - `plot.nmfae.ecv()`: Heatmap cell text color is now always black for better readability on light-colored cells.
 - `nmfkc()`: `X.init = "runif"` now supports `nstart > 1` for multi-start initialization. Multiple random starting points are evaluated with 10 standard NMF iterations, and the best (lowest Frobenius error) is selected.
 - `nmfae()`, `nmfre()`: `r.squared` is now computed as `cor(Y, fitted)^2` (squared correlation between observed and fitted values), consistent with `nmfkc()`. Previously `nmfae()` used `1 - SS_res/SS_tot` and `nmfre()` used the same regression-style R-squared, which can behave unexpectedly for intercept-free non-negative models.
@@ -29,6 +94,15 @@
 ### **Parameter Renames** (old names remain usable for backward compatibility)
 - `nmf.sem.DOT()`: `weight_scale_y2f` → `weight_scale_c2`, `weight_scale_fy1` → `weight_scale_x1` (matrix-name-based naming, consistent with `nmfae.DOT()` and `nmfkc.DOT()`).
 - `nmf.sem.DOT()`: `sig.level` moved to after `threshold` for consistency with other `.DOT` functions.
+
+### **Documentation**
+- README, vignettes, and roxygen `@title` / `@description` updated to
+  use **NMF-FFB** as the canonical model name (with "(formerly
+  NMF-SEM)" attached on first mention for discoverability of the
+  legacy term).  File names (`R/nmf.sem.R`, `vignettes/nmf-sem-with-
+  nmfkc.Rmd`, `man/nmf.sem.Rd`), function names (`nmf.sem*`), and S3
+  classes (`"nmf.sem"`) are unchanged so URLs and existing scripts
+  continue to work.
 
 # nmfkc 0.6.7
 
