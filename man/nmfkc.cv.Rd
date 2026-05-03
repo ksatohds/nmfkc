@@ -18,7 +18,11 @@ Ignored when \code{Y} is a formula.}
 
 \item{...}{Additional arguments controlling CV and the internal \code{\link{nmfkc}} call:
 \describe{
-\item{\code{Y.weights}}{Optional numeric matrix or vector; 0 indicates missing/ignored values.}
+\item{\code{Y.weights}}{Non-negative weight matrix or vector
+(\code{lm()}-style: loss \eqn{\sum W \, r^2}).  Binary
+\code{{0,1}} masks (\code{TRUE} / \code{FALSE} also accepted)
+are the typical ECV usage -- 0/\code{FALSE} excludes an element.
+See \code{\link{nmfkc}} for full details.}
 \item{\code{div}}{Number of folds (\eqn{k}); default: \code{5}.}
 \item{\code{seed}}{Integer seed for reproducible partitioning; default: \code{123}.}
 \item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);

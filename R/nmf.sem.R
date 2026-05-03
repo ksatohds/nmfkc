@@ -1,4 +1,4 @@
-# nmf.sem.R — NMF-SEM related functions
+# nmf.sem.R — NMF-FFB (formerly NMF-SEM) related functions
 # nmf.sem, nmf.sem.cv, nmf.sem.split, nmf.sem.DOT
 
 #------------------------------------------------------------------------------
@@ -7,10 +7,10 @@
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
-#' @title NMF-SEM Main Estimation Algorithm
+#' @title NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)
 #'
 #' @description
-#' Fits the NMF-SEM model
+#' Fits the NMF-FFB model
 #' \deqn{
 #'   Y_1 \approx X \bigl( \Theta_1 Y_1 + \Theta_2 Y_2 \bigr)
 #' }
@@ -38,9 +38,32 @@
 #' @param rank Integer; number of latent factors \eqn{Q}. If \code{NULL},
 #'   \eqn{Q} is taken from a hidden argument in \code{...} or defaults to
 #'   \code{nrow(Y2)}.
-#' @param X.init Optional non-negative initialization for the basis matrix
-#'   \code{X} (\eqn{P_1 \times Q}). If supplied, it is projected to be
-#'   non-negative and column-normalized.
+#' @param X.init Initialization strategy for the basis matrix
+#'   \code{X} (\eqn{P_1 \times Q}).  One of:
+#'   \itemize{
+#'     \item \code{"nndsvd"} (default): Non-negative Double SVD with
+#'       additive randomness (NNDSVDar; Boutsidis & Gallopoulos 2008),
+#'       computed internally via \code{.nndsvdar(Y1, Q)}.  Requires
+#'       \eqn{Q \le \min(P_1, N)} (over-rank case falls back to
+#'       \code{"runif"}).  Uses a full SVD of \eqn{Y_1}, so for very
+#'       large \eqn{Y_1} consider switching to \code{"kmeans"} to
+#'       avoid SVD memory / compute cost.
+#'     \item \code{"kmeans"}: k-means on the columns of \eqn{Y_1}
+#'       (samples clustered into \eqn{Q} groups); the transposed
+#'       cluster centers become \eqn{X}.  Scales well for large
+#'       \eqn{Y_1}; this is the default of \code{\link{nmfkc}}.
+#'     \item \code{"kmeansar"}: \code{"kmeans"} followed by filling
+#'       zero entries of \eqn{X} with \eqn{\mathrm{Uniform}(0,
+#'       \bar Y_1 / 100)} (NNDSVDar-style additive randomness to
+#'       escape trivial stationary points).
+#'     \item \code{"runif"}: Uniform random entries in \eqn{[0, 1]}.
+#'     \item A numeric \eqn{P_1 \times Q} matrix supplied by the user;
+#'       negative entries are projected to 0.
+#'     \item \code{NULL}: backward-compatible alias for \code{"nndsvd"}.
+#'   }
+#'   In all cases the result is column-normalized to \code{colSums(X) = 1}
+#'   before iteration.  The menu mirrors \code{\link{nmfkc}}'s
+#'   \code{X.init} option for consistency across the package.
 #' @param X.L2.ortho L2 orthogonality penalty for \code{X}. This controls
 #'   the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
 #'   \rVert_F^2}. Default: \code{100}.
@@ -52,10 +75,44 @@
 #'   Iterations stop when the relative change in reconstruction loss falls
 #'   below this value. Default: \code{1e-6}.
 #' @param maxit Maximum number of iterations for the multiplicative updates.
-#'   Default: \code{20000}.
+#'   Default: \code{5000} (matches \code{\link{nmfkc}} and other MU
+#'   functions in the package).
 #' @param seed Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
 #'   Default: \code{123}.
-#' @param ... Additional arguments (reserved for future use).
+#' @param ... Additional hidden arguments controlling the optional
+#'   feedforward baseline (used both as an \eqn{X} warm-start and as
+#'   the reference for \code{SC.map}, the input-output structural
+#'   fidelity defined in Satoh (2025) §4.SC.map):
+#'   \describe{
+#'     \item{\code{nmfkc.baseline}}{Controls whether a feedforward
+#'       \code{\link{nmfkc}}(Y1, A = Y2) fit is used as baseline.
+#'       Possible values:
+#'       \itemize{
+#'         \item Default (not given) — \code{nmf.sem} runs
+#'           \code{\link{nmfkc}} \strong{internally} when \code{X.init}
+#'           is a string method (\code{"nndsvd"}, \code{"kmeans"},
+#'           \dots) or \code{NULL}, forwarding \code{X.init},
+#'           \code{X.L2.ortho}, \code{epsilon}, \code{maxit},
+#'           \code{seed}.  The fitted \eqn{X} of the baseline is then
+#'           used as warm-start for the nmf.sem MU iterations, and
+#'           \code{SC.map} is computed.  This means
+#'           \code{nmf.sem(Y1, Y2, rank = Q)} runs end-to-end without
+#'           a prior \code{nmfkc} call.
+#'         \item \code{TRUE} — same as above, but force the internal
+#'           \code{\link{nmfkc}} call even when \code{X.init} is a
+#'           user-supplied matrix (the matrix is overridden).
+#'         \item \code{FALSE} — opt out; no internal call,
+#'           \code{SC.map = NA} (pre-v0.6.8 behavior).
+#'         \item An \code{\link{nmfkc}} result (list with \code{$X}
+#'           and \code{$C}) — use as the baseline directly (no
+#'           internal call); also adopted as \code{X.init} when the
+#'           latter is a string / NULL.
+#'       }}
+#'     \item{\code{M.simple}}{Optional \eqn{P_1 \times P_2} pre-computed
+#'       baseline mapping.  Takes precedence over \code{nmfkc.baseline}
+#'       for the SC.map calculation but does not affect warm-start.}
+#'     \item{\code{Q}}{Backward-compat alias for \code{rank}.}
+#'   }
 #'
 #' @return A list with components:
 #'   \item{X}{Estimated basis matrix (\eqn{P_1 \times Q}).}
@@ -76,7 +133,14 @@
 #'     \eqn{\lVert X \Theta_1 \rVert_{1,\mathrm{op}} < 1}, otherwise \code{Inf}.}
 #'   \item{Q}{Effective latent dimension used in the fit.}
 #'   \item{SC.cov}{Correlation between sample and model-implied covariance
-#'     (flattened) of \eqn{Y_1}.}
+#'     (flattened) of \eqn{Y_1}.  See \emph{second-moment fidelity} in
+#'     Satoh (2025).}
+#'   \item{SC.map}{Correlation between the equilibrium operator
+#'     \eqn{M_{\mathrm{model}}} and a feedforward baseline mapping
+#'     \eqn{M_{\mathrm{simple}} = X_0 \Theta_0}, computed only when the
+#'     baseline is supplied via \code{M.simple} or \code{nmfkc.baseline}
+#'     in \code{...}; otherwise \code{NA}.  See \emph{input-output
+#'     structural fidelity} in Satoh (2025).}
 #'   \item{MAE}{Mean absolute error between \eqn{Y_1} and its equilibrium
 #'     prediction \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.}
 #'   \item{objfunc}{Vector of reconstruction losses per iteration.}
@@ -84,7 +148,7 @@
 #'   \item{iter}{Number of iterations actually performed.}
 #'
 #' @examples
-#' # Simple NMF-SEM with iris data (non-negative)
+#' # Simple NMF-FFB with iris data (non-negative)
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]  # Sepal
 #' Y2 <- Y[3:4, ]  # Petal
@@ -102,12 +166,12 @@
 nmf.sem <- function(
     Y1, Y2,
     rank = NULL,
-    X.init = NULL,
+    X.init = "nndsvd",
     X.L2.ortho = 100.0,
     C1.L1 = 1.0,
     C2.L1 = 0.1,
     epsilon = 1e-6,
-    maxit = 20000,
+    maxit = 5000,
     seed  = 123,
     ...
 ) {
@@ -140,13 +204,80 @@ nmf.sem <- function(
   .xnorm  <- function(X) sweep(X, 2, pmax(colSums(X), .eps), "/")
   mat1norm <- function(A) max(colSums(abs(A)))
 
-  # ---------------------------- init X,C1,C2 --------------------------
-  if (is.null(X.init)) {
-    if (Q <= min(P1, N)) {
-      X <- .nndsvdar(Y1, Q)
-    } else {
-      X <- matrix(stats::runif(P1 * Q), nrow = P1, ncol = Q)
+  # ---------- (optional) internal nmfkc warm-start + SC.map baseline --
+  ## Resolution rules for `nmfkc.baseline`:
+  ##   * not given (default): if X.init is a string method (or NULL),
+  ##     run nmfkc(Y1, A = Y2) INTERNALLY using the same X.init,
+  ##     X.L2.ortho, epsilon, maxit, seed; use its X as warm-start
+  ##     and X * C as M.simple for SC.map.  This is the typical
+  ##     workflow described in Satoh (2025) and means
+  ##       res <- nmf.sem(Y1, Y2, rank = Q)
+  ##     can run end-to-end without first calling nmfkc().
+  ##   * TRUE: same as above (explicit opt-in even when X.init is a
+  ##     user-supplied matrix; the matrix is overridden by nmfkc's X).
+  ##   * FALSE: opt-out — no internal nmfkc, no warm-start, SC.map = NA
+  ##     (equivalent to pre-v0.6.8 behavior).
+  ##   * an nmfkc result (list with $X and $C): use as the baseline
+  ##     for SC.map and as warm-start for X.init (no internal call).
+  baseline_for_scmap <- NULL
+
+  user_baseline    <- extra_args$nmfkc.baseline
+  user_M.simple    <- extra_args$M.simple
+
+  baseline_is_obj  <- is.list(user_baseline) &&
+                      !is.null(user_baseline$X) && !is.null(user_baseline$C)
+  baseline_is_TRUE <- isTRUE(user_baseline)
+  baseline_is_FALSE <- isFALSE(user_baseline)
+  baseline_is_default <- is.null(user_baseline)
+
+  ## Default auto-run when baseline is unspecified AND X.init is a string
+  ## method (NULL is treated as "nndsvd" string).
+  auto_nmfkc <- if (baseline_is_FALSE) {
+    FALSE
+  } else if (baseline_is_TRUE) {
+    TRUE
+  } else if (baseline_is_obj) {
+    FALSE
+  } else if (baseline_is_default) {
+    is.null(X.init) || is.character(X.init)
+  } else {
+    FALSE
+  }
+
+  if (auto_nmfkc) {
+    ## Internal nmfkc call.  Forward only the genuinely shared options
+    ## (X.init, X.L2.ortho, epsilon, maxit, seed); the nmf.sem-specific
+    ## C1.L1 / C2.L1 do not apply to the feedforward baseline model.
+    nmfkc_xinit <- if (is.null(X.init)) "nndsvd" else X.init
+    baseline_for_scmap <- nmfkc(
+      Y = Y1, A = Y2, Q = Q,
+      X.init = nmfkc_xinit,
+      X.L2.ortho = X.L2.ortho,
+      epsilon = epsilon,
+      maxit = maxit,
+      seed = seed,
+      verbose = FALSE,
+      print.dims = FALSE
+    )
+    ## Override X.init with the nmfkc-fitted X for nmf.sem warm-start
+    X.init <- baseline_for_scmap$X
+  } else if (baseline_is_obj) {
+    baseline_for_scmap <- user_baseline
+    ## When the user supplies an nmfkc result AND X.init is still a
+    ## string / NULL, also use baseline$X as warm-start (rmd workflow).
+    if (is.null(X.init) || is.character(X.init)) {
+      X.init <- baseline_for_scmap$X
     }
+  }
+
+  # ---------------------------- init X,C1,C2 --------------------------
+  ## X.init dispatch: delegate string methods to the shared internal
+  ## helper .init_X_method() (defined in R/nmfkc.R).  Accepts:
+  ##   "nndsvd" (default), "kmeans", "kmeansar", "runif",
+  ##   a numeric P1 x Q matrix, or NULL (alias for "nndsvd").
+  if (is.null(X.init)) X.init <- "nndsvd"
+  if (is.character(X.init)) {
+    X <- .init_X_method(X.init, Y1, Q)
   } else {
     X <- as.matrix(X.init)
     if (!all(dim(X) == c(P1, Q))) {
@@ -222,6 +353,10 @@ nmf.sem <- function(
       if (epsilon_iter <= epsilon) break
     }
   }
+  ## Warn when the MU loop exhausts maxit without meeting the
+  ## relative-tolerance criterion (matches the nmfkc() convention).
+  if (it == maxit && exists("epsilon_iter") && epsilon_iter > abs(epsilon))
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
 
   # ------------------ reorder factors (nmfkc centroid order) ----------
   centroid <- as.numeric((1:nrow(X)) / nrow(X)) %*% X
@@ -276,6 +411,34 @@ nmf.sem <- function(
     MAE      <- mean(abs(Y1 - Y1_hat))
   }
 
+  ## -------------------- input-output structural fidelity (SC.map) -----
+  ## SC.map = cor(vec(M.model), vec(M.simple)), where M.simple = X0 * Theta0
+  ## is the feedforward baseline mapping (Satoh 2025 §4.SC.map).
+  ## `baseline_for_scmap` was set above to either:
+  ##   - the result of an internal nmfkc call (default auto path), or
+  ##   - the user-supplied `nmfkc.baseline` list, or
+  ##   - NULL if the user opted out (nmfkc.baseline = FALSE) or
+  ##     supplied X.init as a numeric matrix without nmfkc.baseline.
+  ## A user-supplied `M.simple` matrix takes precedence over both.
+  SC.map <- NA_real_
+  M.simple <- if (!is.null(user_M.simple)) user_M.simple
+              else if (!is.null(baseline_for_scmap))
+                baseline_for_scmap$X %*% baseline_for_scmap$C
+              else NULL
+  if (!is.null(M.simple) && !anyNA(M.model)) {
+    M.simple <- as.matrix(M.simple)
+    if (all(dim(M.simple) == dim(M.model))) {
+      SC.map <- tryCatch(
+        stats::cor(as.numeric(M.simple), as.numeric(M.model)),
+        error = function(e) NA_real_
+      )
+    } else {
+      warning("M.simple has dimension ", paste(dim(M.simple), collapse = "x"),
+              " but M.model is ", paste(dim(M.model), collapse = "x"),
+              "; SC.map not computed.")
+    }
+  }
+
   out <- list(
     X                   = X,
     C1                  = C1,
@@ -290,54 +453,124 @@ nmf.sem <- function(
     amplification.bound = amplification.bound,
     Q                   = Q,
     SC.cov              = SC.cov,
+    SC.map              = SC.map,
     MAE                 = MAE,
     objfunc             = objfunc[1:it],
     objfunc.full        = objfunc.full[1:it],
     iter                = it
   )
-  class(out) <- "nmf.sem"
+  ## Carry both the canonical NMF-FFB class (paper-aligned, primary) and
+  ## the legacy "nmf.sem" class (back-compat).  S3 methods registered on
+  ## either class are dispatched correctly via inheritance.
+  class(out) <- c("nmf.ffb", "nmf.sem")
   out
 }
 
 
-#' @title Statistical inference for the exogenous parameter matrix C2
+#' @title Statistical inference for NMF-FFB via X-fixed full pair bootstrap
 #' @description
-#' \code{nmf.sem.inference} performs statistical inference on the exogenous
-#' parameter matrix \eqn{C_2} from a fitted \code{nmf.sem} model, conditional
-#' on the estimated basis matrix \eqn{\hat{X}} and the endogenous parameter
-#' matrix \eqn{\hat{C}_1}.
+#' \code{nmf.sem.inference} performs statistical inference on the structural
+#' coefficient matrices \eqn{C_1} (latent feedback, \eqn{\Theta_1}) and
+#' \eqn{C_2} (exogenous loading, \eqn{\Theta_2}) from a fitted
+#' \code{\link{nmf.sem}} model.
 #'
-#' Under the working model \eqn{R = Y_1 - X C_1 Y_1 \approx X C_2 Y_2 + \varepsilon},
-#' inference on \eqn{C_2} is conducted via sandwich covariance estimation and
-#' one-step wild bootstrap with non-negative projection.
+#' The procedure is a \strong{full pair bootstrap} that holds the basis
+#' matrix \eqn{\hat X} from the original fit fixed across all replicates
+#' (which avoids label switching and gives a clean conditional
+#' interpretation: ``uncertainty of the structural coefficients given the
+#' measurement model''):
+#' \enumerate{
+#'   \item For each replicate \eqn{b = 1, \dots, B}, resample column indices
+#'     \eqn{(i_1, \dots, i_N)} with replacement from \eqn{\{1, \dots, N\}}
+#'     and form \eqn{Y_1^{(b)} = Y_1[, i]}, \eqn{Y_2^{(b)} = Y_2[, i]}.
+#'   \item Re-estimate \eqn{(C_1^{(b)}, C_2^{(b)})} by running the
+#'     \code{\link{nmf.sem}} multiplicative updates \emph{with \eqn{X = \hat X}
+#'     held fixed} (no \eqn{X} update; no centroid sort), using the same
+#'     \code{C1.L1}, \code{C2.L1} as the original fit.
+#'   \item Discard replicates that violate stationarity
+#'     (\eqn{\rho(X C_1^{(b)}) \ge 1}) or have an amplification ratio
+#'     exceeding the geometric-series bound by more than 1\%.
+#' }
+#' Because \eqn{C_1, C_2 \ge 0} are non-negative by construction, exact
+#' zeros are essentially never observed in the bootstrap distribution.
+#' Significance is assessed via a \strong{support rate} at a small display
+#' threshold \eqn{\delta} (default \code{0.01}):
+#' \deqn{
+#'   \mathrm{sup}(c) \;=\; \frac{1}{|\mathrm{valid}|}
+#'     \sum_{b \in \mathrm{valid}} \mathbf{1}\!\left( \hat c^{(b)} > \delta \right).
+#' }
+#' This is a one-sided counterpart of the classical \eqn{p}-value:
+#' large \code{support_rate} indicates strong evidence that the entry is
+#' meaningfully positive.  Significance markers follow the lavaan
+#' convention with the natural correspondence \eqn{p = 1 - \mathrm{sup}}:
+#' \code{*} (sup > 0.95), \code{**} (sup > 0.99), \code{***}
+#' (sup > 0.999).  Cutoffs use strict greater-than so the rule
+#' mirrors the standard R convention for p-values (p < 0.05 / 0.01 /
+#' 0.001 → */**/***), translated to support_rate via
+#' \eqn{\mathrm{sup} = 1 - p}.
 #'
-#' @param object A list returned by \code{\link{nmf.sem}}, containing at least
-#'   \code{X}, \code{C1}, and \code{C2}.
-#' @param Y1 Endogenous variable matrix (P1 x N). Must match the data used in
-#'   \code{nmf.sem()}.
-#' @param Y2 Exogenous variable matrix (P2 x N). Must match the data used in
-#'   \code{nmf.sem()}.
-#' @param wild.bootstrap Logical. If \code{TRUE} (default), performs wild bootstrap
-#'   for confidence intervals and bootstrap standard errors.
-#' @param ... Additional arguments:
+#' @param object A fitted object returned by \code{\link{nmf.sem}}.  Must
+#'   contain \code{X}, \code{C1}, \code{C2}.
+#' @param Y1 Endogenous variable matrix (P1 x N).  Must match the data
+#'   used in \code{nmf.sem()}.
+#' @param Y2 Exogenous variable matrix (P2 x N).  Same.
+#' @param B Number of bootstrap replicates.  Default \code{1000}; required
+#'   for the \code{***} threshold (sup > 0.999).  Reduce to 500 for
+#'   exploratory speed (only \code{*} / \code{**} stay reliable).
+#' @param threshold Display threshold \eqn{\delta} for the support rate
+#'   \eqn{\Pr_{\mathrm{boot}}(\hat c^{(b)} > \delta)}.  Default
+#'   \code{0.01}; entries below this magnitude are treated as effectively
+#'   zero in the path diagram.
+#' @param ci.level Confidence level for the percentile bootstrap CI.
+#'   Default \code{0.95}.
+#' @param C1.L1,C2.L1 L1 sparsity penalties used by the original
+#'   \code{\link{nmf.sem}} fit.  These must match the fit's hyperparameters
+#'   for the bootstrap to estimate the correct model.  Defaults
+#'   (\code{1.0}, \code{0.1}) match \code{nmf.sem}'s defaults but you
+#'   should pass the actual values used.
+#' @param seed Base RNG seed for the bootstrap.  Each replicate uses
+#'   \code{seed + b} (resampling) and \code{seed + 1000 + b}
+#'   (\eqn{C_1, C_2} initialization).  Default \code{123}.
+#' @param ... Hidden options:
 #'   \describe{
-#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
-#'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
-#'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
-#'     \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
-#'     \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
-#'     \item{\code{cov.ridge}}{Ridge stabilization for information matrix inversion. Default is 1e-8.}
-#'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+#'     \item{\code{epsilon}}{Convergence tolerance for the inner fixed-X MU
+#'       loop.  Default \code{1e-6}.}
+#'     \item{\code{maxit}}{Maximum iterations for the inner MU loop.
+#'       Default \code{5000}.}
+#'     \item{\code{ncores}}{Number of parallel workers.  Default \code{1}
+#'       (serial).  Cross-platform: uses \code{parallel::mclapply} on
+#'       Linux/macOS and \code{parallel::parLapply} (PSOCK cluster) on
+#'       Windows.}
+#'     \item{\code{print.trace}}{Logical, print progress.  Default
+#'       \code{FALSE}.}
 #'   }
 #'
-#' @return The input \code{object} with additional inference components:
-#' \item{sigma2.used}{Estimated \eqn{\sigma^2} used for inference.}
-#' \item{C2.se}{Sandwich standard errors for \eqn{C_2} (Q x P2 matrix).}
-#' \item{C2.se.boot}{Bootstrap standard errors for \eqn{C_2} (Q x P2 matrix).}
-#' \item{C2.ci.lower}{Lower CI bounds for \eqn{C_2} (Q x P2 matrix).}
-#' \item{C2.ci.upper}{Upper CI bounds for \eqn{C_2} (Q x P2 matrix).}
-#' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{C_2}.}
-#' \item{C2.p.side}{P-value type used.}
+#' @return The input \code{object} with additional bootstrap inference
+#'   components:
+#' \item{coefficients}{Data frame with rows for every entry of \eqn{C_1}
+#'   and \eqn{C_2} and columns \code{Type} ("C1" / "C2"), \code{Basis},
+#'   \code{Covariate}, \code{Estimate}, \code{CI_low}, \code{CI_high},
+#'   \code{support_rate}, \code{p_value} (\eqn{= 1 - \mathrm{support\_rate}},
+#'   for compatibility with downstream consumers such as
+#'   \code{\link{nmf.sem.DOT}}), and \code{sig}.}
+#' \item{C1.support.rate, C2.support.rate}{Per-element support rates
+#'   (Q x P1 and Q x P2 matrices).}
+#' \item{C1.ci.lower, C1.ci.upper, C2.ci.lower, C2.ci.upper}{Per-element
+#'   percentile CI bounds.}
+#' \item{C1.array, C2.array}{Bootstrap distributions: 3D arrays of shape
+#'   B x Q x P1 (and B x Q x P2).  Invalid replicates contain \code{NA}.}
+#' \item{rho.boot, AR.boot, iter.boot}{Per-replicate spectral radius,
+#'   amplification ratio, and inner-loop iteration count.}
+#' \item{bootstrap.B, bootstrap.threshold, bootstrap.ci.level}{Inputs
+#'   recorded for reproducibility.}
+#' \item{bootstrap.n.valid, bootstrap.n.invalid}{Validity counts.}
+#'
+#' @section Lifecycle:
+#' This function's interface changed at v0.6.8: the legacy 1-step Newton
+#' wild bootstrap (with sandwich SE) has been replaced by the full pair
+#' bootstrap described above, following the paper revision.  The fields
+#' \code{sigma2.used}, \code{C2.se}, \code{C2.se.boot}, \code{C2.p.side}
+#' that the previous implementation produced are no longer present.
 #'
 #' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.DOT}}
 #' @references
@@ -346,170 +579,298 @@ nmf.sem <- function(
 #'   arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 #' @export
 #' @examples
+#' \donttest{
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
-#' res <- nmf.sem(Y1, Y2, rank = 2)
-#' res2 <- nmf.sem.inference(res, Y1, Y2)
-#' res2$coefficients
-#'
-nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
+#' res  <- nmf.sem(Y1, Y2, rank = 2)
+#' res2 <- nmf.sem.inference(res, Y1, Y2, B = 200)  # quick demo
+#' head(res2$coefficients)
+#' }
+nmf.sem.inference <- function(object, Y1, Y2,
+                               B = 1000L,
+                               threshold = 0.01,
+                               ci.level = 0.95,
+                               C1.L1 = 1.0,
+                               C2.L1 = 0.1,
+                               seed = 123L,
+                               ...) {
   if (is.null(object$X) || is.null(object$C1) || is.null(object$C2))
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
 
-  extra_args <- base::list(...)
-  wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
-  wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
-  wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
-  sandwich    <- if (!is.null(extra_args$sandwich))     extra_args$sandwich    else TRUE
-  C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
-  cov.ridge   <- if (!is.null(extra_args$cov.ridge))   extra_args$cov.ridge   else 1e-8
+  extra_args  <- base::list(...)
+  epsilon     <- if (!is.null(extra_args$epsilon))     extra_args$epsilon     else 1e-6
+  maxit       <- if (!is.null(extra_args$maxit))       extra_args$maxit       else 5000L
+  ncores      <- if (!is.null(extra_args$ncores))      extra_args$ncores      else 1L
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
 
   Y1 <- base::as.matrix(Y1)
   Y2 <- base::as.matrix(Y2)
+  if (ncol(Y1) != ncol(Y2)) stop("Y1 and Y2 must have the same number of columns.")
 
-  X     <- object$X    # P1 x Q
-  C1    <- object$C1   # Q x P1
-  C2    <- object$C2   # Q x P2
+  X.hat  <- object$X
+  C1.hat <- object$C1
+  C2.hat <- object$C2
 
-  Q  <- base::ncol(X)
-  P1 <- base::nrow(Y1)
-  P2 <- base::nrow(Y2)
-  N  <- base::ncol(Y1)
+  Q  <- ncol(X.hat)
+  P1 <- nrow(Y1)
+  P2 <- nrow(Y2)
+  N  <- ncol(Y1)
+  if (nrow(X.hat) != P1)
+    stop("nrow(X) must equal nrow(Y1); did Y1 change shape?")
+  if (Q < 1L) stop("Inferred rank Q < 1.")
 
-  # Residual after removing endogenous feedback: R = Y1 - X*C1*Y1
-  R_endo <- Y1 - X %*% C1 %*% Y1          # P1 x N
-  R_C2   <- R_endo - X %*% C2 %*% Y2      # P1 x N  (full residual)
+  ## ----------------------------------------------------------------
+  ## one_boot: a single bootstrap replicate.
+  ## Closure captures Y1, Y2, X.hat, C1.L1, C2.L1, Q, P1, P2, N,
+  ## epsilon, maxit, seed.  Returns a list with valid flag plus
+  ## (C1, C2, rho, AR, iter) when valid, or NA placeholders otherwise.
+  ## ----------------------------------------------------------------
+  one_boot <- function(b) {
+    ## Sample column indices with replacement (pair bootstrap)
+    set.seed(seed + b)
+    idx  <- sample.int(N, size = N, replace = TRUE)
+    Y1_b <- Y1[, idx, drop = FALSE]
+    Y2_b <- Y2[, idx, drop = FALSE]
 
-  # sigma2 estimate
-  denom <- base::max(P1 * N - Q * P2, 1)
-  sigma2.used <- base::sum(R_C2^2) / denom
-
-  # Information matrix: I = sigma^{-2} (Y2*Y2' x X'X)
-  XtX  <- base::crossprod(X)                # Q x Q
-  Y2Y2 <- base::tcrossprod(Y2)              # P2 x P2
-  Info_core <- base::kronecker(Y2Y2, XtX)   # QP2 x QP2
-  Info <- Info_core / base::max(sigma2.used, 1e-12)
-  Info <- Info + base::diag(cov.ridge, base::nrow(Info))
-
-  Hinv <- base::tryCatch(base::solve(Info), error = function(e) {
-    if (base::requireNamespace("MASS", quietly = TRUE)) MASS::ginv(Info)
-    else base::stop("Information matrix singular; install MASS package.")
-  })
-
-  # Sandwich covariance: V = Hinv J Hinv
-  V_sand <- NULL
-  if (base::isTRUE(sandwich)) {
-    Xt <- base::t(X)
-    J <- base::matrix(0, Q * P2, Q * P2)
-    for (n in 1:N) {
-      y2_n <- Y2[, n, drop = FALSE]       # P2 x 1
-      r_n  <- R_C2[, n, drop = FALSE]     # P1 x 1
-      g_n  <- Xt %*% r_n                  # Q x 1
-      S_n  <- -(g_n %*% base::t(y2_n)) / base::max(sigma2.used, 1e-12)  # Q x P2
-      s_n  <- base::as.vector(S_n)
-      J    <- J + base::tcrossprod(s_n)
-    }
-    if (N > 1) J <- (N / (N - 1)) * J    # CR1 correction
-    V_sand <- Hinv %*% J %*% Hinv
-  }
-
-  C.vec.cov <- if (!is.null(V_sand)) V_sand else Hinv
-
-  # Sandwich SE
-  se_vec <- base::sqrt(base::pmax(base::diag(C.vec.cov), 0))
-  C2.se <- base::matrix(se_vec, nrow = Q, ncol = P2, byrow = FALSE)
-
-  # ---- Wild bootstrap (one-step Newton) ----
-  C2.se.boot  <- NULL
-  C2.ci.lower <- NULL
-  C2.ci.upper <- NULL
-
-  if (base::isTRUE(wild.bootstrap)) {
-    base::set.seed(wild.seed)
-    Xt <- base::t(X)
-    score_mat <- base::matrix(0, Q * P2, N)
-    for (n in 1:N) {
-      y2_n <- Y2[, n, drop = FALSE]
-      r_n  <- R_C2[, n, drop = FALSE]
-      g_n  <- Xt %*% r_n
-      G_n  <- -(g_n %*% base::t(y2_n)) / base::max(sigma2.used, 1e-12)
-      score_mat[, n] <- base::as.vector(G_n)
+    ## Independent random init for C1, C2 (X is held at X.hat)
+    set.seed(seed + 1000L + b)
+    C1 <- matrix(stats::runif(Q * P1, 0.01, 0.1),  nrow = Q)
+    C2 <- matrix(stats::runif(Q * P2, 0.001, 0.01), nrow = Q, ncol = P2)
+    min_dim <- min(Q, P2)
+    if (min_dim >= 1L) {
+      for (i in 1:min_dim) C2[i, i] <- stats::runif(1, 0.1, 0.2)
     }
 
-    C2_hat_vec <- base::as.vector(C2)
-    C2_boot <- base::matrix(NA_real_, nrow = Q * P2, ncol = wild.B)
-    for (b in 1:wild.B) {
-      w <- stats::rexp(N, rate = 1) - 1       # Exp(1)-centered multiplier
-      grad_b <- base::as.vector(score_mat %*% w)
-      c_b <- C2_hat_vec - base::as.vector(Hinv %*% grad_b)
-      c_b <- base::pmax(c_b, 0)               # project onto C2 >= 0
-      C2_boot[, b] <- c_b
+    .eps_local <- 1e-10
+    Xt  <- t(X.hat)
+    XtX <- Xt %*% X.hat
+    Y1tY1_b <- tcrossprod(Y1_b)        # P1 x P1
+    XtY1_b  <- Xt %*% Y1_b              # Q x N (re-used via crossprods below)
+    XtY1Y1t <- XtY1_b %*% t(Y1_b)       # Q x P1   = Xt %*% Y1_b %*% t(Y1_b)
+    XtY1Y2t <- XtY1_b %*% t(Y2_b)       # Q x P2
+    prev_loss <- Inf
+    iter_used <- 0L
+
+    ## Fixed-X MU loop on (C1, C2)
+    for (it in seq_len(maxit)) {
+      M_b <- C1 %*% Y1_b + C2 %*% Y2_b   # Q x N latent representation
+
+      ## C1 update
+      Den_C1 <- XtX %*% M_b %*% t(Y1_b) + C1.L1 + .eps_local
+      C1 <- C1 * (XtY1Y1t / Den_C1)
+
+      ## C2 update (uses updated C1 via fresh M_b)
+      M_b <- C1 %*% Y1_b + C2 %*% Y2_b
+      Den_C2 <- XtX %*% M_b %*% t(Y2_b) + C2.L1 + .eps_local
+      C2 <- C2 * (XtY1Y2t / Den_C2)
+
+      ## Convergence check (relative change in reconstruction loss)
+      XB <- X.hat %*% (C1 %*% Y1_b + C2 %*% Y2_b)
+      loss <- sum((Y1_b - XB)^2)
+      if (it >= 10L) {
+        rel <- abs(loss - prev_loss) / max(abs(loss), 1)
+        if (rel <= epsilon) { iter_used <- it; break }
+      }
+      prev_loss <- loss
+      iter_used <- it
     }
 
-    # Bootstrap SE
-    sd_vec <- base::apply(C2_boot, 1, stats::sd, na.rm = TRUE)
-    C2.se.boot <- base::matrix(sd_vec, nrow = Q, ncol = P2, byrow = FALSE)
+    ## ---- Validity checks (mirrors the paper's bootstrap helper) ----
+    XC1_b <- X.hat %*% C1
+    rho <- tryCatch(
+      max(abs(eigen(XC1_b, only.values = TRUE, symmetric = FALSE)$values)),
+      error = function(e) NA_real_
+    )
+    norm1_XC1 <- max(colSums(abs(XC1_b)))
+    AR_bound <- if (is.finite(norm1_XC1) && norm1_XC1 < 1)
+                  1 / (1 - norm1_XC1)
+                else Inf
 
-    # Bootstrap CI
-    alpha <- 1 - wild.level
-    lo <- base::apply(C2_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
-    hi <- base::apply(C2_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
-    C2.ci.lower <- base::matrix(lo, nrow = Q, ncol = P2, byrow = FALSE)
-    C2.ci.upper <- base::matrix(hi, nrow = Q, ncol = P2, byrow = FALSE)
+    if (!is.finite(rho) || rho >= 1) {
+      return(list(valid = FALSE, C1 = NULL, C2 = NULL,
+                  rho = rho, AR = NA_real_, iter = iter_used))
+    }
+    ## XC1_b = X (P1 x Q) %*% C1 (Q x P1) is P1 x P1, so the identity
+    ## here must be P1 x P1 too.  (Earlier draft used diag(Q) which is
+    ## conformable only when Q == P1, otherwise solve() throws an error
+    ## that the tryCatch swallowed -- causing every replicate to be
+    ## marked invalid with AR = NA.)
+    I_mat   <- diag(nrow(XC1_b))
+    Linv    <- tryCatch(solve(I_mat - XC1_b), error = function(e) NULL)
+    if (is.null(Linv)) {
+      return(list(valid = FALSE, C1 = NULL, C2 = NULL,
+                  rho = rho, AR = NA_real_, iter = iter_used))
+    }
+    XC2_b   <- X.hat %*% C2
+    M.model <- Linv %*% XC2_b
+    AR <- max(colSums(abs(M.model))) / (max(colSums(abs(XC2_b))) + .eps_local)
+    if (!is.finite(AR) || AR > AR_bound * 1.01) {
+      return(list(valid = FALSE, C1 = NULL, C2 = NULL,
+                  rho = rho, AR = AR, iter = iter_used))
+    }
+
+    list(valid = TRUE, C1 = C1, C2 = C2,
+         rho = rho, AR = AR, iter = iter_used)
   }
 
-  # ---- Coefficients table ----
-  Estimate <- base::as.vector(C2)
-  SE  <- base::as.vector(C2.se)
-  BSE <- if (!is.null(C2.se.boot)) base::as.vector(C2.se.boot) else base::rep(NA_real_, base::length(Estimate))
-  z_value <- base::ifelse(SE > 0, Estimate / SE, NA_real_)
+  ## ----------------------------------------------------------------
+  ## Run the B replicates (parallel on Linux/macOS via mclapply,
+  ## PSOCK cluster on Windows; serial when ncores == 1).
+  ## ----------------------------------------------------------------
+  if (print.trace)
+    base::message(sprintf("  Bootstrap: B=%d, ncores=%d, threshold=%.3g, ci.level=%.2f",
+                          B, ncores, threshold, ci.level))
 
-  if (C.p.side == "one.sided") {
-    p_value <- base::ifelse(base::is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
-  } else {
-    p_value <- base::ifelse(base::is.finite(z_value), 1 - stats::pchisq(z_value^2, df = 1), NA_real_)
-  }
-
-  rlabs <- if (!is.null(base::rownames(C2))) base::rownames(C2) else base::paste0("Factor", 1:Q)
-  clabs <- if (!is.null(base::colnames(C2))) base::colnames(C2) else base::paste0("Y2_", 1:P2)
-
-  coefficients <- base::data.frame(
-    Basis     = base::rep(rlabs, times = P2),
-    Covariate = base::rep(clabs, each = Q),
-    Estimate  = Estimate,
-    SE        = SE,
-    BSE       = BSE,
-    z_value   = z_value,
-    p_value   = p_value,
-    CI_low    = if (!is.null(C2.ci.lower)) base::as.vector(C2.ci.lower) else NA_real_,
-    CI_high   = if (!is.null(C2.ci.upper)) base::as.vector(C2.ci.upper) else NA_real_,
-    row.names = NULL, stringsAsFactors = FALSE
-  )
-
-  if (print.trace) {
-    if (base::isTRUE(wild.bootstrap)) {
-      base::message("  Inference: sandwich SE + wild bootstrap done.")
+  if (ncores > 1L) {
+    if (.Platform$OS.type == "windows") {
+      cl <- parallel::makeCluster(ncores)
+      on.exit(parallel::stopCluster(cl), add = TRUE)
+      parallel::clusterExport(cl,
+        varlist = c("Y1", "Y2", "X.hat", "C1.L1", "C2.L1",
+                    "Q", "P1", "P2", "N", "epsilon", "maxit", "seed"),
+        envir = environment())
+      res_list <- parallel::parLapply(cl, seq_len(B), one_boot)
     } else {
-      base::message("  Inference: sandwich SE done (wild bootstrap skipped).")
+      res_list <- parallel::mclapply(seq_len(B), one_boot, mc.cores = ncores)
     }
+  } else {
+    res_list <- lapply(seq_len(B), one_boot)
   }
 
-  object$sigma2.used  <- sigma2.used
-  object$C2.se        <- C2.se
-  object$C2.se.boot   <- C2.se.boot
-  object$C2.ci.lower  <- C2.ci.lower
-  object$C2.ci.upper  <- C2.ci.upper
-  object$coefficients <- coefficients
-  object$C2.p.side    <- C.p.side
-  return(object)
+  ## ----------------------------------------------------------------
+  ## Aggregate replicates into 3D arrays (B x Q x P1) and (B x Q x P2)
+  ## ----------------------------------------------------------------
+  C1.array <- array(NA_real_, dim = c(B, Q, P1))
+  C2.array <- array(NA_real_, dim = c(B, Q, P2))
+  rho.vec  <- rep(NA_real_, B)
+  AR.vec   <- rep(NA_real_, B)
+  iter.vec <- rep(NA_integer_, B)
+  valid.vec <- logical(B)
+
+  for (b in seq_len(B)) {
+    r <- res_list[[b]]
+    if (is.null(r) || inherits(r, "try-error")) next
+    valid.vec[b] <- isTRUE(r$valid)
+    if (!is.null(r$rho))  rho.vec[b]  <- r$rho
+    if (!is.null(r$AR))   AR.vec[b]   <- r$AR
+    if (!is.null(r$iter)) iter.vec[b] <- as.integer(r$iter)
+    if (valid.vec[b]) {
+      C1.array[b, , ] <- r$C1
+      C2.array[b, , ] <- r$C2
+    }
+  }
+  n.valid <- sum(valid.vec)
+
+  if (n.valid < 10L) {
+    warning(sprintf("Only %d / %d bootstrap replicates were valid; CIs / support rates may be unreliable. Consider checking convergence (raise maxit, lower epsilon) or the stationarity of the original fit (rho < 1).",
+                    n.valid, B))
+  }
+
+  ## ----------------------------------------------------------------
+  ## Per-element summary: support rate at threshold, percentile CI
+  ## ----------------------------------------------------------------
+  alpha <- 1 - ci.level
+
+  apply_finite <- function(arr, FUN) {
+    apply(arr, c(2, 3), function(v) {
+      v <- v[is.finite(v)]
+      if (!length(v)) NA_real_ else FUN(v)
+    })
+  }
+
+  C1.support  <- apply_finite(C1.array, function(v) mean(v > threshold))
+  C2.support  <- apply_finite(C2.array, function(v) mean(v > threshold))
+  C1.ci.lower <- apply_finite(C1.array, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
+  C1.ci.upper <- apply_finite(C1.array, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
+  C2.ci.lower <- apply_finite(C2.array, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
+  C2.ci.upper <- apply_finite(C2.array, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
+
+  ## Significance markers from support rate (one-sided; lavaan / stats
+  ## convention).  Cutoffs use strict greater-than so the rule mirrors
+  ## the R convention for p-values (p < 0.05 / 0.01 / 0.001 → */**/***),
+  ## translated to support_rate via support_rate = 1 - p.  This matches
+  ## the verbal description "support rates exceeding 0.95, 0.99, 0.999"
+  ## in Satoh (2025), arXiv:2512.18250.
+  sig.from.support <- function(s) {
+    ifelse(!is.finite(s), " ",
+      ifelse(s > 0.999, "***",
+        ifelse(s > 0.99,  "**",
+          ifelse(s > 0.95, "*", " "))))
+  }
+
+  ## ----------------------------------------------------------------
+  ## Build coefficients table (rows for both C1 and C2)
+  ## p_value = 1 - support_rate is provided so that downstream
+  ## consumers (e.g., nmf.sem.DOT) that filter / star by p_value
+  ## continue to work without modification.
+  ## ----------------------------------------------------------------
+  Q_lab  <- if (!is.null(rownames(C1.hat))) rownames(C1.hat) else paste0("Factor", 1:Q)
+  Y1_lab <- if (!is.null(colnames(C1.hat))) colnames(C1.hat) else paste0("Y1_", 1:P1)
+  Y2_lab <- if (!is.null(colnames(C2.hat))) colnames(C2.hat) else paste0("Y2_", 1:P2)
+
+  build_block <- function(type_label, Mhat, sup, lo, hi, basislabs, varlabs) {
+    Q_local <- nrow(Mhat); P_local <- ncol(Mhat)
+    s_vec <- as.vector(sup)
+    data.frame(
+      Type         = type_label,
+      Basis        = rep(basislabs, times = P_local),
+      Covariate    = rep(varlabs,   each  = Q_local),
+      Estimate     = as.vector(Mhat),
+      CI_low       = as.vector(lo),
+      CI_high      = as.vector(hi),
+      support_rate = s_vec,
+      p_value      = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
+      sig          = sig.from.support(s_vec),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  C1_block <- build_block("C1", C1.hat, C1.support, C1.ci.lower, C1.ci.upper, Q_lab, Y1_lab)
+  C2_block <- build_block("C2", C2.hat, C2.support, C2.ci.lower, C2.ci.upper, Q_lab, Y2_lab)
+  coefficients <- rbind(C1_block, C2_block)
+  rownames(coefficients) <- NULL
+
+  if (print.trace)
+    base::message(sprintf("  Bootstrap done: %d / %d valid replicates.", n.valid, B))
+
+  ## ----------------------------------------------------------------
+  ## Append to object and return
+  ## ----------------------------------------------------------------
+  object$bootstrap.B          <- B
+  object$bootstrap.threshold  <- threshold
+  object$bootstrap.ci.level   <- ci.level
+  object$bootstrap.n.valid    <- n.valid
+  object$bootstrap.n.invalid  <- B - n.valid
+  object$rho.boot             <- rho.vec
+  object$AR.boot              <- AR.vec
+  object$iter.boot            <- iter.vec
+  object$C1.array             <- C1.array
+  object$C2.array             <- C2.array
+  object$C1.support.rate      <- C1.support
+  object$C2.support.rate      <- C2.support
+  object$C1.ci.lower          <- C1.ci.lower
+  object$C1.ci.upper          <- C1.ci.upper
+  object$C2.ci.lower          <- C2.ci.lower
+  object$C2.ci.upper          <- C2.ci.upper
+  object$coefficients         <- coefficients
+
+  ## Add NMF-FFB inference class on top of the legacy SEM class.
+  ## Final class vector for a typical input:
+  ##   c("nmf.ffb.inference", "nmf.sem.inference", "nmf.ffb", "nmf.sem")
+  ## Existing S3 methods (e.g. summary.nmf.sem) still dispatch via
+  ## inheritance.
+  if (!inherits(object, "nmf.sem.inference"))
+    class(object) <- c("nmf.sem.inference", class(object))
+  if (!inherits(object, "nmf.ffb.inference"))
+    class(object) <- c("nmf.ffb.inference", class(object))
+  object
 }
 
 
-#' @title Cross-Validation for NMF-SEM
+#' @title Cross-Validation for NMF-FFB
 #' @description
 #' Performs K-fold cross-validation to evaluate the equilibrium mapping of
-#' the NMF-SEM model.
+#' the NMF-FFB model.
 #'
 #' For each fold, \code{nmf.sem} is fitted on the training samples,
 #' yielding an equilibrium mapping \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.
@@ -528,7 +889,11 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
 #'   Must satisfy \code{ncol(Y1) == ncol(Y2)}.
 #' @param rank Integer; rank (number of latent factors) passed to \code{nmf.sem}.
 #'   If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \code{nrow(Y2)}).
-#' @param X.init Optional initialization for \code{X} (as in \code{nmf.sem}).
+#' @param X.init Initialization strategy for \code{X}, forwarded to
+#'   \code{\link{nmf.sem}}.  One of \code{"nndsvd"} (default),
+#'   \code{"kmeans"}, \code{"kmeansar"}, \code{"runif"}, a numeric
+#'   \eqn{P_1 \times Q} matrix, or \code{NULL} (alias for
+#'   \code{"nndsvd"}).  See \code{\link{nmf.sem}} for details.
 #' @param X.L2.ortho L2 orthogonality penalty for \code{X}.
 #' @param C1.L1 L1 sparsity penalty for \code{C1} (\eqn{\Theta_1}).
 #' @param C2.L1 L1 sparsity penalty for \code{C2} (\eqn{\Theta_2}).
@@ -554,12 +919,12 @@ nmf.sem.inference <- function(object, Y1, Y2, wild.bootstrap = TRUE, ...) {
 nmf.sem.cv <- function(
     Y1, Y2,
     rank = NULL,
-    X.init = NULL,
+    X.init = "nndsvd",
     X.L2.ortho = 100.0,
     C1.L1 = 1.0,        # L1 sparsity for C1 (Theta1)
     C2.L1 = 0.1,        # L1 sparsity for C2 (Theta2)
     epsilon = 1e-6,     # Convergence tolerance passed to nmf.sem
-    maxit = 20000,
+    maxit = 5000,
     ...
 ){
   extra_cv <- base::list(...)
@@ -570,7 +935,7 @@ nmf.sem.cv <- function(
   # ------------------------------------------------------------------
   # 1. Basic input checks
   #
-  # NMF-SEM requires non-negative matrices. We also require that Y1 and Y2
+  # NMF-FFB requires non-negative matrices. We also require that Y1 and Y2
   # share the same number of samples (columns) to allow paired CV splits.
   # ------------------------------------------------------------------
   if (!is.matrix(Y1)) Y1 <- as.matrix(Y1)
@@ -728,7 +1093,7 @@ nmf.sem.cv <- function(
   #
   # The overall CV criterion is the average MAE across all folds.
   # This is typically minimized over hyperparameter grids
-  # (e.g., rank, X.L2.ortho, C1.L1, C2.L1) when tuning NMF-SEM.
+  # (e.g., rank, X.L2.ortho, C1.L1, C2.L1) when tuning NMF-FFB.
   # ------------------------------------------------------------------
   objfunc <- mean(objfunc.block)
   return(objfunc)
@@ -736,11 +1101,11 @@ nmf.sem.cv <- function(
 
 
 
-#' @title Heuristic Variable Splitting for NMF-SEM
+#' @title Heuristic Variable Splitting for NMF-FFB
 #'
 #' @description
 #' Infers a heuristic partition of observed variables into exogenous (\eqn{Y_2})
-#' and endogenous (\eqn{Y_1}) blocks for use in NMF-SEM.
+#' and endogenous (\eqn{Y_1}) blocks for use in NMF-FFB.
 #' The method is based on positive-SEM logic, causal ordering, and optional
 #' sign alignment using the first principal component (PC1).
 #'
@@ -772,6 +1137,8 @@ nmf.sem.cv <- function(
 #'   (Default: \code{TRUE})
 #' @param verbose Logical; if \code{TRUE}, prints progress messages and the
 #'   resulting variable split. (Default: \code{FALSE})
+#' @param ... Reserved for future use; currently unused (also accepted
+#'   by the \code{\link{nmf.ffb.split}} alias for argument forwarding).
 #'
 #' @return A list with:
 #'   \item{endogenous.variables}{
@@ -810,7 +1177,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
   # --------------------------------------------------------------------
   # Preprocessing Step 1: Standardize all variables
   #
-  # Variables are centered and scaled (mean 0, sd 1). NMF-SEM requires
+  # Variables are centered and scaled (mean 0, sd 1). NMF-FFB requires
   # non-negative matrices, but the purpose of this function is only to
   # infer variable roles (Y1/Y2), so standardized values are allowed.
   #
@@ -825,7 +1192,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
   # --------------------------------------------------------------------
   # Preprocessing Step 2: Optional sign flipping based on PC1 alignment
   #
-  # In positive SEM (and NMF-SEM), variables should ideally have
+  # In positive SEM (and NMF-FFB), variables should ideally have
   # consistent sign orientation. To enforce this heuristic, variables
   # negatively correlated with the first principal component are flipped.
   #
@@ -991,10 +1358,10 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 ############################################################
 
 ############################################################
-## 1. nmf.sem.DOT  (for NMF-SEM visualization)
+## 1. nmf.sem.DOT  (for NMF-FFB visualization)
 ############################################################
 
-#' Generate a Graphviz DOT Diagram for an NMF-SEM Model
+#' Generate a Graphviz DOT Diagram for an NMF-FFB Model
 #'
 #' @description
 #' Creates a Graphviz DOT script that visualizes the structural network
@@ -1022,15 +1389,20 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' @param result A list returned by \code{nmf.sem}, containing matrices
 #'   \code{X}, \code{C1}, and \code{C2}.
 #' @param weight_scale Base scaling factor for edge widths.
-#' @param weight_scale_y2f Optional override for scaling edges
-#'   \eqn{Y_2 \rightarrow F_q}. Defaults to \code{weight_scale}.
-#' @param weight_scale_fy1 Optional override for scaling edges
-#'   \eqn{F_q \rightarrow Y_1}. Defaults to \code{weight_scale}.
-#' @param weight_scale_feedback Optional override for scaling feedback edges
-#'   \eqn{Y_1 \rightarrow F_q}. Defaults to \code{weight_scale}.
+#' @param weight_scale_c2 Scaling factor for edges
+#'   \eqn{Y_2 \rightarrow F_q} (C2 matrix). Defaults to \code{weight_scale}.
+#' @param weight_scale_x1 Scaling factor for edges
+#'   \eqn{F_q \rightarrow Y_1} (X matrix). Defaults to \code{weight_scale}.
+#' @param weight_scale_feedback Scaling factor for feedback edges
+#'   \eqn{Y_1 \rightarrow F_q} (C1 matrix). Defaults to \code{weight_scale}.
 #' @param threshold Minimum coefficient value needed for an edge to be drawn.
+#' @param sig.level Significance level for filtering edges by p-value
+#'   (requires inference results). Edges with p-value above this level are omitted.
 #' @param rankdir Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).
 #' @param fill Logical; whether to use filled node shapes.
+#' @param ... For backward compatibility: accepts deprecated names
+#'   \code{weight_scale_y2f} (use \code{weight_scale_c2}) and
+#'   \code{weight_scale_fy1} (use \code{weight_scale_x1}).
 #' @param cluster.box Character string controlling the visibility and style
 #'   of cluster frames around Y2, factors, and Y1 blocks.
 #'   One of \code{"normal"}, \code{"faint"}, \code{"invisible"}, \code{"none"}.
@@ -1038,11 +1410,17 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #'   labels for the Y2, factor, and Y1 clusters.
 #' @param hide.isolated Logical. If \code{TRUE} (default), Y1 and Y2 nodes
 #'   that have no edges at or above \code{threshold} are excluded from the graph.
-#' @param sig.level Significance level for filtering C2 edges when inference
-#'   results are present. If \code{result} contains a \code{coefficients} data
-#'   frame (from \code{\link{nmf.sem.inference}}), only edges with
-#'   \code{p_value < sig.level} are drawn, with significance stars appended.
-#'   Set to \code{NULL} to disable filtering. Default is \code{0.1}.
+#' @param sig.level Significance level for filtering structural edges
+#'   (\eqn{C_1} feedback and \eqn{C_2} exogenous loadings) when
+#'   inference results are present.  If \code{result} contains a
+#'   \code{coefficients} data frame from \code{\link{nmf.sem.inference}},
+#'   only edges with \code{p_value < sig.level} are drawn, with
+#'   significance stars (\code{*} \code{**} \code{***}) appended to
+#'   the edge label.  The \eqn{X} (factor-to-\eqn{Y_1}) edges are
+#'   never starred since the basis is not the inference target.
+#'   Set to \code{NULL} to disable significance filtering and fall
+#'   back to the \code{threshold} magnitude filter for both \eqn{C_1}
+#'   and \eqn{C_2}.  Default is \code{0.1}.
 #'
 #' @return A character string representing a valid Graphviz DOT script.
 #'
@@ -1059,16 +1437,22 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' @export
 nmf.sem.DOT <- function(result,
                         weight_scale          = 5,
-                        weight_scale_y2f      = weight_scale,
-                        weight_scale_fy1      = weight_scale,
+                        weight_scale_c2       = weight_scale,
+                        weight_scale_x1       = weight_scale,
                         weight_scale_feedback = weight_scale,
                         threshold             = 0.01,
+                        sig.level             = 0.1,
                         rankdir               = "LR",
                         fill                  = TRUE,
                         cluster.box           = c("normal", "faint", "invisible", "none"),
                         cluster.labels        = NULL,
                         hide.isolated         = TRUE,
-                        sig.level             = 0.1) {
+                        ...) {
+
+  ## Backward compatibility: accept deprecated names via ...
+  extra_args <- base::list(...)
+  if (!base::is.null(extra_args$weight_scale_y2f)) weight_scale_c2 <- extra_args$weight_scale_y2f
+  if (!base::is.null(extra_args$weight_scale_fy1)) weight_scale_x1 <- extra_args$weight_scale_fy1
 
   ## ---------------------------------------------------------------
   ## Cluster style selection
@@ -1238,29 +1622,66 @@ nmf.sem.DOT <- function(result,
   fmtc   <- function(x) .nmfkc_dot_format_coef(x, digits)
 
   ## ---------------------------------------------------------------
-  ## Significance stars for C2 edges (from nmf.sem.inference)
+  ## Significance stars for C1 (feedback) and C2 (exogenous) edges,
+  ## both from nmf.sem.inference().  X (F -> Y1) edges are NOT
+  ## starred even when inference results are present, since the
+  ## basis is not the inference target.
+  ##
+  ## Filters by the optional `Type` column ("C1" / "C2") if present
+  ## (newer inference output); falls back to row-name matching for
+  ## back-compatibility with pre-v0.6.8 inference output that only
+  ## carried C2.
   ## ---------------------------------------------------------------
-  C2_stars <- NULL
-  C2_show  <- NULL
+  pval_to_stars <- function(p) {
+    if (!is.finite(p)) ""
+    else if (p < 0.001) "***"
+    else if (p < 0.01)  "**"
+    else if (p < 0.05)  "*"
+    else                ""
+  }
+
+  C1_stars <- NULL; C1_show <- NULL
+  C2_stars <- NULL; C2_show <- NULL
   if (!is.null(result$coefficients)) {
+    cf        <- result$coefficients
+    fac_names <- rownames(C2)
+    y1_names  <- colnames(C1)
+    y2_names  <- colnames(C2)
+
+    has_type <- !is.null(cf$Type)
+    cf_C1 <- if (has_type) cf[cf$Type == "C1", , drop = FALSE] else NULL
+    cf_C2 <- if (has_type) cf[cf$Type == "C2", , drop = FALSE] else cf
+
+    ## ---- C2 stars (Y2 -> F) ----
     C2_stars <- matrix("", nrow = Q, ncol = P2)
     C2_pval  <- matrix(NA_real_, nrow = Q, ncol = P2)
-    cf <- result$coefficients
-    fac_names <- rownames(C2)
-    exo_names <- colnames(C2)
-    for (k in seq_len(nrow(cf))) {
-      q  <- match(cf$Basis[k], fac_names)
-      p2 <- match(cf$Covariate[k], exo_names)
-      if (!is.na(q) && !is.na(p2) && !is.na(cf$p_value[k])) {
-        p <- cf$p_value[k]
-        C2_pval[q, p2] <- p
-        if (p < 0.001)      C2_stars[q, p2] <- "***"
-        else if (p < 0.01)  C2_stars[q, p2] <- "**"
-        else if (p < 0.05)  C2_stars[q, p2] <- "*"
+    for (k in seq_len(nrow(cf_C2))) {
+      q  <- match(cf_C2$Basis[k], fac_names)
+      p2 <- match(cf_C2$Covariate[k], y2_names)
+      if (!is.na(q) && !is.na(p2) && !is.na(cf_C2$p_value[k])) {
+        C2_pval[q, p2]  <- cf_C2$p_value[k]
+        C2_stars[q, p2] <- pval_to_stars(cf_C2$p_value[k])
       }
     }
     if (!is.null(sig.level)) {
       C2_show <- !is.na(C2_pval) & C2_pval < sig.level
+    }
+
+    ## ---- C1 stars (Y1 -> F, feedback) ----
+    if (!is.null(cf_C1) && nrow(cf_C1) > 0L) {
+      C1_stars <- matrix("", nrow = Q, ncol = P1)
+      C1_pval  <- matrix(NA_real_, nrow = Q, ncol = P1)
+      for (k in seq_len(nrow(cf_C1))) {
+        q  <- match(cf_C1$Basis[k], fac_names)
+        p1 <- match(cf_C1$Covariate[k], y1_names)
+        if (!is.na(q) && !is.na(p1) && !is.na(cf_C1$p_value[k])) {
+          C1_pval[q, p1]  <- cf_C1$p_value[k]
+          C1_stars[q, p1] <- pval_to_stars(cf_C1$p_value[k])
+        }
+      }
+      if (!is.null(sig.level)) {
+        C1_show <- !is.na(C1_pval) & C1_pval < sig.level
+      }
     }
   }
 
@@ -1281,7 +1702,7 @@ nmf.sem.DOT <- function(result,
         show <- if (!is.null(C2_show)) C2_show[q, p2]
                 else is.finite(weight) && weight >= threshold
         if (show) {
-          pen <- pw(weight, max_C2, weight_scale_y2f)
+          pen <- pw(weight, max_C2, weight_scale_c2)
           lab <- fmtc(weight)
           if (!is.null(C2_stars)) lab <- paste0(lab, C2_stars[q, p2])
           path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
@@ -1307,7 +1728,7 @@ nmf.sem.DOT <- function(result,
       for (p1 in idx_y1) {
         weight <- X[p1, q]
         if (is.finite(weight) && weight >= threshold) {
-          pen <- pw(weight, max_X, weight_scale_fy1)
+          pen <- pw(weight, max_X, weight_scale_x1)
           lab <- fmtc(weight)
           path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
                           F_ids[q], Y1_ids[p1], lab, pen)
@@ -1331,9 +1752,15 @@ nmf.sem.DOT <- function(result,
     for (q in seq_len(Q)) {
       for (p1 in idx_y1) {
         weight <- C1[q, p1]
-        if (is.finite(weight) && weight >= threshold) {
+        ## When inference results provide C1 p-values, prefer the
+        ## significance-based filter (parallels the C2 branch above);
+        ## otherwise fall back to the magnitude threshold.
+        show <- if (!is.null(C1_show)) C1_show[q, p1]
+                else is.finite(weight) && weight >= threshold
+        if (show) {
           pen <- pw(weight, max_C1, weight_scale_feedback)
           lab <- fmtc(weight)
+          if (!is.null(C1_stars)) lab <- paste0(lab, C1_stars[q, p1])
           path <- sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
                           Y1_ids[p1], F_ids[q], lab, pen)
           dot_script <- paste0(dot_script, path)

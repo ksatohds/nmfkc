@@ -33,8 +33,17 @@
 #' @param verbose Logical. If \code{TRUE}, prints progress messages during fitting. Default is \code{FALSE}.
 #' @param ... Additional arguments:
 #'   \describe{
-#'     \item{\code{Y1.weights}}{Weight matrix (P1 x N) or vector for \eqn{Y_1}.
-#'       0 indicates missing/ignored elements. Default: auto-detect \code{NA}s.}
+#'     \item{\code{Y1.weights}}{Optional non-negative weight matrix
+#'       (P1 x N) or vector for \eqn{Y_1}, analogous to the
+#'       \code{weights} argument of \code{\link[stats]{lm}}.  Loss becomes
+#'       \eqn{\sum W_{ij} \, (Y_{1,ij} - \hat Y_{1,ij})^2}
+#'       (\code{lm()}-style, \strong{linear} in \eqn{W}).  Logical
+#'       matrices (\code{TRUE} / \code{FALSE}) are also accepted.
+#'       Typical ECV / CV usage passes a binary mask
+#'       \eqn{W \in \{0,1\}} for held-out elements; real-valued weights
+#'       for importance weighting are also supported.  Default: if
+#'       \code{Y1} has \code{NA}, a binary mask is auto-generated
+#'       (0 for \code{NA}, 1 elsewhere).}
 #'     \item{\code{C.L1}}{L1 regularization parameter for \eqn{C}. Default is 0.}
 #'     \item{\code{X1.L2.ortho}}{L2 orthogonality regularization for \eqn{X_1} columns. Default is 0.}
 #'     \item{\code{X2.L2.ortho}}{L2 orthogonality regularization for \eqn{X_2} rows. Default is 0.}
@@ -230,9 +239,14 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     C <- sweep(C, 2, rs, "*")
 
     # Objective function (with regularization penalties)
+    # lm()-style weighted least squares: L = sum(W * (Y1 - Y1hat)^2).
+    # The MU (num_X1, num_C, etc.) carries W linearly, so reporting the
+    # linear-W objective here keeps MU target and reported loss consistent.
+    # For binary W in {0,1} (standard ECV / NA-mask case) this is identical
+    # to sum((W*(Y1-Y1hat))^2) since W == W^2.
     Y1hat <- X1 %*% C %*% X2 %*% Y2
     if (has.weights) {
-      obj <- sum((W * (Y1 - Y1hat))^2)
+      obj <- sum(W * (Y1 - Y1hat)^2)
     } else {
       obj <- sum((Y1 - Y1hat)^2)
     }
@@ -261,6 +275,10 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
       }
     }
   }
+  ## Warn when the MU loop exhausts maxit without meeting the
+  ## relative-tolerance criterion (matches nmfkc() / nmf.sem() convention).
+  if (iter == maxit && exists("rel_change") && rel_change >= epsilon)
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
 
   niter <- iter
   objfunc.iter <- objfunc.iter[1:niter]
@@ -300,7 +318,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   } else {
     n.missing <- 0L
     n.valid <- P1 * N
-    r.squared <- 1 - objfunc / sum((Y1 - mean(Y1))^2)
+    r.squared <- stats::cor(as.vector(Y1hat), as.vector(Y1))^2
     sigma <- sqrt(objfunc / n.valid)
     mae <- mean(abs(Y1 - Y1hat))
   }
@@ -376,6 +394,10 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 #' \item{C.ci.upper}{Upper CI bounds for \eqn{\Theta} (Q x R matrix).}
 #' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{\Theta}.}
 #' \item{C.p.side}{P-value type used.}
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
 #'
 #' @seealso \code{\link{nmfae}}, \code{\link{summary.nmfae.inference}}
 #' @export
@@ -894,6 +916,11 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 #' @param ... Not used.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @seealso \code{\link{nmfae}}, \code{\link{plot.nmfae}}, \code{\link{nmfae.DOT}}
 #' @examples
 #' \donttest{
@@ -1165,6 +1192,10 @@ plot.predict.nmfae <- function(x, ...) {
 #' \item{folds}{List of length \code{div} containing the held-out element indices for each fold.}
 #' \item{QR}{Data frame with columns \code{Q} and \code{R} listing the evaluated pairs.}
 #'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @seealso \code{\link{nmfae}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @examples
@@ -1342,7 +1373,7 @@ plot.nmfae.ecv <- function(x, ...) {
     for (qi in seq_along(Qs)) {
       for (ri in seq_along(Rs)) {
         val <- sigma_mat[qi, ri]
-        txt_col <- ifelse(val < stats::median(sigma_mat), "white", "black")
+        txt_col <- "black"
         graphics::text(Qs[qi], Rs[ri], sprintf("%.2f", val), cex = 0.65, col = txt_col)
       }
     }
@@ -1399,6 +1430,10 @@ plot.nmfae.ecv <- function(x, ...) {
 #' \item{sigma}{Residual standard error (RMSE), same scale as \eqn{Y_1}.}
 #' \item{objfunc.block}{Per-fold squared error totals.}
 #' \item{block}{Integer vector of fold assignments (1, ..., \code{div}) for each column.}
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
 #'
 #' @seealso \code{\link{nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.kernel.beta.cv}},
 #'   \code{\link{nmfkc.cv}}
@@ -1514,9 +1549,8 @@ nmfae.cv <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank, ...) {
     # Predict on test set
     Y1hat_test <- res_j$X1 %*% res_j$C %*% res_j$X2 %*% Y2_test
 
-    # Evaluate weighted error
-    resid <- W_test * (Y1_test - Y1hat_test)
-    objfunc.block[j] <- sum(resid^2)
+    # Evaluate weighted error (lm-style: sum(W * resid^2))
+    objfunc.block[j] <- sum(W_test * (Y1_test - Y1hat_test)^2)
     total_valid <- total_valid + sum(W_test > 0)
   }
 
@@ -1717,6 +1751,11 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #'   applies when \code{type = "YXCXY"}.
 #'
 #' @return A character string containing the DOT graph specification.
+#'
+#' @section Lifecycle:
+#' This function is \strong{experimental}. The interface may change in
+#' future versions; details are to be described in an upcoming paper.
+#'
 #' @seealso \code{\link{nmfae}}
 #' @examples
 #' \donttest{

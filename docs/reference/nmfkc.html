@@ -23,7 +23,7 @@ The rank of the basis matrix can be specified using either the rank argument
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,7 +38,7 @@ The rank of the basis matrix can be specified using either the rank argument
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-SEM with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -119,9 +119,19 @@ Ignored when <code>Y</code> is a formula.</p></dd>
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed for fine-tuning regularization, initialization, constraints,
-and output control. This includes the backward-compatible arguments <code>Q</code> and <code>method</code>.</p><ul><li><p><code>Y.weights</code>: Optional numeric matrix (P x N) or vector (length N).
-0 indicates missing/ignored values. If NULL (default), weights are automatically
-set to 0 for NAs in Y, and 1 otherwise.</p></li>
+and output control. This includes the backward-compatible arguments <code>Q</code> and <code>method</code>.</p><ul><li><p><code>Y.weights</code>: Optional weight matrix (P x N) or vector
+(length N) with non-negative entries, analogous to the <code>weights</code>
+argument of <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></code>.  When supplied, the objective
+becomes \(\sum W_{ij} \, (Y_{ij} - (XB)_{ij})^2\)
+(i.e.\ <strong>linear</strong> in \(W\); <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>-style weighted
+least squares).  Logical matrices (<code>TRUE</code> / <code>FALSE</code>)
+are also accepted and coerced to 1 / 0.  The primary use case is
+missing-value masking for ECV / CV, where \(W_{ij} \in \{0, 1\}\)
+(<code>FALSE</code> / <code>TRUE</code>) indicates held-out vs.\ used elements;
+real-valued weights for observation-level importance weighting are
+also supported.  Default <code>NULL</code>: if <code>Y</code> contains <code>NA</code>
+a binary mask is auto-constructed (0 for <code>NA</code>, 1 elsewhere);
+otherwise no weighting.</p></li>
 <li><p><code>X.L2.ortho</code>: Nonnegative penalty parameter for the orthogonality of \(X\) (default: 0).
 It minimizes the off-diagonal elements of the Gram matrix \(X^\top X\), reducing the correlation
 between basis vectors (conceptually minimizing \(\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2\)).
@@ -137,7 +147,11 @@ Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lamb
 This is automatically set when <code>Y.symmetric = "bi"</code> or <code>"tri"</code>, because column normalization
 would prevent \(X X^\top\) (or \(X C X^\top\)) from approximating \(Y\) at the correct scale.</p></li>
 <li><p><code>X.init</code>: Method for initializing the basis matrix \(X\). Options: <code>"kmeans"</code> (default), <code>"kmeansar"</code>, <code>"runif"</code>, <code>"nndsvd"</code>, or a user-specified matrix. <code>"kmeansar"</code> applies \(k\)-means initialization and then fills zero entries with <code>Uniform(0, mean(Y)/100)</code>, analogous to NNDSVDar.</p></li>
-<li><p><code>nstart</code>: Number of random starts for <code>kmeans</code> when initializing \(X\) (default: 1).</p></li>
+<li><p><code>nstart</code>: Number of random starts for initialization of \(X\) (default: 1).
+Used by <code>kmeans</code> (when <code>X.init = "kmeans"</code> or <code>"kmeansar"</code>) and by the
+multi-start evaluation (when <code>X.init = "runif"</code>).
+For symmetric NMF (<code>Y.symmetric = "tri"</code> or <code>"bi"</code>), results are sensitive to
+initial values; <code>nstart = 20</code> or higher is recommended.</p></li>
 <li><p><code>seed</code>: Integer seed for reproducibility (default: 123).</p></li>
 <li><p><code>C.init</code>: Optional numeric matrix giving the initial value of the parameter matrix \(C\)
 (i.e., \(\Theta\)). If <code>A</code> is <code>NULL</code>, <code>C</code> has dimension \(Q \times N\) (equivalently \(B\));
@@ -314,6 +328,9 @@ In <em>Proc. 12th ACM SIGKDD</em> (pp. 126–135).
 <span class="r-in"><span><span class="co"># Example 3. Symmetric NMF (bi: Y ~ X X^T)</span></span></span>
 <span class="r-in"><span><span class="va">S</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>,<span class="fl">0</span>,<span class="fl">2</span>, <span class="fl">0</span>,<span class="fl">3</span>,<span class="fl">1</span>, <span class="fl">2</span>,<span class="fl">1</span>,<span class="fl">2</span><span class="op">)</span>, nrow<span class="op">=</span><span class="fl">3</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">res_bi</span> <span class="op">&lt;-</span> <span class="fu">nmfkc</span><span class="op">(</span><span class="va">S</span>, rank<span class="op">=</span><span class="fl">2</span>, Y.symmetric<span class="op">=</span><span class="st">"bi"</span><span class="op">)</span></span></span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Y.symmetric = "bi" in nmfkc() is deprecated.</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> Use nmfkc.net(Y, rank, type = "bi") instead, which implements the correct Frobenius bilateral-gradient updates.</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> See help(nmfkc.net) (all three types: "tri", "bi", "signed").</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Y(3,3)~X(3,2)B(2,3)...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-in"><span><span class="va">res_bi</span><span class="op">$</span><span class="va">X</span>   <span class="co"># basis matrix (no column normalization)</span></span></span>
@@ -329,17 +346,20 @@ In <em>Proc. 12th ACM SIGKDD</em> (pp. 126–135).
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example 4. Symmetric NMF (tri: Y ~ X C X^T)</span></span></span>
 <span class="r-in"><span><span class="va">res_tri</span> <span class="op">&lt;-</span> <span class="fu">nmfkc</span><span class="op">(</span><span class="va">S</span>, rank<span class="op">=</span><span class="fl">2</span>, Y.symmetric<span class="op">=</span><span class="st">"tri"</span><span class="op">)</span></span></span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Y.symmetric = "tri" in nmfkc() is deprecated.</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> Use nmfkc.net(Y, rank, type = "tri") instead, which implements the correct Frobenius bilateral-gradient updates.</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> See help(nmfkc.net) (all three types: "tri", "bi", "signed").</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Y(3,3)~X(3,2)B(2,3)...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-in"><span><span class="va">res_tri</span><span class="op">$</span><span class="va">C</span>  <span class="co"># Q x Q cluster interaction matrix</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                 1          2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Basis1 0.03785993 8.61053418</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Basis2 5.41314704 0.03785993</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                 2          1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Basis1 8.60976277 0.03853537</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Basis2 0.03853537 5.41340456</span>
 <span class="r-in"><span><span class="va">res_tri</span><span class="op">$</span><span class="va">XB</span> <span class="co"># reconstruction X %*% C %*% t(X)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>            [,1]       [,2]     [,3]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 2.92953729 0.01662336 2.098360</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.01662336 2.98320036 1.047195</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 2.09836042 1.04719548 1.862305</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 2.92949072 0.01683423 2.098326</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.01683423 2.98344152 1.047362</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 2.09832602 1.04736193 1.862261</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

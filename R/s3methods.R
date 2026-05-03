@@ -44,18 +44,58 @@ plot.nmfre <- function(x, ...) {
 }
 
 #' @rdname plot.nmfre
+#' @param which For \code{plot.nmf.sem}: which objective to plot.
+#'   One of \code{"full"} (default; \code{loss + penalties}, the actual
+#'   monotonically-decreasing quantity that the multiplicative updates
+#'   minimize), \code{"reconstruction"} (Frobenius distance only,
+#'   \eqn{\| Y_1 - X B \|_F^2}), or \code{"both"} (overlay both with a
+#'   legend).  \code{"both"} is useful for diagnosing whether
+#'   regularization is actively shaping the solution: if the two curves
+#'   diverge, the penalties are pulling the optimizer away from the
+#'   pure least-squares minimum.
 #' @export
-plot.nmf.sem <- function(x, ...) {
+plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
+  which <- match.arg(which)
   extra_args <- list(...)
-  args <- list(x = x$objfunc)
-  if (is.null(extra_args$main)) {
-    args$main <- paste0("MAE = ", round(x$MAE, 3), ", SC.cov = ", round(x$SC.cov, 3))
+
+  ## Pick the iteration trace(s) to plot.  Older nmf.sem objects may
+  ## carry only x$objfunc (reconstruction loss); fall back gracefully.
+  has_full <- !is.null(x$objfunc.full)
+  if (which == "full" && !has_full) which <- "reconstruction"
+
+  if (which == "both" && has_full) {
+    y_full <- x$objfunc.full
+    y_rec  <- x$objfunc
+    iter_idx <- seq_along(y_full)
+    main_default <- sprintf("MAE = %s, SC.cov = %s",
+                            round(x$MAE, 3), round(x$SC.cov, 3))
+    if (is.null(extra_args$main)) extra_args$main <- main_default
+    if (is.null(extra_args$xlab)) extra_args$xlab <- "iter"
+    if (is.null(extra_args$ylab)) extra_args$ylab <- "objective"
+    do.call(plot, c(list(iter_idx, y_full, type = "l", lwd = 2,
+                          col = "black"), extra_args))
+    graphics::lines(iter_idx, y_rec, col = "tomato", lwd = 1.5, lty = 2)
+    graphics::legend("topright",
+                     legend = c("loss + penalties (full)", "reconstruction only"),
+                     col    = c("black", "tomato"),
+                     lty    = c(1, 2), lwd = c(2, 1.5),
+                     bty    = "n", cex = 0.85)
+  } else {
+    y <- if (which == "full") x$objfunc.full else x$objfunc
+    args <- list(x = y)
+    if (is.null(extra_args$main)) {
+      label <- if (which == "full") "loss + penalties"
+               else "reconstruction only"
+      args$main <- sprintf("%s | MAE = %s, SC.cov = %s",
+                           label, round(x$MAE, 3), round(x$SC.cov, 3))
+    }
+    if (is.null(extra_args$xlab)) args$xlab <- "iter"
+    if (is.null(extra_args$ylab))
+      args$ylab <- if (which == "full") "objfunc.full" else "objfunc"
+    if (is.null(extra_args$type)) args$type <- "l"
+    all_args <- c(args, extra_args)
+    do.call("plot", all_args)
   }
-  if (is.null(extra_args$xlab)) args$xlab <- "iter"
-  if (is.null(extra_args$ylab)) args$ylab <- "objfunc"
-  if (is.null(extra_args$type)) args$type <- "l"
-  all_args <- c(args, extra_args)
-  do.call("plot", all_args)
   invisible(NULL)
 }
 
@@ -64,7 +104,7 @@ plot.nmf.sem <- function(x, ...) {
 
 #' @title Summary method for nmf.sem objects
 #' @description
-#' Produces a formatted summary of a fitted NMF-SEM model, including
+#' Produces a formatted summary of a fitted NMF-FFB model, including
 #' matrix dimensions, convergence, stability diagnostics, fit statistics,
 #' and inference results (if available).
 #'
@@ -85,7 +125,7 @@ summary.nmf.sem <- function(object, ...) {
   Q  <- ncol(object$X)
   P2 <- ncol(object$C2)
 
-  cat(sprintf("NMF-SEM: Y1(%d,N) = X(%d,%d) [C1(%d,%d) Y1 + C2(%d,%d) Y2]\n",
+  cat(sprintf("NMF-FFB: Y1(%d,N) = X(%d,%d) [C1(%d,%d) Y1 + C2(%d,%d) Y2]\n",
               P1, P1, Q, Q, P1, Q, P2))
   cat(sprintf("Iterations: %d\n", object$iter))
 
@@ -98,61 +138,84 @@ summary.nmf.sem <- function(object, ...) {
               object$amplification, object$amplification.bound))
 
   cat("\nFit statistics:\n")
-  if (!is.na(object$SC.cov))
+  if (!is.null(object$SC.map) && is.finite(object$SC.map))
+    cat(sprintf("  SC.map (mapping correlation):    %.4f\n", object$SC.map))
+  if (!is.null(object$SC.cov) && is.finite(object$SC.cov))
     cat(sprintf("  SC.cov (covariance correlation): %.4f\n", object$SC.cov))
-  if (!is.na(object$MAE))
+  if (!is.null(object$MAE)   && is.finite(object$MAE))
     cat(sprintf("  MAE (mean absolute error):       %.4f\n", object$MAE))
 
   # Coefficients from inference
   if (!is.null(object$coefficients) && is.data.frame(object$coefficients)) {
-    cat("\nC2 Coefficients (Covariate -> Basis):\n")
     cf <- object$coefficients
-    p_side <- if (!is.null(object$C2.p.side)) object$C2.p.side else "one.sided"
-    p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
 
-    rnames <- paste0(cf$Covariate, ":", cf$Basis)
-    est <- formatC(cf$Estimate, format = "f", digits = 4, width = 10)
-    se  <- formatC(cf$SE, format = "f", digits = 4, width = 10)
-    zv  <- formatC(cf$z_value, format = "f", digits = 2, width = 7)
-    pv  <- cf$p_value
-    pv_str <- ifelse(!is.finite(pv), "      NA",
-               ifelse(pv < 2.2e-16, "  <2e-16",
-                 formatC(pv, format = "g", digits = 4, width = 8)))
-    stars <- ifelse(!is.finite(pv), " ",
-               ifelse(pv < 0.001, "***",
-                 ifelse(pv < 0.01, "**",
-                   ifelse(pv < 0.05, "*",
-                     ifelse(pv < 0.1, ".", " ")))))
+    ## Bootstrap meta-info (new full-pair-bootstrap inference; v0.6.8+)
+    has_boot <- !is.null(object$bootstrap.B)
+    if (has_boot) {
+      cat(sprintf("\nBootstrap inference (X-fixed full pair bootstrap):\n"))
+      cat(sprintf("  B = %d, valid = %d, threshold = %g, ci.level = %g\n",
+                  object$bootstrap.B,
+                  if (!is.null(object$bootstrap.n.valid)) object$bootstrap.n.valid else NA_integer_,
+                  if (!is.null(object$bootstrap.threshold)) object$bootstrap.threshold else NA_real_,
+                  if (!is.null(object$bootstrap.ci.level)) object$bootstrap.ci.level else NA_real_))
+    }
 
-    has_bse <- "BSE" %in% names(cf) && any(is.finite(cf$BSE))
-    max_lw <- max(nchar(rnames))
-
-    if (has_bse) {
-      bse <- formatC(cf$BSE, format = "f", digits = 4, width = 8)
-      hdr <- sprintf("%s %s %s %s %s %s",
-                     formatC("Estimate", width = 10),
-                     formatC("Std. Error", width = 10),
-                     formatC("(Boot)", width = 8),
-                     formatC("z value", width = 7),
-                     formatC(p_header, width = 8), "")
-      cat(sprintf("%s %s\n", formatC("", width = max_lw), hdr))
+    ## Print one block per Type ("C1" feedback / "C2" exogenous) when
+    ## present.  Falls back to a single block for legacy inference output
+    ## that lacks the Type column.
+    print_block <- function(block, title) {
+      if (nrow(block) == 0L) return(invisible(NULL))
+      cat(sprintf("\n%s\n", title))
+      rnames <- paste0(block$Covariate, " -> ", block$Basis)
+      est <- formatC(block$Estimate, format = "g", digits = 4, width = 10)
+      cl  <- if ("CI_low"  %in% names(block))
+               formatC(block$CI_low,  format = "g", digits = 3, width = 10) else NULL
+      cu  <- if ("CI_high" %in% names(block))
+               formatC(block$CI_high, format = "g", digits = 3, width = 10) else NULL
+      sup <- if ("support_rate" %in% names(block))
+               formatC(block$support_rate, format = "f", digits = 3, width = 8) else NULL
+      pv  <- block$p_value
+      pv_str <- ifelse(!is.finite(pv), "      NA",
+                 ifelse(pv < 2.2e-16, "  <2e-16",
+                   formatC(pv, format = "g", digits = 4, width = 8)))
+      stars <- if ("sig" %in% names(block)) {
+                 block$sig
+               } else {
+                 ifelse(!is.finite(pv), " ",
+                   ifelse(pv < 0.001, "***",
+                     ifelse(pv < 0.01, "**",
+                       ifelse(pv < 0.05, "*",
+                         ifelse(pv < 0.1, ".", " ")))))
+               }
+      max_lw <- max(nchar(rnames))
+      hdr_parts <- c(formatC("Estimate", width = 10))
+      if (!is.null(cl)) hdr_parts <- c(hdr_parts, formatC("CI_low",  width = 10))
+      if (!is.null(cu)) hdr_parts <- c(hdr_parts, formatC("CI_high", width = 10))
+      if (!is.null(sup)) hdr_parts <- c(hdr_parts, formatC("support", width = 8))
+      hdr_parts <- c(hdr_parts, formatC("Pr(>0)", width = 8), "")
+      cat(sprintf("%s %s\n", formatC("", width = max_lw),
+                  paste(hdr_parts, collapse = " ")))
       for (i in seq_along(rnames)) {
-        cat(sprintf("%s %s %s %s %s %s %s\n",
+        row_parts <- c(est[i])
+        if (!is.null(cl))  row_parts <- c(row_parts, cl[i])
+        if (!is.null(cu))  row_parts <- c(row_parts, cu[i])
+        if (!is.null(sup)) row_parts <- c(row_parts, sup[i])
+        row_parts <- c(row_parts, pv_str[i], stars[i])
+        cat(sprintf("%s %s\n",
                     formatC(rnames[i], width = max_lw),
-                    est[i], se[i], bse[i], zv[i], pv_str[i], stars[i]))
+                    paste(row_parts, collapse = " ")))
       }
+    }
+
+    if (!is.null(cf$Type)) {
+      ## v0.6.8+ inference: separate C1 / C2 blocks
+      cf_C1 <- cf[cf$Type == "C1", , drop = FALSE]
+      cf_C2 <- cf[cf$Type == "C2", , drop = FALSE]
+      print_block(cf_C1, "C1 Coefficients (Y1 -> Factor; feedback Theta_1):")
+      print_block(cf_C2, "C2 Coefficients (Y2 -> Factor; exogenous Theta_2):")
     } else {
-      hdr <- sprintf("%s %s %s %s %s",
-                     formatC("Estimate", width = 10),
-                     formatC("Std. Error", width = 10),
-                     formatC("z value", width = 7),
-                     formatC(p_header, width = 8), "")
-      cat(sprintf("%s %s\n", formatC("", width = max_lw), hdr))
-      for (i in seq_along(rnames)) {
-        cat(sprintf("%s %s %s %s %s %s\n",
-                    formatC(rnames[i], width = max_lw),
-                    est[i], se[i], zv[i], pv_str[i], stars[i]))
-      }
+      ## Legacy inference output (only C2)
+      print_block(cf, "C2 Coefficients (Covariate -> Basis):")
     }
     cat("---\n")
     cat("Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n")
@@ -204,7 +267,44 @@ coef.nmf <- function(object, ...) {
 #' @rdname coef.nmf
 #' @export
 coef.nmf.sem <- function(object, ...) {
-  if (!is.null(object$coefficients)) object$coefficients else object$C2
+  ## With inference: return the unified coefficients data frame (rows for
+  ## both C1 and C2, with CI / support_rate / sig columns).
+  if (!is.null(object$coefficients)) return(object$coefficients)
+
+  ## Without inference: return a long-format data frame with rows for
+  ## every entry of C1 (feedback) and C2 (exogenous), so the column
+  ## layout matches `coef(res_inf)`.  Users can post-hoc filter via
+  ## `subset(coef(res), Type == "C1")` regardless of whether
+  ## nmf.sem.inference() has been run.
+  C1 <- object$C1
+  C2 <- object$C2
+  if (is.null(C1) || is.null(C2)) {
+    ## Fallback (shouldn't normally happen for an nmf.sem result)
+    return(if (!is.null(C2)) C2 else C1)
+  }
+  Q  <- nrow(C1)
+  P1 <- ncol(C1)
+  P2 <- ncol(C2)
+  bas <- if (!is.null(rownames(C1))) rownames(C1) else paste0("Factor", seq_len(Q))
+  y1  <- if (!is.null(colnames(C1))) colnames(C1) else paste0("Y1_", seq_len(P1))
+  y2  <- if (!is.null(colnames(C2))) colnames(C2) else paste0("Y2_", seq_len(P2))
+  C1_block <- data.frame(
+    Type      = "C1",
+    Basis     = rep(bas, times = P1),
+    Covariate = rep(y1,  each  = Q),
+    Estimate  = as.vector(C1),
+    stringsAsFactors = FALSE
+  )
+  C2_block <- data.frame(
+    Type      = "C2",
+    Basis     = rep(bas, times = P2),
+    Covariate = rep(y2,  each  = Q),
+    Estimate  = as.vector(C2),
+    stringsAsFactors = FALSE
+  )
+  out <- rbind(C1_block, C2_block)
+  rownames(out) <- NULL
+  out
 }
 
 

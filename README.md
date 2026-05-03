@@ -3,13 +3,18 @@
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![GitHub version](https://img.shields.io/github/r-package/v/ksatohds/nmfkc)](https://github.com/ksatohds/nmfkc)
 
-**nmfkc** is an R package that extends Non-negative Matrix Factorization (NMF) by incorporating **covariates** using kernel methods. It supports advanced features like rank selection via cross-validation, time-series modeling (NMF-VAR), supervised classification (NMF-LAB), **structural equation modeling with equilibrium interpretation (NMF-SEM)**, and **mixed-effects modeling with random effects (NMF-RE)**.
+**nmfkc** is an R package that extends Non-negative Matrix Factorization (NMF) by incorporating **covariates** using kernel methods. It supports advanced features like rank selection via cross-validation, time-series modeling (NMF-VAR), supervised classification (NMF-LAB), **feed-forward + feedback structural modeling with equilibrium interpretation (NMF-FFB; formerly NMF-SEM)**, and **mixed-effects modeling with random effects (NMF-RE)**.
 
 # Installation
 
 ```r
+# Stable version (CRAN)
+install.packages("nmfkc")
+
+# Development version (GitHub, may be unstable)
 # install.packages("remotes")
-remotes::install_github("ksatohds/nmfkc")
+remotes::install_github("ksatohds/nmfkc@develop")
+
 library(nmfkc)
 ```
 
@@ -42,14 +47,14 @@ plot(res)     # Convergence plot
 summary(res)  # Summary statistics
 ```
 
-See `browseVignettes("nmfkc")` for detailed examples covering rank selection, kernel NMF, time-series, classification, NMF-SEM, and NMF-RE.
+See `browseVignettes("nmfkc")` for detailed examples covering rank selection, kernel NMF, time-series, classification, NMF-FFB, and NMF-RE.
 
 # Comparison with Standard NMF
 
 | Feature | Standard NMF | nmfkc |
 | :--- | :--- | :--- |
 | **Handles covariates** | No | **Yes** (Linear / Kernel) |
-| **Structural equation modeling** | No | **Yes** (NMF-SEM) |
+| **Feed-forward + feedback modeling** | No | **Yes** (NMF-FFB) |
 | **Mixed-effects / Random effects** | No | **Yes** (NMF-RE) |
 | **Classification** | No | **Yes** (NMF-LAB) |
 | **Time series modeling** | No | **Yes** (NMF-VAR) |
@@ -71,7 +76,7 @@ $$Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)$$
 ### Extensions
 
 - **NMF-RE**: Adds unit-specific random effects $U$: $Y = X(\Theta A + U) + \mathcal{E}$, estimated via ridge-type BLUP with wild bootstrap inference.
-- **NMF-SEM**: Models endogenous feedback: $Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)$, with equilibrium mapping $(I - X\Theta_1)^{-1} X\Theta_2$.
+- **NMF-FFB** (formerly NMF-SEM): Models feed-forward + feedback structure $Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)$, with equilibrium mapping $(I - X\Theta_1)^{-1} X\Theta_2$.
 
 # Main Functions
 
@@ -79,7 +84,7 @@ $$Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)$$
 |:---|:---|
 | `nmfkc()` | Core NMF with covariates ($Y \approx XCA$); supports kernel matrices and formula interface |
 | `nmfre()` / `nmfre.inference()` | NMF with Random Effects + wild bootstrap inference |
-| `nmf.sem()` / `nmf.sem.inference()` | NMF Structural Equation Model + inference for path coefficients |
+| `nmf.ffb()` / `nmf.ffb.inference()` | NMF Feed-Forward + Feedback model (formerly `nmf.sem*`, retained as alias) + inference for path coefficients |
 | `nmfae()` / `nmfae.inference()` | NMF Autoencoder + inference |
 | `nmfkc.rank()` | Rank selection via elbow, cross-validation, ECV, and CPCC |
 | `nmfkc.inference()` | Sandwich SE and wild bootstrap p-values for `nmfkc` |

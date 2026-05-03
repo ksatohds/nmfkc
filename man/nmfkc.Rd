@@ -37,9 +37,19 @@ Ignored when \code{Y} is a formula.}
 \item{...}{Additional arguments passed for fine-tuning regularization, initialization, constraints,
 and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 \itemize{
-\item \code{Y.weights}: Optional numeric matrix (P x N) or vector (length N).
-0 indicates missing/ignored values. If NULL (default), weights are automatically
-set to 0 for NAs in Y, and 1 otherwise.
+\item \code{Y.weights}: Optional weight matrix (P x N) or vector
+(length N) with non-negative entries, analogous to the \code{weights}
+argument of \code{\link[stats]{lm}}.  When supplied, the objective
+becomes \eqn{\sum W_{ij} \, (Y_{ij} - (XB)_{ij})^2}
+(i.e.\ \strong{linear} in \eqn{W}; \code{lm()}-style weighted
+least squares).  Logical matrices (\code{TRUE} / \code{FALSE})
+are also accepted and coerced to 1 / 0.  The primary use case is
+missing-value masking for ECV / CV, where \eqn{W_{ij} \in \{0, 1\}}
+(\code{FALSE} / \code{TRUE}) indicates held-out vs.\ used elements;
+real-valued weights for observation-level importance weighting are
+also supported.  Default \code{NULL}: if \code{Y} contains \code{NA}
+a binary mask is auto-constructed (0 for \code{NA}, 1 elsewhere);
+otherwise no weighting.
 \item \code{X.L2.ortho}: Nonnegative penalty parameter for the orthogonality of \eqn{X} (default: 0).
 It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
 between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
@@ -55,7 +65,11 @@ Promotes \strong{sparsity in the parameter matrix}. (Formerly \code{lambda}).
 This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
 would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
-\item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
+\item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
+Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
+multi-start evaluation (when \code{X.init = "runif"}).
+For symmetric NMF (\code{Y.symmetric = "tri"} or \code{"bi"}), results are sensitive to
+initial values; \code{nstart = 20} or higher is recommended.
 \item \code{seed}: Integer seed for reproducibility (default: 123).
 \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});

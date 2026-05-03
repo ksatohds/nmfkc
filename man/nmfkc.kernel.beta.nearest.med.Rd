@@ -28,7 +28,9 @@ is not \code{NULL} (controls memory usage). If \code{M <= 2000}, it is automatic
 \item{sample.size}{Integer or \code{NULL}. If not \code{NULL}, randomly subsamples this many columns
 of \code{U} (without replacement) before computing distances, to reduce computational cost.}
 
-\item{...}{Additional arguments (ignored; reserved for future use).}
+\item{...}{Additional arguments.  Hidden option \code{candidates} controls
+the candidate grid: one of \code{"7points"} (default), \code{"4points"},
+or a numeric vector of \eqn{t} values.  See Details.}
 }
 \value{
 A list with elements:
@@ -65,16 +67,28 @@ Optionally, columns of \code{U} can be randomly subsampled via \code{sample.size
 }
 \details{
 \strong{Candidate grid:}
-Along with \code{beta}, the function returns \code{beta_candidates}, a small logarithmic grid
-suitable for cross-validation.
+Along with \code{beta}, the function returns \code{beta_candidates}, a
+logarithmic grid suitable for cross-validation.  The grid is symmetric on
+the bandwidth scale \eqn{\sigma} around \eqn{\sigma_0}:
+\deqn{\sigma = \sigma_0 \times 10^{t},}
+and since \eqn{\beta = 1/(2\sigma^2)}, this corresponds to
+\eqn{\beta = \beta_0 \times 10^{-2t}}.
 
-In the landmark case (\code{Uk} provided), the grid is designed to be symmetric on the
-bandwidth scale \eqn{\sigma} around \eqn{\sigma_0} over one decade:
-\deqn{\sigma = \sigma_0 \times 10^{t}, \quad t \in \{-1,-2/3,-1/3,0,1/3,2/3,1\}.}
-Using \eqn{\beta = 1/(2\sigma^2)}, this corresponds to
-\deqn{\beta = \beta_0 \times 10^{-2t}.}
+The grid of \eqn{t} values can be customized through the hidden argument
+\code{candidates} (passed via \code{...}):
+\itemize{
+\item \code{"7points"} (default): \eqn{t \in \{-1,-2/3,-1/3,0,1/3,2/3,1\}}
+(7 candidates spanning one decade, matches the grid used in the
+RFF-NMF research memo).
+\item \code{"4points"}: \eqn{t \in \{-1/2, 0, 1/2, 1\}} yielding
+\eqn{\beta_0 \times 10^{(1,0,-1,-2)}} (the legacy short grid).
+\item A numeric vector: user-specified \eqn{t} values.  The grid returned
+is \eqn{\beta_0 \times 10^{-2t}}.
+}
 
-When \code{Uk} is \code{NULL}, a shorter coarse grid may be returned (see \code{Value}).
+Prior to version 0.6.8, the grid depended on whether \code{Uk} was
+supplied (4 candidates for \code{Uk = NULL}, 7 for supplied \code{Uk}).
+The current implementation unifies both branches via \code{candidates}.
 
 \strong{Notes:}
 \itemize{

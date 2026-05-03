@@ -16,7 +16,7 @@
 Invisible \code{object}.
 }
 \description{
-Produces a formatted summary of a fitted NMF-SEM model, including
+Produces a formatted summary of a fitted NMF-FFB model, including
 matrix dimensions, convergence, stability diagnostics, fit statistics,
 and inference results (if available).
 }

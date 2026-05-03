@@ -133,7 +133,11 @@
 #' @param wild.bootstrap Logical. If \code{TRUE} (default), perform wild bootstrap inference
 #'   on \eqn{\Theta}.
 #' @param epsilon Convergence tolerance for relative change in objective (default 1e-5).
-#' @param maxit Maximum number of iterations (default 50000).
+#' @param maxit Maximum number of iterations.  Default \code{5000}
+#'   (matches \code{\link{nmfkc}} and the other MU functions in the
+#'   package).  When the cap is hit without meeting the relative-
+#'   tolerance criterion, a \code{"maximum iterations (...) reached..."}
+#'   warning is emitted so users notice unconverged fits.
 #' @param ... Additional arguments for initialization, variance control, dfU control,
 #'   optimization, and inference settings.
 #'   \itemize{
@@ -287,7 +291,7 @@
 #'
 nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
                   wild.bootstrap = TRUE, epsilon = 1e-5,
-                  maxit = 50000, ...) {
+                  maxit = 5000, ...) {
 
   extra_args <- base::list(...)
   # backward compatibility
@@ -597,6 +601,13 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
     converged <- FALSE
   }
 
+  ## Warn when the MU loop exhausted maxit without meeting the
+  ## relative-tolerance criterion (matches nmfkc() / nmf.sem()
+  ## convention).  The non-finite-objective break path issues its
+  ## own diagnostic via stop_reason; here we only fire on maxit.
+  if (identical(stop_reason, "maxit") && iter_done == maxit)
+    warning(paste0("maximum iterations (", maxit, ") reached..."))
+
   # ---- reorder basis ----
   if (ncol(X) > 1) {
     w_ord <- matrix((1:P) / P, nrow = 1)
@@ -637,12 +648,9 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   rownames(U) <- rownames(C_mat)
   colnames(U) <- colnames(Y)
 
-  # ---- r.squared ----
-  ss_total <- sum((Y - mean(Y))^2)
-  R_blup <- Y - XB.blup
-  R_fixed <- Y - XB
-  r.squared <- if (ss_total > 0) 1 - sum(R_blup^2) / ss_total else NA_real_
-  r.squared.fixed <- if (ss_total > 0) 1 - sum(R_fixed^2) / ss_total else NA_real_
+  # ---- r.squared (cor^2, consistent with nmfkc/nmfae) ----
+  r.squared <- stats::cor(as.vector(XB.blup), as.vector(Y))^2
+  r.squared.fixed <- stats::cor(as.vector(XB), as.vector(Y))^2
 
   # ---- ICC (trace-based) ----
   trXtX <- sum(d_final)  # tr(X'X), using eigenvalues already computed

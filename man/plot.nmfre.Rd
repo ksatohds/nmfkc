@@ -7,12 +7,22 @@
 \usage{
 \method{plot}{nmfre}(x, ...)
 
-\method{plot}{nmf.sem}(x, ...)
+\method{plot}{nmf.sem}(x, ..., which = c("full", "reconstruction", "both"))
 }
 \arguments{
 \item{x}{A fitted model object.}
 
 \item{...}{Additional graphical arguments passed to \code{\link{plot}}.}
+
+\item{which}{For \code{plot.nmf.sem}: which objective to plot.
+One of \code{"full"} (default; \code{loss + penalties}, the actual
+monotonically-decreasing quantity that the multiplicative updates
+minimize), \code{"reconstruction"} (Frobenius distance only,
+\eqn{\| Y_1 - X B \|_F^2}), or \code{"both"} (overlay both with a
+legend).  \code{"both"} is useful for diagnosing whether
+regularization is actively shaping the solution: if the two curves
+diverge, the penalties are pulling the optimizer away from the
+pure least-squares minimum.}
 }
 \value{
 Invisible \code{NULL}.

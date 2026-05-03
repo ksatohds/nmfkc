@@ -301,16 +301,28 @@ nmfkc.kernel <- function(U, V = NULL,
 #'
 #' @details
 #' \strong{Candidate grid:}
-#' Along with \code{beta}, the function returns \code{beta_candidates}, a small logarithmic grid
-#' suitable for cross-validation.
+#' Along with \code{beta}, the function returns \code{beta_candidates}, a
+#' logarithmic grid suitable for cross-validation.  The grid is symmetric on
+#' the bandwidth scale \eqn{\sigma} around \eqn{\sigma_0}:
+#' \deqn{\sigma = \sigma_0 \times 10^{t},}
+#' and since \eqn{\beta = 1/(2\sigma^2)}, this corresponds to
+#' \eqn{\beta = \beta_0 \times 10^{-2t}}.
 #'
-#' In the landmark case (\code{Uk} provided), the grid is designed to be symmetric on the
-#' bandwidth scale \eqn{\sigma} around \eqn{\sigma_0} over one decade:
-#' \deqn{\sigma = \sigma_0 \times 10^{t}, \quad t \in \{-1,-2/3,-1/3,0,1/3,2/3,1\}.}
-#' Using \eqn{\beta = 1/(2\sigma^2)}, this corresponds to
-#' \deqn{\beta = \beta_0 \times 10^{-2t}.}
+#' The grid of \eqn{t} values can be customized through the hidden argument
+#' \code{candidates} (passed via \code{...}):
+#' \itemize{
+#'   \item \code{"7points"} (default): \eqn{t \in \{-1,-2/3,-1/3,0,1/3,2/3,1\}}
+#'         (7 candidates spanning one decade, matches the grid used in the
+#'         RFF-NMF research memo).
+#'   \item \code{"4points"}: \eqn{t \in \{-1/2, 0, 1/2, 1\}} yielding
+#'         \eqn{\beta_0 \times 10^{(1,0,-1,-2)}} (the legacy short grid).
+#'   \item A numeric vector: user-specified \eqn{t} values.  The grid returned
+#'         is \eqn{\beta_0 \times 10^{-2t}}.
+#' }
 #'
-#' When \code{Uk} is \code{NULL}, a shorter coarse grid may be returned (see \code{Value}).
+#' Prior to version 0.6.8, the grid depended on whether \code{Uk} was
+#' supplied (4 candidates for \code{Uk = NULL}, 7 for supplied \code{Uk}).
+#' The current implementation unifies both branches via \code{candidates}.
 #'
 #' \strong{Notes:}
 #' \itemize{
@@ -329,7 +341,9 @@ nmfkc.kernel <- function(U, V = NULL,
 #'   is not \code{NULL} (controls memory usage). If \code{M <= 2000}, it is automatically set to \code{M}.
 #' @param sample.size Integer or \code{NULL}. If not \code{NULL}, randomly subsamples this many columns
 #'   of \code{U} (without replacement) before computing distances, to reduce computational cost.
-#' @param ... Additional arguments (ignored; reserved for future use).
+#' @param ... Additional arguments.  Hidden option \code{candidates} controls
+#'   the candidate grid: one of \code{"7points"} (default), \code{"4points"},
+#'   or a numeric vector of \eqn{t} values.  See Details.
 #'
 #' @return A list with elements:
 #' \itemize{
@@ -372,6 +386,22 @@ nmfkc.kernel.beta.nearest.med <- function(
   if (!is.null(extra_bn$block.size)) block.size <- extra_bn$block.size
   if (!is.null(extra_bn$block.size.Uk)) block.size.Uk <- extra_bn$block.size.Uk
   if (!is.null(extra_bn$sample.size)) sample.size <- extra_bn$sample.size
+
+  ## Hidden option `candidates` controls the bandwidth grid (see @details).
+  ## Default "7points" unifies the legacy 4/7 branch inconsistency.
+  candidates <- if (!is.null(extra_bn$candidates)) extra_bn$candidates else "7points"
+
+  ## ---- resolve the t-grid from `candidates` ----
+  t_grid <- if (is.character(candidates) && length(candidates) == 1L) {
+    switch(candidates,
+           "7points" = c(-1, -2/3, -1/3, 0, 1/3, 2/3, 1),
+           "4points" = c(-1/2, 0, 1/2, 1),
+           stop("'candidates' must be \"7points\", \"4points\", or a numeric vector."))
+  } else if (is.numeric(candidates)) {
+    as.numeric(candidates)
+  } else {
+    stop("'candidates' must be \"7points\", \"4points\", or a numeric vector.")
+  }
   U <- as.matrix(U)
   storage.mode(U) <- "double"
   N <- ncol(U)
@@ -420,7 +450,7 @@ nmfkc.kernel.beta.nearest.med <- function(
     beta  <- 1 / (2 * d_med^2)
     return(list(
       beta = beta,
-      beta_candidates = beta * 10^c(-2:1),
+      beta_candidates = beta * 10^(-2 * t_grid),
       dist_median = d_med,
       block.size.used = block.size,
       sample.size.used = sample.size.used
@@ -497,12 +527,9 @@ nmfkc.kernel.beta.nearest.med <- function(
   }
   beta  <- 1 / (2 * d_med^2)
 
-  t <- c(-1, -2/3, -1/3, 0, 1/3, 2/3, 1)
-  betas <- beta * 10^(-2*t)
-
   list(
     beta = beta,
-    beta_candidates = betas,
+    beta_candidates = beta * 10^(-2 * t_grid),
     dist_median = d_med,
     block.size.used = c(U = block.size, Uk = block.size.Uk),
     sample.size.used = sample.size.used,
@@ -642,27 +669,28 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     X <- X.init
   } else if (is.character(X.init)) {
     if (!is.null(seed)) set.seed(seed)
-    if (X.init == "kmeans" || X.init == "kmeansar") {
-      res.kmeans <- if (ncol(Y) >= Q) {
-        tryCatch(stats::kmeans(t(Y_init), centers = Q, iter.max = maxit, nstart = nstart),
-                 error = function(e) NULL)
-      } else { NULL }
-      if (!is.null(res.kmeans)) X <- t(res.kmeans$centers)
-      else X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-      if (X.init == "kmeansar") {
-        avg_Y <- mean(Y)
-        idx_zero <- which(X == 0)
-        if (length(idx_zero) > 0) X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
+    ## runif with nstart > 1 is an nmfkc-specific multi-start feature (10
+    ## inner MU iterations per restart to rank the candidate seeds); all
+    ## other string methods delegate to the shared .init_X_method().
+    if (X.init == "runif" && nstart > 1) {
+      best_obj <- Inf
+      P <- nrow(Y_init); N <- ncol(Y_init)
+      for (s in seq_len(nstart)) {
+        Xs <- matrix(stats::runif(P * Q), nrow = P, ncol = Q)
+        Bs <- matrix(stats::runif(Q * N), nrow = Q, ncol = N)
+        for (iter in 1:10) {
+          Bs <- Bs * (t(Xs) %*% Y_init) / (t(Xs) %*% Xs %*% Bs + .eps)
+          Xs <- Xs * (Y_init %*% t(Bs)) / (Xs %*% Bs %*% t(Bs) + .eps)
+        }
+        obj <- sum((Y_init - Xs %*% Bs)^2)
+        if (obj < best_obj) { best_obj <- obj; X <- Xs }
       }
-    } else if (X.init == "runif") {
-      X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
     } else {
-      # nndsvd: requires Q <= min(P, N)
-      if (Q > min(nrow(Y), ncol(Y))) {
-        X <- matrix(stats::runif(nrow(Y) * Q), nrow = nrow(Y), ncol = Q)
-      } else {
-        X <- .nndsvdar(Y_init, Q)
-      }
+      ## Seed was already applied just above (`set.seed(seed)`), so pass
+      ## seed = NULL to avoid double-setting; pass the outer MU maxit as
+      ## kmeans iter.max to preserve pre-refactor behavior.
+      X <- .init_X_method(X.init, Y_init, Q,
+                          seed = NULL, nstart = nstart, kmeans.maxit = maxit)
     }
   } else if (ncol(Y) == Q) {
     X <- Y_init
@@ -715,6 +743,57 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+## Internal: X initialization by named method.
+## Shared across NMF variants (nmfkc, nmf.sem, ...) to avoid duplication
+## of the "nndsvd" / "kmeans" / "kmeansar" / "runif" dispatch logic.
+##
+## @param method  One of "nndsvd", "kmeans", "kmeansar", "runif".
+## @param Y       A P x N reference matrix used for SVD (nndsvd) or
+##                column clustering (kmeans/kmeansar).  For "runif" only
+##                its dimensions matter.  Must contain no NA.
+## @param Q       Target rank.
+## @param seed    Optional RNG seed (integer).  If not \code{NULL},
+##                \code{set.seed(seed)} is called before any random step
+##                so the result is reproducible.  Caller may also pre-seed
+##                and pass \code{NULL} to leave the stream untouched.
+## @param nstart  Number of restarts for \code{\link[stats]{kmeans}}
+##                (used only by "kmeans" / "kmeansar").  Default 10.
+## @param kmeans.maxit   \code{iter.max} for \code{\link[stats]{kmeans}}.
+##                Default 100.
+## @return A P x Q non-negative matrix.  Column normalization is the
+##         caller's responsibility.
+.init_X_method <- function(method, Y, Q,
+                            seed = NULL,
+                            nstart = 10,
+                            kmeans.maxit = 100) {
+  if (!is.null(seed)) set.seed(seed)
+  P <- nrow(Y); N <- ncol(Y)
+  if (identical(method, "nndsvd")) {
+    if (Q <= min(P, N)) .nndsvdar(Y, Q)
+    else matrix(stats::runif(P * Q), P, Q)
+  } else if (identical(method, "kmeans") || identical(method, "kmeansar")) {
+    res.kmeans <- if (N >= Q) {
+      tryCatch(stats::kmeans(t(Y), centers = Q,
+                             iter.max = kmeans.maxit,
+                             nstart = nstart),
+               error = function(e) NULL)
+    } else NULL
+    X <- if (!is.null(res.kmeans)) t(res.kmeans$centers)
+         else matrix(stats::runif(P * Q), P, Q)
+    if (identical(method, "kmeansar")) {
+      avg_Y <- mean(Y)
+      idx_zero <- which(X == 0)
+      if (length(idx_zero) > 0)
+        X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
+    }
+    X
+  } else if (identical(method, "runif")) {
+    matrix(stats::runif(P * Q), P, Q)
+  } else {
+    stop(".init_X_method: method must be one of \"nndsvd\", \"kmeans\", ",
+         "\"kmeansar\", \"runif\"; got \"", method, "\".")
+  }
+}
 
 
 
@@ -1050,9 +1129,19 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints,
 #'   and output control. This includes the backward-compatible arguments \code{Q} and \code{method}.
 #'   \itemize{
-#'     \item \code{Y.weights}: Optional numeric matrix (P x N) or vector (length N).
-#'       0 indicates missing/ignored values. If NULL (default), weights are automatically
-#'       set to 0 for NAs in Y, and 1 otherwise.
+#'     \item \code{Y.weights}: Optional weight matrix (P x N) or vector
+#'       (length N) with non-negative entries, analogous to the \code{weights}
+#'       argument of \code{\link[stats]{lm}}.  When supplied, the objective
+#'       becomes \eqn{\sum W_{ij} \, (Y_{ij} - (XB)_{ij})^2}
+#'       (i.e.\ \strong{linear} in \eqn{W}; \code{lm()}-style weighted
+#'       least squares).  Logical matrices (\code{TRUE} / \code{FALSE})
+#'       are also accepted and coerced to 1 / 0.  The primary use case is
+#'       missing-value masking for ECV / CV, where \eqn{W_{ij} \in \{0, 1\}}
+#'       (\code{FALSE} / \code{TRUE}) indicates held-out vs.\ used elements;
+#'       real-valued weights for observation-level importance weighting are
+#'       also supported.  Default \code{NULL}: if \code{Y} contains \code{NA}
+#'       a binary mask is auto-constructed (0 for \code{NA}, 1 elsewhere);
+#'       otherwise no weighting.
 #'     \item \code{X.L2.ortho}: Nonnegative penalty parameter for the orthogonality of \eqn{X} (default: 0).
 #'       It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
 #'       between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
@@ -1068,7 +1157,11 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'       This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
 #'       would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
 #'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
-#'     \item \code{nstart}: Number of random starts for \code{kmeans} when initializing \eqn{X} (default: 1).
+#'     \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
+#'       Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
+#'       multi-start evaluation (when \code{X.init = "runif"}).
+#'       For symmetric NMF (\code{Y.symmetric = "tri"} or \code{"bi"}), results are sensitive to
+#'       initial values; \code{nstart = 20} or higher is recommended.
 #'     \item \code{seed}: Integer seed for reproducibility (default: 123).
 #'     \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 #'       (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
@@ -1203,6 +1296,17 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   C.init <- if (!is.null(extra_args$C.init)) extra_args$C.init else NULL
   Y.symmetric <- if (!base::is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else "none"
   Y.symmetric <- base::match.arg(Y.symmetric, c("none", "bi", "tri"))
+  if (Y.symmetric != "none") {
+    .Deprecated(
+      new = "nmfkc.net",
+      msg = paste0(
+        "Y.symmetric = \"", Y.symmetric, "\" in nmfkc() is deprecated.\n",
+        "Use nmfkc.net(Y, rank, type = \"", Y.symmetric, "\") instead, ",
+        "which implements the correct Frobenius bilateral-gradient updates.\n",
+        "See help(nmfkc.net) (all three types: \"tri\", \"bi\", \"signed\")."
+      )
+    )
+  }
 
   prefix <- if (!base::is.null(extra_args$prefix)) extra_args$prefix else "Basis"
   print.trace <- if (!base::is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
@@ -1362,6 +1466,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         X <- xnorm(X)
         tX <- t(X)
       }
+      # Recompute B and XB with updated X before C update (tri-symmetric fix)
+      if(Y.symmetric == "tri"){ B <- C %*% tX; XB <- X %*% B }
       if(Y.symmetric == "bi"){
         # C = I_Q is fixed; no update needed (bi is tri with C = I)
       }else if(Y.symmetric == "tri"){
@@ -1383,8 +1489,13 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN_At
         C <- C * (num_C / (den_C + .eps))
       }
-      resid <- Y.weights * (Y - XB)
-      obj <- sum(resid^2)
+      ## lm()-style weighted least squares: L = sum(W * (Y - XB)^2).
+      ## The multiplicative updates (num/den above) already carry W linearly,
+      ## so reporting the linear-W objective here makes MU target and reported
+      ## loss consistent for any non-negative W.  For binary W in {0,1}
+      ## (the standard ECV / CV / NA-mask case) this is identical to
+      ## sum((W*(Y-XB))^2) since W = W^2.
+      obj <- sum(Y.weights * (Y - XB)^2)
 
     }else{ # KL
       if(!is.X.scalar && X.restriction!="fixed"){
@@ -1402,6 +1513,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         X <- xnorm(X)
         tX <- t(X)
       }
+      # Recompute B and XB with updated X before C update (tri-symmetric fix)
+      if(Y.symmetric == "tri"){ B <- C %*% tX; XB <- X %*% B }
       if(Y.symmetric == "bi"){
         # C = I_Q is fixed; no update needed (bi is tri with C = I)
       }else if(Y.symmetric == "tri"){
@@ -1450,8 +1563,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   XB <- X %*% B
 
   if(method=="EU"){
-    resid <- Y.weights * (Y - XB)
-    objfunc <- sum(resid^2)
+    ## lm()-style weighted least squares; see note above near line 1446.
+    objfunc <- sum(Y.weights * (Y - XB)^2)
   } else {
     term1 <- - (Y.weights * Y) * log(XB + .eps)
     term2 <- Y.weights * XB
@@ -1464,7 +1577,8 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 
   if(ncol(X) > 1 && X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
-    X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]; C <- C[index,,drop=FALSE]
+    X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]
+    if(Y.symmetric == "tri") C <- C[index,index,drop=FALSE] else C <- C[index,,drop=FALSE]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
   if (!is.null(A)) {
@@ -1907,7 +2021,11 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response"
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments controlling CV and the internal \code{\link{nmfkc}} call:
 #'   \describe{
-#'     \item{\code{Y.weights}}{Optional numeric matrix or vector; 0 indicates missing/ignored values.}
+#'     \item{\code{Y.weights}}{Non-negative weight matrix or vector
+#'       (\code{lm()}-style: loss \eqn{\sum W \, r^2}).  Binary
+#'       \code{{0,1}} masks (\code{TRUE} / \code{FALSE} also accepted)
+#'       are the typical ECV usage -- 0/\code{FALSE} excludes an element.
+#'       See \code{\link{nmfkc}} for full details.}
 #'     \item{\code{div}}{Number of folds (\eqn{k}); default: \code{5}.}
 #'     \item{\code{seed}}{Integer seed for reproducible partitioning; default: \code{123}.}
 #'     \item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);
@@ -2372,8 +2490,9 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   CPCC and dist.cor;
 #'   \code{"fast"} skips the expensive distance-based criteria;
 #'   \code{"minimal"} returns only information criteria.
-#' @param ... Additional arguments: \code{Y.weights} (weight matrix,
-#'   default: all ones).
+#' @param ... Additional arguments: \code{Y.weights} (non-negative
+#'   weight matrix; \code{lm()}-style loss \eqn{\sum W \, r^2}; default:
+#'   all ones).  See \code{\link{nmfkc}} for full details.
 #'
 #' @return A list with components:
 #' \describe{
@@ -2434,8 +2553,9 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
   N_obs <- base::sum(Y.weights > 0)
 
   # --- Information Criteria ---
-  resid <- Y.weights * (Y - XB)
-  objfunc <- base::sum(resid^2)
+  ## lm()-style weighted least squares (linear W); matches the objective
+  ## reported by nmfkc() itself.
+  objfunc <- base::sum(Y.weights * (Y - XB)^2)
 
   if (X.restriction == "fixed") nparam.X <- 0
   else if (X.restriction == "totalSum") nparam.X <- base::prod(base::dim(X)) - 1

@@ -11,7 +11,7 @@ nmfre(
   df.rate = NULL,
   wild.bootstrap = TRUE,
   epsilon = 1e-05,
-  maxit = 50000,
+  maxit = 5000,
   ...
 )
 }
@@ -35,7 +35,11 @@ on \eqn{\Theta}.}
 
 \item{epsilon}{Convergence tolerance for relative change in objective (default 1e-5).}
 
-\item{maxit}{Maximum number of iterations (default 50000).}
+\item{maxit}{Maximum number of iterations.  Default \code{5000}
+(matches \code{\link{nmfkc}} and the other MU functions in the
+package).  When the cap is hit without meeting the relative-
+tolerance criterion, a \code{"maximum iterations (...) reached..."}
+warning is emitted so users notice unconverged fits.}
 
 \item{...}{Additional arguments for initialization, variance control, dfU control,
 optimization, and inference settings.
