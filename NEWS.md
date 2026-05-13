@@ -1,3 +1,12 @@
+# nmfkc 0.7.3
+
+### **Documentation**
+- README and `nmf-sem-with-nmfkc.Rmd` vignette code now reference the
+  canonical `nmf.ffb.*` aliases (`nmf.ffb()`, `nmf.ffb.cv()`,
+  `nmf.ffb.DOT()`) instead of the legacy `nmf.sem.*` names.  Both
+  names continue to work; the change only affects what users see on
+  the GitHub Pages homepage and in the vignette source.
+
 # nmfkc 0.7.2
 
 ### **Headline: NMF-FFB rebrand and full bootstrap inference**
