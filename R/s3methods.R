@@ -108,16 +108,17 @@ plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
 #' matrix dimensions, convergence, stability diagnostics, fit statistics,
 #' and inference results (if available).
 #'
-#' @param object An object of class \code{"nmf.sem"} returned by
+#' @param object An object of class \code{"nmf.ffb"} (or legacy
+#'   \code{"nmf.sem"}) returned by \code{\link{nmf.ffb}} /
 #'   \code{\link{nmf.sem}}.
 #' @param ... Not used.
 #' @return Invisible \code{object}.
-#' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.inference}}
+#' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}}
 #' @export
 #' @examples
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
-#' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+#' result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
 #' summary(result)
 #'
 summary.nmf.sem <- function(object, ...) {
