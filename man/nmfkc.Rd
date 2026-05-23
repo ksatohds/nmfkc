@@ -162,16 +162,8 @@ dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10),
                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
 res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 
-# Example 3. Symmetric NMF (bi: Y ~ X X^T)
-S <- matrix(c(3,0,2, 0,3,1, 2,1,2), nrow=3)
-res_bi <- nmfkc(S, rank=2, Y.symmetric="bi")
-res_bi$X   # basis matrix (no column normalization)
-res_bi$XB  # reconstruction X \%*\% t(X)
-
-# Example 4. Symmetric NMF (tri: Y ~ X C X^T)
-res_tri <- nmfkc(S, rank=2, Y.symmetric="tri")
-res_tri$C  # Q x Q cluster interaction matrix
-res_tri$XB # reconstruction X \%*\% C \%*\% t(X)
+# For symmetric NMF (Y approximated by X X^T or X C X^T),
+# use \code{\link{nmfkc.net}()} instead.
 
 }
 \references{
