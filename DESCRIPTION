@@ -35,7 +35,6 @@ Imports:
 Encoding: UTF-8
 Language: en-US
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
 ByteCompile: true
 VignetteBuilder: knitr
 Suggests:
@@ -51,3 +50,4 @@ Suggests:
     nlme,
     lavaan
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0
