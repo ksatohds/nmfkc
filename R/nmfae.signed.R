@@ -110,7 +110,10 @@
 #' \item{rank}{\code{c(Q = Q, R = R)}.}
 #' \item{dims}{\code{c(P1, P2, N)}.}
 #' \item{objfunc, objfunc.iter}{Final and per-iteration objective values.}
-#' \item{r.squared, sigma, mae}{Goodness of fit statistics.}
+#' \item{r.squared}{\eqn{\mathrm{cor}(Y_1, \widehat Y_1)^2} (Pearson; in \eqn{[0,1]}).}
+#' \item{r.squared.frob}{Non-centered Frobenius \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1\|_F^2}.}
+#' \item{r.squared.centered}{Row-mean centered \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1 - \bar Y_{p\cdot}\|_F^2}.}
+#' \item{sigma, mae}{Residual SE and mean absolute error.}
 #' \item{niter, runtime}{Iterations and elapsed seconds.}
 #' \item{Y.signed}{Logical; whether \eqn{Y_1} contained negative entries.}
 #' \item{call}{Matched call.}
@@ -508,21 +511,18 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     objfunc  <- sum(Wmat * resid^2)
     valid    <- (Wmat > 0)
     n.valid  <- sum(valid)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(Y1hat)[valid], as.vector(Y1)[valid])^2,
-      error = function(e) NA_real_
-    )
-    sigma <- if (n.valid > 0) sqrt(objfunc / n.valid) else NA_real_
-    mae   <- if (sum(Wmat) > 0) sum(Wmat * abs(resid)) / sum(Wmat) else NA_real_
+    r2_all   <- .r.squared.all(Y1, Y1hat, Y.weights = Wmat)
+    sigma    <- if (n.valid > 0) sqrt(objfunc / n.valid) else NA_real_
+    mae      <- if (sum(Wmat) > 0) sum(Wmat * abs(resid)) / sum(Wmat) else NA_real_
   } else {
     objfunc  <- sum(resid * resid)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(Y1hat), as.vector(Y1))^2,
-      error = function(e) NA_real_
-    )
-    sigma <- sqrt(objfunc / (P1 * N))
-    mae   <- mean(abs(resid))
+    r2_all   <- .r.squared.all(Y1, Y1hat)
+    sigma    <- sqrt(objfunc / (P1 * N))
+    mae      <- mean(abs(resid))
   }
+  r.squared          <- r2_all$r.squared
+  r.squared.frob     <- r2_all$r.squared.frob
+  r.squared.centered <- r2_all$r.squared.centered
 
   ## Soft/hard clustering of encoding (only meaningful when H has interpretable sign)
   eps_bp <- 1e-16
@@ -553,7 +553,9 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     dims = c(P1 = P1, P2 = P2, N = N),
     objfunc = objfunc,
     objfunc.iter = objfunc.iter,
-    r.squared = r.squared,
+    r.squared          = r.squared,
+    r.squared.frob     = r.squared.frob,
+    r.squared.centered = r.squared.centered,
     sigma = sigma,
     mae = mae,
     niter = niter,
@@ -878,7 +880,9 @@ summary.nmfae.signed <- function(object, ...) {
     niter       = object$niter,
     runtime     = object$runtime,
     objfunc     = object$objfunc,
-    r.squared   = object$r.squared,
+    r.squared          = object$r.squared,
+    r.squared.frob     = object$r.squared.frob,
+    r.squared.centered = object$r.squared.centered,
     sigma       = object$sigma,
     mae         = object$mae,
     X1.sparsity = .sparsity(object$X1),
@@ -936,9 +940,13 @@ print.summary.nmfae.signed <- function(x,
   cat(sprintf("  Final objfunc:    %s\n", format(x$objfunc, digits = digits)))
 
   cat("\nGoodness of fit:\n")
-  cat(sprintf("  R-squared:        %s\n", format(x$r.squared, digits = digits)))
-  cat(sprintf("  Sigma (RMSE):     %s\n", format(x$sigma,     digits = digits)))
-  cat(sprintf("  MAE:              %s\n", format(x$mae,       digits = digits)))
+  cat(sprintf("  R-squared (cor^2):    %s\n", format(x$r.squared, digits = digits)))
+  if (!is.null(x$r.squared.frob))
+    cat(sprintf("  R-squared (Frob):     %s\n", format(x$r.squared.frob, digits = digits)))
+  if (!is.null(x$r.squared.centered))
+    cat(sprintf("  R-squared (centered): %s\n", format(x$r.squared.centered, digits = digits)))
+  cat(sprintf("  Sigma (RMSE):         %s\n", format(x$sigma,     digits = digits)))
+  cat(sprintf("  MAE:                  %s\n", format(x$mae,       digits = digits)))
 
   cat("\nStructure (range / sparsity / negative mass):\n")
   fmt_range <- function(r)

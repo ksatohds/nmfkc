@@ -59,7 +59,9 @@
 #' \item{rank}{Named integer vector \code{c(Q, R)}.}
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
-#' \item{r.squared}{Coefficient of determination \eqn{R^2}.}
+#' \item{r.squared}{\eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).}
+#' \item{r.squared.frob}{Non-centered Frobenius \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.}
+#' \item{r.squared.centered}{Row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.}
 #' \item{niter}{Number of iterations performed.}
 #' \item{runtime}{Elapsed time as a \code{difftime} object.}
 #' \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y_1}.}
@@ -312,16 +314,19 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     valid <- (W > 0)
     n.missing <- sum(!valid)
     n.valid <- sum(valid)
-    r.squared <- stats::cor(Y1hat[valid], Y1[valid])^2
+    r2_all <- .r.squared.all(Y1, Y1hat, Y.weights = W)
     sigma <- sqrt(objfunc / n.valid)
     mae <- mean(abs(Y1[valid] - Y1hat[valid]))
   } else {
     n.missing <- 0L
     n.valid <- P1 * N
-    r.squared <- stats::cor(as.vector(Y1hat), as.vector(Y1))^2
+    r2_all <- .r.squared.all(Y1, Y1hat)
     sigma <- sqrt(objfunc / n.valid)
     mae <- mean(abs(Y1 - Y1hat))
   }
+  r.squared          <- r2_all$r.squared
+  r.squared.frob     <- r2_all$r.squared.frob
+  r.squared.centered <- r2_all$r.squared.centered
 
   if (print.trace) {
     msg <- sprintf("  Done: %d iterations, %.1f sec, R2 = %.4f", niter, diff.time, r.squared)
@@ -349,7 +354,9 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     dims = c(P1 = P1, P2 = P2, N = N),
     objfunc = objfunc,
     objfunc.iter = objfunc.iter,
-    r.squared = r.squared,
+    r.squared          = r.squared,
+    r.squared.frob     = r.squared.frob,
+    r.squared.centered = r.squared.centered,
     sigma = sigma,
     mae = mae,
     niter = niter,
@@ -700,7 +707,9 @@ summary.nmfae <- function(object, ...) {
   ans$runtime <- object$runtime
 
   ans$objfunc <- object$objfunc
-  ans$r.squared <- object$r.squared
+  ans$r.squared          <- object$r.squared
+  ans$r.squared.frob     <- object$r.squared.frob
+  ans$r.squared.centered <- object$r.squared.centered
   ans$sigma <- object$sigma
   ans$mae <- object$mae
 
@@ -773,7 +782,11 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
 
   cat("\nGoodness of fit:\n")
   cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
+  cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
+  if (!is.null(x$r.squared.frob))
+    cat("  R-squared (Frob):    ", format(x$r.squared.frob, digits = digits), "\n")
+  if (!is.null(x$r.squared.centered))
+    cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
 

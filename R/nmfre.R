@@ -225,10 +225,17 @@
 #'
 #'   \strong{Fit statistics}
 #'   \describe{
-#'     \item{\code{r.squared}}{Coefficient of determination \eqn{R^2} for
-#'       \eqn{Y} vs \eqn{X(\Theta A + U)} (BLUP).}
-#'     \item{\code{r.squared.fixed}}{Coefficient of determination \eqn{R^2} for
-#'       \eqn{Y} vs \eqn{X \Theta A} (fixed effects only).}
+#'     \item{\code{r.squared}}{Pearson \eqn{\mathrm{cor}(Y, X(\Theta A + U))^2}
+#'       (BLUP prediction).}
+#'     \item{\code{r.squared.frob}}{Non-centered Frobenius
+#'       \eqn{1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y\|_F^2} (BLUP).}
+#'     \item{\code{r.squared.centered}}{Row-mean centered
+#'       \eqn{1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}
+#'       (BLUP).}
+#'     \item{\code{r.squared.fixed}}{Pearson \eqn{\mathrm{cor}(Y, X\Theta A)^2}
+#'       (fixed-only prediction).}
+#'     \item{\code{r.squared.fixed.frob}, \code{r.squared.fixed.centered}}{Frobenius
+#'       and centered \eqn{R^2} for the fixed-only prediction.}
 #'     \item{\code{ICC}}{Trace-based Intraclass Correlation Coefficient.
 #'       In the NMF-RE model, the conditional covariance of the \eqn{n}-th
 #'       observation column is
@@ -648,9 +655,18 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   rownames(U) <- rownames(C_mat)
   colnames(U) <- colnames(Y)
 
-  # ---- r.squared (cor^2, consistent with nmfkc/nmfae) ----
-  r.squared <- stats::cor(as.vector(XB.blup), as.vector(Y))^2
-  r.squared.fixed <- stats::cor(as.vector(XB), as.vector(Y))^2
+  # ---- Three-variant R^2 (cor^2, non-centered Frobenius, row-mean
+  # centered), separately for BLUP-prediction (XB.blup = XB + U) and
+  # fixed-only prediction (XB).  Consistent with nmfkc / nmfae /
+  # nmfae.signed / nmfkc.net / nmfkc.signed naming convention.
+  r2_blup  <- .r.squared.all(Y, XB.blup)
+  r2_fixed <- .r.squared.all(Y, XB)
+  r.squared                <- r2_blup$r.squared
+  r.squared.frob           <- r2_blup$r.squared.frob
+  r.squared.centered       <- r2_blup$r.squared.centered
+  r.squared.fixed          <- r2_fixed$r.squared
+  r.squared.fixed.frob     <- r2_fixed$r.squared.frob
+  r.squared.fixed.centered <- r2_fixed$r.squared.centered
 
   # ---- ICC (trace-based) ----
   trXtX <- sum(d_final)  # tr(X'X), using eigenvalues already computed
@@ -901,8 +917,12 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
     XB.blup = XB.blup,
 
     # fit statistics
-    r.squared = r.squared,
-    r.squared.fixed = r.squared.fixed,
+    r.squared                = r.squared,
+    r.squared.frob           = r.squared.frob,
+    r.squared.centered       = r.squared.centered,
+    r.squared.fixed          = r.squared.fixed,
+    r.squared.fixed.frob     = r.squared.fixed.frob,
+    r.squared.fixed.centered = r.squared.fixed.centered,
     ICC = ICC,
 
     # inference outputs
@@ -966,7 +986,17 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
     r2_fixed <- if (!is.null(x$r.squared.fixed) && is.finite(x$r.squared.fixed)) {
       sprintf(", %.4f (XB)", x$r.squared.fixed)
     } else ""
-    cat(sprintf("R-squared: %.4f (XB+blup)%s\n", x$r.squared, r2_fixed))
+    cat(sprintf("R-squared (cor^2):    %.4f (XB+blup)%s\n", x$r.squared, r2_fixed))
+    if (!is.null(x$r.squared.frob) && is.finite(x$r.squared.frob)) {
+      r2f_fixed <- if (!is.null(x$r.squared.fixed.frob) && is.finite(x$r.squared.fixed.frob))
+        sprintf(", %.4f (XB)", x$r.squared.fixed.frob) else ""
+      cat(sprintf("R-squared (Frob):     %.4f (XB+blup)%s\n", x$r.squared.frob, r2f_fixed))
+    }
+    if (!is.null(x$r.squared.centered) && is.finite(x$r.squared.centered)) {
+      r2c_fixed <- if (!is.null(x$r.squared.fixed.centered) && is.finite(x$r.squared.fixed.centered))
+        sprintf(", %.4f (XB)", x$r.squared.fixed.centered) else ""
+      cat(sprintf("R-squared (centered): %.4f (XB+blup)%s\n", x$r.squared.centered, r2c_fixed))
+    }
   }
 
   # ---- variance components ----

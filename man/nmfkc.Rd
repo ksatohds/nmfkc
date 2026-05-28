@@ -122,7 +122,9 @@ A list with components:
 \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 \item{objfunc}{Final objective value.}
 \item{objfunc.iter}{Objective values by iteration.}
-\item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+\item{r.squared}{\eqn{R^2 = \mathrm{cor}(Y, XB)^2} (Pearson; scale-invariant; \eqn{[0,1]}).}
+\item{r.squared.frob}{Non-centered Frobenius \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y\|_F^2}, natural for non-negative factorizations without an intercept.}
+\item{r.squared.centered}{Row-mean centered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}, the multivariate regression \eqn{R^2}.}
 \item{method}{Character string indicating the optimization method used (\code{"EU"} or \code{"KL"}).}
 \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y}.}
 \item{n.total}{Total number of elements in \eqn{Y}.}

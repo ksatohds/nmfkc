@@ -144,7 +144,9 @@
 #'   \item \code{B}: \eqn{C \, A}, \eqn{Q \times N} (signed).
 #'   \item \code{objfunc.iter}: objective values per iteration.
 #'   \item \code{objfunc}: final objective.
-#'   \item \code{r.squared}: \eqn{\mathrm{cor}(Y, \widehat Y)^2}.
+#'   \item \code{r.squared}: \eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).
+#'   \item \code{r.squared.frob}: non-centered Frobenius \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.
+#'   \item \code{r.squared.centered}: row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
 #'   \item \code{mae}: mean absolute error.
 #'   \item \code{iter}: number of iterations performed.
 #'   \item \code{runtime}: elapsed seconds.
@@ -502,20 +504,16 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   if (has.weights) {
     ## lm()-style weighted least squares (matches compute_obj in the loop).
     objfunc <- sum(Wmat * resid^2)
-    valid <- (Wmat > 0)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(XB)[valid], as.vector(Y)[valid])^2,
-      error = function(e) NA_real_
-    )
-    mae <- sum(Wmat * abs(resid)) / max(sum(Wmat), small)
+    r2_all  <- .r.squared.all(Y, XB, Y.weights = Wmat)
+    mae     <- sum(Wmat * abs(resid)) / max(sum(Wmat), small)
   } else {
     objfunc <- sum(resid * resid)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(XB), as.vector(Y))^2,
-      error = function(e) NA_real_
-    )
-    mae <- mean(abs(resid))
+    r2_all  <- .r.squared.all(Y, XB)
+    mae     <- mean(abs(resid))
   }
+  r.squared          <- r2_all$r.squared
+  r.squared.frob     <- r2_all$r.squared.frob
+  r.squared.centered <- r2_all$r.squared.centered
 
   ## --- 9. Names ---
   rownames(X)  <- rownames(Y)
@@ -550,7 +548,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     XB            = XB,              # reconstruction (alias for fitted.nmf)
     objfunc.iter  = objfunc.iter,
     objfunc       = objfunc,
-    r.squared     = r.squared,
+    r.squared          = r.squared,
+    r.squared.frob     = r.squared.frob,
+    r.squared.centered = r.squared.centered,
     sigma         = sigma,
     mae           = mae,
     iter          = iter,
@@ -680,7 +680,9 @@ summary.nmfkc.signed <- function(object, ...) {
     iter          = object$iter,
     runtime       = object$runtime,
     objfunc       = object$objfunc,
-    r.squared     = object$r.squared,
+    r.squared          = object$r.squared,
+    r.squared.frob     = object$r.squared.frob,
+    r.squared.centered = object$r.squared.centered,
     mae           = object$mae,
     ## Sparsity
     X.sparsity    = if (!is.null(object$X))  mean(object$X  < 1e-4) else NA_real_,
@@ -751,9 +753,15 @@ print.summary.nmfkc.signed <- function(x,
   cat(sprintf("  Final objfunc:     %s\n", format(x$objfunc, digits = digits)))
 
   cat("\nGoodness of fit:\n")
-  cat(sprintf("  R-squared (cor^2): %s\n",
+  cat(sprintf("  R-squared (cor^2):    %s\n",
               format(x$r.squared, digits = digits)))
-  cat(sprintf("  MAE:               %s\n",
+  if (!is.null(x$r.squared.frob))
+    cat(sprintf("  R-squared (Frob):     %s\n",
+                format(x$r.squared.frob, digits = digits)))
+  if (!is.null(x$r.squared.centered))
+    cat(sprintf("  R-squared (centered): %s\n",
+                format(x$r.squared.centered, digits = digits)))
+  cat(sprintf("  MAE:                  %s\n",
               format(x$mae, digits = digits)))
 
   cat("\nStructure (range / sparsity / negative mass):\n")

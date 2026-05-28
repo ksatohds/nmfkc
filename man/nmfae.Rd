@@ -66,7 +66,9 @@ An object of class \code{"nmfae"}, a list with components:
 \item{rank}{Named integer vector \code{c(Q, R)}.}
 \item{objfunc}{Final objective value.}
 \item{objfunc.iter}{Objective values by iteration.}
-\item{r.squared}{Coefficient of determination \eqn{R^2}.}
+\item{r.squared}{\eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).}
+\item{r.squared.frob}{Non-centered Frobenius \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.}
+\item{r.squared.centered}{Row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.}
 \item{niter}{Number of iterations performed.}
 \item{runtime}{Elapsed time as a \code{difftime} object.}
 \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y_1}.}

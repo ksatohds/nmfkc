@@ -1008,18 +1008,13 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   resid <- Y - Y1hat
   ## lm()-style weighted least squares (matches compute_obj inside the loop).
   objfunc <- if (has.weights) sum(Wmat * resid^2) else sum(resid^2)
-  ## r.squared = cor(observed, fitted)^2 over weight > 0 entries (consistent
-  ## with nmfkc / nmfae / nmfae.signed / nmfkc.signed which mask out
-  ## W = 0 / NA-replaced cells from the fit-statistic calculation).
-  r.squared <- tryCatch(
-    if (has.weights) {
-      valid <- (Wmat > 0)
-      stats::cor(as.vector(Y1hat)[valid], as.vector(Y)[valid])^2
-    } else {
-      stats::cor(as.vector(Y1hat), as.vector(Y))^2
-    },
-    error = function(e) NA_real_
-  )
+  ## Unified three-variant R^2 (cor^2, non-centered Frobenius,
+  ## row-mean centered), all respecting Y.weights == 0 masking.
+  r2_all <- .r.squared.all(Y, Y1hat,
+                           Y.weights = if (has.weights) Wmat else NULL)
+  r.squared          <- r2_all$r.squared
+  r.squared.frob     <- r2_all$r.squared.frob
+  r.squared.centered <- r2_all$r.squared.centered
   mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
          else mean(abs(resid))
 
@@ -1034,7 +1029,10 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     rank = Q, dims = c(N = N),
     type = type,
     objfunc = objfunc, objfunc.iter = objfunc.iter,
-    r.squared = r.squared, mae = mae,
+    r.squared          = r.squared,
+    r.squared.frob     = r.squared.frob,
+    r.squared.centered = r.squared.centered,
+    mae = mae,
     iter = iter,
     runtime = as.numeric((proc.time() - t0)[3]),
     X.restriction = X.restriction
@@ -1258,7 +1256,9 @@ summary.nmfkc.net <- function(object, ...) {
     runtime = sprintf("%.2fsec", object$runtime),
 
     objfunc   = object$objfunc,
-    r.squared = object$r.squared,
+    r.squared          = object$r.squared,
+    r.squared.frob     = object$r.squared.frob,
+    r.squared.centered = object$r.squared.centered,
     mae       = object$mae,
 
     X.sparsity      = mean(object$X  < 1e-4),
@@ -1290,7 +1290,11 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
 
   cat("\nStatistics:\n")
   cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
+  cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
+  if (!is.null(x$r.squared.frob))
+    cat("  R-squared (Frob):    ", format(x$r.squared.frob, digits = digits), "\n")
+  if (!is.null(x$r.squared.centered))
+    cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
 
   cat("\nStructure Diagnostics:\n")
@@ -1338,7 +1342,11 @@ print.summary.nmfkc.net.signed <- function(x, digits = max(3L, getOption("digits
 
   cat("\nStatistics:\n")
   cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
+  cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
+  if (!is.null(x$r.squared.frob))
+    cat("  R-squared (Frob):    ", format(x$r.squared.frob, digits = digits), "\n")
+  if (!is.null(x$r.squared.centered))
+    cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
 
   cat("\nStructure Diagnostics:\n")

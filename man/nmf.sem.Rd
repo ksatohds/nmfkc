@@ -61,7 +61,7 @@ cluster centers become \eqn{X}.  Scales well for large
 \eqn{Y_1}; this is the default of \code{\link{nmfkc}}.
 \item \code{"kmeansar"}: \code{"kmeans"} followed by filling
 zero entries of \eqn{X} with \eqn{\mathrm{Uniform}(0,
-    \bar Y_1 / 100)} (NNDSVDar-style additive randomness to
+      \bar Y_1 / 100)} (NNDSVDar-style additive randomness to
 escape trivial stationary points).
 \item \code{"runif"}: Uniform random entries in \eqn{[0, 1]}.
 \item A numeric \eqn{P_1 \times Q} matrix supplied by the user;
@@ -74,7 +74,7 @@ before iteration.  The menu mirrors \code{\link{nmfkc}}'s
 
 \item{X.L2.ortho}{L2 orthogonality penalty for \code{X}. This controls
 the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
-\rVert_F^2}. Default: \code{100}.}
+  \rVert_F^2}. Default: \code{100}.}
 
 \item{C1.L1}{L1 sparsity penalty for \code{C1} (i.e., \eqn{\Theta_1}).
 Default: \code{1.0}.}

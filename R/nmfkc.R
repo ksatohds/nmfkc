@@ -888,6 +888,93 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 
 
+#' @title Unified R-squared computation (3 variants)
+#' @description
+#' Internal helper used by every NMF function in the package to report
+#' three goodness-of-fit summaries on the same scale:
+#' \itemize{
+#'   \item \code{r.squared}: Pearson \eqn{\mathrm{cor}(Y, \widehat{Y})^2},
+#'         scale-invariant, in \eqn{[0, 1]}.
+#'   \item \code{r.squared.frob}: non-centered Frobenius
+#'         \eqn{1 - \|Y - \widehat{Y}\|_F^2 / \|Y\|_F^2}.  Treats the
+#'         zero matrix as the reference (natural for non-negative
+#'         factorizations without an intercept).  In \eqn{(-\infty, 1]}.
+#'   \item \code{r.squared.centered}: row-mean centered
+#'         \eqn{1 - \|Y - \widehat{Y}\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2},
+#'         where \eqn{\bar Y_{p\cdot}} is the per-row mean over valid
+#'         entries.  Equivalent to the multivariate regression
+#'         \eqn{R^2} where each row is treated as one response.  In
+#'         \eqn{(-\infty, 1]}.
+#' }
+#' All three respect the optional non-negative weight matrix
+#' \code{Y.weights}: cells with \code{Y.weights == 0} (the standard
+#' NA-mask / hold-out convention) are excluded from the sums.
+#' @param Y observed matrix (\eqn{P \times N}).
+#' @param Y_hat fitted matrix (\eqn{P \times N}).
+#' @param Y.weights optional non-negative weight matrix of the same
+#'   dimension as \code{Y}.  \code{NULL} means all weights are 1.
+#' @return A list with components \code{r.squared}, \code{r.squared.frob},
+#'   \code{r.squared.centered}, each a length-1 numeric (\code{NA_real_}
+#'   when ill-defined, e.g.\ \code{||Y||_F = 0} or fewer than two valid
+#'   entries).
+#' @keywords internal
+#' @noRd
+.r.squared.all <- function(Y, Y_hat, Y.weights = NULL) {
+  Y     <- base::as.matrix(Y)
+  Y_hat <- base::as.matrix(Y_hat)
+  P <- base::nrow(Y); N <- base::ncol(Y)
+
+  if (base::is.null(Y.weights)) {
+    Wm <- base::matrix(1, P, N)
+  } else {
+    Wm <- base::as.matrix(Y.weights)
+    if (!base::identical(base::dim(Wm), base::c(P, N)))
+      base::stop(".r.squared.all: Y.weights must match dim(Y).")
+  }
+  valid <- (Wm > 0)
+  n_valid <- base::sum(valid)
+
+  if (n_valid < 2) {
+    return(base::list(r.squared          = NA_real_,
+                      r.squared.frob     = NA_real_,
+                      r.squared.centered = NA_real_))
+  }
+
+  y_v    <- Y[valid]
+  yhat_v <- Y_hat[valid]
+  sse    <- base::sum((y_v - yhat_v)^2)
+
+  ## (A) Pearson cor^2
+  r2_cor <- base::tryCatch(stats::cor(y_v, yhat_v)^2,
+                           error = function(e) NA_real_)
+
+  ## (C) Non-centered Frobenius: 1 - SSE / ||Y||_F^2 (valid entries)
+  ss_y    <- base::sum(y_v^2)
+  r2_frob <- if (is.finite(ss_y) && ss_y > 0) 1 - sse / ss_y else NA_real_
+
+  ## (D) Row-mean centered: per-row mean over valid entries
+  row_means <- base::numeric(P)
+  for (p in base::seq_len(P)) {
+    vp <- valid[p, ]
+    if (base::any(vp)) row_means[p] <- base::mean(Y[p, vp])
+    else                row_means[p] <- NA_real_
+  }
+  ## Build (Y - rowMean)^2 broadcasting row_means down columns, then
+  ## sum over valid cells only.  rows with no valid entries contribute 0.
+  Y_centered_sq <- (Y - row_means)^2
+  Y_centered_sq[!valid] <- 0
+  ## Drop rows with NA row_means (i.e., empty rows under masking)
+  Y_centered_sq[base::is.na(Y_centered_sq)] <- 0
+  ss_centered <- base::sum(Y_centered_sq)
+  r2_centered <- if (is.finite(ss_centered) && ss_centered > 0) 1 - sse / ss_centered
+                 else NA_real_
+
+  base::list(r.squared          = r2_cor,
+             r.squared.frob     = r2_frob,
+             r.squared.centered = r2_centered)
+}
+
+
 #' @title Parse formula and prepare Y and A matrices
 #' @description
 #' Internal function to handle formula input, parse variables, and generate
@@ -1212,7 +1299,9 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
-#' \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+#' \item{r.squared}{\eqn{R^2 = \mathrm{cor}(Y, XB)^2} (Pearson; scale-invariant; \eqn{[0,1]}).}
+#' \item{r.squared.frob}{Non-centered Frobenius \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y\|_F^2}, natural for non-negative factorizations without an intercept.}
+#' \item{r.squared.centered}{Row-mean centered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}, the multivariate regression \eqn{R^2}.}
 #' \item{method}{Character string indicating the optimization method used (\code{"EU"} or \code{"KL"}).}
 #' \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y}.}
 #' \item{n.total}{Total number of elements in \eqn{Y}.}
@@ -1584,9 +1673,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     base::list(X = X, B = B, C = C, XB = XB, method = method, A.attr = if(!base::is.null(A)) base::attributes(A) else NULL),
     Y, detail = detail, Y.weights = Y.weights, X.restriction = X.restriction
   )
-  r2        <- crit_result$r.squared
-  sigma     <- crit_result$sigma
-  mae       <- crit_result$mae
+  r2          <- crit_result$r.squared
+  r2.frob     <- crit_result$r.squared.frob
+  r2.centered <- crit_result$r.squared.centered
+  sigma       <- crit_result$sigma
+  mae         <- crit_result$mae
   B.prob    <- crit_result$B.prob
   B.cluster <- crit_result$B.cluster
   X.prob    <- crit_result$X.prob
@@ -1623,7 +1714,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     rank      = Q,
     objfunc   = objfunc,
     objfunc.iter = objfunc.iter,
-    r.squared = r2,
+    r.squared          = r2,
+    r.squared.frob     = r2.frob,
+    r.squared.centered = r2.centered,
     sigma     = sigma,
     mae = mae,
     criterion = crit_result$criterion
@@ -1710,7 +1803,9 @@ summary.nmfkc <- function(object, ...) {
   ans$method <- object$method
   ans$iter <- length(object$objfunc.iter)
   ans$objfunc <- object$objfunc
-  ans$r.squared <- object$r.squared
+  ans$r.squared          <- object$r.squared
+  ans$r.squared.frob     <- object$r.squared.frob
+  ans$r.squared.centered <- object$r.squared.centered
   ans$sigma <- object$sigma
   ans$mae <- object$mae
   if(!is.null(object$criterion)){
@@ -1773,7 +1868,11 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 
   cat("\nStatistics:\n")
   cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
+  cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
+  if (!is.null(x$r.squared.frob))
+    cat("  R-squared (Frob):    ", format(x$r.squared.frob, digits = digits), "\n")
+  if (!is.null(x$r.squared.centered))
+    cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
 
@@ -2578,11 +2677,15 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
   if (detail != "minimal") {
     valid_idx <- (Y.weights > 0)
     if (base::any(valid_idx)) {
-      r2 <- stats::cor(XB[valid_idx], Y[valid_idx])^2
+      r2_all <- .r.squared.all(Y, XB, Y.weights = Y.weights)
+      r2 <- r2_all$r.squared
+      r2.frob <- r2_all$r.squared.frob
+      r2.centered <- r2_all$r.squared.centered
       sigma <- stats::sd(Y[valid_idx] - XB[valid_idx])
       mae <- base::mean(base::abs(Y[valid_idx] - XB[valid_idx]))
     } else {
-      r2 <- NA; sigma <- NA; mae <- NA
+      r2 <- NA; r2.frob <- NA; r2.centered <- NA
+      sigma <- NA; mae <- NA
     }
 
     B.prob <- base::t(base::t(B) / (base::colSums(B) + .eps))
@@ -2616,7 +2719,8 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
       silhouette <- NA; CPCC <- NA; dist.cor <- NA
     }
   } else {
-    r2 <- NA; sigma <- NA; mae <- NA
+    r2 <- NA; r2.frob <- NA; r2.centered <- NA
+    sigma <- NA; mae <- NA
     B.prob <- NA; B.cluster <- NA
     B.prob.sd.min <- NA; B.prob.max.mean <- NA; B.prob.entropy.mean <- NA
     X.prob <- NA; X.cluster <- NA
@@ -2624,7 +2728,9 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
   }
 
   base::list(
-    r.squared = r2,
+    r.squared          = r2,
+    r.squared.frob     = r2.frob,
+    r.squared.centered = r2.centered,
     sigma     = sigma,
     mae       = mae,
     B.prob    = B.prob,

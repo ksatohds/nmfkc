@@ -1,5 +1,26 @@
 # nmfkc 0.7.4 (development)
 
+### **Improvements**
+- **Unified three-variant R² across all NMF functions.**  Every NMF
+  variant (`nmfkc()`, `nmfae()`, `nmfae.signed()`, `nmfkc.net()`,
+  `nmfkc.signed()`, `nmfre()`) now returns three goodness-of-fit
+  summaries on the same scale, computed by the new internal helper
+  `.r.squared.all()`:
+  - `r.squared`: Pearson \eqn{\mathrm{cor}(Y, \widehat Y)^2}
+    (scale-invariant, in \eqn{[0, 1]}).  Unchanged from before.
+  - `r.squared.frob`: non-centered Frobenius
+    \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.  Treats the zero
+    matrix as the reference — natural for non-negative factorizations
+    without an intercept.
+  - `r.squared.centered`: row-mean centered
+    \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
+    The multivariate-regression \eqn{R^2}; equals 0 when the model
+    predicts the row mean.
+  All three respect `Y.weights == 0` masking (the standard NA-hold-out
+  convention).  For `nmfre()` the same three variants are also
+  reported on the fixed-only prediction as `r.squared.fixed.*`.
+  Displayed by all `summary.*` methods.
+
 ### **Bug Fixes**
 - `nmfkc.net()`: `r.squared` now correctly excludes weight-zero (NA-masked)
   entries when `Y.weights` is supplied or auto-masking is in effect,
