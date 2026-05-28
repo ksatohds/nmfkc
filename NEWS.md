@@ -8,14 +8,18 @@
   `.r.squared.all()`:
   - `r.squared`: Pearson \eqn{\mathrm{cor}(Y, \widehat Y)^2}
     (scale-invariant, in \eqn{[0, 1]}).  Unchanged from before.
-  - `r.squared.frobenius`: non-centered Frobenius
-    \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.  Treats the zero
-    matrix as the reference — natural for non-negative factorizations
-    without an intercept.
-  - `r.squared.centered`: row-mean centered
-    \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
-    The multivariate-regression \eqn{R^2}; equals 0 when the model
-    predicts the row mean.
+  - `r.squared.uncentered`: \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.
+    Baseline = the zero matrix (natural for non-negative factorizations
+    without an intercept); matches the "uncentered R²" of intercept-free
+    regression.
+  - `r.squared.centered`: \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
+    Baseline = per-row mean; the standard ("centered") multivariate-
+    regression \eqn{R^2}; equals 0 when the model predicts the row mean.
+
+  The two suffixed variants differ only in their baseline (denominator);
+  both use the Frobenius norm in the numerator.  Naming follows the
+  centered/uncentered \eqn{R^2} distinction used by statistics software
+  (e.g. statsmodels).
   All three respect `Y.weights == 0` masking (the standard NA-hold-out
   convention).  For `nmfre()` the same three variants are also
   reported on the fixed-only prediction as `r.squared.fixed.*`.

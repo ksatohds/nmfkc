@@ -1008,12 +1008,12 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   resid <- Y - Y1hat
   ## lm()-style weighted least squares (matches compute_obj inside the loop).
   objfunc <- if (has.weights) sum(Wmat * resid^2) else sum(resid^2)
-  ## Unified three-variant R^2 (cor^2, non-centered Frobenius,
+  ## Unified three-variant R^2 (cor^2, uncentered,
   ## row-mean centered), all respecting Y.weights == 0 masking.
   r2_all <- .r.squared.all(Y, Y1hat,
                            Y.weights = if (has.weights) Wmat else NULL)
   r.squared          <- r2_all$r.squared
-  r.squared.frobenius     <- r2_all$r.squared.frobenius
+  r.squared.uncentered     <- r2_all$r.squared.uncentered
   r.squared.centered <- r2_all$r.squared.centered
   mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
          else mean(abs(resid))
@@ -1030,7 +1030,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     type = type,
     objfunc = objfunc, objfunc.iter = objfunc.iter,
     r.squared          = r.squared,
-    r.squared.frobenius     = r.squared.frobenius,
+    r.squared.uncentered     = r.squared.uncentered,
     r.squared.centered = r.squared.centered,
     mae = mae,
     iter = iter,
@@ -1257,7 +1257,7 @@ summary.nmfkc.net <- function(object, ...) {
 
     objfunc   = object$objfunc,
     r.squared          = object$r.squared,
-    r.squared.frobenius     = object$r.squared.frobenius,
+    r.squared.uncentered     = object$r.squared.uncentered,
     r.squared.centered = object$r.squared.centered,
     mae       = object$mae,
 
@@ -1291,8 +1291,8 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
   cat("\nStatistics:\n")
   cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
   cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
-  if (!is.null(x$r.squared.frobenius))
-    cat("  R-squared (Frobenius):    ", format(x$r.squared.frobenius, digits = digits), "\n")
+  if (!is.null(x$r.squared.uncentered))
+    cat("  R-squared (uncentered):    ", format(x$r.squared.uncentered, digits = digits), "\n")
   if (!is.null(x$r.squared.centered))
     cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
@@ -1343,8 +1343,8 @@ print.summary.nmfkc.net.signed <- function(x, digits = max(3L, getOption("digits
   cat("\nStatistics:\n")
   cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
   cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
-  if (!is.null(x$r.squared.frobenius))
-    cat("  R-squared (Frobenius):    ", format(x$r.squared.frobenius, digits = digits), "\n")
+  if (!is.null(x$r.squared.uncentered))
+    cat("  R-squared (uncentered):    ", format(x$r.squared.uncentered, digits = digits), "\n")
   if (!is.null(x$r.squared.centered))
     cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")

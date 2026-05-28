@@ -145,7 +145,7 @@
 #'   \item \code{objfunc.iter}: objective values per iteration.
 #'   \item \code{objfunc}: final objective.
 #'   \item \code{r.squared}: \eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).
-#'   \item \code{r.squared.frobenius}: non-centered Frobenius \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.
+#'   \item \code{r.squared.uncentered}: uncentered \eqn{R^2 = 1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2} (baseline = zero matrix).
 #'   \item \code{r.squared.centered}: row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
 #'   \item \code{mae}: mean absolute error.
 #'   \item \code{iter}: number of iterations performed.
@@ -512,7 +512,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     mae     <- mean(abs(resid))
   }
   r.squared          <- r2_all$r.squared
-  r.squared.frobenius     <- r2_all$r.squared.frobenius
+  r.squared.uncentered     <- r2_all$r.squared.uncentered
   r.squared.centered <- r2_all$r.squared.centered
 
   ## --- 9. Names ---
@@ -549,7 +549,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     objfunc.iter  = objfunc.iter,
     objfunc       = objfunc,
     r.squared          = r.squared,
-    r.squared.frobenius     = r.squared.frobenius,
+    r.squared.uncentered     = r.squared.uncentered,
     r.squared.centered = r.squared.centered,
     sigma         = sigma,
     mae           = mae,
@@ -681,7 +681,7 @@ summary.nmfkc.signed <- function(object, ...) {
     runtime       = object$runtime,
     objfunc       = object$objfunc,
     r.squared          = object$r.squared,
-    r.squared.frobenius     = object$r.squared.frobenius,
+    r.squared.uncentered     = object$r.squared.uncentered,
     r.squared.centered = object$r.squared.centered,
     mae           = object$mae,
     ## Sparsity
@@ -755,9 +755,9 @@ print.summary.nmfkc.signed <- function(x,
   cat("\nGoodness of fit:\n")
   cat(sprintf("  R-squared (cor^2):    %s\n",
               format(x$r.squared, digits = digits)))
-  if (!is.null(x$r.squared.frobenius))
-    cat(sprintf("  R-squared (Frobenius):     %s\n",
-                format(x$r.squared.frobenius, digits = digits)))
+  if (!is.null(x$r.squared.uncentered))
+    cat(sprintf("  R-squared (uncentered):     %s\n",
+                format(x$r.squared.uncentered, digits = digits)))
   if (!is.null(x$r.squared.centered))
     cat(sprintf("  R-squared (centered): %s\n",
                 format(x$r.squared.centered, digits = digits)))

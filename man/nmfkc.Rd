@@ -123,7 +123,7 @@ A list with components:
 \item{objfunc}{Final objective value.}
 \item{objfunc.iter}{Objective values by iteration.}
 \item{r.squared}{\eqn{R^2 = \mathrm{cor}(Y, XB)^2} (Pearson; scale-invariant; \eqn{[0,1]}).}
-\item{r.squared.frobenius}{Non-centered Frobenius \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y\|_F^2}, natural for non-negative factorizations without an intercept.}
+\item{r.squared.uncentered}{Uncentered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y\|_F^2} (baseline = zero matrix; natural for non-negative factorizations without an intercept).}
 \item{r.squared.centered}{Row-mean centered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}, the multivariate regression \eqn{R^2}.}
 \item{method}{Character string indicating the optimization method used (\code{"EU"} or \code{"KL"}).}
 \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y}.}

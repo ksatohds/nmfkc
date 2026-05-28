@@ -227,14 +227,15 @@
 #'   \describe{
 #'     \item{\code{r.squared}}{Pearson \eqn{\mathrm{cor}(Y, X(\Theta A + U))^2}
 #'       (BLUP prediction).}
-#'     \item{\code{r.squared.frobenius}}{Non-centered Frobenius
-#'       \eqn{1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y\|_F^2} (BLUP).}
+#'     \item{\code{r.squared.uncentered}}{Uncentered
+#'       \eqn{1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y\|_F^2} (BLUP;
+#'       baseline = zero matrix).}
 #'     \item{\code{r.squared.centered}}{Row-mean centered
 #'       \eqn{1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}
-#'       (BLUP).}
+#'       (BLUP; baseline = per-row mean).}
 #'     \item{\code{r.squared.fixed}}{Pearson \eqn{\mathrm{cor}(Y, X\Theta A)^2}
 #'       (fixed-only prediction).}
-#'     \item{\code{r.squared.fixed.frobenius}, \code{r.squared.fixed.centered}}{Frobenius
+#'     \item{\code{r.squared.fixed.uncentered}, \code{r.squared.fixed.centered}}{Uncentered
 #'       and centered \eqn{R^2} for the fixed-only prediction.}
 #'     \item{\code{ICC}}{Trace-based Intraclass Correlation Coefficient.
 #'       In the NMF-RE model, the conditional covariance of the \eqn{n}-th
@@ -655,17 +656,17 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   rownames(U) <- rownames(C_mat)
   colnames(U) <- colnames(Y)
 
-  # ---- Three-variant R^2 (cor^2, non-centered Frobenius, row-mean
+  # ---- Three-variant R^2 (cor^2, uncentered, row-mean
   # centered), separately for BLUP-prediction (XB.blup = XB + U) and
   # fixed-only prediction (XB).  Consistent with nmfkc / nmfae /
   # nmfae.signed / nmfkc.net / nmfkc.signed naming convention.
   r2_blup  <- .r.squared.all(Y, XB.blup)
   r2_fixed <- .r.squared.all(Y, XB)
   r.squared                <- r2_blup$r.squared
-  r.squared.frobenius           <- r2_blup$r.squared.frobenius
+  r.squared.uncentered           <- r2_blup$r.squared.uncentered
   r.squared.centered       <- r2_blup$r.squared.centered
   r.squared.fixed          <- r2_fixed$r.squared
-  r.squared.fixed.frobenius     <- r2_fixed$r.squared.frobenius
+  r.squared.fixed.uncentered     <- r2_fixed$r.squared.uncentered
   r.squared.fixed.centered <- r2_fixed$r.squared.centered
 
   # ---- ICC (trace-based) ----
@@ -918,10 +919,10 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
 
     # fit statistics
     r.squared                = r.squared,
-    r.squared.frobenius           = r.squared.frobenius,
+    r.squared.uncentered           = r.squared.uncentered,
     r.squared.centered       = r.squared.centered,
     r.squared.fixed          = r.squared.fixed,
-    r.squared.fixed.frobenius     = r.squared.fixed.frobenius,
+    r.squared.fixed.uncentered     = r.squared.fixed.uncentered,
     r.squared.fixed.centered = r.squared.fixed.centered,
     ICC = ICC,
 
@@ -987,10 +988,10 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
       sprintf(", %.4f (XB)", x$r.squared.fixed)
     } else ""
     cat(sprintf("R-squared (cor^2):    %.4f (XB+blup)%s\n", x$r.squared, r2_fixed))
-    if (!is.null(x$r.squared.frobenius) && is.finite(x$r.squared.frobenius)) {
-      r2f_fixed <- if (!is.null(x$r.squared.fixed.frobenius) && is.finite(x$r.squared.fixed.frobenius))
-        sprintf(", %.4f (XB)", x$r.squared.fixed.frobenius) else ""
-      cat(sprintf("R-squared (Frobenius):     %.4f (XB+blup)%s\n", x$r.squared.frobenius, r2f_fixed))
+    if (!is.null(x$r.squared.uncentered) && is.finite(x$r.squared.uncentered)) {
+      r2f_fixed <- if (!is.null(x$r.squared.fixed.uncentered) && is.finite(x$r.squared.fixed.uncentered))
+        sprintf(", %.4f (XB)", x$r.squared.fixed.uncentered) else ""
+      cat(sprintf("R-squared (uncentered):     %.4f (XB+blup)%s\n", x$r.squared.uncentered, r2f_fixed))
     }
     if (!is.null(x$r.squared.centered) && is.finite(x$r.squared.centered)) {
       r2c_fixed <- if (!is.null(x$r.squared.fixed.centered) && is.finite(x$r.squared.fixed.centered))
