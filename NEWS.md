@@ -1,3 +1,20 @@
+# nmfkc 0.7.4 (development)
+
+### **Bug Fixes**
+- `nmfkc.net()`: `r.squared` now correctly excludes weight-zero (NA-masked)
+  entries when `Y.weights` is supplied or auto-masking is in effect,
+  matching the convention used by `nmfkc()`, `nmfae()`, `nmfae.signed()`,
+  and `nmfkc.signed()`.  Previously the correlation was computed over the
+  full matrix including replaced-NA cells, giving a distorted r.squared.
+
+### **Documentation**
+- `nmfkc()`: removed Examples 3 & 4 (deprecated `Y.symmetric = "bi"/"tri"`);
+  the documentation now points users to `\link{nmfkc.net}()` for symmetric
+  NMF.
+- `summary.nmf.sem()`: example code, `@param`, and `@seealso` updated to
+  use the canonical `nmf.ffb` name (the S3 method continues to dispatch
+  correctly via `c("nmf.ffb", "nmf.sem")` inheritance).
+
 # nmfkc 0.7.3
 
 ### **Documentation**

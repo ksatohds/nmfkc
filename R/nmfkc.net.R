@@ -1008,8 +1008,18 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   resid <- Y - Y1hat
   ## lm()-style weighted least squares (matches compute_obj inside the loop).
   objfunc <- if (has.weights) sum(Wmat * resid^2) else sum(resid^2)
-  r.squared <- tryCatch(stats::cor(as.vector(Y1hat), as.vector(Y))^2,
-                        error = function(e) NA_real_)
+  ## r.squared = cor(observed, fitted)^2 over weight > 0 entries (consistent
+  ## with nmfkc / nmfae / nmfae.signed / nmfkc.signed which mask out
+  ## W = 0 / NA-replaced cells from the fit-statistic calculation).
+  r.squared <- tryCatch(
+    if (has.weights) {
+      valid <- (Wmat > 0)
+      stats::cor(as.vector(Y1hat)[valid], as.vector(Y)[valid])^2
+    } else {
+      stats::cor(as.vector(Y1hat), as.vector(Y))^2
+    },
+    error = function(e) NA_real_
+  )
   mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
          else mean(abs(resid))
 
