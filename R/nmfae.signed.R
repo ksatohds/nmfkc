@@ -111,7 +111,7 @@
 #' \item{dims}{\code{c(P1, P2, N)}.}
 #' \item{objfunc, objfunc.iter}{Final and per-iteration objective values.}
 #' \item{r.squared}{\eqn{\mathrm{cor}(Y_1, \widehat Y_1)^2} (Pearson; in \eqn{[0,1]}).}
-#' \item{r.squared.frob}{Non-centered Frobenius \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1\|_F^2}.}
+#' \item{r.squared.frobenius}{Non-centered Frobenius \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1\|_F^2}.}
 #' \item{r.squared.centered}{Row-mean centered \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1 - \bar Y_{p\cdot}\|_F^2}.}
 #' \item{sigma, mae}{Residual SE and mean absolute error.}
 #' \item{niter, runtime}{Iterations and elapsed seconds.}
@@ -521,7 +521,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     mae      <- mean(abs(resid))
   }
   r.squared          <- r2_all$r.squared
-  r.squared.frob     <- r2_all$r.squared.frob
+  r.squared.frobenius     <- r2_all$r.squared.frobenius
   r.squared.centered <- r2_all$r.squared.centered
 
   ## Soft/hard clustering of encoding (only meaningful when H has interpretable sign)
@@ -554,7 +554,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     objfunc = objfunc,
     objfunc.iter = objfunc.iter,
     r.squared          = r.squared,
-    r.squared.frob     = r.squared.frob,
+    r.squared.frobenius     = r.squared.frobenius,
     r.squared.centered = r.squared.centered,
     sigma = sigma,
     mae = mae,
@@ -881,7 +881,7 @@ summary.nmfae.signed <- function(object, ...) {
     runtime     = object$runtime,
     objfunc     = object$objfunc,
     r.squared          = object$r.squared,
-    r.squared.frob     = object$r.squared.frob,
+    r.squared.frobenius     = object$r.squared.frobenius,
     r.squared.centered = object$r.squared.centered,
     sigma       = object$sigma,
     mae         = object$mae,
@@ -941,8 +941,8 @@ print.summary.nmfae.signed <- function(x,
 
   cat("\nGoodness of fit:\n")
   cat(sprintf("  R-squared (cor^2):    %s\n", format(x$r.squared, digits = digits)))
-  if (!is.null(x$r.squared.frob))
-    cat(sprintf("  R-squared (Frob):     %s\n", format(x$r.squared.frob, digits = digits)))
+  if (!is.null(x$r.squared.frobenius))
+    cat(sprintf("  R-squared (Frobenius):     %s\n", format(x$r.squared.frobenius, digits = digits)))
   if (!is.null(x$r.squared.centered))
     cat(sprintf("  R-squared (centered): %s\n", format(x$r.squared.centered, digits = digits)))
   cat(sprintf("  Sigma (RMSE):         %s\n", format(x$sigma,     digits = digits)))

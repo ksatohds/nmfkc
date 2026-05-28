@@ -115,7 +115,7 @@ column-normalized according to \code{X.restriction}).
 \item \code{objfunc.iter}: objective values per iteration.
 \item \code{objfunc}: final objective.
 \item \code{r.squared}: \eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).
-\item \code{r.squared.frob}: non-centered Frobenius \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.
+\item \code{r.squared.frobenius}: non-centered Frobenius \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.
 \item \code{r.squared.centered}: row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
 \item \code{mae}: mean absolute error.
 \item \code{iter}: number of iterations performed.

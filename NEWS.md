@@ -8,7 +8,7 @@
   `.r.squared.all()`:
   - `r.squared`: Pearson \eqn{\mathrm{cor}(Y, \widehat Y)^2}
     (scale-invariant, in \eqn{[0, 1]}).  Unchanged from before.
-  - `r.squared.frob`: non-centered Frobenius
+  - `r.squared.frobenius`: non-centered Frobenius
     \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.  Treats the zero
     matrix as the reference — natural for non-negative factorizations
     without an intercept.

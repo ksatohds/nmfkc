@@ -132,14 +132,14 @@ where \eqn{d_q} are eigenvalues of \eqn{X'X}.}
 \describe{
 \item{\code{r.squared}}{Pearson \eqn{\mathrm{cor}(Y, X(\Theta A + U))^2}
 (BLUP prediction).}
-\item{\code{r.squared.frob}}{Non-centered Frobenius
+\item{\code{r.squared.frobenius}}{Non-centered Frobenius
 \eqn{1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y\|_F^2} (BLUP).}
 \item{\code{r.squared.centered}}{Row-mean centered
 \eqn{1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}
 (BLUP).}
 \item{\code{r.squared.fixed}}{Pearson \eqn{\mathrm{cor}(Y, X\Theta A)^2}
 (fixed-only prediction).}
-\item{\code{r.squared.fixed.frob}, \code{r.squared.fixed.centered}}{Frobenius
+\item{\code{r.squared.fixed.frobenius}, \code{r.squared.fixed.centered}}{Frobenius
 and centered \eqn{R^2} for the fixed-only prediction.}
 \item{\code{ICC}}{Trace-based Intraclass Correlation Coefficient.
 In the NMF-RE model, the conditional covariance of the \eqn{n}-th

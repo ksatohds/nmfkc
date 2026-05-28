@@ -91,7 +91,7 @@ An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
 \item{dims}{\code{c(P1, P2, N)}.}
 \item{objfunc, objfunc.iter}{Final and per-iteration objective values.}
 \item{r.squared}{\eqn{\mathrm{cor}(Y_1, \widehat Y_1)^2} (Pearson; in \eqn{[0,1]}).}
-\item{r.squared.frob}{Non-centered Frobenius \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1\|_F^2}.}
+\item{r.squared.frobenius}{Non-centered Frobenius \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1\|_F^2}.}
 \item{r.squared.centered}{Row-mean centered \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1 - \bar Y_{p\cdot}\|_F^2}.}
 \item{sigma, mae}{Residual SE and mean absolute error.}
 \item{niter, runtime}{Iterations and elapsed seconds.}

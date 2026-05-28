@@ -1013,7 +1013,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   r2_all <- .r.squared.all(Y, Y1hat,
                            Y.weights = if (has.weights) Wmat else NULL)
   r.squared          <- r2_all$r.squared
-  r.squared.frob     <- r2_all$r.squared.frob
+  r.squared.frobenius     <- r2_all$r.squared.frobenius
   r.squared.centered <- r2_all$r.squared.centered
   mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
          else mean(abs(resid))
@@ -1030,7 +1030,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     type = type,
     objfunc = objfunc, objfunc.iter = objfunc.iter,
     r.squared          = r.squared,
-    r.squared.frob     = r.squared.frob,
+    r.squared.frobenius     = r.squared.frobenius,
     r.squared.centered = r.squared.centered,
     mae = mae,
     iter = iter,
@@ -1257,7 +1257,7 @@ summary.nmfkc.net <- function(object, ...) {
 
     objfunc   = object$objfunc,
     r.squared          = object$r.squared,
-    r.squared.frob     = object$r.squared.frob,
+    r.squared.frobenius     = object$r.squared.frobenius,
     r.squared.centered = object$r.squared.centered,
     mae       = object$mae,
 
@@ -1291,8 +1291,8 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
   cat("\nStatistics:\n")
   cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
   cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
-  if (!is.null(x$r.squared.frob))
-    cat("  R-squared (Frob):    ", format(x$r.squared.frob, digits = digits), "\n")
+  if (!is.null(x$r.squared.frobenius))
+    cat("  R-squared (Frobenius):    ", format(x$r.squared.frobenius, digits = digits), "\n")
   if (!is.null(x$r.squared.centered))
     cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
@@ -1343,8 +1343,8 @@ print.summary.nmfkc.net.signed <- function(x, digits = max(3L, getOption("digits
   cat("\nStatistics:\n")
   cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
   cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
-  if (!is.null(x$r.squared.frob))
-    cat("  R-squared (Frob):    ", format(x$r.squared.frob, digits = digits), "\n")
+  if (!is.null(x$r.squared.frobenius))
+    cat("  R-squared (Frobenius):    ", format(x$r.squared.frobenius, digits = digits), "\n")
   if (!is.null(x$r.squared.centered))
     cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")

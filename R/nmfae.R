@@ -60,7 +60,7 @@
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
 #' \item{r.squared}{\eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).}
-#' \item{r.squared.frob}{Non-centered Frobenius \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.}
+#' \item{r.squared.frobenius}{Non-centered Frobenius \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.}
 #' \item{r.squared.centered}{Row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.}
 #' \item{niter}{Number of iterations performed.}
 #' \item{runtime}{Elapsed time as a \code{difftime} object.}
@@ -325,7 +325,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     mae <- mean(abs(Y1 - Y1hat))
   }
   r.squared          <- r2_all$r.squared
-  r.squared.frob     <- r2_all$r.squared.frob
+  r.squared.frobenius     <- r2_all$r.squared.frobenius
   r.squared.centered <- r2_all$r.squared.centered
 
   if (print.trace) {
@@ -355,7 +355,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     objfunc = objfunc,
     objfunc.iter = objfunc.iter,
     r.squared          = r.squared,
-    r.squared.frob     = r.squared.frob,
+    r.squared.frobenius     = r.squared.frobenius,
     r.squared.centered = r.squared.centered,
     sigma = sigma,
     mae = mae,
@@ -708,7 +708,7 @@ summary.nmfae <- function(object, ...) {
 
   ans$objfunc <- object$objfunc
   ans$r.squared          <- object$r.squared
-  ans$r.squared.frob     <- object$r.squared.frob
+  ans$r.squared.frobenius     <- object$r.squared.frobenius
   ans$r.squared.centered <- object$r.squared.centered
   ans$sigma <- object$sigma
   ans$mae <- object$mae
@@ -783,8 +783,8 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
   cat("\nGoodness of fit:\n")
   cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
   cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
-  if (!is.null(x$r.squared.frob))
-    cat("  R-squared (Frob):    ", format(x$r.squared.frob, digits = digits), "\n")
+  if (!is.null(x$r.squared.frobenius))
+    cat("  R-squared (Frobenius):    ", format(x$r.squared.frobenius, digits = digits), "\n")
   if (!is.null(x$r.squared.centered))
     cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
