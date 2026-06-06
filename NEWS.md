@@ -1,5 +1,34 @@
 # nmfkc 0.7.4 (development)
 
+### **Rank-selection diagnostics: silhouette / CPCC fixed, IC removed**
+- **`silhouette` is now computed in the original data space.**  It used
+  to be evaluated on the rank-\eqn{Q} `B.prob` simplex, whose dimension
+  changes with \eqn{Q}; that made it monotone in \eqn{Q} (always
+  favouring the smallest rank) and hid genuine cluster structure.  It is
+  now the standard mean silhouette width over `dist(t(Y))` (the fixed
+  original-data sample distances) with the per-sample hard labels — the
+  k-means convention.  On data with real clusters it now shows an
+  interior optimum (e.g. the road-OD network peaks at the same rank as
+  the cross-validation minimum).
+- **`CPCC` is now the classic cophenetic correlation of `dist(t(B))`.**
+  It used to be computed from the soft co-membership `t(B.prob) %*%
+  B.prob`, which was nearly flat across \eqn{Q}.  It is now
+  `cor(dist(t(B)), cophenetic(hclust(dist(t(B)))))` — how well a
+  hierarchical clustering of the rank-\eqn{Q} coefficient distances
+  reproduces those distances (Sokal & Rohlf).  It now varies with
+  \eqn{Q} and recovers an interior optimum.
+- **Removed `ICp`, `AIC`, and `BIC`** from `nmfkc()`'s `criterion` list,
+  from `summary.nmfkc()`, and from `nmfkc.rank()`'s table.  Empirically
+  (across three real datasets) `ICp` was monotone increasing (always
+  selecting \eqn{Q=1}) and `AIC` monotone decreasing (always selecting
+  the largest \eqn{Q}); for NMF, where the parameter count grows as
+  \eqn{Q(P+N)}, these information criteria do not have a usable interior
+  optimum, so they were misleading rather than informative.
+- The internal helper `.silhouette.simple()` (centroid-approximate, took
+  a `B.prob` matrix) was replaced by `.silhouette.mean(D, labels)`,
+  which returns the exact mean silhouette width from a distance matrix
+  and labels.
+
 ### **Breaking change: symmetric NMF removed from `nmfkc()`**
 - The `Y.symmetric = "bi" / "tri"` option (deprecated in v0.7.x) has been
   **removed** from `nmfkc()` and `nmfkc.ecv()`.  Symmetric NMF of network

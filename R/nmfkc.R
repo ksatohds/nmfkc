@@ -797,91 +797,52 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 
 
-#' @title Compute a simplified/approximate silhouette coefficient (Internal)
+#' @title Mean silhouette width from a distance matrix (Internal)
 #' @description
-#' This internal function computes an approximate version of the silhouette coefficient
-#' for clustering results. Unlike the standard definition (e.g., \code{cluster::silhouette}),
-#' it determines the nearest neighboring cluster (\code{qn}) by comparing the
-#' **Euclidean distances between each sample and the cluster mean vectors (centroids)**,
-#' rather than comparing the average distance to all members of other clusters.
+#' Computes the standard mean silhouette width for a hard clustering,
+#' given a pre-computed pairwise distance matrix and the cluster labels.
+#' For each point \eqn{i}, \eqn{a(i)} is the mean distance to the other
+#' members of its own cluster and \eqn{b(i)} is the minimum, over the
+#' other clusters, of the mean distance to that cluster; the silhouette
+#' is \eqn{(b(i) - a(i)) / \max(a(i), b(i))}.
 #'
-#' However, the calculation of \code{a(i)} (average distance to members of the
-#' assigned cluster) and \code{b(i)} (average distance to members of the nearest
-#' neighboring cluster) uses the pairwise distances of all samples, consistent
-#' with the standard definition. This combined approach reduces the computational
-#' complexity of the \code{qn} determination step while maintaining consistency
-#' for \code{a(i)} and \code{b(i)} using pre-computed distance matrix \code{D}.
+#' The distance matrix should describe distances in a \strong{fixed}
+#' space that does not change with the NMF rank \eqn{Q} -- typically
+#' the original data, \code{as.matrix(dist(t(Y)))} -- with the
+#' per-sample hard labels \code{B.cluster}.  This is the k-means
+#' convention.  (Computing silhouettes in the rank-\eqn{Q} \code{B.prob}
+#' simplex instead makes the score monotone in \eqn{Q} and can hide
+#' genuine cluster structure.)
 #'
-#' @param B.prob The coefficient probability matrix (Q x N).
-#' @param B.cluster The hard clustering vector derived from \code{B.prob}.
+#' @param D An \eqn{N \times N} pairwise distance matrix (or object
+#'   coercible to one) over the \eqn{N} samples.
+#' @param labels Length-\eqn{N} integer cluster labels (\code{NA} allowed;
+#'   such samples are dropped).
 #'
-#' @return A list containing:
-#' \item{cluster}{Sorted cluster labels.}
-#' \item{silhouette}{Sorted silhouette values.}
-#' \item{silhouette.means}{Mean of the cluster indices.}
-#' \item{silhouette.mean}{Overall mean silhouette score.}
+#' @return The overall mean silhouette width (a single numeric), or
+#'   \code{NA} when fewer than two clusters are present.
 #' @keywords internal
 #' @noRd
-.silhouette.simple <- function(B.prob,B.cluster){
-  if(is.matrix(B.prob)){Q <- nrow(B.prob)}else{Q <- 1}
-  if(Q==1){
-    return(list(cluster=NA,silhouette=NA,
-                silhouette.means=NA,silhouette.mean=NA))
-  }else{
-    index <-!is.na(B.cluster)
-    B.prob <- B.prob[,index, drop=FALSE]
-    B.cluster <- B.cluster[index]
-    N_samples <- ncol(B.prob)
-    D <- as.matrix(stats::dist(t(B.prob)))
-    cluster.means <- matrix(0,nrow=Q,ncol=Q)
-    ns <- NULL
-    cluster.list <- NULL
-    for(q in 1:Q){
-      ns <- c(ns,sum(B.cluster==q))
-      cluster.list <- c(cluster.list,list(which(B.cluster==q)))
-      cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=FALSE])
-    }
-    B_prob_sq_sum <- colSums(B.prob^2)
-    cluster_means_sq_sum <- colSums(cluster.means^2)
-    d2_matrix <- outer(B_prob_sq_sum, rep(1, Q)) +
-      outer(rep(1, N_samples), cluster_means_sq_sum) -
-      2 * t(B.prob) %*% cluster.means
-    d2_matrix[d2_matrix < 0] <- 0
-    si <- 0*B.cluster
-    neighbor.cluster <- 0*B.cluster
-    for(q in 1:Q){
-      q_indices <- cluster.list[[q]]
-      for(i_idx in seq_along(q_indices)){
-        i <- q_indices[i_idx]
-        di <- d2_matrix[i, ]
-        qn <- order(di)[ifelse(order(di)[1]==q, 2, 1)]
-        neighbor.cluster[i] <- qn
-        if(ns[q]==1){
-          si[i] <- 0
-        }else{
-          ai_distances <- D[i, q_indices]
-          ai <- sum(ai_distances) / (ns[q]-1)
-          qn_indices <- cluster.list[[qn]]
-          bi_distances <- D[i, qn_indices]
-          bi <- sum(bi_distances) / ns[qn]
-          si[i] <- (bi-ai)/max(ai,bi)
-        }
-      }
-    }
-    si.mean <- mean(si)
-    si.sort.cluster.means <- 0*ns
-    for(q in 1:Q){
-      si.sort.cluster.means[q] <- mean(cluster.list[[q]])
-    }
-    si.sort <- NULL
-    si.sort.cluster <- NULL
-    for(q in 1:Q){
-      si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=TRUE))
-      si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
-    }
-    return(list(cluster=si.sort.cluster,silhouette=si.sort,
-                silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
+.silhouette.mean <- function(D, labels){
+  D <- base::as.matrix(D)
+  keep <- !is.na(labels)
+  D <- D[keep, keep, drop = FALSE]
+  labels <- labels[keep]
+  clusters <- base::unique(labels)
+  if (base::length(clusters) < 2) return(NA_real_)
+  N <- base::length(labels)
+  si <- base::numeric(N)
+  for (i in base::seq_len(N)) {
+    own  <- labels[i]
+    same <- base::which(labels == own); same <- same[same != i]
+    if (base::length(same) == 0) { si[i] <- 0; next }
+    a <- base::mean(D[i, same])
+    other <- base::setdiff(clusters, own)
+    b <- base::min(base::vapply(other,
+            function(cl) base::mean(D[i, labels == cl]), base::numeric(1)))
+    si[i] <- if (base::max(a, b) > 0) (b - a) / base::max(a, b) else 0
   }
+  base::mean(si)
 }
 
 
@@ -1293,7 +1254,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-#' \item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{rank.effective}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
+#' \item{criterion}{A list of selection criteria: \code{silhouette} (mean silhouette width of the hard clustering, computed in the original data space \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic correlation of a hierarchical clustering of the coefficient distances \code{dist(t(B))}), \code{dist.cor} (correlation between original-data and coefficient distances), \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{rank.effective}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
 #' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
@@ -1760,10 +1721,8 @@ summary.nmfkc <- function(object, ...) {
   ans$sigma <- object$sigma
   ans$mae <- object$mae
   if(!is.null(object$criterion)){
-    ans$ICp <- object$criterion$ICp
     ans$rank.effective <- object$criterion$rank.effective
   } else {
-    ans$ICp <- NULL
     ans$rank.effective <- NULL
   }
   ans$rank <- object$rank
@@ -1829,9 +1788,6 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
 
-  if (!is.null(x$ICp)) {
-    cat("  ICp:                 ", format(x$ICp, digits = digits), "\n")
-  }
   if (!is.null(x$rank.effective) && is.finite(x$rank.effective)) {
     cat(sprintf("  Effective Rank:      %.2f / %d\n",
                 x$rank.effective, x$rank))
@@ -2497,10 +2453,9 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 
 #' @title Compute model selection criteria for a fitted nmfkc model
 #' @description
-#' \code{nmfkc.criterion} computes information criteria (ICp, AIC, BIC),
-#' clustering quality measures (silhouette, CPCC, dist.cor), and
-#' soft-clustering statistics (B.prob entropy, max, sd) from a fitted
-#' \code{nmfkc} model.
+#' \code{nmfkc.criterion} computes the effective rank, clustering-quality
+#' measures (silhouette, CPCC, dist.cor), and the clustering-crispness
+#' statistic (\code{B.prob.max.mean}) from a fitted \code{nmfkc} model.
 #'
 #' This function can be called on a model that was fitted with
 #' \code{detail = "fast"} or \code{detail = "minimal"} to compute the
@@ -2513,7 +2468,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   \code{"full"} (default) computes all criteria including silhouette,
 #'   CPCC and dist.cor;
 #'   \code{"fast"} skips the expensive distance-based criteria;
-#'   \code{"minimal"} returns only information criteria.
+#'   \code{"minimal"} skips the fit and clustering statistics.
 #' @param ... Additional arguments: \code{Y.weights} (non-negative
 #'   weight matrix; \code{lm()}-style loss \eqn{\sum W \, r^2}; default:
 #'   all ones).  See \code{\link{nmfkc}} for full details.
@@ -2527,8 +2482,8 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   \item{B.cluster}{Hard clustering labels (argmax of B.prob per column).}
 #'   \item{X.prob}{Row-normalized basis matrix.}
 #'   \item{X.cluster}{Hard clustering labels per row of X.}
-#'   \item{criterion}{Named list: ICp, ICp1, ICp2, ICp3, AIC, BIC,
-#'     B.prob.max.mean, rank.effective, silhouette, CPCC, dist.cor.}
+#'   \item{criterion}{Named list: B.prob.max.mean, rank.effective,
+#'     silhouette, CPCC, dist.cor.}
 #' }
 #'
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.rank}}
@@ -2568,41 +2523,6 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     } else {
       XB <- X %*% B
     }
-  }
-
-  # X.restriction detection for parameter counting
-  X.restriction <- if (!is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
-
-  N_obs <- base::sum(Y.weights > 0)
-
-  # --- Information Criteria ---
-  ## lm()-style weighted least squares (linear W); matches the objective
-  ## reported by nmfkc() itself.
-  objfunc <- base::sum(Y.weights * (Y - XB)^2)
-
-  if (X.restriction == "fixed") nparam.X <- 0
-  else if (X.restriction == "totalSum") nparam.X <- base::prod(base::dim(X)) - 1
-  else nparam.X <- (base::nrow(X) - 1) * base::ncol(X)
-
-  hasA_flag <- !base::is.null(C) && base::ncol(C) != base::ncol(B)
-  if (!hasA_flag) nparam <- nparam.X + base::prod(base::dim(B))
-  else nparam <- nparam.X + base::prod(base::dim(C))
-
-  if (method == "EU") {
-    sigma2 <- objfunc / N_obs
-    P_dim <- P; T_dim <- N
-    g_icp1 <- (P_dim + T_dim) / (P_dim * T_dim) * base::log(P_dim * T_dim)
-    g_icp2 <- (P_dim + T_dim) / (P_dim * T_dim) * base::log(base::min(P_dim, T_dim))
-    g_icp3 <- base::log(base::min(P_dim, T_dim)) / base::min(P_dim, T_dim)
-    ICp1 <- base::log(sigma2) + nparam * g_icp1
-    ICp2 <- base::log(sigma2) + nparam * g_icp2
-    ICp3 <- base::log(sigma2) + nparam * g_icp3
-    ICp <- base::min(ICp1, ICp2, ICp3)
-    AIC <- N_obs * base::log(sigma2) + 2 * nparam
-    BIC <- N_obs * base::log(sigma2) + nparam * base::log(N_obs)
-  } else {
-    ICp <- NA; ICp1 <- NA; ICp2 <- NA; ICp3 <- NA
-    AIC <- NA; BIC <- NA
   }
 
   # --- Fit statistics and clustering (detail != "minimal") ---
@@ -2665,14 +2585,22 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 
     # Distance-based criteria (detail == "full" only)
     if (detail == "full" && !base::any(Y.weights == 0)) {
-      silhouette <- .silhouette.simple(B.prob, B.cluster)
-      dist.cor <- stats::cor(base::as.vector(stats::dist(base::t(Y))),
-                             base::as.vector(stats::dist(base::t(B))))
+      dY <- stats::dist(base::t(Y))   # original-data sample distances (fixed)
+      dB <- stats::dist(base::t(B))   # rank-Q coefficient distances
+      ## Silhouette in the ORIGINAL data space with the per-sample hard
+      ## labels (k-means convention).  Computing it on the rank-Q B.prob
+      ## simplex made it monotone in Q and hid genuine cluster structure.
+      silhouette <- .silhouette.mean(dY, B.cluster)
+      ## How faithfully the rank-Q coefficient distances preserve the
+      ## original-data distances (embedding fidelity).
+      dist.cor <- stats::cor(base::as.vector(dY), base::as.vector(dB))
+      ## Cophenetic correlation (Sokal-Rohlf): how well a hierarchical
+      ## clustering of the coefficient distances dist(t(B)) reproduces
+      ## those distances.  Built from B (not the B.prob inner product),
+      ## so it varies with Q and recovers an interior optimum.
       if (Q >= 2) {
-        M <- base::t(B.prob) %*% B.prob
-        h.dist <- base::as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1 - M))))
-        up <- base::upper.tri(M)
-        CPCC <- stats::cor(h.dist[up], (1 - M)[up])
+        coph <- stats::cophenetic(stats::hclust(dB))
+        CPCC <- stats::cor(base::as.vector(dB), base::as.vector(coph))
       } else {
         CPCC <- NA
       }
@@ -2702,8 +2630,6 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     criterion = base::list(
       B.prob.max.mean     = B.prob.max.mean,
       rank.effective      = rank.effective,
-      ICp1 = ICp1, ICp2 = ICp2, ICp3 = ICp3, ICp = ICp,
-      AIC  = AIC,  BIC  = BIC,
       silhouette = silhouette,
       CPCC       = CPCC,
       dist.cor   = dist.cor
@@ -2810,9 +2736,6 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     rank.effective = numeric(num_q),
     rank.effective.ratio = numeric(num_q),
     r.squared = numeric(num_q),
-    ICp = numeric(num_q),
-    AIC = numeric(num_q),
-    BIC = numeric(num_q),
     ARI = numeric(num_q),
     silhouette = numeric(num_q),
     CPCC = numeric(num_q),
@@ -2839,14 +2762,13 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     results_df$rank.effective.ratio[q_idx] <-
       result$criterion$rank.effective / current_Q
     results_df$r.squared[q_idx] <- result$r.squared
-    results_df$ICp[q_idx] <- result$criterion$ICp
-    results_df$AIC[q_idx] <- result$criterion$AIC
-    results_df$BIC[q_idx] <- result$criterion$BIC
 
     results_df$CPCC[q_idx] <- result$criterion$CPCC
     results_df$dist.cor[q_idx] <- result$criterion$dist.cor
     sil <- result$criterion$silhouette
-    results_df$silhouette[q_idx] <- if (is.list(sil)) sil$silhouette.mean else NA
+    results_df$silhouette[q_idx] <-
+      if (is.numeric(sil) && length(sil) == 1) sil
+      else if (is.list(sil)) sil$silhouette.mean else NA
 
     if(is.null(cluster.old)){
       results_df$ARI[q_idx] <- NA
