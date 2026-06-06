@@ -2928,7 +2928,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     if(!is.na(rank.best.r2)){
       idx_r2 <- which(results_df$rank == rank.best.r2)
       graphics::points(rank.best.r2, results_df$r.squared[idx_r2], pch=16, col="red", cex=1.5)
-      graphics::text(rank.best.r2, results_df$r.squared[idx_r2], "Best (Elbow)", pos=1, col="red", cex=0.8)
+      graphics::text(rank.best.r2, results_df$r.squared[idx_r2], "Best (Elbow)", pos=4, col="red", cex=0.8)
     }
 
     legend_txt <- c("r.squared")
@@ -2981,7 +2981,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
         idx_ecv <- which(results_df$rank == rank.best.ecv)
         graphics::points(results_df$rank, results_df$sigma.ecv, pch=1, col="blue")
         graphics::points(rank.best.ecv, results_df$sigma.ecv[idx_ecv], pch=16, col="blue", cex=1.5)
-        graphics::text(rank.best.ecv, results_df$sigma.ecv[idx_ecv], "Best (Min)", pos=1, col="blue", cex=0.8)
+        graphics::text(rank.best.ecv, results_df$sigma.ecv[idx_ecv], "Best (Min)", pos=4, col="blue", cex=0.8)
       }
 
       graphics::axis(side=4, col="blue", col.axis="blue")
