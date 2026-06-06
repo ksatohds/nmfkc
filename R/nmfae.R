@@ -713,7 +713,7 @@ summary.nmfae <- function(object, ...) {
   ans$sigma <- object$sigma
   ans$mae <- object$mae
   ## Effective rank of the latent encoding H (Q x N).
-  ans$rank.effective <- if (!is.null(object$H)) .rank.effective(object$H) else NA_real_
+  ans$effective.rank <- if (!is.null(object$H)) .effective.rank(object$H) else NA_real_
   ans$rank <- if (!is.null(object$rank)) object$rank[1] else
               if (!is.null(object$H)) nrow(object$H) else NA
 
@@ -793,9 +793,9 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
     cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
-  if (!is.null(x$rank.effective) && is.finite(x$rank.effective)) {
+  if (!is.null(x$effective.rank) && is.finite(x$effective.rank)) {
     cat(sprintf("  Effective Rank:      %.2f / %d\n",
-                x$rank.effective, x$rank))
+                x$effective.rank, x$rank))
   }
 
   cat("\nStructure Diagnostics:\n")

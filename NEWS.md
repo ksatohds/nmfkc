@@ -4,7 +4,7 @@
 - `summary()` now reports the **Effective Rank** (`x.xx / Q`) for
   `nmfkc()`, `nmfkc.net()`, `nmfae()`, `nmf.ffb()` / `nmf.sem()`, and
   `nmfre()` — previously only `nmfkc()` showed it.  Each is computed by
-  the new shared internal helper `.rank.effective(B)` from the model's
+  the new shared internal helper `.effective.rank(B)` from the model's
   natural \eqn{Q \times N} coefficient/score matrix: the coefficients
   \eqn{B} (`nmfkc`), the latent encoding \eqn{H} (`nmfae`), the node
   membership \eqn{X^\top} (`nmfkc.net`), the latent scores
@@ -53,7 +53,7 @@
   simplifying the core function.
 
 ### **New diagnostic: effective rank**
-- `nmfkc()` now reports `criterion$rank.effective`, the **effective
+- `nmfkc()` now reports `criterion$effective.rank`, the **effective
   rank** of the fit: `exp` of the Shannon entropy of the
   explained-variance distribution
   `p_k = var(B[k, ]) / sum_j var(B[j, ])`.  By the trace identity
@@ -67,11 +67,11 @@
   PCA-style explained-variance / effective-dimensionality measure and
   reuses the `exp(entropy)` functional form of Roy & Vetterli (2007).
 - `summary.nmfkc()` prints `Effective Rank: x.xx / Q`.
-- `nmfkc.rank()` adds a `rank.effective` column to its criteria table.
+- `nmfkc.rank()` adds an `effective.rank` column to its criteria table.
   When effective rank plateaus well below the nominal rank, the extra
   factors are not carrying additional coefficient variance — a signal
   that the rank is over-specified.
-- `nmfkc.rank(plot = TRUE)` overlays a `rank.eff/Q` curve (effective
+- `nmfkc.rank(plot = TRUE)` overlays an `eff.rank` curve (effective
   rank divided by nominal rank, in `[0, 1]`, solid green line) on the
   diagnostics plot.  A peak in this utilization curve marks the rank at
   which the latent factors carry the most evenly distributed variance.
@@ -82,7 +82,7 @@
   criteria table and plot.  All three `B.prob.*` peakedness metrics are
   monotone in the rank `Q`, so they carry no peak/elbow signal for rank
   selection (verified empirically); the principled rank signals are
-  ECV, the R-squared elbow, and the new `rank.effective` utilization.
+  ECV, the R-squared elbow, and the new `effective.rank` utilization.
 - `B.prob.max.mean` (clustering crispness) is retained, but only in
   `summary.nmfkc()` ("Clustering Crispness") and the `criterion` list.
   At a fixed `Q` it remains a useful confidence check — the mean

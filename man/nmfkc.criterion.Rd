@@ -32,7 +32,7 @@ A list with components:
 \item{B.cluster}{Hard clustering labels (argmax of B.prob per column).}
 \item{X.prob}{Row-normalized basis matrix.}
 \item{X.cluster}{Hard clustering labels per row of X.}
-\item{criterion}{Named list: B.prob.max.mean, rank.effective,
+\item{criterion}{Named list: B.prob.max.mean, effective.rank,
 silhouette, CPCC, dist.cor.}
 }
 }

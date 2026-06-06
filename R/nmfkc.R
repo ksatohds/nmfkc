@@ -955,7 +955,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @return A single numeric (the effective rank), or \code{NA_real_}.
 #' @keywords internal
 #' @noRd
-.rank.effective <- function(B) {
+.effective.rank <- function(B) {
   B <- base::as.matrix(B)
   Q <- base::nrow(B); N <- base::ncol(B)
   if (Q < 2 || N < 2) return(NA_real_)
@@ -1285,7 +1285,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-#' \item{criterion}{A list of selection criteria: \code{silhouette} (mean silhouette width of the hard clustering, computed in the original data space \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic correlation of a hierarchical clustering of the coefficient distances \code{dist(t(B))}), \code{dist.cor} (correlation between original-data and coefficient distances), \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{rank.effective}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
+#' \item{criterion}{A list of selection criteria: \code{silhouette} (mean silhouette width of the hard clustering, computed in the original data space \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic correlation of a hierarchical clustering of the coefficient distances \code{dist(t(B))}), \code{dist.cor} (correlation between original-data and coefficient distances), \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{effective.rank}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
 #' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
@@ -1752,9 +1752,9 @@ summary.nmfkc <- function(object, ...) {
   ans$sigma <- object$sigma
   ans$mae <- object$mae
   if(!is.null(object$criterion)){
-    ans$rank.effective <- object$criterion$rank.effective
+    ans$effective.rank <- object$criterion$effective.rank
   } else {
-    ans$rank.effective <- NULL
+    ans$effective.rank <- NULL
   }
   ans$rank <- object$rank
 
@@ -1819,9 +1819,9 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
 
-  if (!is.null(x$rank.effective) && is.finite(x$rank.effective)) {
+  if (!is.null(x$effective.rank) && is.finite(x$effective.rank)) {
     cat(sprintf("  Effective Rank:      %.2f / %d\n",
-                x$rank.effective, x$rank))
+                x$effective.rank, x$rank))
   }
 
   cat("\nStructure Diagnostics:\n")
@@ -2513,7 +2513,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   \item{B.cluster}{Hard clustering labels (argmax of B.prob per column).}
 #'   \item{X.prob}{Row-normalized basis matrix.}
 #'   \item{X.cluster}{Hard clustering labels per row of X.}
-#'   \item{criterion}{Named list: B.prob.max.mean, rank.effective,
+#'   \item{criterion}{Named list: B.prob.max.mean, effective.rank,
 #'     silhouette, CPCC, dist.cor.}
 #' }
 #'
@@ -2597,10 +2597,10 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     ## (standard deviations are not additive, so sum_k sd_k has no such
     ## meaning).  This is the PCA-style "explained-variance entropy" /
     ## effective-dimensionality measure; it reuses the exp(entropy)
-    ## functional form of Roy & Vetterli (2007).  See .rank.effective().
+    ## functional form of Roy & Vetterli (2007).  See .effective.rank().
     ## NA at Q = 1 (single-point variance distribution -> trivially 1),
     ## consistent with silhouette / CPCC which are also NA at Q = 1.
-    rank.effective <- .rank.effective(B)
+    effective.rank <- .effective.rank(B)
 
     # Distance-based criteria (detail == "full" only)
     if (detail == "full" && !base::any(Y.weights == 0)) {
@@ -2633,7 +2633,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     B.prob.max.mean <- NA
     X.prob <- NA; X.cluster <- NA
     silhouette <- NA; CPCC <- NA; dist.cor <- NA
-    rank.effective <- NA_real_
+    effective.rank <- NA_real_
   }
 
   base::list(
@@ -2648,7 +2648,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     X.cluster = X.cluster,
     criterion = base::list(
       B.prob.max.mean     = B.prob.max.mean,
-      rank.effective      = rank.effective,
+      effective.rank      = effective.rank,
       silhouette = silhouette,
       CPCC       = CPCC,
       dist.cor   = dist.cor
@@ -2689,15 +2689,15 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' @return A list containing:
 #' \item{rank.best}{The estimated optimal rank. Prioritizes ECV minimum if available, otherwise R-squared Elbow.}
 #' \item{criteria}{A data frame containing diagnostic metrics for each rank.
-#'   The \code{rank.effective} column gives the effective rank
+#'   The \code{effective.rank} column gives the effective rank
 #'   (\eqn{\exp} of the Shannon entropy of the explained-variance
 #'   distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})},
 #'   in \eqn{[1, Q]}); when it plateaus well below the nominal
 #'   \code{rank}, the extra factors are not carrying additional
 #'   coefficient variance, which suggests an over-specified rank.
-#'   The \code{rank.effective.ratio} column is \code{rank.effective /
+#'   The \code{effective.rank.ratio} column is \code{effective.rank /
 #'   rank} in \eqn{[0, 1]} (the utilization fraction plotted as
-#'   \code{rank.eff/Q} when \code{plot = TRUE}); a peak marks the rank
+#'   \code{eff.rank} when \code{plot = TRUE}); a peak marks the rank
 #'   at which the latent factors carry the most evenly distributed
 #'   variance.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
@@ -2752,8 +2752,8 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   num_q <- length(Q)
   results_df <- data.frame(
     rank = Q,
-    rank.effective = numeric(num_q),
-    rank.effective.ratio = numeric(num_q),
+    effective.rank = numeric(num_q),
+    effective.rank.ratio = numeric(num_q),
     r.squared = numeric(num_q),
     ARI = numeric(num_q),
     silhouette = numeric(num_q),
@@ -2777,9 +2777,9 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
     result <- do.call("nmfkc", nmfkc_args)
 
-    results_df$rank.effective[q_idx] <- result$criterion$rank.effective
-    results_df$rank.effective.ratio[q_idx] <-
-      result$criterion$rank.effective / current_Q
+    results_df$effective.rank[q_idx] <- result$criterion$effective.rank
+    results_df$effective.rank.ratio[q_idx] <-
+      result$criterion$effective.rank / current_Q
     results_df$r.squared[q_idx] <- result$r.squared
 
     results_df$CPCC[q_idx] <- result$criterion$CPCC
@@ -2876,16 +2876,16 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     legend_col <- c(2)
     legend_lty <- c(1)
 
-    # Effective-rank utilization: rank.effective.ratio = rank.effective
+    # Effective-rank utilization: effective.rank.ratio = effective.rank
     # / rank in [0, 1].  1 = all factors contribute equally to the
     # coefficient variance; lower = a few factors dominate
     # (under-utilized rank).  A peak in this curve marks the rank at
     # which factors are most evenly used.  Plotted from the same
-    # rank.effective.ratio column returned in `criteria`.
-    if (any(!is.na(results_df$rank.effective.ratio))) {
-      graphics::lines(results_df$rank, results_df$rank.effective.ratio,
+    # effective.rank.ratio column returned in `criteria`.
+    if (any(!is.na(results_df$effective.rank.ratio))) {
+      graphics::lines(results_df$rank, results_df$effective.rank.ratio,
                       col="forestgreen", lwd=2)
-      legend_txt <- c(legend_txt, "rank.eff/Q")
+      legend_txt <- c(legend_txt, "eff.rank")
       legend_col <- c(legend_col, "forestgreen"); legend_lty <- c(legend_lty, 1)
     }
 

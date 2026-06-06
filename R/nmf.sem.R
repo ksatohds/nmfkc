@@ -456,7 +456,7 @@ nmf.sem <- function(
     SC.map              = SC.map,
     MAE                 = MAE,
     ## Effective rank of the latent scores B = C1 Y1 + C2 Y2 (Q x N).
-    rank.effective      = .rank.effective(C1 %*% Y1 + C2 %*% Y2),
+    effective.rank      = .effective.rank(C1 %*% Y1 + C2 %*% Y2),
     objfunc             = objfunc[1:it],
     objfunc.full        = objfunc.full[1:it],
     iter                = it

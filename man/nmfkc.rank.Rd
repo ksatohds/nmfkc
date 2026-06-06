@@ -31,15 +31,15 @@ all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.
 A list containing:
 \item{rank.best}{The estimated optimal rank. Prioritizes ECV minimum if available, otherwise R-squared Elbow.}
 \item{criteria}{A data frame containing diagnostic metrics for each rank.
-The \code{rank.effective} column gives the effective rank
+The \code{effective.rank} column gives the effective rank
 (\eqn{\exp} of the Shannon entropy of the explained-variance
 distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})},
 in \eqn{[1, Q]}); when it plateaus well below the nominal
 \code{rank}, the extra factors are not carrying additional
 coefficient variance, which suggests an over-specified rank.
-The \code{rank.effective.ratio} column is \code{rank.effective /
+The \code{effective.rank.ratio} column is \code{effective.rank /
   rank} in \eqn{[0, 1]} (the utilization fraction plotted as
-\code{rank.eff/Q} when \code{plot = TRUE}); a peak marks the rank
+\code{eff.rank} when \code{plot = TRUE}); a peak marks the rank
 at which the latent factors carry the most evenly distributed
 variance.}
 }
