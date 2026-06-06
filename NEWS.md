@@ -22,7 +22,9 @@
   return the **same five columns** (`rank`, `effective.rank`,
   `effective.rank.ratio`, `r.squared`, `sigma.ecv`).  Per-rank fits use
   `detail = "fast"`, so the expensive O(N^2) distance computations are
-  skipped during rank selection.  `rank.best` is unchanged.
+  skipped during rank selection.  `rank.best` is unchanged.  The
+  `*.rank` functions now emit a one-line message pointing to
+  `nmf.cluster()` for clustering quality.
 
 ### **Rank-selection functions for the other NMF families**
 - New `nmfkc.net.rank()`, `nmfkc.signed.rank()`, `nmfae.rank()`

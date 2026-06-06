@@ -1319,6 +1319,9 @@ print.nmf.cluster <- function(x, ...) {
 #' @noRd
 .rank.finish <- function(criteria, plot = TRUE,
                          main = "Rank Selection Diagnostics") {
+  base::message("Note: sample-clustering quality (silhouette / CPCC / ",
+                "dist.cor) is not part of rank selection; compute it on a ",
+                "fitted model with nmf.cluster().  See ?nmf.cluster")
   rk <- criteria$rank
   nq <- base::length(rk)
 
