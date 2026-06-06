@@ -16,9 +16,13 @@
   are still computed.  (ARI is not reported here -- it compares two
   clusterings, e.g.\ across ranks or resamples, so it is not a
   single-fit quantity.)
-- The computation is shared with `nmfkc.rank()` via the new internal
-  helper `.cluster.criteria()`; `nmfkc.rank()`'s `silhouette` / `CPCC` /
-  `dist.cor` columns are byte-for-byte unchanged.
+- `nmfkc.rank()` no longer carries `ARI`, `silhouette`, `CPCC`, or
+  `dist.cor` in its `criteria` table -- those clustering-stability
+  metrics now live in `nmf.cluster()`.  All five `*.rank` functions
+  return the **same five columns** (`rank`, `effective.rank`,
+  `effective.rank.ratio`, `r.squared`, `sigma.ecv`).  Per-rank fits use
+  `detail = "fast"`, so the expensive O(N^2) distance computations are
+  skipped during rank selection.  `rank.best` is unchanged.
 
 ### **Rank-selection functions for the other NMF families**
 - New `nmfkc.net.rank()`, `nmfkc.signed.rank()`, `nmfae.rank()`

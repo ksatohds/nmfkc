@@ -3016,8 +3016,11 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' @title Rank selection diagnostics with graphical output
 #' @description
 #' \code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})
-#' in NMF with kernel covariates. Several model selection measures are computed
-#' (e.g., R-squared, silhouette, CPCC, ARI), and results can be visualized in a plot.
+#' in NMF with kernel covariates. Three rank-selection measures are computed
+#' (R-squared, the effective rank, and the element-wise CV error), and results
+#' can be visualized in a plot. Sample-clustering quality (silhouette / CPCC /
+#' dist.cor) is no longer part of rank selection; use \code{\link{nmf.cluster}}
+#' on a fitted model for those.
 #'
 #' By default (\code{save.time = FALSE}), this function also computes the
 #' Element-wise Cross-Validation error (Wold's CV Sigma) using \code{\link{nmfkc.ecv}}.
@@ -3032,8 +3035,10 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
 #'   Ignored when \code{Y} is a formula.
 #' @param rank A vector of candidate ranks to be evaluated.
-#' @param detail Level of criterion computation: \code{"full"} (default) computes
-#'   all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.
+#' @param detail \code{"full"} (default) also runs the element-wise CV
+#'   (\code{sigma.ecv}); \code{"fast"} skips it (the plot then shows only
+#'   r.squared and eff.rank, and the recommended rank falls back to the
+#'   R-squared elbow).
 #' @param plot Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} and \code{\link{nmfkc.ecv}}.
@@ -3090,44 +3095,26 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   if (!is.null(extra_args$save.time) && extra_args$save.time && detail == "full") detail <- "fast"
   Q <- rank
   # ---------------------------------------------
-  AdjustedRandIndex <- function(x){
-    choose2 <- function(n) choose(n,2)
-    a <- sum(apply(x,c(1,2),choose2))
-    ab <- sum(sapply(rowSums(x),choose2))
-    b <- ab-a
-    ac <- sum(sapply(colSums(x),choose2))
-    c <- ac-a
-    total <- choose2(sum(x))
-    d <- total-a-b-c
-    (ri <- (a+d)/total)
-    e <- ab*ac/total+(total-ab)*(total-ac)/total
-    (ari <- (a+d-e)/(total-e))
-    return(list(RI=ri,ARI=ari))
-  }
-
   num_q <- length(Q)
   results_df <- data.frame(
     rank = Q,
     effective.rank = numeric(num_q),
     effective.rank.ratio = numeric(num_q),
     r.squared = numeric(num_q),
-    ARI = numeric(num_q),
-    silhouette = numeric(num_q),
-    CPCC = numeric(num_q),
-    dist.cor = numeric(num_q),
     sigma.ecv = numeric(num_q)
   )
 
-  cluster.old <- NULL
-
-  # --- Main Loop for Standard Metrics ---
+  # --- Main loop: per-rank fit -> effective rank + r.squared ---
+  # Fitted with detail = "fast": the (O(N^2)) sample-clustering criteria
+  # silhouette / CPCC / dist.cor are no longer part of rank selection.
+  # For per-fit clustering quality use nmf.cluster() instead.
   for(q_idx in 1:num_q){
     current_Q <- Q[q_idx]
 
     extra_args_nmfkc <- extra_args
     extra_args_nmfkc$save.memory <- NULL
     extra_args_nmfkc$save.time <- NULL
-    extra_args_nmfkc$detail <- detail
+    extra_args_nmfkc$detail <- "fast"
     extra_args_nmfkc$Q <- NULL
 
     nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
@@ -3137,27 +3124,6 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     results_df$effective.rank.ratio[q_idx] <-
       result$criterion$effective.rank / current_Q
     results_df$r.squared[q_idx] <- result$r.squared
-
-    results_df$CPCC[q_idx] <- result$criterion$CPCC
-    results_df$dist.cor[q_idx] <- result$criterion$dist.cor
-    sil <- result$criterion$silhouette
-    results_df$silhouette[q_idx] <-
-      if (is.numeric(sil) && length(sil) == 1) sil
-      else if (is.list(sil)) sil$silhouette.mean else NA
-
-    if(is.null(cluster.old)){
-      results_df$ARI[q_idx] <- NA
-    } else {
-      df <- data.frame(old=cluster.old, new=result$B.cluster)
-      df <- df[stats::complete.cases(df),]
-      if (nrow(df) > 0 && length(unique(df$old)) > 1 && length(unique(df$new)) > 1) {
-        f <- table(df$old, df$new)
-        results_df$ARI[q_idx] <- AdjustedRandIndex(f)$ARI
-      } else {
-        results_df$ARI[q_idx] <- NA
-      }
-    }
-    cluster.old <- result$B.cluster
   }
 
   # --- Element-wise CV (Wold's CV) ---
@@ -3178,8 +3144,8 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   }
 
   # Best-rank selection + concise 3-criterion plot (shared back-end).
-  # ARI / silhouette / CPCC / dist.cor remain in `criteria` but are no
-  # longer plotted; the figure shows only r.squared, eff.rank and ECV.
+  # criteria now holds only the rank-selection columns; clustering
+  # quality is provided separately by nmf.cluster().
   return(.rank.finish(results_df, plot = plot,
                       main = "Rank Selection Diagnostics"))
 }

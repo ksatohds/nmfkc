@@ -14,8 +14,10 @@ Ignored when \code{Y} is a formula.}
 
 \item{rank}{A vector of candidate ranks to be evaluated.}
 
-\item{detail}{Level of criterion computation: \code{"full"} (default) computes
-all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.}
+\item{detail}{\code{"full"} (default) also runs the element-wise CV
+(\code{sigma.ecv}); \code{"fast"} skips it (the plot then shows only
+r.squared and eff.rank, and the recommended rank falls back to the
+R-squared elbow).}
 
 \item{plot}{Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.}
 
@@ -45,8 +47,11 @@ variance.}
 }
 \description{
 \code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})
-in NMF with kernel covariates. Several model selection measures are computed
-(e.g., R-squared, silhouette, CPCC, ARI), and results can be visualized in a plot.
+in NMF with kernel covariates. Three rank-selection measures are computed
+(R-squared, the effective rank, and the element-wise CV error), and results
+can be visualized in a plot. Sample-clustering quality (silhouette / CPCC /
+dist.cor) is no longer part of rank selection; use \code{\link{nmf.cluster}}
+on a fitted model for those.
 
 By default (\code{save.time = FALSE}), this function also computes the
 Element-wise Cross-Validation error (Wold's CV Sigma) using \code{\link{nmfkc.ecv}}.
