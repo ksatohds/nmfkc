@@ -3022,6 +3022,17 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
         graphics::lines(results_df$rank, results_df$B.prob.entropy.mean, col="green4", lwd=2)
     legend_txt <- c(legend_txt, "B.prob.entropy.mean"); legend_col <- c(legend_col, "green4"); legend_lty <- c(legend_lty, 1)
 
+    # Effective-rank utilization: rank.effective / rank in [0, 1].
+    # 1 = all factors contribute equally to the coefficient variance;
+    # lower = a few factors dominate (under-utilized rank).  A peak in
+    # this curve marks the rank at which factors are most evenly used.
+    rank.eff.ratio <- results_df$rank.effective / results_df$rank
+    if (any(!is.na(rank.eff.ratio))) {
+      graphics::lines(results_df$rank, rank.eff.ratio, col="darkorange", lwd=2, lty=2)
+      graphics::points(results_df$rank, rank.eff.ratio, pch=16, col="darkorange", cex=0.7)
+      legend_txt <- c(legend_txt, "rank.eff/Q")
+      legend_col <- c(legend_col, "darkorange"); legend_lty <- c(legend_lty, 2)
+    }
 
     if (any(!is.na(results_df$ARI))) {
       graphics::lines(results_df$rank, results_df$ARI, col=4, lwd=2)

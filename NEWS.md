@@ -19,6 +19,10 @@
   When effective rank plateaus well below the nominal rank, the extra
   factors are not carrying additional coefficient variance — a signal
   that the rank is over-specified.
+- `nmfkc.rank(plot = TRUE)` overlays a `rank.eff/Q` curve (effective
+  rank divided by nominal rank, in `[0, 1]`) on the diagnostics plot.
+  A peak in this utilization curve marks the rank at which the latent
+  factors carry the most evenly distributed variance.
 
 ### **Improvements**
 - **Unified three-variant R² across all NMF functions.**  Every NMF
