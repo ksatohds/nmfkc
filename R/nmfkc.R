@@ -1124,6 +1124,109 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+#' @title Best-rank selection and concise diagnostics plot (Internal)
+#' @description
+#' Shared back-end for the rank-selection functions (\code{nmfkc.rank},
+#' \code{nmfkc.net.rank}, \code{nmfkc.signed.rank}, \code{nmfae.rank},
+#' \code{nmfae.signed.rank}).  From a pre-built \code{criteria} data
+#' frame it determines the recommended rank and draws a concise
+#' three-criterion plot, using only \code{r.squared}, the effective-rank
+#' utilization \code{effective.rank.ratio}, and the cross-validation
+#' error \code{sigma.ecv}.  Any other columns present (e.g.\ \code{ARI},
+#' \code{silhouette}, \code{CPCC}, \code{dist.cor} from \code{nmfkc.rank})
+#' are kept in the returned table but \strong{not plotted}.  Each of the
+#' three plotted criteria is drawn as a line with points, rank-number
+#' labels, and a highlighted "Best" marker:
+#' \itemize{
+#'   \item \code{r.squared}: elbow (kneedle) -- \dQuote{Best (Elbow)}.
+#'   \item \code{eff.rank}: peak of the utilization ratio -- \dQuote{Best (Peak)}.
+#'   \item \code{sigma.ecv}: minimum CV error -- \dQuote{Best (Min)}.
+#' }
+#' @param criteria Data frame with at least \code{rank}, \code{r.squared},
+#'   \code{effective.rank.ratio}, and (optionally) \code{sigma.ecv}.
+#' @param plot Logical; draw the diagnostics plot.
+#' @param main Plot title.
+#' @return A list with \code{rank.best} (ECV minimum if available, else
+#'   the R-squared elbow) and \code{criteria} (the input data frame).
+#' @keywords internal
+#' @noRd
+.rank.finish <- function(criteria, plot = TRUE,
+                         main = "Rank Selection Diagnostics") {
+  rk <- criteria$rank
+  nq <- base::length(rk)
+
+  has_ecv <- !base::is.null(criteria$sigma.ecv) &&
+             base::any(base::is.finite(criteria$sigma.ecv))
+  rank.best.ecv <- if (has_ecv)
+    rk[base::which.min(criteria$sigma.ecv)] else NA
+
+  rank.best.r2 <- NA
+  if (nq > 2 && !base::is.null(criteria$r.squared)) {
+    x <- base::seq_len(nq); y <- criteria$r.squared
+    yr <- base::max(y) - base::min(y); xr <- base::max(x) - base::min(x)
+    yn <- if (yr > 0) (y - base::min(y)) / yr else base::rep(0.5, nq)
+    xn <- if (xr > 0) (x - base::min(x)) / xr else base::rep(0.5, nq)
+    x1 <- xn[1]; y1 <- yn[1]; x2 <- xn[nq]; y2 <- yn[nq]
+    den <- base::sqrt((y2 - y1)^2 + (x2 - x1)^2)
+    d <- if (den > 0)
+      base::abs((y2 - y1) * xn - (x2 - x1) * yn + x2 * y1 - y2 * x1) / den
+      else base::numeric(nq)
+    rank.best.r2 <- rk[base::which.max(d)]
+  }
+
+  has_eff <- !base::is.null(criteria$effective.rank.ratio) &&
+             base::any(base::is.finite(criteria$effective.rank.ratio))
+  rank.best.eff <- if (has_eff)
+    rk[base::which.max(criteria$effective.rank.ratio)] else NA
+
+  rank.final <- if (!base::is.na(rank.best.ecv)) rank.best.ecv else rank.best.r2
+
+  if (plot) {
+    old_par <- graphics::par(mar = c(5, 4, 4, 5) + 0.1)
+    base::on.exit(graphics::par(old_par))
+    ## line already drawn; add points + rank numbers + Best marker
+    decorate <- function(yv, col, best_rank, best_lab, numpos) {
+      graphics::points(rk, yv, pch = 16, col = col, cex = 0.8)
+      graphics::text(rk, yv, rk, pos = numpos, col = col, cex = 0.8)
+      if (!base::is.na(best_rank)) {
+        j <- base::which(rk == best_rank)
+        graphics::points(best_rank, yv[j], pch = 16, col = col, cex = 1.6)
+        graphics::text(best_rank, yv[j], best_lab, pos = 4, col = col, cex = 0.8)
+      }
+    }
+    leg_txt <- "r.squared"; leg_col <- 2
+
+    graphics::plot(rk, criteria$r.squared, type = "l", col = 2, lwd = 3,
+                   xlab = "Rank (Q)", ylab = "R-squared / eff.rank (0-1)",
+                   ylim = c(0, 1), main = main)
+    for (q in rk) graphics::abline(v = q, col = "gray90", lwd = 0.5)
+    decorate(criteria$r.squared, 2, rank.best.r2, "Best (Elbow)", 3)
+
+    if (has_eff) {
+      graphics::lines(rk, criteria$effective.rank.ratio, col = "forestgreen", lwd = 3)
+      decorate(criteria$effective.rank.ratio, "forestgreen",
+               rank.best.eff, "Best (Peak)", 1)
+      leg_txt <- c(leg_txt, "eff.rank"); leg_col <- c(leg_col, "forestgreen")
+    }
+
+    if (has_ecv) {
+      graphics::par(new = TRUE)
+      graphics::plot(rk, criteria$sigma.ecv, type = "l", col = "blue", lwd = 3,
+                     axes = FALSE, xlab = "", ylab = "")
+      decorate(criteria$sigma.ecv, "blue", rank.best.ecv, "Best (Min)", 3)
+      graphics::axis(side = 4, col = "blue", col.axis = "blue")
+      graphics::mtext("ECV Sigma (RMSE)", side = 4, line = 3, col = "blue")
+      leg_txt <- c(leg_txt, "sigma.ecv"); leg_col <- c(leg_col, "blue")
+    }
+
+    graphics::legend("right", legend = leg_txt, col = leg_col,
+                     lty = 1, lwd = 2, bg = "white", cex = 0.7)
+  }
+
+  base::list(rank.best = rank.final, criteria = criteria)
+}
+
+
 #' @title Parse formula and prepare Y and A matrices
 #' @description
 #' Internal function to handle formula input, parse variables, and generate
@@ -2903,7 +3006,6 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   }
 
   # --- Element-wise CV (Wold's CV) ---
-  rank.best.ecv <- NA
   if(detail == "full"){
     ecv_args <- list(Y = Y, A = A, Q = Q)
     extra_args_ecv <- extra_args
@@ -2916,123 +3018,15 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     message("Running Element-wise CV (this may take time)...")
     ecv_res <- do.call("nmfkc.ecv", ecv_full_args)
     results_df$sigma.ecv <- ecv_res$sigma
-
-    # Determine best rank by ECV
-    idx_best_ecv <- which.min(results_df$sigma.ecv)
-    rank.best.ecv <- if(length(idx_best_ecv) > 0) results_df$rank[idx_best_ecv] else NA
   } else {
     results_df$sigma.ecv <- NA
   }
 
-  # --- Determine R-squared Best Rank (Elbow) ---
-  rank.best.r2 <- NA
-  if(num_q > 2){
-    x <- 1:num_q
-    y <- results_df$r.squared
-    y_range <- max(y) - min(y)
-    x_range <- max(x) - min(x)
-    y_norm <- if(y_range > 0) (y - min(y)) / y_range else rep(0.5, length(y))
-    x_norm <- if(x_range > 0) (x - min(x)) / x_range else rep(0.5, length(x))
-    x1 <- x_norm[1]; y1 <- y_norm[1]
-    x2 <- x_norm[num_q]; y2 <- y_norm[num_q]
-
-    distances <- numeric(num_q)
-    denom <- sqrt((y2-y1)^2 + (x2-x1)^2)
-    if (denom > 0) {
-      for(i in 1:num_q){
-        distances[i] <- abs((y2-y1)*x_norm[i] - (x2-x1)*y_norm[i] + x2*y1 - y2*x1) / denom
-      }
-    }
-    idx_best_r2 <- which.max(distances)
-    rank.best.r2 <- results_df$rank[idx_best_r2]
-  }
-
-  # Decide final recommended rank (Prioritize ECV)
-  rank.final <- if(!is.na(rank.best.ecv)) rank.best.ecv else rank.best.r2
-
-  # --- Plotting ---
-  if(plot){
-    old_par <- graphics::par(mar = c(5, 4, 4, 5) + 0.1)
-    on.exit(graphics::par(old_par))
-
-    # 1. Left Axis Plot: 0-1 Metrics
-    plot(results_df$rank, results_df$r.squared, type="l", col=2, lwd=3,
-         xlab="Rank (Q)", ylab="Fit / Stability (0-1)", ylim=c(0,1),
-         main="Rank Selection Diagnostics")
-    for(q in results_df$rank) graphics::abline(v=q,col="gray90",lwd=0.5)
-    graphics::points(results_df$rank, results_df$r.squared, pch=16, col=2, cex=0.8)
-    graphics::text(results_df$rank, results_df$r.squared, results_df$rank, pos=3, col=2, cex=0.8)
-
-    # Always mark R2 Elbow BEST if found
-    if(!is.na(rank.best.r2)){
-      idx_r2 <- which(results_df$rank == rank.best.r2)
-      graphics::points(rank.best.r2, results_df$r.squared[idx_r2], pch=16, col="red", cex=1.5)
-      graphics::text(rank.best.r2, results_df$r.squared[idx_r2], "Best (Elbow)", pos=4, col="red", cex=0.8)
-    }
-
-    legend_txt <- c("r.squared")
-    legend_col <- c(2)
-    legend_lty <- c(1)
-
-    # Effective-rank utilization: effective.rank.ratio = effective.rank
-    # / rank in [0, 1].  1 = all factors contribute equally to the
-    # coefficient variance; lower = a few factors dominate
-    # (under-utilized rank).  A peak in this curve marks the rank at
-    # which factors are most evenly used.  Plotted from the same
-    # effective.rank.ratio column returned in `criteria`.
-    if (any(!is.na(results_df$effective.rank.ratio))) {
-      graphics::lines(results_df$rank, results_df$effective.rank.ratio,
-                      col="forestgreen", lwd=2)
-      legend_txt <- c(legend_txt, "eff.rank")
-      legend_col <- c(legend_col, "forestgreen"); legend_lty <- c(legend_lty, 1)
-    }
-
-    if (any(!is.na(results_df$ARI))) {
-      graphics::lines(results_df$rank, results_df$ARI, col=4, lwd=2)
-      legend_txt <- c(legend_txt, "ARI"); legend_col <- c(legend_col, 4); legend_lty <- c(legend_lty, 1)
-    }
-    if (any(!is.na(results_df$silhouette))) {
-      graphics::lines(results_df$rank, results_df$silhouette, col=7, lwd=2)
-      legend_txt <- c(legend_txt, "silhouette"); legend_col <- c(legend_col, 7); legend_lty <- c(legend_lty, 1)
-    }
-    if (any(!is.na(results_df$CPCC))) {
-      graphics::lines(results_df$rank, results_df$CPCC, col=6, lwd=2)
-      legend_txt <- c(legend_txt, "CPCC"); legend_col <- c(legend_col, 6); legend_lty <- c(legend_lty, 1)
-    }
-    if (any(!is.na(results_df$dist.cor))) {
-      graphics::lines(results_df$rank, results_df$dist.cor, col=5, lwd=2)
-      legend_txt <- c(legend_txt, "dist.cor"); legend_col <- c(legend_col, 5); legend_lty <- c(legend_lty, 1)
-    }
-
-    # 2. Right Axis Plot: Sigma ECV (RMSE)
-    if (any(!is.na(results_df$sigma.ecv))) {
-      graphics::par(new = TRUE)
-      graphics::plot(results_df$rank, results_df$sigma.ecv, type="l", col="blue", lwd=3,
-                     axes=FALSE, xlab="", ylab="")
-
-      graphics::points(results_df$rank, results_df$sigma.ecv, pch=16, col="blue", cex=0.8)
-      graphics::text(results_df$rank, results_df$sigma.ecv, results_df$rank, pos=3, col="blue", cex=0.8)
-
-      # Always mark ECV Min BEST
-      if(!is.na(rank.best.ecv)){
-        idx_ecv <- which(results_df$rank == rank.best.ecv)
-        graphics::points(results_df$rank, results_df$sigma.ecv, pch=1, col="blue")
-        graphics::points(rank.best.ecv, results_df$sigma.ecv[idx_ecv], pch=16, col="blue", cex=1.5)
-        graphics::text(rank.best.ecv, results_df$sigma.ecv[idx_ecv], "Best (Min)", pos=4, col="blue", cex=0.8)
-      }
-
-      graphics::axis(side=4, col="blue", col.axis="blue")
-      graphics::mtext("ECV Sigma (RMSE)", side=4, line=3, col="blue")
-
-      legend_txt <- c(legend_txt, "sigma.ecv")
-      legend_col <- c(legend_col, "blue")
-      legend_lty <- c(legend_lty, 1)
-    }
-
-    graphics::legend("right", legend=legend_txt, col=legend_col, lty=legend_lty, lwd=2, bg="white", cex=0.7)
-  }
-
-  return(list(rank.best = rank.final, criteria = results_df))
+  # Best-rank selection + concise 3-criterion plot (shared back-end).
+  # ARI / silhouette / CPCC / dist.cor remain in `criteria` but are no
+  # longer plotted; the figure shows only r.squared, eff.rank and ECV.
+  return(.rank.finish(results_df, plot = plot,
+                      main = "Rank Selection Diagnostics"))
 }
 
 
