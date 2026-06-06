@@ -1096,39 +1096,27 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
   fit_args$nfolds <- NULL; fit_args$div <- NULL
   fit_args$Q <- NULL; fit_args$R <- NULL
 
-  run_one <- function(q, r, k) {
+  run_one <- function(i, k) {
     test_idx <- folds[[k]]
     W_train <- matrix(1, nrow = P1, ncol = N)
     if (has_na) W_train[is.na(Y1)] <- 0
     W_train[test_idx] <- 0
     fit <- suppressMessages(
       do.call(nmfae.signed,
-              c(list(Y1 = Y1, Y2 = Y2, rank = q, rank.encoder = r,
+              c(list(Y1 = Y1, Y2 = Y2, rank = QR$Q[i], rank.encoder = QR$R[i],
                      Y1.weights = W_train), fit_args))
     )
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
   }
 
-  result_objfunc <- numeric(num_pairs)
-  result_sigma   <- numeric(num_pairs)
-  result_fold    <- vector("list", num_pairs)
-  names(result_objfunc) <- pair_labels
-  names(result_sigma)   <- pair_labels
-  names(result_fold)    <- pair_labels
+  cv <- .ecv.run(pair_labels, div, run_one,
+                 progress = function(i, o, s)
+                   message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
+                                   QR$Q[i], QR$R[i], o, s)))
 
-  for (i in 1:num_pairs) {
-    objfunc.fold <- numeric(div)
-    for (k in 1:div) objfunc.fold[k] <- run_one(QR$Q[i], QR$R[i], k)
-    result_fold[[i]]  <- objfunc.fold
-    result_objfunc[i] <- mean(objfunc.fold)
-    result_sigma[i]   <- sqrt(result_objfunc[i])
-    message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
-                    QR$Q[i], QR$R[i], result_objfunc[i], result_sigma[i]))
-  }
-
-  result <- list(objfunc = result_objfunc,
-                 sigma = result_sigma,
-                 objfunc.fold = result_fold,
+  result <- list(objfunc = cv$objfunc,
+                 sigma = cv$sigma,
+                 objfunc.fold = cv$objfunc.fold,
                  folds = folds,
                  QR = QR,
                  paired = is.null(R))

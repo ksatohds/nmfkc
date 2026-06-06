@@ -1080,47 +1080,45 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
-#' @title Run a single-rank element-wise CV loop (Internal)
+#' @title Run an element-wise CV loop over a configuration list (Internal)
 #' @description
-#' Shared driver for the \strong{Q-vector} element-wise CV functions
-#' (\code{\link{nmfkc.ecv}}, \code{\link{nmfkc.net.ecv}},
-#' \code{nmfkc.signed.ecv}).  For each rank in \code{rank} and each of
-#' \code{nfolds} folds it calls the model-specific \code{run_one(q, k)}
-#' closure -- which masks the held-out fold, refits the model, and
-#' returns that fold's mean held-out loss -- then aggregates per-rank
-#' (\code{objfunc} = mean over folds, \code{sigma} = its square root).
-#' The grid-based \code{nmfae.ecv} / \code{nmfae.signed.ecv} keep their
-#' own \eqn{(Q, R)} drivers.
-#' @param rank Integer vector of ranks to evaluate.
+#' Shared driver for every element-wise CV function -- the single-rank
+#' ones (\code{\link{nmfkc.ecv}}, \code{\link{nmfkc.net.ecv}},
+#' \code{nmfkc.signed.ecv}) and the \eqn{(Q, R)}-grid ones
+#' (\code{nmfae.ecv}, \code{nmfae.signed.ecv}).  Configurations are
+#' addressed by \strong{index}: for each config \eqn{i} (labelled by
+#' \code{labels[i]}) and each of \code{nfolds} folds it calls the
+#' model-specific \code{run_one(i, k)} closure -- which masks the
+#' held-out fold, refits the model at config \eqn{i}, and returns that
+#' fold's mean held-out loss -- then aggregates per config
+#' (\code{objfunc} = mean over folds, \code{sigma} = its square root for
+#' a non-negative objective, else \code{NA}).
+#' @param labels Character vector of config labels (e.g.\ \code{"Q=2"} or
+#'   \code{"Q=2,R=1"}); its length is the number of configs.
 #' @param nfolds Number of folds.
-#' @param run_one A function \code{run_one(q, k)} returning the held-out
-#'   mean loss for rank \code{q} and fold \code{k}.
-#' @param progress Optional \code{function(q, objfunc, sigma)} called
-#'   after each rank for progress reporting (default none).
+#' @param run_one A function \code{run_one(i, k)} returning the held-out
+#'   mean loss for config index \code{i} and fold \code{k}.
+#' @param progress Optional \code{function(i, objfunc, sigma)} called
+#'   after each config for progress reporting (default none).
 #' @return A list with \code{objfunc} (named numeric), \code{sigma}
-#'   (named numeric, \eqn{\sqrt{\mathrm{objfunc}}}), and
-#'   \code{objfunc.fold} (named list of per-fold loss vectors).  Callers
-#'   that use a non-squared-error loss (e.g.\ KL) overwrite
-#'   \code{sigma} with \code{NA} afterwards.
+#'   (named numeric), and \code{objfunc.fold} (named list of per-fold
+#'   loss vectors).  Callers using a loss that can be negative (e.g.\ KL)
+#'   may additionally force \code{sigma} to \code{NA}.
 #' @keywords internal
 #' @noRd
-.ecv.run <- function(rank, nfolds, run_one, progress = NULL) {
-  nm  <- base::sprintf("Q=%d", rank)
-  obj <- stats::setNames(base::numeric(base::length(rank)), nm)
-  sig <- stats::setNames(base::numeric(base::length(rank)), nm)
-  fld <- stats::setNames(base::vector("list", base::length(rank)), nm)
-  for (i in base::seq_along(rank)) {
-    q <- rank[i]
+.ecv.run <- function(labels, nfolds, run_one, progress = NULL) {
+  n   <- base::length(labels)
+  obj <- stats::setNames(base::numeric(n), labels)
+  sig <- stats::setNames(base::numeric(n), labels)
+  fld <- stats::setNames(base::vector("list", n), labels)
+  for (i in base::seq_len(n)) {
     objs <- base::numeric(nfolds)
-    for (k in 1:nfolds) objs[k] <- run_one(q, k)
+    for (k in 1:nfolds) objs[k] <- run_one(i, k)
     fld[[i]] <- objs
     obj[i]   <- base::mean(objs)
-    ## sigma = RMSE; defined only for a non-negative (squared-error)
-    ## objective.  For losses that can go negative (e.g. KL) this yields
-    ## NA without a sqrt-of-negative warning; callers may also force NA.
     sig[i]   <- if (base::is.finite(obj[i]) && obj[i] >= 0)
                   base::sqrt(obj[i]) else NA_real_
-    if (!base::is.null(progress)) progress(q, obj[i], sig[i])
+    if (!base::is.null(progress)) progress(i, obj[i], sig[i])
   }
   base::list(objfunc = obj, sigma = sig, objfunc.fold = fld)
 }
@@ -2550,8 +2548,9 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   nmfkc_clean_args$save.time <- NULL
   nmfkc_clean_args$save.memory <- NULL
 
-  # Model-specific worker: mask fold k, refit at rank q, held-out loss
-  run_one <- function(q_curr, k) {
+  # Model-specific worker: mask fold k, refit at rank Q[i], held-out loss
+  run_one <- function(i, k) {
+    q_curr <- Q[i]
     test_idx <- folds[[k]]
     weights_train <- matrix(1, nrow = P, ncol = N)
     if (any(is.na(Y))) weights_train[is.na(Y)] <- 0
@@ -2571,7 +2570,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 
   # 2. Loop over Q via shared driver
   message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
-  cv <- .ecv.run(Q, div, run_one)
+  cv <- .ecv.run(paste0("Q=", Q), div, run_one)
   if (method != "EU") cv$sigma[] <- NA   # sigma = RMSE only for EU loss
 
   return(list(objfunc = cv$objfunc,

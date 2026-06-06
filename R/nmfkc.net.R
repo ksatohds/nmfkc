@@ -1204,9 +1204,10 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
 
   message(sprintf("nmfkc.net ECV (type=%s): %d ranks, %d-fold, upper-triangle.",
                   type, length(rank), nfolds))
-  cv <- .ecv.run(rank, nfolds, run_one,
-                 progress = function(q, o, s)
-                   message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", q, o, s)))
+  cv <- .ecv.run(sprintf("Q=%d", rank), nfolds,
+                 run_one = function(i, k) run_one(rank[i], k),
+                 progress = function(i, o, s)
+                   message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", rank[i], o, s)))
   cls <- if (type == "signed")
            c("nmfkc.net.signed.ecv", "nmfkc.net.ecv", "nmfkc.ecv")
          else

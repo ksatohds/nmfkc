@@ -1234,63 +1234,32 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
   pair_labels <- sprintf("Q=%d,R=%d", QR$Q, QR$R)
   has_na <- any(is.na(Y1))
 
-  n_tasks <- num_pairs * div
   message(sprintf("Element-wise CV: %d (Q,R) pairs, %d-fold, %d tasks...",
-                  num_pairs, div, n_tasks))
-
-  # Build flat task list: each task = one (Q,R) pair + one fold
-  tasks <- vector("list", n_tasks)
-  idx <- 0
-  for (i in 1:num_pairs) {
-    for (k in 1:div) {
-      idx <- idx + 1
-      tasks[[idx]] <- list(pair_idx = i, fold_idx = k,
-                           q = QR$Q[i], r = QR$R[i])
-    }
-  }
+                  num_pairs, div, num_pairs * div))
 
   extra_args <- list(...)
 
-  # Worker function for one task
-  run_one <- function(task) {
-    test_idx <- folds[[task$fold_idx]]
+  # Model-specific worker: mask fold k, refit at pair i, held-out loss
+  run_one <- function(i, k) {
+    test_idx <- folds[[k]]
     weights_train <- matrix(1, nrow = P1, ncol = N)
     if (has_na) weights_train[is.na(Y1)] <- 0
     weights_train[test_idx] <- 0
     fit <- suppressMessages(
-      do.call(nmfae, c(list(Y1 = Y1, Y2 = Y2, Q = task$q, R = task$r,
+      do.call(nmfae, c(list(Y1 = Y1, Y2 = Y2, Q = QR$Q[i], R = QR$R[i],
                             Y1.weights = weights_train), extra_args))
     )
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
   }
 
-  results <- vapply(tasks, run_one, numeric(1))
+  cv <- .ecv.run(pair_labels, div, run_one,
+                 progress = function(i, o, s)
+                   message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
+                                   QR$Q[i], QR$R[i], o, s)))
 
-  # Reshape results into per-pair fold MSEs
-  result_objfunc <- numeric(num_pairs)
-  result_sigma   <- numeric(num_pairs)
-  result_fold    <- vector("list", num_pairs)
-  names(result_objfunc) <- pair_labels
-  names(result_sigma)   <- pair_labels
-  names(result_fold)    <- pair_labels
-
-  idx <- 0
-  for (i in 1:num_pairs) {
-    objfunc.fold <- numeric(div)
-    for (k in 1:div) {
-      idx <- idx + 1
-      objfunc.fold[k] <- results[idx]
-    }
-    result_fold[[i]]  <- objfunc.fold
-    result_objfunc[i] <- mean(objfunc.fold)
-    result_sigma[i]   <- sqrt(result_objfunc[i])
-    message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
-                    QR$Q[i], QR$R[i], result_objfunc[i], result_sigma[i]))
-  }
-
-  result <- list(objfunc = result_objfunc,
-                 sigma = result_sigma,
-                 objfunc.fold = result_fold,
+  result <- list(objfunc = cv$objfunc,
+                 sigma = cv$sigma,
+                 objfunc.fold = cv$objfunc.fold,
                  folds = folds,
                  QR = QR,
                  paired = is.null(R))

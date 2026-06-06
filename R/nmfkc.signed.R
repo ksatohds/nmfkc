@@ -935,9 +935,10 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
 
   message(sprintf("nmfkc.signed ECV: %d ranks, %d-fold.",
                   length(rank), nfolds))
-  cv <- .ecv.run(rank, nfolds, run_one,
-                 progress = function(q, o, s)
-                   message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", q, o, s)))
+  cv <- .ecv.run(sprintf("Q=%d", rank), nfolds,
+                 run_one = function(i, k) run_one(rank[i], k),
+                 progress = function(i, o, s)
+                   message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", rank[i], o, s)))
   structure(list(
     objfunc = cv$objfunc, sigma = cv$sigma,
     objfunc.fold = cv$objfunc.fold, folds = folds, Q.grid = rank
