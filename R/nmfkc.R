@@ -2569,7 +2569,11 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     ## functional form of Roy & Vetterli (2007).  Ranges in [1, Q]:
     ## 1 when one factor carries all the variance, Q when all factors
     ## contribute equally.  Dead (zero-variance) factors drop out.
-    if (Q >= 1 && base::ncol(B) >= 2) {
+    ## Requires Q >= 2: at Q = 1 the variance distribution is a single
+    ## point, so the entropy is trivially 0 and the effective rank is
+    ## forced to 1 regardless of the data -- an uninformative tautology
+    ## (consistent with silhouette / CPCC, which are also NA at Q = 1).
+    if (Q >= 2 && base::ncol(B) >= 2) {
       b_var <- base::apply(B, 1, stats::var)
       b_var_sum <- base::sum(b_var, na.rm = TRUE)
       if (base::is.finite(b_var_sum) && b_var_sum > 0) {
