@@ -2962,11 +2962,11 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     # rank.effective.ratio column returned in `criteria`.
     if (any(!is.na(results_df$rank.effective.ratio))) {
       graphics::lines(results_df$rank, results_df$rank.effective.ratio,
-                      col="darkorange", lwd=2, lty=2)
+                      col="darkorange", lwd=2)
       graphics::points(results_df$rank, results_df$rank.effective.ratio,
                        pch=16, col="darkorange", cex=0.7)
       legend_txt <- c(legend_txt, "rank.eff/Q")
-      legend_col <- c(legend_col, "darkorange"); legend_lty <- c(legend_lty, 2)
+      legend_col <- c(legend_col, "darkorange"); legend_lty <- c(legend_lty, 1)
     }
 
     if (any(!is.na(results_df$ARI))) {
