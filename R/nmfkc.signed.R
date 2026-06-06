@@ -933,26 +933,13 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
     mean((Y[test_idx] - Yhat[test_idx])^2)
   }
 
-  result_objfunc <- numeric(length(rank))
-  result_sigma   <- numeric(length(rank))
-  result_fold    <- vector("list", length(rank))
-  names(result_objfunc) <- sprintf("Q=%d", rank)
-  names(result_sigma)   <- sprintf("Q=%d", rank)
-  names(result_fold)    <- sprintf("Q=%d", rank)
   message(sprintf("nmfkc.signed ECV: %d ranks, %d-fold.",
                   length(rank), nfolds))
-  for (i in seq_along(rank)) {
-    q <- rank[i]
-    objs <- numeric(nfolds)
-    for (k in 1:nfolds) objs[k] <- run_one(q, k)
-    result_fold[[i]]  <- objs
-    result_objfunc[i] <- mean(objs)
-    result_sigma[i]   <- sqrt(result_objfunc[i])
-    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f",
-                    q, result_objfunc[i], result_sigma[i]))
-  }
+  cv <- .ecv.run(rank, nfolds, run_one,
+                 progress = function(q, o, s)
+                   message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", q, o, s)))
   structure(list(
-    objfunc = result_objfunc, sigma = result_sigma,
-    objfunc.fold = result_fold, folds = folds, Q.grid = rank
+    objfunc = cv$objfunc, sigma = cv$sigma,
+    objfunc.fold = cv$objfunc.fold, folds = folds, Q.grid = rank
   ), class = c("nmfkc.signed.ecv", "nmfkc.ecv"))
 }

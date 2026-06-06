@@ -1202,30 +1202,17 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
     mean((Y[test_ut] - Yhat[test_ut])^2)
   }
 
-  result_objfunc <- numeric(length(rank))
-  result_sigma   <- numeric(length(rank))
-  result_fold    <- vector("list", length(rank))
-  names(result_objfunc) <- sprintf("Q=%d", rank)
-  names(result_sigma)   <- sprintf("Q=%d", rank)
-  names(result_fold)    <- sprintf("Q=%d", rank)
   message(sprintf("nmfkc.net ECV (type=%s): %d ranks, %d-fold, upper-triangle.",
                   type, length(rank), nfolds))
-  for (i in seq_along(rank)) {
-    q <- rank[i]
-    objs <- numeric(nfolds)
-    for (k in 1:nfolds) objs[k] <- run_one(q, k)
-    result_fold[[i]]  <- objs
-    result_objfunc[i] <- mean(objs)
-    result_sigma[i]   <- sqrt(result_objfunc[i])
-    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f",
-                    q, result_objfunc[i], result_sigma[i]))
-  }
+  cv <- .ecv.run(rank, nfolds, run_one,
+                 progress = function(q, o, s)
+                   message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", q, o, s)))
   cls <- if (type == "signed")
            c("nmfkc.net.signed.ecv", "nmfkc.net.ecv", "nmfkc.ecv")
          else
            c("nmfkc.net.ecv", "nmfkc.ecv")
-  structure(list(objfunc = result_objfunc, sigma = result_sigma,
-                 objfunc.fold = result_fold, folds = folds,
+  structure(list(objfunc = cv$objfunc, sigma = cv$sigma,
+                 objfunc.fold = cv$objfunc.fold, folds = folds,
                  Q.grid = rank, type = type),
             class = cls)
 }

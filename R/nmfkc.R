@@ -1080,6 +1080,52 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+#' @title Run a single-rank element-wise CV loop (Internal)
+#' @description
+#' Shared driver for the \strong{Q-vector} element-wise CV functions
+#' (\code{\link{nmfkc.ecv}}, \code{\link{nmfkc.net.ecv}},
+#' \code{nmfkc.signed.ecv}).  For each rank in \code{rank} and each of
+#' \code{nfolds} folds it calls the model-specific \code{run_one(q, k)}
+#' closure -- which masks the held-out fold, refits the model, and
+#' returns that fold's mean held-out loss -- then aggregates per-rank
+#' (\code{objfunc} = mean over folds, \code{sigma} = its square root).
+#' The grid-based \code{nmfae.ecv} / \code{nmfae.signed.ecv} keep their
+#' own \eqn{(Q, R)} drivers.
+#' @param rank Integer vector of ranks to evaluate.
+#' @param nfolds Number of folds.
+#' @param run_one A function \code{run_one(q, k)} returning the held-out
+#'   mean loss for rank \code{q} and fold \code{k}.
+#' @param progress Optional \code{function(q, objfunc, sigma)} called
+#'   after each rank for progress reporting (default none).
+#' @return A list with \code{objfunc} (named numeric), \code{sigma}
+#'   (named numeric, \eqn{\sqrt{\mathrm{objfunc}}}), and
+#'   \code{objfunc.fold} (named list of per-fold loss vectors).  Callers
+#'   that use a non-squared-error loss (e.g.\ KL) overwrite
+#'   \code{sigma} with \code{NA} afterwards.
+#' @keywords internal
+#' @noRd
+.ecv.run <- function(rank, nfolds, run_one, progress = NULL) {
+  nm  <- base::sprintf("Q=%d", rank)
+  obj <- stats::setNames(base::numeric(base::length(rank)), nm)
+  sig <- stats::setNames(base::numeric(base::length(rank)), nm)
+  fld <- stats::setNames(base::vector("list", base::length(rank)), nm)
+  for (i in base::seq_along(rank)) {
+    q <- rank[i]
+    objs <- base::numeric(nfolds)
+    for (k in 1:nfolds) objs[k] <- run_one(q, k)
+    fld[[i]] <- objs
+    obj[i]   <- base::mean(objs)
+    ## sigma = RMSE; defined only for a non-negative (squared-error)
+    ## objective.  For losses that can go negative (e.g. KL) this yields
+    ## NA without a sqrt-of-negative warning; callers may also force NA.
+    sig[i]   <- if (base::is.finite(obj[i]) && obj[i] >= 0)
+                  base::sqrt(obj[i]) else NA_real_
+    if (!base::is.null(progress)) progress(q, obj[i], sig[i])
+  }
+  base::list(objfunc = obj, sigma = sig, objfunc.fold = fld)
+}
+
+
 #' @title Parse formula and prepare Y and A matrices
 #' @description
 #' Internal function to handle formula input, parse variables, and generate
@@ -2495,64 +2541,42 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 
   method <- if(!is.null(extra_args$method)) extra_args$method else "EU"
 
-  # 2. Loop over Q vectors
-  num_Q <- length(Q)
-  result_objfunc <- numeric(num_Q)
-  result_sigma   <- numeric(num_Q)
-  result_fold    <- vector("list", num_Q)
+  # Clean extra args for the inner nmfkc() calls (once, outside the loop)
+  nmfkc_clean_args <- extra_args
+  nmfkc_clean_args$Q <- NULL
+  nmfkc_clean_args$rank <- NULL
+  nmfkc_clean_args$print.trace <- NULL
+  nmfkc_clean_args$print.dims <- NULL
+  nmfkc_clean_args$save.time <- NULL
+  nmfkc_clean_args$save.memory <- NULL
 
-  names(result_objfunc) <- paste0("Q=", Q)
-  names(result_sigma)   <- paste0("Q=", Q)
-  names(result_fold)    <- paste0("Q=", Q)
-
-  message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
-
-  for(i in 1:num_Q){
-    q_curr <- Q[i]
-    objfunc.fold <- numeric(div)
-
-    for(k in 1:div){
-      test_idx <- folds[[k]]
-      weights_train <- matrix(1, nrow=P, ncol=N)
-      if(any(is.na(Y))) weights_train[is.na(Y)] <- 0
-      weights_train[test_idx] <- 0
-
-      # Prepare arguments for nmfkc
-      # Remove 'Q' and 'rank' from extra_args to avoid conflicts
-      nmfkc_clean_args <- extra_args
-      nmfkc_clean_args$Q <- NULL
-      nmfkc_clean_args$rank <- NULL
-
-      nmfkc_clean_args$print.trace <- NULL
-      nmfkc_clean_args$print.dims <- NULL
-      nmfkc_clean_args$save.time <- NULL
-      nmfkc_clean_args$save.memory <- NULL
-      nmfkc_args <- c(list(Y=Y, A=A, Q=q_curr, Y.weights=weights_train,
-                           print.trace=FALSE, print.dims=FALSE,
-                           save.time=TRUE), nmfkc_clean_args)
-
-      fit <- suppressMessages(do.call("nmfkc", nmfkc_args))
-
-      pred <- fit$XB
-      if(method == "KL"){
-        .eps <- 1e-10
-        term1 <- -Y[test_idx] * log(pred[test_idx] + .eps)
-        term2 <- pred[test_idx]
-        objfunc.fold[k] <- mean(term1 + term2)
-      }else{
-        residuals <- Y[test_idx] - pred[test_idx]
-        objfunc.fold[k] <- mean(residuals^2)
-      }
+  # Model-specific worker: mask fold k, refit at rank q, held-out loss
+  run_one <- function(q_curr, k) {
+    test_idx <- folds[[k]]
+    weights_train <- matrix(1, nrow = P, ncol = N)
+    if (any(is.na(Y))) weights_train[is.na(Y)] <- 0
+    weights_train[test_idx] <- 0
+    nmfkc_args <- c(list(Y = Y, A = A, Q = q_curr, Y.weights = weights_train,
+                         print.trace = FALSE, print.dims = FALSE,
+                         save.time = TRUE), nmfkc_clean_args)
+    fit <- suppressMessages(do.call("nmfkc", nmfkc_args))
+    pred <- fit$XB
+    if (method == "KL") {
+      .eps <- 1e-10
+      mean(-Y[test_idx] * log(pred[test_idx] + .eps) + pred[test_idx])
+    } else {
+      mean((Y[test_idx] - pred[test_idx])^2)
     }
-
-    result_fold[[i]]  <- objfunc.fold
-    result_objfunc[i] <- mean(objfunc.fold)
-    result_sigma[i]   <- if(method == "EU") sqrt(result_objfunc[i]) else NA
   }
 
-  return(list(objfunc = result_objfunc,
-              sigma = result_sigma,
-              objfunc.fold = result_fold,
+  # 2. Loop over Q via shared driver
+  message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
+  cv <- .ecv.run(Q, div, run_one)
+  if (method != "EU") cv$sigma[] <- NA   # sigma = RMSE only for EU loss
+
+  return(list(objfunc = cv$objfunc,
+              sigma = cv$sigma,
+              objfunc.fold = cv$objfunc.fold,
               folds = folds))
 }
 

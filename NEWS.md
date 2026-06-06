@@ -1,13 +1,19 @@
 # nmfkc 0.7.4 (development)
 
-### **Internal: shared element-wise CV fold helper**
+### **Internal: shared element-wise CV helpers**
 - The four element-wise cross-validation functions (`nmfkc.ecv()`,
   `nmfae.ecv()`, `nmfkc.signed.ecv()`, `nmfae.signed.ecv()`) now build
   their folds through a single internal helper `.ecv.make.folds()`,
   removing four near-identical copies of the fold-partitioning loop.
-  Behaviour is byte-for-byte identical (same seed gives the same folds
-  and the same CV values).  `nmfkc.net.ecv()` keeps its symmetric
-  upper-triangle folds.
+  `nmfkc.net.ecv()` keeps its symmetric upper-triangle folds.
+- The three \strong{single-rank} CV drivers (`nmfkc.ecv()`,
+  `nmfkc.net.ecv()`, `nmfkc.signed.ecv()`) now share the
+  rank-by-fold loop and aggregation via `.ecv.run()`, which takes a
+  model-specific `run_one(q, k)` closure.  The grid-based
+  `nmfae.ecv()` / `nmfae.signed.ecv()` keep their \eqn{(Q, R)} drivers.
+- Both refactors are behaviour-preserving: for the same seed the folds
+  and all CV values (`objfunc`, `sigma`, `objfunc.fold`) are identical
+  to before, verified across EU and KL losses and the symmetric case.
 
 ### **Unified summary print blocks**
 - New shared internal helpers `.print.fit.statistics()` and
