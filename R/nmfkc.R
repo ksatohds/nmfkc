@@ -1045,6 +1045,41 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+#' @title Element-wise CV fold construction (Internal)
+#' @description
+#' Randomly partitions the non-\code{NA} elements of \code{Y} into
+#' \code{nfolds} groups of (nearly) equal size for Wold-style
+#' element-wise cross-validation.  Shared by the element-wise
+#' \code{*.ecv} functions (\code{\link{nmfkc.ecv}}, \code{nmfae.ecv},
+#' \code{nmfkc.signed.ecv}, \code{nmfae.signed.ecv}); the symmetric
+#' \code{\link{nmfkc.net.ecv}} uses upper-triangle folds instead.
+#' @param Y The observation matrix.
+#' @param nfolds Number of folds.
+#' @param seed Optional integer seed (set immediately before sampling so
+#'   that the partition is reproducible).
+#' @return A list of length \code{nfolds}; each element is an integer
+#'   vector of linear indices into \code{Y}.
+#' @keywords internal
+#' @noRd
+.ecv.make.folds <- function(Y, nfolds, seed = NULL) {
+  if (!base::is.null(seed)) base::set.seed(seed)
+  valid_indices <- base::which(!base::is.na(Y))
+  n_valid <- base::length(valid_indices)
+  perm_indices <- base::sample(valid_indices)
+  folds <- base::vector("list", nfolds)
+  chunk_size <- n_valid %/% nfolds
+  remainder  <- n_valid %% nfolds
+  start_idx <- 1L
+  for (k in 1:nfolds) {
+    current_size <- chunk_size + base::ifelse(k <= remainder, 1L, 0L)
+    end_idx <- start_idx + current_size - 1L
+    folds[[k]] <- perm_indices[start_idx:end_idx]
+    start_idx <- end_idx + 1L
+  }
+  folds
+}
+
+
 #' @title Parse formula and prepare Y and A matrices
 #' @description
 #' Internal function to handle formula input, parse variables, and generate
@@ -2455,24 +2490,8 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
          "See help(nmfkc.net.ecv).", call. = FALSE)
   }
 
-  # 1. Create Folds
-  if (!is.null(seed)) set.seed(seed)
-
-  valid_indices <- which(!is.na(Y))
-  n_valid <- length(valid_indices)
-
-  perm_indices <- sample(valid_indices)
-  folds <- vector("list", div)
-  chunk_size <- n_valid %/% div
-  remainder <- n_valid %% div
-
-  start_idx <- 1
-  for(k in 1:div){
-    current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-    end_idx <- start_idx + current_size - 1
-    folds[[k]] <- perm_indices[start_idx:end_idx]
-    start_idx <- end_idx + 1
-  }
+  # 1. Create Folds (shared element-wise helper)
+  folds <- .ecv.make.folds(Y, div, seed)
 
   method <- if(!is.null(extra_args$method)) extra_args$method else "EU"
 

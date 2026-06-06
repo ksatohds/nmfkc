@@ -1,5 +1,14 @@
 # nmfkc 0.7.4 (development)
 
+### **Internal: shared element-wise CV fold helper**
+- The four element-wise cross-validation functions (`nmfkc.ecv()`,
+  `nmfae.ecv()`, `nmfkc.signed.ecv()`, `nmfae.signed.ecv()`) now build
+  their folds through a single internal helper `.ecv.make.folds()`,
+  removing four near-identical copies of the fold-partitioning loop.
+  Behaviour is byte-for-byte identical (same seed gives the same folds
+  and the same CV values).  `nmfkc.net.ecv()` keeps its symmetric
+  upper-triangle folds.
+
 ### **Unified summary print blocks**
 - New shared internal helpers `.print.fit.statistics()` and
   `.print.structure.diagnostics()` render the "Statistics" /

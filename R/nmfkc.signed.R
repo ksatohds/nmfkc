@@ -916,16 +916,8 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
   fit_args$seed <- NULL; fit_args$Q <- NULL
   fit_args$verbose <- NULL; fit_args$Y.weights <- NULL
 
-  ## Create folds over valid elements (non-NA)
-  set.seed(seed)
-  valid <- which(!is.na(Y))
-  perm  <- sample(valid)
-  chunk <- length(perm) %/% nfolds; rem <- length(perm) %% nfolds
-  folds <- vector("list", nfolds); s <- 1L
-  for (k in 1:nfolds) {
-    sz <- chunk + ifelse(k <= rem, 1L, 0L)
-    folds[[k]] <- perm[s:(s + sz - 1L)]; s <- s + sz
-  }
+  ## Create folds over valid elements (non-NA; shared helper)
+  folds <- .ecv.make.folds(Y, nfolds, seed)
 
   run_one <- function(q, k) {
     test_idx <- folds[[k]]

@@ -1083,21 +1083,8 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
   }
   num_pairs <- nrow(QR)
 
-  ## Element-wise folds
-  if (!is.null(seed)) set.seed(seed)
-  valid_indices <- which(!is.na(Y1))
-  n_valid <- length(valid_indices)
-  perm_indices <- sample(valid_indices)
-  folds <- vector("list", div)
-  chunk_size <- n_valid %/% div
-  remainder  <- n_valid %% div
-  start_idx <- 1
-  for (k in 1:div) {
-    current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-    end_idx <- start_idx + current_size - 1
-    folds[[k]] <- perm_indices[start_idx:end_idx]
-    start_idx <- end_idx + 1
-  }
+  ## Element-wise folds (shared helper)
+  folds <- .ecv.make.folds(Y1, div, seed)
 
   pair_labels <- sprintf("Q=%d,R=%d", QR$Q, QR$R)
   has_na <- any(is.na(Y1))
