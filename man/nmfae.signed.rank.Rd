@@ -4,7 +4,14 @@
 \alias{nmfae.signed.rank}
 \title{Rank selection for nmfae.signed (paired rank, concise diagnostics)}
 \usage{
-nmfae.signed.rank(Y1, Y2 = Y1, rank = 1:5, plot = TRUE, ...)
+nmfae.signed.rank(
+  Y1,
+  Y2 = Y1,
+  rank = 1:5,
+  detail = c("full", "fast"),
+  plot = TRUE,
+  ...
+)
 }
 \arguments{
 \item{Y1}{Endogenous matrix (\eqn{P_1 \times N}); may be signed.}
@@ -12,6 +19,10 @@ nmfae.signed.rank(Y1, Y2 = Y1, rank = 1:5, plot = TRUE, ...)
 \item{Y2}{Exogenous matrix; defaults to \code{Y1}.}
 
 \item{rank}{Integer vector of (paired) ranks to evaluate.}
+
+\item{detail}{\code{"full"} (default) also runs element-wise CV
+(\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+eff.rank only, and recommends the R-squared elbow).}
 
 \item{plot}{Logical; draw the diagnostics plot (default \code{TRUE}).}
 

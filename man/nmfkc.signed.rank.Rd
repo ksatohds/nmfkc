@@ -4,7 +4,14 @@
 \alias{nmfkc.signed.rank}
 \title{Rank selection for nmfkc.signed (concise diagnostics)}
 \usage{
-nmfkc.signed.rank(Y, A, rank = 1:5, plot = TRUE, ...)
+nmfkc.signed.rank(
+  Y,
+  A,
+  rank = 1:5,
+  detail = c("full", "fast"),
+  plot = TRUE,
+  ...
+)
 }
 \arguments{
 \item{Y}{Observation matrix (may contain negative entries).}
@@ -12,6 +19,10 @@ nmfkc.signed.rank(Y, A, rank = 1:5, plot = TRUE, ...)
 \item{A}{Covariate matrix (may be signed).}
 
 \item{rank}{Integer vector of ranks to evaluate.}
+
+\item{detail}{\code{"full"} (default) also runs element-wise CV
+(\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+eff.rank only, and recommends the R-squared elbow).}
 
 \item{plot}{Logical; draw the diagnostics plot (default \code{TRUE}).}
 

@@ -8,6 +8,7 @@ nmfkc.net.rank(
   Y,
   rank = 1:5,
   type = c("tri", "bi", "signed"),
+  detail = c("full", "fast"),
   plot = TRUE,
   ...
 )
@@ -19,6 +20,10 @@ nmfkc.net.rank(
 
 \item{type}{One of \code{"tri"}, \code{"bi"}, \code{"signed"}.}
 
+\item{detail}{\code{"full"} (default) also runs element-wise CV
+(\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+eff.rank only, and recommends the R-squared elbow).}
+
 \item{plot}{Logical; draw the diagnostics plot (default \code{TRUE}).}
 
 \item{...}{Passed on to \code{\link{nmfkc.net}} and
@@ -26,9 +31,10 @@ nmfkc.net.rank(
 \code{nfolds}, \code{seed}).}
 }
 \value{
-A list with \code{rank.best} (ECV minimum) and \code{criteria}
-(data frame: \code{rank}, \code{effective.rank},
-\code{effective.rank.ratio}, \code{r.squared}, \code{sigma.ecv}).
+A list with \code{rank.best} (ECV minimum, or the R-squared
+elbow under \code{detail = "fast"}) and \code{criteria} (data
+frame: \code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
+\code{r.squared}, \code{sigma.ecv}).
 }
 \description{
 Fits \code{\link{nmfkc.net}} across a range of ranks and reports the

@@ -1228,13 +1228,17 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
 #' @param Y Symmetric (network) observation matrix.
 #' @param rank Integer vector of ranks to evaluate.
 #' @param type One of \code{"tri"}, \code{"bi"}, \code{"signed"}.
+#' @param detail \code{"full"} (default) also runs element-wise CV
+#'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+#'   eff.rank only, and recommends the R-squared elbow).
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param ... Passed on to \code{\link{nmfkc.net}} and
 #'   \code{\link{nmfkc.net.ecv}} (e.g.\ \code{nstart}, \code{maxit},
 #'   \code{nfolds}, \code{seed}).
-#' @return A list with \code{rank.best} (ECV minimum) and \code{criteria}
-#'   (data frame: \code{rank}, \code{effective.rank},
-#'   \code{effective.rank.ratio}, \code{r.squared}, \code{sigma.ecv}).
+#' @return A list with \code{rank.best} (ECV minimum, or the R-squared
+#'   elbow under \code{detail = "fast"}) and \code{criteria} (data
+#'   frame: \code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
+#'   \code{r.squared}, \code{sigma.ecv}).
 #' @seealso \code{\link{nmfkc.net}}, \code{\link{nmfkc.net.ecv}},
 #'   \code{\link{nmfkc.rank}}
 #' @export
@@ -1245,8 +1249,8 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
 #' nmfkc.net.rank(Y, rank = 1:3, type = "tri", nstart = 5, nfolds = 3)
 #' }
 nmfkc.net.rank <- function(Y, rank = 1:5, type = c("tri", "bi", "signed"),
-                           plot = TRUE, ...) {
-  type <- match.arg(type)
+                           detail = c("full", "fast"), plot = TRUE, ...) {
+  type <- match.arg(type); detail <- match.arg(detail)
   Y <- as.matrix(Y)
   rs <- numeric(length(rank)); er <- numeric(length(rank))
   for (i in seq_along(rank)) {
@@ -1255,7 +1259,9 @@ nmfkc.net.rank <- function(Y, rank = 1:5, type = c("tri", "bi", "signed"),
     rs[i] <- f$r.squared
     er[i] <- .effective.rank(t(f$X))
   }
-  ecv <- suppressMessages(nmfkc.net.ecv(Y, rank = rank, type = type, ...))$sigma
+  ecv <- if (detail == "full")
+    suppressMessages(nmfkc.net.ecv(Y, rank = rank, type = type, ...))$sigma
+    else rep(NA_real_, length(rank))
   criteria <- data.frame(rank = rank, effective.rank = er,
                          effective.rank.ratio = er / rank,
                          r.squared = rs, sigma.ecv = as.numeric(ecv))

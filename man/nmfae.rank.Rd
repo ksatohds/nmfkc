@@ -4,7 +4,14 @@
 \alias{nmfae.rank}
 \title{Rank selection for nmfae (paired rank, concise diagnostics)}
 \usage{
-nmfae.rank(Y1, Y2 = Y1, rank = 1:5, plot = TRUE, ...)
+nmfae.rank(
+  Y1,
+  Y2 = Y1,
+  rank = 1:5,
+  detail = c("full", "fast"),
+  plot = TRUE,
+  ...
+)
 }
 \arguments{
 \item{Y1}{Endogenous matrix (\eqn{P_1 \times N}).}
@@ -12,6 +19,10 @@ nmfae.rank(Y1, Y2 = Y1, rank = 1:5, plot = TRUE, ...)
 \item{Y2}{Exogenous matrix; defaults to \code{Y1} (autoencoder).}
 
 \item{rank}{Integer vector of (paired) ranks to evaluate.}
+
+\item{detail}{\code{"full"} (default) also runs element-wise CV
+(\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+eff.rank only, and recommends the R-squared elbow).}
 
 \item{plot}{Logical; draw the diagnostics plot (default \code{TRUE}).}
 

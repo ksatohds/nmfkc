@@ -1279,6 +1279,9 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
 #' @param Y1 Endogenous matrix (\eqn{P_1 \times N}).
 #' @param Y2 Exogenous matrix; defaults to \code{Y1} (autoencoder).
 #' @param rank Integer vector of (paired) ranks to evaluate.
+#' @param detail \code{"full"} (default) also runs element-wise CV
+#'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+#'   eff.rank only, and recommends the R-squared elbow).
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param ... Passed on to \code{\link{nmfae}} and \code{\link{nmfae.ecv}}
 #'   (e.g.\ \code{maxit}, \code{nfolds}, \code{seed}).
@@ -1288,7 +1291,9 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
 #' @seealso \code{\link{nmfae}}, \code{\link{nmfae.ecv}},
 #'   \code{\link{nmfkc.rank}}
 #' @export
-nmfae.rank <- function(Y1, Y2 = Y1, rank = 1:5, plot = TRUE, ...) {
+nmfae.rank <- function(Y1, Y2 = Y1, rank = 1:5, detail = c("full", "fast"),
+                       plot = TRUE, ...) {
+  detail <- match.arg(detail)
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
   rs <- numeric(length(rank)); er <- numeric(length(rank))
   for (i in seq_along(rank)) {
@@ -1298,7 +1303,9 @@ nmfae.rank <- function(Y1, Y2 = Y1, rank = 1:5, plot = TRUE, ...) {
     rs[i] <- f$r.squared
     er[i] <- .effective.rank(f$H)
   }
-  ecv <- suppressMessages(nmfae.ecv(Y1, Y2, rank = rank, ...))$sigma
+  ecv <- if (detail == "full")
+    suppressMessages(nmfae.ecv(Y1, Y2, rank = rank, ...))$sigma
+    else rep(NA_real_, length(rank))
   criteria <- data.frame(rank = rank, effective.rank = er,
                          effective.rank.ratio = er / rank,
                          r.squared = rs, sigma.ecv = as.numeric(ecv))

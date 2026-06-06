@@ -955,6 +955,9 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
 #' @param Y Observation matrix (may contain negative entries).
 #' @param A Covariate matrix (may be signed).
 #' @param rank Integer vector of ranks to evaluate.
+#' @param detail \code{"full"} (default) also runs element-wise CV
+#'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+#'   eff.rank only, and recommends the R-squared elbow).
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param ... Passed on to \code{\link{nmfkc.signed}} and
 #'   \code{nmfkc.signed.ecv} (e.g.\ \code{maxit}, \code{nfolds},
@@ -964,7 +967,9 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
 #'   \code{r.squared}, \code{sigma.ecv}).
 #' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc.rank}}
 #' @export
-nmfkc.signed.rank <- function(Y, A, rank = 1:5, plot = TRUE, ...) {
+nmfkc.signed.rank <- function(Y, A, rank = 1:5, detail = c("full", "fast"),
+                              plot = TRUE, ...) {
+  detail <- match.arg(detail)
   Y <- as.matrix(Y); A <- as.matrix(A)
   rs <- numeric(length(rank)); er <- numeric(length(rank))
   for (i in seq_along(rank)) {
@@ -973,7 +978,9 @@ nmfkc.signed.rank <- function(Y, A, rank = 1:5, plot = TRUE, ...) {
     rs[i] <- f$r.squared
     er[i] <- .effective.rank(f$B)
   }
-  ecv <- suppressMessages(nmfkc.signed.ecv(Y, A, rank = rank, ...))$sigma
+  ecv <- if (detail == "full")
+    suppressMessages(nmfkc.signed.ecv(Y, A, rank = rank, ...))$sigma
+    else rep(NA_real_, length(rank))
   criteria <- data.frame(rank = rank, effective.rank = er,
                          effective.rank.ratio = er / rank,
                          r.squared = rs, sigma.ecv = as.numeric(ecv))

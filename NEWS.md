@@ -18,6 +18,11 @@
   utilization, and "Best (Min)" for the CV minimum.  `nmfkc.rank()`
   still computes `ARI`, `silhouette`, `CPCC`, and `dist.cor` into its
   `criteria` table, but no longer plots them.
+- The four new `*.rank` functions gain a `detail` argument matching
+  `nmfkc.rank`: `"full"` (default) runs the element-wise CV and reports
+  `sigma.ecv`; `"fast"` skips the (expensive) CV, so the plot shows only
+  `r.squared` and `eff.rank` and the recommended rank falls back to the
+  R-squared elbow.
 
 ### **Internal: shared element-wise CV helpers**
 - The four element-wise cross-validation functions (`nmfkc.ecv()`,
