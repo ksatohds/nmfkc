@@ -794,8 +794,8 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
   cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
   if (!is.null(x$effective.rank) && is.finite(x$effective.rank)) {
-    cat(sprintf("  Effective Rank:      %.2f / %d\n",
-                x$effective.rank, x$rank))
+    cat(sprintf("  Effective Rank:      %.2f / %d  (%.1f%%)\n",
+                x$effective.rank, x$rank, 100 * x$effective.rank / x$rank))
   }
 
   cat("\nStructure Diagnostics:\n")

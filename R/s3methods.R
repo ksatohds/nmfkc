@@ -163,8 +163,8 @@ print.summary.nmf.sem <- function(x, ...) {
   if (!is.null(object$MAE)   && is.finite(object$MAE))
     cat(sprintf("  MAE (mean absolute error):       %.4f\n", object$MAE))
   if (!is.null(object$effective.rank) && is.finite(object$effective.rank))
-    cat(sprintf("  Effective Rank:                  %.2f / %d\n",
-                object$effective.rank, Q))
+    cat(sprintf("  Effective Rank:                  %.2f / %d  (%.1f%%)\n",
+                object$effective.rank, Q, 100 * object$effective.rank / Q))
 
   # Coefficients from inference
   if (!is.null(object$coefficients) && is.data.frame(object$coefficients)) {

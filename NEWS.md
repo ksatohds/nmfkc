@@ -1,7 +1,9 @@
 # nmfkc 0.7.4 (development)
 
 ### **Effective Rank in all five MU-family summaries**
-- `summary()` now reports the **Effective Rank** (`x.xx / Q`) for
+- `summary()` now reports the **Effective Rank** as `x.xx / Q  (NN.N%)`
+  -- the absolute value, the nominal rank, and the utilization ratio
+  `effective.rank / Q` as a percentage -- for
   `nmfkc()`, `nmfkc.net()`, `nmfae()`, `nmf.ffb()` / `nmf.sem()`, and
   `nmfre()` — previously only `nmfkc()` showed it.  Each is computed by
   the new shared internal helper `.effective.rank(B)` from the model's
