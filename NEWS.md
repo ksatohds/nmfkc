@@ -2,19 +2,23 @@
 
 ### **New diagnostic: effective rank**
 - `nmfkc()` now reports `criterion$rank.effective`, the **effective
-  rank** of the fit: \eqn{\exp} of the Shannon entropy of the
-  per-factor activation-variance distribution
-  \eqn{\mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.
-  It ranges in \eqn{[1, Q]} and counts how many latent factors
-  actively contribute to across-sample variation (dead, zero-variance
-  factors drop out).  Same functional form as the singular-value
-  effective rank of Roy & Vetterli (2007), applied to activation
-  variance as a fast, SVD-free diagonal proxy.
+  rank** of the fit: `exp` of the Shannon entropy of the
+  explained-variance distribution
+  `p_k = var(B[k, ]) / sum_j var(B[j, ])`.  By the trace identity
+  `sum_k var(B[k, ]) = tr(Cov(B))`, each `p_k` is the exact fraction
+  of the total coefficient variance carried by factor `k`, so the
+  entropy is a genuine additive decomposition (variances add;
+  standard deviations do not, which is why variance — not sd — is the
+  natural partner for the entropy here).  It ranges in `[1, Q]` and
+  counts how many latent factors actively shape across-sample
+  variation (dead, zero-variance factors drop out).  This is the
+  PCA-style explained-variance / effective-dimensionality measure and
+  reuses the `exp(entropy)` functional form of Roy & Vetterli (2007).
 - `summary.nmfkc()` prints `Effective Rank: x.xx / Q`.
 - `nmfkc.rank()` adds a `rank.effective` column to its criteria table.
   When effective rank plateaus well below the nominal rank, the extra
-  factors are not adding new across-sample variation — a signal that
-  the rank is over-specified.
+  factors are not carrying additional coefficient variance — a signal
+  that the rank is over-specified.
 
 ### **Improvements**
 - **Unified three-variant R² across all NMF functions.**  Every NMF

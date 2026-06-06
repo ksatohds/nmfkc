@@ -32,10 +32,11 @@ A list containing:
 \item{rank.best}{The estimated optimal rank. Prioritizes ECV minimum if available, otherwise R-squared Elbow.}
 \item{criteria}{A data frame containing diagnostic metrics for each rank.
 The \code{rank.effective} column gives the effective rank
-(\eqn{\exp} of the Shannon entropy of the per-factor
-activation-variance distribution); when it plateaus well below the
-nominal \code{rank}, the extra factors are not contributing new
-across-sample variation, which suggests an over-specified rank.}
+(\eqn{\exp} of the Shannon entropy of the explained-variance
+distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})});
+when it plateaus well below the nominal \code{rank}, the extra
+factors are not carrying additional coefficient variance, which
+suggests an over-specified rank.}
 }
 \description{
 \code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})

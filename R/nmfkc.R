@@ -1309,7 +1309,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-#' \item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, \code{B.prob.entropy.mean}, and \code{rank.effective} (effective rank: \eqn{\exp} of the Shannon entropy of the per-factor activation-variance distribution \eqn{\mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}; ranges in \eqn{[1, Q]} and counts the number of latent factors that actively contribute to across-sample variation; same functional form as the singular-value effective rank of Roy & Vetterli (2007), applied to activation variance as an SVD-free diagonal proxy).}
+#' \item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, \code{B.prob.entropy.mean}, and \code{rank.effective}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
 #' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
@@ -2714,14 +2714,19 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     X.prob <- X / (base::rowSums(X) + .eps)
     X.cluster <- base::apply(X.prob, 1, base::which.max)
 
-    ## Effective rank: exp(Shannon entropy) of the per-factor
-    ## activation-variance distribution.  Same functional form as the
-    ## singular-value effective rank of Roy & Vetterli (2007), applied
-    ## to the across-sample variance var(B[k, ]) of each basis instead
-    ## of singular values (a fast, SVD-free diagonal proxy).  Ranges in
-    ## [1, Q]: 1 when one factor dominates the variance, Q when all
-    ## factors contribute equally.  Counts "live, discriminating"
-    ## factors; dead (zero-variance) factors drop out.
+    ## Effective rank: exp(Shannon entropy) of the explained-variance
+    ## distribution p_k = var(B[k, ]) / sum_j var(B[j, ]).  We use the
+    ## across-sample VARIANCE (not the standard deviation) on purpose:
+    ## by the trace identity sum_k var(B[k, ]) = tr(Cov(B)) = total
+    ## variance, so p_k is the exact fraction of total variance carried
+    ## by factor k -- a genuine additive decomposition, which is what
+    ## makes the entropy "effective number" interpretation well-posed
+    ## (standard deviations are not additive, so sum_k sd_k has no such
+    ## meaning).  This is the PCA-style "explained-variance entropy" /
+    ## effective-dimensionality measure; it reuses the exp(entropy)
+    ## functional form of Roy & Vetterli (2007).  Ranges in [1, Q]:
+    ## 1 when one factor carries all the variance, Q when all factors
+    ## contribute equally.  Dead (zero-variance) factors drop out.
     if (Q >= 1 && base::ncol(B) >= 2) {
       b_var <- base::apply(B, 1, stats::var)
       b_var_sum <- base::sum(b_var, na.rm = TRUE)
@@ -2820,10 +2825,11 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' \item{rank.best}{The estimated optimal rank. Prioritizes ECV minimum if available, otherwise R-squared Elbow.}
 #' \item{criteria}{A data frame containing diagnostic metrics for each rank.
 #'   The \code{rank.effective} column gives the effective rank
-#'   (\eqn{\exp} of the Shannon entropy of the per-factor
-#'   activation-variance distribution); when it plateaus well below the
-#'   nominal \code{rank}, the extra factors are not contributing new
-#'   across-sample variation, which suggests an over-specified rank.}
+#'   (\eqn{\exp} of the Shannon entropy of the explained-variance
+#'   distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})});
+#'   when it plateaus well below the nominal \code{rank}, the extra
+#'   factors are not carrying additional coefficient variance, which
+#'   suggests an over-specified rank.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @references
