@@ -2866,8 +2866,6 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     if (any(!is.na(results_df$rank.effective.ratio))) {
       graphics::lines(results_df$rank, results_df$rank.effective.ratio,
                       col="forestgreen", lwd=2)
-      graphics::points(results_df$rank, results_df$rank.effective.ratio,
-                       pch=16, col="forestgreen", cex=0.7)
       legend_txt <- c(legend_txt, "rank.eff/Q")
       legend_col <- c(legend_col, "forestgreen"); legend_lty <- c(legend_lty, 1)
     }
