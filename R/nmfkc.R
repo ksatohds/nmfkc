@@ -1309,7 +1309,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-#' \item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, and \code{B.prob.entropy.mean}.}
+#' \item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, \code{B.prob.entropy.mean}, and \code{rank.effective} (effective rank: \eqn{\exp} of the Shannon entropy of the per-factor activation-variance distribution \eqn{\mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}; ranges in \eqn{[1, Q]} and counts the number of latent factors that actively contribute to across-sample variation; same functional form as the singular-value effective rank of Roy & Vetterli (2007), applied to activation variance as an SVD-free diagonal proxy).}
 #' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
@@ -1330,6 +1330,10 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   Tri-Factorizations for Clustering.
 #'   In \emph{Proc. 12th ACM SIGKDD} (pp. 126--135).
 #'   \doi{10.1145/1150402.1150420}
+#'
+#' Roy, O., & Vetterli, M. (2007). The effective rank: A measure of
+#'   effective dimensionality. In \emph{15th European Signal Processing
+#'   Conference (EUSIPCO)} (pp. 606--610).
 #' @examples
 #' # Example 1. Matrix Mode (Existing)
 #' X <- cbind(c(1,0,1),c(0,1,0))
@@ -1811,9 +1815,12 @@ summary.nmfkc <- function(object, ...) {
   ans$mae <- object$mae
   if(!is.null(object$criterion)){
     ans$ICp <- object$criterion$ICp
+    ans$rank.effective <- object$criterion$rank.effective
   } else {
     ans$ICp <- NULL
+    ans$rank.effective <- NULL
   }
+  ans$rank <- object$rank
 
   # --- Diagnostics (Sparsity & Clustering Quality) ---
 
@@ -1879,6 +1886,10 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 
   if (!is.null(x$ICp)) {
     cat("  ICp:                 ", format(x$ICp, digits = digits), "\n")
+  }
+  if (!is.null(x$rank.effective) && is.finite(x$rank.effective)) {
+    cat(sprintf("  Effective Rank:      %.2f / %d\n",
+                x$rank.effective, x$rank))
   }
 
   cat("\nStructure Diagnostics:\n")
@@ -2703,6 +2714,28 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     X.prob <- X / (base::rowSums(X) + .eps)
     X.cluster <- base::apply(X.prob, 1, base::which.max)
 
+    ## Effective rank: exp(Shannon entropy) of the per-factor
+    ## activation-variance distribution.  Same functional form as the
+    ## singular-value effective rank of Roy & Vetterli (2007), applied
+    ## to the across-sample variance var(B[k, ]) of each basis instead
+    ## of singular values (a fast, SVD-free diagonal proxy).  Ranges in
+    ## [1, Q]: 1 when one factor dominates the variance, Q when all
+    ## factors contribute equally.  Counts "live, discriminating"
+    ## factors; dead (zero-variance) factors drop out.
+    if (Q >= 1 && base::ncol(B) >= 2) {
+      b_var <- base::apply(B, 1, stats::var)
+      b_var_sum <- base::sum(b_var, na.rm = TRUE)
+      if (base::is.finite(b_var_sum) && b_var_sum > 0) {
+        p_rk <- b_var / b_var_sum
+        p_rk <- p_rk[p_rk > 0]
+        rank.effective <- base::exp(-base::sum(p_rk * base::log(p_rk)))
+      } else {
+        rank.effective <- NA_real_
+      }
+    } else {
+      rank.effective <- NA_real_
+    }
+
     # Distance-based criteria (detail == "full" only)
     if (detail == "full" && !base::any(Y.weights == 0)) {
       silhouette <- .silhouette.simple(B.prob, B.cluster)
@@ -2726,6 +2759,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     B.prob.sd.min <- NA; B.prob.max.mean <- NA; B.prob.entropy.mean <- NA
     X.prob <- NA; X.cluster <- NA
     silhouette <- NA; CPCC <- NA; dist.cor <- NA
+    rank.effective <- NA_real_
   }
 
   base::list(
@@ -2742,6 +2776,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
       B.prob.sd.min       = B.prob.sd.min,
       B.prob.max.mean     = B.prob.max.mean,
       B.prob.entropy.mean = B.prob.entropy.mean,
+      rank.effective      = rank.effective,
       ICp1 = ICp1, ICp2 = ICp2, ICp3 = ICp3, ICp = ICp,
       AIC  = AIC,  BIC  = BIC,
       silhouette = silhouette,
@@ -2783,7 +2818,12 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #'
 #' @return A list containing:
 #' \item{rank.best}{The estimated optimal rank. Prioritizes ECV minimum if available, otherwise R-squared Elbow.}
-#' \item{criteria}{A data frame containing diagnostic metrics for each rank.}
+#' \item{criteria}{A data frame containing diagnostic metrics for each rank.
+#'   The \code{rank.effective} column gives the effective rank
+#'   (\eqn{\exp} of the Shannon entropy of the per-factor
+#'   activation-variance distribution); when it plateaus well below the
+#'   nominal \code{rank}, the extra factors are not contributing new
+#'   across-sample variation, which suggests an over-specified rank.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @references
@@ -2836,6 +2876,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   num_q <- length(Q)
   results_df <- data.frame(
     rank = Q,
+    rank.effective = numeric(num_q),
     r.squared = numeric(num_q),
     ICp = numeric(num_q),
     AIC = numeric(num_q),
@@ -2865,6 +2906,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
     result <- do.call("nmfkc", nmfkc_args)
 
+    results_df$rank.effective[q_idx] <- result$criterion$rank.effective
     results_df$r.squared[q_idx] <- result$r.squared
     results_df$ICp[q_idx] <- result$criterion$ICp
     results_df$AIC[q_idx] <- result$criterion$AIC

@@ -131,7 +131,7 @@ A list with components:
 \item{rank}{The rank \eqn{Q} used in the factorization.}
 \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-\item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, and \code{B.prob.entropy.mean}.}
+\item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, \code{B.prob.entropy.mean}, and \code{rank.effective} (effective rank: \eqn{\exp} of the Shannon entropy of the per-factor activation-variance distribution \eqn{\mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}; ranges in \eqn{[1, Q]} and counts the number of latent factors that actively contribute to across-sample variation; same functional form as the singular-value effective rank of Roy & Vetterli (2007), applied to activation variance as an SVD-free diagonal proxy).}
 }
 \description{
 \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
@@ -186,6 +186,10 @@ Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix
 Tri-Factorizations for Clustering.
 In \emph{Proc. 12th ACM SIGKDD} (pp. 126--135).
 \doi{10.1145/1150402.1150420}
+
+Roy, O., & Vetterli, M. (2007). The effective rank: A measure of
+effective dimensionality. In \emph{15th European Signal Processing
+Conference (EUSIPCO)} (pp. 606--610).
 }
 \seealso{
 \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}

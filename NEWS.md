@@ -1,5 +1,21 @@
 # nmfkc 0.7.4 (development)
 
+### **New diagnostic: effective rank**
+- `nmfkc()` now reports `criterion$rank.effective`, the **effective
+  rank** of the fit: \eqn{\exp} of the Shannon entropy of the
+  per-factor activation-variance distribution
+  \eqn{\mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.
+  It ranges in \eqn{[1, Q]} and counts how many latent factors
+  actively contribute to across-sample variation (dead, zero-variance
+  factors drop out).  Same functional form as the singular-value
+  effective rank of Roy & Vetterli (2007), applied to activation
+  variance as a fast, SVD-free diagonal proxy.
+- `summary.nmfkc()` prints `Effective Rank: x.xx / Q`.
+- `nmfkc.rank()` adds a `rank.effective` column to its criteria table.
+  When effective rank plateaus well below the nominal rank, the extra
+  factors are not adding new across-sample variation — a signal that
+  the rank is over-specified.
+
 ### **Improvements**
 - **Unified three-variant R² across all NMF functions.**  Every NMF
   variant (`nmfkc()`, `nmfae()`, `nmfae.signed()`, `nmfkc.net()`,
