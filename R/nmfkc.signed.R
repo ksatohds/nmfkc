@@ -944,3 +944,39 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
     objfunc.fold = cv$objfunc.fold, folds = folds, Q.grid = rank
   ), class = c("nmfkc.signed.ecv", "nmfkc.ecv"))
 }
+
+
+#' @title Rank selection for nmfkc.signed (concise diagnostics)
+#' @description
+#' Fits \code{\link{nmfkc.signed}} across a range of ranks and reports
+#' \code{r.squared}, the effective rank, and the element-wise CV error
+#' \code{sigma.ecv}, with the same concise plot as
+#' \code{\link{nmfkc.rank}}.
+#' @param Y Observation matrix (may contain negative entries).
+#' @param A Covariate matrix (may be signed).
+#' @param rank Integer vector of ranks to evaluate.
+#' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
+#' @param ... Passed on to \code{\link{nmfkc.signed}} and
+#'   \code{nmfkc.signed.ecv} (e.g.\ \code{maxit}, \code{nfolds},
+#'   \code{seed}).
+#' @return A list with \code{rank.best} and \code{criteria}
+#'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
+#'   \code{r.squared}, \code{sigma.ecv}).
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc.rank}}
+#' @export
+nmfkc.signed.rank <- function(Y, A, rank = 1:5, plot = TRUE, ...) {
+  Y <- as.matrix(Y); A <- as.matrix(A)
+  rs <- numeric(length(rank)); er <- numeric(length(rank))
+  for (i in seq_along(rank)) {
+    f <- suppressMessages(nmfkc.signed(Y, A, rank = rank[i],
+                                       verbose = FALSE, ...))
+    rs[i] <- f$r.squared
+    er[i] <- .effective.rank(f$B)
+  }
+  ecv <- suppressMessages(nmfkc.signed.ecv(Y, A, rank = rank, ...))$sigma
+  criteria <- data.frame(rank = rank, effective.rank = er,
+                         effective.rank.ratio = er / rank,
+                         r.squared = rs, sigma.ecv = as.numeric(ecv))
+  .rank.finish(criteria, plot = plot,
+               main = "nmfkc.signed rank selection")
+}

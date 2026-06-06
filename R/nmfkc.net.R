@@ -1219,6 +1219,51 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
 }
 
 
+#' @title Rank selection for nmfkc.net (concise diagnostics)
+#' @description
+#' Fits \code{\link{nmfkc.net}} across a range of ranks and reports the
+#' three rank-selection criteria -- \code{r.squared}, the effective rank
+#' (utilization), and the element-wise CV error \code{sigma.ecv} -- with
+#' the same concise diagnostics plot as \code{\link{nmfkc.rank}}.
+#' @param Y Symmetric (network) observation matrix.
+#' @param rank Integer vector of ranks to evaluate.
+#' @param type One of \code{"tri"}, \code{"bi"}, \code{"signed"}.
+#' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
+#' @param ... Passed on to \code{\link{nmfkc.net}} and
+#'   \code{\link{nmfkc.net.ecv}} (e.g.\ \code{nstart}, \code{maxit},
+#'   \code{nfolds}, \code{seed}).
+#' @return A list with \code{rank.best} (ECV minimum) and \code{criteria}
+#'   (data frame: \code{rank}, \code{effective.rank},
+#'   \code{effective.rank.ratio}, \code{r.squared}, \code{sigma.ecv}).
+#' @seealso \code{\link{nmfkc.net}}, \code{\link{nmfkc.net.ecv}},
+#'   \code{\link{nmfkc.rank}}
+#' @export
+#' @examples
+#' \donttest{
+#' Y <- matrix(c(0,1,1,0,0,0, 1,0,1,0,0,0, 1,1,0,1,0,0,
+#'               0,0,1,0,1,1, 0,0,0,1,0,1, 0,0,0,1,1,0), 6, 6)
+#' nmfkc.net.rank(Y, rank = 1:3, type = "tri", nstart = 5, nfolds = 3)
+#' }
+nmfkc.net.rank <- function(Y, rank = 1:5, type = c("tri", "bi", "signed"),
+                           plot = TRUE, ...) {
+  type <- match.arg(type)
+  Y <- as.matrix(Y)
+  rs <- numeric(length(rank)); er <- numeric(length(rank))
+  for (i in seq_along(rank)) {
+    f <- suppressMessages(nmfkc.net(Y, rank = rank[i], type = type,
+                                    verbose = FALSE, ...))
+    rs[i] <- f$r.squared
+    er[i] <- .effective.rank(t(f$X))
+  }
+  ecv <- suppressMessages(nmfkc.net.ecv(Y, rank = rank, type = type, ...))$sigma
+  criteria <- data.frame(rank = rank, effective.rank = er,
+                         effective.rank.ratio = er / rank,
+                         r.squared = rs, sigma.ecv = as.numeric(ecv))
+  .rank.finish(criteria, plot = plot,
+               main = sprintf("nmfkc.net rank selection (type=%s)", type))
+}
+
+
 ## ==============================================================
 ## Summary methods for nmfkc.net and nmfkc.net.signed
 ## (Format unified with print.summary.nmfkc)

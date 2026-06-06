@@ -1,5 +1,24 @@
 # nmfkc 0.7.4 (development)
 
+### **Rank-selection functions for the other NMF families**
+- New `nmfkc.net.rank()`, `nmfkc.signed.rank()`, `nmfae.rank()`
+  (paired \eqn{Q = R}) and `nmfae.signed.rank()` (paired) bring
+  `nmfkc.rank`-style rank selection to the other multiplicative-update
+  models.  Each reports the three criteria that are well defined for
+  every family -- `r.squared`, the effective rank (utilization), and the
+  element-wise CV error `sigma.ecv` -- and returns
+  `list(rank.best, criteria)`.  (`nmf.ffb` / `nmfre` are not covered:
+  they do not support the element masking that ECV needs.)
+- **`nmfkc.rank()` plot simplified and unified.**  All `*.rank`
+  functions now share one back-end `.rank.finish()` and draw the same
+  concise three-criterion figure: `r.squared` (red), `eff.rank` (green),
+  and `sigma.ecv` (blue, right axis), each as a line with points,
+  rank-number labels, and a highlighted best marker -- "Best (Elbow)"
+  for the R-squared knee, "Best (Peak)" for the effective-rank
+  utilization, and "Best (Min)" for the CV minimum.  `nmfkc.rank()`
+  still computes `ARI`, `silhouette`, `CPCC`, and `dist.cor` into its
+  `criteria` table, but no longer plots them.
+
 ### **Internal: shared element-wise CV helpers**
 - The four element-wise cross-validation functions (`nmfkc.ecv()`,
   `nmfae.ecv()`, `nmfkc.signed.ecv()`, `nmfae.signed.ecv()`) now build

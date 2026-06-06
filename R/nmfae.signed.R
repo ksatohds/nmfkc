@@ -1125,6 +1125,45 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
 }
 
 
+#' @title Rank selection for nmfae.signed (paired rank, concise diagnostics)
+#' @description
+#' Fits \code{\link{nmfae.signed}} with a \strong{paired} decoder/encoder
+#' rank (\eqn{Q = R}) across a range of ranks and reports
+#' \code{r.squared}, the effective rank (of the latent encoding \eqn{H}),
+#' and the element-wise CV error \code{sigma.ecv}, with the same concise
+#' plot as \code{\link{nmfkc.rank}}.  For a full \eqn{(Q, R)} grid use
+#' \code{\link{nmfae.signed.ecv}}.
+#' @param Y1 Endogenous matrix (\eqn{P_1 \times N}); may be signed.
+#' @param Y2 Exogenous matrix; defaults to \code{Y1}.
+#' @param rank Integer vector of (paired) ranks to evaluate.
+#' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
+#' @param ... Passed on to \code{\link{nmfae.signed}} and
+#'   \code{\link{nmfae.signed.ecv}}.
+#' @return A list with \code{rank.best} and \code{criteria}
+#'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
+#'   \code{r.squared}, \code{sigma.ecv}).
+#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.signed.ecv}},
+#'   \code{\link{nmfkc.rank}}
+#' @export
+nmfae.signed.rank <- function(Y1, Y2 = Y1, rank = 1:5, plot = TRUE, ...) {
+  Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
+  rs <- numeric(length(rank)); er <- numeric(length(rank))
+  for (i in seq_along(rank)) {
+    f <- suppressMessages(nmfae.signed(Y1, Y2, rank = rank[i],
+                                       rank.encoder = rank[i],
+                                       print.trace = FALSE, ...))
+    rs[i] <- f$r.squared
+    er[i] <- .effective.rank(f$H)
+  }
+  ecv <- suppressMessages(nmfae.signed.ecv(Y1, Y2, rank = rank, ...))$sigma
+  criteria <- data.frame(rank = rank, effective.rank = er,
+                         effective.rank.ratio = er / rank,
+                         r.squared = rs, sigma.ecv = as.numeric(ecv))
+  .rank.finish(criteria, plot = plot,
+               main = "nmfae.signed rank selection (paired Q=R)")
+}
+
+
 ## ==============================================================
 #' @title Summary method for nmfae.signed.inference objects
 #' @description
