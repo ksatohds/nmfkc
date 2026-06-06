@@ -784,33 +784,12 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
         sprintf("(%.1f%%)", x$prop.missing), "\n")
   }
 
-  cat("\nGoodness of fit:\n")
-  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
-  if (!is.null(x$r.squared.uncentered))
-    cat("  R-squared (uncentered):    ", format(x$r.squared.uncentered, digits = digits), "\n")
-  if (!is.null(x$r.squared.centered))
-    cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
-  cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
-  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
-  if (!is.null(x$effective.rank) && is.finite(x$effective.rank)) {
-    cat(sprintf("  Effective Rank:      %.2f / %d  (%.1f%%)\n",
-                x$effective.rank, x$rank, 100 * x$effective.rank / x$rank))
-  }
+  .print.fit.statistics(x, header = "Goodness of fit:", digits = digits)
 
-  cat("\nStructure Diagnostics:\n")
-  if (!is.null(x$X1.sparsity)) {
-    cat("  X1 sparsity (< 1e-4):    ",
-        sprintf("%.1f%%", x$X1.sparsity * 100), "\n")
-  }
-  if (!is.null(x$C.sparsity)) {
-    cat("  C sparsity (< 1e-4):     ",
-        sprintf("%.1f%%", x$C.sparsity * 100), "\n")
-  }
-  if (!is.null(x$X2.sparsity)) {
-    cat("  X2 sparsity (< 1e-4):    ",
-        sprintf("%.1f%%", x$X2.sparsity * 100), "\n")
-  }
+  .print.structure.diagnostics(
+    sparsity = c("Decoder (X1)" = x$X1.sparsity,
+                 "Bottleneck (C)" = x$C.sparsity,
+                 "Encoder (X2)" = x$X2.sparsity))
 
   # Coefficients table (inference)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {

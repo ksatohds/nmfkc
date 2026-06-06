@@ -1,5 +1,16 @@
 # nmfkc 0.7.4 (development)
 
+### **Unified summary print blocks**
+- New shared internal helpers `.print.fit.statistics()` and
+  `.print.structure.diagnostics()` render the "Statistics" /
+  "Goodness of fit" and "Structure Diagnostics" blocks for
+  `summary.nmfkc()`, `summary.nmfae()`, and `summary.nmfkc.net()`
+  (incl. the signed variant).  Labels are padded to a common width so
+  values are column-aligned, fields absent from a given model are
+  skipped automatically (e.g.\ `nmfkc.net` has no residual SE), and any
+  future fit statistic or sparsity row is now added in one place
+  instead of per-summary.
+
 ### **Effective Rank in all five MU-family summaries**
 - `summary()` now reports the **Effective Rank** as `x.xx / Q  (NN.N%)`
   -- the absolute value, the nominal rank, and the utilization ratio

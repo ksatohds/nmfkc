@@ -1291,24 +1291,12 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
   cat("Runtime:    ", x$runtime, "\n")
   cat("Iterations: ", x$iter, "\n")
 
-  cat("\nStatistics:\n")
-  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
-  if (!is.null(x$r.squared.uncentered))
-    cat("  R-squared (uncentered):    ", format(x$r.squared.uncentered, digits = digits), "\n")
-  if (!is.null(x$r.squared.centered))
-    cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
-  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
-  if (!is.null(x$effective.rank) && is.finite(x$effective.rank)) {
-    cat(sprintf("  Effective Rank:      %.2f / %d  (%.1f%%)\n",
-                x$effective.rank, x$rank, 100 * x$effective.rank / x$rank))
-  }
+  .print.fit.statistics(x, digits = digits)
 
-  cat("\nStructure Diagnostics:\n")
-  cat("  Basis (X) Sparsity:  ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
-  cat("  C    Sparsity:       ", sprintf("%.1f%%", x$C.sparsity * 100), "(|C| < 1e-4)\n")
-  cat("  X range:             ", sprintf("[%.3g, %.3g]", x$X.range[1], x$X.range[2]), "\n")
-  cat("  C range:             ", sprintf("[%.3g, %.3g]", x$C.range[1], x$C.range[2]), "\n")
+  .print.structure.diagnostics(
+    sparsity = c("Basis (X)" = x$X.sparsity, "C" = x$C.sparsity))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "X range:", x$X.range[1], x$X.range[2]))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "C range:", x$C.range[1], x$C.range[2]))
 
   cat("\nCluster sizes (hard assignment by argmax of X):\n  ")
   print(x$X.cluster.counts)
@@ -1347,27 +1335,15 @@ print.summary.nmfkc.net.signed <- function(x, digits = max(3L, getOption("digits
   cat("Runtime:    ", x$runtime, "\n")
   cat("Iterations: ", x$iter, "\n")
 
-  cat("\nStatistics:\n")
-  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
-  if (!is.null(x$r.squared.uncentered))
-    cat("  R-squared (uncentered):    ", format(x$r.squared.uncentered, digits = digits), "\n")
-  if (!is.null(x$r.squared.centered))
-    cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
-  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
-  if (!is.null(x$effective.rank) && is.finite(x$effective.rank)) {
-    cat(sprintf("  Effective Rank:      %.2f / %d  (%.1f%%)\n",
-                x$effective.rank, x$rank, 100 * x$effective.rank / x$rank))
-  }
+  .print.fit.statistics(x, digits = digits)
 
-  cat("\nStructure Diagnostics:\n")
-  cat("  Basis (X) Sparsity:  ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
-  cat("  C    Sparsity:       ", sprintf("%.1f%%", x$C.sparsity * 100), "(|C| < 1e-4)\n")
-  cat("  X range:             ", sprintf("[%.3g, %.3g]", x$X.range[1], x$X.range[2]), "\n")
-  cat("  Cp range:            ", sprintf("[%.3g, %.3g]", x$Cp.range[1], x$Cp.range[2]), "\n")
-  cat("  Cn range:            ", sprintf("[%.3g, %.3g]", x$Cn.range[1], x$Cn.range[2]), "\n")
-  cat("  C range:             ", sprintf("[%.3g, %.3g]", x$C.range[1], x$C.range[2]), "\n")
-  cat("  Negative mass:       ", sprintf("%.1f%% (of sum |C|)", 100 * x$neg.frac), "\n")
+  .print.structure.diagnostics(
+    sparsity = c("Basis (X)" = x$X.sparsity, "C" = x$C.sparsity))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "X range:",  x$X.range[1],  x$X.range[2]))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "Cp range:", x$Cp.range[1], x$Cp.range[2]))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "Cn range:", x$Cn.range[1], x$Cn.range[2]))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "C range:",  x$C.range[1],  x$C.range[2]))
+  cat(sprintf("  %-24s %.1f%% (of sum |C|)\n", "Negative mass:", 100 * x$neg.frac))
 
   cat("\nCluster sizes (hard assignment by argmax of X):\n  ")
   print(x$X.cluster.counts)

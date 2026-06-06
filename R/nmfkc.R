@@ -968,6 +968,83 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+#' @title Print a unified "Statistics" block for an NMF summary (Internal)
+#' @description
+#' Prints the common fit-statistics block shared by the NMF summary
+#' methods (objective, the three R-squared variants, residual SE, MAE,
+#' and effective rank), reading them from a list/object \code{x}.  Each
+#' field is printed only when present and finite, so models that lack a
+#' given statistic (e.g.\ \code{nmfkc.net} has no residual SE) simply
+#' omit that line.  Labels are left-padded to a common width so values
+#' align across all summaries.
+#' @param x A list/object with any of \code{objfunc}, \code{r.squared},
+#'   \code{r.squared.uncentered}, \code{r.squared.centered},
+#'   \code{sigma}, \code{mae}, \code{effective.rank}, \code{rank}.
+#' @param header Section header (default \code{"Statistics:"}).
+#' @param digits Significant digits for numeric fields.
+#' @return \code{NULL}, invisibly (called for its printing side effect).
+#' @keywords internal
+#' @noRd
+.print.fit.statistics <- function(x, header = "Statistics:", digits = 4) {
+  base::cat("\n", header, "\n", sep = "")
+  w <- 24L
+  num <- function(label, val) {
+    if (!base::is.null(val) && base::length(val) == 1L && base::is.finite(val))
+      base::cat(base::sprintf("  %-*s %s\n", w, label,
+                              base::format(val, digits = digits)))
+  }
+  num("Objective function:",     x$objfunc)
+  num("R-squared (cor^2):",      x$r.squared)
+  num("R-squared (uncentered):", x$r.squared.uncentered)
+  num("R-squared (centered):",   x$r.squared.centered)
+  num("Residual Std Error:",     x$sigma)
+  num("Mean Absolute Error:",    x$mae)
+  if (!base::is.null(x$effective.rank) && base::is.finite(x$effective.rank) &&
+      !base::is.null(x$rank) && base::is.finite(x$rank))
+    base::cat(base::sprintf("  %-*s %.2f / %d  (%.1f%%)\n", w, "Effective Rank:",
+                            x$effective.rank, x$rank,
+                            100 * x$effective.rank / x$rank))
+  base::invisible(NULL)
+}
+
+
+#' @title Print a unified "Structure Diagnostics" block (Internal)
+#' @description
+#' Prints the common structure-diagnostics block shared by the NMF
+#' summary methods: one sparsity line per factor matrix plus an optional
+#' clustering-crispness line.  Sparsities are supplied as a named
+#' numeric vector (name = matrix label, value = fraction of near-zero
+#' entries); labels are aligned to the same width as
+#' \code{\link{.print.fit.statistics}}.  Model-specific extras (value
+#' ranges, cluster sizes, \dots) are printed by the caller after this
+#' block.
+#' @param sparsity Named numeric vector of sparsity fractions in
+#'   \eqn{[0, 1]}; names become the row labels (e.g.\ \code{"Basis (X)"}).
+#' @param crispness Optional clustering crispness in \eqn{[1/Q, 1]}.
+#' @param header Section header (default \code{"Structure Diagnostics:"}).
+#' @return \code{NULL}, invisibly.
+#' @keywords internal
+#' @noRd
+.print.structure.diagnostics <- function(sparsity = NULL, crispness = NULL,
+                                         header = "Structure Diagnostics:") {
+  base::cat("\n", header, "\n", sep = "")
+  w <- 24L
+  if (!base::is.null(sparsity)) {
+    for (lab in base::names(sparsity)) {
+      v <- sparsity[[lab]]
+      if (!base::is.null(v) && base::is.finite(v))
+        base::cat(base::sprintf("  %-*s %.1f%% (< 1e-4)\n", w,
+                                base::paste0(lab, " Sparsity:"), 100 * v))
+    }
+  }
+  if (!base::is.null(crispness) && base::is.finite(crispness))
+    base::cat(base::sprintf("  %-*s %s (range: 1/Q-1, closer to 1 = more decisive assignment)\n",
+                            w, "Clustering Crispness:",
+                            base::format(crispness, digits = 4)))
+  base::invisible(NULL)
+}
+
+
 #' @title Parse formula and prepare Y and A matrices
 #' @description
 #' Internal function to handle formula input, parse variables, and generate
@@ -1809,32 +1886,11 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
         sprintf("(%.1f%%)", x$prop.missing), "\n")
   }
 
-  cat("\nStatistics:\n")
-  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  R-squared (cor^2):   ", format(x$r.squared, digits = digits), "\n")
-  if (!is.null(x$r.squared.uncentered))
-    cat("  R-squared (uncentered):    ", format(x$r.squared.uncentered, digits = digits), "\n")
-  if (!is.null(x$r.squared.centered))
-    cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
-  cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
-  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+  .print.fit.statistics(x, digits = digits)
 
-  if (!is.null(x$effective.rank) && is.finite(x$effective.rank)) {
-    cat(sprintf("  Effective Rank:      %.2f / %d  (%.1f%%)\n",
-                x$effective.rank, x$rank, 100 * x$effective.rank / x$rank))
-  }
-
-  cat("\nStructure Diagnostics:\n")
-  if (!is.null(x$X.sparsity)) {
-    cat("  Basis (X) Sparsity:   ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
-  }
-  if (!is.null(x$B.prob.sparsity)) {
-    cat("  Coef (B) Sparsity:    ", sprintf("%.1f%%", x$B.prob.sparsity * 100), "(< 1e-4)\n")
-  }
-  if(!is.null(x$B.prob.max.mean)){
-    cat("  Clustering Crispness: ", format(x$B.prob.max.mean, digits = digits),
-        "(range: 1/Q-1, closer to 1 = more decisive assignment)\n")
-  }
+  .print.structure.diagnostics(
+    sparsity  = c("Basis (X)" = x$X.sparsity, "Coef (B)" = x$B.prob.sparsity),
+    crispness = x$B.prob.max.mean)
   cat("\n")
   invisible(x)
 }
