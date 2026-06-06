@@ -37,9 +37,11 @@ This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for \code{Q},
 allowing simultaneous evaluation of multiple ranks on the same folds.
 
-When \code{Y.symmetric = "bi"} or \code{"tri"} is passed via \code{...},
-fold creation uses only the upper triangle (including the diagonal) to
-prevent information leakage through the symmetric entries \eqn{Y_{ij} = Y_{ji}}.
+For symmetric (network) data use \code{\link{nmfkc.net.ecv}}, which
+creates upper-triangle folds to prevent information leakage through
+the symmetric entries \eqn{Y_{ij} = Y_{ji}}.  Passing the old
+\code{Y.symmetric} argument here is no longer supported and stops
+with a redirect message.
 }
 \examples{
 # Element-wise CV to select rank

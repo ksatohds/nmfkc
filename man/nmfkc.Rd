@@ -62,37 +62,21 @@ Promotes \strong{sparsity in the parameter matrix}. (Formerly \code{lambda}).
 \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
-This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
-would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
 \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 multi-start evaluation (when \code{X.init = "runif"}).
-For symmetric NMF (\code{Y.symmetric = "tri"} or \code{"bi"}), results are sensitive to
-initial values; \code{nstart = 20} or higher is recommended.
 \item \code{seed}: Integer seed for reproducibility (default: 123).
 \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
-\item \code{Y.symmetric}: Character string specifying the type of symmetric NMF.
-\code{"none"} (default): standard NMF (\eqn{Y \approx XB}).
-\code{"bi"}: 2-factor symmetric NMF (\eqn{Y \approx X X^\top}).
-Internally implemented as the \code{"tri"} model with \eqn{C = I_Q} (identity matrix)
-held fixed, so that \eqn{X} is updated freely without column normalization.
-The multiplicative update for \eqn{X} uses cube-root damping
-(\eqn{X \leftarrow X \circ (numerator / denominator)^{1/3}}) to prevent
-oscillation, since \eqn{X} appears in both factors of the decomposition
-(He et al., 2011, Proposition 1).
-\code{"tri"}: 3-factor symmetric NMF (\eqn{Y \approx X C X^\top})
-where \eqn{C} is a \eqn{Q \times Q} matrix representing cluster interactions
-(Ding et al., 2006).
-Both \code{"bi"} and \code{"tri"} require \code{Y} to be square
-and cannot be used with covariate matrix \code{A}.
-When \code{Y.symmetric = "bi"}, \code{X.restriction}
-is automatically set to \code{"none"} (no column normalization), because
-\eqn{C = I_Q} is fixed and cannot absorb the scale.
-For \code{"tri"}, column normalization is retained (default \code{"colSums"})
-because the free parameter matrix \eqn{C} absorbs the scale.
+\item \code{Y.symmetric}: \strong{Removed.} Symmetric NMF
+(\eqn{Y \approx X X^\top} or \eqn{X C X^\top}) has moved to the
+dedicated \code{\link{nmfkc.net}} function (types \code{"tri"},
+\code{"bi"}, \code{"signed"}), which uses the correct
+Frobenius bilateral-gradient updates.  Passing \code{Y.symmetric}
+to \code{nmfkc()} now stops with a message pointing to
+\code{nmfkc.net()}.
 \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 \item \code{print.dims}: Deprecated. Use \code{verbose} instead.

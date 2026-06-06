@@ -1242,37 +1242,21 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'     \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 #'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 #'       \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
-#'       This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
-#'       would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
 #'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
 #'     \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 #'       Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 #'       multi-start evaluation (when \code{X.init = "runif"}).
-#'       For symmetric NMF (\code{Y.symmetric = "tri"} or \code{"bi"}), results are sensitive to
-#'       initial values; \code{nstart = 20} or higher is recommended.
 #'     \item \code{seed}: Integer seed for reproducibility (default: 123).
 #'     \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 #'       (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 #'       otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
-#'     \item \code{Y.symmetric}: Character string specifying the type of symmetric NMF.
-#'       \code{"none"} (default): standard NMF (\eqn{Y \approx XB}).
-#'       \code{"bi"}: 2-factor symmetric NMF (\eqn{Y \approx X X^\top}).
-#'       Internally implemented as the \code{"tri"} model with \eqn{C = I_Q} (identity matrix)
-#'       held fixed, so that \eqn{X} is updated freely without column normalization.
-#'       The multiplicative update for \eqn{X} uses cube-root damping
-#'       (\eqn{X \leftarrow X \circ (numerator / denominator)^{1/3}}) to prevent
-#'       oscillation, since \eqn{X} appears in both factors of the decomposition
-#'       (He et al., 2011, Proposition 1).
-#'       \code{"tri"}: 3-factor symmetric NMF (\eqn{Y \approx X C X^\top})
-#'       where \eqn{C} is a \eqn{Q \times Q} matrix representing cluster interactions
-#'       (Ding et al., 2006).
-#'       Both \code{"bi"} and \code{"tri"} require \code{Y} to be square
-#'       and cannot be used with covariate matrix \code{A}.
-#'       When \code{Y.symmetric = "bi"}, \code{X.restriction}
-#'       is automatically set to \code{"none"} (no column normalization), because
-#'       \eqn{C = I_Q} is fixed and cannot absorb the scale.
-#'       For \code{"tri"}, column normalization is retained (default \code{"colSums"})
-#'       because the free parameter matrix \eqn{C} absorbs the scale.
+#'     \item \code{Y.symmetric}: \strong{Removed.} Symmetric NMF
+#'       (\eqn{Y \approx X X^\top} or \eqn{X C X^\top}) has moved to the
+#'       dedicated \code{\link{nmfkc.net}} function (types \code{"tri"},
+#'       \code{"bi"}, \code{"signed"}), which uses the correct
+#'       Frobenius bilateral-gradient updates.  Passing \code{Y.symmetric}
+#'       to \code{nmfkc()} now stops with a message pointing to
+#'       \code{nmfkc.net()}.
 #'     \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 #'     \item \code{print.dims}: Deprecated. Use \code{verbose} instead.
@@ -1380,17 +1364,22 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
   seed <- if (!base::is.null(extra_args$seed)) extra_args$seed else 123
   C.init <- if (!is.null(extra_args$C.init)) extra_args$C.init else NULL
-  Y.symmetric <- if (!base::is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else "none"
-  Y.symmetric <- base::match.arg(Y.symmetric, c("none", "bi", "tri"))
-  if (Y.symmetric != "none") {
-    .Deprecated(
-      new = "nmfkc.net",
-      msg = paste0(
-        "Y.symmetric = \"", Y.symmetric, "\" in nmfkc() is deprecated.\n",
-        "Use nmfkc.net(Y, rank, type = \"", Y.symmetric, "\") instead, ",
-        "which implements the correct Frobenius bilateral-gradient updates.\n",
-        "See help(nmfkc.net) (all three types: \"tri\", \"bi\", \"signed\")."
-      )
+  ## Symmetric NMF (Y ~ X X^T or X C X^T) has moved out of nmfkc() into
+  ## the dedicated nmfkc.net() function (Frobenius bilateral-gradient
+  ## updates; types "tri", "bi", "signed").  The old Y.symmetric option
+  ## was deprecated in v0.7.x and is removed here: passing it now stops
+  ## with a redirect message rather than silently running plain NMF.
+  if (!base::is.null(extra_args$Y.symmetric) &&
+      !base::identical(base::as.character(extra_args$Y.symmetric), "none")) {
+    ys <- base::as.character(extra_args$Y.symmetric)[1]
+    ys_type <- if (ys %in% c("bi", "tri")) ys else "tri"
+    base::stop(
+      "`Y.symmetric` is no longer supported in nmfkc().\n",
+      "Symmetric NMF has moved to nmfkc.net(). Use:\n",
+      "    nmfkc.net(Y, rank, type = \"", ys_type, "\")\n",
+      "which implements the correct Frobenius bilateral-gradient updates.\n",
+      "See help(nmfkc.net) for the types \"tri\", \"bi\", and \"signed\".",
+      call. = FALSE
     )
   }
 
@@ -1430,10 +1419,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     if(base::min(A, na.rm=TRUE)<0) base::stop("The matrix A should be non-negative.")
   }
   if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
-  if(Y.symmetric != "none"){
-    if(base::nrow(Y) != base::ncol(Y)) base::stop("Y.symmetric requires a square matrix Y.")
-    if(!base::is.null(A)) base::stop("Y.symmetric cannot be used with covariate matrix A.")
-  }
 
   # === Weights Handling ===
   # 1. Vector Expansion (Column-wise weights)
@@ -1467,12 +1452,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   }
 
   # --- 3. Algorithm Setup ---
-  # Override X.restriction for bi-symmetric NMF: column normalization would break
-  # the scale of XX^T because C = I is fixed and cannot absorb the scale.
-  # For tri-symmetric NMF, colSums normalization is kept because C is free to absorb the scale.
-  if(Y.symmetric == "bi" && X.restriction == "colSums"){
-    X.restriction <- "none"
-  }
   X.restriction <- base::match.arg(X.restriction, base::c("colSums", "colSqSums", "totalSum", "none", "fixed"))
   xnorm <- base::switch(X.restriction,
                         colSums   = function(X) base::sweep(X, 2, base::colSums(X), "/"),
@@ -1506,11 +1485,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   # Initialize tX here so it exists even if the X update loop is skipped (e.g., scalar X)
   tX <- t(X)
 
-  if(Y.symmetric == "bi"){
-    C <- base::diag(Q)  # symmetric NMF (bi): Y ≈ X I X^T = X X^T
-  }else if(Y.symmetric == "tri"){
-    if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=Q) else C <- C.init  # tri: C is Q x Q
-  }else if(is.null(A)){
+  if(is.null(A)){
     if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=ncol(Y)) else C <- C.init
   }else{
     if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=nrow(A)) else C <- C.init
@@ -1529,7 +1504,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 
   # --- 4. Main Loop (Weighted) ---
   for(i in 1:maxit){
-    if(Y.symmetric %in% c("bi", "tri")) B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
+    if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
     if(print.trace && i %% 10==0) message(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
@@ -1542,27 +1517,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
         update_ratio <- num_X / (den_X + .eps)
-        # Cube-root damping for bi-symmetric NMF (Y ≈ XX^T): X appears in
-        # both factors, so the standard multiplicative update oscillates.
-        # The cube root is theoretically justified by He et al. (2011,
-        # Proposition 1) using auxiliary function analysis.
-        # Not needed for tri because C absorbs the scale (X is column-normalized).
-        if(Y.symmetric == "bi") update_ratio <- update_ratio^(1/3)
         X <- X * update_ratio
         X <- xnorm(X)
         tX <- t(X)
       }
-      # Recompute B and XB with updated X before C update (tri-symmetric fix)
-      if(Y.symmetric == "tri"){ B <- C %*% tX; XB <- X %*% B }
-      if(Y.symmetric == "bi"){
-        # C = I_Q is fixed; no update needed (bi is tri with C = I)
-      }else if(Y.symmetric == "tri"){
-        # tri-factorization: Y ≈ X C X^T, update C (Q x Q)
-        num_C <- tX %*% (Y.weights * Y) %*% X
-        den_C <- tX %*% (Y.weights * XB) %*% X
-        if (C.L1 != 0) den_C <- den_C + (C.L1/2) * matrix(1, nrow=Q, ncol=Q)
-        C <- C * (num_C / (den_C + .eps))
-      }else if(is.null(A)) {
+      if(is.null(A)) {
         num_C <- tX %*% (Y.weights * Y)
         den_C <- tX %*% (Y.weights * XB)
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QN
@@ -1593,24 +1552,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
         update_ratio <- num_X / (den_X + .eps)
-        # Cube-root damping for bi-symmetric NMF (KL divergence).
-        if(Y.symmetric == "bi") update_ratio <- update_ratio^(1/3)
         X <- X * update_ratio
         X <- xnorm(X)
         tX <- t(X)
       }
-      # Recompute B and XB with updated X before C update (tri-symmetric fix)
-      if(Y.symmetric == "tri"){ B <- C %*% tX; XB <- X %*% B }
-      if(Y.symmetric == "bi"){
-        # C = I_Q is fixed; no update needed (bi is tri with C = I)
-      }else if(Y.symmetric == "tri"){
-        # tri-factorization: Y ≈ X C X^T, update C (Q x Q) with KL
-        ratio <- Y.weights * (Y / (XB + .eps))
-        num_C <- tX %*% ratio %*% X
-        den_C <- tX %*% Y.weights %*% X
-        if (C.L1 != 0) den_C <- den_C + C.L1 * matrix(1, nrow=Q, ncol=Q)
-        C <- C * (num_C / (den_C + .eps))
-      }else if(is.null(A)) {
+      if(is.null(A)) {
         ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio
         den_C <- tX %*% Y.weights
@@ -1645,7 +1591,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     }
   }
 
-  if(Y.symmetric %in% c("bi", "tri")) B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
+  if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
 
   if(method=="EU"){
@@ -1664,7 +1610,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   if(ncol(X) > 1 && X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
     X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]
-    if(Y.symmetric == "tri") C <- C[index,index,drop=FALSE] else C <- C[index,,drop=FALSE]
+    C <- C[index,,drop=FALSE]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
   if (!is.null(A)) {
@@ -2403,9 +2349,11 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #' the optimal rank (Q) in NMF. This function supports vector input for `Q`,
 #' allowing simultaneous evaluation of multiple ranks on the same folds.
 #'
-#' When \code{Y.symmetric = "bi"} or \code{"tri"} is passed via \code{...},
-#' fold creation uses only the upper triangle (including the diagonal) to
-#' prevent information leakage through the symmetric entries \eqn{Y_{ij} = Y_{ji}}.
+#' For symmetric (network) data use \code{\link{nmfkc.net.ecv}}, which
+#' creates upper-triangle folds to prevent information leakage through
+#' the symmetric entries \eqn{Y_{ij} = Y_{ji}}.  Passing the old
+#' \code{Y.symmetric} argument here is no longer supported and stops
+#' with a redirect message.
 #'
 #' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
 #' @param A Covariate matrix. Ignored when \code{Y} is a formula.
@@ -2455,59 +2403,35 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
     Q <- extra_args$rank
   }
 
-  # Check Y.symmetric from ...
-  Y.symmetric <- if (!is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else "none"
-  Y.symmetric <- match.arg(Y.symmetric, c("none", "bi", "tri"))
+  # Symmetric element-wise CV (upper-triangle folds) has moved to
+  # nmfkc.net.ecv().  Passing Y.symmetric here stops with a redirect.
+  if (!is.null(extra_args$Y.symmetric) &&
+      !identical(as.character(extra_args$Y.symmetric), "none")) {
+    ys <- as.character(extra_args$Y.symmetric)[1]
+    ys_type <- if (ys %in% c("bi", "tri")) ys else "tri"
+    stop("`Y.symmetric` is no longer supported in nmfkc.ecv().\n",
+         "Symmetric element-wise CV has moved to nmfkc.net.ecv(). Use:\n",
+         "    nmfkc.net.ecv(Y, rank, type = \"", ys_type, "\")\n",
+         "See help(nmfkc.net.ecv).", call. = FALSE)
+  }
 
   # 1. Create Folds
   if (!is.null(seed)) set.seed(seed)
 
-  if (Y.symmetric %in% c("bi", "tri")) {
-    # Symmetric matrix: sample only upper triangle + diagonal to avoid info leakage
-    upper_mask <- row(Y) <= col(Y)
-    valid_upper <- which(!is.na(Y) & upper_mask)
-    n_valid <- length(valid_upper)
+  valid_indices <- which(!is.na(Y))
+  n_valid <- length(valid_indices)
 
-    perm_indices <- sample(valid_upper)
-    folds_upper <- vector("list", div)
-    chunk_size <- n_valid %/% div
-    remainder <- n_valid %% div
+  perm_indices <- sample(valid_indices)
+  folds <- vector("list", div)
+  chunk_size <- n_valid %/% div
+  remainder <- n_valid %% div
 
-    start_idx <- 1
-    for(k in 1:div){
-      current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-      end_idx <- start_idx + current_size - 1
-      folds_upper[[k]] <- perm_indices[start_idx:end_idx]
-      start_idx <- end_idx + 1
-    }
-
-    # Expand folds: add symmetric (j,i) for each off-diagonal (i,j)
-    # R matrix index: element (r,c) has linear index = (c-1)*P + r
-    folds <- vector("list", div)
-    for(k in 1:div){
-      idx <- folds_upper[[k]]
-      rc <- arrayInd(idx, .dim = c(P, P))  # row, col
-      # Transpose index: (r,c) -> (c,r) = (rc[,2]-1)*P + rc[,1]... but that's idx itself
-      # We need (c,r): linear index = (rc[,1]-1)*P + rc[,2]
-      sym_idx <- (rc[,1] - 1L) * P + rc[,2]
-      folds[[k]] <- unique(c(idx, sym_idx))
-    }
-  } else {
-    valid_indices <- which(!is.na(Y))
-    n_valid <- length(valid_indices)
-
-    perm_indices <- sample(valid_indices)
-    folds <- vector("list", div)
-    chunk_size <- n_valid %/% div
-    remainder <- n_valid %% div
-
-    start_idx <- 1
-    for(k in 1:div){
-      current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-      end_idx <- start_idx + current_size - 1
-      folds[[k]] <- perm_indices[start_idx:end_idx]
-      start_idx <- end_idx + 1
-    }
+  start_idx <- 1
+  for(k in 1:div){
+    current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
+    end_idx <- start_idx + current_size - 1
+    folds[[k]] <- perm_indices[start_idx:end_idx]
+    start_idx <- end_idx + 1
   }
 
   method <- if(!is.null(extra_args$method)) extra_args$method else "EU"

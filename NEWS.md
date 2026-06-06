@@ -1,5 +1,17 @@
 # nmfkc 0.7.4 (development)
 
+### **Breaking change: symmetric NMF removed from `nmfkc()`**
+- The `Y.symmetric = "bi" / "tri"` option (deprecated in v0.7.x) has been
+  **removed** from `nmfkc()` and `nmfkc.ecv()`.  Symmetric NMF of network
+  data now lives exclusively in the dedicated `nmfkc.net()` /
+  `nmfkc.net.ecv()` functions, which use the correct Frobenius
+  bilateral-gradient updates.  Passing `Y.symmetric` to `nmfkc()` or
+  `nmfkc.ecv()` now stops with a message pointing to the replacement:
+  `nmfkc.net(Y, rank, type = "tri")` (types `"tri"`, `"bi"`, `"signed"`).
+  This also removes the bi/tri code branches (cube-root damping, fixed
+  `C = I`, tri C-update, upper-triangle CV folds) from `nmfkc()`,
+  simplifying the core function.
+
 ### **New diagnostic: effective rank**
 - `nmfkc()` now reports `criterion$rank.effective`, the **effective
   rank** of the fit: `exp` of the Shannon entropy of the

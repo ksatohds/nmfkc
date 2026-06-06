@@ -127,13 +127,26 @@ test_that("nmfkc.net.ecv supports tri/bi/signed via type argument", {
 })
 
 
-test_that("nmfkc(Y.symmetric = 'tri') emits Deprecated warning", {
+test_that("nmfkc(Y.symmetric = ...) stops and redirects to nmfkc.net()", {
   Y <- make_test_network()
-  expect_warning(
-    res <- nmfkc(Y, rank = 2, Y.symmetric = "tri",
-                  nstart = 3, maxit = 100, print.dims = FALSE),
-    "deprecated"
+  ## Symmetric NMF was removed from nmfkc(); passing Y.symmetric now
+  ## errors with a message pointing to nmfkc.net().
+  expect_error(
+    nmfkc(Y, rank = 2, Y.symmetric = "tri",
+          nstart = 3, maxit = 100, print.dims = FALSE),
+    "nmfkc.net"
   )
-  ## Still returns a valid object
-  expect_s3_class(res, "nmfkc")
+  expect_error(
+    nmfkc(Y, rank = 2, Y.symmetric = "bi",
+          nstart = 3, maxit = 100, print.dims = FALSE),
+    "no longer supported"
+  )
+})
+
+test_that("nmfkc.ecv(Y.symmetric = ...) stops and redirects to nmfkc.net.ecv()", {
+  Y <- make_test_network()
+  expect_error(
+    nmfkc.ecv(Y, rank = c(1, 2), Y.symmetric = "tri", nfolds = 3),
+    "nmfkc.net.ecv"
+  )
 })
