@@ -50,7 +50,7 @@ variance.}
 in NMF with kernel covariates. Three rank-selection measures are computed
 (R-squared, the effective rank, and the element-wise CV error), and results
 can be visualized in a plot. Sample-clustering quality (silhouette / CPCC /
-dist.cor) is no longer part of rank selection; use \code{\link{nmf.cluster}}
+dist.cor) is no longer part of rank selection; use \code{\link{nmf.cluster.criteria}}
 on a fitted model for those.
 
 By default (\code{save.time = FALSE}), this function also computes the

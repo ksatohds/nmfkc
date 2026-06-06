@@ -850,7 +850,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @description
 #' Shared computation of the sample-clustering diagnostics used by
 #' \code{\link{nmfkc.criterion}} (inside \code{nmfkc.rank}) and the
-#' user-facing \code{\link{nmf.cluster}}.  From the original data
+#' user-facing \code{\link{nmf.cluster.criteria}}.  From the original data
 #' \eqn{Y} (\eqn{P \times N}) and a \eqn{Q \times N} coefficient/score
 #' matrix \eqn{B} it returns:
 #' \itemize{
@@ -1190,13 +1190,13 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \eqn{C_1 Y_1 + C_2 Y_2} for \code{nmf.ffb}/\code{nmf.sem} (which needs
 #' the exogenous block \code{Y2}).
 #' @param object A fitted MU model.
-#' @param Y The data matrix passed to \code{\link{nmf.cluster}} (used as
+#' @param Y The data matrix passed to \code{\link{nmf.cluster.criteria}} (used as
 #'   \eqn{Y_1} for \code{nmf.ffb}).
 #' @param Y2 Exogenous block, required only for \code{nmf.ffb}/\code{nmf.sem}.
 #' @return A \eqn{Q \times N} numeric matrix.
 #' @keywords internal
 #' @noRd
-.nmf.cluster.coef <- function(object, Y, Y2 = NULL) {
+.nmf.cluster.criteria.coef <- function(object, Y, Y2 = NULL) {
   if (base::inherits(object, "nmfkc.net")) return(base::t(object$X))
   if (base::inherits(object, "nmfae"))     return(object$H)
   if (base::inherits(object, c("nmf.ffb", "nmf.sem"))) {
@@ -1207,7 +1207,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   }
   if (base::inherits(object, "nmfre"))     return(object$B.blup)
   if (base::inherits(object, "nmfkc"))     return(object$B)
-  base::stop("nmf.cluster(): unsupported object class '",
+  base::stop("nmf.cluster.criteria(): unsupported object class '",
              base::paste(base::class(object), collapse = "/"), "'.", call. = FALSE)
 }
 
@@ -1240,7 +1240,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @param Y2 Exogenous block, required only for \code{nmf.ffb} /
 #'   \code{nmf.sem}.
 #' @param ... Unused.
-#' @return An object of class \code{"nmf.cluster"}: a list with
+#' @return An object of class \code{"nmf.cluster.criteria"}: a list with
 #'   \code{silhouette}, \code{CPCC}, \code{dist.cor}, \code{cluster}
 #'   (hard labels or \code{NULL}), \code{hard} (logical), \code{rank},
 #'   and \code{model} (the fitted class).
@@ -1249,27 +1249,27 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @examples
 #' Y <- t(as.matrix(iris[, 1:4]))
 #' fit <- nmfkc(Y, Q = 3, print.dims = FALSE)
-#' nmf.cluster(fit, Y)
-nmf.cluster <- function(object, Y, Y2 = NULL, ...) {
+#' nmf.cluster.criteria(fit, Y)
+nmf.cluster.criteria <- function(object, Y, Y2 = NULL, ...) {
   if (base::missing(Y))
-    base::stop("nmf.cluster() requires the original data matrix Y.", call. = FALSE)
-  B <- .nmf.cluster.coef(object, Y, Y2)
+    base::stop("nmf.cluster.criteria() requires the original data matrix Y.", call. = FALSE)
+  B <- .nmf.cluster.criteria.coef(object, Y, Y2)
   cc <- .cluster.criteria(Y, B)
   out <- base::list(silhouette = cc$silhouette, CPCC = cc$CPCC,
                     dist.cor = cc$dist.cor, cluster = cc$cluster,
                     hard = cc$hard, rank = base::nrow(B),
                     model = base::class(object)[1])
-  base::class(out) <- "nmf.cluster"
+  base::class(out) <- "nmf.cluster.criteria"
   out
 }
 
 
-#' @title Print method for nmf.cluster objects
-#' @param x An object of class \code{"nmf.cluster"}.
+#' @title Print method for nmf.cluster.criteria objects
+#' @param x An object of class \code{"nmf.cluster.criteria"}.
 #' @param ... Unused.
 #' @return \code{x}, invisibly.
 #' @export
-print.nmf.cluster <- function(x, ...) {
+print.nmf.cluster.criteria <- function(x, ...) {
   base::cat(base::sprintf("Sample-clustering diagnostics (%s, rank %d)\n",
                           x$model, x$rank))
   base::cat(base::sprintf("  Hard clustering: %s\n",
@@ -1321,7 +1321,7 @@ print.nmf.cluster <- function(x, ...) {
                          main = "Rank Selection Diagnostics") {
   base::message("Note: sample-clustering quality (silhouette / CPCC / ",
                 "dist.cor) is not part of rank selection; compute it on a ",
-                "fitted model with nmf.cluster().  See ?nmf.cluster")
+                "fitted model with nmf.cluster.criteria().  See ?nmf.cluster.criteria")
   rk <- criteria$rank
   nq <- base::length(rk)
 
@@ -2976,7 +2976,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     # Distance-based criteria (detail == "full" only); computed by the
     # shared .cluster.criteria() helper using the hard labels B.cluster
     # already derived above (so values are unchanged).  The same helper
-    # backs the user-facing nmf.cluster().
+    # backs the user-facing nmf.cluster.criteria().
     if (detail == "full" && !base::any(Y.weights == 0)) {
       cc <- .cluster.criteria(Y, B, labels = B.cluster)
       silhouette <- cc$silhouette
@@ -3022,7 +3022,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' in NMF with kernel covariates. Three rank-selection measures are computed
 #' (R-squared, the effective rank, and the element-wise CV error), and results
 #' can be visualized in a plot. Sample-clustering quality (silhouette / CPCC /
-#' dist.cor) is no longer part of rank selection; use \code{\link{nmf.cluster}}
+#' dist.cor) is no longer part of rank selection; use \code{\link{nmf.cluster.criteria}}
 #' on a fitted model for those.
 #'
 #' By default (\code{save.time = FALSE}), this function also computes the
@@ -3110,7 +3110,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   # --- Main loop: per-rank fit -> effective rank + r.squared ---
   # Fitted with detail = "fast": the (O(N^2)) sample-clustering criteria
   # silhouette / CPCC / dist.cor are no longer part of rank selection.
-  # For per-fit clustering quality use nmf.cluster() instead.
+  # For per-fit clustering quality use nmf.cluster.criteria() instead.
   for(q_idx in 1:num_q){
     current_Q <- Q[q_idx]
 
@@ -3148,7 +3148,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
 
   # Best-rank selection + concise 3-criterion plot (shared back-end).
   # criteria now holds only the rank-selection columns; clustering
-  # quality is provided separately by nmf.cluster().
+  # quality is provided separately by nmf.cluster.criteria().
   return(.rank.finish(results_df, plot = plot,
                       main = "Rank Selection Diagnostics"))
 }

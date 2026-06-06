@@ -1,7 +1,7 @@
 # nmfkc 0.7.4 (development)
 
-### **New `nmf.cluster()`: sample-clustering diagnostics**
-- `nmf.cluster(object, Y)` reports the clustering-quality criteria
+### **New `nmf.cluster.criteria()`: sample-clustering diagnostics**
+- `nmf.cluster.criteria(object, Y)` reports the clustering-quality criteria
   `silhouette`, `CPCC`, and `dist.cor` for a single fitted
   multiplicative-update model from any family (`nmfkc`, `nmfkc.signed`,
   `nmfae`, `nmfae.signed`, `nmfkc.net`, `nmfre`, `nmf.sem`/`nmf.ffb`;
@@ -9,7 +9,7 @@
   **clustering-stability** diagnostics, deliberately separate from the
   rank-selection `*.rank` functions (r.squared / effective rank / ECV).
 - Hard sample clustering needs a non-negative coefficient/score matrix
-  (a valid membership simplex).  `nmf.cluster()` detects this from the
+  (a valid membership simplex).  `nmf.cluster.criteria()` detects this from the
   actual coefficient: when it is non-negative the hard-label
   `silhouette` (and cluster sizes) are returned; when it is signed
   `silhouette` is `NA` while the distance-based `CPCC` and `dist.cor`
@@ -18,13 +18,13 @@
   single-fit quantity.)
 - `nmfkc.rank()` no longer carries `ARI`, `silhouette`, `CPCC`, or
   `dist.cor` in its `criteria` table -- those clustering-stability
-  metrics now live in `nmf.cluster()`.  All five `*.rank` functions
+  metrics now live in `nmf.cluster.criteria()`.  All five `*.rank` functions
   return the **same five columns** (`rank`, `effective.rank`,
   `effective.rank.ratio`, `r.squared`, `sigma.ecv`).  Per-rank fits use
   `detail = "fast"`, so the expensive O(N^2) distance computations are
   skipped during rank selection.  `rank.best` is unchanged.  The
   `*.rank` functions now emit a one-line message pointing to
-  `nmf.cluster()` for clustering quality.
+  `nmf.cluster.criteria()` for clustering quality.
 
 ### **Rank-selection functions for the other NMF families**
 - New `nmfkc.net.rank()`, `nmfkc.signed.rank()`, `nmfae.rank()`
