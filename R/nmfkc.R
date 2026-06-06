@@ -846,6 +846,62 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+#' @title Clustering-quality criteria from data and a coefficient matrix (Internal)
+#' @description
+#' Shared computation of the sample-clustering diagnostics used by
+#' \code{\link{nmfkc.criterion}} (inside \code{nmfkc.rank}) and the
+#' user-facing \code{\link{nmf.cluster}}.  From the original data
+#' \eqn{Y} (\eqn{P \times N}) and a \eqn{Q \times N} coefficient/score
+#' matrix \eqn{B} it returns:
+#' \itemize{
+#'   \item \code{dist.cor}: correlation between the sample distances in
+#'     data space \code{dist(t(Y))} and in coefficient space
+#'     \code{dist(t(B))} (embedding fidelity); always defined.
+#'   \item \code{CPCC}: cophenetic correlation of a hierarchical
+#'     clustering of \code{dist(t(B))} (Sokal-Rohlf); always defined for
+#'     \eqn{Q \ge 2}.
+#'   \item \code{silhouette}: mean silhouette width of the hard sample
+#'     labels (argmax of the column-normalized \eqn{B}) in data space.
+#'     This requires a \strong{non-negative} \eqn{B} (a valid membership
+#'     simplex); for a signed \eqn{B} it is \code{NA}.
+#' }
+#' \code{dist.cor} and \code{CPCC} are distance-based and therefore work
+#' for signed \eqn{B} too; only the hard-label \code{silhouette} needs
+#' \eqn{B \ge 0}.
+#' @param Y Data matrix (\eqn{P \times N}).
+#' @param B Coefficient/score matrix (\eqn{Q \times N}).
+#' @param labels Optional pre-computed hard labels (length \eqn{N}); when
+#'   supplied they are used as-is for the silhouette (e.g.\ the
+#'   \code{B.cluster} already held by a fitted \code{nmfkc} model),
+#'   otherwise they are derived from \eqn{B} when \eqn{B \ge 0}.
+#' @return A list: \code{silhouette}, \code{CPCC}, \code{dist.cor},
+#'   \code{cluster} (the hard labels, or \code{NULL}), and \code{hard}
+#'   (whether hard clustering was possible).
+#' @keywords internal
+#' @noRd
+.cluster.criteria <- function(Y, B, labels = NULL) {
+  Y <- base::as.matrix(Y); B <- base::as.matrix(B)
+  Q <- base::nrow(B)
+  dY <- stats::dist(base::t(Y))
+  dB <- stats::dist(base::t(B))
+  dist.cor <- stats::cor(base::as.vector(dY), base::as.vector(dB))
+  CPCC <- if (Q >= 2) {
+    coph <- stats::cophenetic(stats::hclust(dB))
+    stats::cor(base::as.vector(dB), base::as.vector(coph))
+  } else NA_real_
+  nonneg <- base::all(base::is.finite(B)) && base::all(B >= 0)
+  if (base::is.null(labels) && nonneg) {
+    B.prob <- base::t(base::t(B) / (base::colSums(B) + .Machine$double.eps))
+    labels <- base::apply(B.prob, 2, base::which.max)
+    labels[base::colSums(B.prob) == 0] <- NA
+  }
+  silhouette <- if (!base::is.null(labels))
+    .silhouette.mean(dY, labels) else NA_real_
+  base::list(silhouette = silhouette, CPCC = CPCC, dist.cor = dist.cor,
+             cluster = labels, hard = nonneg)
+}
+
+
 
 
 
@@ -1121,6 +1177,117 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     if (!base::is.null(progress)) progress(i, obj[i], sig[i])
   }
   base::list(objfunc = obj, sigma = sig, objfunc.fold = fld)
+}
+
+
+#' @title Extract the Q x N coefficient/score matrix of a fitted MU model (Internal)
+#' @description
+#' Maps each multiplicative-update fit to its natural \eqn{Q \times N}
+#' coefficient/score matrix for clustering diagnostics: \code{B} for
+#' \code{nmfkc}/\code{nmfkc.signed}, \code{H} for \code{nmfae}/
+#' \code{nmfae.signed}, \eqn{X^\top} for \code{nmfkc.net} (node
+#' membership), the BLUP scores for \code{nmfre}, and
+#' \eqn{C_1 Y_1 + C_2 Y_2} for \code{nmf.ffb}/\code{nmf.sem} (which needs
+#' the exogenous block \code{Y2}).
+#' @param object A fitted MU model.
+#' @param Y The data matrix passed to \code{\link{nmf.cluster}} (used as
+#'   \eqn{Y_1} for \code{nmf.ffb}).
+#' @param Y2 Exogenous block, required only for \code{nmf.ffb}/\code{nmf.sem}.
+#' @return A \eqn{Q \times N} numeric matrix.
+#' @keywords internal
+#' @noRd
+.nmf.cluster.coef <- function(object, Y, Y2 = NULL) {
+  if (base::inherits(object, "nmfkc.net")) return(base::t(object$X))
+  if (base::inherits(object, "nmfae"))     return(object$H)
+  if (base::inherits(object, c("nmf.ffb", "nmf.sem"))) {
+    if (base::is.null(Y2))
+      base::stop("For nmf.ffb / nmf.sem, also pass the exogenous block via Y2=.",
+                 call. = FALSE)
+    return(object$C1 %*% base::as.matrix(Y) + object$C2 %*% base::as.matrix(Y2))
+  }
+  if (base::inherits(object, "nmfre"))     return(object$B.blup)
+  if (base::inherits(object, "nmfkc"))     return(object$B)
+  base::stop("nmf.cluster(): unsupported object class '",
+             base::paste(base::class(object), collapse = "/"), "'.", call. = FALSE)
+}
+
+
+#' @title Sample-clustering diagnostics for a fitted NMF / MU model
+#' @description
+#' Computes the clustering-quality criteria for a single fitted
+#' multiplicative-update model: \code{silhouette}, \code{CPCC}, and
+#' \code{dist.cor}.  These are \strong{clustering-stability} diagnostics
+#' (how decisively and faithfully the samples cluster), conceptually
+#' separate from the rank-selection \code{*.rank} functions (which use
+#' r.squared, effective rank, and ECV).
+#'
+#' Sample clustering requires a non-negative coefficient/score matrix
+#' (so the columns form a membership simplex); when the model's
+#' coefficient is signed (\code{nmfkc.signed}, \code{nmfae.signed},
+#' \code{nmfre}), the hard-label \code{silhouette} is \code{NA} while the
+#' distance-based \code{CPCC} and \code{dist.cor} are still returned.
+#' The Adjusted Rand Index (ARI) is \strong{not} reported here: it
+#' compares two clusterings (e.g.\ across ranks or resamples) and is
+#' therefore not a single-fit quantity.
+#'
+#' @param object A fitted model from \code{\link{nmfkc}},
+#'   \code{\link{nmfkc.signed}}, \code{\link{nmfae}},
+#'   \code{nmfae.signed}, \code{\link{nmfkc.net}}, \code{\link{nmfre}},
+#'   or \code{\link{nmf.sem}} / \code{nmf.ffb}.
+#' @param Y The original data matrix used to fit \code{object}
+#'   (\eqn{Y_1} for \code{nmf.ffb}); required for the data-space
+#'   distances.
+#' @param Y2 Exogenous block, required only for \code{nmf.ffb} /
+#'   \code{nmf.sem}.
+#' @param ... Unused.
+#' @return An object of class \code{"nmf.cluster"}: a list with
+#'   \code{silhouette}, \code{CPCC}, \code{dist.cor}, \code{cluster}
+#'   (hard labels or \code{NULL}), \code{hard} (logical), \code{rank},
+#'   and \code{model} (the fitted class).
+#' @seealso \code{\link{nmfkc.rank}} for rank selection.
+#' @export
+#' @examples
+#' Y <- t(as.matrix(iris[, 1:4]))
+#' fit <- nmfkc(Y, Q = 3, print.dims = FALSE)
+#' nmf.cluster(fit, Y)
+nmf.cluster <- function(object, Y, Y2 = NULL, ...) {
+  if (base::missing(Y))
+    base::stop("nmf.cluster() requires the original data matrix Y.", call. = FALSE)
+  B <- .nmf.cluster.coef(object, Y, Y2)
+  cc <- .cluster.criteria(Y, B)
+  out <- base::list(silhouette = cc$silhouette, CPCC = cc$CPCC,
+                    dist.cor = cc$dist.cor, cluster = cc$cluster,
+                    hard = cc$hard, rank = base::nrow(B),
+                    model = base::class(object)[1])
+  base::class(out) <- "nmf.cluster"
+  out
+}
+
+
+#' @title Print method for nmf.cluster objects
+#' @param x An object of class \code{"nmf.cluster"}.
+#' @param ... Unused.
+#' @return \code{x}, invisibly.
+#' @export
+print.nmf.cluster <- function(x, ...) {
+  base::cat(base::sprintf("Sample-clustering diagnostics (%s, rank %d)\n",
+                          x$model, x$rank))
+  base::cat(base::sprintf("  Hard clustering: %s\n",
+            if (x$hard) "yes (non-negative coefficient)"
+            else "no (signed coefficient)"))
+  if (base::is.finite(x$silhouette))
+    base::cat(base::sprintf("  Silhouette:      %.4f\n", x$silhouette))
+  else
+    base::cat("  Silhouette:      NA (needs hard clustering)\n")
+  base::cat(base::sprintf("  CPCC:            %s\n",
+            if (base::is.finite(x$CPCC)) base::sprintf("%.4f", x$CPCC) else "NA"))
+  base::cat(base::sprintf("  dist.cor:        %.4f\n", x$dist.cor))
+  if (x$hard && !base::is.null(x$cluster)) {
+    base::cat("  Cluster sizes:\n")
+    tb <- base::table(x$cluster)
+    base::print(tb)
+  }
+  base::invisible(x)
 }
 
 
@@ -2803,27 +2970,15 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     ## consistent with silhouette / CPCC which are also NA at Q = 1.
     effective.rank <- .effective.rank(B)
 
-    # Distance-based criteria (detail == "full" only)
+    # Distance-based criteria (detail == "full" only); computed by the
+    # shared .cluster.criteria() helper using the hard labels B.cluster
+    # already derived above (so values are unchanged).  The same helper
+    # backs the user-facing nmf.cluster().
     if (detail == "full" && !base::any(Y.weights == 0)) {
-      dY <- stats::dist(base::t(Y))   # original-data sample distances (fixed)
-      dB <- stats::dist(base::t(B))   # rank-Q coefficient distances
-      ## Silhouette in the ORIGINAL data space with the per-sample hard
-      ## labels (k-means convention).  Computing it on the rank-Q B.prob
-      ## simplex made it monotone in Q and hid genuine cluster structure.
-      silhouette <- .silhouette.mean(dY, B.cluster)
-      ## How faithfully the rank-Q coefficient distances preserve the
-      ## original-data distances (embedding fidelity).
-      dist.cor <- stats::cor(base::as.vector(dY), base::as.vector(dB))
-      ## Cophenetic correlation (Sokal-Rohlf): how well a hierarchical
-      ## clustering of the coefficient distances dist(t(B)) reproduces
-      ## those distances.  Built from B (not the B.prob inner product),
-      ## so it varies with Q and recovers an interior optimum.
-      if (Q >= 2) {
-        coph <- stats::cophenetic(stats::hclust(dB))
-        CPCC <- stats::cor(base::as.vector(dB), base::as.vector(coph))
-      } else {
-        CPCC <- NA
-      }
+      cc <- .cluster.criteria(Y, B, labels = B.cluster)
+      silhouette <- cc$silhouette
+      CPCC       <- cc$CPCC
+      dist.cor   <- cc$dist.cor
     } else {
       silhouette <- NA; CPCC <- NA; dist.cor <- NA
     }

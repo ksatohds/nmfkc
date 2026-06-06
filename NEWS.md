@@ -1,5 +1,25 @@
 # nmfkc 0.7.4 (development)
 
+### **New `nmf.cluster()`: sample-clustering diagnostics**
+- `nmf.cluster(object, Y)` reports the clustering-quality criteria
+  `silhouette`, `CPCC`, and `dist.cor` for a single fitted
+  multiplicative-update model from any family (`nmfkc`, `nmfkc.signed`,
+  `nmfae`, `nmfae.signed`, `nmfkc.net`, `nmfre`, `nmf.sem`/`nmf.ffb`;
+  the last needs the exogenous block via `Y2`).  These are
+  **clustering-stability** diagnostics, deliberately separate from the
+  rank-selection `*.rank` functions (r.squared / effective rank / ECV).
+- Hard sample clustering needs a non-negative coefficient/score matrix
+  (a valid membership simplex).  `nmf.cluster()` detects this from the
+  actual coefficient: when it is non-negative the hard-label
+  `silhouette` (and cluster sizes) are returned; when it is signed
+  `silhouette` is `NA` while the distance-based `CPCC` and `dist.cor`
+  are still computed.  (ARI is not reported here -- it compares two
+  clusterings, e.g.\ across ranks or resamples, so it is not a
+  single-fit quantity.)
+- The computation is shared with `nmfkc.rank()` via the new internal
+  helper `.cluster.criteria()`; `nmfkc.rank()`'s `silhouette` / `CPCC` /
+  `dist.cor` columns are byte-for-byte unchanged.
+
 ### **Rank-selection functions for the other NMF families**
 - New `nmfkc.net.rank()`, `nmfkc.signed.rank()`, `nmfae.rank()`
   (paired \eqn{Q = R}) and `nmfae.signed.rank()` (paired) bring
