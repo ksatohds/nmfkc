@@ -2826,10 +2826,15 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' \item{criteria}{A data frame containing diagnostic metrics for each rank.
 #'   The \code{rank.effective} column gives the effective rank
 #'   (\eqn{\exp} of the Shannon entropy of the explained-variance
-#'   distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})});
-#'   when it plateaus well below the nominal \code{rank}, the extra
-#'   factors are not carrying additional coefficient variance, which
-#'   suggests an over-specified rank.}
+#'   distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})},
+#'   in \eqn{[1, Q]}); when it plateaus well below the nominal
+#'   \code{rank}, the extra factors are not carrying additional
+#'   coefficient variance, which suggests an over-specified rank.
+#'   The \code{rank.effective.ratio} column is \code{rank.effective /
+#'   rank} in \eqn{[0, 1]} (the utilization fraction plotted as
+#'   \code{rank.eff/Q} when \code{plot = TRUE}); a peak marks the rank
+#'   at which the latent factors carry the most evenly distributed
+#'   variance.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @references
@@ -2883,6 +2888,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   results_df <- data.frame(
     rank = Q,
     rank.effective = numeric(num_q),
+    rank.effective.ratio = numeric(num_q),
     r.squared = numeric(num_q),
     ICp = numeric(num_q),
     AIC = numeric(num_q),
@@ -2913,6 +2919,8 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     result <- do.call("nmfkc", nmfkc_args)
 
     results_df$rank.effective[q_idx] <- result$criterion$rank.effective
+    results_df$rank.effective.ratio[q_idx] <-
+      result$criterion$rank.effective / current_Q
     results_df$r.squared[q_idx] <- result$r.squared
     results_df$ICp[q_idx] <- result$criterion$ICp
     results_df$AIC[q_idx] <- result$criterion$AIC
@@ -3022,14 +3030,17 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
         graphics::lines(results_df$rank, results_df$B.prob.entropy.mean, col="green4", lwd=2)
     legend_txt <- c(legend_txt, "B.prob.entropy.mean"); legend_col <- c(legend_col, "green4"); legend_lty <- c(legend_lty, 1)
 
-    # Effective-rank utilization: rank.effective / rank in [0, 1].
-    # 1 = all factors contribute equally to the coefficient variance;
-    # lower = a few factors dominate (under-utilized rank).  A peak in
-    # this curve marks the rank at which factors are most evenly used.
-    rank.eff.ratio <- results_df$rank.effective / results_df$rank
-    if (any(!is.na(rank.eff.ratio))) {
-      graphics::lines(results_df$rank, rank.eff.ratio, col="darkorange", lwd=2, lty=2)
-      graphics::points(results_df$rank, rank.eff.ratio, pch=16, col="darkorange", cex=0.7)
+    # Effective-rank utilization: rank.effective.ratio = rank.effective
+    # / rank in [0, 1].  1 = all factors contribute equally to the
+    # coefficient variance; lower = a few factors dominate
+    # (under-utilized rank).  A peak in this curve marks the rank at
+    # which factors are most evenly used.  Plotted from the same
+    # rank.effective.ratio column returned in `criteria`.
+    if (any(!is.na(results_df$rank.effective.ratio))) {
+      graphics::lines(results_df$rank, results_df$rank.effective.ratio,
+                      col="darkorange", lwd=2, lty=2)
+      graphics::points(results_df$rank, results_df$rank.effective.ratio,
+                       pch=16, col="darkorange", cex=0.7)
       legend_txt <- c(legend_txt, "rank.eff/Q")
       legend_col <- c(legend_col, "darkorange"); legend_lty <- c(legend_lty, 2)
     }
