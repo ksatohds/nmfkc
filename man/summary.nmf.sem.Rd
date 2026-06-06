@@ -14,7 +14,8 @@
 \item{...}{Not used.}
 }
 \value{
-Invisible \code{object}.
+An object of class \code{"summary.nmf.sem"} (the fitted model
+tagged for printing); printed by \code{\link{print.summary.nmf.sem}}.
 }
 \description{
 Produces a formatted summary of a fitted NMF-FFB model, including

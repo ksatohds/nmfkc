@@ -112,7 +112,8 @@ plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
 #'   \code{"nmf.sem"}) returned by \code{\link{nmf.ffb}} /
 #'   \code{\link{nmf.sem}}.
 #' @param ... Not used.
-#' @return Invisible \code{object}.
+#' @return An object of class \code{"summary.nmf.sem"} (the fitted model
+#'   tagged for printing); printed by \code{\link{print.summary.nmf.sem}}.
 #' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}}
 #' @export
 #' @examples
@@ -122,6 +123,22 @@ plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
 #' summary(result)
 #'
 summary.nmf.sem <- function(object, ...) {
+  class(object) <- "summary.nmf.sem"
+  object
+}
+
+#' @title Print method for summary.nmf.sem objects
+#' @description
+#' Prints the NMF-FFB model summary (dimensions, convergence, stability
+#' diagnostics, fit statistics, and inference results if available).
+#' @param x An object of class \code{"summary.nmf.sem"} returned by
+#'   \code{\link{summary.nmf.sem}}.
+#' @param ... Not used.
+#' @return Invisible \code{x}.
+#' @seealso \code{\link{summary.nmf.sem}}
+#' @export
+print.summary.nmf.sem <- function(x, ...) {
+  object <- x
   P1 <- nrow(object$X)
   Q  <- ncol(object$X)
   P2 <- ncol(object$C2)
