@@ -2895,7 +2895,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     }
     if (any(!is.na(results_df$silhouette))) {
       graphics::lines(results_df$rank, results_df$silhouette, col=7, lwd=2)
-      legend_txt <- c(legend_txt, "Silhouette"); legend_col <- c(legend_col, 7); legend_lty <- c(legend_lty, 1)
+      legend_txt <- c(legend_txt, "silhouette"); legend_col <- c(legend_col, 7); legend_lty <- c(legend_lty, 1)
     }
     if (any(!is.na(results_df$CPCC))) {
       graphics::lines(results_df$rank, results_df$CPCC, col=6, lwd=2)
@@ -2926,7 +2926,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
       graphics::axis(side=4, col="blue", col.axis="blue")
       graphics::mtext("ECV Sigma (RMSE)", side=4, line=3, col="blue")
 
-      legend_txt <- c(legend_txt, "ECV Sigma")
+      legend_txt <- c(legend_txt, "sigma.ecv")
       legend_col <- c(legend_col, "blue")
       legend_lty <- c(legend_lty, 1)
     }
