@@ -937,6 +937,37 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+#' @title Effective rank of a coefficient/score matrix (Internal)
+#' @description
+#' Returns the \strong{effective rank}: \eqn{\exp} of the Shannon
+#' entropy of the explained-variance distribution
+#' \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}
+#' over the rows (latent factors) of \code{B}.  By the trace identity
+#' \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))},
+#' each \eqn{p_k} is the exact fraction of the total coefficient
+#' variance carried by factor \eqn{k}, so the entropy measures how
+#' evenly that variance is spread across factors.  Ranges in
+#' \eqn{[1, Q]}.  Returns \code{NA} when there are fewer than two
+#' factors (\eqn{Q < 2}) -- the entropy of a single point is trivially
+#' 0 -- or fewer than two units (\eqn{N < 2}), or zero total variance.
+#' @param B A \eqn{Q \times N} coefficient/score matrix (factors in
+#'   rows, units in columns).
+#' @return A single numeric (the effective rank), or \code{NA_real_}.
+#' @keywords internal
+#' @noRd
+.rank.effective <- function(B) {
+  B <- base::as.matrix(B)
+  Q <- base::nrow(B); N <- base::ncol(B)
+  if (Q < 2 || N < 2) return(NA_real_)
+  v <- base::apply(B, 1, stats::var)
+  s <- base::sum(v, na.rm = TRUE)
+  if (!base::is.finite(s) || s <= 0) return(NA_real_)
+  p <- v / s
+  p <- p[p > 0]
+  base::exp(-base::sum(p * base::log(p)))
+}
+
+
 #' @title Parse formula and prepare Y and A matrices
 #' @description
 #' Internal function to handle formula input, parse variables, and generate
@@ -2566,26 +2597,10 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     ## (standard deviations are not additive, so sum_k sd_k has no such
     ## meaning).  This is the PCA-style "explained-variance entropy" /
     ## effective-dimensionality measure; it reuses the exp(entropy)
-    ## functional form of Roy & Vetterli (2007).  Ranges in [1, Q]:
-    ## 1 when one factor carries all the variance, Q when all factors
-    ## contribute equally.  Dead (zero-variance) factors drop out.
-    ## Requires Q >= 2: at Q = 1 the variance distribution is a single
-    ## point, so the entropy is trivially 0 and the effective rank is
-    ## forced to 1 regardless of the data -- an uninformative tautology
-    ## (consistent with silhouette / CPCC, which are also NA at Q = 1).
-    if (Q >= 2 && base::ncol(B) >= 2) {
-      b_var <- base::apply(B, 1, stats::var)
-      b_var_sum <- base::sum(b_var, na.rm = TRUE)
-      if (base::is.finite(b_var_sum) && b_var_sum > 0) {
-        p_rk <- b_var / b_var_sum
-        p_rk <- p_rk[p_rk > 0]
-        rank.effective <- base::exp(-base::sum(p_rk * base::log(p_rk)))
-      } else {
-        rank.effective <- NA_real_
-      }
-    } else {
-      rank.effective <- NA_real_
-    }
+    ## functional form of Roy & Vetterli (2007).  See .rank.effective().
+    ## NA at Q = 1 (single-point variance distribution -> trivially 1),
+    ## consistent with silhouette / CPCC which are also NA at Q = 1.
+    rank.effective <- .rank.effective(B)
 
     # Distance-based criteria (detail == "full" only)
     if (detail == "full" && !base::any(Y.weights == 0)) {

@@ -145,6 +145,9 @@ summary.nmf.sem <- function(object, ...) {
     cat(sprintf("  SC.cov (covariance correlation): %.4f\n", object$SC.cov))
   if (!is.null(object$MAE)   && is.finite(object$MAE))
     cat(sprintf("  MAE (mean absolute error):       %.4f\n", object$MAE))
+  if (!is.null(object$rank.effective) && is.finite(object$rank.effective))
+    cat(sprintf("  Effective Rank:                  %.2f / %d\n",
+                object$rank.effective, Q))
 
   # Coefficients from inference
   if (!is.null(object$coefficients) && is.data.frame(object$coefficients)) {

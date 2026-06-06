@@ -1260,6 +1260,9 @@ summary.nmfkc.net <- function(object, ...) {
     r.squared.uncentered     = object$r.squared.uncentered,
     r.squared.centered = object$r.squared.centered,
     mae       = object$mae,
+    ## Effective rank over the Q factors' membership across the N nodes
+    ## (X is N x Q, so transpose to factors x nodes).
+    rank.effective = .rank.effective(t(object$X)),
 
     X.sparsity      = mean(object$X  < 1e-4),
     C.sparsity      = mean(abs(object$C) < 1e-4),
@@ -1296,6 +1299,10 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
   if (!is.null(x$r.squared.centered))
     cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+  if (!is.null(x$rank.effective) && is.finite(x$rank.effective)) {
+    cat(sprintf("  Effective Rank:      %.2f / %d\n",
+                x$rank.effective, x$rank))
+  }
 
   cat("\nStructure Diagnostics:\n")
   cat("  Basis (X) Sparsity:  ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
@@ -1348,6 +1355,10 @@ print.summary.nmfkc.net.signed <- function(x, digits = max(3L, getOption("digits
   if (!is.null(x$r.squared.centered))
     cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+  if (!is.null(x$rank.effective) && is.finite(x$rank.effective)) {
+    cat(sprintf("  Effective Rank:      %.2f / %d\n",
+                x$rank.effective, x$rank))
+  }
 
   cat("\nStructure Diagnostics:\n")
   cat("  Basis (X) Sparsity:  ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")

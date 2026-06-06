@@ -1000,6 +1000,10 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
     }
   }
 
+  # ---- effective rank (BLUP scores B = Theta A + U, Q x N) ----
+  eff <- if (!is.null(x$B.blup)) .rank.effective(x$B.blup) else NA_real_
+  if (is.finite(eff)) cat(sprintf("Effective Rank:       %.2f / %d\n", eff, Q))
+
   # ---- variance components ----
   cat(sprintf("\nVariance components:\n"))
   cat(sprintf("  sigma2 = %.4g  (residual)\n", x$sigma2))

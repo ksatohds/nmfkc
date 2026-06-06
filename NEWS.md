@@ -1,5 +1,16 @@
 # nmfkc 0.7.4 (development)
 
+### **Effective Rank in all five MU-family summaries**
+- `summary()` now reports the **Effective Rank** (`x.xx / Q`) for
+  `nmfkc()`, `nmfkc.net()`, `nmfae()`, `nmf.ffb()` / `nmf.sem()`, and
+  `nmfre()` — previously only `nmfkc()` showed it.  Each is computed by
+  the new shared internal helper `.rank.effective(B)` from the model's
+  natural \eqn{Q \times N} coefficient/score matrix: the coefficients
+  \eqn{B} (`nmfkc`), the latent encoding \eqn{H} (`nmfae`), the node
+  membership \eqn{X^\top} (`nmfkc.net`), the latent scores
+  \eqn{C_1 Y_1 + C_2 Y_2} (`nmf.ffb`), and the BLUP scores
+  \eqn{\Theta A + U} (`nmfre`).  `NA` at \eqn{Q = 1}.
+
 ### **Rank-selection diagnostics: silhouette / CPCC fixed, IC removed**
 - **`silhouette` is now computed in the original data space.**  It used
   to be evaluated on the rank-\eqn{Q} `B.prob` simplex, whose dimension

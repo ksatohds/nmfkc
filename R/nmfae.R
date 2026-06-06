@@ -712,6 +712,10 @@ summary.nmfae <- function(object, ...) {
   ans$r.squared.centered <- object$r.squared.centered
   ans$sigma <- object$sigma
   ans$mae <- object$mae
+  ## Effective rank of the latent encoding H (Q x N).
+  ans$rank.effective <- if (!is.null(object$H)) .rank.effective(object$H) else NA_real_
+  ans$rank <- if (!is.null(object$rank)) object$rank[1] else
+              if (!is.null(object$H)) nrow(object$H) else NA
 
   # Missing values
   ans$n.missing <- object$n.missing
@@ -789,6 +793,10 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
     cat("  R-squared (centered):", format(x$r.squared.centered, digits = digits), "\n")
   cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
   cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+  if (!is.null(x$rank.effective) && is.finite(x$rank.effective)) {
+    cat(sprintf("  Effective Rank:      %.2f / %d\n",
+                x$rank.effective, x$rank))
+  }
 
   cat("\nStructure Diagnostics:\n")
   if (!is.null(x$X1.sparsity)) {
