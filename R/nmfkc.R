@@ -1293,7 +1293,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-#' \item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, \code{B.prob.entropy.mean}, and \code{rank.effective}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
+#' \item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{rank.effective}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
 #' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
@@ -1780,7 +1780,6 @@ summary.nmfkc <- function(object, ...) {
   if (!is.null(object$B.prob)){
     # Sparsity
     ans$B.prob.sparsity <- mean(object$B.prob < 1e-4)
-    ans$B.prob.entropy.mean <- object$criterion$B.prob.entropy.mean
     ans$B.prob.max.mean <- object$criterion$B.prob.max.mean
   }
 
@@ -1845,11 +1844,9 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   if (!is.null(x$B.prob.sparsity)) {
     cat("  Coef (B) Sparsity:    ", sprintf("%.1f%%", x$B.prob.sparsity * 100), "(< 1e-4)\n")
   }
-  if(!is.null(x$B.prob.entropy.mean)){
-    cat("  Clustering Entropy:   ", format(x$B.prob.entropy.mean, digits = digits),
-        "(range: 0-1, closer to 0 is better)\n")
+  if(!is.null(x$B.prob.max.mean)){
     cat("  Clustering Crispness: ", format(x$B.prob.max.mean, digits = digits),
-        "(range: 0-1, closer to 1 is better)\n")
+        "(range: 1/Q-1, closer to 1 = more decisive assignment)\n")
   }
   cat("\n")
   invisible(x)
@@ -2531,8 +2528,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   \item{X.prob}{Row-normalized basis matrix.}
 #'   \item{X.cluster}{Hard clustering labels per row of X.}
 #'   \item{criterion}{Named list: ICp, ICp1, ICp2, ICp3, AIC, BIC,
-#'     B.prob.sd.min, B.prob.max.mean, B.prob.entropy.mean,
-#'     silhouette, CPCC, dist.cor.}
+#'     B.prob.max.mean, rank.effective, silhouette, CPCC, dist.cor.}
 #' }
 #'
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.rank}}
@@ -2625,13 +2621,15 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     }
 
     B.prob <- base::t(base::t(B) / (base::colSums(B) + .eps))
+    ## Clustering crispness: mean over samples of the dominant-cluster
+    ## membership.  Range [1/Q, 1]; higher = more decisive (hard-like)
+    ## soft assignment.  Meaningful at fixed Q (e.g. as a confidence
+    ## check before treating B.cluster as hard labels); not used for
+    ## rank selection (it is monotone in Q).
     if (Q > 1) {
-      B.prob.sd.min <- base::min(base::apply(B.prob, 1, stats::sd))
       B.prob.max.mean <- base::mean(base::apply(B.prob, 2, base::max))
-      p_ent <- B.prob + .eps
-      B.prob.entropy.mean <- -base::mean(base::colSums(p_ent * base::log(p_ent))) / base::log(Q)
     } else {
-      B.prob.sd.min <- 0; B.prob.entropy.mean <- 0; B.prob.max.mean <- 1
+      B.prob.max.mean <- 1
     }
     B.cluster <- base::apply(B.prob, 2, base::which.max)
     B.cluster[base::colSums(B.prob) == 0] <- NA
@@ -2685,7 +2683,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     r2 <- NA; r2.uncentered <- NA; r2.centered <- NA
     sigma <- NA; mae <- NA
     B.prob <- NA; B.cluster <- NA
-    B.prob.sd.min <- NA; B.prob.max.mean <- NA; B.prob.entropy.mean <- NA
+    B.prob.max.mean <- NA
     X.prob <- NA; X.cluster <- NA
     silhouette <- NA; CPCC <- NA; dist.cor <- NA
     rank.effective <- NA_real_
@@ -2702,9 +2700,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     X.prob    = X.prob,
     X.cluster = X.cluster,
     criterion = base::list(
-      B.prob.sd.min       = B.prob.sd.min,
       B.prob.max.mean     = B.prob.max.mean,
-      B.prob.entropy.mean = B.prob.entropy.mean,
       rank.effective      = rank.effective,
       ICp1 = ICp1, ICp2 = ICp2, ICp3 = ICp3, ICp = ICp,
       AIC  = AIC,  BIC  = BIC,
@@ -2817,9 +2813,6 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     ICp = numeric(num_q),
     AIC = numeric(num_q),
     BIC = numeric(num_q),
-    B.prob.sd.min = numeric(num_q),
-    B.prob.entropy.mean = numeric(num_q),
-    B.prob.max.mean = numeric(num_q),
     ARI = numeric(num_q),
     silhouette = numeric(num_q),
     CPCC = numeric(num_q),
@@ -2849,9 +2842,6 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     results_df$ICp[q_idx] <- result$criterion$ICp
     results_df$AIC[q_idx] <- result$criterion$AIC
     results_df$BIC[q_idx] <- result$criterion$BIC
-    results_df$B.prob.sd.min[q_idx] <- result$criterion$B.prob.sd.min
-    results_df$B.prob.max.mean[q_idx] = result$criterion$B.prob.max.mean
-    results_df$B.prob.entropy.mean[q_idx] = result$criterion$B.prob.entropy.mean
 
     results_df$CPCC[q_idx] <- result$criterion$CPCC
     results_df$dist.cor[q_idx] <- result$criterion$dist.cor
@@ -2945,15 +2935,6 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     legend_col <- c(2)
     legend_lty <- c(1)
 
-    graphics::lines(results_df$rank, results_df$B.prob.sd.min, col="green1", lwd=2)
-    legend_txt <- c(legend_txt, "B.prob.sd.min"); legend_col <- c(legend_col, "green1"); legend_lty <- c(legend_lty, 1)
-
-    graphics::lines(results_df$rank, results_df$B.prob.max.mean, col="green3", lwd=2)
-    legend_txt <- c(legend_txt, "B.prob.max.mean"); legend_col <- c(legend_col, "green3"); legend_lty <- c(legend_lty, 1)
-
-        graphics::lines(results_df$rank, results_df$B.prob.entropy.mean, col="green4", lwd=2)
-    legend_txt <- c(legend_txt, "B.prob.entropy.mean"); legend_col <- c(legend_col, "green4"); legend_lty <- c(legend_lty, 1)
-
     # Effective-rank utilization: rank.effective.ratio = rank.effective
     # / rank in [0, 1].  1 = all factors contribute equally to the
     # coefficient variance; lower = a few factors dominate
@@ -2962,11 +2943,11 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     # rank.effective.ratio column returned in `criteria`.
     if (any(!is.na(results_df$rank.effective.ratio))) {
       graphics::lines(results_df$rank, results_df$rank.effective.ratio,
-                      col="darkorange", lwd=2)
+                      col="forestgreen", lwd=2)
       graphics::points(results_df$rank, results_df$rank.effective.ratio,
-                       pch=16, col="darkorange", cex=0.7)
+                       pch=16, col="forestgreen", cex=0.7)
       legend_txt <- c(legend_txt, "rank.eff/Q")
-      legend_col <- c(legend_col, "darkorange"); legend_lty <- c(legend_lty, 1)
+      legend_col <- c(legend_col, "forestgreen"); legend_lty <- c(legend_lty, 1)
     }
 
     if (any(!is.na(results_df$ARI))) {

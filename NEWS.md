@@ -32,9 +32,25 @@
   factors are not carrying additional coefficient variance — a signal
   that the rank is over-specified.
 - `nmfkc.rank(plot = TRUE)` overlays a `rank.eff/Q` curve (effective
-  rank divided by nominal rank, in `[0, 1]`, solid orange line) on the
+  rank divided by nominal rank, in `[0, 1]`, solid green line) on the
   diagnostics plot.  A peak in this utilization curve marks the rank at
   which the latent factors carry the most evenly distributed variance.
+
+### **Diagnostics cleanup: B.prob crispness metrics**
+- Removed `B.prob.sd.min` and `B.prob.entropy.mean` from `nmfkc()`'s
+  `criterion` list, from `summary.nmfkc()`, and from `nmfkc.rank()`'s
+  criteria table and plot.  All three `B.prob.*` peakedness metrics are
+  monotone in the rank `Q`, so they carry no peak/elbow signal for rank
+  selection (verified empirically); the principled rank signals are
+  ECV, the R-squared elbow, and the new `rank.effective` utilization.
+- `B.prob.max.mean` (clustering crispness) is retained, but only in
+  `summary.nmfkc()` ("Clustering Crispness") and the `criterion` list.
+  At a fixed `Q` it remains a useful confidence check — the mean
+  dominant-cluster membership — before treating `B.cluster` as hard
+  labels.  It is no longer shown in `nmfkc.rank()` (cross-`Q`), where
+  its `1/Q` baseline shift makes it misleading.
+- `summary.nmfkc()` no longer prints "Clustering Entropy" (it duplicated
+  the crispness information).
 
 ### **Improvements**
 - **Unified three-variant R² across all NMF functions.**  Every NMF

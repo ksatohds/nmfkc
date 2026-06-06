@@ -33,8 +33,7 @@ A list with components:
 \item{X.prob}{Row-normalized basis matrix.}
 \item{X.cluster}{Hard clustering labels per row of X.}
 \item{criterion}{Named list: ICp, ICp1, ICp2, ICp3, AIC, BIC,
-B.prob.sd.min, B.prob.max.mean, B.prob.entropy.mean,
-silhouette, CPCC, dist.cor.}
+B.prob.max.mean, rank.effective, silhouette, CPCC, dist.cor.}
 }
 }
 \description{
