@@ -49,7 +49,7 @@
 }
 
 
-#' @title Bi-cross-validation for NMF rank selection (experimental)
+#' @title Bi-cross-validation for NMF rank selection
 #' @description
 #' \strong{Prototype} of Owen & Perry's (2009) bi-cross-validation (BCV)
 #' for choosing the NMF rank.  Unlike the element-wise CV of
@@ -63,6 +63,14 @@
 #' leakage.  The recommended setting is to leave out roughly half the
 #' rows and half the columns (\code{nfolds = 2}).
 #'
+#' The result is an \code{"nmf.rank"} object, \strong{identical in shape to
+#' \code{\link{nmfkc.rank}}}: it carries a per-rank criteria table with
+#' \code{r.squared} and \code{effective.rank} (from a full-data fit at each
+#' rank) plus the block CV error \code{sigma.bicv}, and supports the same
+#' \code{\link{plot.nmf.rank}} (R-squared red, eff.rank.idx green, bi-CV
+#' error blue) and \code{\link{print.nmf.rank}} methods.  Covariates are
+#' ignored (plain NMF).
+#'
 #' @param Y Observation matrix (\eqn{P \times N}), non-negative.
 #' @param rank Integer vector of ranks to evaluate.
 #' @param nfolds Number of row folds and column folds (the grid is
@@ -71,21 +79,27 @@
 #' @param seed Optional integer seed for the fold assignment.
 #' @param nnls.maxit Multiplicative-update iterations for the fold-in
 #'   non-negative regressions.
+#' @param plot Logical; draw the shared rank-selection diagnostics plot.
+#' @param main Plot title.
 #' @details Each fold keeps about \eqn{(1 - 1/\text{nfolds})} of the rows
 #'   and columns, so the retained block \eqn{D} must have more than
 #'   \code{rank} rows \strong{and} columns; ranks that violate this for a
-#'   given fold are skipped.  With \code{nfolds = 2} this needs roughly
-#'   \eqn{P/2 > \text{rank}} and \eqn{N/2 > \text{rank}}.
-#' @param ... Passed to \code{\link{nmfkc}} for the per-block fit
-#'   (e.g.\ \code{maxit}, \code{method}).
-#' @return An object of class \code{"nmfkc.bicv"}: a list with
-#'   \code{objfunc} (mean squared held-out error per rank), \code{sigma}
-#'   (its square root), \code{rank}, \code{rank.best} (the rank with the
-#'   smallest error), and \code{nfolds}.
+#'   given fold are skipped (\code{sigma.bicv = NA}).  With
+#'   \code{nfolds = 2} this needs roughly \eqn{P/2 > \text{rank}} and
+#'   \eqn{N/2 > \text{rank}}.
+#' @param ... Passed to \code{\link{nmfkc}} for the full-data and per-block
+#'   fits (e.g.\ \code{maxit}, \code{method}).
+#' @return An object of class \code{"nmf.rank"} (see \code{\link{nmfkc.rank}}):
+#'   \code{rank.best} (the bi-CV minimum), \code{criteria} (a data frame with
+#'   \code{rank}, \code{r.squared}, \code{effective.rank},
+#'   \code{effective.rank.ratio}, \code{effective.rank.expected},
+#'   \code{effective.rank.index} and \code{sigma.bicv}), and convenience
+#'   fields \code{sigma}, \code{rank} and \code{nfolds}.
 #' @references A. B. Owen and P. O. Perry (2009).  Bi-cross-validation of
 #'   the SVD and the nonnegative matrix factorization.
 #'   \emph{Ann. Appl. Stat.} 3(2):564--594. \doi{10.1214/08-AOAS227}.
-#' @seealso \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.rank}}
+#' @seealso \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.rank}},
+#'   \code{\link{plot.nmf.rank}}, \code{\link{print.nmf.rank}}
 #' @export
 #' @examples
 #' \donttest{
@@ -95,24 +109,43 @@
 #' X <- matrix(abs(rnorm(30 * 3)), 30, 3)
 #' B <- matrix(abs(rnorm(3 * 40)), 3, 40)
 #' bv <- nmfkc.bicv(X %*% B, rank = 1:6, nfolds = 2)
-#' bv          # recommended rank near 3
+#' bv             # criteria table (R-squared, effective.rank, sigma.bicv)
+#' plot(bv)       # same 3-criterion diagnostics plot as nmfkc.rank
 #' }
 nmfkc.bicv <- function(Y, rank = 1:3, nfolds = 2, seed = 123,
-                       nnls.maxit = 100, ...) {
+                       nnls.maxit = 100, plot = TRUE,
+                       main = "Bi-cross-validation Rank Selection", ...) {
   Y <- base::as.matrix(Y)
   P <- base::nrow(Y); N <- base::ncol(Y)
   if (!base::is.null(seed)) base::set.seed(seed)
   row.fold <- base::sample(base::rep_len(1:nfolds, P))
   col.fold <- base::sample(base::rep_len(1:nfolds, N))
 
-  objfunc <- stats::setNames(base::numeric(base::length(rank)),
-                             base::paste0("rank=", rank))
+  ## nmfkc args for the (plain-NMF) fits: drop covariates, skip the O(N^2)
+  ## clustering criteria, stay quiet about dimensions.
+  ea <- base::list(...); ea$A <- NULL; ea$Q <- NULL
+  ea$detail <- "fast"; ea$print.dims <- FALSE
+  nq <- base::length(rank)
+  criteria <- base::data.frame(
+    rank = rank,
+    effective.rank = base::numeric(nq),
+    effective.rank.ratio = base::numeric(nq),
+    r.squared = base::numeric(nq),
+    sigma.bicv = base::numeric(nq))
+
   base::message(base::sprintf(
     "bi-CV: ranks %s, %dx%d fold grid (Owen-Perry 2009)...",
     base::paste(rank, collapse = ","), nfolds, nfolds))
 
   for (ki in base::seq_along(rank)) {
     k <- rank[ki]
+    ## full-data fit -> effective rank + r.squared (as in nmfkc.rank)
+    full <- base::suppressMessages(
+      base::do.call("nmfkc", c(base::list(Y = Y, rank = k), ea)))
+    criteria$effective.rank[ki]       <- full$criterion$effective.rank
+    criteria$effective.rank.ratio[ki] <- full$criterion$effective.rank / k
+    criteria$r.squared[ki]            <- full$r.squared
+    ## bi-CV held-out error over the nfolds x nfolds block grid
     sse <- 0; cnt <- 0L
     for (fi in 1:nfolds) for (fj in 1:nfolds) {
       I  <- base::which(row.fold == fi); J  <- base::which(col.fold == fj)
@@ -123,7 +156,7 @@ nmfkc.bicv <- function(Y, rank = 1:3, nfolds = 2, seed = 123,
       Cm <- Y[Ic, J,  drop = FALSE]   # kept rows x held cols
       Am <- Y[I,  J,  drop = FALSE]   # held-out block
       fit <- base::suppressMessages(
-        nmfkc(D, Q = k, print.dims = FALSE, ...))
+        base::do.call("nmfkc", c(base::list(Y = D, rank = k), ea)))
       L_D <- fit$X; R_D <- fit$B
       L_I <- .nnls.mu(Bm, R_D, side = "left",  maxit = nnls.maxit)
       R_J <- .nnls.mu(Cm, L_D, side = "right", maxit = nnls.maxit)
@@ -131,28 +164,18 @@ nmfkc.bicv <- function(Y, rank = 1:3, nfolds = 2, seed = 123,
       sse <- sse + base::sum((Am - A_hat)^2)
       cnt <- cnt + base::length(Am)
     }
-    objfunc[ki] <- if (cnt > 0) sse / cnt else NA_real_
+    criteria$sigma.bicv[ki] <- if (cnt > 0) base::sqrt(sse / cnt) else NA_real_
   }
 
-  sigma <- base::sqrt(objfunc)
-  rank.best <- rank[base::which.min(objfunc)]
-  base::structure(base::list(objfunc = objfunc, sigma = sigma, rank = rank,
-                             rank.best = rank.best, nfolds = nfolds),
-                  class = "nmfkc.bicv")
-}
-
-
-#' @title Print method for nmfkc.bicv objects
-#' @param x An object of class \code{"nmfkc.bicv"}.
-#' @param ... Unused.
-#' @return \code{x}, invisibly.
-#' @export
-print.nmfkc.bicv <- function(x, ...) {
-  base::cat(base::sprintf("Bi-cross-validation (NMF rank selection, %dx%d folds)\n",
-                          x$nfolds, x$nfolds))
-  base::cat(base::sprintf("  recommended rank (min held-out error): %d\n", x$rank.best))
-  base::print(base::data.frame(rank = x$rank,
-                               sigma = base::round(x$sigma, 4)),
-              row.names = FALSE)
-  base::invisible(x)
+  ## Shared rank-selection back-end (plot + print via nmf.rank methods),
+  ## with the CV line/labels switched from ECV to bi-CV.
+  out <- .rank.finish(criteria, plot = plot, main = main,
+                      cv.col = "sigma.bicv", cv.label = "bi-CV")
+  ## convenience fields (backward compatible with the prototype)
+  out$sigma   <- stats::setNames(criteria$sigma.bicv,
+                                 base::paste0("rank=", rank))
+  out$objfunc <- out$sigma^2
+  out$rank    <- rank
+  out$nfolds  <- nfolds
+  out
 }

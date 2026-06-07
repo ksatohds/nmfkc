@@ -1742,17 +1742,18 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' @keywords internal
 #' @noRd
 .rank.finish <- function(criteria, plot = TRUE,
-                         main = "Rank Selection Diagnostics") {
+                         main = "Rank Selection Diagnostics",
+                         cv.col = "sigma.ecv", cv.label = "ECV") {
   base::message("Note: sample-clustering quality (silhouette / CPCC / ",
                 "dist.cor) is not part of rank selection; compute it from a ",
                 "list of fits with nmf.cluster.criteria().  See ?nmf.cluster.criteria")
   rk <- criteria$rank
   nq <- base::length(rk)
 
-  has_ecv <- !base::is.null(criteria$sigma.ecv) &&
-             base::any(base::is.finite(criteria$sigma.ecv))
+  cv.vals <- criteria[[cv.col]]
+  has_ecv <- !base::is.null(cv.vals) && base::any(base::is.finite(cv.vals))
   rank.best.ecv <- if (has_ecv)
-    rk[base::which.min(criteria$sigma.ecv)] else NA
+    rk[base::which.min(cv.vals)] else NA
 
   rank.best.r2 <- NA
   if (nq > 2 && !base::is.null(criteria$r.squared)) {
@@ -1795,6 +1796,7 @@ print.nmf.cluster.flow <- function(x, ...) {
   out <- base::list(rank.best = rank.final, criteria = criteria,
                     best = base::list(ecv = rank.best.ecv, r2 = rank.best.r2,
                                       eff.idx = rank.best.idx),
+                    cv.col = cv.col, cv.label = cv.label,
                     main = main)
   base::class(out) <- "nmf.rank"
   if (plot) graphics::plot(out)
@@ -1827,8 +1829,10 @@ plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
   rk <- criteria$rank
   rank.best.ecv <- x$best$ecv; rank.best.r2 <- x$best$r2
   rank.best.idx <- x$best$eff.idx
-  has_ecv <- !base::is.null(criteria$sigma.ecv) &&
-             base::any(base::is.finite(criteria$sigma.ecv))
+  cv.col   <- if (base::is.null(x$cv.col))   "sigma.ecv" else x$cv.col
+  cv.label <- if (base::is.null(x$cv.label)) "ECV"       else x$cv.label
+  cv.vals  <- criteria[[cv.col]]
+  has_ecv <- !base::is.null(cv.vals) && base::any(base::is.finite(cv.vals))
   has_idx <- !base::is.null(criteria$effective.rank.index) &&
              base::any(base::is.finite(criteria$effective.rank.index))
 
@@ -1861,12 +1865,13 @@ plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
 
   if (has_ecv) {
     graphics::par(new = TRUE)
-    graphics::plot(rk, criteria$sigma.ecv, type = "l", col = "blue", lwd = lwd,
+    graphics::plot(rk, cv.vals, type = "l", col = "blue", lwd = lwd,
                    axes = FALSE, xlab = "", ylab = "")
-    decorate(criteria$sigma.ecv, "blue", rank.best.ecv, "Best (Min)", 3)
+    decorate(cv.vals, "blue", rank.best.ecv, "Best (Min)", 3)
     graphics::axis(side = 4, col = "blue", col.axis = "blue")
-    graphics::mtext("ECV Sigma (RMSE)", side = 4, line = 3, col = "blue")
-    leg_txt <- c(leg_txt, "sigma.ecv"); leg_col <- c(leg_col, "blue")
+    graphics::mtext(base::paste0(cv.label, " Sigma (RMSE)"),
+                    side = 4, line = 3, col = "blue")
+    leg_txt <- c(leg_txt, cv.col); leg_col <- c(leg_col, "blue")
   }
 
   graphics::legend("right", legend = leg_txt, col = leg_col,
@@ -1884,9 +1889,10 @@ print.nmf.rank <- function(x, ...) {
   fmt <- function(v) if (base::is.null(v) || base::is.na(v)) "NA" else base::as.character(v)
   base::cat(base::sprintf("Rank selection over ranks %s\n",
                           base::paste(x$criteria$rank, collapse = ", ")))
+  cv.label <- if (base::is.null(x$cv.label)) "ECV" else x$cv.label
   base::cat(base::sprintf("  recommended rank (rank.best): %s\n", fmt(x$rank.best)))
-  base::cat(base::sprintf("  best by:  ECV min = %s | R-squared elbow = %s\n",
-                          fmt(x$best$ecv), fmt(x$best$r2)))
+  base::cat(base::sprintf("  best by:  %s min = %s | R-squared elbow = %s\n",
+                          cv.label, fmt(x$best$ecv), fmt(x$best$r2)))
   base::cat("\nCriteria:\n")
   base::print(x$criteria, row.names = FALSE, ...)
   base::invisible(x)
