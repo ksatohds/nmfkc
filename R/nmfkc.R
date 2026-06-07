@@ -1291,6 +1291,171 @@ print.nmf.cluster.criteria <- function(x, ...) {
 }
 
 
+#' @title Hard cluster labels of a fitted MU model (Internal)
+#' @description
+#' Returns the per-individual hard cluster labels (argmax of the
+#' \eqn{Q \times N} coefficient/score matrix) for a fitted model, used by
+#' \code{\link{nmf.cluster.flow}}.  For \code{nmfkc} this equals the
+#' stored \code{B.cluster}.
+#' @param object A fitted MU model.
+#' @return An integer vector of length \eqn{N} (named by the columns of
+#'   the coefficient matrix when available).
+#' @keywords internal
+#' @noRd
+.nmf.hard.labels <- function(object) {
+  B <- if (base::inherits(object, "nmfkc.net")) base::t(object$X)
+       else if (base::inherits(object, "nmfae")) object$H
+       else if (base::inherits(object, "nmfre")) object$B.blup
+       else if (base::inherits(object, "nmfkc")) object$B
+       else base::stop("nmf.cluster.flow(): unsupported model class '",
+                       base::paste(base::class(object), collapse = "/"),
+                       "'.", call. = FALSE)
+  B <- base::as.matrix(B)
+  lab <- base::apply(B, 2, base::which.max)
+  nm <- base::colnames(B)
+  if (!base::is.null(nm)) base::names(lab) <- nm
+  lab
+}
+
+
+#' @title Order individuals within a rank to reduce alluvial crossings (Internal)
+#' @description
+#' Barycenter ordering for one rank of \code{\link{nmf.cluster.flow}}:
+#' the clusters at this rank are stacked in increasing order of the mean
+#' position (\code{yprev}) of their members in the adjacent rank, and
+#' within each cluster the members are sorted by \code{yprev}.
+#' @param labels Integer cluster labels at this rank (length \eqn{N}).
+#' @param yprev Numeric positions (\eqn{1..N}) at the adjacent rank.
+#' @return A numeric vector of positions \eqn{1..N} for this rank.
+#' @keywords internal
+#' @noRd
+.flow.order <- function(labels, yprev) {
+  N <- base::length(labels)
+  cls <- base::unique(labels)
+  bary <- base::vapply(cls, function(c) base::mean(yprev[labels == c], na.rm = TRUE),
+                       base::numeric(1))
+  cls <- cls[base::order(bary)]
+  y <- base::numeric(N)
+  pos <- 1L
+  for (c in cls) {
+    idx <- base::which(labels == c)
+    idx <- idx[base::order(yprev[idx])]
+    y[idx] <- pos:(pos + base::length(idx) - 1L)
+    pos <- pos + base::length(idx)
+  }
+  y
+}
+
+
+#' @title Cluster-flow (alluvial) diagram across ranks
+#' @description
+#' Visualizes how the hard sample clustering changes as the rank \eqn{Q}
+#' varies, given a list of models fitted at different ranks.  Each
+#' individual is a line flowing left-to-right across the ranks (x-axis);
+#' its vertical position at each rank is determined by its cluster, and
+#' clusters are reordered at each rank (barycenter method) to reduce
+#' crossings.  Lines are coloured by the individual's cluster at the
+#' \code{reference} rank, so one can see how the reference clusters split
+#' or merge as the rank changes.
+#'
+#' Works for any non-negative multiplicative-update family
+#' (\code{nmfkc}, \code{nmfae}, \code{nmfkc.net}, \code{nmfre},
+#' and the signed variants); the hard label is the argmax of the
+#' coefficient/score matrix.
+#'
+#' @param fits A list (length \eqn{\ge 2}) of fitted models, one per
+#'   rank, all over the \strong{same} \eqn{N} individuals.  They are
+#'   sorted internally by their rank.
+#' @param reference The rank whose clustering defines the line colours.
+#'   Defaults to the largest rank in \code{fits}.
+#' @param col Optional vector of colours, one per reference cluster
+#'   (recycled/indexed by cluster id).  Defaults to a qualitative
+#'   palette.
+#' @param plot Logical; draw the diagram (default \code{TRUE}).
+#' @param main Plot title.
+#' @param ... Unused.
+#' @return Invisibly, a list with \code{clusters} (the \eqn{N \times R}
+#'   table: rows = individuals, columns = rank, entries = cluster
+#'   number), \code{ranks}, \code{reference}, and \code{colors} (the
+#'   per-individual reference colour).
+#' @seealso \code{\link{nmf.cluster.criteria}}, \code{\link{nmfkc.rank}}
+#' @export
+#' @examples
+#' \donttest{
+#' Y <- t(as.matrix(iris[, 1:4]))
+#' fits <- lapply(2:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
+#' fl <- nmf.cluster.flow(fits, reference = 3)
+#' head(fl$clusters)
+#' }
+nmf.cluster.flow <- function(fits, reference = NULL, col = NULL,
+                             plot = TRUE, main = "Cluster flow across rank", ...) {
+  if (!base::is.list(fits) || base::length(fits) < 2)
+    base::stop("`fits` must be a list of at least two fitted models.", call. = FALSE)
+
+  lab_list <- base::lapply(fits, .nmf.hard.labels)
+  N <- base::length(lab_list[[1]])
+  if (base::any(base::vapply(lab_list, base::length, 1L) != N))
+    base::stop("all fits must share the same number of individuals (N).", call. = FALSE)
+
+  ranks <- base::vapply(fits, function(f)
+    if (!base::is.null(f$rank)) base::as.integer(f$rank) else NA_integer_, 1L)
+  ord <- base::order(ranks)
+  ranks <- ranks[ord]; lab_list <- lab_list[ord]
+  R <- base::length(ranks)
+
+  clusters <- base::matrix(base::unlist(lab_list), nrow = N, ncol = R)
+  ind_names <- base::names(lab_list[[1]])
+  if (base::is.null(ind_names)) ind_names <- base::paste0("i", base::seq_len(N))
+  base::rownames(clusters) <- ind_names
+  base::colnames(clusters) <- base::paste0("rank", ranks)
+
+  if (base::is.null(reference)) reference <- ranks[R]
+  ref_col <- base::match(reference, ranks)
+  if (base::is.na(ref_col))
+    base::stop("`reference` must be one of the fitted ranks: ",
+               base::paste(ranks, collapse = ", "), call. = FALSE)
+  ref_lab <- clusters[, ref_col]
+  K <- base::max(ref_lab, na.rm = TRUE)
+  if (base::is.null(col)) col <- grDevices::hcl.colors(base::max(K, 2), "Dark 3")
+  ind_col <- col[ref_lab]
+
+  ## --- layout: position 1..N per individual per rank ---
+  ypos <- base::matrix(NA_real_, N, R)
+  o <- base::order(ref_lab, base::seq_len(N))
+  ypos[o, ref_col] <- base::seq_len(N)
+  if (ref_col < R) for (q in (ref_col + 1):R)
+    ypos[, q] <- .flow.order(clusters[, q], ypos[, q - 1])
+  if (ref_col > 1) for (q in (ref_col - 1):1)
+    ypos[, q] <- .flow.order(clusters[, q], ypos[, q + 1])
+
+  if (plot) {
+    yn <- (ypos - 1) / base::max(N - 1, 1)
+    xs <- base::seq_len(R)
+    old <- graphics::par(mar = c(4, 4, 4, 2) + 0.1); base::on.exit(graphics::par(old))
+    graphics::plot(NA, xlim = c(1, R), ylim = c(-0.02, 1.02),
+                   xaxt = "n", yaxt = "n", xlab = "rank (Q)",
+                   ylab = "individuals", main = main)
+    graphics::axis(1, at = xs, labels = ranks)
+    for (q in 1:(R - 1))
+      graphics::segments(xs[q], yn[, q], xs[q + 1], yn[, q + 1],
+                         col = ind_col, lwd = 1)
+    for (q in 1:R)
+      graphics::points(base::rep(xs[q], N), yn[, q], pch = 16,
+                       col = ind_col, cex = 0.5)
+    ## cluster-id labels at each band centre
+    for (q in 1:R) for (c in base::unique(clusters[, q])) {
+      sel <- clusters[, q] == c
+      graphics::text(xs[q], base::mean(yn[sel, q]), c,
+                     cex = 0.8, font = 2, col = "black")
+    }
+  }
+
+  base::invisible(base::list(clusters = clusters, ranks = ranks,
+                             reference = reference,
+                             colors = stats::setNames(ind_col, ind_names)))
+}
+
+
 #' @title Best-rank selection and concise diagnostics plot (Internal)
 #' @description
 #' Shared back-end for the rank-selection functions (\code{nmfkc.rank},

@@ -1,5 +1,17 @@
 # nmfkc 0.7.4 (development)
 
+### **New `nmf.cluster.flow()`: cluster-flow diagram across ranks**
+- `nmf.cluster.flow(fits, reference = )` takes a list of models fitted
+  at different ranks (any non-negative MU family) and draws an
+  alluvial / Sankey-style diagram of how the hard sample clustering
+  changes with the rank \eqn{Q}: each individual flows left-to-right
+  across the ranks (x-axis), its vertical position is set by its cluster
+  (clusters reordered per rank by a barycenter heuristic to reduce
+  crossings), and lines are coloured by the cluster at the
+  \code{reference} rank -- so one can watch the reference clusters split
+  or merge.  Returns (invisibly) the \eqn{N \times R} table with rows =
+  individuals, columns = rank, entries = cluster number.
+
 ### **New `nmf.cluster.criteria()`: sample-clustering diagnostics**
 - `nmf.cluster.criteria(object, Y)` reports the clustering-quality criteria
   `silhouette`, `CPCC`, and `dist.cor` for a single fitted
