@@ -1639,7 +1639,7 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' labels, and a highlighted "Best" marker:
 #' \itemize{
 #'   \item \code{r.squared}: elbow (kneedle) -- \dQuote{Best (Elbow)}.
-#'   \item \code{eff.rank}: peak of the utilization ratio -- \dQuote{Best (Peak)}.
+#'   \item \code{eff.rank}: maximum of the utilization ratio -- \dQuote{Best (Max)}.
 #'   \item \code{sigma.ecv}: minimum CV error -- \dQuote{Best (Min)}.
 #' }
 #' @param criteria Data frame with at least \code{rank}, \code{r.squared},
@@ -1708,7 +1708,7 @@ print.nmf.cluster.flow <- function(x, ...) {
     if (has_eff) {
       graphics::lines(rk, criteria$effective.rank.ratio, col = "forestgreen", lwd = 3)
       decorate(criteria$effective.rank.ratio, "forestgreen",
-               rank.best.eff, "Best (Peak)", 1)
+               rank.best.eff, "Best (Max)", 1)
       leg_txt <- c(leg_txt, "eff.rank"); leg_col <- c(leg_col, "forestgreen")
     }
 
