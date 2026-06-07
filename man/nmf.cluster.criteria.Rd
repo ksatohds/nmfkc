@@ -4,7 +4,7 @@
 \alias{nmf.cluster.criteria}
 \title{Sample-clustering quality across ranks}
 \usage{
-nmf.cluster.criteria(fits, Y, Y2 = NULL, plot = TRUE, ...)
+nmf.cluster.criteria(fits, Y, Y2 = NULL, names = NULL, plot = TRUE, ...)
 }
 \arguments{
 \item{fits}{A list of fitted models, one per rank, all over the same
@@ -20,6 +20,9 @@ for \code{nmf.ffb}); required for the data-space distances.}
 \item{Y2}{Exogenous block, required only for \code{nmf.ffb} /
 \code{nmf.sem}.}
 
+\item{names}{Optional character vector (length \code{length(fits)}) of
+x-axis tick labels.  Defaults to each result's \code{$rank}.}
+
 \item{plot}{Logical; draw the diagnostics plot immediately
 (default \code{TRUE}); see \code{\link{plot.nmf.cluster.criteria}}.}
 
@@ -28,10 +31,10 @@ for \code{nmf.ffb}); required for the data-space distances.}
 }
 \value{
 An object of class \code{"nmf.cluster.criteria"} (returned
-invisibly): a list with \code{criteria}, a data frame with one row
-per rank and columns \code{rank}, \code{silhouette}, \code{CPCC},
-\code{dist.cor}, and \code{hard} (whether hard clustering was
-possible at that rank).
+invisibly): a list with \code{criteria} (a data frame with one row
+per result and columns \code{rank}, \code{silhouette}, \code{CPCC},
+\code{dist.cor}, and \code{hard}) and \code{labels} (the x-axis
+labels).  Results are kept in the given order (not sorted).
 }
 \description{
 Computes the clustering-quality criteria \code{silhouette},

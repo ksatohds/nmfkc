@@ -15,7 +15,8 @@
 \code{x}, invisibly.
 }
 \description{
-Prints a one-line header, the adjacent-rank ARI, and the
-\eqn{N \times R} cluster table (rows = individuals, columns = rank,
-entries = cluster number).  Use \code{\link{plot}} for the diagram.
+Prints a one-line header, the adjacent-result ARI, and the
+\eqn{N \times R} cluster table (rows = individuals, columns =
+results, entries = cluster number).  Use \code{\link{plot}} for the
+diagram.
 }

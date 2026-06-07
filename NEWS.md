@@ -11,6 +11,14 @@
   fields are unchanged, so existing code keeps working.
 
 ### **New `nmf.cluster.flow()`: cluster-flow diagram across ranks**
+- `nmf.cluster.flow()` and `nmf.cluster.criteria()` now treat the
+  supplied `fits` as a generic \emph{sequence of results} (kept in the
+  given order, \strong{not} sorted by rank), so the same rank fitted as
+  different models is also supported.  Both gain a `names` argument for
+  the x-axis tick labels (default: each result's `$rank`), and in
+  `nmf.cluster.flow()` the `reference` argument is now the \strong{index}
+  (1-based position) of the result that defines the colours -- not a rank
+  value -- defaulting to the last result.
 - The adjusted Rand index (ARI) between each pair of adjacent ranks is
   now computed and printed along the top of the figure (and returned in
   `$ARI`, length \eqn{R - 1}), summarizing how much the hard clustering

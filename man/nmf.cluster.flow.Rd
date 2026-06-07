@@ -2,17 +2,22 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmf.cluster.flow}
 \alias{nmf.cluster.flow}
-\title{Cluster-flow (alluvial) diagram across ranks}
+\title{Cluster-flow (alluvial) diagram across a sequence of fits}
 \usage{
-nmf.cluster.flow(fits, reference = NULL, plot = TRUE, ...)
+nmf.cluster.flow(fits, reference = NULL, names = NULL, plot = TRUE, ...)
 }
 \arguments{
-\item{fits}{A list (length \eqn{\ge 2}) of fitted models, one per
-rank, all over the \strong{same} \eqn{N} individuals.  They are
-sorted internally by their rank.}
+\item{fits}{A list (length \eqn{\ge 2}) of fitted models, all over the
+\strong{same} \eqn{N} individuals.  The results are taken in the
+given order (\strong{not} sorted), so they may be different ranks or
+different models at the same rank.}
 
-\item{reference}{The rank whose clustering defines the line colours.
-Defaults to the largest rank in \code{fits}.}
+\item{reference}{The \strong{index} (1-based position in \code{fits})
+of the result whose clustering defines the line colours.  Defaults
+to the last result.}
+
+\item{names}{Optional character vector (length \code{length(fits)}) of
+x-axis tick labels.  Defaults to each result's \code{$rank}.}
 
 \item{plot}{Logical; draw the diagram immediately by calling
 \code{\link{plot.nmf.cluster.flow}} (default \code{TRUE}).  Set
@@ -25,28 +30,30 @@ Defaults to the largest rank in \code{fits}.}
 \value{
 An object of class \code{"nmf.cluster.flow"} (returned
 invisibly): a list with \code{clusters} (the \eqn{N \times R} table:
-rows = individuals, columns = rank, entries = cluster number = the
+rows = individuals, columns = results, entries = cluster number = the
 dominant-factor index of each fit, so it matches the factor/basis
 numbering of \code{fits}; a factor that never dominates leaves an
 empty, unused cluster number),
-\code{ypos} (the layout positions), \code{ranks}, \code{reference},
-\code{ref.cluster} (the reference hard labels), \code{ARI}
-(adjusted Rand index between each pair of adjacent ranks, length
-\eqn{R - 1}), and \code{colors}
+\code{ypos} (the layout positions), \code{ranks} (each result's
+rank), \code{labels} (the x-axis labels), \code{reference} (the
+reference index), \code{ref.cluster} (the reference hard labels),
+\code{ARI} (adjusted Rand index between each pair of adjacent
+results, length \eqn{R - 1}), and \code{colors}
 (the default per-individual reference colour).  Call
 \code{\link{plot}} on it to (re)draw the diagram.
 }
 \description{
-Visualizes how the hard sample clustering changes as the rank \eqn{Q}
-varies, given a list of models fitted at different ranks.  Each
-individual is a line flowing left-to-right across the ranks (x-axis);
-its vertical position at each rank is determined by its cluster, and
-clusters are reordered at each rank (barycenter method) to reduce
-crossings.  Lines are coloured by the individual's cluster at the
-\code{reference} rank, so one can see how the reference clusters split
-or merge as the rank changes.  The adjusted Rand index (ARI) between
-each pair of adjacent ranks is printed along the top of the figure,
-summarizing how much the clustering changes from one rank to the next.
+Visualizes how the hard sample clustering changes across a sequence of
+fitted models -- typically the same model at increasing ranks, but
+also different models at the same rank.  Each individual is a line
+flowing left-to-right across the results (x-axis); its vertical
+position at each result is determined by its cluster, and clusters are
+reordered (barycenter method) to reduce crossings.  Lines are coloured
+by the individual's cluster in the \code{reference} result, so one can
+see how the reference clusters split or merge.  The adjusted Rand
+index (ARI) between each pair of adjacent results is printed along the
+top of the figure.  X-axis ticks default to each result's \code{$rank}
+and can be overridden with \code{names}.
 
 Works for any non-negative multiplicative-update family
 (\code{nmfkc}, \code{nmfae}, \code{nmfkc.net}, \code{nmfre},
@@ -57,7 +64,7 @@ coefficient/score matrix.
 \donttest{
 Y <- t(as.matrix(iris[, 1:4]))
 fits <- lapply(2:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
-fl <- nmf.cluster.flow(fits, reference = 3, plot = FALSE)
+fl <- nmf.cluster.flow(fits, reference = 2, plot = FALSE)  # 2nd result
 head(fl$clusters)
 plot(fl, lwd = 2, main = "iris cluster flow")
 }

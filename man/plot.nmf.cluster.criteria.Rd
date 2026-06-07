@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.R
 \name{plot.nmf.cluster.criteria}
 \alias{plot.nmf.cluster.criteria}
-\title{Plot clustering-quality criteria across ranks}
+\title{Plot clustering-quality criteria across a sequence of fits}
 \usage{
 \method{plot}{nmf.cluster.criteria}(
   x,
@@ -30,8 +30,10 @@
 }
 \description{
 Line plot of \code{silhouette}, \code{CPCC}, and \code{dist.cor}
-against the rank, for an object from
-\code{\link{nmf.cluster.criteria}}.
+against the result index, for an object from
+\code{\link{nmf.cluster.criteria}}.  X-axis ticks default to each
+result's \code{$rank} (overridable via the \code{names} argument of
+\code{\link{nmf.cluster.criteria}}).
 }
 \seealso{
 \code{\link{nmf.cluster.criteria}}

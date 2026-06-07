@@ -1240,15 +1240,17 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   for \code{nmf.ffb}); required for the data-space distances.
 #' @param Y2 Exogenous block, required only for \code{nmf.ffb} /
 #'   \code{nmf.sem}.
+#' @param names Optional character vector (length \code{length(fits)}) of
+#'   x-axis tick labels.  Defaults to each result's \code{$rank}.
 #' @param plot Logical; draw the diagnostics plot immediately
 #'   (default \code{TRUE}); see \code{\link{plot.nmf.cluster.criteria}}.
 #' @param ... When \code{plot = TRUE}, graphical arguments forwarded to
 #'   \code{\link{plot.nmf.cluster.criteria}}.
 #' @return An object of class \code{"nmf.cluster.criteria"} (returned
-#'   invisibly): a list with \code{criteria}, a data frame with one row
-#'   per rank and columns \code{rank}, \code{silhouette}, \code{CPCC},
-#'   \code{dist.cor}, and \code{hard} (whether hard clustering was
-#'   possible at that rank).
+#'   invisibly): a list with \code{criteria} (a data frame with one row
+#'   per result and columns \code{rank}, \code{silhouette}, \code{CPCC},
+#'   \code{dist.cor}, and \code{hard}) and \code{labels} (the x-axis
+#'   labels).  Results are kept in the given order (not sorted).
 #' @seealso \code{\link{nmf.cluster.flow}}, \code{\link{nmfkc.rank}}
 #' @export
 #' @examples
@@ -1259,7 +1261,8 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' cc$criteria
 #' plot(cc)
 #' }
-nmf.cluster.criteria <- function(fits, Y, Y2 = NULL, plot = TRUE, ...) {
+nmf.cluster.criteria <- function(fits, Y, Y2 = NULL, names = NULL,
+                                 plot = TRUE, ...) {
   if (base::missing(Y))
     base::stop("nmf.cluster.criteria() requires the original data matrix Y.", call. = FALSE)
   ## A single fitted model (has a scalar $rank) is wrapped into a list.
@@ -1269,6 +1272,7 @@ nmf.cluster.criteria <- function(fits, Y, Y2 = NULL, plot = TRUE, ...) {
                call. = FALSE)
   Y <- base::as.matrix(Y)
 
+  ## Results are taken in the given order (NOT sorted).
   rows <- base::lapply(fits, function(f) {
     B  <- .nmf.cluster.criteria.coef(f, Y, Y2)
     cc <- .cluster.criteria(Y, B)
@@ -1278,21 +1282,30 @@ nmf.cluster.criteria <- function(fits, Y, Y2 = NULL, plot = TRUE, ...) {
                      dist.cor = cc$dist.cor, hard = cc$hard)
   })
   criteria <- base::do.call(base::rbind, rows)
-  criteria <- criteria[base::order(criteria$rank), , drop = FALSE]
   base::rownames(criteria) <- NULL
 
-  out <- base::list(criteria = criteria)
+  R <- base::nrow(criteria)
+  if (base::is.null(names)) labels <- base::as.character(criteria$rank)
+  else {
+    labels <- base::as.character(names)
+    if (base::length(labels) != R)
+      base::stop("`names` must have length(fits) = ", R, " entries.", call. = FALSE)
+  }
+
+  out <- base::list(criteria = criteria, labels = labels)
   base::class(out) <- "nmf.cluster.criteria"
   if (plot) graphics::plot(out, ...)
   base::invisible(out)
 }
 
 
-#' @title Plot clustering-quality criteria across ranks
+#' @title Plot clustering-quality criteria across a sequence of fits
 #' @description
 #' Line plot of \code{silhouette}, \code{CPCC}, and \code{dist.cor}
-#' against the rank, for an object from
-#' \code{\link{nmf.cluster.criteria}}.
+#' against the result index, for an object from
+#' \code{\link{nmf.cluster.criteria}}.  X-axis ticks default to each
+#' result's \code{$rank} (overridable via the \code{names} argument of
+#' \code{\link{nmf.cluster.criteria}}).
 #' @param x An object of class \code{"nmf.cluster.criteria"}.
 #' @param main Plot title.
 #' @param xlab,ylab Axis labels.
@@ -1306,18 +1319,20 @@ plot.nmf.cluster.criteria <- function(x, main = "Clustering quality across rank"
                                       xlab = "rank (Q)", ylab = "criterion",
                                       lwd = 2, ...) {
   cr <- x$criteria
-  rk <- cr$rank
+  labels <- if (!base::is.null(x$labels)) x$labels else base::as.character(cr$rank)
+  xi <- base::seq_len(base::nrow(cr))       # result index on the x-axis
   metrics <- c(silhouette = 7, CPCC = 6, dist.cor = 5)  # name = colour
   yr <- base::range(base::unlist(cr[base::names(metrics)]), na.rm = TRUE)
   if (!base::all(base::is.finite(yr))) yr <- c(0, 1)
-  graphics::plot(NA, xlim = base::range(rk), ylim = yr,
+  graphics::plot(NA, xlim = base::range(xi), ylim = yr, xaxt = "n",
                  xlab = xlab, ylab = ylab, main = main, ...)
-  for (q in rk) graphics::abline(v = q, col = "gray90", lwd = 0.5)
+  graphics::axis(1, at = xi, labels = labels)
+  for (q in xi) graphics::abline(v = q, col = "gray90", lwd = 0.5)
   for (m in base::names(metrics)) {
     v <- cr[[m]]
     if (base::all(base::is.na(v))) next
-    graphics::lines(rk, v, col = metrics[[m]], lwd = lwd)
-    graphics::points(rk, v, pch = 16, col = metrics[[m]], cex = 0.8)
+    graphics::lines(xi, v, col = metrics[[m]], lwd = lwd)
+    graphics::points(xi, v, pch = 16, col = metrics[[m]], cex = 0.8)
   }
   graphics::legend("bottomright", legend = base::names(metrics),
                    col = base::unlist(metrics), lty = 1, lwd = 2,
@@ -1332,8 +1347,9 @@ plot.nmf.cluster.criteria <- function(x, main = "Clustering quality across rank"
 #' @return \code{x}, invisibly.
 #' @export
 print.nmf.cluster.criteria <- function(x, ...) {
-  base::cat("Sample-clustering quality across ranks ",
-            base::paste(x$criteria$rank, collapse = ", "), "\n", sep = "")
+  labels <- if (!base::is.null(x$labels)) x$labels else base::as.character(x$criteria$rank)
+  base::cat("Sample-clustering quality across ", base::nrow(x$criteria),
+            " results [", base::paste(labels, collapse = ", "), "]\n", sep = "")
   base::cat("(silhouette / CPCC / dist.cor; silhouette = NA when the coefficient is signed)\n\n")
   base::print(x$criteria, row.names = FALSE, ...)
   base::invisible(x)
@@ -1433,29 +1449,34 @@ print.nmf.cluster.criteria <- function(x, ...) {
 }
 
 
-#' @title Cluster-flow (alluvial) diagram across ranks
+#' @title Cluster-flow (alluvial) diagram across a sequence of fits
 #' @description
-#' Visualizes how the hard sample clustering changes as the rank \eqn{Q}
-#' varies, given a list of models fitted at different ranks.  Each
-#' individual is a line flowing left-to-right across the ranks (x-axis);
-#' its vertical position at each rank is determined by its cluster, and
-#' clusters are reordered at each rank (barycenter method) to reduce
-#' crossings.  Lines are coloured by the individual's cluster at the
-#' \code{reference} rank, so one can see how the reference clusters split
-#' or merge as the rank changes.  The adjusted Rand index (ARI) between
-#' each pair of adjacent ranks is printed along the top of the figure,
-#' summarizing how much the clustering changes from one rank to the next.
+#' Visualizes how the hard sample clustering changes across a sequence of
+#' fitted models -- typically the same model at increasing ranks, but
+#' also different models at the same rank.  Each individual is a line
+#' flowing left-to-right across the results (x-axis); its vertical
+#' position at each result is determined by its cluster, and clusters are
+#' reordered (barycenter method) to reduce crossings.  Lines are coloured
+#' by the individual's cluster in the \code{reference} result, so one can
+#' see how the reference clusters split or merge.  The adjusted Rand
+#' index (ARI) between each pair of adjacent results is printed along the
+#' top of the figure.  X-axis ticks default to each result's \code{$rank}
+#' and can be overridden with \code{names}.
 #'
 #' Works for any non-negative multiplicative-update family
 #' (\code{nmfkc}, \code{nmfae}, \code{nmfkc.net}, \code{nmfre},
 #' and the signed variants); the hard label is the argmax of the
 #' coefficient/score matrix.
 #'
-#' @param fits A list (length \eqn{\ge 2}) of fitted models, one per
-#'   rank, all over the \strong{same} \eqn{N} individuals.  They are
-#'   sorted internally by their rank.
-#' @param reference The rank whose clustering defines the line colours.
-#'   Defaults to the largest rank in \code{fits}.
+#' @param fits A list (length \eqn{\ge 2}) of fitted models, all over the
+#'   \strong{same} \eqn{N} individuals.  The results are taken in the
+#'   given order (\strong{not} sorted), so they may be different ranks or
+#'   different models at the same rank.
+#' @param reference The \strong{index} (1-based position in \code{fits})
+#'   of the result whose clustering defines the line colours.  Defaults
+#'   to the last result.
+#' @param names Optional character vector (length \code{length(fits)}) of
+#'   x-axis tick labels.  Defaults to each result's \code{$rank}.
 #' @param plot Logical; draw the diagram immediately by calling
 #'   \code{\link{plot.nmf.cluster.flow}} (default \code{TRUE}).  Set
 #'   \code{FALSE} to only build the object and plot it later.
@@ -1464,14 +1485,15 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #'   \code{xlab}, \code{ylab}, \code{main}).
 #' @return An object of class \code{"nmf.cluster.flow"} (returned
 #'   invisibly): a list with \code{clusters} (the \eqn{N \times R} table:
-#'   rows = individuals, columns = rank, entries = cluster number = the
+#'   rows = individuals, columns = results, entries = cluster number = the
 #'   dominant-factor index of each fit, so it matches the factor/basis
 #'   numbering of \code{fits}; a factor that never dominates leaves an
 #'   empty, unused cluster number),
-#'   \code{ypos} (the layout positions), \code{ranks}, \code{reference},
-#'   \code{ref.cluster} (the reference hard labels), \code{ARI}
-#'   (adjusted Rand index between each pair of adjacent ranks, length
-#'   \eqn{R - 1}), and \code{colors}
+#'   \code{ypos} (the layout positions), \code{ranks} (each result's
+#'   rank), \code{labels} (the x-axis labels), \code{reference} (the
+#'   reference index), \code{ref.cluster} (the reference hard labels),
+#'   \code{ARI} (adjusted Rand index between each pair of adjacent
+#'   results, length \eqn{R - 1}), and \code{colors}
 #'   (the default per-individual reference colour).  Call
 #'   \code{\link{plot}} on it to (re)draw the diagram.
 #' @seealso \code{\link{plot.nmf.cluster.flow}},
@@ -1481,11 +1503,12 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #' \donttest{
 #' Y <- t(as.matrix(iris[, 1:4]))
 #' fits <- lapply(2:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
-#' fl <- nmf.cluster.flow(fits, reference = 3, plot = FALSE)
+#' fl <- nmf.cluster.flow(fits, reference = 2, plot = FALSE)  # 2nd result
 #' head(fl$clusters)
 #' plot(fl, lwd = 2, main = "iris cluster flow")
 #' }
-nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
+nmf.cluster.flow <- function(fits, reference = NULL, names = NULL,
+                             plot = TRUE, ...) {
   if (!base::is.list(fits) || base::length(fits) < 2)
     base::stop("`fits` must be a list of at least two fitted models.", call. = FALSE)
 
@@ -1493,36 +1516,37 @@ nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
   N <- base::length(lab_list[[1]])
   if (base::any(base::vapply(lab_list, base::length, 1L) != N))
     base::stop("all fits must share the same number of individuals (N).", call. = FALSE)
+  R <- base::length(fits)
 
+  ## Each result's rank (for the default labels); the given order is kept.
   ranks <- base::vapply(fits, function(f)
     if (!base::is.null(f$rank)) base::as.integer(f$rank) else NA_integer_, 1L)
-  ord <- base::order(ranks)
-  ranks <- ranks[ord]; lab_list <- lab_list[ord]
-  R <- base::length(ranks)
+  if (base::is.null(names)) labels <- base::as.character(ranks)
+  else {
+    labels <- base::as.character(names)
+    if (base::length(labels) != R)
+      base::stop("`names` must have length(fits) = ", R, " entries.", call. = FALSE)
+  }
 
   ## The cluster number is the dominant-factor index (argmax of the
   ## coefficient), kept as-is so it matches the factor/basis numbering of
-  ## the supplied fits.  A factor that never dominates any individual
-  ## therefore leaves an empty cluster (a gap in the numbering, e.g.
-  ## labels {2, 3} with no 1) -- that is correct and consistent with the
-  ## fit; it is not renumbered.
-
+  ## the supplied fits; a factor that never dominates leaves a gap.
   clusters <- base::matrix(base::unlist(lab_list), nrow = N, ncol = R)
   ind_names <- base::names(lab_list[[1]])
   if (base::is.null(ind_names)) ind_names <- base::paste0("i", base::seq_len(N))
   base::rownames(clusters) <- ind_names
-  base::colnames(clusters) <- base::paste0("rank", ranks)
+  base::colnames(clusters) <- labels
 
-  if (base::is.null(reference)) reference <- ranks[R]
-  ref_col <- base::match(reference, ranks)
-  if (base::is.na(ref_col))
-    base::stop("`reference` must be one of the fitted ranks: ",
-               base::paste(ranks, collapse = ", "), call. = FALSE)
+  ## reference = index (1..R) of the result that defines the colours
+  if (base::is.null(reference)) reference <- R
+  ref_col <- base::as.integer(reference)
+  if (base::length(ref_col) != 1L || base::is.na(ref_col) ||
+      ref_col < 1L || ref_col > R)
+    base::stop("`reference` must be a single result index in 1..", R, ".",
+               call. = FALSE)
   ref_lab <- clusters[, ref_col]
 
-  ## --- layout: positions per rank, with inter-cluster gaps ---
-  ## Reference column: clusters in id order (key = ref labels); other
-  ## columns: barycenter order from the adjacent already-placed column.
+  ## --- layout: positions per result, with inter-cluster gaps ---
   ypos <- base::matrix(NA_real_, N, R)
   ypos[, ref_col] <- .flow.place(ref_lab, ref_lab)
   if (ref_col < R) for (q in (ref_col + 1):R)
@@ -1530,15 +1554,14 @@ nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
   if (ref_col > 1) for (q in (ref_col - 1):1)
     ypos[, q] <- .flow.place(clusters[, q], ypos[, q + 1])
 
-  ## Adjacent-rank agreement: ARI between the clusterings at rank q and
-  ## rank q+1 (length R-1), labelled "rank_q-rank_{q+1}".
+  ## Adjacent-result agreement: ARI between results q and q+1.
   ari <- base::vapply(base::seq_len(R - 1),
                       function(q) .ari(clusters[, q], clusters[, q + 1]),
                       base::numeric(1))
-  base::names(ari) <- base::sprintf("%d-%d", ranks[-R], ranks[-1L])
+  base::names(ari) <- base::sprintf("%s-%s", labels[-R], labels[-1L])
 
   out <- base::list(clusters = clusters, ypos = ypos, ranks = ranks,
-                    reference = reference, ref.cluster = ref_lab,
+                    labels = labels, reference = ref_col, ref.cluster = ref_lab,
                     ARI = ari,
                     colors = stats::setNames(.flow.colors(ref_lab)[ref_lab], ind_names))
   base::class(out) <- "nmf.cluster.flow"
@@ -1594,14 +1617,15 @@ nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
 plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
                                   xlab = "rank (Q)", ylab = "individuals",
                                   main = "Cluster flow across rank", ...) {
-  clusters <- x$clusters; ypos <- x$ypos; ranks <- x$ranks
+  clusters <- x$clusters; ypos <- x$ypos
+  labels <- if (!base::is.null(x$labels)) x$labels else x$ranks
   ref_lab <- x$ref.cluster
   N <- base::nrow(clusters); R <- base::ncol(clusters)
   pal <- .flow.colors(ref_lab, col)   # one colour per reference cluster
   ind_col <- pal[ref_lab]             # per-individual line colour
 
-  ## Normalize each rank (column) independently to [0, 1]: the layout
-  ## inserts inter-cluster gaps, so the total span differs per rank.
+  ## Normalize each result (column) independently to [0, 1]: the layout
+  ## inserts inter-cluster gaps, so the total span differs per result.
   yn <- base::apply(ypos, 2, function(p) {
     rg <- base::range(p)
     if (base::diff(rg) == 0) base::rep(0.5, base::length(p))
@@ -1609,10 +1633,10 @@ plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
   })
   xs <- base::seq_len(R)
   old <- graphics::par(mar = c(4, 4, 4, 2) + 0.1); base::on.exit(graphics::par(old))
-  ## extra head-room at the top for the adjacent-rank ARI labels
+  ## extra head-room at the top for the adjacent-result ARI labels
   graphics::plot(NA, xlim = c(1, R), ylim = c(-0.03, 1.12),
                  xaxt = "n", yaxt = "n", xlab = xlab, ylab = ylab, main = main, ...)
-  graphics::axis(1, at = xs, labels = ranks)
+  graphics::axis(1, at = xs, labels = labels)
 
   ## Adjacent-rank ARI, printed between the two columns it compares.
   if (!base::is.null(x$ARI)) for (q in base::seq_len(R - 1)) {
@@ -1656,19 +1680,22 @@ plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
 
 #' @title Print method for nmf.cluster.flow objects
 #' @description
-#' Prints a one-line header, the adjacent-rank ARI, and the
-#' \eqn{N \times R} cluster table (rows = individuals, columns = rank,
-#' entries = cluster number).  Use \code{\link{plot}} for the diagram.
+#' Prints a one-line header, the adjacent-result ARI, and the
+#' \eqn{N \times R} cluster table (rows = individuals, columns =
+#' results, entries = cluster number).  Use \code{\link{plot}} for the
+#' diagram.
 #' @param x An object of class \code{"nmf.cluster.flow"}.
 #' @param ... Passed to the table's \code{print}.
 #' @return \code{x}, invisibly.
 #' @export
 print.nmf.cluster.flow <- function(x, ...) {
-  base::cat(base::sprintf("Cluster flow: %d individuals across ranks %s (reference = %d)\n",
-                          base::nrow(x$clusters),
-                          base::paste(x$ranks, collapse = ", "), x$reference))
+  labels <- if (!base::is.null(x$labels)) x$labels else base::as.character(x$ranks)
+  base::cat(base::sprintf("Cluster flow: %d individuals across %d results [%s] (reference = result %d: %s)\n",
+                          base::nrow(x$clusters), base::length(labels),
+                          base::paste(labels, collapse = ", "),
+                          x$reference, labels[x$reference]))
   if (!base::is.null(x$ARI)) {
-    base::cat("\nAdjacent-rank ARI:\n")
+    base::cat("\nAdjacent-result ARI:\n")
     base::print(base::round(x$ARI, 3))
   }
   base::cat("\nClusters (rows = individuals, columns = rank, entries = cluster number):\n")
