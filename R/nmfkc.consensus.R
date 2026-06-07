@@ -163,6 +163,8 @@ print.nmfkc.consensus <- function(x, ...) {
 #'   \code{c(nrow, ncol)}.  \code{NULL} (default) uses
 #'   \code{\link[grDevices]{n2mfrow}} for a near-square grid.
 #' @param col Heatmap colour palette (length-50 blue-to-red by default).
+#' @param main Plot title for the \code{"criteria"} view (heatmap panels
+#'   are titled per rank).
 #' @param ... Further arguments passed to the underlying
 #'   \code{\link[graphics]{plot}} / \code{\link[graphics]{image}}.
 #' @return \code{x}, invisibly.
@@ -171,13 +173,15 @@ print.nmfkc.consensus <- function(x, ...) {
 plot.nmfkc.consensus <- function(x, type = c("criteria", "heatmap"),
                                  rank = NULL, mfrow = NULL,
                                  col = grDevices::hcl.colors(50, "Blue-Red"),
-                                 ...) {
+                                 main = NULL, ...) {
   type <- base::match.arg(type)
 
   if (type == "criteria") {
     graphics::plot(x$rank, x$cophenetic, type = "o", col = "blue", pch = 16,
                    lwd = 2, ylim = c(0, 1), xlab = "rank (Q)",
-                   ylab = "stability (0-1)", main = "Consensus stability", ...)
+                   ylab = "stability (0-1)",
+                   main = if (base::is.null(main)) "Consensus stability" else main,
+                   ...)
     graphics::lines(x$rank, x$dispersion, type = "o", col = "red", pch = 17,
                     lwd = 2)
     graphics::legend("bottomleft",

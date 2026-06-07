@@ -10,6 +10,7 @@
   rank = NULL,
   mfrow = NULL,
   col = grDevices::hcl.colors(50, "Blue-Red"),
+  main = NULL,
   ...
 )
 }
@@ -26,6 +27,9 @@
 \code{\link[grDevices]{n2mfrow}} for a near-square grid.}
 
 \item{col}{Heatmap colour palette (length-50 blue-to-red by default).}
+
+\item{main}{Plot title for the \code{"criteria"} view (heatmap panels
+are titled per rank).}
 
 \item{...}{Further arguments passed to the underlying
 \code{\link[graphics]{plot}} / \code{\link[graphics]{image}}.}
