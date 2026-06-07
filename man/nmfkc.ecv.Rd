@@ -61,5 +61,7 @@ and the nonnegative matrix factorization.  \emph{Ann. Appl. Stat.}
 NMF rank; see also \code{\link{nmfkc.bicv}}).
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.cv}}, \code{\link{nmfkc.bicv}}
+\code{\link{nmfkc}}, \code{\link{nmfkc.cv}}; other rank-selection
+criteria: \code{\link{nmfkc.rank}}, \code{\link{nmfkc.bicv}},
+\code{\link{nmfkc.consensus}}, \code{\link{nmfkc.ard}}.
 }

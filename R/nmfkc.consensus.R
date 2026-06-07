@@ -66,8 +66,9 @@
 #' Senbabaoglu, Y., Michailidis, G., Li, J. Z. (2014).  Critical
 #' limitations of consensus clustering in class discovery.
 #' \emph{Sci. Rep.} 4:6207. \doi{10.1038/srep06207}.
-#' @seealso \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.bicv}},
-#'   \code{\link{nmfkc.rank}}, \code{\link{nmf.cluster.criteria}}
+#' @seealso \code{\link{nmfkc.rank}}, \code{\link{nmfkc.ecv}},
+#'   \code{\link{nmfkc.bicv}}, \code{\link{nmfkc.ard}},
+#'   \code{\link{nmf.cluster.criteria}}
 #' @export
 #' @examples
 #' \donttest{

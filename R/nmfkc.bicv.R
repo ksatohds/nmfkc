@@ -95,7 +95,8 @@
 #' @references A. B. Owen and P. O. Perry (2009).  Bi-cross-validation of
 #'   the SVD and the nonnegative matrix factorization.
 #'   \emph{Ann. Appl. Stat.} 3(2):564--594. \doi{10.1214/08-AOAS227}.
-#' @seealso \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.rank}}
+#' @seealso \code{\link{nmfkc.rank}}, \code{\link{nmfkc.ecv}},
+#'   \code{\link{nmfkc.consensus}}, \code{\link{nmfkc.ard}}
 #' @export
 #' @examples
 #' \donttest{

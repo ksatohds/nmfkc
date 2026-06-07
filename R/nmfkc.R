@@ -3266,7 +3266,9 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #' and the nonnegative matrix factorization.  \emph{Ann. Appl. Stat.}
 #' 3(2), 564--594. \doi{10.1214/08-AOAS227}  (cross-validation of the
 #' NMF rank; see also \code{\link{nmfkc.bicv}}).
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}, \code{\link{nmfkc.bicv}}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}; other rank-selection
+#'   criteria: \code{\link{nmfkc.rank}}, \code{\link{nmfkc.bicv}},
+#'   \code{\link{nmfkc.consensus}}, \code{\link{nmfkc.ard}}.
 #' @examples
 #' # Element-wise CV to select rank
 #' Y <- t(iris[1:30, 1:4])
