@@ -114,11 +114,16 @@ cs
 plot(cs)                               # stability curves
 ```
 
-The consensus matrix at the chosen rank should be a crisp block-diagonal:
+The consensus matrices (one panel per rank) should be a crisp block-diagonal at
+the true rank and become fuzzier (more intermediate, pink/grey entries) when the
+rank is too large:
 
-```{r consensus-heatmap, fig.width = 6.5, fig.height = 6.5}
-plot(cs, type = "heatmap", rank = 3)   # blue = 0 (different), red = 1 (same)
+```{r consensus-heatmap, fig.width = 8, fig.height = 6}
+plot(cs, type = "heatmap")   # all ranks; blue = 0 (different), red = 1 (same)
 ```
+
+(Use `plot(cs, type = "heatmap", rank = 3)` to enlarge a single rank, with
+sample labels.)
 
 ## 4. Bayesian ARD: `nmfkc.ard`
 
