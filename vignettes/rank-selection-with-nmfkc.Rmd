@@ -114,16 +114,22 @@ cs
 plot(cs)                               # stability curves
 ```
 
-The consensus matrices (one panel per rank) should be a crisp block-diagonal at
-the true rank and become fuzzier (more intermediate, pink/grey entries) when the
-rank is too large:
+Each panel is the consensus matrix at one rank, reordered by hierarchical
+clustering (blue = 0 / different cluster, red = 1 / same cluster):
 
 ```{r consensus-heatmap, fig.width = 8, fig.height = 6}
-plot(cs, type = "heatmap")   # all ranks; blue = 0 (different), red = 1 (same)
+plot(cs, type = "heatmap")   # all ranks
 ```
 
-(Use `plot(cs, type = "heatmap", rank = 3)` to enlarge a single rank, with
-sample labels.)
+A striking point: the consensus stays essentially **three crisp blocks even at
+ranks 4--6**.  The surplus basis vectors do **not** create new *reproducible*
+clusters --- at ranks 4--5 they stay near-empty (the hard clustering still uses
+only three factors), and at rank 6 a cluster splits only *erratically* across
+restarts, which averages out (just a few intermediate, pink entries, and a small
+drop in `dispersion` / rise in `PAC`).  So consensus reveals the genuine stable
+structure (`3`) robustly, **even when the rank is over-specified** --- a useful
+property.  (Use `plot(cs, type = "heatmap", rank = 3)` to enlarge a single rank
+with sample labels.)
 
 ## 4. Bayesian ARD: `nmfkc.ard`
 
