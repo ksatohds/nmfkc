@@ -1,6 +1,11 @@
 # nmfkc 0.7.4 (development)
 
 ### **New `nmf.cluster.flow()`: cluster-flow diagram across ranks**
+- Each cluster box is now tinted by the \strong{majority} reference
+  colour among the individuals it contains (the colour shared by the
+  most member lines); ties are broken in favour of the earliest palette
+  entry (the smallest reference-cluster id).  This shows at a glance
+  which reference cluster dominates each box at each rank.
 - `nmf.cluster.flow()` now inserts a gap of one average cluster
   (\eqn{N / k}) between clusters in the per-rank layout and sizes each
   grey box exactly to the minimum/maximum position of its members, so

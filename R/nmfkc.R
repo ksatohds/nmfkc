@@ -1458,7 +1458,7 @@ nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
 
   out <- base::list(clusters = clusters, ypos = ypos, ranks = ranks,
                     reference = reference, ref.cluster = ref_lab,
-                    colors = stats::setNames(.flow.colors(ref_lab), ind_names))
+                    colors = stats::setNames(.flow.colors(ref_lab)[ref_lab], ind_names))
   base::class(out) <- "nmf.cluster.flow"
   if (plot) graphics::plot(out, ...)
   base::invisible(out)
@@ -1474,7 +1474,9 @@ nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
 #' is indexed by cluster id (recycled if too short).
 #' @param ref_lab Integer reference cluster labels (length \eqn{N}).
 #' @param col Optional colour vector indexed by cluster id.
-#' @return A character vector of \eqn{N} colours.
+#' @return The resolved \strong{palette}: a character vector of length
+#'   \eqn{K} (one colour per reference cluster).  Index it by cluster id,
+#'   e.g.\ \code{pal[ref_lab]} for per-individual colours.
 #' @keywords internal
 #' @noRd
 .flow.colors <- function(ref_lab, col = NULL) {
@@ -1486,7 +1488,7 @@ nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
   } else if (base::length(col) < K) {
     col <- base::rep_len(col, K)
   }
-  col[ref_lab]
+  col[base::seq_len(K)]
 }
 
 
@@ -1511,8 +1513,10 @@ plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
                                   xlab = "rank (Q)", ylab = "individuals",
                                   main = "Cluster flow across rank", ...) {
   clusters <- x$clusters; ypos <- x$ypos; ranks <- x$ranks
+  ref_lab <- x$ref.cluster
   N <- base::nrow(clusters); R <- base::ncol(clusters)
-  ind_col <- .flow.colors(x$ref.cluster, col)
+  pal <- .flow.colors(ref_lab, col)   # one colour per reference cluster
+  ind_col <- pal[ref_lab]             # per-individual line colour
 
   ## Normalize each rank (column) independently to [0, 1]: the layout
   ## inserts inter-cluster gaps, so the total span differs per rank.
@@ -1537,16 +1541,21 @@ plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
     graphics::points(base::rep(xs[q], N), yn[, q], pch = 16,
                      col = ind_col, cex = 0.5)
 
-  ## 2. foreground translucent grey box per cluster, sized to the min/max
-  ##    of its members (tiny pad so a singleton still shows as a box); the
-  ##    inter-cluster gaps from the layout keep the boxes well separated.
-  box_fill <- grDevices::adjustcolor("gray80", alpha.f = 0.55)
+  ## 2. foreground box per cluster, sized to the min/max of its members
+  ##    (tiny pad so a singleton still shows).  The box is tinted by the
+  ##    MAJORITY reference colour among its members; ties are broken in
+  ##    favour of the earliest palette entry (smallest reference id).
   pad <- 0.004
   for (q in 1:R) for (c in base::unique(clusters[, q])) {
-    ys <- yn[clusters[, q] == c, q]
+    sel <- clusters[, q] == c
+    ys  <- yn[sel, q]
+    tab <- base::table(ref_lab[sel])
+    cand <- base::as.integer(base::names(tab)[tab == base::max(tab)])
+    majref <- base::min(cand)                 # earliest palette colour on ties
+    box_fill <- grDevices::adjustcolor(pal[majref], alpha.f = 0.45)
     graphics::rect(xs[q] - hw, base::min(ys) - pad,
                    xs[q] + hw, base::max(ys) + pad,
-                   col = box_fill, border = "gray40", lwd = 0.8)
+                   col = box_fill, border = pal[majref], lwd = 1)
     graphics::text(xs[q], base::mean(ys), c, cex = 1.2, font = 2, col = "gray10")
   }
   base::invisible(x)
