@@ -8,7 +8,7 @@
   x,
   main = NULL,
   xlab = "Rank (Q)",
-  ylab = "R-squared / eff.rank (0-1)",
+  ylab = "R-squared / eff.rank.idx (0-1)",
   lwd = 3,
   ...
 )

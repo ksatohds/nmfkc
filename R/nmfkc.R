@@ -1716,17 +1716,22 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' utilization \code{effective.rank.ratio}, and the cross-validation
 #' error \code{sigma.ecv}.  Any other columns present (e.g.\ \code{ARI},
 #' \code{silhouette}, \code{CPCC}, \code{dist.cor} from \code{nmfkc.rank})
-#' are kept in the returned table but \strong{not plotted}.  All three
-#' criteria are drawn as lines with points and rank-number labels.  Two
-#' of them carry a highlighted "Best" marker that drives the recommended
-#' rank:
+#' are kept in the returned table but \strong{not plotted}.  The three
+#' plotted criteria are drawn as lines with points, rank-number labels,
+#' and a highlighted "Best" marker:
 #' \itemize{
 #'   \item \code{r.squared}: elbow (kneedle) -- \dQuote{Best (Elbow)}.
+#'   \item \code{eff.rank.idx}: maximum of the broken-stick-corrected
+#'     effective-rank index -- \dQuote{Best (Max)}.
 #'   \item \code{sigma.ecv}: minimum CV error -- \dQuote{Best (Min)}.
 #' }
-#' \code{eff.rank} is shown for context only and carries \strong{no}
-#' best marker: the utilization ratio tends to be largest at small ranks,
-#' so its maximum is not a meaningful rank-selection optimum.
+#' The green line is the \code{effective.rank.index} (not the raw
+#' \code{eff.rank / Q}): \code{(eff.rank - E) / (Q - E)} clamped to
+#' \eqn{[0, 1]}, where \code{E = exp(H_Q - 1)} is the broken-stick
+#' expected effective rank (\code{H_Q} = the \code{Q}-th harmonic
+#' number).  This anchors 0 at the random null and 1 at perfect
+#' evenness, removing the small-rank inflation of \code{eff.rank / Q}, so
+#' its maximum is a meaningful rank.
 #' @param criteria Data frame with at least \code{rank}, \code{r.squared},
 #'   \code{effective.rank.ratio}, and (optionally) \code{sigma.ecv}.
 #' @param plot Logical; draw the diagnostics plot.
@@ -1762,16 +1767,33 @@ print.nmf.cluster.flow <- function(x, ...) {
     rank.best.r2 <- rk[base::which.max(d)]
   }
 
-  has_eff <- !base::is.null(criteria$effective.rank.ratio) &&
-             base::any(base::is.finite(criteria$effective.rank.ratio))
-  rank.best.eff <- if (has_eff)
-    rk[base::which.max(criteria$effective.rank.ratio)] else NA
+  ## Broken-stick correction of the effective-rank utilization.
+  ## Expected effective rank under a random (uniform-Dirichlet) split of
+  ## the variance among Q factors is exp(H_Q - 1), H_Q = sum_{j<=Q} 1/j.
+  ## The [0,1] index anchors 0 at this null and 1 at perfect evenness
+  ## (eff.rank = Q): (eff.rank - expected) / (Q - expected), clamped.
+  ## This removes the small-Q inflation of eff.rank / Q, so its maximum
+  ## is a meaningful rank.
+  if (!base::is.null(criteria$effective.rank)) {
+    Hq <- base::vapply(rk, function(Q) base::sum(1 / base::seq_len(Q)),
+                       base::numeric(1))
+    e_null <- base::exp(Hq - 1)
+    idx <- (criteria$effective.rank - e_null) / (rk - e_null)
+    idx[!base::is.finite(idx)] <- NA_real_
+    criteria$effective.rank.expected <- e_null
+    criteria$effective.rank.index <- base::pmin(base::pmax(idx, 0), 1)
+  }
+
+  has_idx <- !base::is.null(criteria$effective.rank.index) &&
+             base::any(base::is.finite(criteria$effective.rank.index))
+  rank.best.idx <- if (has_idx)
+    rk[base::which.max(criteria$effective.rank.index)] else NA
 
   rank.final <- if (!base::is.na(rank.best.ecv)) rank.best.ecv else rank.best.r2
 
   out <- base::list(rank.best = rank.final, criteria = criteria,
                     best = base::list(ecv = rank.best.ecv, r2 = rank.best.r2,
-                                      eff = rank.best.eff),
+                                      eff.idx = rank.best.idx),
                     main = main)
   base::class(out) <- "nmf.rank"
   if (plot) graphics::plot(out)
@@ -1798,15 +1820,16 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' @seealso \code{\link{nmfkc.rank}}
 #' @export
 plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
-                          ylab = "R-squared / eff.rank (0-1)", lwd = 3, ...) {
+                          ylab = "R-squared / eff.rank.idx (0-1)", lwd = 3, ...) {
   if (base::is.null(main)) main <- x$main
   criteria <- x$criteria
   rk <- criteria$rank
-  rank.best.ecv <- x$best$ecv; rank.best.r2 <- x$best$r2; rank.best.eff <- x$best$eff
+  rank.best.ecv <- x$best$ecv; rank.best.r2 <- x$best$r2
+  rank.best.idx <- x$best$eff.idx
   has_ecv <- !base::is.null(criteria$sigma.ecv) &&
              base::any(base::is.finite(criteria$sigma.ecv))
-  has_eff <- !base::is.null(criteria$effective.rank.ratio) &&
-             base::any(base::is.finite(criteria$effective.rank.ratio))
+  has_idx <- !base::is.null(criteria$effective.rank.index) &&
+             base::any(base::is.finite(criteria$effective.rank.index))
 
   old_par <- graphics::par(mar = c(5, 4, 4, 5) + 0.1)
   base::on.exit(graphics::par(old_par))
@@ -1826,12 +1849,13 @@ plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
   for (q in rk) graphics::abline(v = q, col = "gray90", lwd = 0.5)
   decorate(criteria$r.squared, 2, rank.best.r2, "Best (Elbow)", 3)
 
-  if (has_eff) {
-    graphics::lines(rk, criteria$effective.rank.ratio, col = "forestgreen", lwd = lwd)
-    ## eff.rank: line + points + numbers only, NO best marker (its max is
-    ## biased toward small ranks and is not a selection optimum).
-    decorate(criteria$effective.rank.ratio, "forestgreen", NA, "", 1)
-    leg_txt <- c(leg_txt, "eff.rank"); leg_col <- c(leg_col, "forestgreen")
+  if (has_idx) {
+    ## Broken-stick-corrected effective-rank index in [0, 1]; its maximum
+    ## IS a meaningful rank (the small-Q inflation of eff.rank/Q removed).
+    graphics::lines(rk, criteria$effective.rank.index, col = "forestgreen", lwd = lwd)
+    decorate(criteria$effective.rank.index, "forestgreen",
+             rank.best.idx, "Best (Max)", 1)
+    leg_txt <- c(leg_txt, "eff.rank.idx"); leg_col <- c(leg_col, "forestgreen")
   }
 
   if (has_ecv) {
@@ -1860,8 +1884,8 @@ print.nmf.rank <- function(x, ...) {
   base::cat(base::sprintf("Rank selection over ranks %s\n",
                           base::paste(x$criteria$rank, collapse = ", ")))
   base::cat(base::sprintf("  recommended rank (rank.best): %s\n", fmt(x$rank.best)))
-  base::cat(base::sprintf("  best by:  ECV min = %s | R-squared elbow = %s\n",
-                          fmt(x$best$ecv), fmt(x$best$r2)))
+  base::cat(base::sprintf("  best by:  ECV min = %s | R-squared elbow = %s | eff.rank.idx max = %s\n",
+                          fmt(x$best$ecv), fmt(x$best$r2), fmt(x$best$eff.idx)))
   base::cat("\nCriteria:\n")
   base::print(x$criteria, row.names = FALSE, ...)
   base::invisible(x)

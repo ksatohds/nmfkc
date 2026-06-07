@@ -1,12 +1,15 @@
 # nmfkc 0.7.4 (development)
 
-### **`*.rank` plot: no "Best" marker on eff.rank**
-- The effective-rank utilization (`eff.rank`) line in the `*.rank`
-  diagnostics plot no longer carries a "Best (Max)" marker.  Because the
-  ratio `effective.rank / Q` tends to be largest at small ranks, its
-  maximum is not a meaningful rank-selection optimum; `eff.rank` is now
-  shown for context only (line + points + numbers).  The recommended
-  rank is still driven by the ECV minimum and the R-squared elbow.
+### **`*.rank`: broken-stick-corrected effective-rank index**
+- The `*.rank` criteria table gains `effective.rank.expected` (the
+  broken-stick / uniform-Dirichlet null `exp(H_Q - 1)`, `H_Q` = the
+  `Q`-th harmonic number) and `effective.rank.index`, the \[0, 1] index
+  `(effective.rank - expected) / (Q - expected)` (clamped).  The index
+  anchors 0 at the random null and 1 at perfect evenness, removing the
+  small-rank inflation of the raw `effective.rank / Q`.  Its maximum is
+  a meaningful rank, so the diagnostics plot now draws this corrected
+  index (green, `eff.rank.idx`) with a restored "Best (Max)" marker in
+  place of the raw ratio.
 
 ### **`*.rank` results gain `plot()` / `print()` methods**
 - The rank-selection functions (`nmfkc.rank()`, `nmfkc.net.rank()`,
