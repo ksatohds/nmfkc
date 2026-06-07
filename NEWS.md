@@ -1,6 +1,11 @@
 # nmfkc 0.7.4 (development)
 
 ### **New `nmf.cluster.flow()`: cluster-flow diagram across ranks**
+- `nmf.cluster.flow()` now inserts a gap of one average cluster
+  (\eqn{N / k}) between clusters in the per-rank layout and sizes each
+  grey box exactly to the minimum/maximum position of its members, so
+  the cluster boxes are clearly separated with the gaps maximized.  Each
+  rank is normalized to the full height independently.
 - `nmf.cluster.flow()` renumbers each rank's hard clusters to
   consecutive `1..k`.  The raw label is the dominant-factor index
   (argmax of the coefficient); a factor that never dominates any

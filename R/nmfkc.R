@@ -1318,30 +1318,39 @@ print.nmf.cluster.criteria <- function(x, ...) {
 }
 
 
-#' @title Order individuals within a rank to reduce alluvial crossings (Internal)
+#' @title Place individuals within a rank, with inter-cluster gaps (Internal)
 #' @description
-#' Barycenter ordering for one rank of \code{\link{nmf.cluster.flow}}:
-#' the clusters at this rank are stacked in increasing order of the mean
-#' position (\code{yprev}) of their members in the adjacent rank, and
-#' within each cluster the members are sorted by \code{yprev}.
+#' Layout for one rank of \code{\link{nmf.cluster.flow}}.  Clusters are
+#' stacked in increasing order of the mean key (\code{key}) of their
+#' members -- a barycenter ordering that reduces alluvial crossings --
+#' and within each cluster the members are sorted by \code{key}.  Members
+#' are placed one unit apart, and a \strong{gap} of \eqn{N / k} units
+#' (one average cluster's worth, \eqn{k} = number of clusters) is left
+#' between consecutive clusters so the cluster boxes are clearly
+#' separated.  Positions are normalized per rank in the plot, so the
+#' varying total span across ranks does not matter.
 #' @param labels Integer cluster labels at this rank (length \eqn{N}).
-#' @param yprev Numeric positions (\eqn{1..N}) at the adjacent rank.
-#' @return A numeric vector of positions \eqn{1..N} for this rank.
+#' @param key Numeric ordering key (length \eqn{N}); the positions of the
+#'   adjacent already-placed rank, or, for the reference rank, the
+#'   reference labels themselves (so clusters stack in id order).
+#' @return A numeric vector of positions for this rank.
 #' @keywords internal
 #' @noRd
-.flow.order <- function(labels, yprev) {
+.flow.place <- function(labels, key) {
   N <- base::length(labels)
   cls <- base::unique(labels)
-  bary <- base::vapply(cls, function(c) base::mean(yprev[labels == c], na.rm = TRUE),
+  bary <- base::vapply(cls, function(c) base::mean(key[labels == c], na.rm = TRUE),
                        base::numeric(1))
   cls <- cls[base::order(bary)]
+  gap <- N / base::length(cls)          # inter-cluster gap (one avg cluster)
   y <- base::numeric(N)
-  pos <- 1L
+  pos <- 0
   for (c in cls) {
     idx <- base::which(labels == c)
-    idx <- idx[base::order(yprev[idx])]
-    y[idx] <- pos:(pos + base::length(idx) - 1L)
-    pos <- pos + base::length(idx)
+    idx <- idx[base::order(key[idx])]
+    nc <- base::length(idx)
+    y[idx] <- pos + (base::seq_len(nc) - 1)
+    pos <- pos + nc + gap               # advance past this cluster + gap
   }
   y
 }
@@ -1437,14 +1446,15 @@ nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
                base::paste(ranks, collapse = ", "), call. = FALSE)
   ref_lab <- clusters[, ref_col]
 
-  ## --- layout: position 1..N per individual per rank ---
+  ## --- layout: positions per rank, with inter-cluster gaps ---
+  ## Reference column: clusters in id order (key = ref labels); other
+  ## columns: barycenter order from the adjacent already-placed column.
   ypos <- base::matrix(NA_real_, N, R)
-  o <- base::order(ref_lab, base::seq_len(N))
-  ypos[o, ref_col] <- base::seq_len(N)
+  ypos[, ref_col] <- .flow.place(ref_lab, ref_lab)
   if (ref_col < R) for (q in (ref_col + 1):R)
-    ypos[, q] <- .flow.order(clusters[, q], ypos[, q - 1])
+    ypos[, q] <- .flow.place(clusters[, q], ypos[, q - 1])
   if (ref_col > 1) for (q in (ref_col - 1):1)
-    ypos[, q] <- .flow.order(clusters[, q], ypos[, q + 1])
+    ypos[, q] <- .flow.place(clusters[, q], ypos[, q + 1])
 
   out <- base::list(clusters = clusters, ypos = ypos, ranks = ranks,
                     reference = reference, ref.cluster = ref_lab,
@@ -1504,18 +1514,20 @@ plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
   N <- base::nrow(clusters); R <- base::ncol(clusters)
   ind_col <- .flow.colors(x$ref.cluster, col)
 
-  yn <- (ypos - 1) / base::max(N - 1, 1)
+  ## Normalize each rank (column) independently to [0, 1]: the layout
+  ## inserts inter-cluster gaps, so the total span differs per rank.
+  yn <- base::apply(ypos, 2, function(p) {
+    rg <- base::range(p)
+    if (base::diff(rg) == 0) base::rep(0.5, base::length(p))
+    else (p - rg[1]) / base::diff(rg)
+  })
   xs <- base::seq_len(R)
   old <- graphics::par(mar = c(4, 4, 4, 2) + 0.1); base::on.exit(graphics::par(old))
-  graphics::plot(NA, xlim = c(1, R), ylim = c(-0.02, 1.02),
+  graphics::plot(NA, xlim = c(1, R), ylim = c(-0.03, 1.03),
                  xaxt = "n", yaxt = "n", xlab = xlab, ylab = ylab, main = main, ...)
   graphics::axis(1, at = xs, labels = ranks)
 
-  hw  <- 0.10                          # half-width of the cluster box (x units)
-  ## Pad < half a point spacing so adjacent cluster boxes leave a visible
-  ## gap (the cluster boundary).  Members of a cluster are contiguous in
-  ## y by layout, so [min, max] of their positions is exactly the band.
-  pad <- 0.3 / base::max(N - 1, 1)
+  hw  <- 0.10        # half-width of the cluster box (x units)
 
   ## 1. flow lines + points (drawn first, so the boxes sit in front)
   for (q in 1:(R - 1))
@@ -1525,8 +1537,11 @@ plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
     graphics::points(base::rep(xs[q], N), yn[, q], pch = 16,
                      col = ind_col, cex = 0.5)
 
-  ## 2. foreground translucent grey box per cluster, cluster number centred
+  ## 2. foreground translucent grey box per cluster, sized to the min/max
+  ##    of its members (tiny pad so a singleton still shows as a box); the
+  ##    inter-cluster gaps from the layout keep the boxes well separated.
   box_fill <- grDevices::adjustcolor("gray80", alpha.f = 0.55)
+  pad <- 0.004
   for (q in 1:R) for (c in base::unique(clusters[, q])) {
     ys <- yn[clusters[, q] == c, q]
     graphics::rect(xs[q] - hw, base::min(ys) - pad,
