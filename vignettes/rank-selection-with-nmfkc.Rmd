@@ -1,0 +1,172 @@
+---
+title: "Choosing the NMF rank on data with a known true rank"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Choosing the NMF rank on data with a known true rank}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+Choosing the number of basis vectors (the *rank* `Q`) is the central tuning
+problem in NMF.  `nmfkc` offers several rank-selection tools, each based on a
+different principle:
+
+| function | principle | a good rank... |
+|---|---|---|
+| `nmfkc.rank` | integrated diagnostics: R-squared, effective rank, element-wise CV | minimises CV error / R-squared elbow |
+| `nmfkc.ecv` | element-wise cross-validation (Wold) | minimises held-out error |
+| `nmfkc.bicv` | block bi-cross-validation (Owen & Perry) | minimises held-out error |
+| `nmfkc.consensus` | clustering stability (Brunet) | maximises stability (or minimises PAC) |
+| `nmfkc.ard` | Bayesian automatic relevance determination (Tan & Fevotte) | surviving components after pruning |
+
+Since there is no single "best" criterion, this vignette applies all of them
+to a **synthetic dataset whose true rank is known**, so we can see which ones
+recover it.
+
+```{r lib}
+library(nmfkc)
+```
+
+## A synthetic dataset (true rank = 3)
+
+We build a non-negative `24 x 60` matrix from **three** feature blocks and
+**three** sample clusters (20 samples each), then add noise.  By construction
+the true rank is `3`.
+
+```{r data, fig.width = 6, fig.height = 4}
+set.seed(123)
+r_true <- 3
+P <- 24                       # features
+n_each <- 20                  # samples per cluster
+N <- r_true * n_each          # 60 samples
+
+# basis: each latent factor is a distinct block of features
+X <- matrix(0, P, r_true)
+X[1:8, 1] <- 1; X[9:16, 2] <- 1; X[17:24, 3] <- 1
+X <- X + matrix(runif(P * r_true, 0, 0.1), P, r_true)   # small background
+
+# coefficients: each sample loads mainly on its own cluster's factor
+cl_true <- rep(1:r_true, each = n_each)
+B <- matrix(runif(r_true * N, 0, 0.2), r_true, N)
+for (j in seq_len(N)) B[cl_true[j], j] <- runif(1, 1, 2)
+
+Y <- X %*% B
+Y <- Y + matrix(rnorm(P * N, 0, 0.15 * mean(X %*% B)), P, N)  # noise
+Y[Y < 0] <- 0
+
+dim(Y)
+image(1:N, 1:P, t(Y), xlab = "sample", ylab = "feature",
+      main = "Synthetic data (true rank = 3)")
+```
+
+## 1. Integrated diagnostics: `nmfkc.rank`
+
+`nmfkc.rank()` fits each rank and draws three curves on one plot:
+**R-squared** (red, with a "Best (Elbow)" marker), the broken-stick-corrected
+**effective rank** index (green, shown for context), and the element-wise
+**ECV error** (blue, with a "Best (Min)" marker).  The recommended rank is the
+ECV minimum (or the R-squared elbow).
+
+```{r rank, fig.width = 7, fig.height = 6}
+rk <- nmfkc.rank(Y, rank = 1:6)
+rk$rank.best                       # recommended rank (ECV minimum)
+round(rk$criteria, 3)
+```
+
+## 2. Cross-validation: `nmfkc.ecv` and `nmfkc.bicv`
+
+Both are predictive engines that return the held-out error per rank; the
+recommended rank minimises it.  `nmfkc.ecv` holds out scattered *entries*
+(Wold's CV); `nmfkc.bicv` holds out a *block* of rows and columns at once
+(Owen & Perry).
+
+```{r cv}
+ev <- nmfkc.ecv (Y, rank = 1:6)
+bv <- nmfkc.bicv(Y, rank = 1:6, nfolds = 2)
+data.frame(rank = 1:6,
+           sigma.ecv  = round(ev$sigma, 3),
+           sigma.bicv = round(bv$sigma, 3))
+cat("ECV  picks rank", which.min(ev$sigma),
+    "| bi-CV picks rank", bv$rank[which.min(bv$sigma)], "\n")
+```
+
+## 3. Clustering stability: `nmfkc.consensus`
+
+For each rank, NMF is run many times from random initialisations and the
+reproducibility of the sample clustering is summarised by `cophenetic`
+(Brunet), `dispersion` (Kim & Park; higher = crisper) and `pac` (Senbabaoglu;
+lower = less ambiguous).
+
+```{r consensus, fig.width = 7, fig.height = 5}
+cs <- nmfkc.consensus(Y, rank = 2:6, nrun = 20, keep.consensus = TRUE)
+cs
+plot(cs)                               # stability curves
+```
+
+The consensus matrix at the chosen rank should be a crisp block-diagonal:
+
+```{r consensus-heatmap, fig.width = 6.5, fig.height = 6.5}
+plot(cs, type = "heatmap", rank = 3)   # blue = 0 (different), red = 1 (same)
+```
+
+## 4. Bayesian ARD: `nmfkc.ard`
+
+ARD fits NMF **once** at an over-complete rank and prunes unneeded components
+automatically; the relevance bar plot is read like a scree plot (look for the
+knee).  Because it is a sensitive point estimate, we aggregate over several
+random restarts (`nrun`).
+
+```{r ard, fig.width = 6.5, fig.height = 4.5}
+ar <- nmfkc.ard(Y, rank = 8, nrun = 10)
+ar
+plot(ar)
+```
+
+## Summary: did they recover the true rank?
+
+```{r summary}
+data.frame(
+  method = c("nmfkc.rank (ECV)", "nmfkc.ecv", "nmfkc.bicv",
+             "nmfkc.consensus (dispersion)", "nmfkc.consensus (PAC)",
+             "nmfkc.ard"),
+  estimate = c(rk$rank.best,
+               which.min(ev$sigma),
+               bv$rank[which.min(bv$sigma)],
+               cs$rank[which.max(cs$dispersion)],
+               cs$rank[which.min(cs$pac)],
+               ar$rank),
+  true = r_true
+)
+```
+
+## Remarks
+
+On this clean dataset with a clear rank-3 structure, the predictive
+cross-validations (`nmfkc.ecv`, `nmfkc.bicv`) and the integrated `nmfkc.rank`
+recover the true rank exactly (`3`), and the consensus `dispersion` also peaks
+at `3` with a crisp three-block consensus matrix.  Notably, the two
+stability/model criteria reveal their **known tendencies even here**: `PAC`
+leans to the coarser rank `2`, and the ARD point estimate lands slightly high
+(`4`).  This already previews the behaviour on harder data.
+
+On **real** data the criteria often *disagree* much more: stability/consensus
+tends to favour low (coarse) ranks, and ARD's count can track the starting rank
+when the energy spectrum decays smoothly.  A robust practical recipe is to
+**triangulate**:
+use ECV for the predictive upper bound, the effective-rank / relevance *knee*
+for the lower bound, and the consensus heatmap to confirm an interpretable block
+structure --- then choose one rank by purpose and domain knowledge.
+
+See `?nmfkc.rank`, `?nmfkc.ecv`, `?nmfkc.bicv`, `?nmfkc.consensus` and
+`?nmfkc.ard` (all cross-referenced) for details.
