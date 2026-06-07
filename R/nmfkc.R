@@ -1716,14 +1716,17 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' utilization \code{effective.rank.ratio}, and the cross-validation
 #' error \code{sigma.ecv}.  Any other columns present (e.g.\ \code{ARI},
 #' \code{silhouette}, \code{CPCC}, \code{dist.cor} from \code{nmfkc.rank})
-#' are kept in the returned table but \strong{not plotted}.  Each of the
-#' three plotted criteria is drawn as a line with points, rank-number
-#' labels, and a highlighted "Best" marker:
+#' are kept in the returned table but \strong{not plotted}.  All three
+#' criteria are drawn as lines with points and rank-number labels.  Two
+#' of them carry a highlighted "Best" marker that drives the recommended
+#' rank:
 #' \itemize{
 #'   \item \code{r.squared}: elbow (kneedle) -- \dQuote{Best (Elbow)}.
-#'   \item \code{eff.rank}: maximum of the utilization ratio -- \dQuote{Best (Max)}.
 #'   \item \code{sigma.ecv}: minimum CV error -- \dQuote{Best (Min)}.
 #' }
+#' \code{eff.rank} is shown for context only and carries \strong{no}
+#' best marker: the utilization ratio tends to be largest at small ranks,
+#' so its maximum is not a meaningful rank-selection optimum.
 #' @param criteria Data frame with at least \code{rank}, \code{r.squared},
 #'   \code{effective.rank.ratio}, and (optionally) \code{sigma.ecv}.
 #' @param plot Logical; draw the diagnostics plot.
@@ -1825,8 +1828,9 @@ plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
 
   if (has_eff) {
     graphics::lines(rk, criteria$effective.rank.ratio, col = "forestgreen", lwd = lwd)
-    decorate(criteria$effective.rank.ratio, "forestgreen",
-             rank.best.eff, "Best (Max)", 1)
+    ## eff.rank: line + points + numbers only, NO best marker (its max is
+    ## biased toward small ranks and is not a selection optimum).
+    decorate(criteria$effective.rank.ratio, "forestgreen", NA, "", 1)
     leg_txt <- c(leg_txt, "eff.rank"); leg_col <- c(leg_col, "forestgreen")
   }
 
@@ -1856,8 +1860,8 @@ print.nmf.rank <- function(x, ...) {
   base::cat(base::sprintf("Rank selection over ranks %s\n",
                           base::paste(x$criteria$rank, collapse = ", ")))
   base::cat(base::sprintf("  recommended rank (rank.best): %s\n", fmt(x$rank.best)))
-  base::cat(base::sprintf("  best by:  ECV min = %s | R-squared elbow = %s | eff.rank max = %s\n",
-                          fmt(x$best$ecv), fmt(x$best$r2), fmt(x$best$eff)))
+  base::cat(base::sprintf("  best by:  ECV min = %s | R-squared elbow = %s\n",
+                          fmt(x$best$ecv), fmt(x$best$r2)))
   base::cat("\nCriteria:\n")
   base::print(x$criteria, row.names = FALSE, ...)
   base::invisible(x)

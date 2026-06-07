@@ -1,5 +1,13 @@
 # nmfkc 0.7.4 (development)
 
+### **`*.rank` plot: no "Best" marker on eff.rank**
+- The effective-rank utilization (`eff.rank`) line in the `*.rank`
+  diagnostics plot no longer carries a "Best (Max)" marker.  Because the
+  ratio `effective.rank / Q` tends to be largest at small ranks, its
+  maximum is not a meaningful rank-selection optimum; `eff.rank` is now
+  shown for context only (line + points + numbers).  The recommended
+  rank is still driven by the ECV minimum and the R-squared elbow.
+
 ### **`*.rank` results gain `plot()` / `print()` methods**
 - The rank-selection functions (`nmfkc.rank()`, `nmfkc.net.rank()`,
   `nmfkc.signed.rank()`, `nmfae.rank()`, `nmfae.signed.rank()`) now
