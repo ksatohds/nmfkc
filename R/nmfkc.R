@@ -1368,9 +1368,11 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #'   sorted internally by their rank.
 #' @param reference The rank whose clustering defines the line colours.
 #'   Defaults to the largest rank in \code{fits}.
-#' @param col Optional vector of colours, one per reference cluster
-#'   (recycled/indexed by cluster id).  Defaults to a qualitative
-#'   palette.
+#' @param col Optional vector of colours indexed by reference cluster id
+#'   (so \code{col[k]} colours every individual in reference cluster
+#'   \code{k}).  Defaults to a strong, well-separated qualitative palette
+#'   (ColorBrewer \dQuote{Dark 2} for up to 8 clusters, HCL
+#'   \dQuote{Dark 3} beyond); pass your own to control the colours.
 #' @param plot Logical; draw the diagram (default \code{TRUE}).
 #' @param main Plot title.
 #' @param ... Unused.
@@ -1416,7 +1418,14 @@ nmf.cluster.flow <- function(fits, reference = NULL, col = NULL,
                base::paste(ranks, collapse = ", "), call. = FALSE)
   ref_lab <- clusters[, ref_col]
   K <- base::max(ref_lab, na.rm = TRUE)
-  if (base::is.null(col)) col <- grDevices::hcl.colors(base::max(K, 2), "Dark 3")
+  ## Default palette: ColorBrewer "Dark 2" (8 strong, well-separated
+  ## colours with no pale entries) for up to 8 clusters, falling back to
+  ## the HCL "Dark 3" generator for more.  Override with `col`.
+  if (base::is.null(col)) {
+    n <- base::max(K, 2L)
+    col <- if (n <= 8L) grDevices::palette.colors(8L, "Dark 2")[base::seq_len(n)]
+           else grDevices::hcl.colors(n, "Dark 3")
+  }
   ind_col <- col[ref_lab]
 
   ## --- layout: position 1..N per individual per rank ---
@@ -1436,31 +1445,31 @@ nmf.cluster.flow <- function(fits, reference = NULL, col = NULL,
                    xaxt = "n", yaxt = "n", xlab = "rank (Q)",
                    ylab = "individuals", main = main)
     graphics::axis(1, at = xs, labels = ranks)
-    ## Background: a narrow grey box around each cluster's members at
-    ## every rank, so the grouping is visible at all ranks (not just the
-    ## reference).  Members of a cluster are contiguous in y by layout,
-    ## so [min, max] of their positions is exactly the cluster band.
-    hw  <- 0.10                        # half-width of the box (x units)
+    hw  <- 0.10                        # half-width of the cluster box (x units)
     ## Pad < half a point spacing so adjacent cluster boxes leave a
-    ## visible gap (the cluster boundary) rather than touching.
+    ## visible gap (the cluster boundary) rather than touching.  Members
+    ## of a cluster are contiguous in y by layout, so [min, max] of their
+    ## positions is exactly the cluster band.
     pad <- 0.3 / base::max(N - 1, 1)
-    for (q in 1:R) for (c in base::unique(clusters[, q])) {
-      ys <- yn[clusters[, q] == c, q]
-      graphics::rect(xs[q] - hw, base::min(ys) - pad,
-                     xs[q] + hw, base::max(ys) + pad,
-                     col = "gray92", border = "gray70", lwd = 0.5)
-    }
+
+    ## 1. flow lines + points (drawn first, so the boxes sit in front)
     for (q in 1:(R - 1))
       graphics::segments(xs[q], yn[, q], xs[q + 1], yn[, q + 1],
                          col = ind_col, lwd = 1)
     for (q in 1:R)
       graphics::points(base::rep(xs[q], N), yn[, q], pch = 16,
                        col = ind_col, cex = 0.5)
-    ## cluster-id labels just above each band
+
+    ## 2. foreground translucent grey box per cluster at every rank, with
+    ##    the cluster number centred (slightly larger) inside it.
+    box_fill <- grDevices::adjustcolor("gray80", alpha.f = 0.55)
     for (q in 1:R) for (c in base::unique(clusters[, q])) {
       ys <- yn[clusters[, q] == c, q]
-      graphics::text(xs[q], base::max(ys) + pad, c, pos = 3,
-                     offset = 0.15, cex = 0.7, font = 2, col = "gray30")
+      graphics::rect(xs[q] - hw, base::min(ys) - pad,
+                     xs[q] + hw, base::max(ys) + pad,
+                     col = box_fill, border = "gray40", lwd = 0.8)
+      graphics::text(xs[q], base::mean(ys), c,
+                     cex = 1.2, font = 2, col = "gray10")
     }
   }
 

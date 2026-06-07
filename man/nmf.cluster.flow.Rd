@@ -21,9 +21,11 @@ sorted internally by their rank.}
 \item{reference}{The rank whose clustering defines the line colours.
 Defaults to the largest rank in \code{fits}.}
 
-\item{col}{Optional vector of colours, one per reference cluster
-(recycled/indexed by cluster id).  Defaults to a qualitative
-palette.}
+\item{col}{Optional vector of colours indexed by reference cluster id
+(so \code{col[k]} colours every individual in reference cluster
+\code{k}).  Defaults to a strong, well-separated qualitative palette
+(ColorBrewer \dQuote{Dark 2} for up to 8 clusters, HCL
+\dQuote{Dark 3} beyond); pass your own to control the colours.}
 
 \item{plot}{Logical; draw the diagram (default \code{TRUE}).}
 

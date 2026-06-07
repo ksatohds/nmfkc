@@ -9,10 +9,14 @@
   (clusters reordered per rank by a barycenter heuristic to reduce
   crossings), and lines are coloured by the cluster at the
   \code{reference} rank -- so one can watch the reference clusters split
-  or merge.  At every rank a narrow grey box is drawn around each
-  cluster's members, so the grouping is visible at all ranks (not only
-  the reference).  Returns (invisibly) the \eqn{N \times R} table with
-  rows = individuals, columns = rank, entries = cluster number.
+  or merge.  At every rank a translucent grey box is drawn \emph{in
+  front} of each cluster's members with the cluster number centred
+  inside, so the grouping and labels are visible at all ranks (not only
+  the reference).  The default line palette is now a strong,
+  well-separated qualitative set (ColorBrewer \dQuote{Dark 2}, no pale
+  colours) and can be overridden with \code{col}.  Returns (invisibly)
+  the \eqn{N \times R} table with rows = individuals, columns = rank,
+  entries = cluster number.
 
 ### **New `nmf.cluster.criteria()`: sample-clustering diagnostics**
 - `nmf.cluster.criteria(object, Y)` reports the clustering-quality criteria
