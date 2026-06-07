@@ -33,12 +33,15 @@ consensus matrices (one \eqn{N \times N} matrix per rank).}
 \code{method}).  \code{X.init} is forced to \code{"runif"}.}
 }
 \value{
-A list with:
+An object of class \code{"nmfkc.consensus"} (a list) with:
 \item{cophenetic}{Cophenetic correlation coefficient for each rank.}
 \item{dispersion}{Dispersion coefficient (\eqn{[0, 1]}) for each rank.}
 \item{rank}{The evaluated rank vector.}
 \item{nrun}{Number of runs per rank.}
 \item{consensus}{List of consensus matrices, or \code{NULL}.}
+It has \code{\link{print.nmfkc.consensus}} and
+\code{\link{plot.nmfkc.consensus}} (\code{type = "criteria"} /
+\code{"heatmap"}) methods.
 }
 \description{
 The bioinformatics-standard stability approach to choosing the NMF rank.
@@ -66,8 +69,11 @@ rank before it drops.
 \examples{
 \donttest{
 Y <- t(as.matrix(iris[, 1:4]))
-cs <- nmfkc.consensus(Y, rank = 2:5, nrun = 20)
-cs$cophenetic     # stability per rank (closer to 1 = more reproducible)
+cs <- nmfkc.consensus(Y, rank = 2:5, nrun = 20, keep.consensus = TRUE)
+cs                       # stability table per rank
+plot(cs)                 # type = "criteria": stability curves
+plot(cs, type = "heatmap")            # all ranks, n2mfrow grid
+plot(cs, type = "heatmap", rank = 3)  # one rank, with labels
 }
 }
 \references{

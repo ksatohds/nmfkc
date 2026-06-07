@@ -36,8 +36,27 @@ test_that("keep.consensus returns N x N consensus matrices", {
   Y <- make_blocks()
   cs <- suppressMessages(nmfkc.consensus(Y, rank = 2:3, nrun = 10,
                                          keep.consensus = TRUE))
+  expect_s3_class(cs, "nmfkc.consensus")
   expect_length(cs$consensus, 2)
   expect_equal(dim(cs$consensus[[1]]), c(ncol(Y), ncol(Y)))
   ## consensus entries are in [0, 1]
   expect_true(all(cs$consensus[[2]] >= 0 & cs$consensus[[2]] <= 1))
+})
+
+test_that("print and both plot types work", {
+  Y <- make_blocks()
+  cs <- suppressMessages(nmfkc.consensus(Y, rank = 2:4, nrun = 10,
+                                         keep.consensus = TRUE))
+  expect_output(print(cs), "dispersion max")
+  pdf(NULL)
+  on.exit(dev.off(), add = TRUE)
+  expect_no_error(plot(cs))                              # criteria
+  expect_no_error(plot(cs, type = "heatmap"))            # all ranks (grid)
+  expect_no_error(plot(cs, type = "heatmap", rank = 3))  # single rank
+})
+
+test_that("plot heatmap errors without stored consensus", {
+  Y <- make_blocks()
+  cs <- suppressMessages(nmfkc.consensus(Y, rank = 2:3, nrun = 8))  # no keep
+  expect_error(plot(cs, type = "heatmap"), "keep.consensus")
 })

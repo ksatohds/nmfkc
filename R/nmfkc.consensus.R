@@ -38,12 +38,15 @@
 #'   consensus matrices (one \eqn{N \times N} matrix per rank).
 #' @param ... Passed to \code{\link{nmfkc}} (e.g.\ \code{maxit},
 #'   \code{method}).  \code{X.init} is forced to \code{"runif"}.
-#' @return A list with:
+#' @return An object of class \code{"nmfkc.consensus"} (a list) with:
 #'   \item{cophenetic}{Cophenetic correlation coefficient for each rank.}
 #'   \item{dispersion}{Dispersion coefficient (\eqn{[0, 1]}) for each rank.}
 #'   \item{rank}{The evaluated rank vector.}
 #'   \item{nrun}{Number of runs per rank.}
 #'   \item{consensus}{List of consensus matrices, or \code{NULL}.}
+#'   It has \code{\link{print.nmfkc.consensus}} and
+#'   \code{\link{plot.nmfkc.consensus}} (\code{type = "criteria"} /
+#'   \code{"heatmap"}) methods.
 #' @references
 #' Brunet, J.-P., Tamayo, P., Golub, T. R., Mesirov, J. P. (2004).
 #' Metagenes and molecular pattern discovery using matrix factorization.
@@ -56,8 +59,11 @@
 #' @examples
 #' \donttest{
 #' Y <- t(as.matrix(iris[, 1:4]))
-#' cs <- nmfkc.consensus(Y, rank = 2:5, nrun = 20)
-#' cs$cophenetic     # stability per rank (closer to 1 = more reproducible)
+#' cs <- nmfkc.consensus(Y, rank = 2:5, nrun = 20, keep.consensus = TRUE)
+#' cs                       # stability table per rank
+#' plot(cs)                 # type = "criteria": stability curves
+#' plot(cs, type = "heatmap")            # all ranks, n2mfrow grid
+#' plot(cs, type = "heatmap", rank = 3)  # one rank, with labels
 #' }
 nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30, seed = 123,
                             keep.consensus = FALSE, ...) {
@@ -89,7 +95,11 @@ nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30, seed = 123,
       Cmat <- Cmat + (base::outer(cl, cl, "==") + 0) # connectivity
     }
     Cmat <- Cmat / nrun                              # consensus in [0, 1]
-    if (keep.consensus) consensus.list[[ki]] <- Cmat
+    if (keep.consensus) {
+      if (!base::is.null(base::colnames(Y)))
+        base::dimnames(Cmat) <- base::list(base::colnames(Y), base::colnames(Y))
+      consensus.list[[ki]] <- Cmat
+    }
 
     ## Kim-Park dispersion: 1 = perfectly crisp (all 0/1).
     dispersion[ki] <- base::sum(4 * (Cmat - 0.5)^2) / (N * N)
@@ -105,6 +115,111 @@ nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30, seed = 123,
     }
   }
 
-  base::list(cophenetic = cophenetic, dispersion = dispersion,
-             rank = rank, nrun = nrun, consensus = consensus.list)
+  out <- base::list(cophenetic = cophenetic, dispersion = dispersion,
+                    rank = rank, nrun = nrun, consensus = consensus.list)
+  base::class(out) <- "nmfkc.consensus"
+  out
+}
+
+
+#' @title Print method for nmfkc.consensus objects
+#' @param x An object of class \code{"nmfkc.consensus"}.
+#' @param ... Unused.
+#' @return \code{x}, invisibly.
+#' @export
+print.nmfkc.consensus <- function(x, ...) {
+  base::cat(base::sprintf("Consensus rank selection (Brunet 2004), %d runs/rank\n",
+                          x$nrun))
+  base::cat(base::sprintf("  most stable (dispersion max): rank %d\n",
+                          x$rank[base::which.max(x$dispersion)]))
+  base::print(base::data.frame(rank = x$rank,
+                               cophenetic = base::round(x$cophenetic, 3),
+                               dispersion = base::round(x$dispersion, 3)),
+              row.names = FALSE)
+  if (base::is.null(x$consensus))
+    base::cat("  (consensus matrices not stored; use keep.consensus = TRUE for heatmaps)\n")
+  base::invisible(x)
+}
+
+
+#' @title Plot a consensus rank-selection (nmfkc.consensus) object
+#' @description
+#' Two views of a \code{\link{nmfkc.consensus}} result:
+#' \itemize{
+#'   \item \code{type = "criteria"} (default): the stability curves
+#'     \code{cophenetic} (blue) and \code{dispersion} (red) against rank.
+#'     No "best" marker is drawn -- a stable rank tends to be a coarse one,
+#'     so the curves are shown for inspection rather than as an optimum.
+#'   \item \code{type = "heatmap"}: the consensus matrix of each requested
+#'     \code{rank}, reordered by average-linkage hierarchical clustering of
+#'     \eqn{1 - \bar C} (blue = 0 / different cluster, red = 1 / same
+#'     cluster).  Requires \code{keep.consensus = TRUE} at compute time.
+#' }
+#' @param x An object of class \code{"nmfkc.consensus"}.
+#' @param type \code{"criteria"} or \code{"heatmap"}.
+#' @param rank For \code{type = "heatmap"}, the rank(s) to display.
+#'   \code{NULL} (default) shows every rank stored in \code{x}.
+#' @param mfrow Panel layout for multiple heatmaps, as
+#'   \code{c(nrow, ncol)}.  \code{NULL} (default) uses
+#'   \code{\link[grDevices]{n2mfrow}} for a near-square grid.
+#' @param col Heatmap colour palette (length-50 blue-to-red by default).
+#' @param ... Further arguments passed to the underlying
+#'   \code{\link[graphics]{plot}} / \code{\link[graphics]{image}}.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmfkc.consensus}}
+#' @export
+plot.nmfkc.consensus <- function(x, type = c("criteria", "heatmap"),
+                                 rank = NULL, mfrow = NULL,
+                                 col = grDevices::hcl.colors(50, "Blue-Red"),
+                                 ...) {
+  type <- base::match.arg(type)
+
+  if (type == "criteria") {
+    graphics::plot(x$rank, x$cophenetic, type = "o", col = "blue", pch = 16,
+                   lwd = 2, ylim = c(0, 1), xlab = "rank (Q)",
+                   ylab = "stability (0-1)", main = "Consensus stability", ...)
+    graphics::lines(x$rank, x$dispersion, type = "o", col = "red", pch = 17,
+                    lwd = 2)
+    graphics::legend("bottomleft",
+                     c("cophenetic (Brunet)", "dispersion (Kim-Park)"),
+                     col = c("blue", "red"), pch = c(16, 17), lwd = 2,
+                     bg = "white", cex = 0.85)
+    return(base::invisible(x))
+  }
+
+  ## type == "heatmap"
+  if (base::is.null(x$consensus))
+    base::stop("No consensus matrices stored. Re-run ",
+               "nmfkc.consensus(..., keep.consensus = TRUE).")
+  ranks <- if (base::is.null(rank)) x$rank else base::intersect(rank, x$rank)
+  if (!base::length(ranks))
+    base::stop("Requested rank(s) are not among the evaluated ranks.")
+  n <- base::length(ranks)
+  if (base::is.null(mfrow)) mfrow <- grDevices::n2mfrow(n)
+  show.labels <- (n == 1)
+  mar <- if (show.labels) c(6, 6, 3, 1) else c(1.5, 1.5, 3, 1)
+  old <- graphics::par(mfrow = mfrow, mar = mar, oma = c(2, 0, 0, 0))
+  base::on.exit(graphics::par(old))
+
+  for (k in ranks) {
+    i <- base::which(x$rank == k)
+    C <- x$consensus[[i]]
+    hc <- stats::hclust(stats::as.dist(1 - C), method = "average")
+    Cr <- C[hc$order, hc$order]; N <- base::nrow(Cr)
+    graphics::image(1:N, 1:N, base::t(Cr[N:1, ]), col = col, zlim = c(0, 1),
+                    axes = FALSE, xlab = "", ylab = "",
+                    main = base::sprintf("rank=%d  coph=%.3f  disp=%.3f",
+                                         k, x$cophenetic[i], x$dispersion[i]),
+                    ...)
+    if (show.labels && !base::is.null(base::rownames(Cr))) {
+      cax <- base::min(0.7, 28 / N)
+      graphics::axis(1, 1:N, base::colnames(Cr), las = 2, cex.axis = cax)
+      graphics::axis(2, 1:N, base::rev(base::rownames(Cr)), las = 2, cex.axis = cax)
+    } else {
+      graphics::box()
+    }
+  }
+  graphics::mtext("blue = 0 (different cluster)  ->  red = 1 (same cluster)",
+                  side = 1, outer = TRUE, cex = 0.7)
+  base::invisible(x)
 }

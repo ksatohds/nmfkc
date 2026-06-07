@@ -9,6 +9,11 @@
   Brunet et al. 2004) and `dispersion` (Kim & Park 2007, in `[0,1]`).
   Unlike the CV engines, a good rank *maximizes* stability.  Optional
   `keep.consensus = TRUE` returns the consensus matrices.
+- Returns an `"nmfkc.consensus"` object with `print` and `plot` methods:
+  `plot(cs)` (`type = "criteria"`) draws the stability curves;
+  `plot(cs, type = "heatmap", rank = ...)` draws the consensus matrix
+  heatmap(s) reordered by hierarchical clustering (default = all ranks in
+  a `n2mfrow` grid; `mfrow` overridable).
 
 ### **New `nmfkc.bicv()`: bi-cross-validation for rank selection**
 - Owen & Perry's (2009) bi-cross-validation (BCV), a **lightweight CV
