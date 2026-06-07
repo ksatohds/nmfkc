@@ -1,5 +1,16 @@
 # nmfkc 0.7.4 (development)
 
+### **New `nmfkc.ard()`: ARD rank determination (Tan & Fevotte 2013, prototype)**
+- Automatic Relevance Determination for the NMF rank (Euclidean).  Fits
+  NMF *once* at an over-complete rank and prunes automatically: each
+  component carries a relevance weight with an inverse-gamma prior and the
+  multiplicative updates gain a penalty (`L2` half-normal / `L1`
+  exponential) that drives unsupported components to zero.  The number of
+  surviving components is the estimated rank -- no rank scan.  Returns an
+  `"nmfkc.ard"` object with `print` and a relevance-bar `plot`.  Plain NMF
+  only; a sensitive point estimate (depends on prior / start / init), so a
+  complement to the CV / consensus engines, not a sole criterion.
+
 ### **New `nmfkc.consensus()`: consensus-clustering rank selection (Brunet 2004)**
 - The bioinformatics-standard stability approach, as a lightweight engine
   like `nmfkc.ecv` / `nmfkc.bicv`.  For each rank it runs NMF `nrun` times
@@ -9,6 +20,11 @@
   Brunet et al. 2004) and `dispersion` (Kim & Park 2007, in `[0,1]`).
   Unlike the CV engines, a good rank *maximizes* stability.  Optional
   `keep.consensus = TRUE` returns the consensus matrices.
+- Also reports `pac`, the Proportion of Ambiguous Clustering
+  (Senbabaoglu et al. 2014; fraction of consensus entries in the
+  ambiguous interval `pac.range`, default `(0.1, 0.9)`).  Lower is better
+  and it is more sensitive than the often-saturated `cophenetic`.  The
+  `print`/criteria-`plot` show all three metrics.
 - Returns an `"nmfkc.consensus"` object with `print` and `plot` methods:
   `plot(cs)` (`type = "criteria"`) draws the stability curves;
   `plot(cs, type = "heatmap", rank = ...)` draws the consensus matrix
