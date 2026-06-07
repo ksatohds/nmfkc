@@ -1688,49 +1688,101 @@ print.nmf.cluster.flow <- function(x, ...) {
 
   rank.final <- if (!base::is.na(rank.best.ecv)) rank.best.ecv else rank.best.r2
 
-  if (plot) {
-    old_par <- graphics::par(mar = c(5, 4, 4, 5) + 0.1)
-    base::on.exit(graphics::par(old_par))
-    ## line already drawn; add points + rank numbers + Best marker
-    decorate <- function(yv, col, best_rank, best_lab, numpos) {
-      graphics::points(rk, yv, pch = 16, col = col, cex = 0.8)
-      graphics::text(rk, yv, rk, pos = numpos, col = col, cex = 0.8)
-      if (!base::is.na(best_rank)) {
-        j <- base::which(rk == best_rank)
-        graphics::points(best_rank, yv[j], pch = 16, col = col, cex = 1.6)
-        graphics::text(best_rank, yv[j], best_lab, pos = 4, col = col, cex = 0.8)
-      }
+  out <- base::list(rank.best = rank.final, criteria = criteria,
+                    best = base::list(ecv = rank.best.ecv, r2 = rank.best.r2,
+                                      eff = rank.best.eff),
+                    main = main)
+  base::class(out) <- "nmf.rank"
+  if (plot) graphics::plot(out)
+  base::invisible(out)
+}
+
+
+#' @title Plot a rank-selection (nmf.rank) object
+#' @description
+#' Draws the concise three-criterion rank-selection plot for an object
+#' returned by \code{\link{nmfkc.rank}} (or \code{nmfkc.net.rank},
+#' \code{nmfkc.signed.rank}, \code{nmfae.rank}, \code{nmfae.signed.rank}):
+#' \code{r.squared} (red) and the effective-rank utilization
+#' \code{eff.rank} (green) on the left \eqn{[0, 1]} axis, and the
+#' cross-validation error \code{sigma.ecv} (blue) on the right axis, each
+#' with points, rank-number labels and a highlighted best marker.
+#' @param x An object of class \code{"nmf.rank"}.
+#' @param main Plot title (defaults to the title stored in \code{x}).
+#' @param xlab,ylab Axis labels.
+#' @param lwd Line width of the criterion curves.
+#' @param ... Further arguments passed to the initial
+#'   \code{\link[graphics]{plot}}.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmfkc.rank}}
+#' @export
+plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
+                          ylab = "R-squared / eff.rank (0-1)", lwd = 3, ...) {
+  if (base::is.null(main)) main <- x$main
+  criteria <- x$criteria
+  rk <- criteria$rank
+  rank.best.ecv <- x$best$ecv; rank.best.r2 <- x$best$r2; rank.best.eff <- x$best$eff
+  has_ecv <- !base::is.null(criteria$sigma.ecv) &&
+             base::any(base::is.finite(criteria$sigma.ecv))
+  has_eff <- !base::is.null(criteria$effective.rank.ratio) &&
+             base::any(base::is.finite(criteria$effective.rank.ratio))
+
+  old_par <- graphics::par(mar = c(5, 4, 4, 5) + 0.1)
+  base::on.exit(graphics::par(old_par))
+  decorate <- function(yv, col, best_rank, best_lab, numpos) {
+    graphics::points(rk, yv, pch = 16, col = col, cex = 0.8)
+    graphics::text(rk, yv, rk, pos = numpos, col = col, cex = 0.8)
+    if (!base::is.na(best_rank)) {
+      j <- base::which(rk == best_rank)
+      graphics::points(best_rank, yv[j], pch = 16, col = col, cex = 1.6)
+      graphics::text(best_rank, yv[j], best_lab, pos = 4, col = col, cex = 0.8)
     }
-    leg_txt <- "r.squared"; leg_col <- 2
+  }
+  leg_txt <- "r.squared"; leg_col <- 2
 
-    graphics::plot(rk, criteria$r.squared, type = "l", col = 2, lwd = 3,
-                   xlab = "Rank (Q)", ylab = "R-squared / eff.rank (0-1)",
-                   ylim = c(0, 1), main = main)
-    for (q in rk) graphics::abline(v = q, col = "gray90", lwd = 0.5)
-    decorate(criteria$r.squared, 2, rank.best.r2, "Best (Elbow)", 3)
+  graphics::plot(rk, criteria$r.squared, type = "l", col = 2, lwd = lwd,
+                 xlab = xlab, ylab = ylab, ylim = c(0, 1), main = main, ...)
+  for (q in rk) graphics::abline(v = q, col = "gray90", lwd = 0.5)
+  decorate(criteria$r.squared, 2, rank.best.r2, "Best (Elbow)", 3)
 
-    if (has_eff) {
-      graphics::lines(rk, criteria$effective.rank.ratio, col = "forestgreen", lwd = 3)
-      decorate(criteria$effective.rank.ratio, "forestgreen",
-               rank.best.eff, "Best (Max)", 1)
-      leg_txt <- c(leg_txt, "eff.rank"); leg_col <- c(leg_col, "forestgreen")
-    }
-
-    if (has_ecv) {
-      graphics::par(new = TRUE)
-      graphics::plot(rk, criteria$sigma.ecv, type = "l", col = "blue", lwd = 3,
-                     axes = FALSE, xlab = "", ylab = "")
-      decorate(criteria$sigma.ecv, "blue", rank.best.ecv, "Best (Min)", 3)
-      graphics::axis(side = 4, col = "blue", col.axis = "blue")
-      graphics::mtext("ECV Sigma (RMSE)", side = 4, line = 3, col = "blue")
-      leg_txt <- c(leg_txt, "sigma.ecv"); leg_col <- c(leg_col, "blue")
-    }
-
-    graphics::legend("right", legend = leg_txt, col = leg_col,
-                     lty = 1, lwd = 2, bg = "white", cex = 0.7)
+  if (has_eff) {
+    graphics::lines(rk, criteria$effective.rank.ratio, col = "forestgreen", lwd = lwd)
+    decorate(criteria$effective.rank.ratio, "forestgreen",
+             rank.best.eff, "Best (Max)", 1)
+    leg_txt <- c(leg_txt, "eff.rank"); leg_col <- c(leg_col, "forestgreen")
   }
 
-  base::list(rank.best = rank.final, criteria = criteria)
+  if (has_ecv) {
+    graphics::par(new = TRUE)
+    graphics::plot(rk, criteria$sigma.ecv, type = "l", col = "blue", lwd = lwd,
+                   axes = FALSE, xlab = "", ylab = "")
+    decorate(criteria$sigma.ecv, "blue", rank.best.ecv, "Best (Min)", 3)
+    graphics::axis(side = 4, col = "blue", col.axis = "blue")
+    graphics::mtext("ECV Sigma (RMSE)", side = 4, line = 3, col = "blue")
+    leg_txt <- c(leg_txt, "sigma.ecv"); leg_col <- c(leg_col, "blue")
+  }
+
+  graphics::legend("right", legend = leg_txt, col = leg_col,
+                   lty = 1, lwd = 2, bg = "white", cex = 0.7)
+  base::invisible(x)
+}
+
+
+#' @title Print method for rank-selection (nmf.rank) objects
+#' @param x An object of class \code{"nmf.rank"}.
+#' @param ... Passed to the criteria table's \code{print}.
+#' @return \code{x}, invisibly.
+#' @export
+print.nmf.rank <- function(x, ...) {
+  fmt <- function(v) if (base::is.null(v) || base::is.na(v)) "NA" else base::as.character(v)
+  base::cat(base::sprintf("Rank selection over ranks %s\n",
+                          base::paste(x$criteria$rank, collapse = ", ")))
+  base::cat(base::sprintf("  recommended rank (rank.best): %s\n", fmt(x$rank.best)))
+  base::cat(base::sprintf("  best by:  ECV min = %s | R-squared elbow = %s | eff.rank max = %s\n",
+                          fmt(x$best$ecv), fmt(x$best$r2), fmt(x$best$eff)))
+  base::cat("\nCriteria:\n")
+  base::print(x$criteria, row.names = FALSE, ...)
+  base::invisible(x)
 }
 
 

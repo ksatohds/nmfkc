@@ -1,5 +1,15 @@
 # nmfkc 0.7.4 (development)
 
+### **`*.rank` results gain `plot()` / `print()` methods**
+- The rank-selection functions (`nmfkc.rank()`, `nmfkc.net.rank()`,
+  `nmfkc.signed.rank()`, `nmfae.rank()`, `nmfae.signed.rank()`) now
+  return a classed object (`"nmf.rank"`).  `plot()` redraws the
+  three-criterion diagnostics plot (honouring `main`, `xlab`, `ylab`,
+  `lwd`) and `print()` shows the recommended rank, the per-criterion
+  best ranks, and the criteria table.  As before the constructor draws
+  immediately when `plot = TRUE`; the `$rank.best` and `$criteria`
+  fields are unchanged, so existing code keeps working.
+
 ### **New `nmf.cluster.flow()`: cluster-flow diagram across ranks**
 - The adjusted Rand index (ARI) between each pair of adjacent ranks is
   now computed and printed along the top of the figure (and returned in
