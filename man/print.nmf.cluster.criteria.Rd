@@ -9,7 +9,7 @@
 \arguments{
 \item{x}{An object of class \code{"nmf.cluster.criteria"}.}
 
-\item{...}{Unused.}
+\item{...}{Passed to the criteria table's \code{print}.}
 }
 \value{
 \code{x}, invisibly.

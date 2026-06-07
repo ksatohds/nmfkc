@@ -1212,81 +1212,130 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
-#' @title Sample-clustering diagnostics for a fitted NMF / MU model
+#' @title Sample-clustering quality across ranks
 #' @description
-#' Computes the clustering-quality criteria for a single fitted
-#' multiplicative-update model: \code{silhouette}, \code{CPCC}, and
-#' \code{dist.cor}.  These are \strong{clustering-stability} diagnostics
-#' (how decisively and faithfully the samples cluster), conceptually
-#' separate from the rank-selection \code{*.rank} functions (which use
-#' r.squared, effective rank, and ECV).
+#' Computes the clustering-quality criteria \code{silhouette},
+#' \code{CPCC}, and \code{dist.cor} for a list of models fitted at
+#' different ranks (or a single fit), returning one row per rank.  These
+#' are \strong{clustering-stability} diagnostics (how decisively and
+#' faithfully the samples cluster), conceptually separate from the
+#' rank-selection \code{*.rank} functions (which use r.squared, effective
+#' rank, and ECV) and complementary to \code{\link{nmf.cluster.flow}}
+#' (which shows how the hard clustering itself changes across ranks).
 #'
-#' Sample clustering requires a non-negative coefficient/score matrix
-#' (so the columns form a membership simplex); when the model's
-#' coefficient is signed (\code{nmfkc.signed}, \code{nmfae.signed},
-#' \code{nmfre}), the hard-label \code{silhouette} is \code{NA} while the
-#' distance-based \code{CPCC} and \code{dist.cor} are still returned.
-#' The Adjusted Rand Index (ARI) is \strong{not} reported here: it
-#' compares two clusterings (e.g.\ across ranks or resamples) and is
-#' therefore not a single-fit quantity.
+#' Hard sample clustering requires a non-negative coefficient/score
+#' matrix (so the columns form a membership simplex); when a model's
+#' coefficient is signed (e.g.\ \code{nmfkc.signed}, \code{nmfae.signed},
+#' \code{nmfre} fits whose coefficient has negative entries) the
+#' hard-label \code{silhouette} is \code{NA} while the distance-based
+#' \code{CPCC} and \code{dist.cor} are still computed.
 #'
-#' @param object A fitted model from \code{\link{nmfkc}},
-#'   \code{\link{nmfkc.signed}}, \code{\link{nmfae}},
-#'   \code{nmfae.signed}, \code{\link{nmfkc.net}}, \code{\link{nmfre}},
-#'   or \code{\link{nmf.sem}} / \code{nmf.ffb}.
-#' @param Y The original data matrix used to fit \code{object}
-#'   (\eqn{Y_1} for \code{nmf.ffb}); required for the data-space
-#'   distances.
+#' @param fits A list of fitted models, one per rank, all over the same
+#'   \eqn{N} individuals (a single fitted model is also accepted and
+#'   wrapped automatically).  Supported families: \code{\link{nmfkc}},
+#'   \code{\link{nmfkc.signed}}, \code{\link{nmfae}}, \code{nmfae.signed},
+#'   \code{\link{nmfkc.net}}, \code{\link{nmfre}}, and
+#'   \code{\link{nmf.sem}} / \code{nmf.ffb}.
+#' @param Y The original data matrix used to fit the models (\eqn{Y_1}
+#'   for \code{nmf.ffb}); required for the data-space distances.
 #' @param Y2 Exogenous block, required only for \code{nmf.ffb} /
 #'   \code{nmf.sem}.
-#' @param ... Unused.
-#' @return An object of class \code{"nmf.cluster.criteria"}: a list with
-#'   \code{silhouette}, \code{CPCC}, \code{dist.cor}, \code{cluster}
-#'   (hard labels or \code{NULL}), \code{hard} (logical), \code{rank},
-#'   and \code{model} (the fitted class).
-#' @seealso \code{\link{nmfkc.rank}} for rank selection.
+#' @param plot Logical; draw the diagnostics plot immediately
+#'   (default \code{TRUE}); see \code{\link{plot.nmf.cluster.criteria}}.
+#' @param ... When \code{plot = TRUE}, graphical arguments forwarded to
+#'   \code{\link{plot.nmf.cluster.criteria}}.
+#' @return An object of class \code{"nmf.cluster.criteria"} (returned
+#'   invisibly): a list with \code{criteria}, a data frame with one row
+#'   per rank and columns \code{rank}, \code{silhouette}, \code{CPCC},
+#'   \code{dist.cor}, and \code{hard} (whether hard clustering was
+#'   possible at that rank).
+#' @seealso \code{\link{nmf.cluster.flow}}, \code{\link{nmfkc.rank}}
 #' @export
 #' @examples
+#' \donttest{
 #' Y <- t(as.matrix(iris[, 1:4]))
-#' fit <- nmfkc(Y, Q = 3, print.dims = FALSE)
-#' nmf.cluster.criteria(fit, Y)
-nmf.cluster.criteria <- function(object, Y, Y2 = NULL, ...) {
+#' fits <- lapply(2:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
+#' cc <- nmf.cluster.criteria(fits, Y, plot = FALSE)
+#' cc$criteria
+#' plot(cc)
+#' }
+nmf.cluster.criteria <- function(fits, Y, Y2 = NULL, plot = TRUE, ...) {
   if (base::missing(Y))
     base::stop("nmf.cluster.criteria() requires the original data matrix Y.", call. = FALSE)
-  B <- .nmf.cluster.criteria.coef(object, Y, Y2)
-  cc <- .cluster.criteria(Y, B)
-  out <- base::list(silhouette = cc$silhouette, CPCC = cc$CPCC,
-                    dist.cor = cc$dist.cor, cluster = cc$cluster,
-                    hard = cc$hard, rank = base::nrow(B),
-                    model = base::class(object)[1])
+  ## A single fitted model (has a scalar $rank) is wrapped into a list.
+  if (!base::is.null(fits$rank)) fits <- base::list(fits)
+  if (!base::is.list(fits) || base::length(fits) < 1)
+    base::stop("`fits` must be a fitted model or a non-empty list of them.",
+               call. = FALSE)
+  Y <- base::as.matrix(Y)
+
+  rows <- base::lapply(fits, function(f) {
+    B  <- .nmf.cluster.criteria.coef(f, Y, Y2)
+    cc <- .cluster.criteria(Y, B)
+    rank <- if (!base::is.null(f$rank)) base::as.integer(f$rank)
+            else base::nrow(base::as.matrix(B))
+    base::data.frame(rank = rank, silhouette = cc$silhouette, CPCC = cc$CPCC,
+                     dist.cor = cc$dist.cor, hard = cc$hard)
+  })
+  criteria <- base::do.call(base::rbind, rows)
+  criteria <- criteria[base::order(criteria$rank), , drop = FALSE]
+  base::rownames(criteria) <- NULL
+
+  out <- base::list(criteria = criteria)
   base::class(out) <- "nmf.cluster.criteria"
-  out
+  if (plot) graphics::plot(out, ...)
+  base::invisible(out)
+}
+
+
+#' @title Plot clustering-quality criteria across ranks
+#' @description
+#' Line plot of \code{silhouette}, \code{CPCC}, and \code{dist.cor}
+#' against the rank, for an object from
+#' \code{\link{nmf.cluster.criteria}}.
+#' @param x An object of class \code{"nmf.cluster.criteria"}.
+#' @param main Plot title.
+#' @param xlab,ylab Axis labels.
+#' @param lwd Line width.
+#' @param ... Further arguments passed to the initial
+#'   \code{\link[graphics]{plot}}.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.cluster.criteria}}
+#' @export
+plot.nmf.cluster.criteria <- function(x, main = "Clustering quality across rank",
+                                      xlab = "rank (Q)", ylab = "criterion",
+                                      lwd = 2, ...) {
+  cr <- x$criteria
+  rk <- cr$rank
+  metrics <- c(silhouette = 7, CPCC = 6, dist.cor = 5)  # name = colour
+  yr <- base::range(base::unlist(cr[base::names(metrics)]), na.rm = TRUE)
+  if (!base::all(base::is.finite(yr))) yr <- c(0, 1)
+  graphics::plot(NA, xlim = base::range(rk), ylim = yr,
+                 xlab = xlab, ylab = ylab, main = main, ...)
+  for (q in rk) graphics::abline(v = q, col = "gray90", lwd = 0.5)
+  for (m in base::names(metrics)) {
+    v <- cr[[m]]
+    if (base::all(base::is.na(v))) next
+    graphics::lines(rk, v, col = metrics[[m]], lwd = lwd)
+    graphics::points(rk, v, pch = 16, col = metrics[[m]], cex = 0.8)
+  }
+  graphics::legend("bottomright", legend = base::names(metrics),
+                   col = base::unlist(metrics), lty = 1, lwd = 2,
+                   bg = "white", cex = 0.8)
+  base::invisible(x)
 }
 
 
 #' @title Print method for nmf.cluster.criteria objects
 #' @param x An object of class \code{"nmf.cluster.criteria"}.
-#' @param ... Unused.
+#' @param ... Passed to the criteria table's \code{print}.
 #' @return \code{x}, invisibly.
 #' @export
 print.nmf.cluster.criteria <- function(x, ...) {
-  base::cat(base::sprintf("Sample-clustering diagnostics (%s, rank %d)\n",
-                          x$model, x$rank))
-  base::cat(base::sprintf("  Hard clustering: %s\n",
-            if (x$hard) "yes (non-negative coefficient)"
-            else "no (signed coefficient)"))
-  if (base::is.finite(x$silhouette))
-    base::cat(base::sprintf("  Silhouette:      %.4f\n", x$silhouette))
-  else
-    base::cat("  Silhouette:      NA (needs hard clustering)\n")
-  base::cat(base::sprintf("  CPCC:            %s\n",
-            if (base::is.finite(x$CPCC)) base::sprintf("%.4f", x$CPCC) else "NA"))
-  base::cat(base::sprintf("  dist.cor:        %.4f\n", x$dist.cor))
-  if (x$hard && !base::is.null(x$cluster)) {
-    base::cat("  Cluster sizes:\n")
-    tb <- base::table(x$cluster)
-    base::print(tb)
-  }
+  base::cat("Sample-clustering quality across ranks ",
+            base::paste(x$criteria$rank, collapse = ", "), "\n", sep = "")
+  base::cat("(silhouette / CPCC / dist.cor; silhouette = NA when the coefficient is signed)\n\n")
+  base::print(x$criteria, row.names = FALSE, ...)
   base::invisible(x)
 }
 
@@ -1657,8 +1706,8 @@ print.nmf.cluster.flow <- function(x, ...) {
 .rank.finish <- function(criteria, plot = TRUE,
                          main = "Rank Selection Diagnostics") {
   base::message("Note: sample-clustering quality (silhouette / CPCC / ",
-                "dist.cor) is not part of rank selection; compute it on a ",
-                "fitted model with nmf.cluster.criteria().  See ?nmf.cluster.criteria")
+                "dist.cor) is not part of rank selection; compute it from a ",
+                "list of fits with nmf.cluster.criteria().  See ?nmf.cluster.criteria")
   rk <- criteria$rank
   nq <- base::length(rk)
 

@@ -2,53 +2,63 @@
 % Please edit documentation in R/nmfkc.R
 \name{nmf.cluster.criteria}
 \alias{nmf.cluster.criteria}
-\title{Sample-clustering diagnostics for a fitted NMF / MU model}
+\title{Sample-clustering quality across ranks}
 \usage{
-nmf.cluster.criteria(object, Y, Y2 = NULL, ...)
+nmf.cluster.criteria(fits, Y, Y2 = NULL, plot = TRUE, ...)
 }
 \arguments{
-\item{object}{A fitted model from \code{\link{nmfkc}},
-\code{\link{nmfkc.signed}}, \code{\link{nmfae}},
-\code{nmfae.signed}, \code{\link{nmfkc.net}}, \code{\link{nmfre}},
-or \code{\link{nmf.sem}} / \code{nmf.ffb}.}
+\item{fits}{A list of fitted models, one per rank, all over the same
+\eqn{N} individuals (a single fitted model is also accepted and
+wrapped automatically).  Supported families: \code{\link{nmfkc}},
+\code{\link{nmfkc.signed}}, \code{\link{nmfae}}, \code{nmfae.signed},
+\code{\link{nmfkc.net}}, \code{\link{nmfre}}, and
+\code{\link{nmf.sem}} / \code{nmf.ffb}.}
 
-\item{Y}{The original data matrix used to fit \code{object}
-(\eqn{Y_1} for \code{nmf.ffb}); required for the data-space
-distances.}
+\item{Y}{The original data matrix used to fit the models (\eqn{Y_1}
+for \code{nmf.ffb}); required for the data-space distances.}
 
 \item{Y2}{Exogenous block, required only for \code{nmf.ffb} /
 \code{nmf.sem}.}
 
-\item{...}{Unused.}
+\item{plot}{Logical; draw the diagnostics plot immediately
+(default \code{TRUE}); see \code{\link{plot.nmf.cluster.criteria}}.}
+
+\item{...}{When \code{plot = TRUE}, graphical arguments forwarded to
+\code{\link{plot.nmf.cluster.criteria}}.}
 }
 \value{
-An object of class \code{"nmf.cluster.criteria"}: a list with
-\code{silhouette}, \code{CPCC}, \code{dist.cor}, \code{cluster}
-(hard labels or \code{NULL}), \code{hard} (logical), \code{rank},
-and \code{model} (the fitted class).
+An object of class \code{"nmf.cluster.criteria"} (returned
+invisibly): a list with \code{criteria}, a data frame with one row
+per rank and columns \code{rank}, \code{silhouette}, \code{CPCC},
+\code{dist.cor}, and \code{hard} (whether hard clustering was
+possible at that rank).
 }
 \description{
-Computes the clustering-quality criteria for a single fitted
-multiplicative-update model: \code{silhouette}, \code{CPCC}, and
-\code{dist.cor}.  These are \strong{clustering-stability} diagnostics
-(how decisively and faithfully the samples cluster), conceptually
-separate from the rank-selection \code{*.rank} functions (which use
-r.squared, effective rank, and ECV).
+Computes the clustering-quality criteria \code{silhouette},
+\code{CPCC}, and \code{dist.cor} for a list of models fitted at
+different ranks (or a single fit), returning one row per rank.  These
+are \strong{clustering-stability} diagnostics (how decisively and
+faithfully the samples cluster), conceptually separate from the
+rank-selection \code{*.rank} functions (which use r.squared, effective
+rank, and ECV) and complementary to \code{\link{nmf.cluster.flow}}
+(which shows how the hard clustering itself changes across ranks).
 
-Sample clustering requires a non-negative coefficient/score matrix
-(so the columns form a membership simplex); when the model's
-coefficient is signed (\code{nmfkc.signed}, \code{nmfae.signed},
-\code{nmfre}), the hard-label \code{silhouette} is \code{NA} while the
-distance-based \code{CPCC} and \code{dist.cor} are still returned.
-The Adjusted Rand Index (ARI) is \strong{not} reported here: it
-compares two clusterings (e.g.\ across ranks or resamples) and is
-therefore not a single-fit quantity.
+Hard sample clustering requires a non-negative coefficient/score
+matrix (so the columns form a membership simplex); when a model's
+coefficient is signed (e.g.\ \code{nmfkc.signed}, \code{nmfae.signed},
+\code{nmfre} fits whose coefficient has negative entries) the
+hard-label \code{silhouette} is \code{NA} while the distance-based
+\code{CPCC} and \code{dist.cor} are still computed.
 }
 \examples{
+\donttest{
 Y <- t(as.matrix(iris[, 1:4]))
-fit <- nmfkc(Y, Q = 3, print.dims = FALSE)
-nmf.cluster.criteria(fit, Y)
+fits <- lapply(2:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
+cc <- nmf.cluster.criteria(fits, Y, plot = FALSE)
+cc$criteria
+plot(cc)
+}
 }
 \seealso{
-\code{\link{nmfkc.rank}} for rank selection.
+\code{\link{nmf.cluster.flow}}, \code{\link{nmfkc.rank}}
 }

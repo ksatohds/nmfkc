@@ -57,14 +57,18 @@
   the \eqn{N \times R} table with rows = individuals, columns = rank,
   entries = cluster number.
 
-### **New `nmf.cluster.criteria()`: sample-clustering diagnostics**
-- `nmf.cluster.criteria(object, Y)` reports the clustering-quality criteria
-  `silhouette`, `CPCC`, and `dist.cor` for a single fitted
-  multiplicative-update model from any family (`nmfkc`, `nmfkc.signed`,
-  `nmfae`, `nmfae.signed`, `nmfkc.net`, `nmfre`, `nmf.sem`/`nmf.ffb`;
-  the last needs the exogenous block via `Y2`).  These are
-  **clustering-stability** diagnostics, deliberately separate from the
-  rank-selection `*.rank` functions (r.squared / effective rank / ECV).
+### **New `nmf.cluster.criteria()`: sample-clustering quality across ranks**
+- `nmf.cluster.criteria(fits, Y)` takes a \strong{list of fits} (one per
+  rank; a single fit is also accepted) and reports the clustering-quality
+  criteria `silhouette`, `CPCC`, and `dist.cor` for each rank, returning
+  a per-rank `$criteria` table (mirroring `nmf.cluster.flow()`).  It has
+  `plot()` (line plot of the three criteria vs rank) and `print()` (the
+  table) methods, and draws immediately when `plot = TRUE`.  Works for
+  any family (`nmfkc`, `nmfkc.signed`, `nmfae`, `nmfae.signed`,
+  `nmfkc.net`, `nmfre`, `nmf.sem`/`nmf.ffb`; the last needs the exogenous
+  block via `Y2`).  These are **clustering-stability** diagnostics,
+  deliberately separate from the rank-selection `*.rank` functions
+  (r.squared / effective rank / ECV).
 - Hard sample clustering needs a non-negative coefficient/score matrix
   (a valid membership simplex).  `nmf.cluster.criteria()` detects this from the
   actual coefficient: when it is non-negative the hard-label
