@@ -1,5 +1,13 @@
 # nmfkc 0.7.4 (development)
 
+### **`nmfkc.ard()`: better default prior scale**
+- The default `b` is now the initial per-component energy scale
+  `(nrow(Y) + ncol(Y)) / K * mean(Y)` instead of a fixed `0.001 * mean(Y)`.
+  The old fixed fraction over-pruned (winner-take-all collapse onto one
+  dominant component) when `(F + N)/K` was large; the new scale-aware
+  default recovers genuine low-rank structure stably (e.g. a clean rank-3
+  signal: relevance `1, 0.99, 0.87, 0, ...`, all restarts agree).
+
 ### **New `nmfkc.ard()`: ARD rank determination (Tan & Fevotte 2013, prototype)**
 - Automatic Relevance Determination for the NMF rank (Euclidean).  Fits
   NMF *once* at an over-complete rank and prunes automatically: each

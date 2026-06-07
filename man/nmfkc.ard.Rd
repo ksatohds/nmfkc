@@ -34,7 +34,10 @@ reported rank is the \strong{mode} of the per-run estimates
 \code{plot}/\code{W}/\code{H}.}
 
 \item{a, b}{Inverse-gamma hyperparameters for \eqn{\lambda_k}.  \code{b}
-defaults to a small data-scaled value \code{0.001 * mean(Y)}.}
+defaults to the initial per-component energy scale
+\code{(nrow(Y) + ncol(Y)) / K * mean(Y)}.  A much smaller \code{b}
+over-prunes (collapsing onto one dominant component); a much larger
+one prunes nothing.}
 
 \item{maxit, epsilon}{Maximum iterations and relative-objective tolerance.}
 

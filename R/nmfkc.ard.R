@@ -76,7 +76,10 @@
 #'   (\code{rank.runs}), with a representative modal fit kept for
 #'   \code{plot}/\code{W}/\code{H}.
 #' @param a,b Inverse-gamma hyperparameters for \eqn{\lambda_k}.  \code{b}
-#'   defaults to a small data-scaled value \code{0.001 * mean(Y)}.
+#'   defaults to the initial per-component energy scale
+#'   \code{(nrow(Y) + ncol(Y)) / K * mean(Y)}.  A much smaller \code{b}
+#'   over-prunes (collapsing onto one dominant component); a much larger
+#'   one prunes nothing.
 #' @param maxit,epsilon Maximum iterations and relative-objective tolerance.
 #' @param tol Relevance threshold (relative to the largest component) below
 #'   which a component is counted as pruned.
@@ -109,7 +112,10 @@ nmfkc.ard <- function(Y, rank = NULL, prior = c("L2", "L1"), nrun = 1,
   prior <- base::match.arg(prior)
   Y <- base::as.matrix(Y); Fr <- base::nrow(Y); Nc <- base::ncol(Y)
   K <- if (base::is.null(rank)) base::min(Fr, Nc, 20L) else rank
-  if (base::is.null(b)) b <- 0.001 * base::mean(Y)
+  ## Default prior scale: tie b to the initial per-component energy scale
+  ## (F + N)/K * mean(Y).  A fixed small fraction of mean(Y) over-prunes
+  ## (winner-take-all collapse) when (F + N)/K is large.
+  if (base::is.null(b)) b <- (Fr + Nc) / K * base::mean(Y)
 
   ## nrun random-initialization restarts (ARD is a sensitive point
   ## estimate); aggregate the integer rank by its MODE.

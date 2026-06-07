@@ -152,18 +152,18 @@ data.frame(
 
 ## Remarks
 
-On this clean dataset with a clear rank-3 structure, the predictive
-cross-validations (`nmfkc.ecv`, `nmfkc.bicv`) and the integrated `nmfkc.rank`
-recover the true rank exactly (`3`), and the consensus `dispersion` also peaks
-at `3` with a crisp three-block consensus matrix.  Notably, the two
-stability/model criteria reveal their **known tendencies even here**: `PAC`
-leans to the coarser rank `2`, and the ARD point estimate lands slightly high
-(`4`).  This already previews the behaviour on harder data.
+On this clean dataset with a clear rank-3 structure, **almost every criterion
+recovers the true rank**: the predictive cross-validations (`nmfkc.ecv`,
+`nmfkc.bicv`), the integrated `nmfkc.rank`, the consensus `dispersion` (with a
+crisp three-block consensus matrix) and ARD (every `nrun` restart agrees on
+`3`, relevance dropping to zero after the third component) all give `3`.  Only
+`PAC` leans to the coarser rank `2` --- a small hint of the low-rank bias of
+stability measures.
 
 On **real** data the criteria often *disagree* much more: stability/consensus
 tends to favour low (coarse) ranks, and ARD's count can track the starting rank
-when the energy spectrum decays smoothly.  A robust practical recipe is to
-**triangulate**:
+when the energy spectrum decays smoothly (no clear knee).  A robust practical
+recipe is to **triangulate**:
 use ECV for the predictive upper bound, the effective-rank / relevance *knee*
 for the lower bound, and the consensus heatmap to confirm an interpretable block
 structure --- then choose one rank by purpose and domain knowledge.
