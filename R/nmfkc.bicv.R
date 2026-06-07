@@ -77,10 +77,14 @@
 #'   non-negative regressions.
 #' @details Each fold keeps about \eqn{(1 - 1/\text{nfolds})} of the rows
 #'   and columns, so the retained block \eqn{D} must have more than
-#'   \code{rank} rows \strong{and} columns; ranks that violate this for a
-#'   given fold are skipped (the held-out error is \code{NA}).  With
-#'   \code{nfolds = 2} this needs roughly \eqn{P/2 > \text{rank}} and
-#'   \eqn{N/2 > \text{rank}}.
+#'   \code{rank} rows \strong{and} columns.  The largest testable rank is
+#'   therefore about \eqn{(1 - 1/\text{nfolds})\min(P, N) - 1}; with
+#'   \code{nfolds = 2} this is roughly \eqn{\min(P, N)/2 - 1}.  Ranks above
+#'   this return \code{NA} and trigger a \code{\link[base]{warning}} that
+#'   names the limit and the \code{nfolds} (or \code{\link{nmfkc.ecv}})
+#'   that would reach the requested ranks.  Raising \code{nfolds} lifts the
+#'   limit at the cost of a smaller hold-out and more compute
+#'   (\eqn{(\text{nfolds} - 1)^2} full fits per rank).
 #' @param ... Passed to \code{\link{nmfkc}} for the per-block fits
 #'   (e.g.\ \code{maxit}, \code{method}).
 #' @return A list (cf.\ \code{\link{nmfkc.ecv}}) with:
@@ -111,6 +115,27 @@ nmfkc.bicv <- function(Y, rank = 1:3, nfolds = 2, seed = 123,
   if (!base::is.null(seed)) base::set.seed(seed)
   row.fold <- base::sample(base::rep_len(1:nfolds, P))
   col.fold <- base::sample(base::rep_len(1:nfolds, N))
+
+  ## Feasibility: the retained block D has min(P - largest row fold,
+  ## N - largest col fold) rows/cols, and rank-k needs strictly more than
+  ## k of each.  Warn (rather than silently return NA) for ranks the chosen
+  ## nfolds cannot reach, and suggest the nfolds that would.
+  kept.row <- P - base::max(base::table(row.fold))
+  kept.col <- N - base::max(base::table(col.fold))
+  rmax <- base::min(kept.row, kept.col) - 1L
+  if (base::any(rank > rmax)) {
+    g.need <- NA_integer_
+    for (g in base::seq.int(nfolds + 1L, base::min(P, N))) {
+      kr <- P - base::ceiling(P / g); kc <- N - base::ceiling(N / g)
+      if (base::min(kr, kc) - 1L >= base::max(rank)) { g.need <- g; break }
+    }
+    hint <- if (base::is.na(g.need))
+      "no nfolds can reach it (rank exceeds min(P, N) - 1); use a smaller rank"
+      else base::sprintf("use nfolds = %d (smaller hold-out, more compute), or nmfkc.ecv", g.need)
+    base::warning(base::sprintf(
+      "nmfkc.bicv: ranks > %d are infeasible with nfolds = %d (retained block ~%d x %d; rank-k needs > k rows and cols) and return NA. To test up to rank %d, %s.",
+      rmax, nfolds, kept.row, kept.col, base::max(rank), hint))
+  }
 
   ## nmfkc args for the (plain-NMF) block fits: drop covariates, skip the
   ## O(N^2) clustering criteria, stay quiet about dimensions.

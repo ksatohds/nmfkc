@@ -17,11 +17,13 @@ test_that("nmfkc.bicv returns sigma per rank and recovers a rank-3 signal", {
   expect_true(bv$rank[which.min(bv$sigma)] >= 3)
 })
 
-test_that("nmfkc.bicv skips ranks too large for the retained block", {
+test_that("nmfkc.bicv warns and returns NA for ranks too large for the block", {
   set.seed(2)
   Y <- matrix(abs(rnorm(8 * 50)), 8, 50)   # only 8 rows -> nfolds=2 keeps ~4
-  bv <- suppressMessages(nmfkc.bicv(Y, rank = c(2, 6), nfolds = 2))
-  ## rank 6 leaves <=4 kept rows per fold -> NA; rank 2 is fine
+  ## rank 6 leaves <=4 kept rows per fold -> infeasible -> warning + NA
+  expect_warning(
+    bv <- suppressMessages(nmfkc.bicv(Y, rank = c(2, 6), nfolds = 2)),
+    "infeasible")
   expect_false(is.na(bv$sigma[1]))
   expect_true(is.na(bv$sigma[2]))
 })

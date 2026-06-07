@@ -50,10 +50,14 @@ out roughly half the rows and half the columns (\code{nfolds = 2}).
 \details{
 Each fold keeps about \eqn{(1 - 1/\text{nfolds})} of the rows
 and columns, so the retained block \eqn{D} must have more than
-\code{rank} rows \strong{and} columns; ranks that violate this for a
-given fold are skipped (the held-out error is \code{NA}).  With
-\code{nfolds = 2} this needs roughly \eqn{P/2 > \text{rank}} and
-\eqn{N/2 > \text{rank}}.
+\code{rank} rows \strong{and} columns.  The largest testable rank is
+therefore about \eqn{(1 - 1/\text{nfolds})\min(P, N) - 1}; with
+\code{nfolds = 2} this is roughly \eqn{\min(P, N)/2 - 1}.  Ranks above
+this return \code{NA} and trigger a \code{\link[base]{warning}} that
+names the limit and the \code{nfolds} (or \code{\link{nmfkc.ecv}})
+that would reach the requested ranks.  Raising \code{nfolds} lifts the
+limit at the cost of a smaller hold-out and more compute
+(\eqn{(\text{nfolds} - 1)^2} full fits per rank).
 }
 \examples{
 \donttest{
