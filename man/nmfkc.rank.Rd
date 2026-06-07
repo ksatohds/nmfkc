@@ -82,4 +82,8 @@ Consensus-based ensembles of soft clusterings.
 }
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
+
+\code{\link{nmfkc.ecv}} (element-wise CV, used internally),
+\code{\link{nmfkc.bicv}} (block bi-cross-validation, an alternative
+and more stable rank-selection CV for plain NMF).
 }

@@ -51,5 +51,5 @@ res$objfunc
 
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
+\code{\link{nmfkc}}, \code{\link{nmfkc.cv}}, \code{\link{nmfkc.bicv}}
 }
