@@ -1,5 +1,15 @@
 # nmfkc 0.7.4 (development)
 
+### **New `nmfkc.consensus()`: consensus-clustering rank selection (Brunet 2004)**
+- The bioinformatics-standard stability approach, as a lightweight engine
+  like `nmfkc.ecv` / `nmfkc.bicv`.  For each rank it runs NMF `nrun` times
+  from random initializations (`X.init = "runif"`), builds the consensus
+  matrix from the per-run hard clusterings, and returns two stability
+  scores per rank: `cophenetic` (cophenetic correlation coefficient,
+  Brunet et al. 2004) and `dispersion` (Kim & Park 2007, in `[0,1]`).
+  Unlike the CV engines, a good rank *maximizes* stability.  Optional
+  `keep.consensus = TRUE` returns the consensus matrices.
+
 ### **New `nmfkc.bicv()`: bi-cross-validation for rank selection**
 - Owen & Perry's (2009) bi-cross-validation (BCV), a **lightweight CV
   engine in the spirit of `nmfkc.ecv`**: it returns the held-out error
