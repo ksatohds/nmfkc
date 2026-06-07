@@ -1356,6 +1356,34 @@ print.nmf.cluster.criteria <- function(x, ...) {
 }
 
 
+#' @title Adjusted Rand Index between two hard clusterings (Internal)
+#' @description
+#' Standard adjusted Rand index (Hubert & Arabie 1985) measuring the
+#' agreement between two label vectors over the same items, used by
+#' \code{\link{nmf.cluster.flow}} for adjacent ranks.  \code{NA} items
+#' (in either labelling) are dropped pairwise.
+#' @param a,b Integer label vectors of equal length.
+#' @return The adjusted Rand index in \eqn{[-1, 1]} (\code{NA} when it is
+#'   undefined, e.g.\ fewer than two valid items or a degenerate pair).
+#' @keywords internal
+#' @noRd
+.ari <- function(a, b) {
+  keep <- !(base::is.na(a) | base::is.na(b))
+  a <- a[keep]; b <- b[keep]
+  n <- base::length(a)
+  if (n < 2) return(NA_real_)
+  tab <- base::table(a, b)
+  cc <- function(x) base::sum(x * (x - 1) / 2)
+  sij <- cc(base::as.vector(tab))
+  si  <- cc(base::rowSums(tab))
+  sj  <- cc(base::colSums(tab))
+  expct <- si * sj / (n * (n - 1) / 2)
+  maxi  <- (si + sj) / 2
+  if (maxi - expct == 0) return(NA_real_)
+  (sij - expct) / (maxi - expct)
+}
+
+
 #' @title Cluster-flow (alluvial) diagram across ranks
 #' @description
 #' Visualizes how the hard sample clustering changes as the rank \eqn{Q}
@@ -1365,7 +1393,9 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #' clusters are reordered at each rank (barycenter method) to reduce
 #' crossings.  Lines are coloured by the individual's cluster at the
 #' \code{reference} rank, so one can see how the reference clusters split
-#' or merge as the rank changes.
+#' or merge as the rank changes.  The adjusted Rand index (ARI) between
+#' each pair of adjacent ranks is printed along the top of the figure,
+#' summarizing how much the clustering changes from one rank to the next.
 #'
 #' Works for any non-negative multiplicative-update family
 #' (\code{nmfkc}, \code{nmfae}, \code{nmfkc.net}, \code{nmfre},
@@ -1390,7 +1420,9 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #'   numbering of \code{fits}; a factor that never dominates leaves an
 #'   empty, unused cluster number),
 #'   \code{ypos} (the layout positions), \code{ranks}, \code{reference},
-#'   \code{ref.cluster} (the reference hard labels), and \code{colors}
+#'   \code{ref.cluster} (the reference hard labels), \code{ARI}
+#'   (adjusted Rand index between each pair of adjacent ranks, length
+#'   \eqn{R - 1}), and \code{colors}
 #'   (the default per-individual reference colour).  Call
 #'   \code{\link{plot}} on it to (re)draw the diagram.
 #' @seealso \code{\link{plot.nmf.cluster.flow}},
@@ -1449,8 +1481,16 @@ nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
   if (ref_col > 1) for (q in (ref_col - 1):1)
     ypos[, q] <- .flow.place(clusters[, q], ypos[, q + 1])
 
+  ## Adjacent-rank agreement: ARI between the clusterings at rank q and
+  ## rank q+1 (length R-1), labelled "rank_q-rank_{q+1}".
+  ari <- base::vapply(base::seq_len(R - 1),
+                      function(q) .ari(clusters[, q], clusters[, q + 1]),
+                      base::numeric(1))
+  base::names(ari) <- base::sprintf("%d-%d", ranks[-R], ranks[-1L])
+
   out <- base::list(clusters = clusters, ypos = ypos, ranks = ranks,
                     reference = reference, ref.cluster = ref_lab,
+                    ARI = ari,
                     colors = stats::setNames(.flow.colors(ref_lab)[ref_lab], ind_names))
   base::class(out) <- "nmf.cluster.flow"
   if (plot) graphics::plot(out, ...)
@@ -1520,9 +1560,19 @@ plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
   })
   xs <- base::seq_len(R)
   old <- graphics::par(mar = c(4, 4, 4, 2) + 0.1); base::on.exit(graphics::par(old))
-  graphics::plot(NA, xlim = c(1, R), ylim = c(-0.03, 1.03),
+  ## extra head-room at the top for the adjacent-rank ARI labels
+  graphics::plot(NA, xlim = c(1, R), ylim = c(-0.03, 1.12),
                  xaxt = "n", yaxt = "n", xlab = xlab, ylab = ylab, main = main, ...)
   graphics::axis(1, at = xs, labels = ranks)
+
+  ## Adjacent-rank ARI, printed between the two columns it compares.
+  if (!base::is.null(x$ARI)) for (q in base::seq_len(R - 1)) {
+    if (!base::is.finite(x$ARI[q])) next
+    lab <- if (q == 1) base::sprintf("ARI=%.2f", x$ARI[q])
+           else base::sprintf("%.2f", x$ARI[q])
+    graphics::text((xs[q] + xs[q + 1]) / 2, 1.08, lab,
+                   cex = 0.85, font = 2, col = "gray25")
+  }
 
   hw  <- 0.10        # half-width of the cluster box (x units)
 
@@ -1565,6 +1615,10 @@ print.nmf.cluster.flow <- function(x, ...) {
                           base::paste(x$ranks, collapse = ", ")))
   base::cat(base::sprintf("  individuals (N): %d\n", base::nrow(x$clusters)))
   base::cat(base::sprintf("  reference rank:  %d\n", x$reference))
+  if (!base::is.null(x$ARI)) {
+    base::cat("  adjacent-rank ARI:\n")
+    print(base::round(x$ARI, 3))
+  }
   base::cat("  $clusters: N x R table of cluster numbers; plot() draws the diagram.\n")
   base::invisible(x)
 }

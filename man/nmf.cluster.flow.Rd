@@ -30,7 +30,9 @@ dominant-factor index of each fit, so it matches the factor/basis
 numbering of \code{fits}; a factor that never dominates leaves an
 empty, unused cluster number),
 \code{ypos} (the layout positions), \code{ranks}, \code{reference},
-\code{ref.cluster} (the reference hard labels), and \code{colors}
+\code{ref.cluster} (the reference hard labels), \code{ARI}
+(adjusted Rand index between each pair of adjacent ranks, length
+\eqn{R - 1}), and \code{colors}
 (the default per-individual reference colour).  Call
 \code{\link{plot}} on it to (re)draw the diagram.
 }
@@ -42,7 +44,9 @@ its vertical position at each rank is determined by its cluster, and
 clusters are reordered at each rank (barycenter method) to reduce
 crossings.  Lines are coloured by the individual's cluster at the
 \code{reference} rank, so one can see how the reference clusters split
-or merge as the rank changes.
+or merge as the rank changes.  The adjusted Rand index (ARI) between
+each pair of adjacent ranks is printed along the top of the figure,
+summarizing how much the clustering changes from one rank to the next.
 
 Works for any non-negative multiplicative-update family
 (\code{nmfkc}, \code{nmfae}, \code{nmfkc.net}, \code{nmfre},

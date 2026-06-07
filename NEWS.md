@@ -1,6 +1,10 @@
 # nmfkc 0.7.4 (development)
 
 ### **New `nmf.cluster.flow()`: cluster-flow diagram across ranks**
+- The adjusted Rand index (ARI) between each pair of adjacent ranks is
+  now computed and printed along the top of the figure (and returned in
+  `$ARI`, length \eqn{R - 1}), summarizing how much the hard clustering
+  changes from one rank to the next.
 - Each cluster box is now tinted by the \strong{majority} reference
   colour among the individuals it contains (the colour shared by the
   most member lines); ties are broken in favour of the earliest palette
