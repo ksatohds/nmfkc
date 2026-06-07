@@ -11,6 +11,7 @@ nmfkc.consensus(
   nrun = 30,
   seed = 123,
   keep.consensus = FALSE,
+  pac.range = c(0.1, 0.9),
   ...
 )
 }
@@ -29,6 +30,9 @@ nmfkc.consensus(
 \item{keep.consensus}{Logical; if \code{TRUE} also return the list of
 consensus matrices (one \eqn{N \times N} matrix per rank).}
 
+\item{pac.range}{Length-2 ambiguous interval \eqn{(u_1, u_2)} for the
+PAC measure (default \code{c(0.1, 0.9)}).}
+
 \item{...}{Passed to \code{\link{nmfkc}} (e.g.\ \code{maxit},
 \code{method}).  \code{X.init} is forced to \code{"runif"}.}
 }
@@ -36,6 +40,8 @@ consensus matrices (one \eqn{N \times N} matrix per rank).}
 An object of class \code{"nmfkc.consensus"} (a list) with:
 \item{cophenetic}{Cophenetic correlation coefficient for each rank.}
 \item{dispersion}{Dispersion coefficient (\eqn{[0, 1]}) for each rank.}
+\item{pac}{Proportion of Ambiguous Clustering (\eqn{[0, 1]}, lower is
+better) for each rank.}
 \item{rank}{The evaluated rank vector.}
 \item{nrun}{Number of runs per rank.}
 \item{consensus}{List of consensus matrices, or \code{NULL}.}
@@ -61,6 +67,12 @@ of the consensus matrix (Brunet et al. 2004).  Close to 1 = stable.
 \item \code{dispersion}: the Kim & Park (2007) dispersion
 \eqn{\frac{1}{N^2}\sum_{ij} 4 (C_{ij} - 1/2)^2 \in [0, 1]}; 1 when
 every consensus entry is exactly 0 or 1 (perfectly crisp).
+\item \code{pac}: the Proportion of Ambiguous Clustering
+(Senbabaoglu et al. 2014) -- the fraction of off-diagonal consensus
+entries falling in the ambiguous interval \code{pac.range}
+(default \eqn{(0.1, 0.9)}).  \strong{Lower is better} (less
+ambiguity); a more sensitive readout than \code{cophenetic}, which
+tends to saturate.
 }
 Unlike the cross-validation engines (where the rank \emph{minimizes} the
 error), here a good rank \strong{maximizes} stability, or is the largest
@@ -82,6 +94,9 @@ Metagenes and molecular pattern discovery using matrix factorization.
 \emph{PNAS} 101(12):4164--4169. \doi{10.1073/pnas.0308531101}.
 Kim, H., Park, H. (2007).  Sparse non-negative matrix factorizations
 \dots \emph{Bioinformatics} 23(12):1495--1502.
+Senbabaoglu, Y., Michailidis, G., Li, J. Z. (2014).  Critical
+limitations of consensus clustering in class discovery.
+\emph{Sci. Rep.} 4:6207. \doi{10.1038/srep06207}.
 }
 \seealso{
 \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.bicv}},

@@ -16,9 +16,11 @@ test_that("nmfkc.consensus returns stability scores per rank", {
   expect_equal(cs$nrun, 15)
   expect_length(cs$cophenetic, 4)
   expect_length(cs$dispersion, 4)
+  expect_length(cs$pac, 4)
   ## valid ranges
   expect_true(all(cs$dispersion >= 0 & cs$dispersion <= 1, na.rm = TRUE))
   expect_true(all(abs(cs$cophenetic) <= 1, na.rm = TRUE))
+  expect_true(all(cs$pac >= 0 & cs$pac <= 1, na.rm = TRUE))
   expect_null(cs$consensus)
 })
 
@@ -30,6 +32,9 @@ test_that("nmfkc.consensus is most stable at the true rank (3 clusters)", {
   k2 <- which(cs$rank == 2)
   expect_gt(cs$dispersion[k3], 0.95)
   expect_gt(cs$dispersion[k3], cs$dispersion[k2])
+  ## PAC is near 0 at the true rank (no ambiguous pairs) and the minimum
+  expect_lt(cs$pac[k3], 0.05)
+  expect_equal(cs$rank[which.min(cs$pac)], 3)
 })
 
 test_that("keep.consensus returns N x N consensus matrices", {

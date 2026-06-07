@@ -23,6 +23,12 @@
 #'   \item \code{dispersion}: the Kim & Park (2007) dispersion
 #'     \eqn{\frac{1}{N^2}\sum_{ij} 4 (C_{ij} - 1/2)^2 \in [0, 1]}; 1 when
 #'     every consensus entry is exactly 0 or 1 (perfectly crisp).
+#'   \item \code{pac}: the Proportion of Ambiguous Clustering
+#'     (Senbabaoglu et al. 2014) -- the fraction of off-diagonal consensus
+#'     entries falling in the ambiguous interval \code{pac.range}
+#'     (default \eqn{(0.1, 0.9)}).  \strong{Lower is better} (less
+#'     ambiguity); a more sensitive readout than \code{cophenetic}, which
+#'     tends to saturate.
 #' }
 #' Unlike the cross-validation engines (where the rank \emph{minimizes} the
 #' error), here a good rank \strong{maximizes} stability, or is the largest
@@ -36,11 +42,15 @@
 #'   \code{seed + 1000 * i + r}.
 #' @param keep.consensus Logical; if \code{TRUE} also return the list of
 #'   consensus matrices (one \eqn{N \times N} matrix per rank).
+#' @param pac.range Length-2 ambiguous interval \eqn{(u_1, u_2)} for the
+#'   PAC measure (default \code{c(0.1, 0.9)}).
 #' @param ... Passed to \code{\link{nmfkc}} (e.g.\ \code{maxit},
 #'   \code{method}).  \code{X.init} is forced to \code{"runif"}.
 #' @return An object of class \code{"nmfkc.consensus"} (a list) with:
 #'   \item{cophenetic}{Cophenetic correlation coefficient for each rank.}
 #'   \item{dispersion}{Dispersion coefficient (\eqn{[0, 1]}) for each rank.}
+#'   \item{pac}{Proportion of Ambiguous Clustering (\eqn{[0, 1]}, lower is
+#'     better) for each rank.}
 #'   \item{rank}{The evaluated rank vector.}
 #'   \item{nrun}{Number of runs per rank.}
 #'   \item{consensus}{List of consensus matrices, or \code{NULL}.}
@@ -53,6 +63,9 @@
 #' \emph{PNAS} 101(12):4164--4169. \doi{10.1073/pnas.0308531101}.
 #' Kim, H., Park, H. (2007).  Sparse non-negative matrix factorizations
 #' \dots \emph{Bioinformatics} 23(12):1495--1502.
+#' Senbabaoglu, Y., Michailidis, G., Li, J. Z. (2014).  Critical
+#' limitations of consensus clustering in class discovery.
+#' \emph{Sci. Rep.} 4:6207. \doi{10.1038/srep06207}.
 #' @seealso \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.bicv}},
 #'   \code{\link{nmfkc.rank}}, \code{\link{nmf.cluster.criteria}}
 #' @export
@@ -66,7 +79,8 @@
 #' plot(cs, type = "heatmap", rank = 3)  # one rank, with labels
 #' }
 nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30, seed = 123,
-                            keep.consensus = FALSE, ...) {
+                            keep.consensus = FALSE, pac.range = c(0.1, 0.9),
+                            ...) {
   Y <- base::as.matrix(Y)
   N <- base::ncol(Y)
 
@@ -77,6 +91,7 @@ nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30, seed = 123,
   cophenetic <- stats::setNames(base::numeric(base::length(rank)),
                                 base::paste0("rank=", rank))
   dispersion <- cophenetic
+  pac        <- cophenetic
   consensus.list <- if (keep.consensus)
     base::vector("list", base::length(rank)) else NULL
 
@@ -104,6 +119,11 @@ nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30, seed = 123,
     ## Kim-Park dispersion: 1 = perfectly crisp (all 0/1).
     dispersion[ki] <- base::sum(4 * (Cmat - 0.5)^2) / (N * N)
 
+    ## PAC (Senbabaoglu 2014): proportion of off-diagonal consensus entries
+    ## in the ambiguous interval (pac.range); LOWER = crisper / better.
+    lt <- Cmat[base::lower.tri(Cmat)]
+    pac[ki] <- base::mean(lt > pac.range[1] & lt < pac.range[2])
+
     ## Cophenetic correlation of the consensus (Brunet).
     d <- stats::as.dist(1 - Cmat)
     if (k >= 2 && base::any(d > 0)) {
@@ -116,7 +136,8 @@ nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30, seed = 123,
   }
 
   out <- base::list(cophenetic = cophenetic, dispersion = dispersion,
-                    rank = rank, nrun = nrun, consensus = consensus.list)
+                    pac = pac, rank = rank, nrun = nrun,
+                    consensus = consensus.list)
   base::class(out) <- "nmfkc.consensus"
   out
 }
@@ -130,12 +151,14 @@ nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30, seed = 123,
 print.nmfkc.consensus <- function(x, ...) {
   base::cat(base::sprintf("Consensus rank selection (Brunet 2004), %d runs/rank\n",
                           x$nrun))
-  base::cat(base::sprintf("  most stable (dispersion max): rank %d\n",
-                          x$rank[base::which.max(x$dispersion)]))
-  base::print(base::data.frame(rank = x$rank,
-                               cophenetic = base::round(x$cophenetic, 3),
-                               dispersion = base::round(x$dispersion, 3)),
-              row.names = FALSE)
+  base::cat(base::sprintf("  best: dispersion max = rank %d | PAC min = rank %d\n",
+                          x$rank[base::which.max(x$dispersion)],
+                          x$rank[base::which.min(x$pac)]))
+  df <- base::data.frame(rank = x$rank,
+                         cophenetic = base::round(x$cophenetic, 3),
+                         dispersion = base::round(x$dispersion, 3))
+  if (!base::is.null(x$pac)) df$pac <- base::round(x$pac, 3)
+  base::print(df, row.names = FALSE)
   if (base::is.null(x$consensus))
     base::cat("  (consensus matrices not stored; use keep.consensus = TRUE for heatmaps)\n")
   base::invisible(x)
@@ -187,10 +210,16 @@ plot.nmfkc.consensus <- function(x, type = c("criteria", "heatmap"),
                    ...)
     graphics::lines(x$rank, x$dispersion, type = "o", col = "red", pch = 17,
                     lwd = 2)
-    graphics::legend("bottomleft",
-                     c("cophenetic (Brunet)", "dispersion (Kim-Park)"),
-                     col = c("blue", "red"), pch = c(16, 17), lwd = 2,
-                     bg = "white", cex = 0.85)
+    leg <- c("cophenetic (Brunet, high=good)", "dispersion (Kim-Park, high=good)")
+    lcol <- c("blue", "red"); lpch <- c(16, 17)
+    if (!base::is.null(x$pac)) {
+      graphics::lines(x$rank, x$pac, type = "o", col = "darkgreen", pch = 15,
+                      lwd = 2)
+      leg <- c(leg, "PAC (Senbabaoglu, low=good)")
+      lcol <- c(lcol, "darkgreen"); lpch <- c(lpch, 15)
+    }
+    graphics::legend("left", leg, col = lcol, pch = lpch, lwd = 2,
+                     bg = "white", cex = 0.78)
     return(base::invisible(x))
   }
 
