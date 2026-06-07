@@ -1,6 +1,14 @@
 # nmfkc 0.7.4 (development)
 
 ### **New `nmf.cluster.flow()`: cluster-flow diagram across ranks**
+- `nmf.cluster.flow()` now returns a classed object with a dedicated
+  `plot()` method, so the diagram can be (re)drawn with
+  `plot(fl, col = , lwd = , xlab = , ylab = , main = )` -- the colour
+  vector (indexed by reference cluster), line width, axis labels and
+  title are all honoured.  The constructor still draws immediately by
+  default (`plot = TRUE`) and forwards graphical arguments to the plot
+  method; use `plot = FALSE` to build the object and plot it later.
+  A `print()` method gives a one-line summary.
 - `nmf.cluster.flow(fits, reference = )` takes a list of models fitted
   at different ranks (any non-negative MU family) and draws an
   alluvial / Sankey-style diagram of how the hard sample clustering

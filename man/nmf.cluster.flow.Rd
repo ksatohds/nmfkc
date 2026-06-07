@@ -4,14 +4,7 @@
 \alias{nmf.cluster.flow}
 \title{Cluster-flow (alluvial) diagram across ranks}
 \usage{
-nmf.cluster.flow(
-  fits,
-  reference = NULL,
-  col = NULL,
-  plot = TRUE,
-  main = "Cluster flow across rank",
-  ...
-)
+nmf.cluster.flow(fits, reference = NULL, plot = TRUE, ...)
 }
 \arguments{
 \item{fits}{A list (length \eqn{\ge 2}) of fitted models, one per
@@ -21,23 +14,22 @@ sorted internally by their rank.}
 \item{reference}{The rank whose clustering defines the line colours.
 Defaults to the largest rank in \code{fits}.}
 
-\item{col}{Optional vector of colours indexed by reference cluster id
-(so \code{col[k]} colours every individual in reference cluster
-\code{k}).  Defaults to a strong, well-separated qualitative palette
-(ColorBrewer \dQuote{Dark 2} for up to 8 clusters, HCL
-\dQuote{Dark 3} beyond); pass your own to control the colours.}
+\item{plot}{Logical; draw the diagram immediately by calling
+\code{\link{plot.nmf.cluster.flow}} (default \code{TRUE}).  Set
+\code{FALSE} to only build the object and plot it later.}
 
-\item{plot}{Logical; draw the diagram (default \code{TRUE}).}
-
-\item{main}{Plot title.}
-
-\item{...}{Unused.}
+\item{...}{When \code{plot = TRUE}, graphical arguments forwarded to
+\code{\link{plot.nmf.cluster.flow}} (e.g.\ \code{col}, \code{lwd},
+\code{xlab}, \code{ylab}, \code{main}).}
 }
 \value{
-Invisibly, a list with \code{clusters} (the \eqn{N \times R}
-table: rows = individuals, columns = rank, entries = cluster
-number), \code{ranks}, \code{reference}, and \code{colors} (the
-per-individual reference colour).
+An object of class \code{"nmf.cluster.flow"} (returned
+invisibly): a list with \code{clusters} (the \eqn{N \times R} table:
+rows = individuals, columns = rank, entries = cluster number),
+\code{ypos} (the layout positions), \code{ranks}, \code{reference},
+\code{ref.cluster} (the reference hard labels), and \code{colors}
+(the default per-individual reference colour).  Call
+\code{\link{plot}} on it to (re)draw the diagram.
 }
 \description{
 Visualizes how the hard sample clustering changes as the rank \eqn{Q}
@@ -58,10 +50,12 @@ coefficient/score matrix.
 \donttest{
 Y <- t(as.matrix(iris[, 1:4]))
 fits <- lapply(2:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
-fl <- nmf.cluster.flow(fits, reference = 3)
+fl <- nmf.cluster.flow(fits, reference = 3, plot = FALSE)
 head(fl$clusters)
+plot(fl, lwd = 2, main = "iris cluster flow")
 }
 }
 \seealso{
+\code{\link{plot.nmf.cluster.flow}},
 \code{\link{nmf.cluster.criteria}}, \code{\link{nmfkc.rank}}
 }

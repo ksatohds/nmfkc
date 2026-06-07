@@ -1368,29 +1368,31 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #'   sorted internally by their rank.
 #' @param reference The rank whose clustering defines the line colours.
 #'   Defaults to the largest rank in \code{fits}.
-#' @param col Optional vector of colours indexed by reference cluster id
-#'   (so \code{col[k]} colours every individual in reference cluster
-#'   \code{k}).  Defaults to a strong, well-separated qualitative palette
-#'   (ColorBrewer \dQuote{Dark 2} for up to 8 clusters, HCL
-#'   \dQuote{Dark 3} beyond); pass your own to control the colours.
-#' @param plot Logical; draw the diagram (default \code{TRUE}).
-#' @param main Plot title.
-#' @param ... Unused.
-#' @return Invisibly, a list with \code{clusters} (the \eqn{N \times R}
-#'   table: rows = individuals, columns = rank, entries = cluster
-#'   number), \code{ranks}, \code{reference}, and \code{colors} (the
-#'   per-individual reference colour).
-#' @seealso \code{\link{nmf.cluster.criteria}}, \code{\link{nmfkc.rank}}
+#' @param plot Logical; draw the diagram immediately by calling
+#'   \code{\link{plot.nmf.cluster.flow}} (default \code{TRUE}).  Set
+#'   \code{FALSE} to only build the object and plot it later.
+#' @param ... When \code{plot = TRUE}, graphical arguments forwarded to
+#'   \code{\link{plot.nmf.cluster.flow}} (e.g.\ \code{col}, \code{lwd},
+#'   \code{xlab}, \code{ylab}, \code{main}).
+#' @return An object of class \code{"nmf.cluster.flow"} (returned
+#'   invisibly): a list with \code{clusters} (the \eqn{N \times R} table:
+#'   rows = individuals, columns = rank, entries = cluster number),
+#'   \code{ypos} (the layout positions), \code{ranks}, \code{reference},
+#'   \code{ref.cluster} (the reference hard labels), and \code{colors}
+#'   (the default per-individual reference colour).  Call
+#'   \code{\link{plot}} on it to (re)draw the diagram.
+#' @seealso \code{\link{plot.nmf.cluster.flow}},
+#'   \code{\link{nmf.cluster.criteria}}, \code{\link{nmfkc.rank}}
 #' @export
 #' @examples
 #' \donttest{
 #' Y <- t(as.matrix(iris[, 1:4]))
 #' fits <- lapply(2:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
-#' fl <- nmf.cluster.flow(fits, reference = 3)
+#' fl <- nmf.cluster.flow(fits, reference = 3, plot = FALSE)
 #' head(fl$clusters)
+#' plot(fl, lwd = 2, main = "iris cluster flow")
 #' }
-nmf.cluster.flow <- function(fits, reference = NULL, col = NULL,
-                             plot = TRUE, main = "Cluster flow across rank", ...) {
+nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
   if (!base::is.list(fits) || base::length(fits) < 2)
     base::stop("`fits` must be a list of at least two fitted models.", call. = FALSE)
 
@@ -1417,16 +1419,6 @@ nmf.cluster.flow <- function(fits, reference = NULL, col = NULL,
     base::stop("`reference` must be one of the fitted ranks: ",
                base::paste(ranks, collapse = ", "), call. = FALSE)
   ref_lab <- clusters[, ref_col]
-  K <- base::max(ref_lab, na.rm = TRUE)
-  ## Default palette: ColorBrewer "Dark 2" (8 strong, well-separated
-  ## colours with no pale entries) for up to 8 clusters, falling back to
-  ## the HCL "Dark 3" generator for more.  Override with `col`.
-  if (base::is.null(col)) {
-    n <- base::max(K, 2L)
-    col <- if (n <= 8L) grDevices::palette.colors(8L, "Dark 2")[base::seq_len(n)]
-           else grDevices::hcl.colors(n, "Dark 3")
-  }
-  ind_col <- col[ref_lab]
 
   ## --- layout: position 1..N per individual per rank ---
   ypos <- base::matrix(NA_real_, N, R)
@@ -1437,45 +1429,110 @@ nmf.cluster.flow <- function(fits, reference = NULL, col = NULL,
   if (ref_col > 1) for (q in (ref_col - 1):1)
     ypos[, q] <- .flow.order(clusters[, q], ypos[, q + 1])
 
-  if (plot) {
-    yn <- (ypos - 1) / base::max(N - 1, 1)
-    xs <- base::seq_len(R)
-    old <- graphics::par(mar = c(4, 4, 4, 2) + 0.1); base::on.exit(graphics::par(old))
-    graphics::plot(NA, xlim = c(1, R), ylim = c(-0.02, 1.02),
-                   xaxt = "n", yaxt = "n", xlab = "rank (Q)",
-                   ylab = "individuals", main = main)
-    graphics::axis(1, at = xs, labels = ranks)
-    hw  <- 0.10                        # half-width of the cluster box (x units)
-    ## Pad < half a point spacing so adjacent cluster boxes leave a
-    ## visible gap (the cluster boundary) rather than touching.  Members
-    ## of a cluster are contiguous in y by layout, so [min, max] of their
-    ## positions is exactly the cluster band.
-    pad <- 0.3 / base::max(N - 1, 1)
+  out <- base::list(clusters = clusters, ypos = ypos, ranks = ranks,
+                    reference = reference, ref.cluster = ref_lab,
+                    colors = stats::setNames(.flow.colors(ref_lab), ind_names))
+  base::class(out) <- "nmf.cluster.flow"
+  if (plot) graphics::plot(out, ...)
+  base::invisible(out)
+}
 
-    ## 1. flow lines + points (drawn first, so the boxes sit in front)
-    for (q in 1:(R - 1))
-      graphics::segments(xs[q], yn[, q], xs[q + 1], yn[, q + 1],
-                         col = ind_col, lwd = 1)
-    for (q in 1:R)
-      graphics::points(base::rep(xs[q], N), yn[, q], pch = 16,
-                       col = ind_col, cex = 0.5)
 
-    ## 2. foreground translucent grey box per cluster at every rank, with
-    ##    the cluster number centred (slightly larger) inside it.
-    box_fill <- grDevices::adjustcolor("gray80", alpha.f = 0.55)
-    for (q in 1:R) for (c in base::unique(clusters[, q])) {
-      ys <- yn[clusters[, q] == c, q]
-      graphics::rect(xs[q] - hw, base::min(ys) - pad,
-                     xs[q] + hw, base::max(ys) + pad,
-                     col = box_fill, border = "gray40", lwd = 0.8)
-      graphics::text(xs[q], base::mean(ys), c,
-                     cex = 1.2, font = 2, col = "gray10")
-    }
+#' @title Reference-cluster colours for a cluster-flow diagram (Internal)
+#' @description
+#' Maps reference hard labels to colours.  With \code{col = NULL} a
+#' strong, well-separated qualitative palette is used (ColorBrewer
+#' \dQuote{Dark 2} for up to 8 clusters, HCL \dQuote{Dark 3} beyond, both
+#' from the standard \code{grDevices} package); a user \code{col} vector
+#' is indexed by cluster id (recycled if too short).
+#' @param ref_lab Integer reference cluster labels (length \eqn{N}).
+#' @param col Optional colour vector indexed by cluster id.
+#' @return A character vector of \eqn{N} colours.
+#' @keywords internal
+#' @noRd
+.flow.colors <- function(ref_lab, col = NULL) {
+  K <- base::max(ref_lab, na.rm = TRUE)
+  if (base::is.null(col)) {
+    n <- base::max(K, 2L)
+    col <- if (n <= 8L) grDevices::palette.colors(8L, "Dark 2")[base::seq_len(n)]
+           else grDevices::hcl.colors(n, "Dark 3")
+  } else if (base::length(col) < K) {
+    col <- base::rep_len(col, K)
   }
+  col[ref_lab]
+}
 
-  base::invisible(base::list(clusters = clusters, ranks = ranks,
-                             reference = reference,
-                             colors = stats::setNames(ind_col, ind_names)))
+
+#' @title Plot a cluster-flow (alluvial) diagram
+#' @description
+#' Draws the alluvial / Sankey-style cluster-flow diagram for an object
+#' created by \code{\link{nmf.cluster.flow}}.
+#' @param x An object of class \code{"nmf.cluster.flow"}.
+#' @param col Optional colour vector indexed by \strong{reference}
+#'   cluster id (\code{col[k]} colours every individual whose reference
+#'   cluster is \code{k}); recycled if shorter than the number of
+#'   reference clusters.  Defaults to the object's palette.
+#' @param lwd Line width of the flow segments.
+#' @param xlab,ylab Axis labels.
+#' @param main Plot title.
+#' @param ... Further arguments passed to the initial
+#'   \code{\link[graphics]{plot}} call.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.cluster.flow}}
+#' @export
+plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
+                                  xlab = "rank (Q)", ylab = "individuals",
+                                  main = "Cluster flow across rank", ...) {
+  clusters <- x$clusters; ypos <- x$ypos; ranks <- x$ranks
+  N <- base::nrow(clusters); R <- base::ncol(clusters)
+  ind_col <- .flow.colors(x$ref.cluster, col)
+
+  yn <- (ypos - 1) / base::max(N - 1, 1)
+  xs <- base::seq_len(R)
+  old <- graphics::par(mar = c(4, 4, 4, 2) + 0.1); base::on.exit(graphics::par(old))
+  graphics::plot(NA, xlim = c(1, R), ylim = c(-0.02, 1.02),
+                 xaxt = "n", yaxt = "n", xlab = xlab, ylab = ylab, main = main, ...)
+  graphics::axis(1, at = xs, labels = ranks)
+
+  hw  <- 0.10                          # half-width of the cluster box (x units)
+  ## Pad < half a point spacing so adjacent cluster boxes leave a visible
+  ## gap (the cluster boundary).  Members of a cluster are contiguous in
+  ## y by layout, so [min, max] of their positions is exactly the band.
+  pad <- 0.3 / base::max(N - 1, 1)
+
+  ## 1. flow lines + points (drawn first, so the boxes sit in front)
+  for (q in 1:(R - 1))
+    graphics::segments(xs[q], yn[, q], xs[q + 1], yn[, q + 1],
+                       col = ind_col, lwd = lwd)
+  for (q in 1:R)
+    graphics::points(base::rep(xs[q], N), yn[, q], pch = 16,
+                     col = ind_col, cex = 0.5)
+
+  ## 2. foreground translucent grey box per cluster, cluster number centred
+  box_fill <- grDevices::adjustcolor("gray80", alpha.f = 0.55)
+  for (q in 1:R) for (c in base::unique(clusters[, q])) {
+    ys <- yn[clusters[, q] == c, q]
+    graphics::rect(xs[q] - hw, base::min(ys) - pad,
+                   xs[q] + hw, base::max(ys) + pad,
+                   col = box_fill, border = "gray40", lwd = 0.8)
+    graphics::text(xs[q], base::mean(ys), c, cex = 1.2, font = 2, col = "gray10")
+  }
+  base::invisible(x)
+}
+
+
+#' @title Print method for nmf.cluster.flow objects
+#' @param x An object of class \code{"nmf.cluster.flow"}.
+#' @param ... Unused.
+#' @return \code{x}, invisibly.
+#' @export
+print.nmf.cluster.flow <- function(x, ...) {
+  base::cat(base::sprintf("Cluster flow across ranks %s\n",
+                          base::paste(x$ranks, collapse = ", ")))
+  base::cat(base::sprintf("  individuals (N): %d\n", base::nrow(x$clusters)))
+  base::cat(base::sprintf("  reference rank:  %d\n", x$reference))
+  base::cat("  $clusters: N x R table of cluster numbers; plot() draws the diagram.\n")
+  base::invisible(x)
 }
 
 
