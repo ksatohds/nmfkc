@@ -9,8 +9,10 @@
   (clusters reordered per rank by a barycenter heuristic to reduce
   crossings), and lines are coloured by the cluster at the
   \code{reference} rank -- so one can watch the reference clusters split
-  or merge.  Returns (invisibly) the \eqn{N \times R} table with rows =
-  individuals, columns = rank, entries = cluster number.
+  or merge.  At every rank a narrow grey box is drawn around each
+  cluster's members, so the grouping is visible at all ranks (not only
+  the reference).  Returns (invisibly) the \eqn{N \times R} table with
+  rows = individuals, columns = rank, entries = cluster number.
 
 ### **New `nmf.cluster.criteria()`: sample-clustering diagnostics**
 - `nmf.cluster.criteria(object, Y)` reports the clustering-quality criteria

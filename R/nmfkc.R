@@ -1436,17 +1436,31 @@ nmf.cluster.flow <- function(fits, reference = NULL, col = NULL,
                    xaxt = "n", yaxt = "n", xlab = "rank (Q)",
                    ylab = "individuals", main = main)
     graphics::axis(1, at = xs, labels = ranks)
+    ## Background: a narrow grey box around each cluster's members at
+    ## every rank, so the grouping is visible at all ranks (not just the
+    ## reference).  Members of a cluster are contiguous in y by layout,
+    ## so [min, max] of their positions is exactly the cluster band.
+    hw  <- 0.10                        # half-width of the box (x units)
+    ## Pad < half a point spacing so adjacent cluster boxes leave a
+    ## visible gap (the cluster boundary) rather than touching.
+    pad <- 0.3 / base::max(N - 1, 1)
+    for (q in 1:R) for (c in base::unique(clusters[, q])) {
+      ys <- yn[clusters[, q] == c, q]
+      graphics::rect(xs[q] - hw, base::min(ys) - pad,
+                     xs[q] + hw, base::max(ys) + pad,
+                     col = "gray92", border = "gray70", lwd = 0.5)
+    }
     for (q in 1:(R - 1))
       graphics::segments(xs[q], yn[, q], xs[q + 1], yn[, q + 1],
                          col = ind_col, lwd = 1)
     for (q in 1:R)
       graphics::points(base::rep(xs[q], N), yn[, q], pch = 16,
                        col = ind_col, cex = 0.5)
-    ## cluster-id labels at each band centre
+    ## cluster-id labels just above each band
     for (q in 1:R) for (c in base::unique(clusters[, q])) {
-      sel <- clusters[, q] == c
-      graphics::text(xs[q], base::mean(yn[sel, q]), c,
-                     cex = 0.8, font = 2, col = "black")
+      ys <- yn[clusters[, q] == c, q]
+      graphics::text(xs[q], base::max(ys) + pad, c, pos = 3,
+                     offset = 0.15, cex = 0.7, font = 2, col = "gray30")
     }
   }
 
