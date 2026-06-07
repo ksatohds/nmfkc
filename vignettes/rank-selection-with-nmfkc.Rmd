@@ -150,6 +150,25 @@ data.frame(
 )
 ```
 
+## How the clustering evolves with rank
+
+A complementary view: `nmf.cluster.flow()` draws a Sankey / alluvial diagram of
+how the hard sample clustering changes as the rank grows.  We fit ranks `1:6`
+(so the list index equals the rank) and colour the flows by the clustering at
+the **true rank**, `reference = 3`.  The adjacent-rank ARI (agreement) is printed
+along the top.
+
+```{r flow, fig.width = 8, fig.height = 6}
+fits <- lapply(1:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
+fl <- nmf.cluster.flow(fits, reference = 3)
+head(fl$clusters)      # rows = individuals, columns = rank, entries = cluster id
+```
+
+At `rank = 1` all 60 samples form a single group; at `rank = 3` they split
+cleanly into the three true clusters (20 each); beyond that the groups
+over-split (the ARI to the next rank starts to fall) --- visual confirmation
+that `3` is the right number of basis vectors here.
+
 ## Remarks
 
 On this clean dataset with a clear rank-3 structure, **almost every criterion
