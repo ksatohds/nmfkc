@@ -128,8 +128,8 @@ knee).  Because it is a sensitive point estimate, we aggregate over several
 random restarts (`nrun`).
 
 ```{r ard, fig.width = 6.5, fig.height = 4.5}
-ar <- nmfkc.ard(Y, rank = 8, nrun = 10)
-ar
+ar <- nmfkc.ard(Y, rank = 8, nrun = 20)   # >=10-20 restarts for a stable mode
+ar                                        # see "rank over runs" for confidence
 plot(ar)
 ```
 
