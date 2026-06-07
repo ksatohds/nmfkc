@@ -9,6 +9,7 @@
   type = c("criteria", "heatmap"),
   rank = NULL,
   mfrow = NULL,
+  mar = NULL,
   col = grDevices::hcl.colors(50, "Blue-Red"),
   main = NULL,
   ...
@@ -25,6 +26,10 @@
 \item{mfrow}{Panel layout for multiple heatmaps, as
 \code{c(nrow, ncol)}.  \code{NULL} (default) uses
 \code{\link[grDevices]{n2mfrow}} for a near-square grid.}
+
+\item{mar}{Per-panel margins \code{c(b, l, t, r)} for the heatmap
+view.  \code{NULL} (default) uses tight margins for a grid and wider
+margins (for sample labels) when a single rank is shown.}
 
 \item{col}{Heatmap colour palette (length-50 blue-to-red by default).}
 

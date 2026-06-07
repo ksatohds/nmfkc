@@ -162,6 +162,9 @@ print.nmfkc.consensus <- function(x, ...) {
 #' @param mfrow Panel layout for multiple heatmaps, as
 #'   \code{c(nrow, ncol)}.  \code{NULL} (default) uses
 #'   \code{\link[grDevices]{n2mfrow}} for a near-square grid.
+#' @param mar Per-panel margins \code{c(b, l, t, r)} for the heatmap
+#'   view.  \code{NULL} (default) uses tight margins for a grid and wider
+#'   margins (for sample labels) when a single rank is shown.
 #' @param col Heatmap colour palette (length-50 blue-to-red by default).
 #' @param main Plot title for the \code{"criteria"} view (heatmap panels
 #'   are titled per rank).
@@ -171,7 +174,7 @@ print.nmfkc.consensus <- function(x, ...) {
 #' @seealso \code{\link{nmfkc.consensus}}
 #' @export
 plot.nmfkc.consensus <- function(x, type = c("criteria", "heatmap"),
-                                 rank = NULL, mfrow = NULL,
+                                 rank = NULL, mfrow = NULL, mar = NULL,
                                  col = grDevices::hcl.colors(50, "Blue-Red"),
                                  main = NULL, ...) {
   type <- base::match.arg(type)
@@ -201,7 +204,8 @@ plot.nmfkc.consensus <- function(x, type = c("criteria", "heatmap"),
   n <- base::length(ranks)
   if (base::is.null(mfrow)) mfrow <- grDevices::n2mfrow(n)
   show.labels <- (n == 1)
-  mar <- if (show.labels) c(6, 6, 3, 1) else c(1.5, 1.5, 3, 1)
+  if (base::is.null(mar))
+    mar <- if (show.labels) c(6, 6, 3, 1) else c(1.5, 1.5, 3, 1)
   old <- graphics::par(mfrow = mfrow, mar = mar, oma = c(2, 0, 0, 0))
   base::on.exit(graphics::par(old))
 
