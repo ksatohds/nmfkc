@@ -1,5 +1,15 @@
 # nmfkc 0.7.4 (development)
 
+### **New `nmfkc.bicv()`: bi-cross-validation for rank selection (experimental)**
+- Prototype of Owen & Perry's (2009) bi-cross-validation (BCV).  Holds
+  out a row-block *and* a column-block at once, fits NMF only on the
+  retained block, and predicts the held-out block by folding the
+  held-out rows/columns onto the fixed factors via non-negative
+  regression (no information leakage, unlike element-wise `nmfkc.ecv`).
+  Returns an `"nmfkc.bicv"` object (`sigma` per rank, `rank.best`) with a
+  `print` method.  `nfolds = 2` (leave out half rows / half columns) per
+  Owen & Perry's recommendation.
+
 ### **`*.rank`: eff.rank.idx shown for context (no best marker)**
 - The broken-stick-corrected effective-rank index (`eff.rank.idx`,
   green) is drawn for context only and no longer carries a "Best (Max)"
