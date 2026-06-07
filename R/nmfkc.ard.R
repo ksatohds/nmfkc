@@ -32,6 +32,11 @@
 #'   rank).  \code{NULL} (default) uses \code{min(F, N, 20)}.
 #' @param prior \code{"L2"} (half-normal; group-shrinks by squared energy)
 #'   or \code{"L1"} (exponential).
+#' @param nrun Number of random-initialization restarts.  ARD is a
+#'   sensitive point estimate, so \code{nrun >= 10} is recommended; the
+#'   reported rank is the \strong{mode} of the per-run estimates
+#'   (\code{rank.runs}), with a representative modal fit kept for
+#'   \code{plot}/\code{W}/\code{H}.
 #' @param a,b Inverse-gamma hyperparameters for \eqn{\lambda_k}.  \code{b}
 #'   defaults to a small data-scaled value \code{0.001 * mean(Y)}.
 #' @param maxit,epsilon Maximum iterations and relative-objective tolerance.
@@ -40,9 +45,10 @@
 #' @param seed Random-initialization seed.
 #' @param plot Logical; draw the relevance bar plot.
 #' @return An object of class \code{"nmfkc.ard"}: a list with
-#'   \code{rank} (estimated), \code{relevance} (per-component, descending),
+#'   \code{rank} (estimated = mode over restarts), \code{rank.runs} (the
+#'   per-run estimates), \code{relevance} (representative run, descending),
 #'   \code{lambda}, \code{W}, \code{H} (ordered by relevance),
-#'   \code{rank.init}, \code{prior} and \code{objfunc}.
+#'   \code{rank.init}, \code{prior}, \code{nrun} and \code{objfunc}.
 #' @references V. Y. F. Tan and C. Fevotte (2013).  Automatic relevance
 #'   determination in nonnegative matrix factorization with the
 #'   beta-divergence.  \emph{IEEE TPAMI} 35(7):1592--1605.
@@ -59,16 +65,11 @@
 #' ar$rank                                # ~ 3 surviving components
 #' plot(ar)
 #' }
-nmfkc.ard <- function(Y, rank = NULL, prior = c("L2", "L1"),
-                      a = 1, b = NULL, maxit = 3000, epsilon = 1e-6,
-                      tol = 1e-3, seed = 123, plot = FALSE) {
-  prior <- base::match.arg(prior)
-  Y <- base::as.matrix(Y); Fr <- base::nrow(Y); Nc <- base::ncol(Y)
-  eps <- 1e-10
-  K <- if (base::is.null(rank)) base::min(Fr, Nc, 20L) else rank
-  m <- base::mean(Y)
-  if (base::is.null(b)) b <- 0.001 * m
-
+## Internal: one ARD-NMF fit from a single random initialization.
+#' @keywords internal
+#' @noRd
+.ard.fit <- function(Y, K, prior, a, b, maxit, epsilon, tol, seed) {
+  Fr <- base::nrow(Y); Nc <- base::ncol(Y); eps <- 1e-10; m <- base::mean(Y)
   if (!base::is.null(seed)) base::set.seed(seed)
   W <- base::matrix(stats::runif(Fr * K), Fr, K) * base::sqrt(m / K)
   H <- base::matrix(stats::runif(K * Nc), K, Nc) * base::sqrt(m / K)
@@ -76,40 +77,60 @@ nmfkc.ard <- function(Y, rank = NULL, prior = c("L2", "L1"),
 
   objfunc <- base::numeric(maxit)
   for (it in base::seq_len(maxit)) {
-    ## relevance weights (closed form given W, H)
     lam <- if (prior == "L2")
       (b + 0.5 * (base::colSums(W^2) + base::rowSums(H^2))) / clam
     else
       (b + base::colSums(W) + base::rowSums(H)) / clam
-    ## W update (penalised MU)
     num <- Y %*% base::t(H); den <- W %*% (H %*% base::t(H))
     pen <- if (prior == "L2") base::sweep(W, 2, 1 / lam, "*")
            else base::matrix(1 / lam, Fr, K, byrow = TRUE)
     W <- W * num / (den + pen + eps)
-    ## H update (penalised MU)
     num <- base::t(W) %*% Y; den <- (base::t(W) %*% W) %*% H
     pen <- if (prior == "L2") base::sweep(H, 1, 1 / lam, "*")
            else base::matrix(1 / lam, K, Nc)
     H <- H * num / (den + pen + eps)
-
     objfunc[it] <- 0.5 * base::sum((Y - W %*% H)^2)
     if (it > 1 && base::abs(objfunc[it - 1] - objfunc[it]) <
         epsilon * objfunc[it - 1]) { objfunc <- objfunc[1:it]; break }
   }
 
-  ## component energy -> relevance; surviving components = estimated rank
   energy <- base::sqrt(base::colSums(W^2) * base::rowSums(H^2))
   ord <- base::order(energy, decreasing = TRUE)
   energy <- energy[ord]; W <- W[, ord, drop = FALSE]; H <- H[ord, , drop = FALSE]
   lam <- lam[ord]
-  relevance <- if (base::max(energy) > 0) energy / base::max(energy)
-               else energy
-  rank.ard <- base::sum(relevance > tol)
+  relevance <- if (base::max(energy) > 0) energy / base::max(energy) else energy
+  base::list(rank = base::sum(relevance > tol), relevance = relevance,
+             lambda = lam, W = W, H = H, objfunc = objfunc)
+}
+
+nmfkc.ard <- function(Y, rank = NULL, prior = c("L2", "L1"), nrun = 1,
+                      a = 1, b = NULL, maxit = 3000, epsilon = 1e-6,
+                      tol = 1e-3, seed = 123, plot = FALSE) {
+  prior <- base::match.arg(prior)
+  Y <- base::as.matrix(Y); Fr <- base::nrow(Y); Nc <- base::ncol(Y)
+  K <- if (base::is.null(rank)) base::min(Fr, Nc, 20L) else rank
+  if (base::is.null(b)) b <- 0.001 * base::mean(Y)
+
+  ## nrun random-initialization restarts (ARD is a sensitive point
+  ## estimate); aggregate the integer rank by its MODE.
+  fits <- base::lapply(base::seq_len(nrun), function(r)
+    .ard.fit(Y, K, prior, a, b, maxit, epsilon, tol,
+             seed = if (base::is.null(seed)) NULL else seed + r))
+  rank.runs <- base::vapply(fits, function(f) f$rank, base::integer(1))
+  tab <- base::sort(base::table(rank.runs), decreasing = TRUE)
+  rank.mode <- base::as.integer(base::names(tab)[1])
+  ## representative fit = a modal-rank run with the smallest residual
+  modal <- base::which(rank.runs == rank.mode)
+  rep.i <- modal[base::which.min(base::vapply(modal,
+            function(i) fits[[i]]$objfunc[base::length(fits[[i]]$objfunc)],
+            base::numeric(1)))]
+  rep <- fits[[rep.i]]
 
   out <- base::structure(
-    base::list(rank = rank.ard, relevance = relevance, lambda = lam,
-               W = W, H = H, rank.init = K, prior = prior,
-               objfunc = objfunc, tol = tol),
+    base::list(rank = rank.mode, rank.runs = rank.runs,
+               relevance = rep$relevance, lambda = rep$lambda,
+               W = rep$W, H = rep$H, rank.init = K, prior = prior,
+               nrun = nrun, objfunc = rep$objfunc, tol = tol),
     class = "nmfkc.ard")
   if (plot) graphics::plot(out)
   out
@@ -123,10 +144,18 @@ nmfkc.ard <- function(Y, rank = NULL, prior = c("L2", "L1"),
 #' @export
 print.nmfkc.ard <- function(x, ...) {
   base::cat(base::sprintf(
-    "ARD-NMF rank determination (Tan-Fevotte 2013, %s prior)\n", x$prior))
-  base::cat(base::sprintf("  starting rank: %d  ->  estimated rank: %d\n",
+    "ARD-NMF rank determination (Tan-Fevotte 2013, %s prior, %d run%s)\n",
+    x$prior, x$nrun, if (x$nrun > 1) "s" else ""))
+  base::cat(base::sprintf("  starting rank: %d  ->  estimated rank (mode): %d\n",
                           x$rank.init, x$rank))
-  base::cat("  relevance (descending):",
+  if (!base::is.null(x$rank.runs) && x$nrun > 1) {
+    tab <- base::table(x$rank.runs)
+    base::cat("  rank over runs:",
+              base::paste(base::sprintf("%s:%d", base::names(tab), tab),
+                          collapse = "  "),
+              base::sprintf("(median %g)\n", stats::median(x$rank.runs)))
+  }
+  base::cat("  relevance (representative run):",
             base::paste(base::round(x$relevance, 3), collapse = " "), "\n")
   base::invisible(x)
 }

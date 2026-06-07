@@ -30,6 +30,19 @@ test_that("nmfkc.ard print and plot run without error", {
   expect_no_error(plot(ar))
 })
 
+test_that("nrun aggregates the rank by mode over restarts", {
+  set.seed(4)
+  X <- matrix(abs(rnorm(40 * 3)), 40, 3)
+  B <- matrix(abs(rnorm(3 * 60)), 3, 60)
+  ar <- nmfkc.ard(X %*% B, rank = 8, nrun = 10, seed = 4)
+  expect_equal(ar$nrun, 10)
+  expect_length(ar$rank.runs, 10)
+  ## reported rank is the mode of the per-run estimates
+  tab <- table(ar$rank.runs)
+  expect_equal(ar$rank, as.integer(names(tab)[which.max(tab)]))
+  expect_output(print(ar), "rank over runs")
+})
+
 test_that("L1 prior also returns a valid pruned rank", {
   set.seed(3)
   X <- matrix(abs(rnorm(40 * 3)), 40, 3)
