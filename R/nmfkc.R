@@ -1606,20 +1606,24 @@ plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
 
 
 #' @title Print method for nmf.cluster.flow objects
+#' @description
+#' Prints a one-line header, the adjacent-rank ARI, and the
+#' \eqn{N \times R} cluster table (rows = individuals, columns = rank,
+#' entries = cluster number).  Use \code{\link{plot}} for the diagram.
 #' @param x An object of class \code{"nmf.cluster.flow"}.
-#' @param ... Unused.
+#' @param ... Passed to the table's \code{print}.
 #' @return \code{x}, invisibly.
 #' @export
 print.nmf.cluster.flow <- function(x, ...) {
-  base::cat(base::sprintf("Cluster flow across ranks %s\n",
-                          base::paste(x$ranks, collapse = ", ")))
-  base::cat(base::sprintf("  individuals (N): %d\n", base::nrow(x$clusters)))
-  base::cat(base::sprintf("  reference rank:  %d\n", x$reference))
+  base::cat(base::sprintf("Cluster flow: %d individuals across ranks %s (reference = %d)\n",
+                          base::nrow(x$clusters),
+                          base::paste(x$ranks, collapse = ", "), x$reference))
   if (!base::is.null(x$ARI)) {
-    base::cat("  adjacent-rank ARI:\n")
-    print(base::round(x$ARI, 3))
+    base::cat("\nAdjacent-rank ARI:\n")
+    base::print(base::round(x$ARI, 3))
   }
-  base::cat("  $clusters: N x R table of cluster numbers; plot() draws the diagram.\n")
+  base::cat("\nClusters (rows = individuals, columns = rank, entries = cluster number):\n")
+  base::print(x$clusters, ...)
   base::invisible(x)
 }
 

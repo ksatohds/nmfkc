@@ -9,11 +9,13 @@
 \arguments{
 \item{x}{An object of class \code{"nmf.cluster.flow"}.}
 
-\item{...}{Unused.}
+\item{...}{Passed to the table's \code{print}.}
 }
 \value{
 \code{x}, invisibly.
 }
 \description{
-Print method for nmf.cluster.flow objects
+Prints a one-line header, the adjacent-rank ARI, and the
+\eqn{N \times R} cluster table (rows = individuals, columns = rank,
+entries = cluster number).  Use \code{\link{plot}} for the diagram.
 }

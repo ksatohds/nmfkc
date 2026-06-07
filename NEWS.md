@@ -28,7 +28,8 @@
   title are all honoured.  The constructor still draws immediately by
   default (`plot = TRUE`) and forwards graphical arguments to the plot
   method; use `plot = FALSE` to build the object and plot it later.
-  A `print()` method gives a one-line summary.
+  Its `print()` method shows the adjacent-rank ARI and the full
+  \eqn{N \times R} cluster table.
 - `nmf.cluster.flow(fits, reference = )` takes a list of models fitted
   at different ranks (any non-negative MU family) and draws an
   alluvial / Sankey-style diagram of how the hard sample clustering
