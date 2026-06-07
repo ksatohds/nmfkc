@@ -42,6 +42,14 @@ element-wise CV error \code{sigma.ecv}, with the same concise plot as
 \code{\link{nmfkc.rank}}.  For a full \eqn{(Q, R)} grid use
 \code{\link{nmfae.ecv}} with \code{rank.encoder} and its heatmap.
 }
+\references{
+Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+effective dimensionality.  \emph{Proc. EUSIPCO}, 606--610.
+(\code{effective.rank})
+Wold, S. (1978).  Cross-validatory estimation of the number of
+components in factor and principal components models.
+\emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
+}
 \seealso{
 \code{\link{nmfae}}, \code{\link{nmfae.ecv}},
 \code{\link{nmfkc.rank}}

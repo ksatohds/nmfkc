@@ -49,6 +49,14 @@ Y <- matrix(c(0,1,1,0,0,0, 1,0,1,0,0,0, 1,1,0,1,0,0,
 nmfkc.net.rank(Y, rank = 1:3, type = "tri", nstart = 5, nfolds = 3)
 }
 }
+\references{
+Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+effective dimensionality.  \emph{Proc. EUSIPCO}, 606--610.
+(\code{effective.rank})
+Wold, S. (1978).  Cross-validatory estimation of the number of
+components in factor and principal components models.
+\emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
+}
 \seealso{
 \code{\link{nmfkc.net}}, \code{\link{nmfkc.net.ecv}},
 \code{\link{nmfkc.rank}}

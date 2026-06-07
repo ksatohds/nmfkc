@@ -966,6 +966,13 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
 #'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
 #'   \code{r.squared}, \code{sigma.ecv}).
 #' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc.rank}}
+#' @references
+#' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+#' effective dimensionality.  \emph{Proc. EUSIPCO}, 606--610.
+#' (\code{effective.rank})
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 #' @export
 nmfkc.signed.rank <- function(Y, A, rank = 1:5, detail = c("full", "fast"),
                               plot = TRUE, ...) {

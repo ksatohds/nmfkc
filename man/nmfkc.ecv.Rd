@@ -50,6 +50,12 @@ res <- nmfkc.ecv(Y, rank = 1:2, nfolds = 3)
 res$objfunc
 
 }
+\references{
+Wold, S. (1978).  Cross-validatory estimation of the number of
+components in factor and principal components models.
+\emph{Technometrics}, 20(4), 397--405.
+\doi{10.1080/00401706.1978.10489693}
+}
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}, \code{\link{nmfkc.bicv}}
 }

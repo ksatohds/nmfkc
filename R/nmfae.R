@@ -1290,6 +1290,13 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
 #'   \code{r.squared}, \code{sigma.ecv}).
 #' @seealso \code{\link{nmfae}}, \code{\link{nmfae.ecv}},
 #'   \code{\link{nmfkc.rank}}
+#' @references
+#' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+#' effective dimensionality.  \emph{Proc. EUSIPCO}, 606--610.
+#' (\code{effective.rank})
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 #' @export
 nmfae.rank <- function(Y1, Y2 = Y1, rank = 1:5, detail = c("full", "fast"),
                        plot = TRUE, ...) {

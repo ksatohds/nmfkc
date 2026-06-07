@@ -3257,6 +3257,11 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #' \item{sigma}{Numeric vector containing the Residual Standard Error (RMSE) for each Q. Only available if method="EU".}
 #' \item{objfunc.fold}{List of length equal to Q vector. Each element contains the MSE values for the k folds.}
 #' \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
+#' @references
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405.
+#' \doi{10.1080/00401706.1978.10489693}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}, \code{\link{nmfkc.bicv}}
 #' @examples
 #' # Element-wise CV to select rank
@@ -3560,20 +3565,20 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #'   \code{eff.rank} when \code{plot = TRUE}); a peak marks the rank
 #'   at which the latent factors carry the most evenly distributed
 #'   variance.}
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @references
-#' Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004).
-#' Metagenes and molecular pattern discovery using matrix factorization.
-#' \emph{Proc. Natl. Acad. Sci. USA}, 101, 4164–4169.
-#' \doi{10.1073/pnas.0308531101}
-#' Punera, K., & Ghosh, J. (2008).
-#' Consensus-based ensembles of soft clusterings.
-#' \emph{Applied Artificial Intelligence}, 22(7–8), 780–810.
-#' \doi{10.1080/08839510802170546}
-#' @seealso \code{\link{nmfkc.ecv}} (element-wise CV, used internally),
-#'   \code{\link{nmfkc.bicv}} (block bi-cross-validation, an alternative
-#'   and more stable rank-selection CV for plain NMF).
+#' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+#' effective dimensionality.  \emph{Proc. 15th European Signal Processing
+#' Conf. (EUSIPCO)}, 606--610.  (\code{effective.rank})
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405.
+#' \doi{10.1080/00401706.1978.10489693}  (\code{sigma.ecv})
+#' @seealso \code{\link{nmfkc}},
+#'   \code{\link{nmfkc.ecv}} (element-wise CV, used internally),
+#'   \code{\link{nmfkc.bicv}} (block bi-cross-validation),
+#'   \code{\link{nmfkc.consensus}} (stability) and
+#'   \code{\link{nmfkc.ard}} (Bayesian ARD) for alternative rank criteria.
 #' @examples
 #' # Example.
 #' Y <- t(iris[,-5])
