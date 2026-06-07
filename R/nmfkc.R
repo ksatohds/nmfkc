@@ -1376,7 +1376,10 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #'   \code{xlab}, \code{ylab}, \code{main}).
 #' @return An object of class \code{"nmf.cluster.flow"} (returned
 #'   invisibly): a list with \code{clusters} (the \eqn{N \times R} table:
-#'   rows = individuals, columns = rank, entries = cluster number),
+#'   rows = individuals, columns = rank, entries = cluster number; at
+#'   each rank the clusters are renumbered \code{1..k} where \code{k} is
+#'   the number of non-empty hard clusters, which can be fewer than the
+#'   rank when a factor never dominates any individual),
 #'   \code{ypos} (the layout positions), \code{ranks}, \code{reference},
 #'   \code{ref.cluster} (the reference hard labels), and \code{colors}
 #'   (the default per-individual reference colour).  Call
@@ -1406,6 +1409,20 @@ nmf.cluster.flow <- function(fits, reference = NULL, plot = TRUE, ...) {
   ord <- base::order(ranks)
   ranks <- ranks[ord]; lab_list <- lab_list[ord]
   R <- base::length(ranks)
+
+  ## Relabel each rank's hard clusters to consecutive 1..k.  The raw
+  ## label is the dominant-factor index (argmax of the coefficient); a
+  ## factor that never dominates any individual yields an empty cluster
+  ## and would otherwise leave a gap (e.g. labels {2, 3} with no 1).
+  ## Renumbering removes the gap, so the boxes are 1..k where k is the
+  ## number of non-empty clusters at that rank (which can be < rank when
+  ## the model has a dead factor).  Cross-rank label identity was never
+  ## meaningful (label switching); continuity is shown by colour.
+  lab_list <- base::lapply(lab_list, function(l) {
+    r <- base::as.integer(base::factor(l))
+    base::names(r) <- base::names(l)
+    r
+  })
 
   clusters <- base::matrix(base::unlist(lab_list), nrow = N, ncol = R)
   ind_names <- base::names(lab_list[[1]])
