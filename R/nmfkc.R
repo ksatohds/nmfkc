@@ -1474,7 +1474,8 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #'   different models at the same rank.
 #' @param reference The \strong{index} (1-based position in \code{fits})
 #'   of the result whose clustering defines the line colours.  Defaults
-#'   to the last result.
+#'   to the central result, \code{floor(length(fits) / 2) + 1} (e.g.\ the
+#'   2nd of 2 or 3 results).
 #' @param names Optional character vector (length \code{length(fits)}) of
 #'   x-axis tick labels.  Defaults to each result's \code{$rank}.
 #' @param plot Logical; draw the diagram immediately by calling
@@ -1537,8 +1538,9 @@ nmf.cluster.flow <- function(fits, reference = NULL, names = NULL,
   base::rownames(clusters) <- ind_names
   base::colnames(clusters) <- labels
 
-  ## reference = index (1..R) of the result that defines the colours
-  if (base::is.null(reference)) reference <- R
+  ## reference = index (1..R) of the result that defines the colours;
+  ## default to the central result floor(R/2)+1 (e.g. 2 for 2 or 3 results)
+  if (base::is.null(reference)) reference <- base::floor(R / 2) + 1L
   ref_col <- base::as.integer(reference)
   if (base::length(ref_col) != 1L || base::is.na(ref_col) ||
       ref_col < 1L || ref_col > R)

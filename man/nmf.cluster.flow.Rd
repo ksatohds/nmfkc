@@ -14,7 +14,8 @@ different models at the same rank.}
 
 \item{reference}{The \strong{index} (1-based position in \code{fits})
 of the result whose clustering defines the line colours.  Defaults
-to the last result.}
+to the central result, \code{floor(length(fits) / 2) + 1} (e.g.\ the
+2nd of 2 or 3 results).}
 
 \item{names}{Optional character vector (length \code{length(fits)}) of
 x-axis tick labels.  Defaults to each result's \code{$rank}.}

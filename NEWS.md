@@ -18,7 +18,8 @@
   the x-axis tick labels (default: each result's `$rank`), and in
   `nmf.cluster.flow()` the `reference` argument is now the \strong{index}
   (1-based position) of the result that defines the colours -- not a rank
-  value -- defaulting to the last result.
+  value -- defaulting to the central result
+  `floor(length(fits) / 2) + 1` (e.g.\ the 2nd of 2 or 3 results).
 - The adjusted Rand index (ARI) between each pair of adjacent ranks is
   now computed and printed along the top of the figure (and returned in
   `$ARI`, length \eqn{R - 1}), summarizing how much the hard clustering
