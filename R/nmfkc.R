@@ -1821,7 +1821,7 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' @seealso \code{\link{nmfkc.rank}}
 #' @export
 plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
-                          ylab = "R-squared / eff.rank.idx (0-1)", lwd = 3, ...) {
+                          ylab = "R-squared / eff.rank (0-1)", lwd = 3, ...) {
   if (base::is.null(main)) main <- x$main
   criteria <- x$criteria
   rk <- criteria$rank
@@ -1856,7 +1856,7 @@ plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
     ## utilization diagnostic, not a predictive rank optimum).
     graphics::lines(rk, criteria$effective.rank.index, col = "forestgreen", lwd = lwd)
     decorate(criteria$effective.rank.index, "forestgreen", NA, "", 1)
-    leg_txt <- c(leg_txt, "eff.rank.idx"); leg_col <- c(leg_col, "forestgreen")
+    leg_txt <- c(leg_txt, "eff.rank"); leg_col <- c(leg_col, "forestgreen")
   }
 
   if (has_ecv) {
