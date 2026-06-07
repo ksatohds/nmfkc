@@ -1,5 +1,12 @@
 # nmfkc 0.7.4 (development)
 
+### **`*.rank`: eff.rank.idx shown for context (no best marker)**
+- The broken-stick-corrected effective-rank index (`eff.rank.idx`,
+  green) is drawn for context only and no longer carries a "Best (Max)"
+  marker: it is a factor-utilization diagnostic (most even relative to
+  the random null), not a predictive rank optimum.  The recommended rank
+  is driven solely by the ECV minimum and the R-squared elbow.
+
 ### **`*.rank`: broken-stick-corrected effective-rank index**
 - The `*.rank` criteria table gains `effective.rank.expected` (the
   broken-stick / uniform-Dirichlet null `exp(H_Q - 1)`, `H_Q` = the

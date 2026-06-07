@@ -1716,13 +1716,11 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' utilization \code{effective.rank.ratio}, and the cross-validation
 #' error \code{sigma.ecv}.  Any other columns present (e.g.\ \code{ARI},
 #' \code{silhouette}, \code{CPCC}, \code{dist.cor} from \code{nmfkc.rank})
-#' are kept in the returned table but \strong{not plotted}.  The three
-#' plotted criteria are drawn as lines with points, rank-number labels,
-#' and a highlighted "Best" marker:
+#' are kept in the returned table but \strong{not plotted}.  All three
+#' criteria are drawn as lines with points and rank-number labels.  Two
+#' carry a highlighted "Best" marker that drives the recommended rank:
 #' \itemize{
 #'   \item \code{r.squared}: elbow (kneedle) -- \dQuote{Best (Elbow)}.
-#'   \item \code{eff.rank.idx}: maximum of the broken-stick-corrected
-#'     effective-rank index -- \dQuote{Best (Max)}.
 #'   \item \code{sigma.ecv}: minimum CV error -- \dQuote{Best (Min)}.
 #' }
 #' The green line is the \code{effective.rank.index} (not the raw
@@ -1730,8 +1728,11 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' \eqn{[0, 1]}, where \code{E = exp(H_Q - 1)} is the broken-stick
 #' expected effective rank (\code{H_Q} = the \code{Q}-th harmonic
 #' number).  This anchors 0 at the random null and 1 at perfect
-#' evenness, removing the small-rank inflation of \code{eff.rank / Q}, so
-#' its maximum is a meaningful rank.
+#' evenness, removing the small-rank inflation of \code{eff.rank / Q}.
+#' It is shown for context only and carries \strong{no} best marker: it
+#' is a factor-utilization diagnostic (most even relative to the null),
+#' not a predictive rank optimum -- the recommended rank is driven by
+#' the cross-validation minimum and the R-squared elbow.
 #' @param criteria Data frame with at least \code{rank}, \code{r.squared},
 #'   \code{effective.rank.ratio}, and (optionally) \code{sigma.ecv}.
 #' @param plot Logical; draw the diagnostics plot.
@@ -1850,11 +1851,11 @@ plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
   decorate(criteria$r.squared, 2, rank.best.r2, "Best (Elbow)", 3)
 
   if (has_idx) {
-    ## Broken-stick-corrected effective-rank index in [0, 1]; its maximum
-    ## IS a meaningful rank (the small-Q inflation of eff.rank/Q removed).
+    ## Broken-stick-corrected effective-rank index in [0, 1], shown for
+    ## context only: line + points + numbers, NO best marker (it is a
+    ## utilization diagnostic, not a predictive rank optimum).
     graphics::lines(rk, criteria$effective.rank.index, col = "forestgreen", lwd = lwd)
-    decorate(criteria$effective.rank.index, "forestgreen",
-             rank.best.idx, "Best (Max)", 1)
+    decorate(criteria$effective.rank.index, "forestgreen", NA, "", 1)
     leg_txt <- c(leg_txt, "eff.rank.idx"); leg_col <- c(leg_col, "forestgreen")
   }
 
@@ -1884,8 +1885,8 @@ print.nmf.rank <- function(x, ...) {
   base::cat(base::sprintf("Rank selection over ranks %s\n",
                           base::paste(x$criteria$rank, collapse = ", ")))
   base::cat(base::sprintf("  recommended rank (rank.best): %s\n", fmt(x$rank.best)))
-  base::cat(base::sprintf("  best by:  ECV min = %s | R-squared elbow = %s | eff.rank.idx max = %s\n",
-                          fmt(x$best$ecv), fmt(x$best$r2), fmt(x$best$eff.idx)))
+  base::cat(base::sprintf("  best by:  ECV min = %s | R-squared elbow = %s\n",
+                          fmt(x$best$ecv), fmt(x$best$r2)))
   base::cat("\nCriteria:\n")
   base::print(x$criteria, row.names = FALSE, ...)
   base::invisible(x)
