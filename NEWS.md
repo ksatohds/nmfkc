@@ -11,13 +11,12 @@
   grey box exactly to the minimum/maximum position of its members, so
   the cluster boxes are clearly separated with the gaps maximized.  Each
   rank is normalized to the full height independently.
-- `nmf.cluster.flow()` renumbers each rank's hard clusters to
-  consecutive `1..k`.  The raw label is the dominant-factor index
-  (argmax of the coefficient); a factor that never dominates any
-  individual produced an empty cluster and a gap in the numbering (e.g.\
-  labels `2, 3` with no `1`).  After renumbering, the boxes are `1..k`
-  with `k` = the number of non-empty clusters at that rank (which can be
-  fewer than the rank when the model has a dead factor).
+- The cluster number is the dominant-factor index (argmax of the
+  coefficient) of each fit, kept as-is so it matches the factor/basis
+  numbering of the supplied models.  A factor that never dominates any
+  individual leaves an empty, unused cluster number (a gap, e.g.\ labels
+  `2, 3` with no `1`) -- this is correct and consistent with the fit,
+  and the labels are not renumbered.
 - `nmf.cluster.flow()` now returns a classed object with a dedicated
   `plot()` method, so the diagram can be (re)drawn with
   `plot(fl, col = , lwd = , xlab = , ylab = , main = )` -- the colour

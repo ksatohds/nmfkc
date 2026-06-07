@@ -25,10 +25,10 @@ Defaults to the largest rank in \code{fits}.}
 \value{
 An object of class \code{"nmf.cluster.flow"} (returned
 invisibly): a list with \code{clusters} (the \eqn{N \times R} table:
-rows = individuals, columns = rank, entries = cluster number; at
-each rank the clusters are renumbered \code{1..k} where \code{k} is
-the number of non-empty hard clusters, which can be fewer than the
-rank when a factor never dominates any individual),
+rows = individuals, columns = rank, entries = cluster number = the
+dominant-factor index of each fit, so it matches the factor/basis
+numbering of \code{fits}; a factor that never dominates leaves an
+empty, unused cluster number),
 \code{ypos} (the layout positions), \code{ranks}, \code{reference},
 \code{ref.cluster} (the reference hard labels), and \code{colors}
 (the default per-individual reference colour).  Call
