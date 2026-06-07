@@ -4,16 +4,7 @@
 \alias{nmfkc.bicv}
 \title{Bi-cross-validation for NMF rank selection}
 \usage{
-nmfkc.bicv(
-  Y,
-  rank = 1:3,
-  nfolds = 2,
-  seed = 123,
-  nnls.maxit = 100,
-  plot = TRUE,
-  main = "Bi-cross-validation Rank Selection",
-  ...
-)
+nmfkc.bicv(Y, rank = 1:3, nfolds = 2, seed = 123, nnls.maxit = 100, ...)
 }
 \arguments{
 \item{Y}{Observation matrix (\eqn{P \times N}), non-negative.}
@@ -29,47 +20,38 @@ columns (Owen & Perry's recommendation).}
 \item{nnls.maxit}{Multiplicative-update iterations for the fold-in
 non-negative regressions.}
 
-\item{plot}{Logical; draw the shared rank-selection diagnostics plot.}
-
-\item{main}{Plot title.}
-
-\item{...}{Passed to \code{\link{nmfkc}} for the full-data and per-block
-fits (e.g.\ \code{maxit}, \code{method}).}
+\item{...}{Passed to \code{\link{nmfkc}} for the per-block fits
+(e.g.\ \code{maxit}, \code{method}).}
 }
 \value{
-An object of class \code{"nmf.rank"} (see \code{\link{nmfkc.rank}}):
-\code{rank.best} (the bi-CV minimum), \code{criteria} (a data frame with
-\code{rank}, \code{r.squared}, \code{effective.rank},
-\code{effective.rank.ratio}, \code{effective.rank.expected},
-\code{effective.rank.index} and \code{sigma.bicv}), and convenience
-fields \code{sigma}, \code{rank} and \code{nfolds}.
+A list (cf.\ \code{\link{nmfkc.ecv}}) with:
+\item{objfunc}{Held-out mean squared error for each rank.}
+\item{sigma}{Its square root (RMSE) for each rank.}
+\item{rank}{The evaluated rank vector.}
+\item{nfolds}{The number of folds used.}
 }
 \description{
-\strong{Prototype} of Owen & Perry's (2009) bi-cross-validation (BCV)
-for choosing the NMF rank.  Unlike the element-wise CV of
-\code{\link{nmfkc.ecv}} (which holds out scattered \emph{entries} and
-refits with weights), BCV holds out a whole \strong{row-block and
-column-block} simultaneously: the model is fit only on the retained
-block \eqn{D}, and the held-out block \eqn{A} is predicted by folding
-the held-out rows/columns onto the fixed \eqn{D}-factors via
-non-negative regression (\eqn{\hat A = L_I R_J}).  Because the
-held-out rows and columns never enter the fit, there is no information
-leakage.  The recommended setting is to leave out roughly half the
-rows and half the columns (\code{nfolds = 2}).
+Owen & Perry's (2009) bi-cross-validation (BCV) for choosing the NMF
+rank.  A lightweight CV engine in the spirit of \code{\link{nmfkc.ecv}}:
+it returns the held-out error per rank and nothing more (no plot, no
+table) -- pass the result to \code{which.min(sigma)}, or build your own
+diagnostics.
 
-The result is an \code{"nmf.rank"} object, \strong{identical in shape to
-\code{\link{nmfkc.rank}}}: it carries a per-rank criteria table with
-\code{r.squared} and \code{effective.rank} (from a full-data fit at each
-rank) plus the block CV error \code{sigma.bicv}, and supports the same
-\code{\link{plot.nmf.rank}} (R-squared red, eff.rank.idx green, bi-CV
-error blue) and \code{\link{print.nmf.rank}} methods.  Covariates are
-ignored (plain NMF).
+Unlike the element-wise CV of \code{\link{nmfkc.ecv}} (which holds out
+scattered \emph{entries} and refits with weights), BCV holds out a whole
+\strong{row-block and column-block} simultaneously: the model is fit only
+on the retained block \eqn{D}, and the held-out block \eqn{A} is predicted
+by folding the held-out rows/columns onto the fixed \eqn{D}-factors via
+non-negative regression (\eqn{\hat A = L_I R_J}).  Because the held-out
+rows and columns never enter the fit, there is no information leakage.
+Covariates are ignored (plain NMF).  The recommended setting is to leave
+out roughly half the rows and half the columns (\code{nfolds = 2}).
 }
 \details{
 Each fold keeps about \eqn{(1 - 1/\text{nfolds})} of the rows
 and columns, so the retained block \eqn{D} must have more than
 \code{rank} rows \strong{and} columns; ranks that violate this for a
-given fold are skipped (\code{sigma.bicv = NA}).  With
+given fold are skipped (the held-out error is \code{NA}).  With
 \code{nfolds = 2} this needs roughly \eqn{P/2 > \text{rank}} and
 \eqn{N/2 > \text{rank}}.
 }
@@ -81,8 +63,8 @@ set.seed(1)
 X <- matrix(abs(rnorm(30 * 3)), 30, 3)
 B <- matrix(abs(rnorm(3 * 40)), 3, 40)
 bv <- nmfkc.bicv(X \%*\% B, rank = 1:6, nfolds = 2)
-bv             # criteria table (R-squared, effective.rank, sigma.bicv)
-plot(bv)       # same 3-criterion diagnostics plot as nmfkc.rank
+bv$sigma                  # held-out RMSE per rank
+bv$rank[which.min(bv$sigma)]
 }
 }
 \references{
@@ -91,6 +73,5 @@ the SVD and the nonnegative matrix factorization.
 \emph{Ann. Appl. Stat.} 3(2):564--594. \doi{10.1214/08-AOAS227}.
 }
 \seealso{
-\code{\link{nmfkc.ecv}}, \code{\link{nmfkc.rank}},
-\code{\link{plot.nmf.rank}}, \code{\link{print.nmf.rank}}
+\code{\link{nmfkc.ecv}}, \code{\link{nmfkc.rank}}
 }

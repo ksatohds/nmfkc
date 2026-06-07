@@ -1,18 +1,14 @@
 # nmfkc 0.7.4 (development)
 
 ### **New `nmfkc.bicv()`: bi-cross-validation for rank selection**
-- Owen & Perry's (2009) bi-cross-validation (BCV).  Holds out a
-  row-block *and* a column-block at once, fits NMF only on the retained
-  block, and predicts the held-out block by folding the held-out
-  rows/columns onto the fixed factors via non-negative regression (no
-  information leakage, unlike element-wise `nmfkc.ecv`).  `nfolds = 2`
-  (leave out half rows / half columns) per Owen & Perry's recommendation.
-- Returns an **`"nmf.rank"` object, identical in shape to `nmfkc.rank`**:
-  the criteria table carries `r.squared` and `effective.rank` (from a
-  full-data fit at each rank) plus the block CV error `sigma.bicv`, and
-  the same `plot`/`print` methods apply (R-squared red, eff.rank.idx
-  green, bi-CV error blue).  The shared `.rank.finish` back-end and
-  `plot`/`print.nmf.rank` are now CV-label-agnostic (`ECV` or `bi-CV`).
+- Owen & Perry's (2009) bi-cross-validation (BCV), a **lightweight CV
+  engine in the spirit of `nmfkc.ecv`**: it returns the held-out error
+  per rank (`objfunc`, `sigma`) and nothing more.  Holds out a row-block
+  *and* a column-block at once, fits NMF only on the retained block, and
+  predicts the held-out block by folding the held-out rows/columns onto
+  the fixed factors via non-negative regression (no information leakage,
+  unlike element-wise `nmfkc.ecv`).  `nfolds = 2` (leave out half rows /
+  half columns) per Owen & Perry's recommendation.
 
 ### **`*.rank`: eff.rank.idx shown for context (no best marker)**
 - The broken-stick-corrected effective-rank index (`eff.rank.idx`,
