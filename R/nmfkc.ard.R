@@ -9,6 +9,44 @@
 ## surviving components is the estimated rank -- a single fit, no scan.
 ## ============================================================
 
+## Internal: one ARD-NMF fit from a single random initialization.
+#' @keywords internal
+#' @noRd
+.ard.fit <- function(Y, K, prior, a, b, maxit, epsilon, tol, seed) {
+  Fr <- base::nrow(Y); Nc <- base::ncol(Y); eps <- 1e-10; m <- base::mean(Y)
+  if (!base::is.null(seed)) base::set.seed(seed)
+  W <- base::matrix(stats::runif(Fr * K), Fr, K) * base::sqrt(m / K)
+  H <- base::matrix(stats::runif(K * Nc), K, Nc) * base::sqrt(m / K)
+  clam <- if (prior == "L2") (Fr + Nc) / 2 + a + 1 else (Fr + Nc) + a + 1
+
+  objfunc <- base::numeric(maxit)
+  for (it in base::seq_len(maxit)) {
+    lam <- if (prior == "L2")
+      (b + 0.5 * (base::colSums(W^2) + base::rowSums(H^2))) / clam
+    else
+      (b + base::colSums(W) + base::rowSums(H)) / clam
+    num <- Y %*% base::t(H); den <- W %*% (H %*% base::t(H))
+    pen <- if (prior == "L2") base::sweep(W, 2, 1 / lam, "*")
+           else base::matrix(1 / lam, Fr, K, byrow = TRUE)
+    W <- W * num / (den + pen + eps)
+    num <- base::t(W) %*% Y; den <- (base::t(W) %*% W) %*% H
+    pen <- if (prior == "L2") base::sweep(H, 1, 1 / lam, "*")
+           else base::matrix(1 / lam, K, Nc)
+    H <- H * num / (den + pen + eps)
+    objfunc[it] <- 0.5 * base::sum((Y - W %*% H)^2)
+    if (it > 1 && base::abs(objfunc[it - 1] - objfunc[it]) <
+        epsilon * objfunc[it - 1]) { objfunc <- objfunc[1:it]; break }
+  }
+
+  energy <- base::sqrt(base::colSums(W^2) * base::rowSums(H^2))
+  ord <- base::order(energy, decreasing = TRUE)
+  energy <- energy[ord]; W <- W[, ord, drop = FALSE]; H <- H[ord, , drop = FALSE]
+  lam <- lam[ord]
+  relevance <- if (base::max(energy) > 0) energy / base::max(energy) else energy
+  base::list(rank = base::sum(relevance > tol), relevance = relevance,
+             lambda = lam, W = W, H = H, objfunc = objfunc)
+}
+
 #' @title Automatic relevance determination for NMF rank (experimental)
 #' @description
 #' \strong{Prototype} of Tan & Fevotte's (2013) ARD-NMF (Euclidean /
@@ -65,44 +103,6 @@
 #' ar$rank                                # ~ 3 surviving components
 #' plot(ar)
 #' }
-## Internal: one ARD-NMF fit from a single random initialization.
-#' @keywords internal
-#' @noRd
-.ard.fit <- function(Y, K, prior, a, b, maxit, epsilon, tol, seed) {
-  Fr <- base::nrow(Y); Nc <- base::ncol(Y); eps <- 1e-10; m <- base::mean(Y)
-  if (!base::is.null(seed)) base::set.seed(seed)
-  W <- base::matrix(stats::runif(Fr * K), Fr, K) * base::sqrt(m / K)
-  H <- base::matrix(stats::runif(K * Nc), K, Nc) * base::sqrt(m / K)
-  clam <- if (prior == "L2") (Fr + Nc) / 2 + a + 1 else (Fr + Nc) + a + 1
-
-  objfunc <- base::numeric(maxit)
-  for (it in base::seq_len(maxit)) {
-    lam <- if (prior == "L2")
-      (b + 0.5 * (base::colSums(W^2) + base::rowSums(H^2))) / clam
-    else
-      (b + base::colSums(W) + base::rowSums(H)) / clam
-    num <- Y %*% base::t(H); den <- W %*% (H %*% base::t(H))
-    pen <- if (prior == "L2") base::sweep(W, 2, 1 / lam, "*")
-           else base::matrix(1 / lam, Fr, K, byrow = TRUE)
-    W <- W * num / (den + pen + eps)
-    num <- base::t(W) %*% Y; den <- (base::t(W) %*% W) %*% H
-    pen <- if (prior == "L2") base::sweep(H, 1, 1 / lam, "*")
-           else base::matrix(1 / lam, K, Nc)
-    H <- H * num / (den + pen + eps)
-    objfunc[it] <- 0.5 * base::sum((Y - W %*% H)^2)
-    if (it > 1 && base::abs(objfunc[it - 1] - objfunc[it]) <
-        epsilon * objfunc[it - 1]) { objfunc <- objfunc[1:it]; break }
-  }
-
-  energy <- base::sqrt(base::colSums(W^2) * base::rowSums(H^2))
-  ord <- base::order(energy, decreasing = TRUE)
-  energy <- energy[ord]; W <- W[, ord, drop = FALSE]; H <- H[ord, , drop = FALSE]
-  lam <- lam[ord]
-  relevance <- if (base::max(energy) > 0) energy / base::max(energy) else energy
-  base::list(rank = base::sum(relevance > tol), relevance = relevance,
-             lambda = lam, W = W, H = H, objfunc = objfunc)
-}
-
 nmfkc.ard <- function(Y, rank = NULL, prior = c("L2", "L1"), nrun = 1,
                       a = 1, b = NULL, maxit = 3000, epsilon = 1e-6,
                       tol = 1e-3, seed = 123, plot = FALSE) {
