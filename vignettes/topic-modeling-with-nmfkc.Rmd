@@ -78,7 +78,7 @@ The default `detail = "full"` performs **Element-wise Cross-Validation (Wold's C
 nmfkc.rank(Y, rank = 2:6)
 ```
 
-Looking at the diagnostics (e.g., the minimum ECV Sigma, the elbow of the R-squared curve, or high Cophenetic Correlation), let's assume **Rank = 3** is a reasonable choice for this overview.
+Looking at the diagnostics (the minimum ECV Sigma and the elbow of the R-squared curve; the green `eff.rank` line is shown for context), let's assume **Rank = 3** is a reasonable choice for this overview.
 
 ## 3\. Standard NMF
 
