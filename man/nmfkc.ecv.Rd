@@ -55,6 +55,10 @@ Wold, S. (1978).  Cross-validatory estimation of the number of
 components in factor and principal components models.
 \emph{Technometrics}, 20(4), 397--405.
 \doi{10.1080/00401706.1978.10489693}
+Owen, A. B., & Perry, P. O. (2009).  Bi-cross-validation of the SVD
+and the nonnegative matrix factorization.  \emph{Ann. Appl. Stat.}
+3(2), 564--594. \doi{10.1214/08-AOAS227}  (cross-validation of the
+NMF rank; see also \code{\link{nmfkc.bicv}}).
 }
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}, \code{\link{nmfkc.bicv}}
