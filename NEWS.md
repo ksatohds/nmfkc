@@ -1,5 +1,11 @@
 # nmfkc 0.7.4 (development)
 
+### **`nmfkc.net.DOT()`: default layout is now `"neato"`**
+- The `layout` choices are reordered by recommendation
+  (`neato`, `fdp`, `twopi`, `circo`, `dot`), so the default changes from
+  `"fdp"` to `"neato"`, which separates community graphs more clearly.  Raising
+  `threshold` (e.g.\ 0.2--0.3) further declutters weak membership edges.
+
 ### **Bug fix: `nmfkc.net.DOT()` mis-detected `type = "bi"` as `"tri"`**
 - The bi-vs-tri auto-detection ignored the result's `$type` field and fell back
   to `all.equal(C, diag(Q))`, which fails when `C` carries dimnames (it reports a
