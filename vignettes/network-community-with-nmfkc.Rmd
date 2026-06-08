@@ -114,9 +114,12 @@ par(op)
 
 `nmfkc.net.DOT()` turns the fit into a Graphviz **DOT** graph: each network node
 is linked to the community (basis) hubs by edges whose thickness encodes the
-membership strength.  Rendered with the suggested package **DiagrammeR**, it
-embeds directly in the HTML output.  The only difference between the two views
-below is the **node colour**:
+membership strength.  We raise `threshold` to `0.25` so that only substantial
+memberships are drawn --- each pure node then links to a *single* hub, which lets
+the `neato` layout pull the three communities apart, while the bridge nodes keep
+*both* links and settle in between.  Rendered with the suggested package
+**DiagrammeR**, it embeds directly in the HTML output.  The only difference
+between the two views below is the **node colour**:
 
 * `Y.cluster = "soft"` (default) blends the community colours in proportion to
   the membership, so the three bridge nodes appear in a **mixed colour**.
@@ -134,7 +137,7 @@ each wired to a second community) show a blended colour:
 dot_soft <- nmfkc.net.DOT(res,
   Y.label = as.character(1:N), X.label = paste("Community", 1:K),
   Y.title = "Network nodes",   X.title = "Communities",
-  layout  = "fdp", Y.cluster = "soft")
+  layout  = "neato", threshold = 0.25, Y.cluster = "soft")
 DiagrammeR::grViz(as.character(dot_soft))
 ```
 
@@ -145,7 +148,7 @@ colour:
 dot_hard <- nmfkc.net.DOT(res,
   Y.label = as.character(1:N), X.label = paste("Community", 1:K),
   Y.title = "Network nodes",   X.title = "Communities",
-  layout  = "fdp", Y.cluster = "hard")
+  layout  = "neato", threshold = 0.25, Y.cluster = "hard")
 DiagrammeR::grViz(as.character(dot_hard))
 ```
 
