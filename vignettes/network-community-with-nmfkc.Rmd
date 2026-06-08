@@ -127,29 +127,24 @@ below is the **node colour**:
 has_dg <- requireNamespace("DiagrammeR", quietly = TRUE)
 ```
 
-A small helper draws the graph for either colouring mode --- the common
-arguments are written once, and only `Y.cluster` changes:
-
-```{r dot-helper, eval = has_dg}
-net_dot <- function(cluster) {
-  dot <- nmfkc.net.DOT(res,
-    Y.label  = as.character(1:N), X.label = paste("Community", 1:K),
-    Y.title  = "Network nodes",   X.title = "Communities",
-    layout   = "fdp", Y.cluster = cluster)
-  DiagrammeR::grViz(as.character(dot))
-}
-```
-
 **Soft** -- bridge nodes 20, 40, 60 show a blended colour:
 
 ```{r dot-soft, eval = has_dg, fig.width = 7, fig.height = 7}
-net_dot("soft")
+dot_soft <- nmfkc.net.DOT(res,
+  Y.label = as.character(1:N), X.label = paste("Community", 1:K),
+  Y.title = "Network nodes",   X.title = "Communities",
+  layout  = "fdp", Y.cluster = "soft")
+DiagrammeR::grViz(as.character(dot_soft))
 ```
 
 **Hard** -- the same bridge nodes are forced into one community colour:
 
 ```{r dot-hard, eval = has_dg, fig.width = 7, fig.height = 7}
-net_dot("hard")
+dot_hard <- nmfkc.net.DOT(res,
+  Y.label = as.character(1:N), X.label = paste("Community", 1:K),
+  Y.title = "Network nodes",   X.title = "Communities",
+  layout  = "fdp", Y.cluster = "hard")
+DiagrammeR::grViz(as.character(dot_hard))
 ```
 
 (If DiagrammeR is not installed, both diagrams are skipped.)
