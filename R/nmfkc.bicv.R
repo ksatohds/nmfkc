@@ -69,9 +69,6 @@
 #'
 #' @param Y Observation matrix (\eqn{P \times N}), non-negative.
 #' @param rank Integer vector of ranks to evaluate.
-#' @param nfolds Number of row folds and column folds (the grid is
-#'   \code{nfolds x nfolds}).  \code{2} = leave out half rows / half
-#'   columns (Owen & Perry's recommendation).
 #' @details Each fold keeps about \eqn{(1 - 1/\text{nfolds})} of the rows
 #'   and columns, so the retained block \eqn{D} must have more than
 #'   \code{rank} rows \strong{and} columns.  The largest testable rank is
@@ -83,9 +80,11 @@
 #'   limit at the cost of a smaller hold-out and more compute
 #'   (\eqn{(\text{nfolds} - 1)^2} full fits per rank).
 #' @param ... Advanced options, rarely needed (safe defaults in brackets):
-#'   \code{seed} [\code{123}] (fold-assignment seed) and \code{nnls.maxit}
-#'   [\code{100}] (multiplicative-update iterations for the fold-in
-#'   non-negative regressions).  Any other arguments are passed to
+#'   \code{nfolds} [\code{2}], the number of row and column folds (the grid is
+#'   \code{nfolds x nfolds}; \code{2} = leave out half the rows / columns, Owen
+#'   & Perry's recommendation); \code{seed} [\code{123}] (fold-assignment seed);
+#'   and \code{nnls.maxit} [\code{100}] (multiplicative-update iterations for the
+#'   fold-in non-negative regressions).  Any other arguments are passed to
 #'   \code{\link{nmfkc}} for the per-block fits (e.g.\ \code{maxit}).
 #' @return A list (cf.\ \code{\link{nmfkc.ecv}}) with:
 #'   \item{objfunc}{Held-out mean squared error for each rank.}
@@ -105,17 +104,19 @@
 #' set.seed(1)
 #' X <- matrix(abs(rnorm(30 * 3)), 30, 3)
 #' B <- matrix(abs(rnorm(3 * 40)), 3, 40)
-#' bv <- nmfkc.bicv(X %*% B, rank = 1:6, nfolds = 2)
+#' bv <- nmfkc.bicv(X %*% B, rank = 1:6)   # nfolds = 2 (Owen & Perry) by default
 #' bv$sigma                  # held-out RMSE per rank
 #' bv$rank[which.min(bv$sigma)]
 #' }
-nmfkc.bicv <- function(Y, rank = 1:3, nfolds = 2, ...) {
+nmfkc.bicv <- function(Y, rank = 1:3, ...) {
   Y <- base::as.matrix(Y)
   ## Advanced options live in `...` (the rest passes to nmfkc per block).
+  ## nfolds = 2 is Owen & Perry's recommendation and rarely changed.
   dots       <- base::list(...)
+  nfolds     <- if (base::is.null(dots$nfolds))     2   else dots$nfolds
   seed       <- if (base::is.null(dots$seed))       123 else dots$seed
   nnls.maxit <- if (base::is.null(dots$nnls.maxit)) 100 else dots$nnls.maxit
-  dots$seed <- NULL; dots$nnls.maxit <- NULL
+  dots$nfolds <- NULL; dots$seed <- NULL; dots$nnls.maxit <- NULL
   P <- base::nrow(Y); N <- base::ncol(Y)
   if (!base::is.null(seed)) base::set.seed(seed)
   row.fold <- base::sample(base::rep_len(1:nfolds, P))

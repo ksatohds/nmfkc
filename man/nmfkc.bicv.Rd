@@ -4,21 +4,19 @@
 \alias{nmfkc.bicv}
 \title{Bi-cross-validation for NMF rank selection}
 \usage{
-nmfkc.bicv(Y, rank = 1:3, nfolds = 2, ...)
+nmfkc.bicv(Y, rank = 1:3, ...)
 }
 \arguments{
 \item{Y}{Observation matrix (\eqn{P \times N}), non-negative.}
 
 \item{rank}{Integer vector of ranks to evaluate.}
 
-\item{nfolds}{Number of row folds and column folds (the grid is
-\code{nfolds x nfolds}).  \code{2} = leave out half rows / half
-columns (Owen & Perry's recommendation).}
-
 \item{...}{Advanced options, rarely needed (safe defaults in brackets):
-\code{seed} \link{\code{123}} (fold-assignment seed) and \code{nnls.maxit}
-\link{\code{100}} (multiplicative-update iterations for the fold-in
-non-negative regressions).  Any other arguments are passed to
+\code{nfolds} \link{\code{2}}, the number of row and column folds (the grid is
+\code{nfolds x nfolds}; \code{2} = leave out half the rows / columns, Owen
+& Perry's recommendation); \code{seed} \link{\code{123}} (fold-assignment seed);
+and \code{nnls.maxit} \link{\code{100}} (multiplicative-update iterations for the
+fold-in non-negative regressions).  Any other arguments are passed to
 \code{\link{nmfkc}} for the per-block fits (e.g.\ \code{maxit}).}
 }
 \value{
@@ -64,7 +62,7 @@ limit at the cost of a smaller hold-out and more compute
 set.seed(1)
 X <- matrix(abs(rnorm(30 * 3)), 30, 3)
 B <- matrix(abs(rnorm(3 * 40)), 3, 40)
-bv <- nmfkc.bicv(X \%*\% B, rank = 1:6, nfolds = 2)
+bv <- nmfkc.bicv(X \%*\% B, rank = 1:6)   # nfolds = 2 (Owen & Perry) by default
 bv$sigma                  # held-out RMSE per rank
 bv$rank[which.min(bv$sigma)]
 }

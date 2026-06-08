@@ -93,7 +93,7 @@ recommended rank minimises it.  `nmfkc.ecv` holds out scattered *entries*
 
 ```{r cv}
 ev <- nmfkc.ecv (Y, rank = 1:6)
-bv <- nmfkc.bicv(Y, rank = 1:6, nfolds = 2)
+bv <- nmfkc.bicv(Y, rank = 1:6)   # nfolds = 2 (Owen & Perry) by default
 data.frame(rank = 1:6,
            sigma.ecv  = round(ev$sigma, 3),
            sigma.bicv = round(bv$sigma, 3))

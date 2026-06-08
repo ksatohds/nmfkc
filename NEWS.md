@@ -16,10 +16,10 @@
 
 ### **`nmfkc.bicv()` / `nmfkc.consensus()`: leaner signatures**
 - Fine-tuning arguments move into `...` (same safe defaults): `nmfkc.bicv()`
-  is now `nmfkc.bicv(Y, rank, nfolds, ...)` (`seed`, `nnls.maxit` via `...`),
-  and `nmfkc.consensus()` is `nmfkc.consensus(Y, A, rank, nrun, keep.consensus,
-  ...)` (`seed`, `pac.range` via `...`).  Existing named-argument calls are
-  unaffected.
+  is now `nmfkc.bicv(Y, rank, ...)` (`nfolds` = 2 per Owen & Perry, plus `seed`,
+  `nnls.maxit`, via `...`), and `nmfkc.consensus()` is
+  `nmfkc.consensus(Y, A, rank, nrun, keep.consensus, ...)` (`seed`, `pac.range`
+  via `...`).  Existing named-argument calls are unaffected.
 
 ### **`nmfkc.ard()`: simpler, safer interface**
 - The signature is trimmed to the essentials
