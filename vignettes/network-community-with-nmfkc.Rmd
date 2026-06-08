@@ -127,7 +127,8 @@ below is the **node colour**:
 has_dg <- requireNamespace("DiagrammeR", quietly = TRUE)
 ```
 
-**Soft** -- bridge nodes 20, 40, 60 show a blended colour:
+**Soft** -- the three bridge nodes added earlier (`bridge <- c(20, 40, 60)`,
+each wired to a second community) show a blended colour:
 
 ```{r dot-soft, eval = has_dg, fig.width = 7, fig.height = 7}
 dot_soft <- nmfkc.net.DOT(res,
@@ -137,7 +138,8 @@ dot_soft <- nmfkc.net.DOT(res,
 DiagrammeR::grViz(as.character(dot_soft))
 ```
 
-**Hard** -- the same bridge nodes are forced into one community colour:
+**Hard** -- those same bridge nodes (20, 40, 60) are forced into one community
+colour:
 
 ```{r dot-hard, eval = has_dg, fig.width = 7, fig.height = 7}
 dot_hard <- nmfkc.net.DOT(res,
