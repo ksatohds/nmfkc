@@ -38,14 +38,14 @@
 #' @param A Optional covariate matrix passed to \code{\link{nmfkc}}.
 #' @param rank Integer vector of ranks to evaluate (\eqn{\ge 2}).
 #' @param nrun Number of random-initialization runs per rank (default 30).
-#' @param seed Base integer seed; run \eqn{r} of rank index \eqn{i} uses
-#'   \code{seed + 1000 * i + r}.
 #' @param keep.consensus Logical; if \code{TRUE} also return the list of
 #'   consensus matrices (one \eqn{N \times N} matrix per rank).
-#' @param pac.range Length-2 ambiguous interval \eqn{(u_1, u_2)} for the
-#'   PAC measure (default \code{c(0.1, 0.9)}).
-#' @param ... Passed to \code{\link{nmfkc}} (e.g.\ \code{maxit},
-#'   \code{method}).  \code{X.init} is forced to \code{"runif"}.
+#' @param ... Advanced options, rarely needed (safe defaults in brackets):
+#'   \code{seed} [\code{123}] (base seed; run \eqn{r} of rank index \eqn{i} uses
+#'   \code{seed + 1000 * i + r}) and \code{pac.range} [\code{c(0.1, 0.9)}] (the
+#'   ambiguous interval \eqn{(u_1, u_2)} for the PAC measure).  Any other
+#'   arguments are passed to \code{\link{nmfkc}} (e.g.\ \code{maxit});
+#'   \code{X.init} is forced to \code{"runif"}.
 #' @return An object of class \code{"nmfkc.consensus"} (a list) with:
 #'   \item{cophenetic}{Cophenetic correlation coefficient for each rank.}
 #'   \item{dispersion}{Dispersion coefficient (\eqn{[0, 1]}) for each rank.}
@@ -79,14 +79,19 @@
 #' plot(cs, type = "heatmap")            # all ranks, n2mfrow grid
 #' plot(cs, type = "heatmap", rank = 3)  # one rank, with labels
 #' }
-nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30, seed = 123,
-                            keep.consensus = FALSE, pac.range = c(0.1, 0.9),
-                            ...) {
+nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30,
+                            keep.consensus = FALSE, ...) {
   Y <- base::as.matrix(Y)
   N <- base::ncol(Y)
 
+  ## Advanced options live in `...` (the rest passes to nmfkc per run).
+  dots      <- base::list(...)
+  seed      <- if (base::is.null(dots$seed))      123         else dots$seed
+  pac.range <- if (base::is.null(dots$pac.range)) c(0.1, 0.9) else dots$pac.range
+  dots$seed <- NULL; dots$pac.range <- NULL
+
   ## nmfkc args: random init (required for stability), plain fast fit.
-  ea <- base::list(...); ea$Q <- NULL; ea$rank <- NULL; ea$seed <- NULL
+  ea <- dots; ea$Q <- NULL; ea$rank <- NULL; ea$seed <- NULL
   ea$X.init <- "runif"; ea$detail <- "fast"; ea$print.dims <- FALSE
 
   cophenetic <- stats::setNames(base::numeric(base::length(rank)),

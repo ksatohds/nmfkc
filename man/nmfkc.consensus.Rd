@@ -9,9 +9,7 @@ nmfkc.consensus(
   A = NULL,
   rank = 2:4,
   nrun = 30,
-  seed = 123,
   keep.consensus = FALSE,
-  pac.range = c(0.1, 0.9),
   ...
 )
 }
@@ -24,17 +22,15 @@ nmfkc.consensus(
 
 \item{nrun}{Number of random-initialization runs per rank (default 30).}
 
-\item{seed}{Base integer seed; run \eqn{r} of rank index \eqn{i} uses
-\code{seed + 1000 * i + r}.}
-
 \item{keep.consensus}{Logical; if \code{TRUE} also return the list of
 consensus matrices (one \eqn{N \times N} matrix per rank).}
 
-\item{pac.range}{Length-2 ambiguous interval \eqn{(u_1, u_2)} for the
-PAC measure (default \code{c(0.1, 0.9)}).}
-
-\item{...}{Passed to \code{\link{nmfkc}} (e.g.\ \code{maxit},
-\code{method}).  \code{X.init} is forced to \code{"runif"}.}
+\item{...}{Advanced options, rarely needed (safe defaults in brackets):
+\code{seed} \link{\code{123}} (base seed; run \eqn{r} of rank index \eqn{i} uses
+\code{seed + 1000 * i + r}) and \code{pac.range} \link{\code{c(0.1, 0.9)}} (the
+ambiguous interval \eqn{(u_1, u_2)} for the PAC measure).  Any other
+arguments are passed to \code{\link{nmfkc}} (e.g.\ \code{maxit});
+\code{X.init} is forced to \code{"runif"}.}
 }
 \value{
 An object of class \code{"nmfkc.consensus"} (a list) with:

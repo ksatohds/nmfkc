@@ -4,7 +4,7 @@
 \alias{nmfkc.bicv}
 \title{Bi-cross-validation for NMF rank selection}
 \usage{
-nmfkc.bicv(Y, rank = 1:3, nfolds = 2, seed = 123, nnls.maxit = 100, ...)
+nmfkc.bicv(Y, rank = 1:3, nfolds = 2, ...)
 }
 \arguments{
 \item{Y}{Observation matrix (\eqn{P \times N}), non-negative.}
@@ -15,13 +15,11 @@ nmfkc.bicv(Y, rank = 1:3, nfolds = 2, seed = 123, nnls.maxit = 100, ...)
 \code{nfolds x nfolds}).  \code{2} = leave out half rows / half
 columns (Owen & Perry's recommendation).}
 
-\item{seed}{Optional integer seed for the fold assignment.}
-
-\item{nnls.maxit}{Multiplicative-update iterations for the fold-in
-non-negative regressions.}
-
-\item{...}{Passed to \code{\link{nmfkc}} for the per-block fits
-(e.g.\ \code{maxit}, \code{method}).}
+\item{...}{Advanced options, rarely needed (safe defaults in brackets):
+\code{seed} \link{\code{123}} (fold-assignment seed) and \code{nnls.maxit}
+\link{\code{100}} (multiplicative-update iterations for the fold-in
+non-negative regressions).  Any other arguments are passed to
+\code{\link{nmfkc}} for the per-block fits (e.g.\ \code{maxit}).}
 }
 \value{
 A list (cf.\ \code{\link{nmfkc.ecv}}) with:

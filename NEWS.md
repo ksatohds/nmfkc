@@ -14,6 +14,13 @@
   not have.  Detection now uses `$type` first (falling back to the dimnames-safe
   identity check), so `"bi"` correctly draws no inter-class edges.
 
+### **`nmfkc.bicv()` / `nmfkc.consensus()`: leaner signatures**
+- Fine-tuning arguments move into `...` (same safe defaults): `nmfkc.bicv()`
+  is now `nmfkc.bicv(Y, rank, nfolds, ...)` (`seed`, `nnls.maxit` via `...`),
+  and `nmfkc.consensus()` is `nmfkc.consensus(Y, A, rank, nrun, keep.consensus,
+  ...)` (`seed`, `pac.range` via `...`).  Existing named-argument calls are
+  unaffected.
+
 ### **`nmfkc.ard()`: simpler, safer interface**
 - The signature is trimmed to the essentials
   `nmfkc.ard(Y, rank, nrun, plot, ...)`; everything else (`prior`, `seed`,

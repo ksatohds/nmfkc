@@ -72,9 +72,6 @@
 #' @param nfolds Number of row folds and column folds (the grid is
 #'   \code{nfolds x nfolds}).  \code{2} = leave out half rows / half
 #'   columns (Owen & Perry's recommendation).
-#' @param seed Optional integer seed for the fold assignment.
-#' @param nnls.maxit Multiplicative-update iterations for the fold-in
-#'   non-negative regressions.
 #' @details Each fold keeps about \eqn{(1 - 1/\text{nfolds})} of the rows
 #'   and columns, so the retained block \eqn{D} must have more than
 #'   \code{rank} rows \strong{and} columns.  The largest testable rank is
@@ -85,8 +82,11 @@
 #'   that would reach the requested ranks.  Raising \code{nfolds} lifts the
 #'   limit at the cost of a smaller hold-out and more compute
 #'   (\eqn{(\text{nfolds} - 1)^2} full fits per rank).
-#' @param ... Passed to \code{\link{nmfkc}} for the per-block fits
-#'   (e.g.\ \code{maxit}, \code{method}).
+#' @param ... Advanced options, rarely needed (safe defaults in brackets):
+#'   \code{seed} [\code{123}] (fold-assignment seed) and \code{nnls.maxit}
+#'   [\code{100}] (multiplicative-update iterations for the fold-in
+#'   non-negative regressions).  Any other arguments are passed to
+#'   \code{\link{nmfkc}} for the per-block fits (e.g.\ \code{maxit}).
 #' @return A list (cf.\ \code{\link{nmfkc.ecv}}) with:
 #'   \item{objfunc}{Held-out mean squared error for each rank.}
 #'   \item{sigma}{Its square root (RMSE) for each rank.}
@@ -109,9 +109,13 @@
 #' bv$sigma                  # held-out RMSE per rank
 #' bv$rank[which.min(bv$sigma)]
 #' }
-nmfkc.bicv <- function(Y, rank = 1:3, nfolds = 2, seed = 123,
-                       nnls.maxit = 100, ...) {
+nmfkc.bicv <- function(Y, rank = 1:3, nfolds = 2, ...) {
   Y <- base::as.matrix(Y)
+  ## Advanced options live in `...` (the rest passes to nmfkc per block).
+  dots       <- base::list(...)
+  seed       <- if (base::is.null(dots$seed))       123 else dots$seed
+  nnls.maxit <- if (base::is.null(dots$nnls.maxit)) 100 else dots$nnls.maxit
+  dots$seed <- NULL; dots$nnls.maxit <- NULL
   P <- base::nrow(Y); N <- base::ncol(Y)
   if (!base::is.null(seed)) base::set.seed(seed)
   row.fold <- base::sample(base::rep_len(1:nfolds, P))
@@ -140,7 +144,7 @@ nmfkc.bicv <- function(Y, rank = 1:3, nfolds = 2, seed = 123,
 
   ## nmfkc args for the (plain-NMF) block fits: drop covariates, skip the
   ## O(N^2) clustering criteria, stay quiet about dimensions.
-  ea <- base::list(...); ea$A <- NULL; ea$Q <- NULL
+  ea <- dots; ea$A <- NULL; ea$Q <- NULL
   ea$detail <- "fast"; ea$print.dims <- FALSE
 
   objfunc <- stats::setNames(base::numeric(base::length(rank)),
