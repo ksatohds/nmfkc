@@ -16,9 +16,9 @@
 
 ### **`nmfkc.ard()`: simpler, safer interface**
 - The signature is trimmed to the essentials
-  `nmfkc.ard(Y, rank, prior, nrun, seed, plot, ...)`; the fine-tuning
-  hyperparameters (`a`, `b`, `maxit`, `epsilon`, `tol`) move into `...` with
-  the same safe defaults, so a typical call needs no tuning.
+  `nmfkc.ard(Y, rank, nrun, plot, ...)`; everything else (`prior`, `seed`,
+  `a`, `b`, `maxit`, `epsilon`, `tol`) moves into `...` with the same safe
+  defaults, so a typical call is just `nmfkc.ard(Y, rank = K)`.
 - `nrun` now defaults to `10` (was `1`): ARD is a sensitive point estimate, and
   several restarts give a stable modal rank by default.
 - The help now states explicitly that the implementation is the Euclidean

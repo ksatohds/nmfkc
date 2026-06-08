@@ -4,15 +4,7 @@
 \alias{nmfkc.ard}
 \title{Automatic relevance determination for NMF rank (experimental)}
 \usage{
-nmfkc.ard(
-  Y,
-  rank = NULL,
-  prior = c("L2", "L1"),
-  nrun = 10,
-  seed = 123,
-  plot = FALSE,
-  ...
-)
+nmfkc.ard(Y, rank = NULL, nrun = 10, plot = FALSE, ...)
 }
 \arguments{
 \item{Y}{Observation matrix (\eqn{F \times N}), non-negative.}
@@ -20,25 +12,23 @@ nmfkc.ard(
 \item{rank}{Over-complete starting rank \eqn{K} (must exceed the true
 rank).  \code{NULL} (default) uses \code{min(F, N, 20)}.}
 
-\item{prior}{\code{"L2"} (half-normal; group-shrinks by squared energy)
-or \code{"L1"} (exponential).}
-
 \item{nrun}{Number of random-initialization restarts (default \code{10}).
 ARD is a sensitive point estimate, so several restarts are advisable; the
 reported rank is the \strong{mode} of the per-run estimates
 (\code{rank.runs}), with a representative modal fit kept for
 \code{plot}/\code{W}/\code{H}.}
 
-\item{seed}{Random-initialization seed.}
-
 \item{plot}{Logical; draw the relevance bar plot.}
 
-\item{...}{Advanced tuning, rarely needed (safe defaults in brackets):
-\code{a} \link{\code{1}} and \code{b} \link{\code{(F + N)/K * mean(Y)}}, the
-inverse-gamma prior (a smaller \code{b} over-prunes, a larger one prunes
-nothing); \code{maxit} \link{\code{3000}} and \code{epsilon} \link{\code{1e-6}}
-(optimisation control); \code{tol} \link{\code{1e-3}}, the relevance threshold
-below which a component is counted as pruned.}
+\item{...}{Advanced options, rarely needed (safe defaults in brackets):
+\code{prior} \link{\code{"L2"}} (\code{"L2"} = half-normal / squared-energy group
+shrinkage, \code{"L1"} = exponential / sparser); \code{seed} \link{\code{123}}
+(random-initialization seed); \code{a} \link{\code{1}} and
+\code{b} \link{\code{(F + N)/K * mean(Y)}}, the inverse-gamma prior (a smaller
+\code{b} over-prunes, a larger one prunes nothing); \code{maxit}
+\link{\code{3000}} and \code{epsilon} \link{\code{1e-6}} (optimisation control);
+\code{tol} \link{\code{1e-3}}, the relevance threshold below which a component is
+counted as pruned.}
 }
 \value{
 An object of class \code{"nmfkc.ard"}: a list with

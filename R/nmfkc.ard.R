@@ -79,21 +79,21 @@
 #' @param Y Observation matrix (\eqn{F \times N}), non-negative.
 #' @param rank Over-complete starting rank \eqn{K} (must exceed the true
 #'   rank).  \code{NULL} (default) uses \code{min(F, N, 20)}.
-#' @param prior \code{"L2"} (half-normal; group-shrinks by squared energy)
-#'   or \code{"L1"} (exponential).
 #' @param nrun Number of random-initialization restarts (default \code{10}).
 #'   ARD is a sensitive point estimate, so several restarts are advisable; the
 #'   reported rank is the \strong{mode} of the per-run estimates
 #'   (\code{rank.runs}), with a representative modal fit kept for
 #'   \code{plot}/\code{W}/\code{H}.
-#' @param seed Random-initialization seed.
 #' @param plot Logical; draw the relevance bar plot.
-#' @param ... Advanced tuning, rarely needed (safe defaults in brackets):
-#'   \code{a} [\code{1}] and \code{b} [\code{(F + N)/K * mean(Y)}], the
-#'   inverse-gamma prior (a smaller \code{b} over-prunes, a larger one prunes
-#'   nothing); \code{maxit} [\code{3000}] and \code{epsilon} [\code{1e-6}]
-#'   (optimisation control); \code{tol} [\code{1e-3}], the relevance threshold
-#'   below which a component is counted as pruned.
+#' @param ... Advanced options, rarely needed (safe defaults in brackets):
+#'   \code{prior} [\code{"L2"}] (\code{"L2"} = half-normal / squared-energy group
+#'   shrinkage, \code{"L1"} = exponential / sparser); \code{seed} [\code{123}]
+#'   (random-initialization seed); \code{a} [\code{1}] and
+#'   \code{b} [\code{(F + N)/K * mean(Y)}], the inverse-gamma prior (a smaller
+#'   \code{b} over-prunes, a larger one prunes nothing); \code{maxit}
+#'   [\code{3000}] and \code{epsilon} [\code{1e-6}] (optimisation control);
+#'   \code{tol} [\code{1e-3}], the relevance threshold below which a component is
+#'   counted as pruned.
 #' @return An object of class \code{"nmfkc.ard"}: a list with
 #'   \code{rank} (estimated = mode over restarts), \code{rank.runs} (the
 #'   per-run estimates), \code{relevance} (representative run, descending),
@@ -115,17 +115,18 @@
 #' ar$rank                                # ~ 3 surviving components
 #' plot(ar)
 #' }
-nmfkc.ard <- function(Y, rank = NULL, prior = c("L2", "L1"), nrun = 10,
-                      seed = 123, plot = FALSE, ...) {
-  prior <- base::match.arg(prior)
+nmfkc.ard <- function(Y, rank = NULL, nrun = 10, plot = FALSE, ...) {
   Y <- base::as.matrix(Y); Fr <- base::nrow(Y); Nc <- base::ncol(Y)
   K <- if (base::is.null(rank)) base::min(Fr, Nc, 20L) else rank
 
-  ## Advanced tuning lives in `...` with safe defaults (rarely changed).
+  ## Advanced options live in `...` with safe defaults (rarely changed).
   ## Default prior scale ties b to the initial per-component energy scale
   ## (F + N)/K * mean(Y); a fixed small fraction of mean(Y) over-prunes
   ## (winner-take-all collapse) when (F + N)/K is large.
   dots    <- base::list(...)
+  prior   <- base::match.arg(if (base::is.null(dots$prior)) "L2" else dots$prior,
+                             c("L2", "L1"))
+  seed    <- if (base::is.null(dots$seed))    123     else dots$seed
   a       <- if (base::is.null(dots$a))       1       else dots$a
   b       <- if (base::is.null(dots$b))       (Fr + Nc) / K * base::mean(Y) else dots$b
   maxit   <- if (base::is.null(dots$maxit))   3000    else dots$maxit
