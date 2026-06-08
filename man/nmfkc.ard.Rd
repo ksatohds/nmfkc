@@ -8,14 +8,10 @@ nmfkc.ard(
   Y,
   rank = NULL,
   prior = c("L2", "L1"),
-  nrun = 1,
-  a = 1,
-  b = NULL,
-  maxit = 3000,
-  epsilon = 1e-06,
-  tol = 0.001,
+  nrun = 10,
   seed = 123,
-  plot = FALSE
+  plot = FALSE,
+  ...
 )
 }
 \arguments{
@@ -27,26 +23,22 @@ rank).  \code{NULL} (default) uses \code{min(F, N, 20)}.}
 \item{prior}{\code{"L2"} (half-normal; group-shrinks by squared energy)
 or \code{"L1"} (exponential).}
 
-\item{nrun}{Number of random-initialization restarts.  ARD is a
-sensitive point estimate, so \code{nrun >= 10} is recommended; the
+\item{nrun}{Number of random-initialization restarts (default \code{10}).
+ARD is a sensitive point estimate, so several restarts are advisable; the
 reported rank is the \strong{mode} of the per-run estimates
 (\code{rank.runs}), with a representative modal fit kept for
 \code{plot}/\code{W}/\code{H}.}
 
-\item{a, b}{Inverse-gamma hyperparameters for \eqn{\lambda_k}.  \code{b}
-defaults to the initial per-component energy scale
-\code{(nrow(Y) + ncol(Y)) / K * mean(Y)}.  A much smaller \code{b}
-over-prunes (collapsing onto one dominant component); a much larger
-one prunes nothing.}
-
-\item{maxit, epsilon}{Maximum iterations and relative-objective tolerance.}
-
-\item{tol}{Relevance threshold (relative to the largest component) below
-which a component is counted as pruned.}
-
 \item{seed}{Random-initialization seed.}
 
 \item{plot}{Logical; draw the relevance bar plot.}
+
+\item{...}{Advanced tuning, rarely needed (safe defaults in brackets):
+\code{a} \link{\code{1}} and \code{b} \link{\code{(F + N)/K * mean(Y)}}, the
+inverse-gamma prior (a smaller \code{b} over-prunes, a larger one prunes
+nothing); \code{maxit} \link{\code{3000}} and \code{epsilon} \link{\code{1e-6}}
+(optimisation control); \code{tol} \link{\code{1e-3}}, the relevance threshold
+below which a component is counted as pruned.}
 }
 \value{
 An object of class \code{"nmfkc.ard"}: a list with
@@ -67,10 +59,21 @@ half-normal prior) or \eqn{+ 1/\lambda_k} (L1 / exponential), which
 drives unsupported components to zero.  The number of surviving
 components is the estimated rank.  Covariates are ignored (plain NMF).
 
-This is a model-based point estimate: the result depends on the prior
-(\code{a}, \code{b}), the starting rank and the random initialization,
-and can vary run to run.  Use it as a complement to the CV / consensus
-engines, not a sole criterion.
+This is a model-based point estimate: the result depends on the prior, the
+starting rank and the random initialization, and can vary run to run.  Use
+it as a complement to the CV / consensus engines, not a sole criterion.
+}
+\details{
+\strong{Relation to Tan & Fevotte (2013).}  The update equations reproduce
+the paper's \eqn{\ell_2} / \eqn{\ell_1} ARD-NMF for the \strong{Euclidean
+(\eqn{\beta = 2})} case exactly: the multiplicative penalties, the
+closed-form \eqn{\lambda_k} update \eqn{(f(w_k) + f(h_k) + b)/c} and the
+constant \eqn{c} (their Eq. 33).  Two deliberate simplifications keep it
+practical: only \eqn{\beta = 2} is implemented (the paper covers the general
+\eqn{\beta}-divergence), and the default \code{b} is an \emph{empirical}
+per-component energy scale \eqn{(F + N)/K \cdot \bar{Y}} that reliably avoids
+the winner-take-all collapse, rather than the paper's method-of-moments value
+(their Eq. 38).
 }
 \examples{
 \donttest{
