@@ -94,6 +94,34 @@ axis(1); axis(2, at = 1:K)
 par(op)
 ```
 
+## Network diagram (Graphviz DOT)
+
+`nmfkc.net.DOT()` turns the fit into a Graphviz **DOT** graph: each network node
+is linked to the community (basis) it belongs to, the edge thickness encodes the
+membership strength, and colours mark the communities.  Rendered with the
+suggested package **DiagrammeR**, it embeds directly in the HTML output.
+
+```{r dot-check, include = FALSE}
+has_dg <- requireNamespace("DiagrammeR", quietly = TRUE)
+```
+
+```{r dot, eval = has_dg, fig.width = 7, fig.height = 7}
+dot <- nmfkc.net.DOT(
+  res,
+  Y.label = as.character(1:N),
+  X.label = paste("Community", 1:K),
+  Y.title = "Network nodes",
+  X.title = "Communities",
+  layout  = "fdp"            # force-directed; try "circo", "neato", "dot"
+)
+DiagrammeR::grViz(as.character(dot))
+```
+
+Each node is pulled toward the community hub it belongs to; a node with a split
+membership would sit between two hubs.  `Y.cluster = "hard"` colours every node by
+its single dominant community instead.  (If DiagrammeR is not installed this
+diagram is skipped.)
+
 ## How many communities? `nmfkc.net.rank`
 
 The same rank-selection diagnostics as `nmfkc.rank` are available for the
