@@ -1,5 +1,13 @@
 # nmfkc 0.7.4 (development)
 
+### **Bug fix: `nmfkc.net.DOT()` mis-detected `type = "bi"` as `"tri"`**
+- The bi-vs-tri auto-detection ignored the result's `$type` field and fell back
+  to `all.equal(C, diag(Q))`, which fails when `C` carries dimnames (it reports a
+  names mismatch).  A `type = "bi"` fit was therefore treated as `"tri"`, drawing
+  the inter-class interaction layer that the bi model (with \eqn{C = I}) should
+  not have.  Detection now uses `$type` first (falling back to the dimnames-safe
+  identity check), so `"bi"` correctly draws no inter-class edges.
+
 ### **`nmfkc.ard()`: better default prior scale**
 - The default `b` is now the initial per-component energy scale
   `(nrow(Y) + ncol(Y)) / K * mean(Y)` instead of a fixed `0.001 * mean(Y)`.

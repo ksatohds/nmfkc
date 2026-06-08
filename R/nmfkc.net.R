@@ -329,13 +329,22 @@ nmfkc.net.DOT <- function(
   ## Auto-detect bi vs tri model
   ## ---------------------------------------------------------
   if (is.null(show.theta)) {
-    sym_arg <- tryCatch(eval(result$call$Y.symmetric), error = function(e) NULL)
-    if (!is.null(sym_arg)) {
-      show.theta <- (sym_arg == "tri")
+    if (!is.null(result$type)) {
+      ## New nmfkc.net API: $type is "bi" / "tri" / "signed".  Only "bi"
+      ## has C = I (no inter-class interaction), so it draws no C edges.
+      show.theta <- (result$type != "bi")
     } else {
-      is_identity <- (all(dim(C_mat) == c(Q, Q)) &&
-                      isTRUE(all.equal(C_mat, diag(Q), tolerance = 1e-6)))
-      show.theta <- !is_identity
+      sym_arg <- tryCatch(eval(result$call$Y.symmetric), error = function(e) NULL)
+      if (!is.null(sym_arg)) {
+        show.theta <- (sym_arg == "tri")
+      } else {
+        ## Legacy fallback: detect C = I.  Drop dimnames first, otherwise
+        ## all.equal() reports a names mismatch and mis-detects bi as tri.
+        is_identity <- (all(dim(C_mat) == c(Q, Q)) &&
+                        isTRUE(all.equal(unname(C_mat), diag(Q),
+                                         tolerance = 1e-6)))
+        show.theta <- !is_identity
+      }
     }
   }
 
