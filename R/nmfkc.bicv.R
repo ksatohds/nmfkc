@@ -79,11 +79,11 @@
 #'   that would reach the requested ranks.  Raising \code{nfolds} lifts the
 #'   limit at the cost of a smaller hold-out and more compute
 #'   (\eqn{(\text{nfolds} - 1)^2} full fits per rank).
-#' @param ... Advanced options, rarely needed (safe defaults in brackets):
-#'   \code{nfolds} [\code{2}], the number of row and column folds (the grid is
-#'   \code{nfolds x nfolds}; \code{2} = leave out half the rows / columns, Owen
-#'   & Perry's recommendation); \code{seed} [\code{123}] (fold-assignment seed);
-#'   and \code{nnls.maxit} [\code{100}] (multiplicative-update iterations for the
+#' @param ... Advanced options, rarely needed (defaults in parentheses):
+#'   \code{nfolds} (\code{2}), the number of row and column folds (the grid is
+#'   \code{nfolds x nfolds}; \code{2} leaves out half the rows / columns, Owen
+#'   & Perry's recommendation); \code{seed} (\code{123}, fold-assignment seed);
+#'   and \code{nnls.maxit} (\code{100}, multiplicative-update iterations for the
 #'   fold-in non-negative regressions).  Any other arguments are passed to
 #'   \code{\link{nmfkc}} for the per-block fits (e.g.\ \code{maxit}).
 #' @return A list (cf.\ \code{\link{nmfkc.ecv}}) with:

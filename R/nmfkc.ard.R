@@ -85,14 +85,14 @@
 #'   (\code{rank.runs}), with a representative modal fit kept for
 #'   \code{plot}/\code{W}/\code{H}.
 #' @param plot Logical; draw the relevance bar plot.
-#' @param ... Advanced options, rarely needed (safe defaults in brackets):
-#'   \code{prior} [\code{"L2"}] (\code{"L2"} = half-normal / squared-energy group
-#'   shrinkage, \code{"L1"} = exponential / sparser); \code{seed} [\code{123}]
-#'   (random-initialization seed); \code{a} [\code{1}] and
-#'   \code{b} [\code{(F + N)/K * mean(Y)}], the inverse-gamma prior (a smaller
+#' @param ... Advanced options, rarely needed (defaults in parentheses):
+#'   \code{prior} (\code{"L2"}: half-normal / squared-energy group
+#'   shrinkage, \code{"L1"}: exponential / sparser); \code{seed} (\code{123},
+#'   random-initialization seed); \code{a} (\code{1}) and
+#'   \code{b} (\code{(F + N)/K * mean(Y)}), the inverse-gamma prior (a smaller
 #'   \code{b} over-prunes, a larger one prunes nothing); \code{maxit}
-#'   [\code{3000}] and \code{epsilon} [\code{1e-6}] (optimisation control);
-#'   \code{tol} [\code{1e-3}], the relevance threshold below which a component is
+#'   (\code{3000}) and \code{epsilon} (\code{1e-6}) for optimisation control;
+#'   \code{tol} (\code{1e-3}), the relevance threshold below which a component is
 #'   counted as pruned.
 #' @return An object of class \code{"nmfkc.ard"}: a list with
 #'   \code{rank} (estimated = mode over restarts), \code{rank.runs} (the

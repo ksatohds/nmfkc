@@ -25,9 +25,9 @@ nmfkc.consensus(
 \item{keep.consensus}{Logical; if \code{TRUE} also return the list of
 consensus matrices (one \eqn{N \times N} matrix per rank).}
 
-\item{...}{Advanced options, rarely needed (safe defaults in brackets):
-\code{seed} \link{\code{123}} (base seed; run \eqn{r} of rank index \eqn{i} uses
-\code{seed + 1000 * i + r}) and \code{pac.range} \link{\code{c(0.1, 0.9)}} (the
+\item{...}{Advanced options, rarely needed (defaults in parentheses):
+\code{seed} (\code{123}, base seed; run \eqn{r} of rank index \eqn{i} uses
+\code{seed + 1000 * i + r}) and \code{pac.range} (\code{c(0.1, 0.9)}, the
 ambiguous interval \eqn{(u_1, u_2)} for the PAC measure).  Any other
 arguments are passed to \code{\link{nmfkc}} (e.g.\ \code{maxit});
 \code{X.init} is forced to \code{"runif"}.}

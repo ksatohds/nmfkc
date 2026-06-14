@@ -11,11 +11,11 @@ nmfkc.bicv(Y, rank = 1:3, ...)
 
 \item{rank}{Integer vector of ranks to evaluate.}
 
-\item{...}{Advanced options, rarely needed (safe defaults in brackets):
-\code{nfolds} \link{\code{2}}, the number of row and column folds (the grid is
-\code{nfolds x nfolds}; \code{2} = leave out half the rows / columns, Owen
-& Perry's recommendation); \code{seed} \link{\code{123}} (fold-assignment seed);
-and \code{nnls.maxit} \link{\code{100}} (multiplicative-update iterations for the
+\item{...}{Advanced options, rarely needed (defaults in parentheses):
+\code{nfolds} (\code{2}), the number of row and column folds (the grid is
+\code{nfolds x nfolds}; \code{2} leaves out half the rows / columns, Owen
+& Perry's recommendation); \code{seed} (\code{123}, fold-assignment seed);
+and \code{nnls.maxit} (\code{100}, multiplicative-update iterations for the
 fold-in non-negative regressions).  Any other arguments are passed to
 \code{\link{nmfkc}} for the per-block fits (e.g.\ \code{maxit}).}
 }

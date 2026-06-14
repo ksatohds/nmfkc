@@ -1,4 +1,4 @@
-# nmfkc 0.7.4 (development)
+# nmfkc 0.8.2
 
 ### **`nmfkc.net.DOT()`: default layout is now `"neato"`**
 - The `layout` choices are reordered by recommendation
