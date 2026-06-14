@@ -8,3 +8,5 @@ nmfkc*.tgz
 inst/doc
 /doc/
 /Meta/
+.claude/settings.local.json
+nmfkc-manual.pdf
