@@ -71,6 +71,7 @@ future versions; details are to be described in an upcoming paper.
 }
 
 \examples{
+\donttest{
 ## Iris 3-class classification with RFF + direct MU (Ding-Li-Jordan)
 data(iris)
 set.seed(1)
@@ -116,6 +117,7 @@ pred.train <- predict(res, newA = rff.train$Z, type = "class")
 pred.test  <- predict(res, newA = rff.test$Z,  type = "class")
 mean(pred.train == as.character(lab.train))
 mean(pred.test  == as.character(lab.test))
+}
 
 }
 \seealso{

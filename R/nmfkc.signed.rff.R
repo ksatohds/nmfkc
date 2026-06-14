@@ -84,6 +84,7 @@
 #'   \code{\link{nmfkc.kernel.beta.nearest.med}}
 #'
 #' @examples
+#' \donttest{
 #' ## Iris 3-class classification with RFF + direct MU (Ding-Li-Jordan)
 #' data(iris)
 #' set.seed(1)
@@ -129,6 +130,7 @@
 #' pred.test  <- predict(res, newA = rff.test$Z,  type = "class")
 #' mean(pred.train == as.character(lab.train))
 #' mean(pred.test  == as.character(lab.test))
+#' }
 #'
 #' @export
 nmfkc.signed.rff <- function(U, beta = NULL,
