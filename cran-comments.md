@@ -5,35 +5,37 @@
 ## Test environments
 
 * Windows 11 (local), R 4.4.1
-* Ubuntu 24.04 LTS (remote server), R 4.5.3
 * win-builder (R-devel, R-release)
 * R-hub v2 (Linux, macOS, Windows)
 
 ## Notes
 
-* "unable to verify current time" — appears on local/server environments
-  without internet access to CRAN servers; not a package issue.
+* "checking for future file timestamps ... NOTE" — appears on environments
+  that cannot reach the CRAN time server to verify the current time; not a
+  package issue.
 
 ## This is an update
 
-This is a feature/maintenance update from v0.6.7 (currently on CRAN,
-published 2026-04-15) to v0.7.3.  Highlights of the changes since v0.6.7
-are listed in NEWS.md; major items include:
+This is a feature/maintenance update from v0.7.3 (currently on CRAN,
+published 2026-05-14) to v0.8.2.  All changes since v0.7.3 are listed in
+NEWS.md; the major items are:
 
-* New `nmf.ffb()` family (canonical alias for `nmf.sem()`; the rebrand
-  matches the published manuscript, Satoh 2025 arXiv:2512.18250).  Legacy
-  `nmf.sem*` names continue to work and share the same return classes.
-* Full X-fixed pair bootstrap inference for the feedback/exogenous
-  coefficient matrices (replacing the legacy 1-step Newton wild bootstrap).
-* New `nmfkc.signed()` / `nmfae.signed()` family for signed coefficient
-  NMF (Ding et al. 2010 sign-splitting; admits negative entries in
-  coefficient matrices and observed data).
-* `Y.weights` semantics unified to `lm()`-style weighted least squares
-  across all five NMF variants.
-* All MU functions now share `maxit = 5000` default and emit a warning
-  when `maxit` is exhausted without convergence.
-* Several bug fixes (NA handling in `nmfkc.net()`, C matrix asymmetry in
-  tri-symmetric NMF, dimension bug in `nmf.sem.inference()`).
+* New rank-selection engines, complementing the existing element-wise
+  cross-validation: `nmfkc.bicv()` (bi-cross-validation, Owen & Perry 2009),
+  `nmfkc.consensus()` (consensus clustering with cophenetic / dispersion / PAC,
+  Brunet et al. 2004; Kim & Park 2007; Senbabaoglu et al. 2014), and
+  `nmfkc.ard()` (automatic relevance determination, Tan & Fevotte 2013).
+* `nmfkc.rank()` now reports the broken-stick-corrected effective rank
+  (Roy & Vetterli 2007) together with R-squared and the element-wise CV error
+  (Wold 1978); the heavier clustering criteria moved to `nmfkc.consensus()`.
+* Leaner, safer interfaces for `nmfkc.ard()`, `nmfkc.bicv()` and
+  `nmfkc.consensus()` (fine-tuning arguments moved into `...` with the same
+  safe defaults; existing named-argument calls are unaffected).
+* Bug fix in `nmfkc.net.DOT()`: a `type = "bi"` fit was mis-detected as
+  `"tri"` when the C matrix carried dimnames; detection now uses the result's
+  `$type`.  The default Graphviz layout is now `"neato"`.
+* Two new vignettes ("Choosing the NMF rank on data with a known true rank"
+  and "Soft community detection in networks with nmfkc.net").
 
 ## Additional checks
 
