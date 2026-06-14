@@ -1,18 +1,19 @@
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 0 notes (win-builder R-devel and R-release)
 
 ## Test environments
 
-* Windows 11 (local), R 4.4.1
-* win-builder (R-devel, R-release)
+* win-builder (R-devel 2026-06-13 r90149, R-release 4.6.0): Status OK
+* Windows 11 (local), R 4.4.1: 1 NOTE (see below)
 * R-hub v2 (Linux, macOS, Windows)
 
 ## Notes
 
-* "checking for future file timestamps ... NOTE" — appears on environments
-  that cannot reach the CRAN time server to verify the current time; not a
-  package issue.
+* The only NOTE seen anywhere is "checking for future file timestamps ...
+  NOTE" on the local machine; it appears when the environment cannot reach the
+  CRAN time server to verify the current time, and is not a package issue.  It
+  does not appear on win-builder, where the check is fully clean.
 
 ## This is an update
 
