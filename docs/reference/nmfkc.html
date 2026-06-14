@@ -23,7 +23,7 @@ The rank of the basis matrix can be specified using either the rank argument
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,8 +37,10 @@ The rank of the basis matrix can be specified using either the rank argument
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -143,38 +145,22 @@ Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lamb
 <li><p><code>Q</code>: Backward-compatible name for the rank of the basis matrix (Q).</p></li>
 <li><p><code>method</code>: Objective function: Euclidean distance <code>"EU"</code> (default) or Kullback–Leibler divergence <code>"KL"</code>.</p></li>
 <li><p><code>X.restriction</code>: Constraint for columns of \(X\). Options: <code>"colSums"</code> (default), <code>"colSqSums"</code>, <code>"totalSum"</code>, <code>"none"</code>, or <code>"fixed"</code>.
-<code>"none"</code> applies no normalization to \(X\) after each update, allowing it to absorb the scale freely.
-This is automatically set when <code>Y.symmetric = "bi"</code> or <code>"tri"</code>, because column normalization
-would prevent \(X X^\top\) (or \(X C X^\top\)) from approximating \(Y\) at the correct scale.</p></li>
+<code>"none"</code> applies no normalization to \(X\) after each update, allowing it to absorb the scale freely.</p></li>
 <li><p><code>X.init</code>: Method for initializing the basis matrix \(X\). Options: <code>"kmeans"</code> (default), <code>"kmeansar"</code>, <code>"runif"</code>, <code>"nndsvd"</code>, or a user-specified matrix. <code>"kmeansar"</code> applies \(k\)-means initialization and then fills zero entries with <code>Uniform(0, mean(Y)/100)</code>, analogous to NNDSVDar.</p></li>
 <li><p><code>nstart</code>: Number of random starts for initialization of \(X\) (default: 1).
 Used by <code>kmeans</code> (when <code>X.init = "kmeans"</code> or <code>"kmeansar"</code>) and by the
-multi-start evaluation (when <code>X.init = "runif"</code>).
-For symmetric NMF (<code>Y.symmetric = "tri"</code> or <code>"bi"</code>), results are sensitive to
-initial values; <code>nstart = 20</code> or higher is recommended.</p></li>
+multi-start evaluation (when <code>X.init = "runif"</code>).</p></li>
 <li><p><code>seed</code>: Integer seed for reproducibility (default: 123).</p></li>
 <li><p><code>C.init</code>: Optional numeric matrix giving the initial value of the parameter matrix \(C\)
 (i.e., \(\Theta\)). If <code>A</code> is <code>NULL</code>, <code>C</code> has dimension \(Q \times N\) (equivalently \(B\));
 otherwise, <code>C</code> has dimension \(Q \times K\) where \(K = nrow(A)\). Default initializes all entries to 1.</p></li>
-<li><p><code>Y.symmetric</code>: Character string specifying the type of symmetric NMF.
-<code>"none"</code> (default): standard NMF (\(Y \approx XB\)).
-<code>"bi"</code>: 2-factor symmetric NMF (\(Y \approx X X^\top\)).
-Internally implemented as the <code>"tri"</code> model with \(C = I_Q\) (identity matrix)
-held fixed, so that \(X\) is updated freely without column normalization.
-The multiplicative update for \(X\) uses cube-root damping
-(\(X \leftarrow X \circ (numerator / denominator)^{1/3}\)) to prevent
-oscillation, since \(X\) appears in both factors of the decomposition
-(He et al., 2011, Proposition 1).
-<code>"tri"</code>: 3-factor symmetric NMF (\(Y \approx X C X^\top\))
-where \(C\) is a \(Q \times Q\) matrix representing cluster interactions
-(Ding et al., 2006).
-Both <code>"bi"</code> and <code>"tri"</code> require <code>Y</code> to be square
-and cannot be used with covariate matrix <code>A</code>.
-When <code>Y.symmetric = "bi"</code>, <code>X.restriction</code>
-is automatically set to <code>"none"</code> (no column normalization), because
-\(C = I_Q\) is fixed and cannot absorb the scale.
-For <code>"tri"</code>, column normalization is retained (default <code>"colSums"</code>)
-because the free parameter matrix \(C\) absorbs the scale.</p></li>
+<li><p><code>Y.symmetric</code>: <strong>Removed.</strong> Symmetric NMF
+(\(Y \approx X X^\top\) or \(X C X^\top\)) has moved to the
+dedicated <code><a href="nmfkc.net.html">nmfkc.net</a></code> function (types <code>"tri"</code>,
+<code>"bi"</code>, <code>"signed"</code>), which uses the correct
+Frobenius bilateral-gradient updates.  Passing <code>Y.symmetric</code>
+to <code>nmfkc()</code> now stops with a message pointing to
+<code><a href="nmfkc.net.html">nmfkc.net()</a></code>.</p></li>
 <li><p><code>prefix</code>: Prefix for column names of \(X\) and row names of \(B\) (default: "Basis").</p></li>
 <li><p><code>print.trace</code>: Logical. If <code>TRUE</code>, prints progress every 10 iterations (default: <code>FALSE</code>).</p></li>
 <li><p><code>print.dims</code>: Deprecated. Use <code>verbose</code> instead.</p></li>
@@ -237,7 +223,13 @@ Default is <code>"full"</code>. For backward compatibility,
 <dd><p>Objective values by iteration.</p></dd>
 
 <dt>r.squared</dt>
-<dd><p>Coefficient of determination \(R^2\) between \(Y\) and \(X B\).</p></dd>
+<dd><p>\(R^2 = \mathrm{cor}(Y, XB)^2\) (Pearson; scale-invariant; \([0,1]\)).</p></dd>
+
+<dt>r.squared.uncentered</dt>
+<dd><p>Uncentered \(R^2 = 1 - \|Y - XB\|_F^2 / \|Y\|_F^2\) (baseline = zero matrix; natural for non-negative factorizations without an intercept).</p></dd>
+
+<dt>r.squared.centered</dt>
+<dd><p>Row-mean centered \(R^2 = 1 - \|Y - XB\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2\), the multivariate regression \(R^2\).</p></dd>
 
 <dt>method</dt>
 <dd><p>Character string indicating the optimization method used (<code>"EU"</code> or <code>"KL"</code>).</p></dd>
@@ -258,7 +250,7 @@ Default is <code>"full"</code>. For backward compatibility,
 <dd><p>Mean Absolute Error between \(Y\) and \(X B\).</p></dd>
 
 <dt>criterion</dt>
-<dd><p>A list of selection criteria, including <code>ICp</code> (<code>ICp1</code>, <code>ICp2</code>, <code>ICp3</code>), <code>CPCC</code>, <code>silhouette</code>, <code>AIC</code>, <code>BIC</code>, <code>dist.cor</code>, <code>B.prob.sd.min</code>, <code>B.prob.max.mean</code>, and <code>B.prob.entropy.mean</code>.</p></dd>
+<dd><p>A list of selection criteria: <code>silhouette</code> (mean silhouette width of the hard clustering, computed in the original data space <code>dist(t(Y))</code> with the per-sample labels), <code>CPCC</code> (cophenetic correlation of a hierarchical clustering of the coefficient distances <code>dist(t(B))</code>), <code>dist.cor</code> (correlation between original-data and coefficient distances), <code>B.prob.max.mean</code> (clustering crispness: mean dominant-cluster membership, in \([1/Q, 1]\); meaningful at fixed \(Q\) as a confidence check before using <code>B.cluster</code> as hard labels), and <code>effective.rank</code>.  The last is the <strong>effective rank</strong>: \(\exp\) of the Shannon entropy of the explained-variance distribution \(p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})\).  By the trace identity \(\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))\), \(p_k\) is the exact fraction of the total coefficient variance carried by factor \(k\), so the entropy measures how that variance is spread across factors.  It ranges in \([1, Q]\) (1 when one factor carries all the variance, \(Q\) when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \(\exp(\mathrm{entropy})\) functional form of Roy &amp; Vetterli (2007).</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -277,6 +269,9 @@ to label matrix for classification. arXiv:2510.10375.
 Tri-Factorizations for Clustering.
 In <em>Proc. 12th ACM SIGKDD</em> (pp. 126–135).
 <a href="https://doi.org/10.1145/1150402.1150420" class="external-link">doi:10.1145/1150402.1150420</a></p>
+<p>Roy, O., &amp; Vetterli, M. (2007). The effective rank: A measure of
+effective dimensionality. In <em>15th European Signal Processing
+Conference (EUSIPCO)</em> (pp. 606–610).</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -325,41 +320,8 @@ In <em>Proc. 12th ACM SIGKDD</em> (pp. 126–135).
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Y(2,10)~X(2,2)C(2,2)A(2,10)=XB(2,10)...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 3. Symmetric NMF (bi: Y ~ X X^T)</span></span></span>
-<span class="r-in"><span><span class="va">S</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>,<span class="fl">0</span>,<span class="fl">2</span>, <span class="fl">0</span>,<span class="fl">3</span>,<span class="fl">1</span>, <span class="fl">2</span>,<span class="fl">1</span>,<span class="fl">2</span><span class="op">)</span>, nrow<span class="op">=</span><span class="fl">3</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">res_bi</span> <span class="op">&lt;-</span> <span class="fu">nmfkc</span><span class="op">(</span><span class="va">S</span>, rank<span class="op">=</span><span class="fl">2</span>, Y.symmetric<span class="op">=</span><span class="st">"bi"</span><span class="op">)</span></span></span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Y.symmetric = "bi" in nmfkc() is deprecated.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> Use nmfkc.net(Y, rank, type = "bi") instead, which implements the correct Frobenius bilateral-gradient updates.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> See help(nmfkc.net) (all three types: "tri", "bi", "signed").</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(3,3)~X(3,2)B(2,3)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-in"><span><span class="va">res_bi</span><span class="op">$</span><span class="va">X</span>   <span class="co"># basis matrix (no column normalization)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         Basis1     Basis2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.0000000 1.71131965</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 1.7274149 0.01105598</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.5977175 1.22664897</span>
-<span class="r-in"><span><span class="va">res_bi</span><span class="op">$</span><span class="va">XB</span>  <span class="co"># reconstruction X %*% t(X)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>            [,1]       [,2]     [,3]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 2.92861495 0.01892032 2.099188</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.01892032 2.98408448 1.046068</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 2.09918848 1.04606801 1.861934</span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 4. Symmetric NMF (tri: Y ~ X C X^T)</span></span></span>
-<span class="r-in"><span><span class="va">res_tri</span> <span class="op">&lt;-</span> <span class="fu">nmfkc</span><span class="op">(</span><span class="va">S</span>, rank<span class="op">=</span><span class="fl">2</span>, Y.symmetric<span class="op">=</span><span class="st">"tri"</span><span class="op">)</span></span></span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Y.symmetric = "tri" in nmfkc() is deprecated.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> Use nmfkc.net(Y, rank, type = "tri") instead, which implements the correct Frobenius bilateral-gradient updates.</span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> See help(nmfkc.net) (all three types: "tri", "bi", "signed").</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Y(3,3)~X(3,2)B(2,3)...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
-<span class="r-in"><span><span class="va">res_tri</span><span class="op">$</span><span class="va">C</span>  <span class="co"># Q x Q cluster interaction matrix</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                 2          1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Basis1 8.60976277 0.03853537</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Basis2 0.03853537 5.41340456</span>
-<span class="r-in"><span><span class="va">res_tri</span><span class="op">$</span><span class="va">XB</span> <span class="co"># reconstruction X %*% C %*% t(X)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>            [,1]       [,2]     [,3]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 2.92949072 0.01683423 2.098326</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.01683423 2.98344152 1.047362</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 2.09832602 1.04736193 1.862261</span>
+<span class="r-in"><span><span class="co"># For symmetric NMF (Y approximated by X X^T or X C X^T),</span></span></span>
+<span class="r-in"><span><span class="co"># use \code{\link{nmfkc.net}()} instead.</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

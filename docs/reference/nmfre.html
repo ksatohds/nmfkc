@@ -53,7 +53,7 @@ repeated constrained re-optimization."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,8 +67,10 @@ repeated constrained re-optimization."></head><body>
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -307,12 +309,26 @@ where \(d_q\) are eigenvalues of \(X'X\).</p></dd>
 
 
 </dl><p><strong>Fit statistics</strong></p><dl><dt><code>r.squared</code></dt>
-<dd><p>Coefficient of determination \(R^2\) for
-\(Y\) vs \(X(\Theta A + U)\) (BLUP).</p></dd>
+<dd><p>Pearson \(\mathrm{cor}(Y, X(\Theta A + U))^2\)
+(BLUP prediction).</p></dd>
+
+<dt><code>r.squared.uncentered</code></dt>
+<dd><p>Uncentered
+\(1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y\|_F^2\) (BLUP;
+baseline = zero matrix).</p></dd>
+
+<dt><code>r.squared.centered</code></dt>
+<dd><p>Row-mean centered
+\(1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2\)
+(BLUP; baseline = per-row mean).</p></dd>
 
 <dt><code>r.squared.fixed</code></dt>
-<dd><p>Coefficient of determination \(R^2\) for
-\(Y\) vs \(X \Theta A\) (fixed effects only).</p></dd>
+<dd><p>Pearson \(\mathrm{cor}(Y, X\Theta A)^2\)
+(fixed-only prediction).</p></dd>
+
+<dt><code>r.squared.fixed.uncentered</code>, <code>r.squared.fixed.centered</code></dt>
+<dd><p>Uncentered
+and centered \(R^2\) for the fixed-only prediction.</p></dd>
 
 <dt><code>ICC</code></dt>
 <dd><p>Trace-based Intraclass Correlation Coefficient.
@@ -386,7 +402,9 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> NMF-RE: Y(1,50) = X(1,1) [C(1,2) A + U(1,50)]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 4 (converged, epsilon = 1e-05)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared: 0.9515 (XB+blup), 0.6511 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (cor^2):    0.9515 (XB+blup), 0.6511 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (uncentered):     0.9752 (XB+blup), 0.8959 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (centered): 0.9047 (XB+blup), 0.6005 (XB)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Variance components:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 1  (residual)</span>
@@ -418,7 +436,9 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-in"><span><span class="op">}</span><span class="co"># }</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> NMF-RE: Y(4,27) = X(4,1) [C(1,2) A + U(1,27)]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 2 (converged, epsilon = 1e-05)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared: 0.5739 (XB+blup), 0.4167 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (cor^2):    0.5739 (XB+blup), 0.4167 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (uncentered):     0.9937 (XB+blup), 0.9915 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (centered): 0.4139 (XB+blup), 0.2133 (XB)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Variance components:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 1  (residual)</span>

@@ -1,3 +1,391 @@
+# nmfkc 0.8.2
+
+### **`nmfkc.net.DOT()`: default layout is now `"neato"`**
+- The `layout` choices are reordered by recommendation
+  (`neato`, `fdp`, `twopi`, `circo`, `dot`), so the default changes from
+  `"fdp"` to `"neato"`, which separates community graphs more clearly.  Raising
+  `threshold` (e.g.\ 0.2--0.3) further declutters weak membership edges.
+
+### **Bug fix: `nmfkc.net.DOT()` mis-detected `type = "bi"` as `"tri"`**
+- The bi-vs-tri auto-detection ignored the result's `$type` field and fell back
+  to `all.equal(C, diag(Q))`, which fails when `C` carries dimnames (it reports a
+  names mismatch).  A `type = "bi"` fit was therefore treated as `"tri"`, drawing
+  the inter-class interaction layer that the bi model (with \eqn{C = I}) should
+  not have.  Detection now uses `$type` first (falling back to the dimnames-safe
+  identity check), so `"bi"` correctly draws no inter-class edges.
+
+### **`nmfkc.bicv()` / `nmfkc.consensus()`: leaner signatures**
+- Fine-tuning arguments move into `...` (same safe defaults): `nmfkc.bicv()`
+  is now `nmfkc.bicv(Y, rank, ...)` (`nfolds` = 2 per Owen & Perry, plus `seed`,
+  `nnls.maxit`, via `...`), and `nmfkc.consensus()` is
+  `nmfkc.consensus(Y, A, rank, nrun, keep.consensus, ...)` (`seed`, `pac.range`
+  via `...`).  Existing named-argument calls are unaffected.
+
+### **`nmfkc.ard()`: simpler, safer interface**
+- The signature is trimmed to the essentials
+  `nmfkc.ard(Y, rank, nrun, plot, ...)`; everything else (`prior`, `seed`,
+  `a`, `b`, `maxit`, `epsilon`, `tol`) moves into `...` with the same safe
+  defaults, so a typical call is just `nmfkc.ard(Y, rank = K)`.
+- `nrun` now defaults to `10` (was `1`): ARD is a sensitive point estimate, and
+  several restarts give a stable modal rank by default.
+- The help now states explicitly that the implementation is the Euclidean
+  (\eqn{\beta = 2}) case of Tan & Fevotte (2013) and that the default `b` is an
+  empirical energy scale, not the paper's method-of-moments value (Eq. 38).
+
+### **`nmfkc.ard()`: better default prior scale**
+- The default `b` is now the initial per-component energy scale
+  `(nrow(Y) + ncol(Y)) / K * mean(Y)` instead of a fixed `0.001 * mean(Y)`.
+  The old fixed fraction over-pruned (winner-take-all collapse onto one
+  dominant component) when `(F + N)/K` was large; the new scale-aware
+  default recovers genuine low-rank structure stably (e.g. a clean rank-3
+  signal: relevance `1, 0.99, 0.87, 0, ...`, all restarts agree).
+
+### **New `nmfkc.ard()`: ARD rank determination (Tan & Fevotte 2013, prototype)**
+- Automatic Relevance Determination for the NMF rank (Euclidean).  Fits
+  NMF *once* at an over-complete rank and prunes automatically: each
+  component carries a relevance weight with an inverse-gamma prior and the
+  multiplicative updates gain a penalty (`L2` half-normal / `L1`
+  exponential) that drives unsupported components to zero.  The number of
+  surviving components is the estimated rank -- no rank scan.  Returns an
+  `"nmfkc.ard"` object with `print` and a relevance-bar `plot`.  Plain NMF
+  only; a sensitive point estimate (depends on prior / start / init), so a
+  complement to the CV / consensus engines, not a sole criterion.
+
+### **New `nmfkc.consensus()`: consensus-clustering rank selection (Brunet 2004)**
+- The bioinformatics-standard stability approach, as a lightweight engine
+  like `nmfkc.ecv` / `nmfkc.bicv`.  For each rank it runs NMF `nrun` times
+  from random initializations (`X.init = "runif"`), builds the consensus
+  matrix from the per-run hard clusterings, and returns two stability
+  scores per rank: `cophenetic` (cophenetic correlation coefficient,
+  Brunet et al. 2004) and `dispersion` (Kim & Park 2007, in `[0,1]`).
+  Unlike the CV engines, a good rank *maximizes* stability.  Optional
+  `keep.consensus = TRUE` returns the consensus matrices.
+- Also reports `pac`, the Proportion of Ambiguous Clustering
+  (Senbabaoglu et al. 2014; fraction of consensus entries in the
+  ambiguous interval `pac.range`, default `(0.1, 0.9)`).  Lower is better
+  and it is more sensitive than the often-saturated `cophenetic`.  The
+  `print`/criteria-`plot` show all three metrics.
+- Returns an `"nmfkc.consensus"` object with `print` and `plot` methods:
+  `plot(cs)` (`type = "criteria"`) draws the stability curves;
+  `plot(cs, type = "heatmap", rank = ...)` draws the consensus matrix
+  heatmap(s) reordered by hierarchical clustering (default = all ranks in
+  a `n2mfrow` grid; `mfrow` overridable).
+
+### **New `nmfkc.bicv()`: bi-cross-validation for rank selection**
+- Owen & Perry's (2009) bi-cross-validation (BCV), a **lightweight CV
+  engine in the spirit of `nmfkc.ecv`**: it returns the held-out error
+  per rank (`objfunc`, `sigma`) and nothing more.  Holds out a row-block
+  *and* a column-block at once, fits NMF only on the retained block, and
+  predicts the held-out block by folding the held-out rows/columns onto
+  the fixed factors via non-negative regression (no information leakage,
+  unlike element-wise `nmfkc.ecv`).  `nfolds = 2` (leave out half rows /
+  half columns) per Owen & Perry's recommendation.
+
+### **`*.rank`: eff.rank.idx shown for context (no best marker)**
+- The broken-stick-corrected effective-rank index (`eff.rank.idx`,
+  green) is drawn for context only and no longer carries a "Best (Max)"
+  marker: it is a factor-utilization diagnostic (most even relative to
+  the random null), not a predictive rank optimum.  The recommended rank
+  is driven solely by the ECV minimum and the R-squared elbow.
+
+### **`*.rank`: broken-stick-corrected effective-rank index**
+- The `*.rank` criteria table gains `effective.rank.expected` (the
+  broken-stick / uniform-Dirichlet null `exp(H_Q - 1)`, `H_Q` = the
+  `Q`-th harmonic number) and `effective.rank.index`, the \[0, 1] index
+  `(effective.rank - expected) / (Q - expected)` (clamped).  The index
+  anchors 0 at the random null and 1 at perfect evenness, removing the
+  small-rank inflation of the raw `effective.rank / Q`.  Its maximum is
+  a meaningful rank, so the diagnostics plot now draws this corrected
+  index (green, `eff.rank.idx`) with a restored "Best (Max)" marker in
+  place of the raw ratio.
+
+### **`*.rank` results gain `plot()` / `print()` methods**
+- The rank-selection functions (`nmfkc.rank()`, `nmfkc.net.rank()`,
+  `nmfkc.signed.rank()`, `nmfae.rank()`, `nmfae.signed.rank()`) now
+  return a classed object (`"nmf.rank"`).  `plot()` redraws the
+  three-criterion diagnostics plot (honouring `main`, `xlab`, `ylab`,
+  `lwd`) and `print()` shows the recommended rank, the per-criterion
+  best ranks, and the criteria table.  As before the constructor draws
+  immediately when `plot = TRUE`; the `$rank.best` and `$criteria`
+  fields are unchanged, so existing code keeps working.
+
+### **New `nmf.cluster.flow()`: cluster-flow diagram across ranks**
+- `nmf.cluster.flow()` and `nmf.cluster.criteria()` now treat the
+  supplied `fits` as a generic \emph{sequence of results} (kept in the
+  given order, \strong{not} sorted by rank), so the same rank fitted as
+  different models is also supported.  Both gain a `names` argument for
+  the x-axis tick labels (default: each result's `$rank`), and in
+  `nmf.cluster.flow()` the `reference` argument is now the \strong{index}
+  (1-based position) of the result that defines the colours -- not a rank
+  value -- defaulting to the central result
+  `floor(length(fits) / 2) + 1` (e.g.\ the 2nd of 2 or 3 results).
+- The adjusted Rand index (ARI) between each pair of adjacent ranks is
+  now computed and printed along the top of the figure (and returned in
+  `$ARI`, length \eqn{R - 1}), summarizing how much the hard clustering
+  changes from one rank to the next.
+- Each cluster box is now tinted by the \strong{majority} reference
+  colour among the individuals it contains (the colour shared by the
+  most member lines); ties are broken in favour of the earliest palette
+  entry (the smallest reference-cluster id).  This shows at a glance
+  which reference cluster dominates each box at each rank.
+- `nmf.cluster.flow()` now inserts a gap of one average cluster
+  (\eqn{N / k}) between clusters in the per-rank layout and sizes each
+  grey box exactly to the minimum/maximum position of its members, so
+  the cluster boxes are clearly separated with the gaps maximized.  Each
+  rank is normalized to the full height independently.
+- The cluster number is the dominant-factor index (argmax of the
+  coefficient) of each fit, kept as-is so it matches the factor/basis
+  numbering of the supplied models.  A factor that never dominates any
+  individual leaves an empty, unused cluster number (a gap, e.g.\ labels
+  `2, 3` with no `1`) -- this is correct and consistent with the fit,
+  and the labels are not renumbered.
+- `nmf.cluster.flow()` now returns a classed object with a dedicated
+  `plot()` method, so the diagram can be (re)drawn with
+  `plot(fl, col = , lwd = , xlab = , ylab = , main = )` -- the colour
+  vector (indexed by reference cluster), line width, axis labels and
+  title are all honoured.  The constructor still draws immediately by
+  default (`plot = TRUE`) and forwards graphical arguments to the plot
+  method; use `plot = FALSE` to build the object and plot it later.
+  Its `print()` method shows the adjacent-rank ARI and the full
+  \eqn{N \times R} cluster table.
+- `nmf.cluster.flow(fits, reference = )` takes a list of models fitted
+  at different ranks (any non-negative MU family) and draws an
+  alluvial / Sankey-style diagram of how the hard sample clustering
+  changes with the rank \eqn{Q}: each individual flows left-to-right
+  across the ranks (x-axis), its vertical position is set by its cluster
+  (clusters reordered per rank by a barycenter heuristic to reduce
+  crossings), and lines are coloured by the cluster at the
+  \code{reference} rank -- so one can watch the reference clusters split
+  or merge.  At every rank a translucent grey box is drawn \emph{in
+  front} of each cluster's members with the cluster number centred
+  inside, so the grouping and labels are visible at all ranks (not only
+  the reference).  The default line palette is now a strong,
+  well-separated qualitative set (ColorBrewer \dQuote{Dark 2}, no pale
+  colours) and can be overridden with \code{col}.  Returns (invisibly)
+  the \eqn{N \times R} table with rows = individuals, columns = rank,
+  entries = cluster number.
+
+### **New `nmf.cluster.criteria()`: sample-clustering quality across ranks**
+- `nmf.cluster.criteria(fits, Y)` takes a \strong{list of fits} (one per
+  rank; a single fit is also accepted) and reports the clustering-quality
+  criteria `silhouette`, `CPCC`, and `dist.cor` for each rank, returning
+  a per-rank `$criteria` table (mirroring `nmf.cluster.flow()`).  It has
+  `plot()` (line plot of the three criteria vs rank) and `print()` (the
+  table) methods, and draws immediately when `plot = TRUE`.  Works for
+  any family (`nmfkc`, `nmfkc.signed`, `nmfae`, `nmfae.signed`,
+  `nmfkc.net`, `nmfre`, `nmf.sem`/`nmf.ffb`; the last needs the exogenous
+  block via `Y2`).  These are **clustering-stability** diagnostics,
+  deliberately separate from the rank-selection `*.rank` functions
+  (r.squared / effective rank / ECV).
+- Hard sample clustering needs a non-negative coefficient/score matrix
+  (a valid membership simplex).  `nmf.cluster.criteria()` detects this from the
+  actual coefficient: when it is non-negative the hard-label
+  `silhouette` (and cluster sizes) are returned; when it is signed
+  `silhouette` is `NA` while the distance-based `CPCC` and `dist.cor`
+  are still computed.  (ARI is not reported here -- it compares two
+  clusterings, e.g.\ across ranks or resamples, so it is not a
+  single-fit quantity.)
+- `nmfkc.rank()` no longer carries `ARI`, `silhouette`, `CPCC`, or
+  `dist.cor` in its `criteria` table -- those clustering-stability
+  metrics now live in `nmf.cluster.criteria()`.  All five `*.rank` functions
+  return the **same five columns** (`rank`, `effective.rank`,
+  `effective.rank.ratio`, `r.squared`, `sigma.ecv`).  Per-rank fits use
+  `detail = "fast"`, so the expensive O(N^2) distance computations are
+  skipped during rank selection.  `rank.best` is unchanged.  The
+  `*.rank` functions now emit a one-line message pointing to
+  `nmf.cluster.criteria()` for clustering quality.
+
+### **Rank-selection functions for the other NMF families**
+- New `nmfkc.net.rank()`, `nmfkc.signed.rank()`, `nmfae.rank()`
+  (paired \eqn{Q = R}) and `nmfae.signed.rank()` (paired) bring
+  `nmfkc.rank`-style rank selection to the other multiplicative-update
+  models.  Each reports the three criteria that are well defined for
+  every family -- `r.squared`, the effective rank (utilization), and the
+  element-wise CV error `sigma.ecv` -- and returns
+  `list(rank.best, criteria)`.  (`nmf.ffb` / `nmfre` are not covered:
+  they do not support the element masking that ECV needs.)
+- **`nmfkc.rank()` plot simplified and unified.**  All `*.rank`
+  functions now share one back-end `.rank.finish()` and draw the same
+  concise three-criterion figure: `r.squared` (red), `eff.rank` (green),
+  and `sigma.ecv` (blue, right axis), each as a line with points,
+  rank-number labels, and a highlighted best marker -- "Best (Elbow)"
+  for the R-squared knee, "Best (Peak)" for the effective-rank
+  utilization, and "Best (Min)" for the CV minimum.  `nmfkc.rank()`
+  still computes `ARI`, `silhouette`, `CPCC`, and `dist.cor` into its
+  `criteria` table, but no longer plots them.
+- The four new `*.rank` functions gain a `detail` argument matching
+  `nmfkc.rank`: `"full"` (default) runs the element-wise CV and reports
+  `sigma.ecv`; `"fast"` skips the (expensive) CV, so the plot shows only
+  `r.squared` and `eff.rank` and the recommended rank falls back to the
+  R-squared elbow.
+
+### **Internal: shared element-wise CV helpers**
+- The four element-wise cross-validation functions (`nmfkc.ecv()`,
+  `nmfae.ecv()`, `nmfkc.signed.ecv()`, `nmfae.signed.ecv()`) now build
+  their folds through a single internal helper `.ecv.make.folds()`,
+  removing four near-identical copies of the fold-partitioning loop.
+  `nmfkc.net.ecv()` keeps its symmetric upper-triangle folds.
+- \strong{All five} element-wise CV functions now share one
+  config-indexed loop driver `.ecv.run(labels, nfolds, run_one,
+  progress)`: the single-rank ones (`nmfkc.ecv()`, `nmfkc.net.ecv()`,
+  `nmfkc.signed.ecv()`) and the \eqn{(Q, R)}-grid ones (`nmfae.ecv()`,
+  `nmfae.signed.ecv()`).  Each supplies a model-specific
+  `run_one(i, k)` closure (mask fold, refit config `i`, return held-out
+  loss) and an optional progress callback; `.ecv.run()` handles the
+  config-by-fold loop, the `objfunc`/`sigma`/`objfunc.fold` aggregation,
+  and naming.  This removes the last copies of the CV-loop machinery,
+  including the per-grid reshaping in `nmfae.ecv()`.
+- The refactor is behaviour-preserving: for the same seed the folds and
+  all CV values (`objfunc`, `sigma`, `objfunc.fold`, names/labels) are
+  byte-for-byte identical to before, verified across EU and KL losses,
+  the symmetric (upper-triangle) case, and both paired and full
+  \eqn{(Q, R)} grids.
+
+### **Unified summary print blocks**
+- New shared internal helpers `.print.fit.statistics()` and
+  `.print.structure.diagnostics()` render the "Statistics" /
+  "Goodness of fit" and "Structure Diagnostics" blocks for
+  `summary.nmfkc()`, `summary.nmfae()`, and `summary.nmfkc.net()`
+  (incl. the signed variant).  Labels are padded to a common width so
+  values are column-aligned, fields absent from a given model are
+  skipped automatically (e.g.\ `nmfkc.net` has no residual SE), and any
+  future fit statistic or sparsity row is now added in one place
+  instead of per-summary.
+
+### **Effective Rank in all five MU-family summaries**
+- `summary()` now reports the **Effective Rank** as `x.xx / Q  (NN.N%)`
+  -- the absolute value, the nominal rank, and the utilization ratio
+  `effective.rank / Q` as a percentage -- for
+  `nmfkc()`, `nmfkc.net()`, `nmfae()`, `nmf.ffb()` / `nmf.sem()`, and
+  `nmfre()` — previously only `nmfkc()` showed it.  Each is computed by
+  the new shared internal helper `.effective.rank(B)` from the model's
+  natural \eqn{Q \times N} coefficient/score matrix: the coefficients
+  \eqn{B} (`nmfkc`), the latent encoding \eqn{H} (`nmfae`), the node
+  membership \eqn{X^\top} (`nmfkc.net`), the latent scores
+  \eqn{C_1 Y_1 + C_2 Y_2} (`nmf.ffb`), and the BLUP scores
+  \eqn{\Theta A + U} (`nmfre`).  `NA` at \eqn{Q = 1}.
+
+### **Rank-selection diagnostics: silhouette / CPCC fixed, IC removed**
+- **`silhouette` is now computed in the original data space.**  It used
+  to be evaluated on the rank-\eqn{Q} `B.prob` simplex, whose dimension
+  changes with \eqn{Q}; that made it monotone in \eqn{Q} (always
+  favouring the smallest rank) and hid genuine cluster structure.  It is
+  now the standard mean silhouette width over `dist(t(Y))` (the fixed
+  original-data sample distances) with the per-sample hard labels — the
+  k-means convention.  On data with real clusters it now shows an
+  interior optimum (e.g. the road-OD network peaks at the same rank as
+  the cross-validation minimum).
+- **`CPCC` is now the classic cophenetic correlation of `dist(t(B))`.**
+  It used to be computed from the soft co-membership `t(B.prob) %*%
+  B.prob`, which was nearly flat across \eqn{Q}.  It is now
+  `cor(dist(t(B)), cophenetic(hclust(dist(t(B)))))` — how well a
+  hierarchical clustering of the rank-\eqn{Q} coefficient distances
+  reproduces those distances (Sokal & Rohlf).  It now varies with
+  \eqn{Q} and recovers an interior optimum.
+- **Removed `ICp`, `AIC`, and `BIC`** from `nmfkc()`'s `criterion` list,
+  from `summary.nmfkc()`, and from `nmfkc.rank()`'s table.  Empirically
+  (across three real datasets) `ICp` was monotone increasing (always
+  selecting \eqn{Q=1}) and `AIC` monotone decreasing (always selecting
+  the largest \eqn{Q}); for NMF, where the parameter count grows as
+  \eqn{Q(P+N)}, these information criteria do not have a usable interior
+  optimum, so they were misleading rather than informative.
+- The internal helper `.silhouette.simple()` (centroid-approximate, took
+  a `B.prob` matrix) was replaced by `.silhouette.mean(D, labels)`,
+  which returns the exact mean silhouette width from a distance matrix
+  and labels.
+
+### **Breaking change: symmetric NMF removed from `nmfkc()`**
+- The `Y.symmetric = "bi" / "tri"` option (deprecated in v0.7.x) has been
+  **removed** from `nmfkc()` and `nmfkc.ecv()`.  Symmetric NMF of network
+  data now lives exclusively in the dedicated `nmfkc.net()` /
+  `nmfkc.net.ecv()` functions, which use the correct Frobenius
+  bilateral-gradient updates.  Passing `Y.symmetric` to `nmfkc()` or
+  `nmfkc.ecv()` now stops with a message pointing to the replacement:
+  `nmfkc.net(Y, rank, type = "tri")` (types `"tri"`, `"bi"`, `"signed"`).
+  This also removes the bi/tri code branches (cube-root damping, fixed
+  `C = I`, tri C-update, upper-triangle CV folds) from `nmfkc()`,
+  simplifying the core function.
+
+### **New diagnostic: effective rank**
+- `nmfkc()` now reports `criterion$effective.rank`, the **effective
+  rank** of the fit: `exp` of the Shannon entropy of the
+  explained-variance distribution
+  `p_k = var(B[k, ]) / sum_j var(B[j, ])`.  By the trace identity
+  `sum_k var(B[k, ]) = tr(Cov(B))`, each `p_k` is the exact fraction
+  of the total coefficient variance carried by factor `k`, so the
+  entropy is a genuine additive decomposition (variances add;
+  standard deviations do not, which is why variance — not sd — is the
+  natural partner for the entropy here).  It ranges in `[1, Q]` and
+  counts how many latent factors actively shape across-sample
+  variation (dead, zero-variance factors drop out).  This is the
+  PCA-style explained-variance / effective-dimensionality measure and
+  reuses the `exp(entropy)` functional form of Roy & Vetterli (2007).
+- `summary.nmfkc()` prints `Effective Rank: x.xx / Q`.
+- `nmfkc.rank()` adds an `effective.rank` column to its criteria table.
+  When effective rank plateaus well below the nominal rank, the extra
+  factors are not carrying additional coefficient variance — a signal
+  that the rank is over-specified.
+- `nmfkc.rank(plot = TRUE)` overlays an `eff.rank` curve (effective
+  rank divided by nominal rank, in `[0, 1]`, solid green line) on the
+  diagnostics plot.  A peak in this utilization curve marks the rank at
+  which the latent factors carry the most evenly distributed variance.
+
+### **Diagnostics cleanup: B.prob crispness metrics**
+- Removed `B.prob.sd.min` and `B.prob.entropy.mean` from `nmfkc()`'s
+  `criterion` list, from `summary.nmfkc()`, and from `nmfkc.rank()`'s
+  criteria table and plot.  All three `B.prob.*` peakedness metrics are
+  monotone in the rank `Q`, so they carry no peak/elbow signal for rank
+  selection (verified empirically); the principled rank signals are
+  ECV, the R-squared elbow, and the new `effective.rank` utilization.
+- `B.prob.max.mean` (clustering crispness) is retained, but only in
+  `summary.nmfkc()` ("Clustering Crispness") and the `criterion` list.
+  At a fixed `Q` it remains a useful confidence check — the mean
+  dominant-cluster membership — before treating `B.cluster` as hard
+  labels.  It is no longer shown in `nmfkc.rank()` (cross-`Q`), where
+  its `1/Q` baseline shift makes it misleading.
+- `summary.nmfkc()` no longer prints "Clustering Entropy" (it duplicated
+  the crispness information).
+
+### **Improvements**
+- **Unified three-variant R² across all NMF functions.**  Every NMF
+  variant (`nmfkc()`, `nmfae()`, `nmfae.signed()`, `nmfkc.net()`,
+  `nmfkc.signed()`, `nmfre()`) now returns three goodness-of-fit
+  summaries on the same scale, computed by the new internal helper
+  `.r.squared.all()`:
+  - `r.squared`: Pearson \eqn{\mathrm{cor}(Y, \widehat Y)^2}
+    (scale-invariant, in \eqn{[0, 1]}).  Unchanged from before.
+  - `r.squared.uncentered`: \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2}.
+    Baseline = the zero matrix (natural for non-negative factorizations
+    without an intercept); matches the "uncentered R²" of intercept-free
+    regression.
+  - `r.squared.centered`: \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
+    Baseline = per-row mean; the standard ("centered") multivariate-
+    regression \eqn{R^2}; equals 0 when the model predicts the row mean.
+
+  The two suffixed variants differ only in their baseline (denominator);
+  both use the Frobenius norm in the numerator.  Naming follows the
+  centered/uncentered \eqn{R^2} distinction used by statistics software
+  (e.g. statsmodels).
+  All three respect `Y.weights == 0` masking (the standard NA-hold-out
+  convention).  For `nmfre()` the same three variants are also
+  reported on the fixed-only prediction as `r.squared.fixed.*`.
+  Displayed by all `summary.*` methods.
+
+### **Bug Fixes**
+- `nmfkc.net()`: `r.squared` now correctly excludes weight-zero (NA-masked)
+  entries when `Y.weights` is supplied or auto-masking is in effect,
+  matching the convention used by `nmfkc()`, `nmfae()`, `nmfae.signed()`,
+  and `nmfkc.signed()`.  Previously the correlation was computed over the
+  full matrix including replaced-NA cells, giving a distorted r.squared.
+
+### **Documentation**
+- `nmfkc()`: removed Examples 3 & 4 (deprecated `Y.symmetric = "bi"/"tri"`);
+  the documentation now points users to `\link{nmfkc.net}()` for symmetric
+  NMF.
+- `summary.nmf.sem()`: example code, `@param`, and `@seealso` updated to
+  use the canonical `nmf.ffb` name (the S3 method continues to dispatch
+  correctly via `c("nmf.ffb", "nmf.sem")` inheritance).
+
 # nmfkc 0.7.3
 
 ### **Documentation**

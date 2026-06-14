@@ -225,10 +225,18 @@
 #'
 #'   \strong{Fit statistics}
 #'   \describe{
-#'     \item{\code{r.squared}}{Coefficient of determination \eqn{R^2} for
-#'       \eqn{Y} vs \eqn{X(\Theta A + U)} (BLUP).}
-#'     \item{\code{r.squared.fixed}}{Coefficient of determination \eqn{R^2} for
-#'       \eqn{Y} vs \eqn{X \Theta A} (fixed effects only).}
+#'     \item{\code{r.squared}}{Pearson \eqn{\mathrm{cor}(Y, X(\Theta A + U))^2}
+#'       (BLUP prediction).}
+#'     \item{\code{r.squared.uncentered}}{Uncentered
+#'       \eqn{1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y\|_F^2} (BLUP;
+#'       baseline = zero matrix).}
+#'     \item{\code{r.squared.centered}}{Row-mean centered
+#'       \eqn{1 - \|Y - X(\Theta A + U)\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}
+#'       (BLUP; baseline = per-row mean).}
+#'     \item{\code{r.squared.fixed}}{Pearson \eqn{\mathrm{cor}(Y, X\Theta A)^2}
+#'       (fixed-only prediction).}
+#'     \item{\code{r.squared.fixed.uncentered}, \code{r.squared.fixed.centered}}{Uncentered
+#'       and centered \eqn{R^2} for the fixed-only prediction.}
 #'     \item{\code{ICC}}{Trace-based Intraclass Correlation Coefficient.
 #'       In the NMF-RE model, the conditional covariance of the \eqn{n}-th
 #'       observation column is
@@ -648,9 +656,18 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   rownames(U) <- rownames(C_mat)
   colnames(U) <- colnames(Y)
 
-  # ---- r.squared (cor^2, consistent with nmfkc/nmfae) ----
-  r.squared <- stats::cor(as.vector(XB.blup), as.vector(Y))^2
-  r.squared.fixed <- stats::cor(as.vector(XB), as.vector(Y))^2
+  # ---- Three-variant R^2 (cor^2, uncentered, row-mean
+  # centered), separately for BLUP-prediction (XB.blup = XB + U) and
+  # fixed-only prediction (XB).  Consistent with nmfkc / nmfae /
+  # nmfae.signed / nmfkc.net / nmfkc.signed naming convention.
+  r2_blup  <- .r.squared.all(Y, XB.blup)
+  r2_fixed <- .r.squared.all(Y, XB)
+  r.squared                <- r2_blup$r.squared
+  r.squared.uncentered           <- r2_blup$r.squared.uncentered
+  r.squared.centered       <- r2_blup$r.squared.centered
+  r.squared.fixed          <- r2_fixed$r.squared
+  r.squared.fixed.uncentered     <- r2_fixed$r.squared.uncentered
+  r.squared.fixed.centered <- r2_fixed$r.squared.centered
 
   # ---- ICC (trace-based) ----
   trXtX <- sum(d_final)  # tr(X'X), using eigenvalues already computed
@@ -901,8 +918,12 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
     XB.blup = XB.blup,
 
     # fit statistics
-    r.squared = r.squared,
-    r.squared.fixed = r.squared.fixed,
+    r.squared                = r.squared,
+    r.squared.uncentered           = r.squared.uncentered,
+    r.squared.centered       = r.squared.centered,
+    r.squared.fixed          = r.squared.fixed,
+    r.squared.fixed.uncentered     = r.squared.fixed.uncentered,
+    r.squared.fixed.centered = r.squared.fixed.centered,
     ICC = ICC,
 
     # inference outputs
@@ -966,8 +987,23 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
     r2_fixed <- if (!is.null(x$r.squared.fixed) && is.finite(x$r.squared.fixed)) {
       sprintf(", %.4f (XB)", x$r.squared.fixed)
     } else ""
-    cat(sprintf("R-squared: %.4f (XB+blup)%s\n", x$r.squared, r2_fixed))
+    cat(sprintf("R-squared (cor^2):    %.4f (XB+blup)%s\n", x$r.squared, r2_fixed))
+    if (!is.null(x$r.squared.uncentered) && is.finite(x$r.squared.uncentered)) {
+      r2f_fixed <- if (!is.null(x$r.squared.fixed.uncentered) && is.finite(x$r.squared.fixed.uncentered))
+        sprintf(", %.4f (XB)", x$r.squared.fixed.uncentered) else ""
+      cat(sprintf("R-squared (uncentered):     %.4f (XB+blup)%s\n", x$r.squared.uncentered, r2f_fixed))
+    }
+    if (!is.null(x$r.squared.centered) && is.finite(x$r.squared.centered)) {
+      r2c_fixed <- if (!is.null(x$r.squared.fixed.centered) && is.finite(x$r.squared.fixed.centered))
+        sprintf(", %.4f (XB)", x$r.squared.fixed.centered) else ""
+      cat(sprintf("R-squared (centered): %.4f (XB+blup)%s\n", x$r.squared.centered, r2c_fixed))
+    }
   }
+
+  # ---- effective rank (BLUP scores B = Theta A + U, Q x N) ----
+  eff <- if (!is.null(x$B.blup)) .effective.rank(x$B.blup) else NA_real_
+  if (is.finite(eff)) cat(sprintf("Effective Rank:       %.2f / %d  (%.1f%%)\n",
+                                  eff, Q, 100 * eff / Q))
 
   # ---- variance components ----
   cat(sprintf("\nVariance components:\n"))

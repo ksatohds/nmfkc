@@ -59,7 +59,9 @@
 #' \item{rank}{Named integer vector \code{c(Q, R)}.}
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
-#' \item{r.squared}{Coefficient of determination \eqn{R^2}.}
+#' \item{r.squared}{\eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).}
+#' \item{r.squared.uncentered}{Uncentered \eqn{R^2 = 1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2} (baseline = zero matrix).}
+#' \item{r.squared.centered}{Row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.}
 #' \item{niter}{Number of iterations performed.}
 #' \item{runtime}{Elapsed time as a \code{difftime} object.}
 #' \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y_1}.}
@@ -312,16 +314,19 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     valid <- (W > 0)
     n.missing <- sum(!valid)
     n.valid <- sum(valid)
-    r.squared <- stats::cor(Y1hat[valid], Y1[valid])^2
+    r2_all <- .r.squared.all(Y1, Y1hat, Y.weights = W)
     sigma <- sqrt(objfunc / n.valid)
     mae <- mean(abs(Y1[valid] - Y1hat[valid]))
   } else {
     n.missing <- 0L
     n.valid <- P1 * N
-    r.squared <- stats::cor(as.vector(Y1hat), as.vector(Y1))^2
+    r2_all <- .r.squared.all(Y1, Y1hat)
     sigma <- sqrt(objfunc / n.valid)
     mae <- mean(abs(Y1 - Y1hat))
   }
+  r.squared          <- r2_all$r.squared
+  r.squared.uncentered     <- r2_all$r.squared.uncentered
+  r.squared.centered <- r2_all$r.squared.centered
 
   if (print.trace) {
     msg <- sprintf("  Done: %d iterations, %.1f sec, R2 = %.4f", niter, diff.time, r.squared)
@@ -349,7 +354,9 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     dims = c(P1 = P1, P2 = P2, N = N),
     objfunc = objfunc,
     objfunc.iter = objfunc.iter,
-    r.squared = r.squared,
+    r.squared          = r.squared,
+    r.squared.uncentered     = r.squared.uncentered,
+    r.squared.centered = r.squared.centered,
     sigma = sigma,
     mae = mae,
     niter = niter,
@@ -700,9 +707,15 @@ summary.nmfae <- function(object, ...) {
   ans$runtime <- object$runtime
 
   ans$objfunc <- object$objfunc
-  ans$r.squared <- object$r.squared
+  ans$r.squared          <- object$r.squared
+  ans$r.squared.uncentered     <- object$r.squared.uncentered
+  ans$r.squared.centered <- object$r.squared.centered
   ans$sigma <- object$sigma
   ans$mae <- object$mae
+  ## Effective rank of the latent encoding H (Q x N).
+  ans$effective.rank <- if (!is.null(object$H)) .effective.rank(object$H) else NA_real_
+  ans$rank <- if (!is.null(object$rank)) object$rank[1] else
+              if (!is.null(object$H)) nrow(object$H) else NA
 
   # Missing values
   ans$n.missing <- object$n.missing
@@ -771,25 +784,12 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
         sprintf("(%.1f%%)", x$prop.missing), "\n")
   }
 
-  cat("\nGoodness of fit:\n")
-  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
-  cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
-  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+  .print.fit.statistics(x, header = "Goodness of fit:", digits = digits)
 
-  cat("\nStructure Diagnostics:\n")
-  if (!is.null(x$X1.sparsity)) {
-    cat("  X1 sparsity (< 1e-4):    ",
-        sprintf("%.1f%%", x$X1.sparsity * 100), "\n")
-  }
-  if (!is.null(x$C.sparsity)) {
-    cat("  C sparsity (< 1e-4):     ",
-        sprintf("%.1f%%", x$C.sparsity * 100), "\n")
-  }
-  if (!is.null(x$X2.sparsity)) {
-    cat("  X2 sparsity (< 1e-4):    ",
-        sprintf("%.1f%%", x$X2.sparsity * 100), "\n")
-  }
+  .print.structure.diagnostics(
+    sparsity = c("Decoder (X1)" = x$X1.sparsity,
+                 "Bottleneck (C)" = x$C.sparsity,
+                 "Encoder (X2)" = x$X2.sparsity))
 
   # Coefficients table (inference)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
@@ -1227,89 +1227,96 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
   }
   num_pairs <- nrow(QR)
 
-  # Create folds (element-wise on Y1)
-  if (!is.null(seed)) set.seed(seed)
-  valid_indices <- which(!is.na(Y1))
-  n_valid <- length(valid_indices)
-  perm_indices <- sample(valid_indices)
-
-  folds <- vector("list", div)
-  chunk_size <- n_valid %/% div
-  remainder <- n_valid %% div
-  start_idx <- 1
-  for (k in 1:div) {
-    current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-    end_idx <- start_idx + current_size - 1
-    folds[[k]] <- perm_indices[start_idx:end_idx]
-    start_idx <- end_idx + 1
-  }
+  # Create folds (element-wise on Y1; shared helper)
+  folds <- .ecv.make.folds(Y1, div, seed)
 
   # Prepare result storage
   pair_labels <- sprintf("Q=%d,R=%d", QR$Q, QR$R)
   has_na <- any(is.na(Y1))
 
-  n_tasks <- num_pairs * div
   message(sprintf("Element-wise CV: %d (Q,R) pairs, %d-fold, %d tasks...",
-                  num_pairs, div, n_tasks))
-
-  # Build flat task list: each task = one (Q,R) pair + one fold
-  tasks <- vector("list", n_tasks)
-  idx <- 0
-  for (i in 1:num_pairs) {
-    for (k in 1:div) {
-      idx <- idx + 1
-      tasks[[idx]] <- list(pair_idx = i, fold_idx = k,
-                           q = QR$Q[i], r = QR$R[i])
-    }
-  }
+                  num_pairs, div, num_pairs * div))
 
   extra_args <- list(...)
 
-  # Worker function for one task
-  run_one <- function(task) {
-    test_idx <- folds[[task$fold_idx]]
+  # Model-specific worker: mask fold k, refit at pair i, held-out loss
+  run_one <- function(i, k) {
+    test_idx <- folds[[k]]
     weights_train <- matrix(1, nrow = P1, ncol = N)
     if (has_na) weights_train[is.na(Y1)] <- 0
     weights_train[test_idx] <- 0
     fit <- suppressMessages(
-      do.call(nmfae, c(list(Y1 = Y1, Y2 = Y2, Q = task$q, R = task$r,
+      do.call(nmfae, c(list(Y1 = Y1, Y2 = Y2, Q = QR$Q[i], R = QR$R[i],
                             Y1.weights = weights_train), extra_args))
     )
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
   }
 
-  results <- vapply(tasks, run_one, numeric(1))
+  cv <- .ecv.run(pair_labels, div, run_one,
+                 progress = function(i, o, s)
+                   message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
+                                   QR$Q[i], QR$R[i], o, s)))
 
-  # Reshape results into per-pair fold MSEs
-  result_objfunc <- numeric(num_pairs)
-  result_sigma   <- numeric(num_pairs)
-  result_fold    <- vector("list", num_pairs)
-  names(result_objfunc) <- pair_labels
-  names(result_sigma)   <- pair_labels
-  names(result_fold)    <- pair_labels
-
-  idx <- 0
-  for (i in 1:num_pairs) {
-    objfunc.fold <- numeric(div)
-    for (k in 1:div) {
-      idx <- idx + 1
-      objfunc.fold[k] <- results[idx]
-    }
-    result_fold[[i]]  <- objfunc.fold
-    result_objfunc[i] <- mean(objfunc.fold)
-    result_sigma[i]   <- sqrt(result_objfunc[i])
-    message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
-                    QR$Q[i], QR$R[i], result_objfunc[i], result_sigma[i]))
-  }
-
-  result <- list(objfunc = result_objfunc,
-                 sigma = result_sigma,
-                 objfunc.fold = result_fold,
+  result <- list(objfunc = cv$objfunc,
+                 sigma = cv$sigma,
+                 objfunc.fold = cv$objfunc.fold,
                  folds = folds,
                  QR = QR,
                  paired = is.null(R))
   class(result) <- "nmfae.ecv"
   return(result)
+}
+
+
+#' @title Rank selection for nmfae (paired rank, concise diagnostics)
+#' @description
+#' Fits \code{\link{nmfae}} with a \strong{paired} decoder/encoder rank
+#' (\eqn{Q = R}) across a range of ranks and reports \code{r.squared},
+#' the effective rank (of the latent encoding \eqn{H}), and the
+#' element-wise CV error \code{sigma.ecv}, with the same concise plot as
+#' \code{\link{nmfkc.rank}}.  For a full \eqn{(Q, R)} grid use
+#' \code{\link{nmfae.ecv}} with \code{rank.encoder} and its heatmap.
+#' @param Y1 Endogenous matrix (\eqn{P_1 \times N}).
+#' @param Y2 Exogenous matrix; defaults to \code{Y1} (autoencoder).
+#' @param rank Integer vector of (paired) ranks to evaluate.
+#' @param detail \code{"full"} (default) also runs element-wise CV
+#'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+#'   eff.rank only, and recommends the R-squared elbow).
+#' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
+#' @param ... Passed on to \code{\link{nmfae}} and \code{\link{nmfae.ecv}}
+#'   (e.g.\ \code{maxit}, \code{nfolds}, \code{seed}).
+#' @return A list with \code{rank.best} and \code{criteria}
+#'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
+#'   \code{r.squared}, \code{sigma.ecv}).
+#' @seealso \code{\link{nmfae}}, \code{\link{nmfae.ecv}},
+#'   \code{\link{nmfkc.rank}}
+#' @references
+#' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+#' effective dimensionality.  \emph{Proc. EUSIPCO}, 606--610.
+#' (\code{effective.rank})
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
+#' @export
+nmfae.rank <- function(Y1, Y2 = Y1, rank = 1:5, detail = c("full", "fast"),
+                       plot = TRUE, ...) {
+  detail <- match.arg(detail)
+  Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
+  rs <- numeric(length(rank)); er <- numeric(length(rank))
+  for (i in seq_along(rank)) {
+    f <- suppressMessages(nmfae(Y1, Y2, rank = rank[i],
+                                rank.encoder = rank[i],
+                                print.trace = FALSE, ...))
+    rs[i] <- f$r.squared
+    er[i] <- .effective.rank(f$H)
+  }
+  ecv <- if (detail == "full")
+    suppressMessages(nmfae.ecv(Y1, Y2, rank = rank, ...))$sigma
+    else rep(NA_real_, length(rank))
+  criteria <- data.frame(rank = rank, effective.rank = er,
+                         effective.rank.ratio = er / rank,
+                         r.squared = rs, sigma.ecv = as.numeric(ecv))
+  .rank.finish(criteria, plot = plot, main = "nmfae rank selection (paired Q=R)")
 }
 
 #' @title Plot method for nmfae.ecv objects

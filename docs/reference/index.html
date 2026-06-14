@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -21,8 +21,10 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -63,6 +65,18 @@
 
         </dt>
         <dd>Extract fitted values from NMF models</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmf.cluster.criteria.html">nmf.cluster.criteria()</a></code>
+
+        </dt>
+        <dd>Sample-clustering quality across ranks</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmf.cluster.flow.html">nmf.cluster.flow()</a></code>
+
+        </dt>
+        <dd>Cluster-flow (alluvial) diagram across a sequence of fits</dd>
       </dl><dl><dt>
 
           <code><a href="nmf.sem.cv.html">nmf.ffb.cv()</a></code> <code><a href="nmf.sem.cv.html">nmf.sem.cv()</a></code>
@@ -131,6 +145,12 @@
         <dd>Optimize kernel beta for nmfae by cross-validation</dd>
       </dl><dl><dt>
 
+          <code><a href="nmfae.rank.html">nmfae.rank()</a></code>
+
+        </dt>
+        <dd>Rank selection for nmfae (paired rank, concise diagnostics)</dd>
+      </dl><dl><dt>
+
           <code><a href="nmfae.html">nmfae()</a></code>
 
         </dt>
@@ -159,6 +179,12 @@
 
         </dt>
         <dd>Statistical Inference for Signed-Bottleneck NMF-AE Signed Bottleneck</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfae.signed.rank.html">nmfae.signed.rank()</a></code>
+
+        </dt>
+        <dd>Rank selection for nmfae.signed (paired rank, concise diagnostics)</dd>
       </dl><dl><dt>
 
           <code><a href="nmfae.signed.html">nmfae.signed()</a></code>
@@ -203,10 +229,28 @@
         <dd>Check stationarity of an NMF-VAR model</dd>
       </dl><dl><dt>
 
+          <code><a href="nmfkc.ard.html">nmfkc.ard()</a></code>
+
+        </dt>
+        <dd>Automatic relevance determination for NMF rank (experimental)</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.bicv.html">nmfkc.bicv()</a></code>
+
+        </dt>
+        <dd>Bi-cross-validation for NMF rank selection</dd>
+      </dl><dl><dt>
+
           <code><a href="nmfkc.class.html">nmfkc.class()</a></code>
 
         </dt>
         <dd>Create a class (one-hot) matrix from a categorical vector</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.consensus.html">nmfkc.consensus()</a></code>
+
+        </dt>
+        <dd>Consensus-clustering rank selection for NMF (Brunet 2004)</dd>
       </dl><dl><dt>
 
           <code><a href="nmfkc.criterion.html">nmfkc.criterion()</a></code>
@@ -287,6 +331,12 @@
         <dd>Statistical Inference for Symmetric NMF Parameters</dd>
       </dl><dl><dt>
 
+          <code><a href="nmfkc.net.rank.html">nmfkc.net.rank()</a></code>
+
+        </dt>
+        <dd>Rank selection for nmfkc.net (concise diagnostics)</dd>
+      </dl><dl><dt>
+
           <code><a href="nmfkc.net.html">nmfkc.net()</a></code>
 
         </dt>
@@ -329,10 +379,22 @@
         <dd>Element-wise cross-validation for nmfkc.signed</dd>
       </dl><dl><dt>
 
+          <code><a href="nmfkc.signed.rank.html">nmfkc.signed.rank()</a></code>
+
+        </dt>
+        <dd>Rank selection for nmfkc.signed (concise diagnostics)</dd>
+      </dl><dl><dt>
+
           <code><a href="nmfkc.signed.html">nmfkc.signed()</a></code>
 
         </dt>
         <dd>NMF-KC with signed covariate matrix</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.signed.rff.html">nmfkc.signed.rff()</a></code>
+
+        </dt>
+        <dd>Random Fourier Features for nmfkc.signed()</dd>
       </dl><dl><dt>
 
           <code><a href="nmfre.dfU.scan.html">nmfre.dfU.scan()</a></code>
@@ -351,6 +413,24 @@
 
         </dt>
         <dd>Non-negative Matrix Factorization with Random Effects</dd>
+      </dl><dl><dt>
+
+          <code><a href="plot.nmf.cluster.criteria.html">plot(<i>&lt;nmf.cluster.criteria&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot clustering-quality criteria across a sequence of fits</dd>
+      </dl><dl><dt>
+
+          <code><a href="plot.nmf.cluster.flow.html">plot(<i>&lt;nmf.cluster.flow&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot a cluster-flow (alluvial) diagram</dd>
+      </dl><dl><dt>
+
+          <code><a href="plot.nmf.rank.html">plot(<i>&lt;nmf.rank&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot a rank-selection (nmf.rank) object</dd>
       </dl><dl><dt>
 
           <code><a href="plot.nmfae.cv.html">plot(<i>&lt;nmfae.cv&gt;</i>)</a></code>
@@ -381,6 +461,18 @@
 
         </dt>
         <dd>Plot method for nmfae.signed (convergence)</dd>
+      </dl><dl><dt>
+
+          <code><a href="plot.nmfkc.ard.html">plot(<i>&lt;nmfkc.ard&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot method for nmfkc.ard objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="plot.nmfkc.consensus.html">plot(<i>&lt;nmfkc.consensus&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot a consensus rank-selection (nmfkc.consensus) object</dd>
       </dl><dl><dt>
 
           <code><a href="plot.nmfkc.DOT.html">plot(<i>&lt;nmfkc.DOT&gt;</i>)</a></code>
@@ -437,10 +529,46 @@
         <dd>Predict method for nmfkc.signed</dd>
       </dl><dl><dt>
 
+          <code><a href="print.nmf.cluster.criteria.html">print(<i>&lt;nmf.cluster.criteria&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmf.cluster.criteria objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmf.cluster.flow.html">print(<i>&lt;nmf.cluster.flow&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmf.cluster.flow objects</dd>
+      </dl><dl><dt>
+
           <code><a href="print.nmf.inference.html">print(<i>&lt;nmf.inference&gt;</i>)</a></code>
 
         </dt>
         <dd>Print method for NMF inference objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmf.rank.html">print(<i>&lt;nmf.rank&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for rank-selection (nmf.rank) objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmfkc.ard.html">print(<i>&lt;nmfkc.ard&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmfkc.ard objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmfkc.consensus.html">print(<i>&lt;nmfkc.consensus&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmfkc.consensus objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.summary.nmf.sem.html">print(<i>&lt;summary.nmf.sem&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for summary.nmf.sem objects</dd>
       </dl><dl><dt>
 
           <code><a href="print.summary.nmfae.inference.html">print(<i>&lt;summary.nmfae.inference&gt;</i>)</a></code>

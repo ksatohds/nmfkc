@@ -144,7 +144,9 @@
 #'   \item \code{B}: \eqn{C \, A}, \eqn{Q \times N} (signed).
 #'   \item \code{objfunc.iter}: objective values per iteration.
 #'   \item \code{objfunc}: final objective.
-#'   \item \code{r.squared}: \eqn{\mathrm{cor}(Y, \widehat Y)^2}.
+#'   \item \code{r.squared}: \eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).
+#'   \item \code{r.squared.uncentered}: uncentered \eqn{R^2 = 1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2} (baseline = zero matrix).
+#'   \item \code{r.squared.centered}: row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
 #'   \item \code{mae}: mean absolute error.
 #'   \item \code{iter}: number of iterations performed.
 #'   \item \code{runtime}: elapsed seconds.
@@ -502,20 +504,16 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   if (has.weights) {
     ## lm()-style weighted least squares (matches compute_obj in the loop).
     objfunc <- sum(Wmat * resid^2)
-    valid <- (Wmat > 0)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(XB)[valid], as.vector(Y)[valid])^2,
-      error = function(e) NA_real_
-    )
-    mae <- sum(Wmat * abs(resid)) / max(sum(Wmat), small)
+    r2_all  <- .r.squared.all(Y, XB, Y.weights = Wmat)
+    mae     <- sum(Wmat * abs(resid)) / max(sum(Wmat), small)
   } else {
     objfunc <- sum(resid * resid)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(XB), as.vector(Y))^2,
-      error = function(e) NA_real_
-    )
-    mae <- mean(abs(resid))
+    r2_all  <- .r.squared.all(Y, XB)
+    mae     <- mean(abs(resid))
   }
+  r.squared          <- r2_all$r.squared
+  r.squared.uncentered     <- r2_all$r.squared.uncentered
+  r.squared.centered <- r2_all$r.squared.centered
 
   ## --- 9. Names ---
   rownames(X)  <- rownames(Y)
@@ -550,7 +548,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     XB            = XB,              # reconstruction (alias for fitted.nmf)
     objfunc.iter  = objfunc.iter,
     objfunc       = objfunc,
-    r.squared     = r.squared,
+    r.squared          = r.squared,
+    r.squared.uncentered     = r.squared.uncentered,
+    r.squared.centered = r.squared.centered,
     sigma         = sigma,
     mae           = mae,
     iter          = iter,
@@ -680,7 +680,9 @@ summary.nmfkc.signed <- function(object, ...) {
     iter          = object$iter,
     runtime       = object$runtime,
     objfunc       = object$objfunc,
-    r.squared     = object$r.squared,
+    r.squared          = object$r.squared,
+    r.squared.uncentered     = object$r.squared.uncentered,
+    r.squared.centered = object$r.squared.centered,
     mae           = object$mae,
     ## Sparsity
     X.sparsity    = if (!is.null(object$X))  mean(object$X  < 1e-4) else NA_real_,
@@ -751,9 +753,15 @@ print.summary.nmfkc.signed <- function(x,
   cat(sprintf("  Final objfunc:     %s\n", format(x$objfunc, digits = digits)))
 
   cat("\nGoodness of fit:\n")
-  cat(sprintf("  R-squared (cor^2): %s\n",
+  cat(sprintf("  R-squared (cor^2):    %s\n",
               format(x$r.squared, digits = digits)))
-  cat(sprintf("  MAE:               %s\n",
+  if (!is.null(x$r.squared.uncentered))
+    cat(sprintf("  R-squared (uncentered):     %s\n",
+                format(x$r.squared.uncentered, digits = digits)))
+  if (!is.null(x$r.squared.centered))
+    cat(sprintf("  R-squared (centered): %s\n",
+                format(x$r.squared.centered, digits = digits)))
+  cat(sprintf("  MAE:                  %s\n",
               format(x$mae, digits = digits)))
 
   cat("\nStructure (range / sparsity / negative mass):\n")
@@ -908,16 +916,8 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
   fit_args$seed <- NULL; fit_args$Q <- NULL
   fit_args$verbose <- NULL; fit_args$Y.weights <- NULL
 
-  ## Create folds over valid elements (non-NA)
-  set.seed(seed)
-  valid <- which(!is.na(Y))
-  perm  <- sample(valid)
-  chunk <- length(perm) %/% nfolds; rem <- length(perm) %% nfolds
-  folds <- vector("list", nfolds); s <- 1L
-  for (k in 1:nfolds) {
-    sz <- chunk + ifelse(k <= rem, 1L, 0L)
-    folds[[k]] <- perm[s:(s + sz - 1L)]; s <- s + sz
-  }
+  ## Create folds over valid elements (non-NA; shared helper)
+  folds <- .ecv.make.folds(Y, nfolds, seed)
 
   run_one <- function(q, k) {
     test_idx <- folds[[k]]
@@ -933,26 +933,64 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
     mean((Y[test_idx] - Yhat[test_idx])^2)
   }
 
-  result_objfunc <- numeric(length(rank))
-  result_sigma   <- numeric(length(rank))
-  result_fold    <- vector("list", length(rank))
-  names(result_objfunc) <- sprintf("Q=%d", rank)
-  names(result_sigma)   <- sprintf("Q=%d", rank)
-  names(result_fold)    <- sprintf("Q=%d", rank)
   message(sprintf("nmfkc.signed ECV: %d ranks, %d-fold.",
                   length(rank), nfolds))
-  for (i in seq_along(rank)) {
-    q <- rank[i]
-    objs <- numeric(nfolds)
-    for (k in 1:nfolds) objs[k] <- run_one(q, k)
-    result_fold[[i]]  <- objs
-    result_objfunc[i] <- mean(objs)
-    result_sigma[i]   <- sqrt(result_objfunc[i])
-    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f",
-                    q, result_objfunc[i], result_sigma[i]))
-  }
+  cv <- .ecv.run(sprintf("Q=%d", rank), nfolds,
+                 run_one = function(i, k) run_one(rank[i], k),
+                 progress = function(i, o, s)
+                   message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", rank[i], o, s)))
   structure(list(
-    objfunc = result_objfunc, sigma = result_sigma,
-    objfunc.fold = result_fold, folds = folds, Q.grid = rank
+    objfunc = cv$objfunc, sigma = cv$sigma,
+    objfunc.fold = cv$objfunc.fold, folds = folds, Q.grid = rank
   ), class = c("nmfkc.signed.ecv", "nmfkc.ecv"))
+}
+
+
+#' @title Rank selection for nmfkc.signed (concise diagnostics)
+#' @description
+#' Fits \code{\link{nmfkc.signed}} across a range of ranks and reports
+#' \code{r.squared}, the effective rank, and the element-wise CV error
+#' \code{sigma.ecv}, with the same concise plot as
+#' \code{\link{nmfkc.rank}}.
+#' @param Y Observation matrix (may contain negative entries).
+#' @param A Covariate matrix (may be signed).
+#' @param rank Integer vector of ranks to evaluate.
+#' @param detail \code{"full"} (default) also runs element-wise CV
+#'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+#'   eff.rank only, and recommends the R-squared elbow).
+#' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
+#' @param ... Passed on to \code{\link{nmfkc.signed}} and
+#'   \code{nmfkc.signed.ecv} (e.g.\ \code{maxit}, \code{nfolds},
+#'   \code{seed}).
+#' @return A list with \code{rank.best} and \code{criteria}
+#'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
+#'   \code{r.squared}, \code{sigma.ecv}).
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc.rank}}
+#' @references
+#' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+#' effective dimensionality.  \emph{Proc. EUSIPCO}, 606--610.
+#' (\code{effective.rank})
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
+#' @export
+nmfkc.signed.rank <- function(Y, A, rank = 1:5, detail = c("full", "fast"),
+                              plot = TRUE, ...) {
+  detail <- match.arg(detail)
+  Y <- as.matrix(Y); A <- as.matrix(A)
+  rs <- numeric(length(rank)); er <- numeric(length(rank))
+  for (i in seq_along(rank)) {
+    f <- suppressMessages(nmfkc.signed(Y, A, rank = rank[i],
+                                       verbose = FALSE, ...))
+    rs[i] <- f$r.squared
+    er[i] <- .effective.rank(f$B)
+  }
+  ecv <- if (detail == "full")
+    suppressMessages(nmfkc.signed.ecv(Y, A, rank = rank, ...))$sigma
+    else rep(NA_real_, length(rank))
+  criteria <- data.frame(rank = rank, effective.rank = er,
+                         effective.rank.ratio = er / rank,
+                         r.squared = rs, sigma.ecv = as.numeric(ecv))
+  .rank.finish(criteria, plot = plot,
+               main = "nmfkc.signed rank selection")
 }

@@ -14,8 +14,10 @@ Ignored when \code{Y} is a formula.}
 
 \item{rank}{A vector of candidate ranks to be evaluated.}
 
-\item{detail}{Level of criterion computation: \code{"full"} (default) computes
-all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.}
+\item{detail}{\code{"full"} (default) also runs the element-wise CV
+(\code{sigma.ecv}); \code{"fast"} skips it (the plot then shows only
+r.squared and eff.rank, and the recommended rank falls back to the
+R-squared elbow).}
 
 \item{plot}{Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.}
 
@@ -30,12 +32,26 @@ all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.
 \value{
 A list containing:
 \item{rank.best}{The estimated optimal rank. Prioritizes ECV minimum if available, otherwise R-squared Elbow.}
-\item{criteria}{A data frame containing diagnostic metrics for each rank.}
+\item{criteria}{A data frame containing diagnostic metrics for each rank.
+The \code{effective.rank} column gives the effective rank
+(\eqn{\exp} of the Shannon entropy of the explained-variance
+distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})},
+in \eqn{[1, Q]}); when it plateaus well below the nominal
+\code{rank}, the extra factors are not carrying additional
+coefficient variance, which suggests an over-specified rank.
+The \code{effective.rank.ratio} column is \code{effective.rank /
+  rank} in \eqn{[0, 1]} (the utilization fraction plotted as
+\code{eff.rank} when \code{plot = TRUE}); a peak marks the rank
+at which the latent factors carry the most evenly distributed
+variance.}
 }
 \description{
 \code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})
-in NMF with kernel covariates. Several model selection measures are computed
-(e.g., R-squared, silhouette, CPCC, ARI), and results can be visualized in a plot.
+in NMF with kernel covariates. Three rank-selection measures are computed
+(R-squared, the effective rank, and the element-wise CV error), and results
+can be visualized in a plot. Sample-clustering quality (silhouette / CPCC /
+dist.cor) is no longer part of rank selection; use \code{\link{nmf.cluster.criteria}}
+on a fitted model for those.
 
 By default (\code{save.time = FALSE}), this function also computes the
 Element-wise Cross-Validation error (Wold's CV Sigma) using \code{\link{nmfkc.ecv}}.
@@ -55,15 +71,18 @@ nmfkc.rank(Y, rank=1:4)
 nmfkc.rank(Y, rank=1:4, detail="fast")
 }
 \references{
-Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004).
-Metagenes and molecular pattern discovery using matrix factorization.
-\emph{Proc. Natl. Acad. Sci. USA}, 101, 4164–4169.
-\doi{10.1073/pnas.0308531101}
-Punera, K., & Ghosh, J. (2008).
-Consensus-based ensembles of soft clusterings.
-\emph{Applied Artificial Intelligence}, 22(7–8), 780–810.
-\doi{10.1080/08839510802170546}
+Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+effective dimensionality.  \emph{Proc. 15th European Signal Processing
+Conf. (EUSIPCO)}, 606--610.  (\code{effective.rank})
+Wold, S. (1978).  Cross-validatory estimation of the number of
+components in factor and principal components models.
+\emph{Technometrics}, 20(4), 397--405.
+\doi{10.1080/00401706.1978.10489693}  (\code{sigma.ecv})
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
+\code{\link{nmfkc}},
+\code{\link{nmfkc.ecv}} (element-wise CV, used internally),
+\code{\link{nmfkc.bicv}} (block bi-cross-validation),
+\code{\link{nmfkc.consensus}} (stability) and
+\code{\link{nmfkc.ard}} (Bayesian ARD) for alternative rank criteria.
 }

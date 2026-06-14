@@ -90,7 +90,10 @@ An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
 \item{rank}{\code{c(Q = Q, R = R)}.}
 \item{dims}{\code{c(P1, P2, N)}.}
 \item{objfunc, objfunc.iter}{Final and per-iteration objective values.}
-\item{r.squared, sigma, mae}{Goodness of fit statistics.}
+\item{r.squared}{\eqn{\mathrm{cor}(Y_1, \widehat Y_1)^2} (Pearson; in \eqn{[0,1]}).}
+\item{r.squared.uncentered}{Uncentered \eqn{R^2 = 1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1\|_F^2} (baseline = zero matrix).}
+\item{r.squared.centered}{Row-mean centered \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1 - \bar Y_{p\cdot}\|_F^2}.}
+\item{sigma, mae}{Residual SE and mean absolute error.}
 \item{niter, runtime}{Iterations and elapsed seconds.}
 \item{Y.signed}{Logical; whether \eqn{Y_1} contained negative entries.}
 \item{call}{Matched call.}

@@ -37,9 +37,11 @@ This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for \code{Q},
 allowing simultaneous evaluation of multiple ranks on the same folds.
 
-When \code{Y.symmetric = "bi"} or \code{"tri"} is passed via \code{...},
-fold creation uses only the upper triangle (including the diagonal) to
-prevent information leakage through the symmetric entries \eqn{Y_{ij} = Y_{ji}}.
+For symmetric (network) data use \code{\link{nmfkc.net.ecv}}, which
+creates upper-triangle folds to prevent information leakage through
+the symmetric entries \eqn{Y_{ij} = Y_{ji}}.  Passing the old
+\code{Y.symmetric} argument here is no longer supported and stops
+with a redirect message.
 }
 \examples{
 # Element-wise CV to select rank
@@ -48,6 +50,18 @@ res <- nmfkc.ecv(Y, rank = 1:2, nfolds = 3)
 res$objfunc
 
 }
+\references{
+Wold, S. (1978).  Cross-validatory estimation of the number of
+components in factor and principal components models.
+\emph{Technometrics}, 20(4), 397--405.
+\doi{10.1080/00401706.1978.10489693}
+Owen, A. B., & Perry, P. O. (2009).  Bi-cross-validation of the SVD
+and the nonnegative matrix factorization.  \emph{Ann. Appl. Stat.}
+3(2), 564--594. \doi{10.1214/08-AOAS227}  (cross-validation of the
+NMF rank; see also \code{\link{nmfkc.bicv}}).
+}
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
+\code{\link{nmfkc}}, \code{\link{nmfkc.cv}}; other rank-selection
+criteria: \code{\link{nmfkc.rank}}, \code{\link{nmfkc.bicv}},
+\code{\link{nmfkc.consensus}}, \code{\link{nmfkc.ard}}.
 }

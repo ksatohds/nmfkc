@@ -259,8 +259,12 @@ print.summary.nmfkc.net.inference <- function(x,
 #'   \code{\link{nmfkc.net}} are auto-detected.
 #' @param cluster.box Style of cluster box: \code{"none"}, \code{"normal"},
 #'   \code{"faint"}, \code{"invisible"}.
-#' @param layout Graphviz layout engine: \code{"fdp"}, \code{"dot"},
-#'   \code{"neato"}, \code{"circo"}, \code{"twopi"}.
+#' @param layout Graphviz layout engine, in recommended order:
+#'   \code{"neato"} (default; spring model, clearest for small/medium community
+#'   graphs), \code{"fdp"} (force-directed, scales to larger graphs),
+#'   \code{"twopi"} (radial), \code{"circo"} (circular), \code{"dot"}
+#'   (hierarchical).  For community networks, \code{"neato"} or \code{"fdp"} with
+#'   a raised \code{threshold} (e.g.\ 0.2--0.3) separate the groups best.
 #' @param X.color Color palette for basis nodes (length Q).
 #' @param Y.cluster Coloring mode for outer nodes: \code{"soft"} (weighted mix)
 #'   or \code{"hard"} (most probable basis color).
@@ -308,7 +312,7 @@ nmfkc.net.DOT <- function(
     show.theta      = NULL,
     signed          = inherits(result, "nmfkc.net.signed"),
     cluster.box     = c("none", "normal", "faint", "invisible"),
-    layout          = c("fdp", "dot", "neato", "circo", "twopi"),
+    layout          = c("neato", "fdp", "twopi", "circo", "dot"),
     X.color         = NULL,
     Y.cluster       = c("soft", "hard")
 ) {
@@ -329,13 +333,22 @@ nmfkc.net.DOT <- function(
   ## Auto-detect bi vs tri model
   ## ---------------------------------------------------------
   if (is.null(show.theta)) {
-    sym_arg <- tryCatch(eval(result$call$Y.symmetric), error = function(e) NULL)
-    if (!is.null(sym_arg)) {
-      show.theta <- (sym_arg == "tri")
+    if (!is.null(result$type)) {
+      ## New nmfkc.net API: $type is "bi" / "tri" / "signed".  Only "bi"
+      ## has C = I (no inter-class interaction), so it draws no C edges.
+      show.theta <- (result$type != "bi")
     } else {
-      is_identity <- (all(dim(C_mat) == c(Q, Q)) &&
-                      isTRUE(all.equal(C_mat, diag(Q), tolerance = 1e-6)))
-      show.theta <- !is_identity
+      sym_arg <- tryCatch(eval(result$call$Y.symmetric), error = function(e) NULL)
+      if (!is.null(sym_arg)) {
+        show.theta <- (sym_arg == "tri")
+      } else {
+        ## Legacy fallback: detect C = I.  Drop dimnames first, otherwise
+        ## all.equal() reports a names mismatch and mis-detects bi as tri.
+        is_identity <- (all(dim(C_mat) == c(Q, Q)) &&
+                        isTRUE(all.equal(unname(C_mat), diag(Q),
+                                         tolerance = 1e-6)))
+        show.theta <- !is_identity
+      }
     }
   }
 
@@ -1008,8 +1021,13 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   resid <- Y - Y1hat
   ## lm()-style weighted least squares (matches compute_obj inside the loop).
   objfunc <- if (has.weights) sum(Wmat * resid^2) else sum(resid^2)
-  r.squared <- tryCatch(stats::cor(as.vector(Y1hat), as.vector(Y))^2,
-                        error = function(e) NA_real_)
+  ## Unified three-variant R^2 (cor^2, uncentered,
+  ## row-mean centered), all respecting Y.weights == 0 masking.
+  r2_all <- .r.squared.all(Y, Y1hat,
+                           Y.weights = if (has.weights) Wmat else NULL)
+  r.squared          <- r2_all$r.squared
+  r.squared.uncentered     <- r2_all$r.squared.uncentered
+  r.squared.centered <- r2_all$r.squared.centered
   mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
          else mean(abs(resid))
 
@@ -1024,7 +1042,10 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     rank = Q, dims = c(N = N),
     type = type,
     objfunc = objfunc, objfunc.iter = objfunc.iter,
-    r.squared = r.squared, mae = mae,
+    r.squared          = r.squared,
+    r.squared.uncentered     = r.squared.uncentered,
+    r.squared.centered = r.squared.centered,
+    mae = mae,
     iter = iter,
     runtime = as.numeric((proc.time() - t0)[3]),
     X.restriction = X.restriction
@@ -1194,32 +1215,78 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
     mean((Y[test_ut] - Yhat[test_ut])^2)
   }
 
-  result_objfunc <- numeric(length(rank))
-  result_sigma   <- numeric(length(rank))
-  result_fold    <- vector("list", length(rank))
-  names(result_objfunc) <- sprintf("Q=%d", rank)
-  names(result_sigma)   <- sprintf("Q=%d", rank)
-  names(result_fold)    <- sprintf("Q=%d", rank)
   message(sprintf("nmfkc.net ECV (type=%s): %d ranks, %d-fold, upper-triangle.",
                   type, length(rank), nfolds))
-  for (i in seq_along(rank)) {
-    q <- rank[i]
-    objs <- numeric(nfolds)
-    for (k in 1:nfolds) objs[k] <- run_one(q, k)
-    result_fold[[i]]  <- objs
-    result_objfunc[i] <- mean(objs)
-    result_sigma[i]   <- sqrt(result_objfunc[i])
-    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f",
-                    q, result_objfunc[i], result_sigma[i]))
-  }
+  cv <- .ecv.run(sprintf("Q=%d", rank), nfolds,
+                 run_one = function(i, k) run_one(rank[i], k),
+                 progress = function(i, o, s)
+                   message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", rank[i], o, s)))
   cls <- if (type == "signed")
            c("nmfkc.net.signed.ecv", "nmfkc.net.ecv", "nmfkc.ecv")
          else
            c("nmfkc.net.ecv", "nmfkc.ecv")
-  structure(list(objfunc = result_objfunc, sigma = result_sigma,
-                 objfunc.fold = result_fold, folds = folds,
+  structure(list(objfunc = cv$objfunc, sigma = cv$sigma,
+                 objfunc.fold = cv$objfunc.fold, folds = folds,
                  Q.grid = rank, type = type),
             class = cls)
+}
+
+
+#' @title Rank selection for nmfkc.net (concise diagnostics)
+#' @description
+#' Fits \code{\link{nmfkc.net}} across a range of ranks and reports the
+#' three rank-selection criteria -- \code{r.squared}, the effective rank
+#' (utilization), and the element-wise CV error \code{sigma.ecv} -- with
+#' the same concise diagnostics plot as \code{\link{nmfkc.rank}}.
+#' @param Y Symmetric (network) observation matrix.
+#' @param rank Integer vector of ranks to evaluate.
+#' @param type One of \code{"tri"}, \code{"bi"}, \code{"signed"}.
+#' @param detail \code{"full"} (default) also runs element-wise CV
+#'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+#'   eff.rank only, and recommends the R-squared elbow).
+#' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
+#' @param ... Passed on to \code{\link{nmfkc.net}} and
+#'   \code{\link{nmfkc.net.ecv}} (e.g.\ \code{nstart}, \code{maxit},
+#'   \code{nfolds}, \code{seed}).
+#' @return A list with \code{rank.best} (ECV minimum, or the R-squared
+#'   elbow under \code{detail = "fast"}) and \code{criteria} (data
+#'   frame: \code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
+#'   \code{r.squared}, \code{sigma.ecv}).
+#' @seealso \code{\link{nmfkc.net}}, \code{\link{nmfkc.net.ecv}},
+#'   \code{\link{nmfkc.rank}}
+#' @references
+#' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+#' effective dimensionality.  \emph{Proc. EUSIPCO}, 606--610.
+#' (\code{effective.rank})
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
+#' @export
+#' @examples
+#' \donttest{
+#' Y <- matrix(c(0,1,1,0,0,0, 1,0,1,0,0,0, 1,1,0,1,0,0,
+#'               0,0,1,0,1,1, 0,0,0,1,0,1, 0,0,0,1,1,0), 6, 6)
+#' nmfkc.net.rank(Y, rank = 1:3, type = "tri", nstart = 5, nfolds = 3)
+#' }
+nmfkc.net.rank <- function(Y, rank = 1:5, type = c("tri", "bi", "signed"),
+                           detail = c("full", "fast"), plot = TRUE, ...) {
+  type <- match.arg(type); detail <- match.arg(detail)
+  Y <- as.matrix(Y)
+  rs <- numeric(length(rank)); er <- numeric(length(rank))
+  for (i in seq_along(rank)) {
+    f <- suppressMessages(nmfkc.net(Y, rank = rank[i], type = type,
+                                    verbose = FALSE, ...))
+    rs[i] <- f$r.squared
+    er[i] <- .effective.rank(t(f$X))
+  }
+  ecv <- if (detail == "full")
+    suppressMessages(nmfkc.net.ecv(Y, rank = rank, type = type, ...))$sigma
+    else rep(NA_real_, length(rank))
+  criteria <- data.frame(rank = rank, effective.rank = er,
+                         effective.rank.ratio = er / rank,
+                         r.squared = rs, sigma.ecv = as.numeric(ecv))
+  .rank.finish(criteria, plot = plot,
+               main = sprintf("nmfkc.net rank selection (type=%s)", type))
 }
 
 
@@ -1248,8 +1315,13 @@ summary.nmfkc.net <- function(object, ...) {
     runtime = sprintf("%.2fsec", object$runtime),
 
     objfunc   = object$objfunc,
-    r.squared = object$r.squared,
+    r.squared          = object$r.squared,
+    r.squared.uncentered     = object$r.squared.uncentered,
+    r.squared.centered = object$r.squared.centered,
     mae       = object$mae,
+    ## Effective rank over the Q factors' membership across the N nodes
+    ## (X is N x Q, so transpose to factors x nodes).
+    effective.rank = .effective.rank(t(object$X)),
 
     X.sparsity      = mean(object$X  < 1e-4),
     C.sparsity      = mean(abs(object$C) < 1e-4),
@@ -1278,16 +1350,12 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
   cat("Runtime:    ", x$runtime, "\n")
   cat("Iterations: ", x$iter, "\n")
 
-  cat("\nStatistics:\n")
-  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
-  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+  .print.fit.statistics(x, digits = digits)
 
-  cat("\nStructure Diagnostics:\n")
-  cat("  Basis (X) Sparsity:  ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
-  cat("  C    Sparsity:       ", sprintf("%.1f%%", x$C.sparsity * 100), "(|C| < 1e-4)\n")
-  cat("  X range:             ", sprintf("[%.3g, %.3g]", x$X.range[1], x$X.range[2]), "\n")
-  cat("  C range:             ", sprintf("[%.3g, %.3g]", x$C.range[1], x$C.range[2]), "\n")
+  .print.structure.diagnostics(
+    sparsity = c("Basis (X)" = x$X.sparsity, "C" = x$C.sparsity))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "X range:", x$X.range[1], x$X.range[2]))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "C range:", x$C.range[1], x$C.range[2]))
 
   cat("\nCluster sizes (hard assignment by argmax of X):\n  ")
   print(x$X.cluster.counts)
@@ -1326,19 +1394,15 @@ print.summary.nmfkc.net.signed <- function(x, digits = max(3L, getOption("digits
   cat("Runtime:    ", x$runtime, "\n")
   cat("Iterations: ", x$iter, "\n")
 
-  cat("\nStatistics:\n")
-  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
-  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+  .print.fit.statistics(x, digits = digits)
 
-  cat("\nStructure Diagnostics:\n")
-  cat("  Basis (X) Sparsity:  ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
-  cat("  C    Sparsity:       ", sprintf("%.1f%%", x$C.sparsity * 100), "(|C| < 1e-4)\n")
-  cat("  X range:             ", sprintf("[%.3g, %.3g]", x$X.range[1], x$X.range[2]), "\n")
-  cat("  Cp range:            ", sprintf("[%.3g, %.3g]", x$Cp.range[1], x$Cp.range[2]), "\n")
-  cat("  Cn range:            ", sprintf("[%.3g, %.3g]", x$Cn.range[1], x$Cn.range[2]), "\n")
-  cat("  C range:             ", sprintf("[%.3g, %.3g]", x$C.range[1], x$C.range[2]), "\n")
-  cat("  Negative mass:       ", sprintf("%.1f%% (of sum |C|)", 100 * x$neg.frac), "\n")
+  .print.structure.diagnostics(
+    sparsity = c("Basis (X)" = x$X.sparsity, "C" = x$C.sparsity))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "X range:",  x$X.range[1],  x$X.range[2]))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "Cp range:", x$Cp.range[1], x$Cp.range[2]))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "Cn range:", x$Cn.range[1], x$Cn.range[2]))
+  cat(sprintf("  %-24s [%.3g, %.3g]\n", "C range:",  x$C.range[1],  x$C.range[2]))
+  cat(sprintf("  %-24s %.1f%% (of sum |C|)\n", "Negative mass:", 100 * x$neg.frac))
 
   cat("\nCluster sizes (hard assignment by argmax of X):\n  ")
   print(x$X.cluster.counts)

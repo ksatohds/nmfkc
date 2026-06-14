@@ -62,37 +62,21 @@ Promotes \strong{sparsity in the parameter matrix}. (Formerly \code{lambda}).
 \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
-This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
-would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
 \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 multi-start evaluation (when \code{X.init = "runif"}).
-For symmetric NMF (\code{Y.symmetric = "tri"} or \code{"bi"}), results are sensitive to
-initial values; \code{nstart = 20} or higher is recommended.
 \item \code{seed}: Integer seed for reproducibility (default: 123).
 \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
-\item \code{Y.symmetric}: Character string specifying the type of symmetric NMF.
-\code{"none"} (default): standard NMF (\eqn{Y \approx XB}).
-\code{"bi"}: 2-factor symmetric NMF (\eqn{Y \approx X X^\top}).
-Internally implemented as the \code{"tri"} model with \eqn{C = I_Q} (identity matrix)
-held fixed, so that \eqn{X} is updated freely without column normalization.
-The multiplicative update for \eqn{X} uses cube-root damping
-(\eqn{X \leftarrow X \circ (numerator / denominator)^{1/3}}) to prevent
-oscillation, since \eqn{X} appears in both factors of the decomposition
-(He et al., 2011, Proposition 1).
-\code{"tri"}: 3-factor symmetric NMF (\eqn{Y \approx X C X^\top})
-where \eqn{C} is a \eqn{Q \times Q} matrix representing cluster interactions
-(Ding et al., 2006).
-Both \code{"bi"} and \code{"tri"} require \code{Y} to be square
-and cannot be used with covariate matrix \code{A}.
-When \code{Y.symmetric = "bi"}, \code{X.restriction}
-is automatically set to \code{"none"} (no column normalization), because
-\eqn{C = I_Q} is fixed and cannot absorb the scale.
-For \code{"tri"}, column normalization is retained (default \code{"colSums"})
-because the free parameter matrix \eqn{C} absorbs the scale.
+\item \code{Y.symmetric}: \strong{Removed.} Symmetric NMF
+(\eqn{Y \approx X X^\top} or \eqn{X C X^\top}) has moved to the
+dedicated \code{\link{nmfkc.net}} function (types \code{"tri"},
+\code{"bi"}, \code{"signed"}), which uses the correct
+Frobenius bilateral-gradient updates.  Passing \code{Y.symmetric}
+to \code{nmfkc()} now stops with a message pointing to
+\code{nmfkc.net()}.
 \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 \item \code{print.dims}: Deprecated. Use \code{verbose} instead.
@@ -122,14 +106,16 @@ A list with components:
 \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 \item{objfunc}{Final objective value.}
 \item{objfunc.iter}{Objective values by iteration.}
-\item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+\item{r.squared}{\eqn{R^2 = \mathrm{cor}(Y, XB)^2} (Pearson; scale-invariant; \eqn{[0,1]}).}
+\item{r.squared.uncentered}{Uncentered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y\|_F^2} (baseline = zero matrix; natural for non-negative factorizations without an intercept).}
+\item{r.squared.centered}{Row-mean centered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}, the multivariate regression \eqn{R^2}.}
 \item{method}{Character string indicating the optimization method used (\code{"EU"} or \code{"KL"}).}
 \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y}.}
 \item{n.total}{Total number of elements in \eqn{Y}.}
 \item{rank}{The rank \eqn{Q} used in the factorization.}
 \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-\item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, and \code{B.prob.entropy.mean}.}
+\item{criterion}{A list of selection criteria: \code{silhouette} (mean silhouette width of the hard clustering, computed in the original data space \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic correlation of a hierarchical clustering of the coefficient distances \code{dist(t(B))}), \code{dist.cor} (correlation between original-data and coefficient distances), \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{effective.rank}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
 }
 \description{
 \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
@@ -162,16 +148,8 @@ dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10),
                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
 res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 
-# Example 3. Symmetric NMF (bi: Y ~ X X^T)
-S <- matrix(c(3,0,2, 0,3,1, 2,1,2), nrow=3)
-res_bi <- nmfkc(S, rank=2, Y.symmetric="bi")
-res_bi$X   # basis matrix (no column normalization)
-res_bi$XB  # reconstruction X \%*\% t(X)
-
-# Example 4. Symmetric NMF (tri: Y ~ X C X^T)
-res_tri <- nmfkc(S, rank=2, Y.symmetric="tri")
-res_tri$C  # Q x Q cluster interaction matrix
-res_tri$XB # reconstruction X \%*\% C \%*\% t(X)
+# For symmetric NMF (Y approximated by X X^T or X C X^T),
+# use \code{\link{nmfkc.net}()} instead.
 
 }
 \references{
@@ -192,6 +170,10 @@ Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix
 Tri-Factorizations for Clustering.
 In \emph{Proc. 12th ACM SIGKDD} (pp. 126--135).
 \doi{10.1145/1150402.1150420}
+
+Roy, O., & Vetterli, M. (2007). The effective rank: A measure of
+effective dimensionality. In \emph{15th European Signal Processing
+Conference (EUSIPCO)} (pp. 606--610).
 }
 \seealso{
 \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}

@@ -1,0 +1,186 @@
+---
+title: "Soft community detection in networks with nmfkc.net"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Soft community detection in networks with nmfkc.net}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+`nmfkc.net()` is a **symmetric** NMF for network (adjacency) matrices.  With
+`type = "bi"` it factorises a symmetric \eqn{N \times N} matrix as
+\eqn{Y \approx X X^\top} with \eqn{X \ge 0}.  Each row of \eqn{X} is a node's
+**graded membership** across communities, so this is *soft* community detection:
+unlike a hard method (e.g.\ Louvain), boundary nodes are revealed by a mixed
+membership rather than being forced into one group.
+
+This vignette uses a **self-contained synthetic network with a known community
+structure**, so we can check that `nmfkc.net()` recovers it and that
+`nmfkc.net.rank()` finds the right number of communities.
+
+```{r lib}
+library(nmfkc)
+```
+
+## A synthetic network (stochastic block model, 3 communities)
+
+We draw an undirected graph on `60` nodes from a **stochastic block model**:
+three communities of 20 nodes, with a high within-community edge probability and
+a low between-community one.  We then deliberately add **three "bridge" nodes**
+(one per community), each also wired to a *second* community, so that the network
+contains a few genuinely mixed nodes.  The true community of each node is known.
+
+```{r data, fig.width = 6, fig.height = 5.2}
+set.seed(1)
+K <- 3; n_each <- 20; N <- K * n_each       # 60 nodes, 3 communities
+block <- rep(1:K, each = n_each)            # true community labels
+
+p_in <- 0.6; p_out <- 0.05
+Prob <- matrix(p_out, N, N)
+for (k in 1:K) Prob[block == k, block == k] <- p_in
+Y <- matrix(rbinom(N * N, 1, Prob), N, N)   # 0/1 adjacency
+Y[lower.tri(Y)] <- t(Y)[lower.tri(Y)]        # make symmetric
+diag(Y) <- 0
+
+# add three bridge nodes, each also linked to a second community
+bridge <- c(20, 40, 60); into <- c(2, 3, 1)
+for (i in seq_along(bridge)) {
+  b <- bridge[i]; tgt <- which(block == into[i])
+  e <- rbinom(length(tgt), 1, 0.45)
+  Y[b, tgt] <- pmax(Y[b, tgt], e); Y[tgt, b] <- Y[b, tgt]
+}
+
+isSymmetric(Y); sum(Y) / 2                   # symmetric, number of edges
+
+# adjacency matrix in the original (random) node order -- structure is hidden
+image(1:N, 1:N, Y[, N:1], col = c("white", "steelblue"),
+      xlab = "node", ylab = "node", main = "Adjacency (original order)")
+```
+
+## Soft community detection with `nmfkc.net`
+
+```{r fit}
+res <- nmfkc.net(Y, rank = 3, type = "bi", nstart = 10, maxit = 500)
+res$r.squared                 # fit
+head(round(res$X.prob, 2))    # soft membership: rows = nodes, columns = communities
+head(res$X.cluster)           # hard label = argmax membership
+```
+
+## Did it recover the known communities?
+
+```{r compare}
+table(true = block, estimated = res$X.cluster)
+
+# the three bridge nodes have genuinely split memberships
+round(res$X.prob[bridge, ] * 100, 1)
+```
+
+The cross-tabulation is essentially block-diagonal: apart from the bridge nodes,
+every node is assigned to its true community.  The bridge nodes (rows above) are
+roughly **50/50 between two communities**, so their hard label simply tips to
+whichever side is marginally stronger --- exactly the situation where a *soft*
+membership is more informative than a forced assignment.
+
+## Visualising the result
+
+Re-ordering the nodes by the **recovered** community turns the adjacency matrix
+into a clean block-diagonal, and the membership matrix shows three crisp blocks:
+
+```{r viz, fig.width = 8, fig.height = 4}
+ord <- order(res$X.cluster)
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
+image(1:N, 1:N, Y[ord, rev(ord)], col = c("white", "steelblue"),
+      xlab = "node (reordered)", ylab = "", main = "Adjacency by community")
+image(1:N, 1:K, res$X.prob[ord, , drop = FALSE],
+      col = hcl.colors(20, "Blues", rev = TRUE),
+      xlab = "node (reordered)", ylab = "community", axes = FALSE,
+      main = "Soft membership")
+axis(1); axis(2, at = 1:K)
+par(op)
+```
+
+## Network diagram (Graphviz DOT): soft vs. hard
+
+`nmfkc.net.DOT()` turns the fit into a Graphviz **DOT** graph: each network node
+is linked to the community (basis) hubs by edges whose thickness encodes the
+membership strength.  We raise `threshold` to `0.25` so that only substantial
+memberships are drawn --- each pure node then links to a *single* hub, which lets
+the `neato` layout pull the three communities apart, while the bridge nodes keep
+*both* links and settle in between.  Rendered with the suggested package
+**DiagrammeR**, it embeds directly in the HTML output.  The only difference
+between the two views below is the **node colour**:
+
+* `Y.cluster = "soft"` (default) blends the community colours in proportion to
+  the membership, so the three bridge nodes appear in a **mixed colour**.
+* `Y.cluster = "hard"` paints each node in the **single colour** of its dominant
+  community.
+
+```{r dot-check, include = FALSE}
+has_dg <- requireNamespace("DiagrammeR", quietly = TRUE)
+```
+
+**Soft** -- the three bridge nodes added earlier (`bridge <- c(20, 40, 60)`,
+each wired to a second community) show a blended colour:
+
+```{r dot-soft, eval = has_dg, fig.width = 7, fig.height = 7}
+dot_soft <- nmfkc.net.DOT(res,
+  Y.label = as.character(1:N), X.label = paste("Community", 1:K),
+  Y.title = "Network nodes",   X.title = "Communities",
+  layout  = "neato", threshold = 0.25, Y.cluster = "soft")
+DiagrammeR::grViz(as.character(dot_soft))
+```
+
+**Hard** -- those same bridge nodes (20, 40, 60) are forced into one community
+colour:
+
+```{r dot-hard, eval = has_dg, fig.width = 7, fig.height = 7}
+dot_hard <- nmfkc.net.DOT(res,
+  Y.label = as.character(1:N), X.label = paste("Community", 1:K),
+  Y.title = "Network nodes",   X.title = "Communities",
+  layout  = "neato", threshold = 0.25, Y.cluster = "hard")
+DiagrammeR::grViz(as.character(dot_hard))
+```
+
+(If DiagrammeR is not installed, both diagrams are skipped.)
+
+## How many communities? `nmfkc.net.rank`
+
+The same rank-selection diagnostics as `nmfkc.rank` are available for the
+symmetric model.  The recommended rank is the cross-validation (ECV) minimum;
+the effective rank and R-squared elbow corroborate it.
+
+```{r rank, fig.width = 7, fig.height = 6}
+rk <- nmfkc.net.rank(Y, rank = 1:6, type = "bi", nstart = 5)
+rk$rank.best
+round(rk$criteria, 3)
+```
+
+## Remarks
+
+`nmfkc.net()` recovers the three planted communities for the core nodes, and
+`nmfkc.net.rank()` selects three.  Because the membership is *soft*
+(`res$X.prob`), the three bridge nodes that sit between communities show a split
+membership instead of being forced into one group --- the practical advantage of
+NMF over hard community detection, made visible by the soft-vs-hard DOT graphs
+above.
+
+`type = "bi"` (\eqn{Y \approx X X^\top}) is the usual choice for an undirected,
+non-negative network; `type = "tri"` (\eqn{Y \approx X C X^\top}) adds a
+community-interaction matrix \eqn{C}, and `type = "signed"` handles networks with
+negative weights.  For choosing the number of communities, the same advice as in
+the *rank-selection* vignette applies: use the ECV minimum as the primary
+criterion and corroborate it with the effective rank.
+
+See `?nmfkc.net`, `?nmfkc.net.ecv`, `?nmfkc.net.rank`, and the companion vignette
+*"Choosing the NMF rank on data with a known true rank"*.

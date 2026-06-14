@@ -6,18 +6,22 @@ those held-out elements.
 This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for Q,
 allowing simultaneous evaluation of multiple ranks on the same folds.
-When Y.symmetric = &quot;bi&quot; or &quot;tri&quot; is passed via ...,
-fold creation uses only the upper triangle (including the diagonal) to
-prevent information leakage through the symmetric entries \(Y_{ij} = Y_{ji}\)."><meta property="og:description" content="nmfkc.ecv performs k-fold cross-validation by randomly holding out
+For symmetric (network) data use nmfkc.net.ecv, which
+creates upper-triangle folds to prevent information leakage through
+the symmetric entries \(Y_{ij} = Y_{ji}\).  Passing the old
+Y.symmetric argument here is no longer supported and stops
+with a redirect message."><meta property="og:description" content="nmfkc.ecv performs k-fold cross-validation by randomly holding out
 individual elements of the data matrix (element-wise), assigning them a
 weight of 0 via Y.weights, and evaluating the reconstruction error on
 those held-out elements.
 This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for Q,
 allowing simultaneous evaluation of multiple ranks on the same folds.
-When Y.symmetric = &quot;bi&quot; or &quot;tri&quot; is passed via ...,
-fold creation uses only the upper triangle (including the diagonal) to
-prevent information leakage through the symmetric entries \(Y_{ij} = Y_{ji}\)."></head><body>
+For symmetric (network) data use nmfkc.net.ecv, which
+creates upper-triangle folds to prevent information leakage through
+the symmetric entries \(Y_{ij} = Y_{ji}\).  Passing the old
+Y.symmetric argument here is no longer supported and stops
+with a redirect message."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -25,7 +29,7 @@ prevent information leakage through the symmetric entries \(Y_{ij} = Y_{ji}\).">
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,8 +43,10 @@ prevent information leakage through the symmetric entries \(Y_{ij} = Y_{ji}\).">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -68,9 +74,11 @@ those held-out elements.</p>
 <p>This method (also known as Wold's CV) is theoretically robust for determining
 the optimal rank (Q) in NMF. This function supports vector input for <code>Q</code>,
 allowing simultaneous evaluation of multiple ranks on the same folds.</p>
-<p>When <code>Y.symmetric = "bi"</code> or <code>"tri"</code> is passed via <code>...</code>,
-fold creation uses only the upper triangle (including the diagonal) to
-prevent information leakage through the symmetric entries \(Y_{ij} = Y_{ji}\).</p>
+<p>For symmetric (network) data use <code><a href="nmfkc.net.ecv.html">nmfkc.net.ecv</a></code>, which
+creates upper-triangle folds to prevent information leakage through
+the symmetric entries \(Y_{ij} = Y_{ji}\).  Passing the old
+<code>Y.symmetric</code> argument here is no longer supported and stops
+with a redirect message.</p>
     </div>
 
     <div class="section level2">
@@ -122,8 +130,23 @@ Also accepts: <code>nfolds</code> (number of folds, default 5; <code>div</code> 
 
 </dl></div>
     <div class="section level2">
+    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
+    <p>Wold, S. (1978).  Cross-validatory estimation of the number of
+components in factor and principal components models.
+<em>Technometrics</em>, 20(4), 397–405.
+<a href="https://doi.org/10.1080/00401706.1978.10489693" class="external-link">doi:10.1080/00401706.1978.10489693</a>
+
+Owen, A. B., &amp; Perry, P. O. (2009).  Bi-cross-validation of the SVD
+and the nonnegative matrix factorization.  <em>Ann. Appl. Stat.</em>
+3(2), 564–594. <a href="https://doi.org/10.1214/08-AOAS227" class="external-link">doi:10.1214/08-AOAS227</a>
+  (cross-validation of the
+NMF rank; see also <code><a href="nmfkc.bicv.html">nmfkc.bicv</a></code>).</p>
+    </div>
+    <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfkc.html">nmfkc</a></code>, <code><a href="nmfkc.cv.html">nmfkc.cv</a></code></p></div>
+    <div class="dont-index"><p><code><a href="nmfkc.html">nmfkc</a></code>, <code><a href="nmfkc.cv.html">nmfkc.cv</a></code>; other rank-selection
+criteria: <code><a href="nmfkc.rank.html">nmfkc.rank</a></code>, <code><a href="nmfkc.bicv.html">nmfkc.bicv</a></code>,
+<code><a href="nmfkc.consensus.html">nmfkc.consensus</a></code>, <code><a href="nmfkc.ard.html">nmfkc.ard</a></code>.</p></div>
     </div>
 
     <div class="section level2">

@@ -797,95 +797,1100 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 
 
-#' @title Compute a simplified/approximate silhouette coefficient (Internal)
+#' @title Mean silhouette width from a distance matrix (Internal)
 #' @description
-#' This internal function computes an approximate version of the silhouette coefficient
-#' for clustering results. Unlike the standard definition (e.g., \code{cluster::silhouette}),
-#' it determines the nearest neighboring cluster (\code{qn}) by comparing the
-#' **Euclidean distances between each sample and the cluster mean vectors (centroids)**,
-#' rather than comparing the average distance to all members of other clusters.
+#' Computes the standard mean silhouette width for a hard clustering,
+#' given a pre-computed pairwise distance matrix and the cluster labels.
+#' For each point \eqn{i}, \eqn{a(i)} is the mean distance to the other
+#' members of its own cluster and \eqn{b(i)} is the minimum, over the
+#' other clusters, of the mean distance to that cluster; the silhouette
+#' is \eqn{(b(i) - a(i)) / \max(a(i), b(i))}.
 #'
-#' However, the calculation of \code{a(i)} (average distance to members of the
-#' assigned cluster) and \code{b(i)} (average distance to members of the nearest
-#' neighboring cluster) uses the pairwise distances of all samples, consistent
-#' with the standard definition. This combined approach reduces the computational
-#' complexity of the \code{qn} determination step while maintaining consistency
-#' for \code{a(i)} and \code{b(i)} using pre-computed distance matrix \code{D}.
+#' The distance matrix should describe distances in a \strong{fixed}
+#' space that does not change with the NMF rank \eqn{Q} -- typically
+#' the original data, \code{as.matrix(dist(t(Y)))} -- with the
+#' per-sample hard labels \code{B.cluster}.  This is the k-means
+#' convention.  (Computing silhouettes in the rank-\eqn{Q} \code{B.prob}
+#' simplex instead makes the score monotone in \eqn{Q} and can hide
+#' genuine cluster structure.)
 #'
-#' @param B.prob The coefficient probability matrix (Q x N).
-#' @param B.cluster The hard clustering vector derived from \code{B.prob}.
+#' @param D An \eqn{N \times N} pairwise distance matrix (or object
+#'   coercible to one) over the \eqn{N} samples.
+#' @param labels Length-\eqn{N} integer cluster labels (\code{NA} allowed;
+#'   such samples are dropped).
 #'
-#' @return A list containing:
-#' \item{cluster}{Sorted cluster labels.}
-#' \item{silhouette}{Sorted silhouette values.}
-#' \item{silhouette.means}{Mean of the cluster indices.}
-#' \item{silhouette.mean}{Overall mean silhouette score.}
+#' @return The overall mean silhouette width (a single numeric), or
+#'   \code{NA} when fewer than two clusters are present.
 #' @keywords internal
 #' @noRd
-.silhouette.simple <- function(B.prob,B.cluster){
-  if(is.matrix(B.prob)){Q <- nrow(B.prob)}else{Q <- 1}
-  if(Q==1){
-    return(list(cluster=NA,silhouette=NA,
-                silhouette.means=NA,silhouette.mean=NA))
-  }else{
-    index <-!is.na(B.cluster)
-    B.prob <- B.prob[,index, drop=FALSE]
-    B.cluster <- B.cluster[index]
-    N_samples <- ncol(B.prob)
-    D <- as.matrix(stats::dist(t(B.prob)))
-    cluster.means <- matrix(0,nrow=Q,ncol=Q)
-    ns <- NULL
-    cluster.list <- NULL
-    for(q in 1:Q){
-      ns <- c(ns,sum(B.cluster==q))
-      cluster.list <- c(cluster.list,list(which(B.cluster==q)))
-      cluster.means[,q] <- rowMeans(B.prob[,B.cluster==q,drop=FALSE])
-    }
-    B_prob_sq_sum <- colSums(B.prob^2)
-    cluster_means_sq_sum <- colSums(cluster.means^2)
-    d2_matrix <- outer(B_prob_sq_sum, rep(1, Q)) +
-      outer(rep(1, N_samples), cluster_means_sq_sum) -
-      2 * t(B.prob) %*% cluster.means
-    d2_matrix[d2_matrix < 0] <- 0
-    si <- 0*B.cluster
-    neighbor.cluster <- 0*B.cluster
-    for(q in 1:Q){
-      q_indices <- cluster.list[[q]]
-      for(i_idx in seq_along(q_indices)){
-        i <- q_indices[i_idx]
-        di <- d2_matrix[i, ]
-        qn <- order(di)[ifelse(order(di)[1]==q, 2, 1)]
-        neighbor.cluster[i] <- qn
-        if(ns[q]==1){
-          si[i] <- 0
-        }else{
-          ai_distances <- D[i, q_indices]
-          ai <- sum(ai_distances) / (ns[q]-1)
-          qn_indices <- cluster.list[[qn]]
-          bi_distances <- D[i, qn_indices]
-          bi <- sum(bi_distances) / ns[qn]
-          si[i] <- (bi-ai)/max(ai,bi)
-        }
-      }
-    }
-    si.mean <- mean(si)
-    si.sort.cluster.means <- 0*ns
-    for(q in 1:Q){
-      si.sort.cluster.means[q] <- mean(cluster.list[[q]])
-    }
-    si.sort <- NULL
-    si.sort.cluster <- NULL
-    for(q in 1:Q){
-      si.sort <- c(si.sort,sort(si[cluster.list[[q]]],decreasing=TRUE))
-      si.sort.cluster <- c(si.sort.cluster,rep(q,length(cluster.list[[q]])))
-    }
-    return(list(cluster=si.sort.cluster,silhouette=si.sort,
-                silhouette.means=si.sort.cluster.means,silhouette.mean=si.mean))
+.silhouette.mean <- function(D, labels){
+  D <- base::as.matrix(D)
+  keep <- !is.na(labels)
+  D <- D[keep, keep, drop = FALSE]
+  labels <- labels[keep]
+  clusters <- base::unique(labels)
+  if (base::length(clusters) < 2) return(NA_real_)
+  N <- base::length(labels)
+  si <- base::numeric(N)
+  for (i in base::seq_len(N)) {
+    own  <- labels[i]
+    same <- base::which(labels == own); same <- same[same != i]
+    if (base::length(same) == 0) { si[i] <- 0; next }
+    a <- base::mean(D[i, same])
+    other <- base::setdiff(clusters, own)
+    b <- base::min(base::vapply(other,
+            function(cl) base::mean(D[i, labels == cl]), base::numeric(1)))
+    si[i] <- if (base::max(a, b) > 0) (b - a) / base::max(a, b) else 0
   }
+  base::mean(si)
+}
+
+
+#' @title Clustering-quality criteria from data and a coefficient matrix (Internal)
+#' @description
+#' Shared computation of the sample-clustering diagnostics used by
+#' \code{\link{nmfkc.criterion}} (inside \code{nmfkc.rank}) and the
+#' user-facing \code{\link{nmf.cluster.criteria}}.  From the original data
+#' \eqn{Y} (\eqn{P \times N}) and a \eqn{Q \times N} coefficient/score
+#' matrix \eqn{B} it returns:
+#' \itemize{
+#'   \item \code{dist.cor}: correlation between the sample distances in
+#'     data space \code{dist(t(Y))} and in coefficient space
+#'     \code{dist(t(B))} (embedding fidelity); always defined.
+#'   \item \code{CPCC}: cophenetic correlation of a hierarchical
+#'     clustering of \code{dist(t(B))} (Sokal-Rohlf); always defined for
+#'     \eqn{Q \ge 2}.
+#'   \item \code{silhouette}: mean silhouette width of the hard sample
+#'     labels (argmax of the column-normalized \eqn{B}) in data space.
+#'     This requires a \strong{non-negative} \eqn{B} (a valid membership
+#'     simplex); for a signed \eqn{B} it is \code{NA}.
+#' }
+#' \code{dist.cor} and \code{CPCC} are distance-based and therefore work
+#' for signed \eqn{B} too; only the hard-label \code{silhouette} needs
+#' \eqn{B \ge 0}.
+#' @param Y Data matrix (\eqn{P \times N}).
+#' @param B Coefficient/score matrix (\eqn{Q \times N}).
+#' @param labels Optional pre-computed hard labels (length \eqn{N}); when
+#'   supplied they are used as-is for the silhouette (e.g.\ the
+#'   \code{B.cluster} already held by a fitted \code{nmfkc} model),
+#'   otherwise they are derived from \eqn{B} when \eqn{B \ge 0}.
+#' @return A list: \code{silhouette}, \code{CPCC}, \code{dist.cor},
+#'   \code{cluster} (the hard labels, or \code{NULL}), and \code{hard}
+#'   (whether hard clustering was possible).
+#' @keywords internal
+#' @noRd
+.cluster.criteria <- function(Y, B, labels = NULL) {
+  Y <- base::as.matrix(Y); B <- base::as.matrix(B)
+  Q <- base::nrow(B)
+  dY <- stats::dist(base::t(Y))
+  dB <- stats::dist(base::t(B))
+  dist.cor <- stats::cor(base::as.vector(dY), base::as.vector(dB))
+  CPCC <- if (Q >= 2) {
+    coph <- stats::cophenetic(stats::hclust(dB))
+    stats::cor(base::as.vector(dB), base::as.vector(coph))
+  } else NA_real_
+  nonneg <- base::all(base::is.finite(B)) && base::all(B >= 0)
+  if (base::is.null(labels) && nonneg) {
+    B.prob <- base::t(base::t(B) / (base::colSums(B) + .Machine$double.eps))
+    labels <- base::apply(B.prob, 2, base::which.max)
+    labels[base::colSums(B.prob) == 0] <- NA
+  }
+  silhouette <- if (!base::is.null(labels))
+    .silhouette.mean(dY, labels) else NA_real_
+  base::list(silhouette = silhouette, CPCC = CPCC, dist.cor = dist.cor,
+             cluster = labels, hard = nonneg)
 }
 
 
 
+
+
+#' @title Unified R-squared computation (3 variants)
+#' @description
+#' Internal helper used by every NMF function in the package to report
+#' three goodness-of-fit summaries on the same scale:
+#' \itemize{
+#'   \item \code{r.squared}: Pearson \eqn{\mathrm{cor}(Y, \widehat{Y})^2},
+#'         scale-invariant, in \eqn{[0, 1]}.
+#'   \item \code{r.squared.uncentered}: uncentered \eqn{R^2}
+#'         \eqn{1 - \|Y - \widehat{Y}\|_F^2 / \|Y\|_F^2}.  Baseline is
+#'         the zero matrix (natural for non-negative factorizations
+#'         without an intercept).  Matches the "uncentered \eqn{R^2}"
+#'         of intercept-free regression.  In \eqn{(-\infty, 1]}.
+#'   \item \code{r.squared.centered}: row-mean centered
+#'         \eqn{1 - \|Y - \widehat{Y}\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2},
+#'         where \eqn{\bar Y_{p\cdot}} is the per-row mean over valid
+#'         entries.  Equivalent to the multivariate regression
+#'         \eqn{R^2} where each row is treated as one response.  In
+#'         \eqn{(-\infty, 1]}.
+#' }
+#' All three respect the optional non-negative weight matrix
+#' \code{Y.weights}: cells with \code{Y.weights == 0} (the standard
+#' NA-mask / hold-out convention) are excluded from the sums.
+#' @param Y observed matrix (\eqn{P \times N}).
+#' @param Y_hat fitted matrix (\eqn{P \times N}).
+#' @param Y.weights optional non-negative weight matrix of the same
+#'   dimension as \code{Y}.  \code{NULL} means all weights are 1.
+#' @return A list with components \code{r.squared}, \code{r.squared.uncentered},
+#'   \code{r.squared.centered}, each a length-1 numeric (\code{NA_real_}
+#'   when ill-defined, e.g.\ \code{||Y||_F = 0} or fewer than two valid
+#'   entries).
+#' @keywords internal
+#' @noRd
+.r.squared.all <- function(Y, Y_hat, Y.weights = NULL) {
+  Y     <- base::as.matrix(Y)
+  Y_hat <- base::as.matrix(Y_hat)
+  P <- base::nrow(Y); N <- base::ncol(Y)
+
+  if (base::is.null(Y.weights)) {
+    Wm <- base::matrix(1, P, N)
+  } else {
+    Wm <- base::as.matrix(Y.weights)
+    if (!base::identical(base::dim(Wm), base::c(P, N)))
+      base::stop(".r.squared.all: Y.weights must match dim(Y).")
+  }
+  valid <- (Wm > 0)
+  n_valid <- base::sum(valid)
+
+  if (n_valid < 2) {
+    return(base::list(r.squared          = NA_real_,
+                      r.squared.uncentered     = NA_real_,
+                      r.squared.centered = NA_real_))
+  }
+
+  y_v    <- Y[valid]
+  yhat_v <- Y_hat[valid]
+  sse    <- base::sum((y_v - yhat_v)^2)
+
+  ## (A) Pearson cor^2
+  r2_cor <- base::tryCatch(stats::cor(y_v, yhat_v)^2,
+                           error = function(e) NA_real_)
+
+  ## (C) Uncentered: 1 - SSE / ||Y||_F^2 (valid entries; baseline = 0)
+  ss_y   <- base::sum(y_v^2)
+  r2_unc <- if (is.finite(ss_y) && ss_y > 0) 1 - sse / ss_y else NA_real_
+
+  ## (D) Row-mean centered: per-row mean over valid entries
+  row_means <- base::numeric(P)
+  for (p in base::seq_len(P)) {
+    vp <- valid[p, ]
+    if (base::any(vp)) row_means[p] <- base::mean(Y[p, vp])
+    else                row_means[p] <- NA_real_
+  }
+  ## Build (Y - rowMean)^2 broadcasting row_means down columns, then
+  ## sum over valid cells only.  rows with no valid entries contribute 0.
+  Y_centered_sq <- (Y - row_means)^2
+  Y_centered_sq[!valid] <- 0
+  ## Drop rows with NA row_means (i.e., empty rows under masking)
+  Y_centered_sq[base::is.na(Y_centered_sq)] <- 0
+  ss_centered <- base::sum(Y_centered_sq)
+  r2_centered <- if (is.finite(ss_centered) && ss_centered > 0) 1 - sse / ss_centered
+                 else NA_real_
+
+  base::list(r.squared          = r2_cor,
+             r.squared.uncentered     = r2_unc,
+             r.squared.centered = r2_centered)
+}
+
+
+#' @title Effective rank of a coefficient/score matrix (Internal)
+#' @description
+#' Returns the \strong{effective rank}: \eqn{\exp} of the Shannon
+#' entropy of the explained-variance distribution
+#' \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}
+#' over the rows (latent factors) of \code{B}.  By the trace identity
+#' \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))},
+#' each \eqn{p_k} is the exact fraction of the total coefficient
+#' variance carried by factor \eqn{k}, so the entropy measures how
+#' evenly that variance is spread across factors.  Ranges in
+#' \eqn{[1, Q]}.  Returns \code{NA} when there are fewer than two
+#' factors (\eqn{Q < 2}) -- the entropy of a single point is trivially
+#' 0 -- or fewer than two units (\eqn{N < 2}), or zero total variance.
+#' @param B A \eqn{Q \times N} coefficient/score matrix (factors in
+#'   rows, units in columns).
+#' @return A single numeric (the effective rank), or \code{NA_real_}.
+#' @keywords internal
+#' @noRd
+.effective.rank <- function(B) {
+  B <- base::as.matrix(B)
+  Q <- base::nrow(B); N <- base::ncol(B)
+  if (Q < 2 || N < 2) return(NA_real_)
+  v <- base::apply(B, 1, stats::var)
+  s <- base::sum(v, na.rm = TRUE)
+  if (!base::is.finite(s) || s <= 0) return(NA_real_)
+  p <- v / s
+  p <- p[p > 0]
+  base::exp(-base::sum(p * base::log(p)))
+}
+
+
+#' @title Print a unified "Statistics" block for an NMF summary (Internal)
+#' @description
+#' Prints the common fit-statistics block shared by the NMF summary
+#' methods (objective, the three R-squared variants, residual SE, MAE,
+#' and effective rank), reading them from a list/object \code{x}.  Each
+#' field is printed only when present and finite, so models that lack a
+#' given statistic (e.g.\ \code{nmfkc.net} has no residual SE) simply
+#' omit that line.  Labels are left-padded to a common width so values
+#' align across all summaries.
+#' @param x A list/object with any of \code{objfunc}, \code{r.squared},
+#'   \code{r.squared.uncentered}, \code{r.squared.centered},
+#'   \code{sigma}, \code{mae}, \code{effective.rank}, \code{rank}.
+#' @param header Section header (default \code{"Statistics:"}).
+#' @param digits Significant digits for numeric fields.
+#' @return \code{NULL}, invisibly (called for its printing side effect).
+#' @keywords internal
+#' @noRd
+.print.fit.statistics <- function(x, header = "Statistics:", digits = 4) {
+  base::cat("\n", header, "\n", sep = "")
+  w <- 24L
+  num <- function(label, val) {
+    if (!base::is.null(val) && base::length(val) == 1L && base::is.finite(val))
+      base::cat(base::sprintf("  %-*s %s\n", w, label,
+                              base::format(val, digits = digits)))
+  }
+  num("Objective function:",     x$objfunc)
+  num("R-squared (cor^2):",      x$r.squared)
+  num("R-squared (uncentered):", x$r.squared.uncentered)
+  num("R-squared (centered):",   x$r.squared.centered)
+  num("Residual Std Error:",     x$sigma)
+  num("Mean Absolute Error:",    x$mae)
+  if (!base::is.null(x$effective.rank) && base::is.finite(x$effective.rank) &&
+      !base::is.null(x$rank) && base::is.finite(x$rank))
+    base::cat(base::sprintf("  %-*s %.2f / %d  (%.1f%%)\n", w, "Effective Rank:",
+                            x$effective.rank, x$rank,
+                            100 * x$effective.rank / x$rank))
+  base::invisible(NULL)
+}
+
+
+#' @title Print a unified "Structure Diagnostics" block (Internal)
+#' @description
+#' Prints the common structure-diagnostics block shared by the NMF
+#' summary methods: one sparsity line per factor matrix plus an optional
+#' clustering-crispness line.  Sparsities are supplied as a named
+#' numeric vector (name = matrix label, value = fraction of near-zero
+#' entries); labels are aligned to the same width as
+#' \code{\link{.print.fit.statistics}}.  Model-specific extras (value
+#' ranges, cluster sizes, \dots) are printed by the caller after this
+#' block.
+#' @param sparsity Named numeric vector of sparsity fractions in
+#'   \eqn{[0, 1]}; names become the row labels (e.g.\ \code{"Basis (X)"}).
+#' @param crispness Optional clustering crispness in \eqn{[1/Q, 1]}.
+#' @param header Section header (default \code{"Structure Diagnostics:"}).
+#' @return \code{NULL}, invisibly.
+#' @keywords internal
+#' @noRd
+.print.structure.diagnostics <- function(sparsity = NULL, crispness = NULL,
+                                         header = "Structure Diagnostics:") {
+  base::cat("\n", header, "\n", sep = "")
+  w <- 24L
+  if (!base::is.null(sparsity)) {
+    for (lab in base::names(sparsity)) {
+      v <- sparsity[[lab]]
+      if (!base::is.null(v) && base::is.finite(v))
+        base::cat(base::sprintf("  %-*s %.1f%% (< 1e-4)\n", w,
+                                base::paste0(lab, " Sparsity:"), 100 * v))
+    }
+  }
+  if (!base::is.null(crispness) && base::is.finite(crispness))
+    base::cat(base::sprintf("  %-*s %s (range: 1/Q-1, closer to 1 = more decisive assignment)\n",
+                            w, "Clustering Crispness:",
+                            base::format(crispness, digits = 4)))
+  base::invisible(NULL)
+}
+
+
+#' @title Element-wise CV fold construction (Internal)
+#' @description
+#' Randomly partitions the non-\code{NA} elements of \code{Y} into
+#' \code{nfolds} groups of (nearly) equal size for Wold-style
+#' element-wise cross-validation.  Shared by the element-wise
+#' \code{*.ecv} functions (\code{\link{nmfkc.ecv}}, \code{nmfae.ecv},
+#' \code{nmfkc.signed.ecv}, \code{nmfae.signed.ecv}); the symmetric
+#' \code{\link{nmfkc.net.ecv}} uses upper-triangle folds instead.
+#' @param Y The observation matrix.
+#' @param nfolds Number of folds.
+#' @param seed Optional integer seed (set immediately before sampling so
+#'   that the partition is reproducible).
+#' @return A list of length \code{nfolds}; each element is an integer
+#'   vector of linear indices into \code{Y}.
+#' @keywords internal
+#' @noRd
+.ecv.make.folds <- function(Y, nfolds, seed = NULL) {
+  if (!base::is.null(seed)) base::set.seed(seed)
+  valid_indices <- base::which(!base::is.na(Y))
+  n_valid <- base::length(valid_indices)
+  perm_indices <- base::sample(valid_indices)
+  folds <- base::vector("list", nfolds)
+  chunk_size <- n_valid %/% nfolds
+  remainder  <- n_valid %% nfolds
+  start_idx <- 1L
+  for (k in 1:nfolds) {
+    current_size <- chunk_size + base::ifelse(k <= remainder, 1L, 0L)
+    end_idx <- start_idx + current_size - 1L
+    folds[[k]] <- perm_indices[start_idx:end_idx]
+    start_idx <- end_idx + 1L
+  }
+  folds
+}
+
+
+#' @title Run an element-wise CV loop over a configuration list (Internal)
+#' @description
+#' Shared driver for every element-wise CV function -- the single-rank
+#' ones (\code{\link{nmfkc.ecv}}, \code{\link{nmfkc.net.ecv}},
+#' \code{nmfkc.signed.ecv}) and the \eqn{(Q, R)}-grid ones
+#' (\code{nmfae.ecv}, \code{nmfae.signed.ecv}).  Configurations are
+#' addressed by \strong{index}: for each config \eqn{i} (labelled by
+#' \code{labels[i]}) and each of \code{nfolds} folds it calls the
+#' model-specific \code{run_one(i, k)} closure -- which masks the
+#' held-out fold, refits the model at config \eqn{i}, and returns that
+#' fold's mean held-out loss -- then aggregates per config
+#' (\code{objfunc} = mean over folds, \code{sigma} = its square root for
+#' a non-negative objective, else \code{NA}).
+#' @param labels Character vector of config labels (e.g.\ \code{"Q=2"} or
+#'   \code{"Q=2,R=1"}); its length is the number of configs.
+#' @param nfolds Number of folds.
+#' @param run_one A function \code{run_one(i, k)} returning the held-out
+#'   mean loss for config index \code{i} and fold \code{k}.
+#' @param progress Optional \code{function(i, objfunc, sigma)} called
+#'   after each config for progress reporting (default none).
+#' @return A list with \code{objfunc} (named numeric), \code{sigma}
+#'   (named numeric), and \code{objfunc.fold} (named list of per-fold
+#'   loss vectors).  Callers using a loss that can be negative (e.g.\ KL)
+#'   may additionally force \code{sigma} to \code{NA}.
+#' @keywords internal
+#' @noRd
+.ecv.run <- function(labels, nfolds, run_one, progress = NULL) {
+  n   <- base::length(labels)
+  obj <- stats::setNames(base::numeric(n), labels)
+  sig <- stats::setNames(base::numeric(n), labels)
+  fld <- stats::setNames(base::vector("list", n), labels)
+  for (i in base::seq_len(n)) {
+    objs <- base::numeric(nfolds)
+    for (k in 1:nfolds) objs[k] <- run_one(i, k)
+    fld[[i]] <- objs
+    obj[i]   <- base::mean(objs)
+    sig[i]   <- if (base::is.finite(obj[i]) && obj[i] >= 0)
+                  base::sqrt(obj[i]) else NA_real_
+    if (!base::is.null(progress)) progress(i, obj[i], sig[i])
+  }
+  base::list(objfunc = obj, sigma = sig, objfunc.fold = fld)
+}
+
+
+#' @title Extract the Q x N coefficient/score matrix of a fitted MU model (Internal)
+#' @description
+#' Maps each multiplicative-update fit to its natural \eqn{Q \times N}
+#' coefficient/score matrix for clustering diagnostics: \code{B} for
+#' \code{nmfkc}/\code{nmfkc.signed}, \code{H} for \code{nmfae}/
+#' \code{nmfae.signed}, \eqn{X^\top} for \code{nmfkc.net} (node
+#' membership), the BLUP scores for \code{nmfre}, and
+#' \eqn{C_1 Y_1 + C_2 Y_2} for \code{nmf.ffb}/\code{nmf.sem} (which needs
+#' the exogenous block \code{Y2}).
+#' @param object A fitted MU model.
+#' @param Y The data matrix passed to \code{\link{nmf.cluster.criteria}} (used as
+#'   \eqn{Y_1} for \code{nmf.ffb}).
+#' @param Y2 Exogenous block, required only for \code{nmf.ffb}/\code{nmf.sem}.
+#' @return A \eqn{Q \times N} numeric matrix.
+#' @keywords internal
+#' @noRd
+.nmf.cluster.criteria.coef <- function(object, Y, Y2 = NULL) {
+  if (base::inherits(object, "nmfkc.net")) return(base::t(object$X))
+  if (base::inherits(object, "nmfae"))     return(object$H)
+  if (base::inherits(object, c("nmf.ffb", "nmf.sem"))) {
+    if (base::is.null(Y2))
+      base::stop("For nmf.ffb / nmf.sem, also pass the exogenous block via Y2=.",
+                 call. = FALSE)
+    return(object$C1 %*% base::as.matrix(Y) + object$C2 %*% base::as.matrix(Y2))
+  }
+  if (base::inherits(object, "nmfre"))     return(object$B.blup)
+  if (base::inherits(object, "nmfkc"))     return(object$B)
+  base::stop("nmf.cluster.criteria(): unsupported object class '",
+             base::paste(base::class(object), collapse = "/"), "'.", call. = FALSE)
+}
+
+
+#' @title Sample-clustering quality across ranks
+#' @description
+#' Computes the clustering-quality criteria \code{silhouette},
+#' \code{CPCC}, and \code{dist.cor} for a list of models fitted at
+#' different ranks (or a single fit), returning one row per rank.  These
+#' are \strong{clustering-stability} diagnostics (how decisively and
+#' faithfully the samples cluster), conceptually separate from the
+#' rank-selection \code{*.rank} functions (which use r.squared, effective
+#' rank, and ECV) and complementary to \code{\link{nmf.cluster.flow}}
+#' (which shows how the hard clustering itself changes across ranks).
+#'
+#' Hard sample clustering requires a non-negative coefficient/score
+#' matrix (so the columns form a membership simplex); when a model's
+#' coefficient is signed (e.g.\ \code{nmfkc.signed}, \code{nmfae.signed},
+#' \code{nmfre} fits whose coefficient has negative entries) the
+#' hard-label \code{silhouette} is \code{NA} while the distance-based
+#' \code{CPCC} and \code{dist.cor} are still computed.
+#'
+#' @param fits A list of fitted models, one per rank, all over the same
+#'   \eqn{N} individuals (a single fitted model is also accepted and
+#'   wrapped automatically).  Supported families: \code{\link{nmfkc}},
+#'   \code{\link{nmfkc.signed}}, \code{\link{nmfae}}, \code{nmfae.signed},
+#'   \code{\link{nmfkc.net}}, \code{\link{nmfre}}, and
+#'   \code{\link{nmf.sem}} / \code{nmf.ffb}.
+#' @param Y The original data matrix used to fit the models (\eqn{Y_1}
+#'   for \code{nmf.ffb}); required for the data-space distances.
+#' @param Y2 Exogenous block, required only for \code{nmf.ffb} /
+#'   \code{nmf.sem}.
+#' @param names Optional character vector (length \code{length(fits)}) of
+#'   x-axis tick labels.  Defaults to each result's \code{$rank}.
+#' @param plot Logical; draw the diagnostics plot immediately
+#'   (default \code{TRUE}); see \code{\link{plot.nmf.cluster.criteria}}.
+#' @param ... When \code{plot = TRUE}, graphical arguments forwarded to
+#'   \code{\link{plot.nmf.cluster.criteria}}.
+#' @return An object of class \code{"nmf.cluster.criteria"} (returned
+#'   invisibly): a list with \code{criteria} (a data frame with one row
+#'   per result and columns \code{rank}, \code{silhouette}, \code{CPCC},
+#'   \code{dist.cor}, and \code{hard}) and \code{labels} (the x-axis
+#'   labels).  Results are kept in the given order (not sorted).
+#' @seealso \code{\link{nmf.cluster.flow}}, \code{\link{nmfkc.rank}}
+#' @export
+#' @examples
+#' \donttest{
+#' Y <- t(as.matrix(iris[, 1:4]))
+#' fits <- lapply(2:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
+#' cc <- nmf.cluster.criteria(fits, Y, plot = FALSE)
+#' cc$criteria
+#' plot(cc)
+#' }
+nmf.cluster.criteria <- function(fits, Y, Y2 = NULL, names = NULL,
+                                 plot = TRUE, ...) {
+  if (base::missing(Y))
+    base::stop("nmf.cluster.criteria() requires the original data matrix Y.", call. = FALSE)
+  ## A single fitted model (has a scalar $rank) is wrapped into a list.
+  if (!base::is.null(fits$rank)) fits <- base::list(fits)
+  if (!base::is.list(fits) || base::length(fits) < 1)
+    base::stop("`fits` must be a fitted model or a non-empty list of them.",
+               call. = FALSE)
+  Y <- base::as.matrix(Y)
+
+  ## Results are taken in the given order (NOT sorted).
+  rows <- base::lapply(fits, function(f) {
+    B  <- .nmf.cluster.criteria.coef(f, Y, Y2)
+    cc <- .cluster.criteria(Y, B)
+    rank <- if (!base::is.null(f$rank)) base::as.integer(f$rank)
+            else base::nrow(base::as.matrix(B))
+    base::data.frame(rank = rank, silhouette = cc$silhouette, CPCC = cc$CPCC,
+                     dist.cor = cc$dist.cor, hard = cc$hard)
+  })
+  criteria <- base::do.call(base::rbind, rows)
+  base::rownames(criteria) <- NULL
+
+  R <- base::nrow(criteria)
+  if (base::is.null(names)) labels <- base::as.character(criteria$rank)
+  else {
+    labels <- base::as.character(names)
+    if (base::length(labels) != R)
+      base::stop("`names` must have length(fits) = ", R, " entries.", call. = FALSE)
+  }
+
+  out <- base::list(criteria = criteria, labels = labels)
+  base::class(out) <- "nmf.cluster.criteria"
+  if (plot) graphics::plot(out, ...)
+  base::invisible(out)
+}
+
+
+#' @title Plot clustering-quality criteria across a sequence of fits
+#' @description
+#' Line plot of \code{silhouette}, \code{CPCC}, and \code{dist.cor}
+#' against the result index, for an object from
+#' \code{\link{nmf.cluster.criteria}}.  X-axis ticks default to each
+#' result's \code{$rank} (overridable via the \code{names} argument of
+#' \code{\link{nmf.cluster.criteria}}).
+#' @param x An object of class \code{"nmf.cluster.criteria"}.
+#' @param main Plot title.
+#' @param xlab,ylab Axis labels.
+#' @param lwd Line width.
+#' @param ... Further arguments passed to the initial
+#'   \code{\link[graphics]{plot}}.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.cluster.criteria}}
+#' @export
+plot.nmf.cluster.criteria <- function(x, main = "Clustering quality across rank",
+                                      xlab = "rank (Q)", ylab = "criterion",
+                                      lwd = 2, ...) {
+  cr <- x$criteria
+  labels <- if (!base::is.null(x$labels)) x$labels else base::as.character(cr$rank)
+  xi <- base::seq_len(base::nrow(cr))       # result index on the x-axis
+  metrics <- c(silhouette = 7, CPCC = 6, dist.cor = 5)  # name = colour
+  yr <- base::range(base::unlist(cr[base::names(metrics)]), na.rm = TRUE)
+  if (!base::all(base::is.finite(yr))) yr <- c(0, 1)
+  graphics::plot(NA, xlim = base::range(xi), ylim = yr, xaxt = "n",
+                 xlab = xlab, ylab = ylab, main = main, ...)
+  graphics::axis(1, at = xi, labels = labels)
+  for (q in xi) graphics::abline(v = q, col = "gray90", lwd = 0.5)
+  for (m in base::names(metrics)) {
+    v <- cr[[m]]
+    if (base::all(base::is.na(v))) next
+    graphics::lines(xi, v, col = metrics[[m]], lwd = lwd)
+    graphics::points(xi, v, pch = 16, col = metrics[[m]], cex = 0.8)
+  }
+  graphics::legend("bottomright", legend = base::names(metrics),
+                   col = base::unlist(metrics), lty = 1, lwd = 2,
+                   bg = "white", cex = 0.8)
+  base::invisible(x)
+}
+
+
+#' @title Print method for nmf.cluster.criteria objects
+#' @param x An object of class \code{"nmf.cluster.criteria"}.
+#' @param ... Passed to the criteria table's \code{print}.
+#' @return \code{x}, invisibly.
+#' @export
+print.nmf.cluster.criteria <- function(x, ...) {
+  labels <- if (!base::is.null(x$labels)) x$labels else base::as.character(x$criteria$rank)
+  base::cat("Sample-clustering quality across ", base::nrow(x$criteria),
+            " results [", base::paste(labels, collapse = ", "), "]\n", sep = "")
+  base::cat("(silhouette / CPCC / dist.cor; silhouette = NA when the coefficient is signed)\n\n")
+  base::print(x$criteria, row.names = FALSE, ...)
+  base::invisible(x)
+}
+
+
+#' @title Hard cluster labels of a fitted MU model (Internal)
+#' @description
+#' Returns the per-individual hard cluster labels (argmax of the
+#' \eqn{Q \times N} coefficient/score matrix) for a fitted model, used by
+#' \code{\link{nmf.cluster.flow}}.  For \code{nmfkc} this equals the
+#' stored \code{B.cluster}.
+#' @param object A fitted MU model.
+#' @return An integer vector of length \eqn{N} (named by the columns of
+#'   the coefficient matrix when available).
+#' @keywords internal
+#' @noRd
+.nmf.hard.labels <- function(object) {
+  B <- if (base::inherits(object, "nmfkc.net")) base::t(object$X)
+       else if (base::inherits(object, "nmfae")) object$H
+       else if (base::inherits(object, "nmfre")) object$B.blup
+       else if (base::inherits(object, "nmfkc")) object$B
+       else base::stop("nmf.cluster.flow(): unsupported model class '",
+                       base::paste(base::class(object), collapse = "/"),
+                       "'.", call. = FALSE)
+  B <- base::as.matrix(B)
+  lab <- base::apply(B, 2, base::which.max)
+  nm <- base::colnames(B)
+  if (!base::is.null(nm)) base::names(lab) <- nm
+  lab
+}
+
+
+#' @title Place individuals within a rank, with inter-cluster gaps (Internal)
+#' @description
+#' Layout for one rank of \code{\link{nmf.cluster.flow}}.  Clusters are
+#' stacked in increasing order of the mean key (\code{key}) of their
+#' members -- a barycenter ordering that reduces alluvial crossings --
+#' and within each cluster the members are sorted by \code{key}.  Members
+#' are placed one unit apart, and a \strong{gap} of \eqn{N / k} units
+#' (one average cluster's worth, \eqn{k} = number of clusters) is left
+#' between consecutive clusters so the cluster boxes are clearly
+#' separated.  Positions are normalized per rank in the plot, so the
+#' varying total span across ranks does not matter.
+#' @param labels Integer cluster labels at this rank (length \eqn{N}).
+#' @param key Numeric ordering key (length \eqn{N}); the positions of the
+#'   adjacent already-placed rank, or, for the reference rank, the
+#'   reference labels themselves (so clusters stack in id order).
+#' @return A numeric vector of positions for this rank.
+#' @keywords internal
+#' @noRd
+.flow.place <- function(labels, key) {
+  N <- base::length(labels)
+  cls <- base::unique(labels)
+  bary <- base::vapply(cls, function(c) base::mean(key[labels == c], na.rm = TRUE),
+                       base::numeric(1))
+  cls <- cls[base::order(bary)]
+  gap <- N / base::length(cls)          # inter-cluster gap (one avg cluster)
+  y <- base::numeric(N)
+  pos <- 0
+  for (c in cls) {
+    idx <- base::which(labels == c)
+    idx <- idx[base::order(key[idx])]
+    nc <- base::length(idx)
+    y[idx] <- pos + (base::seq_len(nc) - 1)
+    pos <- pos + nc + gap               # advance past this cluster + gap
+  }
+  y
+}
+
+
+#' @title Adjusted Rand Index between two hard clusterings (Internal)
+#' @description
+#' Standard adjusted Rand index (Hubert & Arabie 1985) measuring the
+#' agreement between two label vectors over the same items, used by
+#' \code{\link{nmf.cluster.flow}} for adjacent ranks.  \code{NA} items
+#' (in either labelling) are dropped pairwise.
+#' @param a,b Integer label vectors of equal length.
+#' @return The adjusted Rand index in \eqn{[-1, 1]} (\code{NA} when it is
+#'   undefined, e.g.\ fewer than two valid items or a degenerate pair).
+#' @keywords internal
+#' @noRd
+.ari <- function(a, b) {
+  keep <- !(base::is.na(a) | base::is.na(b))
+  a <- a[keep]; b <- b[keep]
+  n <- base::length(a)
+  if (n < 2) return(NA_real_)
+  tab <- base::table(a, b)
+  cc <- function(x) base::sum(x * (x - 1) / 2)
+  sij <- cc(base::as.vector(tab))
+  si  <- cc(base::rowSums(tab))
+  sj  <- cc(base::colSums(tab))
+  expct <- si * sj / (n * (n - 1) / 2)
+  maxi  <- (si + sj) / 2
+  if (maxi - expct == 0) return(NA_real_)
+  (sij - expct) / (maxi - expct)
+}
+
+
+#' @title Cluster-flow (alluvial) diagram across a sequence of fits
+#' @description
+#' Visualizes how the hard sample clustering changes across a sequence of
+#' fitted models -- typically the same model at increasing ranks, but
+#' also different models at the same rank.  Each individual is a line
+#' flowing left-to-right across the results (x-axis); its vertical
+#' position at each result is determined by its cluster, and clusters are
+#' reordered (barycenter method) to reduce crossings.  Lines are coloured
+#' by the individual's cluster in the \code{reference} result, so one can
+#' see how the reference clusters split or merge.  The adjusted Rand
+#' index (ARI) between each pair of adjacent results is printed along the
+#' top of the figure.  X-axis ticks default to each result's \code{$rank}
+#' and can be overridden with \code{names}.
+#'
+#' Works for any non-negative multiplicative-update family
+#' (\code{nmfkc}, \code{nmfae}, \code{nmfkc.net}, \code{nmfre},
+#' and the signed variants); the hard label is the argmax of the
+#' coefficient/score matrix.
+#'
+#' @param fits A list (length \eqn{\ge 2}) of fitted models, all over the
+#'   \strong{same} \eqn{N} individuals.  The results are taken in the
+#'   given order (\strong{not} sorted), so they may be different ranks or
+#'   different models at the same rank.
+#' @param reference The \strong{index} (1-based position in \code{fits})
+#'   of the result whose clustering defines the line colours.  Defaults
+#'   to the central result, \code{floor(length(fits) / 2) + 1} (e.g.\ the
+#'   2nd of 2 or 3 results).
+#' @param names Optional character vector (length \code{length(fits)}) of
+#'   x-axis tick labels.  Defaults to each result's \code{$rank}.
+#' @param plot Logical; draw the diagram immediately by calling
+#'   \code{\link{plot.nmf.cluster.flow}} (default \code{TRUE}).  Set
+#'   \code{FALSE} to only build the object and plot it later.
+#' @param ... When \code{plot = TRUE}, graphical arguments forwarded to
+#'   \code{\link{plot.nmf.cluster.flow}} (e.g.\ \code{col}, \code{lwd},
+#'   \code{xlab}, \code{ylab}, \code{main}).
+#' @return An object of class \code{"nmf.cluster.flow"} (returned
+#'   invisibly): a list with \code{clusters} (the \eqn{N \times R} table:
+#'   rows = individuals, columns = results, entries = cluster number = the
+#'   dominant-factor index of each fit, so it matches the factor/basis
+#'   numbering of \code{fits}; a factor that never dominates leaves an
+#'   empty, unused cluster number),
+#'   \code{ypos} (the layout positions), \code{ranks} (each result's
+#'   rank), \code{labels} (the x-axis labels), \code{reference} (the
+#'   reference index), \code{ref.cluster} (the reference hard labels),
+#'   \code{ARI} (adjusted Rand index between each pair of adjacent
+#'   results, length \eqn{R - 1}), and \code{colors}
+#'   (the default per-individual reference colour).  Call
+#'   \code{\link{plot}} on it to (re)draw the diagram.
+#' @seealso \code{\link{plot.nmf.cluster.flow}},
+#'   \code{\link{nmf.cluster.criteria}}, \code{\link{nmfkc.rank}}
+#' @export
+#' @examples
+#' \donttest{
+#' Y <- t(as.matrix(iris[, 1:4]))
+#' fits <- lapply(2:6, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
+#' fl <- nmf.cluster.flow(fits, reference = 2, plot = FALSE)  # 2nd result
+#' head(fl$clusters)
+#' plot(fl, lwd = 2, main = "iris cluster flow")
+#' }
+nmf.cluster.flow <- function(fits, reference = NULL, names = NULL,
+                             plot = TRUE, ...) {
+  if (!base::is.list(fits) || base::length(fits) < 2)
+    base::stop("`fits` must be a list of at least two fitted models.", call. = FALSE)
+
+  lab_list <- base::lapply(fits, .nmf.hard.labels)
+  N <- base::length(lab_list[[1]])
+  if (base::any(base::vapply(lab_list, base::length, 1L) != N))
+    base::stop("all fits must share the same number of individuals (N).", call. = FALSE)
+  R <- base::length(fits)
+
+  ## Each result's rank (for the default labels); the given order is kept.
+  ranks <- base::vapply(fits, function(f)
+    if (!base::is.null(f$rank)) base::as.integer(f$rank) else NA_integer_, 1L)
+  if (base::is.null(names)) labels <- base::as.character(ranks)
+  else {
+    labels <- base::as.character(names)
+    if (base::length(labels) != R)
+      base::stop("`names` must have length(fits) = ", R, " entries.", call. = FALSE)
+  }
+
+  ## The cluster number is the dominant-factor index (argmax of the
+  ## coefficient), kept as-is so it matches the factor/basis numbering of
+  ## the supplied fits; a factor that never dominates leaves a gap.
+  clusters <- base::matrix(base::unlist(lab_list), nrow = N, ncol = R)
+  ind_names <- base::names(lab_list[[1]])
+  if (base::is.null(ind_names)) ind_names <- base::paste0("i", base::seq_len(N))
+  base::rownames(clusters) <- ind_names
+  base::colnames(clusters) <- labels
+
+  ## reference = index (1..R) of the result that defines the colours;
+  ## default to the central result floor(R/2)+1 (e.g. 2 for 2 or 3 results)
+  if (base::is.null(reference)) reference <- base::floor(R / 2) + 1L
+  ref_col <- base::as.integer(reference)
+  if (base::length(ref_col) != 1L || base::is.na(ref_col) ||
+      ref_col < 1L || ref_col > R)
+    base::stop("`reference` must be a single result index in 1..", R, ".",
+               call. = FALSE)
+  ref_lab <- clusters[, ref_col]
+
+  ## --- layout: positions per result, with inter-cluster gaps ---
+  ypos <- base::matrix(NA_real_, N, R)
+  ypos[, ref_col] <- .flow.place(ref_lab, ref_lab)
+  if (ref_col < R) for (q in (ref_col + 1):R)
+    ypos[, q] <- .flow.place(clusters[, q], ypos[, q - 1])
+  if (ref_col > 1) for (q in (ref_col - 1):1)
+    ypos[, q] <- .flow.place(clusters[, q], ypos[, q + 1])
+
+  ## Adjacent-result agreement: ARI between results q and q+1.
+  ari <- base::vapply(base::seq_len(R - 1),
+                      function(q) .ari(clusters[, q], clusters[, q + 1]),
+                      base::numeric(1))
+  base::names(ari) <- base::sprintf("%s-%s", labels[-R], labels[-1L])
+
+  out <- base::list(clusters = clusters, ypos = ypos, ranks = ranks,
+                    labels = labels, reference = ref_col, ref.cluster = ref_lab,
+                    ARI = ari,
+                    colors = stats::setNames(.flow.colors(ref_lab)[ref_lab], ind_names))
+  base::class(out) <- "nmf.cluster.flow"
+  if (plot) graphics::plot(out, ...)
+  base::invisible(out)
+}
+
+
+#' @title Reference-cluster colours for a cluster-flow diagram (Internal)
+#' @description
+#' Maps reference hard labels to colours.  With \code{col = NULL} a
+#' strong, well-separated qualitative palette is used (ColorBrewer
+#' \dQuote{Dark 2} for up to 8 clusters, HCL \dQuote{Dark 3} beyond, both
+#' from the standard \code{grDevices} package); a user \code{col} vector
+#' is indexed by cluster id (recycled if too short).
+#' @param ref_lab Integer reference cluster labels (length \eqn{N}).
+#' @param col Optional colour vector indexed by cluster id.
+#' @return The resolved \strong{palette}: a character vector of length
+#'   \eqn{K} (one colour per reference cluster).  Index it by cluster id,
+#'   e.g.\ \code{pal[ref_lab]} for per-individual colours.
+#' @keywords internal
+#' @noRd
+.flow.colors <- function(ref_lab, col = NULL) {
+  K <- base::max(ref_lab, na.rm = TRUE)
+  if (base::is.null(col)) {
+    n <- base::max(K, 2L)
+    col <- if (n <= 8L) grDevices::palette.colors(8L, "Dark 2")[base::seq_len(n)]
+           else grDevices::hcl.colors(n, "Dark 3")
+  } else if (base::length(col) < K) {
+    col <- base::rep_len(col, K)
+  }
+  col[base::seq_len(K)]
+}
+
+
+#' @title Plot a cluster-flow (alluvial) diagram
+#' @description
+#' Draws the alluvial / Sankey-style cluster-flow diagram for an object
+#' created by \code{\link{nmf.cluster.flow}}.
+#' @param x An object of class \code{"nmf.cluster.flow"}.
+#' @param col Optional colour vector indexed by \strong{reference}
+#'   cluster id (\code{col[k]} colours every individual whose reference
+#'   cluster is \code{k}); recycled if shorter than the number of
+#'   reference clusters.  Defaults to the object's palette.
+#' @param lwd Line width of the flow segments.
+#' @param xlab,ylab Axis labels.
+#' @param main Plot title.
+#' @param ... Further arguments passed to the initial
+#'   \code{\link[graphics]{plot}} call.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.cluster.flow}}
+#' @export
+plot.nmf.cluster.flow <- function(x, col = NULL, lwd = 1,
+                                  xlab = "rank (Q)", ylab = "individuals",
+                                  main = "Cluster flow across rank", ...) {
+  clusters <- x$clusters; ypos <- x$ypos
+  labels <- if (!base::is.null(x$labels)) x$labels else x$ranks
+  ref_lab <- x$ref.cluster
+  N <- base::nrow(clusters); R <- base::ncol(clusters)
+  pal <- .flow.colors(ref_lab, col)   # one colour per reference cluster
+  ind_col <- pal[ref_lab]             # per-individual line colour
+
+  ## Normalize each result (column) independently to [0, 1]: the layout
+  ## inserts inter-cluster gaps, so the total span differs per result.
+  yn <- base::apply(ypos, 2, function(p) {
+    rg <- base::range(p)
+    if (base::diff(rg) == 0) base::rep(0.5, base::length(p))
+    else (p - rg[1]) / base::diff(rg)
+  })
+  xs <- base::seq_len(R)
+  old <- graphics::par(mar = c(4, 4, 4, 2) + 0.1); base::on.exit(graphics::par(old))
+  ## extra head-room at the top for the adjacent-result ARI labels
+  graphics::plot(NA, xlim = c(1, R), ylim = c(-0.03, 1.12),
+                 xaxt = "n", yaxt = "n", xlab = xlab, ylab = ylab, main = main, ...)
+  graphics::axis(1, at = xs, labels = labels)
+
+  ## Adjacent-rank ARI, printed between the two columns it compares.
+  if (!base::is.null(x$ARI)) for (q in base::seq_len(R - 1)) {
+    if (!base::is.finite(x$ARI[q])) next
+    lab <- if (q == 1) base::sprintf("ARI=%.2f", x$ARI[q])
+           else base::sprintf("%.2f", x$ARI[q])
+    graphics::text((xs[q] + xs[q + 1]) / 2, 1.08, lab,
+                   cex = 0.85, font = 2, col = "gray25")
+  }
+
+  hw  <- 0.10        # half-width of the cluster box (x units)
+
+  ## 1. flow lines + points (drawn first, so the boxes sit in front)
+  for (q in 1:(R - 1))
+    graphics::segments(xs[q], yn[, q], xs[q + 1], yn[, q + 1],
+                       col = ind_col, lwd = lwd)
+  for (q in 1:R)
+    graphics::points(base::rep(xs[q], N), yn[, q], pch = 16,
+                     col = ind_col, cex = 0.5)
+
+  ## 2. foreground box per cluster, sized to the min/max of its members
+  ##    (tiny pad so a singleton still shows).  The box is tinted by the
+  ##    MAJORITY reference colour among its members; ties are broken in
+  ##    favour of the earliest palette entry (smallest reference id).
+  pad <- 0.004
+  for (q in 1:R) for (c in base::unique(clusters[, q])) {
+    sel <- clusters[, q] == c
+    ys  <- yn[sel, q]
+    tab <- base::table(ref_lab[sel])
+    cand <- base::as.integer(base::names(tab)[tab == base::max(tab)])
+    majref <- base::min(cand)                 # earliest palette colour on ties
+    box_fill <- grDevices::adjustcolor(pal[majref], alpha.f = 0.45)
+    graphics::rect(xs[q] - hw, base::min(ys) - pad,
+                   xs[q] + hw, base::max(ys) + pad,
+                   col = box_fill, border = pal[majref], lwd = 1)
+    graphics::text(xs[q], base::mean(ys), c, cex = 1.2, font = 2, col = "gray10")
+  }
+  base::invisible(x)
+}
+
+
+#' @title Print method for nmf.cluster.flow objects
+#' @description
+#' Prints a one-line header, the adjacent-result ARI, and the
+#' \eqn{N \times R} cluster table (rows = individuals, columns =
+#' results, entries = cluster number).  Use \code{\link{plot}} for the
+#' diagram.
+#' @param x An object of class \code{"nmf.cluster.flow"}.
+#' @param ... Passed to the table's \code{print}.
+#' @return \code{x}, invisibly.
+#' @export
+print.nmf.cluster.flow <- function(x, ...) {
+  labels <- if (!base::is.null(x$labels)) x$labels else base::as.character(x$ranks)
+  base::cat(base::sprintf("Cluster flow: %d individuals across %d results [%s] (reference = result %d: %s)\n",
+                          base::nrow(x$clusters), base::length(labels),
+                          base::paste(labels, collapse = ", "),
+                          x$reference, labels[x$reference]))
+  if (!base::is.null(x$ARI)) {
+    base::cat("\nAdjacent-result ARI:\n")
+    base::print(base::round(x$ARI, 3))
+  }
+  base::cat("\nClusters (rows = individuals, columns = rank, entries = cluster number):\n")
+  base::print(x$clusters, ...)
+  base::invisible(x)
+}
+
+
+#' @title Best-rank selection and concise diagnostics plot (Internal)
+#' @description
+#' Shared back-end for the rank-selection functions (\code{nmfkc.rank},
+#' \code{nmfkc.net.rank}, \code{nmfkc.signed.rank}, \code{nmfae.rank},
+#' \code{nmfae.signed.rank}).  From a pre-built \code{criteria} data
+#' frame it determines the recommended rank and draws a concise
+#' three-criterion plot, using only \code{r.squared}, the effective-rank
+#' utilization \code{effective.rank.ratio}, and the cross-validation
+#' error \code{sigma.ecv}.  Any other columns present (e.g.\ \code{ARI},
+#' \code{silhouette}, \code{CPCC}, \code{dist.cor} from \code{nmfkc.rank})
+#' are kept in the returned table but \strong{not plotted}.  All three
+#' criteria are drawn as lines with points and rank-number labels.  Two
+#' carry a highlighted "Best" marker that drives the recommended rank:
+#' \itemize{
+#'   \item \code{r.squared}: elbow (kneedle) -- \dQuote{Best (Elbow)}.
+#'   \item \code{sigma.ecv}: minimum CV error -- \dQuote{Best (Min)}.
+#' }
+#' The green line is the \code{effective.rank.index} (not the raw
+#' \code{eff.rank / Q}): \code{(eff.rank - E) / (Q - E)} clamped to
+#' \eqn{[0, 1]}, where \code{E = exp(H_Q - 1)} is the broken-stick
+#' expected effective rank (\code{H_Q} = the \code{Q}-th harmonic
+#' number).  This anchors 0 at the random null and 1 at perfect
+#' evenness, removing the small-rank inflation of \code{eff.rank / Q}.
+#' It is shown for context only and carries \strong{no} best marker: it
+#' is a factor-utilization diagnostic (most even relative to the null),
+#' not a predictive rank optimum -- the recommended rank is driven by
+#' the cross-validation minimum and the R-squared elbow.
+#' @param criteria Data frame with at least \code{rank}, \code{r.squared},
+#'   \code{effective.rank.ratio}, and (optionally) \code{sigma.ecv}.
+#' @param plot Logical; draw the diagnostics plot.
+#' @param main Plot title.
+#' @return A list with \code{rank.best} (ECV minimum if available, else
+#'   the R-squared elbow) and \code{criteria} (the input data frame).
+#' @keywords internal
+#' @noRd
+.rank.finish <- function(criteria, plot = TRUE,
+                         main = "Rank Selection Diagnostics") {
+  base::message("Note: sample-clustering quality (silhouette / CPCC / ",
+                "dist.cor) is not part of rank selection; compute it from a ",
+                "list of fits with nmf.cluster.criteria().  See ?nmf.cluster.criteria")
+  rk <- criteria$rank
+  nq <- base::length(rk)
+
+  has_ecv <- !base::is.null(criteria$sigma.ecv) &&
+             base::any(base::is.finite(criteria$sigma.ecv))
+  rank.best.ecv <- if (has_ecv)
+    rk[base::which.min(criteria$sigma.ecv)] else NA
+
+  rank.best.r2 <- NA
+  if (nq > 2 && !base::is.null(criteria$r.squared)) {
+    x <- base::seq_len(nq); y <- criteria$r.squared
+    yr <- base::max(y) - base::min(y); xr <- base::max(x) - base::min(x)
+    yn <- if (yr > 0) (y - base::min(y)) / yr else base::rep(0.5, nq)
+    xn <- if (xr > 0) (x - base::min(x)) / xr else base::rep(0.5, nq)
+    x1 <- xn[1]; y1 <- yn[1]; x2 <- xn[nq]; y2 <- yn[nq]
+    den <- base::sqrt((y2 - y1)^2 + (x2 - x1)^2)
+    d <- if (den > 0)
+      base::abs((y2 - y1) * xn - (x2 - x1) * yn + x2 * y1 - y2 * x1) / den
+      else base::numeric(nq)
+    rank.best.r2 <- rk[base::which.max(d)]
+  }
+
+  ## Broken-stick correction of the effective-rank utilization.
+  ## Expected effective rank under a random (uniform-Dirichlet) split of
+  ## the variance among Q factors is exp(H_Q - 1), H_Q = sum_{j<=Q} 1/j.
+  ## The [0,1] index anchors 0 at this null and 1 at perfect evenness
+  ## (eff.rank = Q): (eff.rank - expected) / (Q - expected), clamped.
+  ## This removes the small-Q inflation of eff.rank / Q, so its maximum
+  ## is a meaningful rank.
+  if (!base::is.null(criteria$effective.rank)) {
+    Hq <- base::vapply(rk, function(Q) base::sum(1 / base::seq_len(Q)),
+                       base::numeric(1))
+    e_null <- base::exp(Hq - 1)
+    idx <- (criteria$effective.rank - e_null) / (rk - e_null)
+    idx[!base::is.finite(idx)] <- NA_real_
+    criteria$effective.rank.expected <- e_null
+    criteria$effective.rank.index <- base::pmin(base::pmax(idx, 0), 1)
+  }
+
+  has_idx <- !base::is.null(criteria$effective.rank.index) &&
+             base::any(base::is.finite(criteria$effective.rank.index))
+  rank.best.idx <- if (has_idx)
+    rk[base::which.max(criteria$effective.rank.index)] else NA
+
+  rank.final <- if (!base::is.na(rank.best.ecv)) rank.best.ecv else rank.best.r2
+
+  out <- base::list(rank.best = rank.final, criteria = criteria,
+                    best = base::list(ecv = rank.best.ecv, r2 = rank.best.r2,
+                                      eff.idx = rank.best.idx),
+                    main = main)
+  base::class(out) <- "nmf.rank"
+  if (plot) graphics::plot(out)
+  base::invisible(out)
+}
+
+
+#' @title Plot a rank-selection (nmf.rank) object
+#' @description
+#' Draws the concise three-criterion rank-selection plot for an object
+#' returned by \code{\link{nmfkc.rank}} (or \code{nmfkc.net.rank},
+#' \code{nmfkc.signed.rank}, \code{nmfae.rank}, \code{nmfae.signed.rank}):
+#' \code{r.squared} (red) and the effective-rank utilization
+#' \code{eff.rank} (green) on the left \eqn{[0, 1]} axis, and the
+#' cross-validation error \code{sigma.ecv} (blue) on the right axis, each
+#' with points, rank-number labels and a highlighted best marker.
+#' @param x An object of class \code{"nmf.rank"}.
+#' @param main Plot title (defaults to the title stored in \code{x}).
+#' @param xlab,ylab Axis labels.
+#' @param lwd Line width of the criterion curves.
+#' @param ... Further arguments passed to the initial
+#'   \code{\link[graphics]{plot}}.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmfkc.rank}}
+#' @export
+plot.nmf.rank <- function(x, main = NULL, xlab = "Rank (Q)",
+                          ylab = "R-squared / eff.rank (0-1)", lwd = 3, ...) {
+  if (base::is.null(main)) main <- x$main
+  criteria <- x$criteria
+  rk <- criteria$rank
+  rank.best.ecv <- x$best$ecv; rank.best.r2 <- x$best$r2
+  rank.best.idx <- x$best$eff.idx
+  has_ecv <- !base::is.null(criteria$sigma.ecv) &&
+             base::any(base::is.finite(criteria$sigma.ecv))
+  has_idx <- !base::is.null(criteria$effective.rank.index) &&
+             base::any(base::is.finite(criteria$effective.rank.index))
+
+  old_par <- graphics::par(mar = c(5, 4, 4, 5) + 0.1)
+  base::on.exit(graphics::par(old_par))
+  decorate <- function(yv, col, best_rank, best_lab, numpos) {
+    graphics::points(rk, yv, pch = 16, col = col, cex = 0.8)
+    graphics::text(rk, yv, rk, pos = numpos, col = col, cex = 0.8)
+    if (!base::is.na(best_rank)) {
+      j <- base::which(rk == best_rank)
+      graphics::points(best_rank, yv[j], pch = 16, col = col, cex = 1.6)
+      graphics::text(best_rank, yv[j], best_lab, pos = 4, col = col, cex = 0.8)
+    }
+  }
+  leg_txt <- "r.squared"; leg_col <- 2
+
+  graphics::plot(rk, criteria$r.squared, type = "l", col = 2, lwd = lwd,
+                 xlab = xlab, ylab = ylab, ylim = c(0, 1), main = main, ...)
+  for (q in rk) graphics::abline(v = q, col = "gray90", lwd = 0.5)
+  decorate(criteria$r.squared, 2, rank.best.r2, "Best (Elbow)", 3)
+
+  if (has_idx) {
+    ## Broken-stick-corrected effective-rank index in [0, 1], shown for
+    ## context only: line + points + numbers, NO best marker (it is a
+    ## utilization diagnostic, not a predictive rank optimum).
+    graphics::lines(rk, criteria$effective.rank.index, col = "forestgreen", lwd = lwd)
+    decorate(criteria$effective.rank.index, "forestgreen", NA, "", 1)
+    leg_txt <- c(leg_txt, "eff.rank"); leg_col <- c(leg_col, "forestgreen")
+  }
+
+  if (has_ecv) {
+    graphics::par(new = TRUE)
+    graphics::plot(rk, criteria$sigma.ecv, type = "l", col = "blue", lwd = lwd,
+                   axes = FALSE, xlab = "", ylab = "")
+    decorate(criteria$sigma.ecv, "blue", rank.best.ecv, "Best (Min)", 3)
+    graphics::axis(side = 4, col = "blue", col.axis = "blue")
+    graphics::mtext("ECV Sigma (RMSE)", side = 4, line = 3, col = "blue")
+    leg_txt <- c(leg_txt, "sigma.ecv"); leg_col <- c(leg_col, "blue")
+  }
+
+  graphics::legend("right", legend = leg_txt, col = leg_col,
+                   lty = 1, lwd = 2, bg = "white", cex = 0.7)
+  base::invisible(x)
+}
+
+
+#' @title Print method for rank-selection (nmf.rank) objects
+#' @param x An object of class \code{"nmf.rank"}.
+#' @param ... Passed to the criteria table's \code{print}.
+#' @return \code{x}, invisibly.
+#' @export
+print.nmf.rank <- function(x, ...) {
+  fmt <- function(v) if (base::is.null(v) || base::is.na(v)) "NA" else base::as.character(v)
+  base::cat(base::sprintf("Rank selection over ranks %s\n",
+                          base::paste(x$criteria$rank, collapse = ", ")))
+  base::cat(base::sprintf("  recommended rank (rank.best): %s\n", fmt(x$rank.best)))
+  base::cat(base::sprintf("  best by:  ECV min = %s | R-squared elbow = %s\n",
+                          fmt(x$best$ecv), fmt(x$best$r2)))
+  base::cat("\nCriteria:\n")
+  base::print(x$criteria, row.names = FALSE, ...)
+  base::invisible(x)
+}
 
 
 #' @title Parse formula and prepare Y and A matrices
@@ -1154,37 +2159,21 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'     \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 #'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 #'       \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
-#'       This is automatically set when \code{Y.symmetric = "bi"} or \code{"tri"}, because column normalization
-#'       would prevent \eqn{X X^\top} (or \eqn{X C X^\top}) from approximating \eqn{Y} at the correct scale.
 #'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
 #'     \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 #'       Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 #'       multi-start evaluation (when \code{X.init = "runif"}).
-#'       For symmetric NMF (\code{Y.symmetric = "tri"} or \code{"bi"}), results are sensitive to
-#'       initial values; \code{nstart = 20} or higher is recommended.
 #'     \item \code{seed}: Integer seed for reproducibility (default: 123).
 #'     \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 #'       (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 #'       otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
-#'     \item \code{Y.symmetric}: Character string specifying the type of symmetric NMF.
-#'       \code{"none"} (default): standard NMF (\eqn{Y \approx XB}).
-#'       \code{"bi"}: 2-factor symmetric NMF (\eqn{Y \approx X X^\top}).
-#'       Internally implemented as the \code{"tri"} model with \eqn{C = I_Q} (identity matrix)
-#'       held fixed, so that \eqn{X} is updated freely without column normalization.
-#'       The multiplicative update for \eqn{X} uses cube-root damping
-#'       (\eqn{X \leftarrow X \circ (numerator / denominator)^{1/3}}) to prevent
-#'       oscillation, since \eqn{X} appears in both factors of the decomposition
-#'       (He et al., 2011, Proposition 1).
-#'       \code{"tri"}: 3-factor symmetric NMF (\eqn{Y \approx X C X^\top})
-#'       where \eqn{C} is a \eqn{Q \times Q} matrix representing cluster interactions
-#'       (Ding et al., 2006).
-#'       Both \code{"bi"} and \code{"tri"} require \code{Y} to be square
-#'       and cannot be used with covariate matrix \code{A}.
-#'       When \code{Y.symmetric = "bi"}, \code{X.restriction}
-#'       is automatically set to \code{"none"} (no column normalization), because
-#'       \eqn{C = I_Q} is fixed and cannot absorb the scale.
-#'       For \code{"tri"}, column normalization is retained (default \code{"colSums"})
-#'       because the free parameter matrix \eqn{C} absorbs the scale.
+#'     \item \code{Y.symmetric}: \strong{Removed.} Symmetric NMF
+#'       (\eqn{Y \approx X X^\top} or \eqn{X C X^\top}) has moved to the
+#'       dedicated \code{\link{nmfkc.net}} function (types \code{"tri"},
+#'       \code{"bi"}, \code{"signed"}), which uses the correct
+#'       Frobenius bilateral-gradient updates.  Passing \code{Y.symmetric}
+#'       to \code{nmfkc()} now stops with a message pointing to
+#'       \code{nmfkc.net()}.
 #'     \item \code{prefix}: Prefix for column names of \eqn{X} and row names of \eqn{B} (default: "Basis").
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 #'     \item \code{print.dims}: Deprecated. Use \code{verbose} instead.
@@ -1212,14 +2201,16 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
-#' \item{r.squared}{Coefficient of determination \eqn{R^2} between \eqn{Y} and \eqn{X B}.}
+#' \item{r.squared}{\eqn{R^2 = \mathrm{cor}(Y, XB)^2} (Pearson; scale-invariant; \eqn{[0,1]}).}
+#' \item{r.squared.uncentered}{Uncentered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y\|_F^2} (baseline = zero matrix; natural for non-negative factorizations without an intercept).}
+#' \item{r.squared.centered}{Row-mean centered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}, the multivariate regression \eqn{R^2}.}
 #' \item{method}{Character string indicating the optimization method used (\code{"EU"} or \code{"KL"}).}
 #' \item{n.missing}{Number of missing (or zero-weighted) elements in \eqn{Y}.}
 #' \item{n.total}{Total number of elements in \eqn{Y}.}
 #' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-#' \item{criterion}{A list of selection criteria, including \code{ICp} (\code{ICp1}, \code{ICp2}, \code{ICp3}), \code{CPCC}, \code{silhouette}, \code{AIC}, \code{BIC}, \code{dist.cor}, \code{B.prob.sd.min}, \code{B.prob.max.mean}, and \code{B.prob.entropy.mean}.}
+#' \item{criterion}{A list of selection criteria: \code{silhouette} (mean silhouette width of the hard clustering, computed in the original data space \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic correlation of a hierarchical clustering of the coefficient distances \code{dist(t(B))}), \code{dist.cor} (correlation between original-data and coefficient distances), \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{effective.rank}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
 #' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
@@ -1240,6 +2231,10 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   Tri-Factorizations for Clustering.
 #'   In \emph{Proc. 12th ACM SIGKDD} (pp. 126--135).
 #'   \doi{10.1145/1150402.1150420}
+#'
+#' Roy, O., & Vetterli, M. (2007). The effective rank: A measure of
+#'   effective dimensionality. In \emph{15th European Signal Processing
+#'   Conference (EUSIPCO)} (pp. 606--610).
 #' @examples
 #' # Example 1. Matrix Mode (Existing)
 #' X <- cbind(c(1,0,1),c(0,1,0))
@@ -1258,16 +2253,8 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
 #' res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 #'
-#' # Example 3. Symmetric NMF (bi: Y ~ X X^T)
-#' S <- matrix(c(3,0,2, 0,3,1, 2,1,2), nrow=3)
-#' res_bi <- nmfkc(S, rank=2, Y.symmetric="bi")
-#' res_bi$X   # basis matrix (no column normalization)
-#' res_bi$XB  # reconstruction X %*% t(X)
-#'
-#' # Example 4. Symmetric NMF (tri: Y ~ X C X^T)
-#' res_tri <- nmfkc(S, rank=2, Y.symmetric="tri")
-#' res_tri$C  # Q x Q cluster interaction matrix
-#' res_tri$XB # reconstruction X %*% C %*% t(X)
+#' # For symmetric NMF (Y approximated by X X^T or X C X^T),
+#' # use \code{\link{nmfkc.net}()} instead.
 #'
 nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=TRUE, ...){
   # A small constant for numerical stability to prevent division by zero and log(0).
@@ -1294,17 +2281,22 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
   seed <- if (!base::is.null(extra_args$seed)) extra_args$seed else 123
   C.init <- if (!is.null(extra_args$C.init)) extra_args$C.init else NULL
-  Y.symmetric <- if (!base::is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else "none"
-  Y.symmetric <- base::match.arg(Y.symmetric, c("none", "bi", "tri"))
-  if (Y.symmetric != "none") {
-    .Deprecated(
-      new = "nmfkc.net",
-      msg = paste0(
-        "Y.symmetric = \"", Y.symmetric, "\" in nmfkc() is deprecated.\n",
-        "Use nmfkc.net(Y, rank, type = \"", Y.symmetric, "\") instead, ",
-        "which implements the correct Frobenius bilateral-gradient updates.\n",
-        "See help(nmfkc.net) (all three types: \"tri\", \"bi\", \"signed\")."
-      )
+  ## Symmetric NMF (Y ~ X X^T or X C X^T) has moved out of nmfkc() into
+  ## the dedicated nmfkc.net() function (Frobenius bilateral-gradient
+  ## updates; types "tri", "bi", "signed").  The old Y.symmetric option
+  ## was deprecated in v0.7.x and is removed here: passing it now stops
+  ## with a redirect message rather than silently running plain NMF.
+  if (!base::is.null(extra_args$Y.symmetric) &&
+      !base::identical(base::as.character(extra_args$Y.symmetric), "none")) {
+    ys <- base::as.character(extra_args$Y.symmetric)[1]
+    ys_type <- if (ys %in% c("bi", "tri")) ys else "tri"
+    base::stop(
+      "`Y.symmetric` is no longer supported in nmfkc().\n",
+      "Symmetric NMF has moved to nmfkc.net(). Use:\n",
+      "    nmfkc.net(Y, rank, type = \"", ys_type, "\")\n",
+      "which implements the correct Frobenius bilateral-gradient updates.\n",
+      "See help(nmfkc.net) for the types \"tri\", \"bi\", and \"signed\".",
+      call. = FALSE
     )
   }
 
@@ -1344,10 +2336,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     if(base::min(A, na.rm=TRUE)<0) base::stop("The matrix A should be non-negative.")
   }
   if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
-  if(Y.symmetric != "none"){
-    if(base::nrow(Y) != base::ncol(Y)) base::stop("Y.symmetric requires a square matrix Y.")
-    if(!base::is.null(A)) base::stop("Y.symmetric cannot be used with covariate matrix A.")
-  }
 
   # === Weights Handling ===
   # 1. Vector Expansion (Column-wise weights)
@@ -1381,12 +2369,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   }
 
   # --- 3. Algorithm Setup ---
-  # Override X.restriction for bi-symmetric NMF: column normalization would break
-  # the scale of XX^T because C = I is fixed and cannot absorb the scale.
-  # For tri-symmetric NMF, colSums normalization is kept because C is free to absorb the scale.
-  if(Y.symmetric == "bi" && X.restriction == "colSums"){
-    X.restriction <- "none"
-  }
   X.restriction <- base::match.arg(X.restriction, base::c("colSums", "colSqSums", "totalSum", "none", "fixed"))
   xnorm <- base::switch(X.restriction,
                         colSums   = function(X) base::sweep(X, 2, base::colSums(X), "/"),
@@ -1420,11 +2402,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   # Initialize tX here so it exists even if the X update loop is skipped (e.g., scalar X)
   tX <- t(X)
 
-  if(Y.symmetric == "bi"){
-    C <- base::diag(Q)  # symmetric NMF (bi): Y ≈ X I X^T = X X^T
-  }else if(Y.symmetric == "tri"){
-    if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=Q) else C <- C.init  # tri: C is Q x Q
-  }else if(is.null(A)){
+  if(is.null(A)){
     if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=ncol(Y)) else C <- C.init
   }else{
     if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=nrow(A)) else C <- C.init
@@ -1443,7 +2421,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 
   # --- 4. Main Loop (Weighted) ---
   for(i in 1:maxit){
-    if(Y.symmetric %in% c("bi", "tri")) B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
+    if(is.null(A)) B <- C else B <- C %*% A
     XB <- X %*% B
     if(print.trace && i %% 10==0) message(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
@@ -1456,27 +2434,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
         update_ratio <- num_X / (den_X + .eps)
-        # Cube-root damping for bi-symmetric NMF (Y ≈ XX^T): X appears in
-        # both factors, so the standard multiplicative update oscillates.
-        # The cube root is theoretically justified by He et al. (2011,
-        # Proposition 1) using auxiliary function analysis.
-        # Not needed for tri because C absorbs the scale (X is column-normalized).
-        if(Y.symmetric == "bi") update_ratio <- update_ratio^(1/3)
         X <- X * update_ratio
         X <- xnorm(X)
         tX <- t(X)
       }
-      # Recompute B and XB with updated X before C update (tri-symmetric fix)
-      if(Y.symmetric == "tri"){ B <- C %*% tX; XB <- X %*% B }
-      if(Y.symmetric == "bi"){
-        # C = I_Q is fixed; no update needed (bi is tri with C = I)
-      }else if(Y.symmetric == "tri"){
-        # tri-factorization: Y ≈ X C X^T, update C (Q x Q)
-        num_C <- tX %*% (Y.weights * Y) %*% X
-        den_C <- tX %*% (Y.weights * XB) %*% X
-        if (C.L1 != 0) den_C <- den_C + (C.L1/2) * matrix(1, nrow=Q, ncol=Q)
-        C <- C * (num_C / (den_C + .eps))
-      }else if(is.null(A)) {
+      if(is.null(A)) {
         num_C <- tX %*% (Y.weights * Y)
         den_C <- tX %*% (Y.weights * XB)
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QN
@@ -1507,24 +2469,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
         update_ratio <- num_X / (den_X + .eps)
-        # Cube-root damping for bi-symmetric NMF (KL divergence).
-        if(Y.symmetric == "bi") update_ratio <- update_ratio^(1/3)
         X <- X * update_ratio
         X <- xnorm(X)
         tX <- t(X)
       }
-      # Recompute B and XB with updated X before C update (tri-symmetric fix)
-      if(Y.symmetric == "tri"){ B <- C %*% tX; XB <- X %*% B }
-      if(Y.symmetric == "bi"){
-        # C = I_Q is fixed; no update needed (bi is tri with C = I)
-      }else if(Y.symmetric == "tri"){
-        # tri-factorization: Y ≈ X C X^T, update C (Q x Q) with KL
-        ratio <- Y.weights * (Y / (XB + .eps))
-        num_C <- tX %*% ratio %*% X
-        den_C <- tX %*% Y.weights %*% X
-        if (C.L1 != 0) den_C <- den_C + C.L1 * matrix(1, nrow=Q, ncol=Q)
-        C <- C * (num_C / (den_C + .eps))
-      }else if(is.null(A)) {
+      if(is.null(A)) {
         ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio
         den_C <- tX %*% Y.weights
@@ -1559,7 +2508,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     }
   }
 
-  if(Y.symmetric %in% c("bi", "tri")) B <- C %*% tX else if(is.null(A)) B <- C else B <- C %*% A
+  if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
 
   if(method=="EU"){
@@ -1578,7 +2527,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   if(ncol(X) > 1 && X.restriction != "fixed"){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
     X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]
-    if(Y.symmetric == "tri") C <- C[index,index,drop=FALSE] else C <- C[index,,drop=FALSE]
+    C <- C[index,,drop=FALSE]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
   if (!is.null(A)) {
@@ -1592,9 +2541,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     base::list(X = X, B = B, C = C, XB = XB, method = method, A.attr = if(!base::is.null(A)) base::attributes(A) else NULL),
     Y, detail = detail, Y.weights = Y.weights, X.restriction = X.restriction
   )
-  r2        <- crit_result$r.squared
-  sigma     <- crit_result$sigma
-  mae       <- crit_result$mae
+  r2          <- crit_result$r.squared
+  r2.uncentered     <- crit_result$r.squared.uncentered
+  r2.centered <- crit_result$r.squared.centered
+  sigma       <- crit_result$sigma
+  mae         <- crit_result$mae
   B.prob    <- crit_result$B.prob
   B.cluster <- crit_result$B.cluster
   X.prob    <- crit_result$X.prob
@@ -1631,7 +2582,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     rank      = Q,
     objfunc   = objfunc,
     objfunc.iter = objfunc.iter,
-    r.squared = r2,
+    r.squared          = r2,
+    r.squared.uncentered     = r2.uncentered,
+    r.squared.centered = r2.centered,
     sigma     = sigma,
     mae = mae,
     criterion = crit_result$criterion
@@ -1718,14 +2671,17 @@ summary.nmfkc <- function(object, ...) {
   ans$method <- object$method
   ans$iter <- length(object$objfunc.iter)
   ans$objfunc <- object$objfunc
-  ans$r.squared <- object$r.squared
+  ans$r.squared          <- object$r.squared
+  ans$r.squared.uncentered     <- object$r.squared.uncentered
+  ans$r.squared.centered <- object$r.squared.centered
   ans$sigma <- object$sigma
   ans$mae <- object$mae
   if(!is.null(object$criterion)){
-    ans$ICp <- object$criterion$ICp
+    ans$effective.rank <- object$criterion$effective.rank
   } else {
-    ans$ICp <- NULL
+    ans$effective.rank <- NULL
   }
+  ans$rank <- object$rank
 
   # --- Diagnostics (Sparsity & Clustering Quality) ---
 
@@ -1739,7 +2695,6 @@ summary.nmfkc <- function(object, ...) {
   if (!is.null(object$B.prob)){
     # Sparsity
     ans$B.prob.sparsity <- mean(object$B.prob < 1e-4)
-    ans$B.prob.entropy.mean <- object$criterion$B.prob.entropy.mean
     ans$B.prob.max.mean <- object$criterion$B.prob.max.mean
   }
 
@@ -1779,29 +2734,11 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
         sprintf("(%.1f%%)", x$prop.missing), "\n")
   }
 
-  cat("\nStatistics:\n")
-  cat("  Objective function:  ", format(x$objfunc, digits = digits), "\n")
-  cat("  Multiple R-squared:  ", format(x$r.squared, digits = digits), "\n")
-  cat("  Residual Std Error:  ", format(x$sigma, digits = digits), "\n")
-  cat("  Mean Absolute Error: ", format(x$mae, digits = digits), "\n")
+  .print.fit.statistics(x, digits = digits)
 
-  if (!is.null(x$ICp)) {
-    cat("  ICp:                 ", format(x$ICp, digits = digits), "\n")
-  }
-
-  cat("\nStructure Diagnostics:\n")
-  if (!is.null(x$X.sparsity)) {
-    cat("  Basis (X) Sparsity:   ", sprintf("%.1f%%", x$X.sparsity * 100), "(< 1e-4)\n")
-  }
-  if (!is.null(x$B.prob.sparsity)) {
-    cat("  Coef (B) Sparsity:    ", sprintf("%.1f%%", x$B.prob.sparsity * 100), "(< 1e-4)\n")
-  }
-  if(!is.null(x$B.prob.entropy.mean)){
-    cat("  Clustering Entropy:   ", format(x$B.prob.entropy.mean, digits = digits),
-        "(range: 0-1, closer to 0 is better)\n")
-    cat("  Clustering Crispness: ", format(x$B.prob.max.mean, digits = digits),
-        "(range: 0-1, closer to 1 is better)\n")
-  }
+  .print.structure.diagnostics(
+    sparsity  = c("Basis (X)" = x$X.sparsity, "Coef (B)" = x$B.prob.sparsity),
+    crispness = x$B.prob.max.mean)
   cat("\n")
   invisible(x)
 }
@@ -2300,9 +3237,11 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #' the optimal rank (Q) in NMF. This function supports vector input for `Q`,
 #' allowing simultaneous evaluation of multiple ranks on the same folds.
 #'
-#' When \code{Y.symmetric = "bi"} or \code{"tri"} is passed via \code{...},
-#' fold creation uses only the upper triangle (including the diagonal) to
-#' prevent information leakage through the symmetric entries \eqn{Y_{ij} = Y_{ji}}.
+#' For symmetric (network) data use \code{\link{nmfkc.net.ecv}}, which
+#' creates upper-triangle folds to prevent information leakage through
+#' the symmetric entries \eqn{Y_{ij} = Y_{ji}}.  Passing the old
+#' \code{Y.symmetric} argument here is no longer supported and stops
+#' with a redirect message.
 #'
 #' @param Y Observation matrix, or a formula (see \code{\link{nmfkc}} for Formula Mode).
 #' @param A Covariate matrix. Ignored when \code{Y} is a formula.
@@ -2318,7 +3257,18 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #' \item{sigma}{Numeric vector containing the Residual Standard Error (RMSE) for each Q. Only available if method="EU".}
 #' \item{objfunc.fold}{List of length equal to Q vector. Each element contains the MSE values for the k folds.}
 #' \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
+#' @references
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405.
+#' \doi{10.1080/00401706.1978.10489693}
+#' Owen, A. B., & Perry, P. O. (2009).  Bi-cross-validation of the SVD
+#' and the nonnegative matrix factorization.  \emph{Ann. Appl. Stat.}
+#' 3(2), 564--594. \doi{10.1214/08-AOAS227}  (cross-validation of the
+#' NMF rank; see also \code{\link{nmfkc.bicv}}).
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}; other rank-selection
+#'   criteria: \code{\link{nmfkc.rank}}, \code{\link{nmfkc.bicv}},
+#'   \code{\link{nmfkc.consensus}}, \code{\link{nmfkc.ard}}.
 #' @examples
 #' # Element-wise CV to select rank
 #' Y <- t(iris[1:30, 1:4])
@@ -2352,131 +3302,69 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
     Q <- extra_args$rank
   }
 
-  # Check Y.symmetric from ...
-  Y.symmetric <- if (!is.null(extra_args$Y.symmetric)) extra_args$Y.symmetric else "none"
-  Y.symmetric <- match.arg(Y.symmetric, c("none", "bi", "tri"))
-
-  # 1. Create Folds
-  if (!is.null(seed)) set.seed(seed)
-
-  if (Y.symmetric %in% c("bi", "tri")) {
-    # Symmetric matrix: sample only upper triangle + diagonal to avoid info leakage
-    upper_mask <- row(Y) <= col(Y)
-    valid_upper <- which(!is.na(Y) & upper_mask)
-    n_valid <- length(valid_upper)
-
-    perm_indices <- sample(valid_upper)
-    folds_upper <- vector("list", div)
-    chunk_size <- n_valid %/% div
-    remainder <- n_valid %% div
-
-    start_idx <- 1
-    for(k in 1:div){
-      current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-      end_idx <- start_idx + current_size - 1
-      folds_upper[[k]] <- perm_indices[start_idx:end_idx]
-      start_idx <- end_idx + 1
-    }
-
-    # Expand folds: add symmetric (j,i) for each off-diagonal (i,j)
-    # R matrix index: element (r,c) has linear index = (c-1)*P + r
-    folds <- vector("list", div)
-    for(k in 1:div){
-      idx <- folds_upper[[k]]
-      rc <- arrayInd(idx, .dim = c(P, P))  # row, col
-      # Transpose index: (r,c) -> (c,r) = (rc[,2]-1)*P + rc[,1]... but that's idx itself
-      # We need (c,r): linear index = (rc[,1]-1)*P + rc[,2]
-      sym_idx <- (rc[,1] - 1L) * P + rc[,2]
-      folds[[k]] <- unique(c(idx, sym_idx))
-    }
-  } else {
-    valid_indices <- which(!is.na(Y))
-    n_valid <- length(valid_indices)
-
-    perm_indices <- sample(valid_indices)
-    folds <- vector("list", div)
-    chunk_size <- n_valid %/% div
-    remainder <- n_valid %% div
-
-    start_idx <- 1
-    for(k in 1:div){
-      current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-      end_idx <- start_idx + current_size - 1
-      folds[[k]] <- perm_indices[start_idx:end_idx]
-      start_idx <- end_idx + 1
-    }
+  # Symmetric element-wise CV (upper-triangle folds) has moved to
+  # nmfkc.net.ecv().  Passing Y.symmetric here stops with a redirect.
+  if (!is.null(extra_args$Y.symmetric) &&
+      !identical(as.character(extra_args$Y.symmetric), "none")) {
+    ys <- as.character(extra_args$Y.symmetric)[1]
+    ys_type <- if (ys %in% c("bi", "tri")) ys else "tri"
+    stop("`Y.symmetric` is no longer supported in nmfkc.ecv().\n",
+         "Symmetric element-wise CV has moved to nmfkc.net.ecv(). Use:\n",
+         "    nmfkc.net.ecv(Y, rank, type = \"", ys_type, "\")\n",
+         "See help(nmfkc.net.ecv).", call. = FALSE)
   }
+
+  # 1. Create Folds (shared element-wise helper)
+  folds <- .ecv.make.folds(Y, div, seed)
 
   method <- if(!is.null(extra_args$method)) extra_args$method else "EU"
 
-  # 2. Loop over Q vectors
-  num_Q <- length(Q)
-  result_objfunc <- numeric(num_Q)
-  result_sigma   <- numeric(num_Q)
-  result_fold    <- vector("list", num_Q)
+  # Clean extra args for the inner nmfkc() calls (once, outside the loop)
+  nmfkc_clean_args <- extra_args
+  nmfkc_clean_args$Q <- NULL
+  nmfkc_clean_args$rank <- NULL
+  nmfkc_clean_args$print.trace <- NULL
+  nmfkc_clean_args$print.dims <- NULL
+  nmfkc_clean_args$save.time <- NULL
+  nmfkc_clean_args$save.memory <- NULL
 
-  names(result_objfunc) <- paste0("Q=", Q)
-  names(result_sigma)   <- paste0("Q=", Q)
-  names(result_fold)    <- paste0("Q=", Q)
-
-  message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
-
-  for(i in 1:num_Q){
+  # Model-specific worker: mask fold k, refit at rank Q[i], held-out loss
+  run_one <- function(i, k) {
     q_curr <- Q[i]
-    objfunc.fold <- numeric(div)
-
-    for(k in 1:div){
-      test_idx <- folds[[k]]
-      weights_train <- matrix(1, nrow=P, ncol=N)
-      if(any(is.na(Y))) weights_train[is.na(Y)] <- 0
-      weights_train[test_idx] <- 0
-
-      # Prepare arguments for nmfkc
-      # Remove 'Q' and 'rank' from extra_args to avoid conflicts
-      nmfkc_clean_args <- extra_args
-      nmfkc_clean_args$Q <- NULL
-      nmfkc_clean_args$rank <- NULL
-
-      nmfkc_clean_args$print.trace <- NULL
-      nmfkc_clean_args$print.dims <- NULL
-      nmfkc_clean_args$save.time <- NULL
-      nmfkc_clean_args$save.memory <- NULL
-      nmfkc_args <- c(list(Y=Y, A=A, Q=q_curr, Y.weights=weights_train,
-                           print.trace=FALSE, print.dims=FALSE,
-                           save.time=TRUE), nmfkc_clean_args)
-
-      fit <- suppressMessages(do.call("nmfkc", nmfkc_args))
-
-      pred <- fit$XB
-      if(method == "KL"){
-        .eps <- 1e-10
-        term1 <- -Y[test_idx] * log(pred[test_idx] + .eps)
-        term2 <- pred[test_idx]
-        objfunc.fold[k] <- mean(term1 + term2)
-      }else{
-        residuals <- Y[test_idx] - pred[test_idx]
-        objfunc.fold[k] <- mean(residuals^2)
-      }
+    test_idx <- folds[[k]]
+    weights_train <- matrix(1, nrow = P, ncol = N)
+    if (any(is.na(Y))) weights_train[is.na(Y)] <- 0
+    weights_train[test_idx] <- 0
+    nmfkc_args <- c(list(Y = Y, A = A, Q = q_curr, Y.weights = weights_train,
+                         print.trace = FALSE, print.dims = FALSE,
+                         save.time = TRUE), nmfkc_clean_args)
+    fit <- suppressMessages(do.call("nmfkc", nmfkc_args))
+    pred <- fit$XB
+    if (method == "KL") {
+      .eps <- 1e-10
+      mean(-Y[test_idx] * log(pred[test_idx] + .eps) + pred[test_idx])
+    } else {
+      mean((Y[test_idx] - pred[test_idx])^2)
     }
-
-    result_fold[[i]]  <- objfunc.fold
-    result_objfunc[i] <- mean(objfunc.fold)
-    result_sigma[i]   <- if(method == "EU") sqrt(result_objfunc[i]) else NA
   }
 
-  return(list(objfunc = result_objfunc,
-              sigma = result_sigma,
-              objfunc.fold = result_fold,
+  # 2. Loop over Q via shared driver
+  message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
+  cv <- .ecv.run(paste0("Q=", Q), div, run_one)
+  if (method != "EU") cv$sigma[] <- NA   # sigma = RMSE only for EU loss
+
+  return(list(objfunc = cv$objfunc,
+              sigma = cv$sigma,
+              objfunc.fold = cv$objfunc.fold,
               folds = folds))
 }
 
 
 #' @title Compute model selection criteria for a fitted nmfkc model
 #' @description
-#' \code{nmfkc.criterion} computes information criteria (ICp, AIC, BIC),
-#' clustering quality measures (silhouette, CPCC, dist.cor), and
-#' soft-clustering statistics (B.prob entropy, max, sd) from a fitted
-#' \code{nmfkc} model.
+#' \code{nmfkc.criterion} computes the effective rank, clustering-quality
+#' measures (silhouette, CPCC, dist.cor), and the clustering-crispness
+#' statistic (\code{B.prob.max.mean}) from a fitted \code{nmfkc} model.
 #'
 #' This function can be called on a model that was fitted with
 #' \code{detail = "fast"} or \code{detail = "minimal"} to compute the
@@ -2489,7 +3377,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   \code{"full"} (default) computes all criteria including silhouette,
 #'   CPCC and dist.cor;
 #'   \code{"fast"} skips the expensive distance-based criteria;
-#'   \code{"minimal"} returns only information criteria.
+#'   \code{"minimal"} skips the fit and clustering statistics.
 #' @param ... Additional arguments: \code{Y.weights} (non-negative
 #'   weight matrix; \code{lm()}-style loss \eqn{\sum W \, r^2}; default:
 #'   all ones).  See \code{\link{nmfkc}} for full details.
@@ -2503,8 +3391,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   \item{B.cluster}{Hard clustering labels (argmax of B.prob per column).}
 #'   \item{X.prob}{Row-normalized basis matrix.}
 #'   \item{X.cluster}{Hard clustering labels per row of X.}
-#'   \item{criterion}{Named list: ICp, ICp1, ICp2, ICp3, AIC, BIC,
-#'     B.prob.sd.min, B.prob.max.mean, B.prob.entropy.mean,
+#'   \item{criterion}{Named list: B.prob.max.mean, effective.rank,
 #'     silhouette, CPCC, dist.cor.}
 #' }
 #'
@@ -2547,92 +3434,78 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     }
   }
 
-  # X.restriction detection for parameter counting
-  X.restriction <- if (!is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
-
-  N_obs <- base::sum(Y.weights > 0)
-
-  # --- Information Criteria ---
-  ## lm()-style weighted least squares (linear W); matches the objective
-  ## reported by nmfkc() itself.
-  objfunc <- base::sum(Y.weights * (Y - XB)^2)
-
-  if (X.restriction == "fixed") nparam.X <- 0
-  else if (X.restriction == "totalSum") nparam.X <- base::prod(base::dim(X)) - 1
-  else nparam.X <- (base::nrow(X) - 1) * base::ncol(X)
-
-  hasA_flag <- !base::is.null(C) && base::ncol(C) != base::ncol(B)
-  if (!hasA_flag) nparam <- nparam.X + base::prod(base::dim(B))
-  else nparam <- nparam.X + base::prod(base::dim(C))
-
-  if (method == "EU") {
-    sigma2 <- objfunc / N_obs
-    P_dim <- P; T_dim <- N
-    g_icp1 <- (P_dim + T_dim) / (P_dim * T_dim) * base::log(P_dim * T_dim)
-    g_icp2 <- (P_dim + T_dim) / (P_dim * T_dim) * base::log(base::min(P_dim, T_dim))
-    g_icp3 <- base::log(base::min(P_dim, T_dim)) / base::min(P_dim, T_dim)
-    ICp1 <- base::log(sigma2) + nparam * g_icp1
-    ICp2 <- base::log(sigma2) + nparam * g_icp2
-    ICp3 <- base::log(sigma2) + nparam * g_icp3
-    ICp <- base::min(ICp1, ICp2, ICp3)
-    AIC <- N_obs * base::log(sigma2) + 2 * nparam
-    BIC <- N_obs * base::log(sigma2) + nparam * base::log(N_obs)
-  } else {
-    ICp <- NA; ICp1 <- NA; ICp2 <- NA; ICp3 <- NA
-    AIC <- NA; BIC <- NA
-  }
-
   # --- Fit statistics and clustering (detail != "minimal") ---
   if (detail != "minimal") {
     valid_idx <- (Y.weights > 0)
     if (base::any(valid_idx)) {
-      r2 <- stats::cor(XB[valid_idx], Y[valid_idx])^2
+      r2_all <- .r.squared.all(Y, XB, Y.weights = Y.weights)
+      r2 <- r2_all$r.squared
+      r2.uncentered <- r2_all$r.squared.uncentered
+      r2.centered <- r2_all$r.squared.centered
       sigma <- stats::sd(Y[valid_idx] - XB[valid_idx])
       mae <- base::mean(base::abs(Y[valid_idx] - XB[valid_idx]))
     } else {
-      r2 <- NA; sigma <- NA; mae <- NA
+      r2 <- NA; r2.uncentered <- NA; r2.centered <- NA
+      sigma <- NA; mae <- NA
     }
 
     B.prob <- base::t(base::t(B) / (base::colSums(B) + .eps))
+    ## Clustering crispness: mean over samples of the dominant-cluster
+    ## membership.  Range [1/Q, 1]; higher = more decisive (hard-like)
+    ## soft assignment.  Meaningful at fixed Q (e.g. as a confidence
+    ## check before treating B.cluster as hard labels); not used for
+    ## rank selection (it is monotone in Q).
     if (Q > 1) {
-      B.prob.sd.min <- base::min(base::apply(B.prob, 1, stats::sd))
       B.prob.max.mean <- base::mean(base::apply(B.prob, 2, base::max))
-      p_ent <- B.prob + .eps
-      B.prob.entropy.mean <- -base::mean(base::colSums(p_ent * base::log(p_ent))) / base::log(Q)
     } else {
-      B.prob.sd.min <- 0; B.prob.entropy.mean <- 0; B.prob.max.mean <- 1
+      B.prob.max.mean <- 1
     }
     B.cluster <- base::apply(B.prob, 2, base::which.max)
     B.cluster[base::colSums(B.prob) == 0] <- NA
     X.prob <- X / (base::rowSums(X) + .eps)
     X.cluster <- base::apply(X.prob, 1, base::which.max)
 
-    # Distance-based criteria (detail == "full" only)
+    ## Effective rank: exp(Shannon entropy) of the explained-variance
+    ## distribution p_k = var(B[k, ]) / sum_j var(B[j, ]).  We use the
+    ## across-sample VARIANCE (not the standard deviation) on purpose:
+    ## by the trace identity sum_k var(B[k, ]) = tr(Cov(B)) = total
+    ## variance, so p_k is the exact fraction of total variance carried
+    ## by factor k -- a genuine additive decomposition, which is what
+    ## makes the entropy "effective number" interpretation well-posed
+    ## (standard deviations are not additive, so sum_k sd_k has no such
+    ## meaning).  This is the PCA-style "explained-variance entropy" /
+    ## effective-dimensionality measure; it reuses the exp(entropy)
+    ## functional form of Roy & Vetterli (2007).  See .effective.rank().
+    ## NA at Q = 1 (single-point variance distribution -> trivially 1),
+    ## consistent with silhouette / CPCC which are also NA at Q = 1.
+    effective.rank <- .effective.rank(B)
+
+    # Distance-based criteria (detail == "full" only); computed by the
+    # shared .cluster.criteria() helper using the hard labels B.cluster
+    # already derived above (so values are unchanged).  The same helper
+    # backs the user-facing nmf.cluster.criteria().
     if (detail == "full" && !base::any(Y.weights == 0)) {
-      silhouette <- .silhouette.simple(B.prob, B.cluster)
-      dist.cor <- stats::cor(base::as.vector(stats::dist(base::t(Y))),
-                             base::as.vector(stats::dist(base::t(B))))
-      if (Q >= 2) {
-        M <- base::t(B.prob) %*% B.prob
-        h.dist <- base::as.matrix(stats::cophenetic(stats::hclust(stats::as.dist(1 - M))))
-        up <- base::upper.tri(M)
-        CPCC <- stats::cor(h.dist[up], (1 - M)[up])
-      } else {
-        CPCC <- NA
-      }
+      cc <- .cluster.criteria(Y, B, labels = B.cluster)
+      silhouette <- cc$silhouette
+      CPCC       <- cc$CPCC
+      dist.cor   <- cc$dist.cor
     } else {
       silhouette <- NA; CPCC <- NA; dist.cor <- NA
     }
   } else {
-    r2 <- NA; sigma <- NA; mae <- NA
+    r2 <- NA; r2.uncentered <- NA; r2.centered <- NA
+    sigma <- NA; mae <- NA
     B.prob <- NA; B.cluster <- NA
-    B.prob.sd.min <- NA; B.prob.max.mean <- NA; B.prob.entropy.mean <- NA
+    B.prob.max.mean <- NA
     X.prob <- NA; X.cluster <- NA
     silhouette <- NA; CPCC <- NA; dist.cor <- NA
+    effective.rank <- NA_real_
   }
 
   base::list(
-    r.squared = r2,
+    r.squared          = r2,
+    r.squared.uncentered     = r2.uncentered,
+    r.squared.centered = r2.centered,
     sigma     = sigma,
     mae       = mae,
     B.prob    = B.prob,
@@ -2640,11 +3513,8 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     X.prob    = X.prob,
     X.cluster = X.cluster,
     criterion = base::list(
-      B.prob.sd.min       = B.prob.sd.min,
       B.prob.max.mean     = B.prob.max.mean,
-      B.prob.entropy.mean = B.prob.entropy.mean,
-      ICp1 = ICp1, ICp2 = ICp2, ICp3 = ICp3, ICp = ICp,
-      AIC  = AIC,  BIC  = BIC,
+      effective.rank      = effective.rank,
       silhouette = silhouette,
       CPCC       = CPCC,
       dist.cor   = dist.cor
@@ -2656,8 +3526,11 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' @title Rank selection diagnostics with graphical output
 #' @description
 #' \code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})
-#' in NMF with kernel covariates. Several model selection measures are computed
-#' (e.g., R-squared, silhouette, CPCC, ARI), and results can be visualized in a plot.
+#' in NMF with kernel covariates. Three rank-selection measures are computed
+#' (R-squared, the effective rank, and the element-wise CV error), and results
+#' can be visualized in a plot. Sample-clustering quality (silhouette / CPCC /
+#' dist.cor) is no longer part of rank selection; use \code{\link{nmf.cluster.criteria}}
+#' on a fitted model for those.
 #'
 #' By default (\code{save.time = FALSE}), this function also computes the
 #' Element-wise Cross-Validation error (Wold's CV Sigma) using \code{\link{nmfkc.ecv}}.
@@ -2672,8 +3545,10 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' @param A Covariate matrix. If \code{NULL}, the identity matrix is used.
 #'   Ignored when \code{Y} is a formula.
 #' @param rank A vector of candidate ranks to be evaluated.
-#' @param detail Level of criterion computation: \code{"full"} (default) computes
-#'   all criteria including ECV; \code{"fast"} skips ECV and distance-based criteria.
+#' @param detail \code{"full"} (default) also runs the element-wise CV
+#'   (\code{sigma.ecv}); \code{"fast"} skips it (the plot then shows only
+#'   r.squared and eff.rank, and the recommended rank falls back to the
+#'   R-squared elbow).
 #' @param plot Logical. If \code{TRUE} (default), draws a plot of the diagnostic criteria.
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} and \code{\link{nmfkc.ecv}}.
@@ -2684,18 +3559,32 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #'
 #' @return A list containing:
 #' \item{rank.best}{The estimated optimal rank. Prioritizes ECV minimum if available, otherwise R-squared Elbow.}
-#' \item{criteria}{A data frame containing diagnostic metrics for each rank.}
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ecv}}
+#' \item{criteria}{A data frame containing diagnostic metrics for each rank.
+#'   The \code{effective.rank} column gives the effective rank
+#'   (\eqn{\exp} of the Shannon entropy of the explained-variance
+#'   distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})},
+#'   in \eqn{[1, Q]}); when it plateaus well below the nominal
+#'   \code{rank}, the extra factors are not carrying additional
+#'   coefficient variance, which suggests an over-specified rank.
+#'   The \code{effective.rank.ratio} column is \code{effective.rank /
+#'   rank} in \eqn{[0, 1]} (the utilization fraction plotted as
+#'   \code{eff.rank} when \code{plot = TRUE}); a peak marks the rank
+#'   at which the latent factors carry the most evenly distributed
+#'   variance.}
 #' @export
 #' @references
-#' Brunet, J.P., Tamayo, P., Golub, T.R., Mesirov, J.P. (2004).
-#' Metagenes and molecular pattern discovery using matrix factorization.
-#' \emph{Proc. Natl. Acad. Sci. USA}, 101, 4164–4169.
-#' \doi{10.1073/pnas.0308531101}
-#' Punera, K., & Ghosh, J. (2008).
-#' Consensus-based ensembles of soft clusterings.
-#' \emph{Applied Artificial Intelligence}, 22(7–8), 780–810.
-#' \doi{10.1080/08839510802170546}
+#' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+#' effective dimensionality.  \emph{Proc. 15th European Signal Processing
+#' Conf. (EUSIPCO)}, 606--610.  (\code{effective.rank})
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405.
+#' \doi{10.1080/00401706.1978.10489693}  (\code{sigma.ecv})
+#' @seealso \code{\link{nmfkc}},
+#'   \code{\link{nmfkc.ecv}} (element-wise CV, used internally),
+#'   \code{\link{nmfkc.bicv}} (block bi-cross-validation),
+#'   \code{\link{nmfkc.consensus}} (stability) and
+#'   \code{\link{nmfkc.ard}} (Bayesian ARD) for alternative rank criteria.
 #' @examples
 #' # Example.
 #' Y <- t(iris[,-5])
@@ -2719,83 +3608,38 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   if (!is.null(extra_args$save.time) && extra_args$save.time && detail == "full") detail <- "fast"
   Q <- rank
   # ---------------------------------------------
-  AdjustedRandIndex <- function(x){
-    choose2 <- function(n) choose(n,2)
-    a <- sum(apply(x,c(1,2),choose2))
-    ab <- sum(sapply(rowSums(x),choose2))
-    b <- ab-a
-    ac <- sum(sapply(colSums(x),choose2))
-    c <- ac-a
-    total <- choose2(sum(x))
-    d <- total-a-b-c
-    (ri <- (a+d)/total)
-    e <- ab*ac/total+(total-ab)*(total-ac)/total
-    (ari <- (a+d-e)/(total-e))
-    return(list(RI=ri,ARI=ari))
-  }
-
   num_q <- length(Q)
   results_df <- data.frame(
     rank = Q,
+    effective.rank = numeric(num_q),
+    effective.rank.ratio = numeric(num_q),
     r.squared = numeric(num_q),
-    ICp = numeric(num_q),
-    AIC = numeric(num_q),
-    BIC = numeric(num_q),
-    B.prob.sd.min = numeric(num_q),
-    B.prob.entropy.mean = numeric(num_q),
-    B.prob.max.mean = numeric(num_q),
-    ARI = numeric(num_q),
-    silhouette = numeric(num_q),
-    CPCC = numeric(num_q),
-    dist.cor = numeric(num_q),
     sigma.ecv = numeric(num_q)
   )
 
-  cluster.old <- NULL
-
-  # --- Main Loop for Standard Metrics ---
+  # --- Main loop: per-rank fit -> effective rank + r.squared ---
+  # Fitted with detail = "fast": the (O(N^2)) sample-clustering criteria
+  # silhouette / CPCC / dist.cor are no longer part of rank selection.
+  # For per-fit clustering quality use nmf.cluster.criteria() instead.
   for(q_idx in 1:num_q){
     current_Q <- Q[q_idx]
 
     extra_args_nmfkc <- extra_args
     extra_args_nmfkc$save.memory <- NULL
     extra_args_nmfkc$save.time <- NULL
-    extra_args_nmfkc$detail <- detail
+    extra_args_nmfkc$detail <- "fast"
     extra_args_nmfkc$Q <- NULL
 
     nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
     result <- do.call("nmfkc", nmfkc_args)
 
+    results_df$effective.rank[q_idx] <- result$criterion$effective.rank
+    results_df$effective.rank.ratio[q_idx] <-
+      result$criterion$effective.rank / current_Q
     results_df$r.squared[q_idx] <- result$r.squared
-    results_df$ICp[q_idx] <- result$criterion$ICp
-    results_df$AIC[q_idx] <- result$criterion$AIC
-    results_df$BIC[q_idx] <- result$criterion$BIC
-    results_df$B.prob.sd.min[q_idx] <- result$criterion$B.prob.sd.min
-    results_df$B.prob.max.mean[q_idx] = result$criterion$B.prob.max.mean
-    results_df$B.prob.entropy.mean[q_idx] = result$criterion$B.prob.entropy.mean
-
-    results_df$CPCC[q_idx] <- result$criterion$CPCC
-    results_df$dist.cor[q_idx] <- result$criterion$dist.cor
-    sil <- result$criterion$silhouette
-    results_df$silhouette[q_idx] <- if (is.list(sil)) sil$silhouette.mean else NA
-
-    if(is.null(cluster.old)){
-      results_df$ARI[q_idx] <- NA
-    } else {
-      df <- data.frame(old=cluster.old, new=result$B.cluster)
-      df <- df[stats::complete.cases(df),]
-      if (nrow(df) > 0 && length(unique(df$old)) > 1 && length(unique(df$new)) > 1) {
-        f <- table(df$old, df$new)
-        results_df$ARI[q_idx] <- AdjustedRandIndex(f)$ARI
-      } else {
-        results_df$ARI[q_idx] <- NA
-      }
-    }
-    cluster.old <- result$B.cluster
   }
 
   # --- Element-wise CV (Wold's CV) ---
-  rank.best.ecv <- NA
   if(detail == "full"){
     ecv_args <- list(Y = Y, A = A, Q = Q)
     extra_args_ecv <- extra_args
@@ -2808,120 +3652,15 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     message("Running Element-wise CV (this may take time)...")
     ecv_res <- do.call("nmfkc.ecv", ecv_full_args)
     results_df$sigma.ecv <- ecv_res$sigma
-
-    # Determine best rank by ECV
-    idx_best_ecv <- which.min(results_df$sigma.ecv)
-    rank.best.ecv <- if(length(idx_best_ecv) > 0) results_df$rank[idx_best_ecv] else NA
   } else {
     results_df$sigma.ecv <- NA
   }
 
-  # --- Determine R-squared Best Rank (Elbow) ---
-  rank.best.r2 <- NA
-  if(num_q > 2){
-    x <- 1:num_q
-    y <- results_df$r.squared
-    y_range <- max(y) - min(y)
-    x_range <- max(x) - min(x)
-    y_norm <- if(y_range > 0) (y - min(y)) / y_range else rep(0.5, length(y))
-    x_norm <- if(x_range > 0) (x - min(x)) / x_range else rep(0.5, length(x))
-    x1 <- x_norm[1]; y1 <- y_norm[1]
-    x2 <- x_norm[num_q]; y2 <- y_norm[num_q]
-
-    distances <- numeric(num_q)
-    denom <- sqrt((y2-y1)^2 + (x2-x1)^2)
-    if (denom > 0) {
-      for(i in 1:num_q){
-        distances[i] <- abs((y2-y1)*x_norm[i] - (x2-x1)*y_norm[i] + x2*y1 - y2*x1) / denom
-      }
-    }
-    idx_best_r2 <- which.max(distances)
-    rank.best.r2 <- results_df$rank[idx_best_r2]
-  }
-
-  # Decide final recommended rank (Prioritize ECV)
-  rank.final <- if(!is.na(rank.best.ecv)) rank.best.ecv else rank.best.r2
-
-  # --- Plotting ---
-  if(plot){
-    old_par <- graphics::par(mar = c(5, 4, 4, 5) + 0.1)
-    on.exit(graphics::par(old_par))
-
-    # 1. Left Axis Plot: 0-1 Metrics
-    plot(results_df$rank, results_df$r.squared, type="l", col=2, lwd=3,
-         xlab="Rank (Q)", ylab="Fit / Stability (0-1)", ylim=c(0,1),
-         main="Rank Selection Diagnostics")
-    for(q in results_df$rank) graphics::abline(v=q,col="gray90",lwd=0.5)
-    graphics::points(results_df$rank, results_df$r.squared, pch=16, col=2, cex=0.8)
-    graphics::text(results_df$rank, results_df$r.squared, results_df$rank, pos=3, col=2, cex=0.8)
-
-    # Always mark R2 Elbow BEST if found
-    if(!is.na(rank.best.r2)){
-      idx_r2 <- which(results_df$rank == rank.best.r2)
-      graphics::points(rank.best.r2, results_df$r.squared[idx_r2], pch=16, col="red", cex=1.5)
-      graphics::text(rank.best.r2, results_df$r.squared[idx_r2], "Best (Elbow)", pos=1, col="red", cex=0.8)
-    }
-
-    legend_txt <- c("r.squared")
-    legend_col <- c(2)
-    legend_lty <- c(1)
-
-    graphics::lines(results_df$rank, results_df$B.prob.sd.min, col="green1", lwd=2)
-    legend_txt <- c(legend_txt, "B.prob.sd.min"); legend_col <- c(legend_col, "green1"); legend_lty <- c(legend_lty, 1)
-
-    graphics::lines(results_df$rank, results_df$B.prob.max.mean, col="green3", lwd=2)
-    legend_txt <- c(legend_txt, "B.prob.max.mean"); legend_col <- c(legend_col, "green3"); legend_lty <- c(legend_lty, 1)
-
-        graphics::lines(results_df$rank, results_df$B.prob.entropy.mean, col="green4", lwd=2)
-    legend_txt <- c(legend_txt, "B.prob.entropy.mean"); legend_col <- c(legend_col, "green4"); legend_lty <- c(legend_lty, 1)
-
-
-    if (any(!is.na(results_df$ARI))) {
-      graphics::lines(results_df$rank, results_df$ARI, col=4, lwd=2)
-      legend_txt <- c(legend_txt, "ARI"); legend_col <- c(legend_col, 4); legend_lty <- c(legend_lty, 1)
-    }
-    if (any(!is.na(results_df$silhouette))) {
-      graphics::lines(results_df$rank, results_df$silhouette, col=7, lwd=2)
-      legend_txt <- c(legend_txt, "Silhouette"); legend_col <- c(legend_col, 7); legend_lty <- c(legend_lty, 1)
-    }
-    if (any(!is.na(results_df$CPCC))) {
-      graphics::lines(results_df$rank, results_df$CPCC, col=6, lwd=2)
-      legend_txt <- c(legend_txt, "CPCC"); legend_col <- c(legend_col, 6); legend_lty <- c(legend_lty, 1)
-    }
-    if (any(!is.na(results_df$dist.cor))) {
-      graphics::lines(results_df$rank, results_df$dist.cor, col=5, lwd=2)
-      legend_txt <- c(legend_txt, "dist.cor"); legend_col <- c(legend_col, 5); legend_lty <- c(legend_lty, 1)
-    }
-
-    # 2. Right Axis Plot: Sigma ECV (RMSE)
-    if (any(!is.na(results_df$sigma.ecv))) {
-      graphics::par(new = TRUE)
-      graphics::plot(results_df$rank, results_df$sigma.ecv, type="l", col="blue", lwd=3,
-                     axes=FALSE, xlab="", ylab="")
-
-      graphics::points(results_df$rank, results_df$sigma.ecv, pch=16, col="blue", cex=0.8)
-      graphics::text(results_df$rank, results_df$sigma.ecv, results_df$rank, pos=3, col="blue", cex=0.8)
-
-      # Always mark ECV Min BEST
-      if(!is.na(rank.best.ecv)){
-        idx_ecv <- which(results_df$rank == rank.best.ecv)
-        graphics::points(results_df$rank, results_df$sigma.ecv, pch=1, col="blue")
-        graphics::points(rank.best.ecv, results_df$sigma.ecv[idx_ecv], pch=16, col="blue", cex=1.5)
-        graphics::text(rank.best.ecv, results_df$sigma.ecv[idx_ecv], "Best (Min)", pos=1, col="blue", cex=0.8)
-      }
-
-      graphics::axis(side=4, col="blue", col.axis="blue")
-      graphics::mtext("ECV Sigma (RMSE)", side=4, line=3, col="blue")
-
-      legend_txt <- c(legend_txt, "ECV Sigma")
-      legend_col <- c(legend_col, "blue")
-      legend_lty <- c(legend_lty, 1)
-    }
-
-    graphics::legend("right", legend=legend_txt, col=legend_col, lty=legend_lty, lwd=2, bg="white", cex=0.7)
-  }
-
-  return(list(rank.best = rank.final, criteria = results_df))
+  # Best-rank selection + concise 3-criterion plot (shared back-end).
+  # criteria now holds only the rank-selection columns; clustering
+  # quality is provided separately by nmf.cluster.criteria().
+  return(.rank.finish(results_df, plot = plot,
+                      main = "Rank Selection Diagnostics"))
 }
 
 

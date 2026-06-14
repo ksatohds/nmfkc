@@ -110,7 +110,10 @@
 #' \item{rank}{\code{c(Q = Q, R = R)}.}
 #' \item{dims}{\code{c(P1, P2, N)}.}
 #' \item{objfunc, objfunc.iter}{Final and per-iteration objective values.}
-#' \item{r.squared, sigma, mae}{Goodness of fit statistics.}
+#' \item{r.squared}{\eqn{\mathrm{cor}(Y_1, \widehat Y_1)^2} (Pearson; in \eqn{[0,1]}).}
+#' \item{r.squared.uncentered}{Uncentered \eqn{R^2 = 1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1\|_F^2} (baseline = zero matrix).}
+#' \item{r.squared.centered}{Row-mean centered \eqn{1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1 - \bar Y_{p\cdot}\|_F^2}.}
+#' \item{sigma, mae}{Residual SE and mean absolute error.}
 #' \item{niter, runtime}{Iterations and elapsed seconds.}
 #' \item{Y.signed}{Logical; whether \eqn{Y_1} contained negative entries.}
 #' \item{call}{Matched call.}
@@ -508,21 +511,18 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     objfunc  <- sum(Wmat * resid^2)
     valid    <- (Wmat > 0)
     n.valid  <- sum(valid)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(Y1hat)[valid], as.vector(Y1)[valid])^2,
-      error = function(e) NA_real_
-    )
-    sigma <- if (n.valid > 0) sqrt(objfunc / n.valid) else NA_real_
-    mae   <- if (sum(Wmat) > 0) sum(Wmat * abs(resid)) / sum(Wmat) else NA_real_
+    r2_all   <- .r.squared.all(Y1, Y1hat, Y.weights = Wmat)
+    sigma    <- if (n.valid > 0) sqrt(objfunc / n.valid) else NA_real_
+    mae      <- if (sum(Wmat) > 0) sum(Wmat * abs(resid)) / sum(Wmat) else NA_real_
   } else {
     objfunc  <- sum(resid * resid)
-    r.squared <- tryCatch(
-      stats::cor(as.vector(Y1hat), as.vector(Y1))^2,
-      error = function(e) NA_real_
-    )
-    sigma <- sqrt(objfunc / (P1 * N))
-    mae   <- mean(abs(resid))
+    r2_all   <- .r.squared.all(Y1, Y1hat)
+    sigma    <- sqrt(objfunc / (P1 * N))
+    mae      <- mean(abs(resid))
   }
+  r.squared          <- r2_all$r.squared
+  r.squared.uncentered     <- r2_all$r.squared.uncentered
+  r.squared.centered <- r2_all$r.squared.centered
 
   ## Soft/hard clustering of encoding (only meaningful when H has interpretable sign)
   eps_bp <- 1e-16
@@ -553,7 +553,9 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     dims = c(P1 = P1, P2 = P2, N = N),
     objfunc = objfunc,
     objfunc.iter = objfunc.iter,
-    r.squared = r.squared,
+    r.squared          = r.squared,
+    r.squared.uncentered     = r.squared.uncentered,
+    r.squared.centered = r.squared.centered,
     sigma = sigma,
     mae = mae,
     niter = niter,
@@ -878,7 +880,9 @@ summary.nmfae.signed <- function(object, ...) {
     niter       = object$niter,
     runtime     = object$runtime,
     objfunc     = object$objfunc,
-    r.squared   = object$r.squared,
+    r.squared          = object$r.squared,
+    r.squared.uncentered     = object$r.squared.uncentered,
+    r.squared.centered = object$r.squared.centered,
     sigma       = object$sigma,
     mae         = object$mae,
     X1.sparsity = .sparsity(object$X1),
@@ -936,9 +940,13 @@ print.summary.nmfae.signed <- function(x,
   cat(sprintf("  Final objfunc:    %s\n", format(x$objfunc, digits = digits)))
 
   cat("\nGoodness of fit:\n")
-  cat(sprintf("  R-squared:        %s\n", format(x$r.squared, digits = digits)))
-  cat(sprintf("  Sigma (RMSE):     %s\n", format(x$sigma,     digits = digits)))
-  cat(sprintf("  MAE:              %s\n", format(x$mae,       digits = digits)))
+  cat(sprintf("  R-squared (cor^2):    %s\n", format(x$r.squared, digits = digits)))
+  if (!is.null(x$r.squared.uncentered))
+    cat(sprintf("  R-squared (uncentered):     %s\n", format(x$r.squared.uncentered, digits = digits)))
+  if (!is.null(x$r.squared.centered))
+    cat(sprintf("  R-squared (centered): %s\n", format(x$r.squared.centered, digits = digits)))
+  cat(sprintf("  Sigma (RMSE):         %s\n", format(x$sigma,     digits = digits)))
+  cat(sprintf("  MAE:                  %s\n", format(x$mae,       digits = digits)))
 
   cat("\nStructure (range / sparsity / negative mass):\n")
   fmt_range <- function(r)
@@ -1075,21 +1083,8 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
   }
   num_pairs <- nrow(QR)
 
-  ## Element-wise folds
-  if (!is.null(seed)) set.seed(seed)
-  valid_indices <- which(!is.na(Y1))
-  n_valid <- length(valid_indices)
-  perm_indices <- sample(valid_indices)
-  folds <- vector("list", div)
-  chunk_size <- n_valid %/% div
-  remainder  <- n_valid %% div
-  start_idx <- 1
-  for (k in 1:div) {
-    current_size <- chunk_size + ifelse(k <= remainder, 1, 0)
-    end_idx <- start_idx + current_size - 1
-    folds[[k]] <- perm_indices[start_idx:end_idx]
-    start_idx <- end_idx + 1
-  }
+  ## Element-wise folds (shared helper)
+  folds <- .ecv.make.folds(Y1, div, seed)
 
   pair_labels <- sprintf("Q=%d,R=%d", QR$Q, QR$R)
   has_na <- any(is.na(Y1))
@@ -1101,44 +1096,85 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
   fit_args$nfolds <- NULL; fit_args$div <- NULL
   fit_args$Q <- NULL; fit_args$R <- NULL
 
-  run_one <- function(q, r, k) {
+  run_one <- function(i, k) {
     test_idx <- folds[[k]]
     W_train <- matrix(1, nrow = P1, ncol = N)
     if (has_na) W_train[is.na(Y1)] <- 0
     W_train[test_idx] <- 0
     fit <- suppressMessages(
       do.call(nmfae.signed,
-              c(list(Y1 = Y1, Y2 = Y2, rank = q, rank.encoder = r,
+              c(list(Y1 = Y1, Y2 = Y2, rank = QR$Q[i], rank.encoder = QR$R[i],
                      Y1.weights = W_train), fit_args))
     )
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
   }
 
-  result_objfunc <- numeric(num_pairs)
-  result_sigma   <- numeric(num_pairs)
-  result_fold    <- vector("list", num_pairs)
-  names(result_objfunc) <- pair_labels
-  names(result_sigma)   <- pair_labels
-  names(result_fold)    <- pair_labels
+  cv <- .ecv.run(pair_labels, div, run_one,
+                 progress = function(i, o, s)
+                   message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
+                                   QR$Q[i], QR$R[i], o, s)))
 
-  for (i in 1:num_pairs) {
-    objfunc.fold <- numeric(div)
-    for (k in 1:div) objfunc.fold[k] <- run_one(QR$Q[i], QR$R[i], k)
-    result_fold[[i]]  <- objfunc.fold
-    result_objfunc[i] <- mean(objfunc.fold)
-    result_sigma[i]   <- sqrt(result_objfunc[i])
-    message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
-                    QR$Q[i], QR$R[i], result_objfunc[i], result_sigma[i]))
-  }
-
-  result <- list(objfunc = result_objfunc,
-                 sigma = result_sigma,
-                 objfunc.fold = result_fold,
+  result <- list(objfunc = cv$objfunc,
+                 sigma = cv$sigma,
+                 objfunc.fold = cv$objfunc.fold,
                  folds = folds,
                  QR = QR,
                  paired = is.null(R))
   class(result) <- c("nmfae.signed.ecv", "nmfae.ecv")
   result
+}
+
+
+#' @title Rank selection for nmfae.signed (paired rank, concise diagnostics)
+#' @description
+#' Fits \code{\link{nmfae.signed}} with a \strong{paired} decoder/encoder
+#' rank (\eqn{Q = R}) across a range of ranks and reports
+#' \code{r.squared}, the effective rank (of the latent encoding \eqn{H}),
+#' and the element-wise CV error \code{sigma.ecv}, with the same concise
+#' plot as \code{\link{nmfkc.rank}}.  For a full \eqn{(Q, R)} grid use
+#' \code{\link{nmfae.signed.ecv}}.
+#' @param Y1 Endogenous matrix (\eqn{P_1 \times N}); may be signed.
+#' @param Y2 Exogenous matrix; defaults to \code{Y1}.
+#' @param rank Integer vector of (paired) ranks to evaluate.
+#' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
+#' @param detail \code{"full"} (default) also runs element-wise CV
+#'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
+#'   eff.rank only, and recommends the R-squared elbow).
+#' @param ... Passed on to \code{\link{nmfae.signed}} and
+#'   \code{\link{nmfae.signed.ecv}}.
+#' @return A list with \code{rank.best} and \code{criteria}
+#'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
+#'   \code{r.squared}, \code{sigma.ecv}).
+#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.signed.ecv}},
+#'   \code{\link{nmfkc.rank}}
+#' @references
+#' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
+#' effective dimensionality.  \emph{Proc. EUSIPCO}, 606--610.
+#' (\code{effective.rank})
+#' Wold, S. (1978).  Cross-validatory estimation of the number of
+#' components in factor and principal components models.
+#' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
+#' @export
+nmfae.signed.rank <- function(Y1, Y2 = Y1, rank = 1:5, detail = c("full", "fast"),
+                              plot = TRUE, ...) {
+  detail <- match.arg(detail)
+  Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
+  rs <- numeric(length(rank)); er <- numeric(length(rank))
+  for (i in seq_along(rank)) {
+    f <- suppressMessages(nmfae.signed(Y1, Y2, rank = rank[i],
+                                       rank.encoder = rank[i],
+                                       print.trace = FALSE, ...))
+    rs[i] <- f$r.squared
+    er[i] <- .effective.rank(f$H)
+  }
+  ecv <- if (detail == "full")
+    suppressMessages(nmfae.signed.ecv(Y1, Y2, rank = rank, ...))$sigma
+    else rep(NA_real_, length(rank))
+  criteria <- data.frame(rank = rank, effective.rank = er,
+                         effective.rank.ratio = er / rank,
+                         r.squared = rs, sigma.ecv = as.numeric(ecv))
+  .rank.finish(criteria, plot = plot,
+               main = "nmfae.signed rank selection (paired Q=R)")
 }
 
 

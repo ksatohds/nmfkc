@@ -43,7 +43,7 @@ express (e.g., high refractive index &amp;lt;-&amp;gt; low Abbe number trade-off
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -57,8 +57,10 @@ express (e.g., high refractive index &amp;lt;-&amp;gt; low Abbe number trade-off
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -244,8 +246,17 @@ decoder/encoder factors.  Default <code>"Dec"</code>, <code>"Enc"</code>.</p></d
 <dt>objfunc, objfunc.iter</dt>
 <dd><p>Final and per-iteration objective values.</p></dd>
 
-<dt>r.squared, sigma, mae</dt>
-<dd><p>Goodness of fit statistics.</p></dd>
+<dt>r.squared</dt>
+<dd><p>\(\mathrm{cor}(Y_1, \widehat Y_1)^2\) (Pearson; in \([0,1]\)).</p></dd>
+
+<dt>r.squared.uncentered</dt>
+<dd><p>Uncentered \(R^2 = 1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1\|_F^2\) (baseline = zero matrix).</p></dd>
+
+<dt>r.squared.centered</dt>
+<dd><p>Row-mean centered \(1 - \|Y_1 - \widehat Y_1\|_F^2 / \|Y_1 - \bar Y_{p\cdot}\|_F^2\).</p></dd>
+
+<dt>sigma, mae</dt>
+<dd><p>Residual SE and mean absolute error.</p></dd>
 
 <dt>niter, runtime</dt>
 <dd><p>Iterations and elapsed seconds.</p></dd>
@@ -304,13 +315,15 @@ Pattern Analysis and Machine Intelligence</em>, 32(1), 45–55.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Convergence:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations:       16</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Runtime (secs):   0.03</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Runtime (secs):   0.02</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Final objfunc:    2.128</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Goodness of fit:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   R-squared:        0.04789</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Sigma (RMSE):     0.4211</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   MAE:              0.344</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   R-squared (cor^2):    0.04789</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   R-squared (uncentered):     0.7371</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   R-squared (centered): 0.03128</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Sigma (RMSE):         0.4211</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   MAE:                  0.344</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Structure (range / sparsity / negative mass):</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   X1 (P1 x Q):     range [6.232e-139, 0.9987]   sparsity  16.7%</span>

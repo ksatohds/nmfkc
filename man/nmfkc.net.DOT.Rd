@@ -21,7 +21,7 @@ nmfkc.net.DOT(
   show.theta = NULL,
   signed = inherits(result, "nmfkc.net.signed"),
   cluster.box = c("none", "normal", "faint", "invisible"),
-  layout = c("fdp", "dot", "neato", "circo", "twopi"),
+  layout = c("neato", "fdp", "twopi", "circo", "dot"),
   X.color = NULL,
   Y.cluster = c("soft", "hard")
 )
@@ -71,8 +71,12 @@ dashed, with edge visibility threshold on \eqn{|C|}.  Default is
 \item{cluster.box}{Style of cluster box: \code{"none"}, \code{"normal"},
 \code{"faint"}, \code{"invisible"}.}
 
-\item{layout}{Graphviz layout engine: \code{"fdp"}, \code{"dot"},
-\code{"neato"}, \code{"circo"}, \code{"twopi"}.}
+\item{layout}{Graphviz layout engine, in recommended order:
+\code{"neato"} (default; spring model, clearest for small/medium community
+graphs), \code{"fdp"} (force-directed, scales to larger graphs),
+\code{"twopi"} (radial), \code{"circo"} (circular), \code{"dot"}
+(hierarchical).  For community networks, \code{"neato"} or \code{"fdp"} with
+a raised \code{threshold} (e.g.\ 0.2--0.3) separate the groups best.}
 
 \item{X.color}{Color palette for basis nodes (length Q).}
 

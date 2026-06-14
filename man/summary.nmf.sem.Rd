@@ -7,13 +7,15 @@
 \method{summary}{nmf.sem}(object, ...)
 }
 \arguments{
-\item{object}{An object of class \code{"nmf.sem"} returned by
+\item{object}{An object of class \code{"nmf.ffb"} (or legacy
+\code{"nmf.sem"}) returned by \code{\link{nmf.ffb}} /
 \code{\link{nmf.sem}}.}
 
 \item{...}{Not used.}
 }
 \value{
-Invisible \code{object}.
+An object of class \code{"summary.nmf.sem"} (the fitted model
+tagged for printing); printed by \code{\link{print.summary.nmf.sem}}.
 }
 \description{
 Produces a formatted summary of a fitted NMF-FFB model, including
@@ -23,10 +25,10 @@ and inference results (if available).
 \examples{
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
-result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
 summary(result)
 
 }
 \seealso{
-\code{\link{nmf.sem}}, \code{\link{nmf.sem.inference}}
+\code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}}
 }

@@ -108,19 +108,37 @@ plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
 #' matrix dimensions, convergence, stability diagnostics, fit statistics,
 #' and inference results (if available).
 #'
-#' @param object An object of class \code{"nmf.sem"} returned by
+#' @param object An object of class \code{"nmf.ffb"} (or legacy
+#'   \code{"nmf.sem"}) returned by \code{\link{nmf.ffb}} /
 #'   \code{\link{nmf.sem}}.
 #' @param ... Not used.
-#' @return Invisible \code{object}.
-#' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.inference}}
+#' @return An object of class \code{"summary.nmf.sem"} (the fitted model
+#'   tagged for printing); printed by \code{\link{print.summary.nmf.sem}}.
+#' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}}
 #' @export
 #' @examples
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
-#' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+#' result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
 #' summary(result)
 #'
 summary.nmf.sem <- function(object, ...) {
+  class(object) <- "summary.nmf.sem"
+  object
+}
+
+#' @title Print method for summary.nmf.sem objects
+#' @description
+#' Prints the NMF-FFB model summary (dimensions, convergence, stability
+#' diagnostics, fit statistics, and inference results if available).
+#' @param x An object of class \code{"summary.nmf.sem"} returned by
+#'   \code{\link{summary.nmf.sem}}.
+#' @param ... Not used.
+#' @return Invisible \code{x}.
+#' @seealso \code{\link{summary.nmf.sem}}
+#' @export
+print.summary.nmf.sem <- function(x, ...) {
+  object <- x
   P1 <- nrow(object$X)
   Q  <- ncol(object$X)
   P2 <- ncol(object$C2)
@@ -144,6 +162,9 @@ summary.nmf.sem <- function(object, ...) {
     cat(sprintf("  SC.cov (covariance correlation): %.4f\n", object$SC.cov))
   if (!is.null(object$MAE)   && is.finite(object$MAE))
     cat(sprintf("  MAE (mean absolute error):       %.4f\n", object$MAE))
+  if (!is.null(object$effective.rank) && is.finite(object$effective.rank))
+    cat(sprintf("  Effective Rank:                  %.2f / %d  (%.1f%%)\n",
+                object$effective.rank, Q, 100 * object$effective.rank / Q))
 
   # Coefficients from inference
   if (!is.null(object$coefficients) && is.data.frame(object$coefficients)) {

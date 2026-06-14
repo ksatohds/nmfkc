@@ -16,7 +16,7 @@ nmfkc.criterion(object, Y, detail = c("full", "fast", "minimal"), ...)
 \code{"full"} (default) computes all criteria including silhouette,
 CPCC and dist.cor;
 \code{"fast"} skips the expensive distance-based criteria;
-\code{"minimal"} returns only information criteria.}
+\code{"minimal"} skips the fit and clustering statistics.}
 
 \item{...}{Additional arguments: \code{Y.weights} (non-negative
 weight matrix; \code{lm()}-style loss \eqn{\sum W \, r^2}; default:
@@ -32,16 +32,14 @@ A list with components:
 \item{B.cluster}{Hard clustering labels (argmax of B.prob per column).}
 \item{X.prob}{Row-normalized basis matrix.}
 \item{X.cluster}{Hard clustering labels per row of X.}
-\item{criterion}{Named list: ICp, ICp1, ICp2, ICp3, AIC, BIC,
-B.prob.sd.min, B.prob.max.mean, B.prob.entropy.mean,
+\item{criterion}{Named list: B.prob.max.mean, effective.rank,
 silhouette, CPCC, dist.cor.}
 }
 }
 \description{
-\code{nmfkc.criterion} computes information criteria (ICp, AIC, BIC),
-clustering quality measures (silhouette, CPCC, dist.cor), and
-soft-clustering statistics (B.prob entropy, max, sd) from a fitted
-\code{nmfkc} model.
+\code{nmfkc.criterion} computes the effective rank, clustering-quality
+measures (silhouette, CPCC, dist.cor), and the clustering-crispness
+statistic (\code{B.prob.max.mean}) from a fitted \code{nmfkc} model.
 
 This function can be called on a model that was fitted with
 \code{detail = "fast"} or \code{detail = "minimal"} to compute the
