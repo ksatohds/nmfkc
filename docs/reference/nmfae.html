@@ -25,7 +25,7 @@ Initialization uses a three-step NMF procedure via nmfkc:
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,8 +39,10 @@ Initialization uses a three-step NMF procedure via nmfkc:
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -185,7 +187,13 @@ for importance weighting are also supported.  Default: if
 <dd><p>Objective values by iteration.</p></dd>
 
 <dt>r.squared</dt>
-<dd><p>Coefficient of determination \(R^2\).</p></dd>
+<dd><p>\(\mathrm{cor}(Y, \widehat Y)^2\) (Pearson; in \([0,1]\)).</p></dd>
+
+<dt>r.squared.uncentered</dt>
+<dd><p>Uncentered \(R^2 = 1 - \|Y - \widehat Y\|_F^2 / \|Y\|_F^2\) (baseline = zero matrix).</p></dd>
+
+<dt>r.squared.centered</dt>
+<dd><p>Row-mean centered \(1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2\).</p></dd>
 
 <dt>niter</dt>
 <dd><p>Number of iterations performed.</p></dd>

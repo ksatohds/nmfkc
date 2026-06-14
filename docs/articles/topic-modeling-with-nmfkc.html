@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,8 +40,10 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul>
@@ -160,27 +162,13 @@ model predicts them, providing a robust measure for rank selection
 <span><span class="co">#&gt; Y(67,59)~X(67,5)B(5,59)...0sec</span></span>
 <span><span class="co">#&gt; Y(67,59)~X(67,6)B(6,59)...0sec</span></span>
 <span><span class="co">#&gt; Running Element-wise CV (this may take time)...</span></span>
-<span><span class="co">#&gt; Performing Element-wise CV for Q = 2,3,4,5,6 (5-fold)...</span></span></code></pre></div>
+<span><span class="co">#&gt; Performing Element-wise CV for Q = 2,3,4,5,6 (5-fold)...</span></span>
+<span><span class="co">#&gt; Note: sample-clustering quality (silhouette / CPCC / dist.cor) is not part of rank selection; compute it from a list of fits with nmf.cluster.criteria().  See ?nmf.cluster.criteria</span></span></code></pre></div>
 <p><img src="topic-modeling-with-nmfkc_files/figure-html/rank-selection-1.png" width="672"></p>
-<pre><code><span><span class="co">#&gt; $rank.best</span></span>
-<span><span class="co">#&gt; [1] 2</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $criteria</span></span>
-<span><span class="co">#&gt;   rank r.squared      ICp      AIC      BIC B.prob.sd.min B.prob.entropy.mean</span></span>
-<span><span class="co">#&gt; 1    2 0.5714525 19.39498 8869.595 10440.15     0.3476271           0.5889663</span></span>
-<span><span class="co">#&gt; 2    3 0.6129089 27.93205 8717.283 11073.12     0.1582146           0.6624310</span></span>
-<span><span class="co">#&gt; 3    4 0.6535278 36.46005 8529.063 11670.18     0.1301392           0.6519002</span></span>
-<span><span class="co">#&gt; 4    5 0.6866667 44.99848 8382.099 12308.49     0.1227179           0.6572496</span></span>
-<span><span class="co">#&gt; 5    6 0.7186176 53.52984 8207.187 12918.86     0.1151692           0.6642655</span></span>
-<span><span class="co">#&gt;   B.prob.max.mean       ARI silhouette      CPCC  dist.cor sigma.ecv</span></span>
-<span><span class="co">#&gt; 1       0.8186375        NA  0.7456899 0.9220031 0.9049180  3.287153</span></span>
-<span><span class="co">#&gt; 2       0.6805368 0.7493380  0.5141000 0.9041294 0.9128002  3.675603</span></span>
-<span><span class="co">#&gt; 3       0.6102601 0.5737936  0.4743689 0.8675133 0.9239746  4.278131</span></span>
-<span><span class="co">#&gt; 4       0.5510541 0.6236933  0.3397598 0.8782690 0.9283578  4.621801</span></span>
-<span><span class="co">#&gt; 5       0.5142690 0.6637536  0.3059911 0.8701347 0.9274730  4.683195</span></span></code></pre>
-<p>Looking at the diagnostics (e.g., the minimum ECV Sigma, the elbow of
-the R-squared curve, or high Cophenetic Correlation), let’s assume
-<strong>Rank = 3</strong> is a reasonable choice for this overview.</p>
+<p>Looking at the diagnostics (the minimum ECV Sigma and the elbow of
+the R-squared curve; the green <code>eff.rank</code> line is shown for
+context), let’s assume <strong>Rank = 3</strong> is a reasonable choice
+for this overview.</p>
 </div>
 <div class="section level2">
 <h2 id="standard-nmf">3. Standard NMF<a class="anchor" aria-label="anchor" href="#standard-nmf"></a>
@@ -198,7 +186,7 @@ words).</li>
 Matrix):</strong> Represents <strong>Trends</strong> (distribution of
 topics across documents).</li>
 </ul>
-<!-- end list --><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<!-- end list --><div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rank</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
 <span><span class="co"># Set seed for reproducibility</span></span>
 <span><span class="va">res_std</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, rank <span class="op">=</span> <span class="va">rank</span>, seed <span class="op">=</span> <span class="fl">123</span>, prefix <span class="op">=</span> <span class="st">"Topic"</span><span class="op">)</span></span>
@@ -212,7 +200,7 @@ topics across documents).</li>
 </h3>
 <p>We can identify the meaning of each topic by looking at the words
 with the highest weights in the basis matrix <code>X</code>.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Extract top 10 words for each topic from X.prob (normalized X)</span></span>
 <span><span class="va">Xp</span> <span class="op">&lt;-</span> <span class="va">res_std</span><span class="op">$</span><span class="va">X.prob</span></span>
 <span><span class="kw">for</span><span class="op">(</span><span class="va">q</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">rank</span><span class="op">)</span><span class="op">{</span></span>
@@ -262,7 +250,7 @@ historical shifts.</p>
 <p>We construct a covariate matrix <code>U</code> using the year of the
 address. We then find the optimal kernel bandwidth (<code>beta</code>)
 using Cross-Validation.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Covariate: Year of the address</span></span>
 <span><span class="va">years</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/substr.html" class="external-link">substring</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">data_corpus_inaugural</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">U</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">years</span><span class="op">)</span><span class="op">)</span></span>
@@ -289,7 +277,7 @@ using Cross-Validation.</p>
 <p>Now we fit the model using the kernel matrix <code>A</code>. This
 enforces that documents close in time (similar years) should have
 similar topic distributions.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Create Kernel Matrix</span></span>
 <span><span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.kernel.html">nmfkc.kernel</a></span><span class="op">(</span><span class="va">U</span>, beta <span class="op">=</span> <span class="va">best_beta</span><span class="op">)</span></span>
 <span></span>
@@ -311,7 +299,7 @@ historical context.</li>
 trends, showing how themes like “Nation Building” vs “Global Affairs”
 have evolved over centuries.</li>
 </ul>
-<!-- end list --><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<!-- end list --><div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">oldpar</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span>, mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">4</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Prepare Axis Labels (Rounded to integers)</span></span>
@@ -331,7 +319,7 @@ have evolved over centuries.</li>
 <span><span class="co"># Legend</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/legend.html" class="external-link">legend</a></span><span class="op">(</span><span class="st">"topright"</span>, legend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Topic"</span>, <span class="fl">1</span><span class="op">:</span><span class="va">rank</span><span class="op">)</span>, fill <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="op">(</span><span class="va">rank</span><span class="op">+</span><span class="fl">1</span><span class="op">)</span>, bg<span class="op">=</span><span class="st">"white"</span>, cex<span class="op">=</span><span class="fl">0.8</span><span class="op">)</span></span></code></pre></div>
 <p><img src="topic-modeling-with-nmfkc_files/figure-html/plot-comparison-1.png" width="768"></p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span><span class="va">oldpar</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>

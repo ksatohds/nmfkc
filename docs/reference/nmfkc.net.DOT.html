@@ -25,7 +25,7 @@ from C matrix (for tri-symmetric models only).
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,8 +39,10 @@ from C matrix (for tri-symmetric models only).
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -89,7 +91,7 @@ from C matrix (for tri-symmetric models only).</p></li>
 <span>  show.theta <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  signed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">result</span>, <span class="st">"nmfkc.net.signed"</span><span class="op">)</span>,</span>
 <span>  cluster.box <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"none"</span>, <span class="st">"normal"</span>, <span class="st">"faint"</span>, <span class="st">"invisible"</span><span class="op">)</span>,</span>
-<span>  layout <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fdp"</span>, <span class="st">"dot"</span>, <span class="st">"neato"</span>, <span class="st">"circo"</span>, <span class="st">"twopi"</span><span class="op">)</span>,</span>
+<span>  layout <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"neato"</span>, <span class="st">"fdp"</span>, <span class="st">"twopi"</span>, <span class="st">"circo"</span>, <span class="st">"dot"</span><span class="op">)</span>,</span>
 <span>  X.color <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  Y.cluster <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"soft"</span>, <span class="st">"hard"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -176,8 +178,12 @@ dashed, with edge visibility threshold on \(|C|\).  Default is
 
 
 <dt id="arg-layout">layout<a class="anchor" aria-label="anchor" href="#arg-layout"></a></dt>
-<dd><p>Graphviz layout engine: <code>"fdp"</code>, <code>"dot"</code>,
-<code>"neato"</code>, <code>"circo"</code>, <code>"twopi"</code>.</p></dd>
+<dd><p>Graphviz layout engine, in recommended order:
+<code>"neato"</code> (default; spring model, clearest for small/medium community
+graphs), <code>"fdp"</code> (force-directed, scales to larger graphs),
+<code>"twopi"</code> (radial), <code>"circo"</code> (circular), <code>"dot"</code>
+(hierarchical).  For community networks, <code>"neato"</code> or <code>"fdp"</code> with
+a raised <code>threshold</code> (e.g.\ 0.2–0.3) separate the groups best.</p></dd>
 
 
 <dt id="arg-x-color">X.color<a class="anchor" aria-label="anchor" href="#arg-x-color"></a></dt>

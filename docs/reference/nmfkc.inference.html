@@ -19,7 +19,7 @@ one-step wild bootstrap with non-negative projection."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,8 +33,10 @@ one-step wild bootstrap with non-negative projection."></head><body>
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
   </ul></li>
@@ -176,17 +178,17 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-out co"><span class="r-pr">#&gt;</span> Missing:     0 (0.0%) </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Statistics:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Objective function:   12982 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Multiple R-squared:   0.6511 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Residual Std Error:   16.17 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Mean Absolute Error:  12.71 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   ICp:                  5.559 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Objective function:      12982</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   R-squared (cor^2):       0.6511</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   R-squared (uncentered):  0.8961</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   R-squared (centered):    0.601</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Residual Std Error:      16.17</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Mean Absolute Error:     12.71</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Structure Diagnostics:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Basis (X) Sparsity:    0.0% (&lt; 1e-4)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Coef (B) Sparsity:     0.0% (&lt; 1e-4)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Clustering Entropy:    0 (range: 0-1, closer to 0 is better)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Clustering Crispness:  1 (range: 0-1, closer to 1 is better)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Basis (X) Sparsity:      0.0% (&lt; 1e-4)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Coef (B) Sparsity:       0.0% (&lt; 1e-4)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Clustering Crispness:    1 (range: 1/Q-1, closer to 1 = more decisive assignment)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Inference (conditional on X):</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   sigma^2:   270.5 </span>
