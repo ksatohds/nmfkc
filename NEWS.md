@@ -1,3 +1,25 @@
+# nmfkc 0.8.3 (development)
+
+### **`nmfkc.inference()`: re-fit wild bootstrap for singular information**
+- New `method = "refit"` (alongside the default backward-compatible
+  `"onestep"`) performs a residual wild (multiplier) bootstrap that
+  re-estimates \eqn{\Theta} (\eqn{C}) to convergence with the basis \eqn{X}
+  held FIXED, using **no information matrix**.  It stays valid when the Fisher
+  information \eqn{AA'} is singular (over-parameterised / kernel covariates) or
+  \eqn{\Theta} lies on the \eqn{\ge 0} boundary, where the one-step / sandwich
+  SE is unreliable.  With \eqn{X} fixed there is no label switching or scale
+  ambiguity, so element-wise SE/CI of \eqn{\hat\Theta_b} are valid even for
+  \eqn{Q>1}.  The bootstrap SE/CI become primary and the p-value is a two-sided
+  bootstrap p-value.
+- `wild.dist` selects the multiplier distribution (`"rademacher"`, `"mammen"`,
+  `"exp"`), orthogonal to `method`; `wild.unit` (`"element"` / `"column"`) the
+  granularity.  Raw \eqn{vec(C)} draws are returned in `$C.boot.draws` so any
+  identifiable functional (e.g. a contrast or fitted curve) and its percentile
+  band can be formed.  `nmfkc.net.inference()` inherits the mode by delegation.
+- Internal: the wild-bootstrap engine is factored into shared helpers in
+  `R/inference-boot.R` (`.wild.multipliers`, `.boot.onestep`, `.boot.refit`,
+  `.refit.C.MU`, `.boot.summarize`).
+
 # nmfkc 0.8.2
 
 ### **`nmfkc.net.DOT()`: default layout is now `"neato"`**

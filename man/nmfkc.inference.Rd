@@ -20,6 +20,23 @@ to skip bootstrap (faster, only sandwich SE is computed).}
 
 \item{...}{Additional arguments:
 \describe{
+\item{\code{method}}{Bootstrap engine. \code{"onestep"} (default): a
+one-step Newton linearisation around the fit using the inverse
+information \code{Hinv} (fast; the sandwich SE is primary).
+\code{"refit"}: a residual wild bootstrap that re-estimates \eqn{C}
+to convergence with the basis \eqn{X} held FIXED. The "refit" engine
+uses no information matrix, so it stays valid when the Fisher
+information \eqn{AA'} is singular (over-parameterised covariates) or
+\eqn{C} sits on the \eqn{\ge 0} boundary; the bootstrap SE/CI become
+primary and the p-value is a two-sided bootstrap p-value.}
+\item{\code{wild.dist}}{Multiplier distribution (orthogonal to
+\code{method}): \code{"rademacher"} (\eqn{\pm 1}), \code{"mammen"}
+(Mammen 1993 two-point), or \code{"exp"} (\eqn{\mathrm{Exp}(1)-1}).
+Default \code{"exp"} for \code{method="onestep"} (backward
+compatible), \code{"rademacher"} for \code{"refit"}.}
+\item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
+(default, i.i.d. multiplier per matrix cell) or \code{"column"}
+(one multiplier per sample column, shared over rows).}
 \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
 \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
 \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
