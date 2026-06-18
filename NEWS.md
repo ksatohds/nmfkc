@@ -18,7 +18,11 @@
   band can be formed.  `nmfkc.net.inference()` inherits the mode by delegation.
 - Internal: the wild-bootstrap engine is factored into shared helpers in
   `R/inference-boot.R` (`.wild.multipliers`, `.boot.onestep`, `.boot.refit`,
-  `.refit.C.MU`, `.boot.summarize`).
+  `.refit.C.MU`, `.boot.summarize`).  The previously duplicated one-step loop
+  in `nmfkc.inference()`, `nmfre()` / `nmfre.inference()`, `nmfae.inference()`
+  and `nmfae.signed.inference()` now all call the shared `.boot.onestep()`
+  (behaviour unchanged; `nmfae.signed` uses `project = FALSE` for signed
+  \eqn{\Theta}).
 
 # nmfkc 0.8.2
 

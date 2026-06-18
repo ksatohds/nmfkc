@@ -495,15 +495,8 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
       score_mat[, n] <- as.vector(G_n)
     }
 
-    C_hat_vec <- as.vector(C)
-    C_boot <- matrix(NA_real_, nrow = Q * R, ncol = wild.B)
-    for (b in 1:wild.B) {
-      w <- stats::rexp(N, rate = 1) - 1     # Exp(1)-centered multiplier
-      grad_b <- as.vector(score_mat %*% w)
-      c_b <- C_hat_vec - as.vector(Hinv %*% grad_b)
-      c_b <- pmax(c_b, 0)                   # project onto Theta >= 0
-      C_boot[, b] <- c_b
-    }
+    C_boot <- .boot.onestep(as.vector(C), score_mat, Hinv, wild.B,
+                            dist = "exp", seed = wild.seed, project = TRUE)
 
     # Bootstrap SE
     sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)

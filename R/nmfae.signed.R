@@ -686,15 +686,9 @@ nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
       G_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
       score_mat[, n] <- as.vector(G_n)
     }
-    C_hat_vec <- as.vector(C)
-    C_boot <- matrix(NA_real_, nrow = Q * R, ncol = wild.B)
-    for (b in 1:wild.B) {
-      w <- stats::rexp(N, rate = 1) - 1
-      grad_b <- as.vector(score_mat %*% w)
-      c_b <- C_hat_vec - as.vector(Hinv %*% grad_b)
-      ## NOTE: no pmax(c_b, 0) -- Theta is signed
-      C_boot[, b] <- c_b
-    }
+    ## NOTE: project = FALSE -- Theta is signed (no non-negative projection)
+    C_boot <- .boot.onestep(as.vector(C), score_mat, Hinv, wild.B,
+                            dist = "exp", seed = wild.seed, project = FALSE)
     sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
     C.se.boot <- matrix(sd_vec, nrow = Q, ncol = R, byrow = FALSE)
     alpha <- 1 - wild.level

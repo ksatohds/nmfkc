@@ -799,16 +799,8 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
       score_mat[, n] <- as.vector(G_n)
     }
 
-    C_hat_vec <- as.vector(C_mat)
-    C_boot <- matrix(NA_real_, nrow = Q * K, ncol = wild.B)
-
-    for (b in 1:wild.B) {
-      w <- stats::rexp(N, rate = 1) - 1
-      grad_b <- as.vector(score_mat %*% w)
-      c_b <- C_hat_vec - as.vector(Hinv %*% grad_b)
-      c_b <- pmax(c_b, 0)
-      C_boot[, b] <- c_b
-    }
+    C_boot <- .boot.onestep(as.vector(C_mat), score_mat, Hinv, wild.B,
+                            dist = "exp", seed = wild.seed, project = TRUE)
 
     alpha <- 1 - wild.level
     lo_q <- alpha / 2
@@ -1275,15 +1267,8 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
       score_mat[, n] <- base::as.vector(G_n)
     }
 
-    C_hat_vec <- base::as.vector(C_mat)
-    C_boot <- base::matrix(NA_real_, nrow = Q * K, ncol = wild.B)
-    for (b in 1:wild.B) {
-      w <- stats::rexp(N, rate = 1) - 1
-      grad_b <- base::as.vector(score_mat %*% w)
-      c_b <- C_hat_vec - base::as.vector(Hinv %*% grad_b)
-      c_b <- base::pmax(c_b, 0)
-      C_boot[, b] <- c_b
-    }
+    C_boot <- .boot.onestep(base::as.vector(C_mat), score_mat, Hinv, wild.B,
+                            dist = "exp", seed = wild.seed, project = TRUE)
 
     alpha <- 1 - wild.level
     lo <- base::apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
