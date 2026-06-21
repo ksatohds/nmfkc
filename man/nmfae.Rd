@@ -39,6 +39,12 @@ Default is \code{rank}. For backward compatibility, \code{R} is accepted via \co
 
 \item{...}{Additional arguments:
 \describe{
+\item{\code{method}}{Objective function: Euclidean distance
+\code{"EU"} (default) or Kullback-Leibler divergence \code{"KL"}.
+Both use Lee-Seung multiplicative updates for the three factors
+\eqn{X_1, \Theta, X_2} of \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}; for
+\code{"KL"} the residual SE \code{sigma} is \code{NA} (not on the
+data scale).}
 \item{\code{Y1.weights}}{Optional non-negative weight matrix
 (P1 x N) or vector for \eqn{Y_1}, analogous to the
 \code{weights} argument of \code{\link[stats]{lm}}.  Loss becomes
@@ -64,6 +70,7 @@ An object of class \code{"nmfae"}, a list with components:
 \item{X2}{Encoder basis matrix (R x P2), row sum 1.}
 \item{Y1hat}{Fitted values \eqn{X_1 \Theta X_2 Y_2} (P1 x N).}
 \item{rank}{Named integer vector \code{c(Q, R)}.}
+\item{method}{Objective used (\code{"EU"} or \code{"KL"}).}
 \item{objfunc}{Final objective value.}
 \item{objfunc.iter}{Objective values by iteration.}
 \item{r.squared}{\eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).}

@@ -33,6 +33,12 @@
 #' @param verbose Logical. If \code{TRUE}, prints progress messages during fitting. Default is \code{FALSE}.
 #' @param ... Additional arguments:
 #'   \describe{
+#'     \item{\code{method}}{Objective function: Euclidean distance
+#'       \code{"EU"} (default) or Kullback-Leibler divergence \code{"KL"}.
+#'       Both use Lee-Seung multiplicative updates for the three factors
+#'       \eqn{X_1, \Theta, X_2} of \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}; for
+#'       \code{"KL"} the residual SE \code{sigma} is \code{NA} (not on the
+#'       data scale).}
 #'     \item{\code{Y1.weights}}{Optional non-negative weight matrix
 #'       (P1 x N) or vector for \eqn{Y_1}, analogous to the
 #'       \code{weights} argument of \code{\link[stats]{lm}}.  Loss becomes
@@ -57,6 +63,7 @@
 #' \item{X2}{Encoder basis matrix (R x P2), row sum 1.}
 #' \item{Y1hat}{Fitted values \eqn{X_1 \Theta X_2 Y_2} (P1 x N).}
 #' \item{rank}{Named integer vector \code{c(Q, R)}.}
+#' \item{method}{Objective used (\code{"EU"} or \code{"KL"}).}
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
 #' \item{r.squared}{\eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).}
@@ -108,6 +115,9 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   X1.L2.ortho <- if (!is.null(extra_args$X1.L2.ortho)) extra_args$X1.L2.ortho else 0
   X2.L2.ortho <- if (!is.null(extra_args$X2.L2.ortho)) extra_args$X2.L2.ortho else 0
   seed        <- if (!is.null(extra_args$seed))        extra_args$seed        else 123
+  ## Objective: Euclidean distance "EU" (default) or KL divergence "KL".
+  method      <- if (!is.null(extra_args$method))
+                   match.arg(extra_args$method, c("EU", "KL")) else "EU"
   print.trace <- verbose
   if (!is.null(extra_args$print.trace)) print.trace <- extra_args$print.trace  # backward compat
 
@@ -190,12 +200,20 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   for (iter in 1:maxit) {
     # 1. Update X1: Y1 ≈ X1 F, F = C X2 Y2
     F_mat <- C %*% X2 %*% Y2                           # Q x N
-    if (has.weights) {
-      num_X1 <- (W * Y1) %*% t(F_mat)
-      den_X1 <- (W * (X1 %*% F_mat)) %*% t(F_mat) + eps
-    } else {
-      num_X1 <- tcrossprod(Y1, F_mat)
-      den_X1 <- X1 %*% tcrossprod(F_mat) + eps
+    if (method == "EU") {
+      if (has.weights) {
+        num_X1 <- (W * Y1) %*% t(F_mat)
+        den_X1 <- (W * (X1 %*% F_mat)) %*% t(F_mat) + eps
+      } else {
+        num_X1 <- tcrossprod(Y1, F_mat)
+        den_X1 <- X1 %*% tcrossprod(F_mat) + eps
+      }
+    } else {                                           # KL: ratio Y1/Y1hat
+      ratio <- Y1 / (X1 %*% F_mat + eps)
+      if (has.weights) ratio <- W * ratio
+      num_X1 <- ratio %*% t(F_mat)
+      den_X1 <- (if (has.weights) W %*% t(F_mat)
+                 else matrix(rowSums(F_mat), P1, Q, byrow = TRUE)) + eps
     }
     if (X1.L2.ortho > 0) {
       X1tX1 <- crossprod(X1); diag(X1tX1) <- 0
@@ -210,24 +228,41 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 
     # 3. Update C: Y1 ≈ X1 C G, G = X2 Y2
     G <- X2 %*% Y2                                     # R x N
-    if (has.weights) {
-      num_C <- crossprod(X1, W * Y1) %*% t(G)
-      den_C <- crossprod(X1, W * (X1 %*% C %*% G)) %*% t(G) + eps
-    } else {
-      num_C <- crossprod(X1, Y1) %*% t(G)
-      den_C <- crossprod(X1) %*% C %*% tcrossprod(G) + eps
+    if (method == "EU") {
+      if (has.weights) {
+        num_C <- crossprod(X1, W * Y1) %*% t(G)
+        den_C <- crossprod(X1, W * (X1 %*% C %*% G)) %*% t(G) + eps
+      } else {
+        num_C <- crossprod(X1, Y1) %*% t(G)
+        den_C <- crossprod(X1) %*% C %*% tcrossprod(G) + eps
+      }
+      if (C.L1 > 0) den_C <- den_C + (C.L1 / 2)
+    } else {                                           # KL
+      ratio <- Y1 / (X1 %*% C %*% G + eps)
+      if (has.weights) ratio <- W * ratio
+      num_C <- crossprod(X1, ratio) %*% t(G)
+      den_C <- (if (has.weights) crossprod(X1, W) %*% t(G)
+                else outer(colSums(X1), rowSums(G))) + eps
+      if (C.L1 > 0) den_C <- den_C + C.L1
     }
-    if (C.L1 > 0) den_C <- den_C + (C.L1 / 2)
     C <- C * (num_C / den_C)
 
     # 4. Update X2: Y1 ≈ H X2 Y2, H = X1 C
     H <- X1 %*% C                                      # P1 x R
-    if (has.weights) {
-      num_X2 <- crossprod(H, W * Y1) %*% t(Y2)
-      den_X2 <- crossprod(H, W * (H %*% X2 %*% Y2)) %*% t(Y2) + eps
-    } else {
-      num_X2 <- crossprod(H, Y1) %*% t(Y2)
-      den_X2 <- crossprod(H) %*% X2 %*% Y2Y2t + eps
+    if (method == "EU") {
+      if (has.weights) {
+        num_X2 <- crossprod(H, W * Y1) %*% t(Y2)
+        den_X2 <- crossprod(H, W * (H %*% X2 %*% Y2)) %*% t(Y2) + eps
+      } else {
+        num_X2 <- crossprod(H, Y1) %*% t(Y2)
+        den_X2 <- crossprod(H) %*% X2 %*% Y2Y2t + eps
+      }
+    } else {                                           # KL
+      ratio <- Y1 / (H %*% X2 %*% Y2 + eps)
+      if (has.weights) ratio <- W * ratio
+      num_X2 <- crossprod(H, ratio) %*% t(Y2)
+      den_X2 <- (if (has.weights) crossprod(H, W) %*% t(Y2)
+                 else outer(colSums(H), rowSums(Y2))) + eps
     }
     if (X2.L2.ortho > 0) {
       X2X2t <- tcrossprod(X2); diag(X2X2t) <- 0
@@ -247,10 +282,15 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     # For binary W in {0,1} (standard ECV / NA-mask case) this is identical
     # to sum((W*(Y1-Y1hat))^2) since W == W^2.
     Y1hat <- X1 %*% C %*% X2 %*% Y2
-    if (has.weights) {
-      obj <- sum(W * (Y1 - Y1hat)^2)
-    } else {
-      obj <- sum((Y1 - Y1hat)^2)
+    if (method == "EU") {
+      if (has.weights) {
+        obj <- sum(W * (Y1 - Y1hat)^2)
+      } else {
+        obj <- sum((Y1 - Y1hat)^2)
+      }
+    } else {                                           # KL: sum(-Y1 log Y1hat + Y1hat)
+      Wm <- if (has.weights) W else 1
+      obj <- sum(-(Wm * Y1) * log(Y1hat + eps) + Wm * Y1hat)
     }
     if (C.L1 > 0) obj <- obj + C.L1 * sum(C)
     if (X1.L2.ortho > 0) {
@@ -315,13 +355,13 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     n.missing <- sum(!valid)
     n.valid <- sum(valid)
     r2_all <- .r.squared.all(Y1, Y1hat, Y.weights = W)
-    sigma <- sqrt(objfunc / n.valid)
+    sigma <- if (method == "EU") sqrt(objfunc / n.valid) else NA_real_
     mae <- mean(abs(Y1[valid] - Y1hat[valid]))
   } else {
     n.missing <- 0L
     n.valid <- P1 * N
     r2_all <- .r.squared.all(Y1, Y1hat)
-    sigma <- sqrt(objfunc / n.valid)
+    sigma <- if (method == "EU") sqrt(objfunc / n.valid) else NA_real_
     mae <- mean(abs(Y1 - Y1hat))
   }
   r.squared          <- r2_all$r.squared
@@ -352,6 +392,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     B.cluster = B.cluster,
     rank = c(Q = Q, R = R),
     dims = c(P1 = P1, P2 = P2, N = N),
+    method = method,
     objfunc = objfunc,
     objfunc.iter = objfunc.iter,
     r.squared          = r.squared,

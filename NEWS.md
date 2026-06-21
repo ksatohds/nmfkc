@@ -1,5 +1,17 @@
 # nmfkc 0.8.3 (development)
 
+### **`nmfae()`: Kullback-Leibler divergence objective**
+- `nmfae()` gains `method = c("EU", "KL")` (mirroring `nmfkc()`).  \code{"EU"}
+  (default, unchanged) minimises the Frobenius distance; \code{"KL"}
+  minimises the generalised Kullback-Leibler divergence
+  \eqn{\sum [-Y_1 \log \widehat Y_1 + \widehat Y_1]} via Lee-Seung
+  multiplicative updates for all three factors of
+  \eqn{Y_1 \approx X_1 \Theta X_2 Y_2} (numerator carries the ratio
+  \eqn{Y_1/\widehat Y_1}, denominator the column/weight sums).  Weights,
+  L1/L2 penalties and the encoder structure are supported in both modes.
+  For \code{"KL"} the residual SE \code{sigma} is \code{NA} (not on the data
+  scale); \code{$method} records the objective used.
+
 ### **`nmfkc.inference()`: re-fit wild bootstrap for singular information**
 - New `method = "refit"` (alongside the default backward-compatible
   `"onestep"`) performs a residual wild (multiplier) bootstrap that
