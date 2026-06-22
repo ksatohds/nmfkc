@@ -17,6 +17,13 @@
   behaviour; a larger value gives a more stable initialisation and is
   recommended before inference.  (`nmfkc()`, `nmfae.signed()`, `nmfkc.net()`
   and `nmfkc.signed()` already supported `nstart`; all expose it via `...`.)
+- Bug fix in `nmfre()`: a character `X.init` (e.g.\ `"runif"`, `"nndsvd"`,
+  `"kmeans"`) previously fell through unresolved and crashed in
+  `.nmfre.normalize.X()` ("'x' must be an array of at least two
+  dimensions").  `X.init` now accepts \code{NULL} (default), a named init
+  method forwarded to `nmfkc()` (so random-init multi-start works), or a
+  numeric basis matrix (used as-is, with \eqn{C} estimated given that fixed
+  \eqn{X}).
 
 ### **`nmfkc.inference()`: re-fit wild bootstrap for singular information**
 - New `method = "refit"` (alongside the default backward-compatible

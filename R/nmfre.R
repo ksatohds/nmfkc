@@ -383,10 +383,22 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   K <- nrow(A)
 
   # ---- init via nmfkc when X.init/C.init are NULL ----
+  ## X.init may be NULL (default), a character init-method name forwarded to
+  ## nmfkc() (e.g. "kmeans", "runif", "nndsvd"), or a numeric basis matrix
+  ## used as-is (with C then estimated given that fixed X).  A character
+  ## X.init previously fell through unresolved and crashed downstream.
   if (is.null(X.init) || is.null(C.init)) {
-    res0 <- nmfkc(Y, A, Q = Q, epsilon = epsilon, seed = seed, nstart = nstart,
-                          print.trace = print.trace, print.dims = FALSE)
-    if (is.null(X.init)) X.init <- res0$X
+    init_args <- list(Y, A, Q = Q, epsilon = epsilon, seed = seed,
+                      nstart = nstart, print.trace = print.trace,
+                      print.dims = FALSE)
+    if (is.character(X.init)) {
+      init_args$X.init <- X.init                  # forward the named method
+    } else if (is.matrix(X.init) || is.data.frame(X.init)) {
+      init_args$X.init <- as.matrix(X.init)       # fix the supplied basis
+      init_args$X.restriction <- "fixed"
+    }
+    res0 <- do.call(nmfkc, init_args)
+    if (is.null(X.init) || is.character(X.init)) X.init <- res0$X
     if (is.null(C.init)) C.init <- res0$C
   }
 
