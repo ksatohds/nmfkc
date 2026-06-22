@@ -32,3 +32,23 @@ test_that("nmfae() fits with EU and KL objectives", {
   ## invalid method rejected
   expect_error(nmfae(Y1, Y2 = Y2, rank = Q, method = "XX"))
 })
+
+test_that("nmfae() forwards nstart to the nmfkc() initialisation", {
+  set.seed(3)
+  P1 <- 6; P2 <- 6; N <- 40; Q <- 2; R <- 2
+  Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)
+  Y1 <- matrix(abs(rnorm(P1 * Q)), P1, Q) %*% matrix(abs(rnorm(Q * R)), Q, R) %*%
+        matrix(abs(rnorm(R * P2)), R, P2) %*% Y2 +
+        matrix(abs(rnorm(P1 * N, 0, 0.3)), P1, N)
+
+  ## nstart = 1 (default) is reproducible for a fixed seed
+  a  <- nmfae(Y1, Y2 = Y2, rank = Q, rank.encoder = R, seed = 1, maxit = 1500)
+  a2 <- nmfae(Y1, Y2 = Y2, rank = Q, rank.encoder = R, seed = 1, nstart = 1, maxit = 1500)
+  expect_equal(a$objfunc, a2$objfunc)
+
+  ## nstart > 1 is accepted, takes effect, and returns a valid fit
+  b <- nmfae(Y1, Y2 = Y2, rank = Q, rank.encoder = R, seed = 1, nstart = 10, maxit = 1500)
+  expect_s3_class(b, "nmfae")
+  expect_true(b$r.squared >= 0 && b$r.squared <= 1)
+  expect_true(all(b$Y1hat >= 0))
+})

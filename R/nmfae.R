@@ -54,6 +54,12 @@
 #'     \item{\code{X1.L2.ortho}}{L2 orthogonality regularization for \eqn{X_1} columns. Default is 0.}
 #'     \item{\code{X2.L2.ortho}}{L2 orthogonality regularization for \eqn{X_2} rows. Default is 0.}
 #'     \item{\code{seed}}{Integer seed for reproducibility. Default is 123.}
+#'     \item{\code{nstart}}{Number of random restarts for the \code{nmfkc()}
+#'       initialisation steps (passed to the k-means initialiser of the
+#'       \eqn{X_1} and \eqn{X_2} factorisations). Default \code{1}
+#'       (single start; the historical behaviour). A larger value
+#'       (e.g.\ 10-20) gives a more stable initialisation and is recommended
+#'       before inference.}
 #'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
 #'   }
 #'
@@ -115,6 +121,9 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   X1.L2.ortho <- if (!is.null(extra_args$X1.L2.ortho)) extra_args$X1.L2.ortho else 0
   X2.L2.ortho <- if (!is.null(extra_args$X2.L2.ortho)) extra_args$X2.L2.ortho else 0
   seed        <- if (!is.null(extra_args$seed))        extra_args$seed        else 123
+  ## Multi-start for the nmfkc() initialisation steps (k-means nstart).
+  ## Default 1 keeps the historical single-start behaviour.
+  nstart      <- if (!is.null(extra_args$nstart))      extra_args$nstart      else 1
   ## Objective: Euclidean distance "EU" (default) or KL divergence "KL".
   method      <- if (!is.null(extra_args$method))
                    match.arg(extra_args$method, c("EU", "KL")) else "EU"
@@ -171,7 +180,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   # === Initialization using nmfkc ===
   # Step 1: X1 from nmfkc(Y1, rank=Q)
   if (print.trace) message("  Init step 1: nmfkc(Y1, rank=Q)...")
-  res1 <- nmfkc(Y1, rank = Q, seed = seed, print.dims = FALSE,
+  res1 <- nmfkc(Y1, rank = Q, seed = seed, nstart = nstart, print.dims = FALSE,
                 Y.weights = Y1.weights)
   X1 <- res1$X  # P1 x Q, column sum 1
 
@@ -185,7 +194,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 
   # Step 3: X2 from nmfkc(Y2, rank=R), then C from CX2 ≈ C X2
   if (print.trace) message("  Init step 3: nmfkc(Y2, rank=R)...")
-  res3 <- nmfkc(Y2, rank = R, seed = seed, print.dims = FALSE)
+  res3 <- nmfkc(Y2, rank = R, seed = seed, nstart = nstart, print.dims = FALSE)
   X2 <- t(res3$X)             # R x P2, row sum 1
   C <- CX2_init %*% t(X2)     # Q x R, non-negative
 

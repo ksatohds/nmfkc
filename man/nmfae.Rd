@@ -60,6 +60,12 @@ for importance weighting are also supported.  Default: if
 \item{\code{X1.L2.ortho}}{L2 orthogonality regularization for \eqn{X_1} columns. Default is 0.}
 \item{\code{X2.L2.ortho}}{L2 orthogonality regularization for \eqn{X_2} rows. Default is 0.}
 \item{\code{seed}}{Integer seed for reproducibility. Default is 123.}
+\item{\code{nstart}}{Number of random restarts for the \code{nmfkc()}
+initialisation steps (passed to the k-means initialiser of the
+\eqn{X_1} and \eqn{X_2} factorisations). Default \code{1}
+(single start; the historical behaviour). A larger value
+(e.g.\ 10-20) gives a more stable initialisation and is recommended
+before inference.}
 \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
 }}
 }
