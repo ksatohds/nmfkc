@@ -1,5 +1,18 @@
 # nmfkc 0.8.3 (development)
 
+### **`nmf.rrr`: NMF-RRR names for the `nmfae` family**
+- New `nmf.rrr` / `nmf.rrr.signed` (and `.inference`, `.ecv`, `.cv`, `.rank`,
+  `.DOT`, `.heatmap`, `.kernel.beta.cv`, `.rename`) are thin aliases of the
+  corresponding `nmfae*` / `nmfae.signed*` functions, matching the
+  \dQuote{NMF-RRR} (tri-factorized non-negative reduced-rank regression) name
+  used in Satoh & Tokuda.  The legacy `nmfae*` names remain fully functional
+  (no deprecation).  `nmf.rrr()` / `nmf.rrr.signed()` prepend the NMF-RRR
+  class to the fit; all existing S3 methods are reused by inheritance.
+- The fitted bases are now labelled **`Resp`** (response basis \eqn{X_1}) and
+  **`Cov`** (covariate basis \eqn{X_2}) instead of `Dec`/`Enc`, in both
+  `nmfae()`/`nmfae.signed()` (and so `nmf.rrr*`), matching the
+  response/covariate co-clustering reading.
+
 ### **`nmfae()`: Kullback-Leibler divergence objective**
 - `nmfae()` gains `method = c("EU", "KL")` (mirroring `nmfkc()`).  \code{"EU"}
   (default, unchanged) minimises the Frobenius distance; \code{"KL"}

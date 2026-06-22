@@ -349,11 +349,11 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     C <- C[, idx2, drop = FALSE]
   }
 
-  # --- Assign Dec/Enc names ---
-  colnames(X1) <- paste0("Dec", 1:Q)
-  rownames(C)  <- paste0("Dec", 1:Q)
-  colnames(C)  <- paste0("Enc", 1:R)
-  rownames(X2) <- paste0("Enc", 1:R)
+  # --- Assign Resp/Cov names (response basis X1, covariate basis X2) ---
+  colnames(X1) <- paste0("Resp", 1:Q)
+  rownames(C)  <- paste0("Resp", 1:Q)
+  colnames(C)  <- paste0("Cov", 1:R)
+  rownames(X2) <- paste0("Cov", 1:R)
 
   Y1hat <- X1 %*% C %*% X2 %*% Y2
   objfunc <- utils::tail(objfunc.iter, 1)
@@ -573,8 +573,8 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
   }
 
   # Row/column labels for C
-  rlabs <- if (!is.null(rownames(C))) rownames(C) else paste0("Dec", 1:Q)
-  clabs <- if (!is.null(colnames(C))) colnames(C) else paste0("Enc", 1:R)
+  rlabs <- if (!is.null(rownames(C))) rownames(C) else paste0("Resp", 1:Q)
+  clabs <- if (!is.null(colnames(C))) colnames(C) else paste0("Cov", 1:R)
 
   coefficients <- data.frame(
     Basis    = rep(rlabs, times = R),
@@ -644,7 +644,7 @@ nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
     colnames(x$X1) <- X1.colnames
     rownames(x$C)  <- X1.colnames
     if (!is.null(x$coefficients)) {
-      old <- paste0("Dec", 1:Q)
+      old <- paste0("Resp", 1:Q)
       for (k in seq_len(Q))
         x$coefficients$Basis[x$coefficients$Basis == old[k]] <- X1.colnames[k]
     }
@@ -655,7 +655,7 @@ nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
     rownames(x$X2) <- X2.rownames
     colnames(x$C)  <- X2.rownames
     if (!is.null(x$coefficients)) {
-      old <- paste0("Enc", 1:R)
+      old <- paste0("Cov", 1:R)
       for (k in seq_len(R))
         x$coefficients$Covariate[x$coefficients$Covariate == old[k]] <- X2.rownames[k]
     }
@@ -897,7 +897,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
                    formatC("(Boot)", width = 6),
                    formatC("z value", width = 7),
                    formatC(p_header, width = 8), "")
-    cat(sprintf("%s %s\n", formatC("Enc:Dec", width = max_lw), hdr))
+    cat(sprintf("%s %s\n", formatC("Cov:Resp", width = max_lw), hdr))
     for (i in seq_along(show_names)) {
       cat(sprintf("%s %s %s %s %s %s %s\n",
                   formatC(show_names[i], width = max_lw),

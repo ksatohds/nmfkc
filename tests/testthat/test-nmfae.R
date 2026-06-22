@@ -52,3 +52,33 @@ test_that("nmfae() forwards nstart to the nmfkc() initialisation", {
   expect_true(b$r.squared >= 0 && b$r.squared <= 1)
   expect_true(all(b$Y1hat >= 0))
 })
+
+test_that("nmfae uses Resp/Cov labels and nmf.rrr aliases work", {
+  set.seed(7); P1 <- 6; P2 <- 6; N <- 40; Q <- 2; R <- 3
+  Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)
+  Y1 <- matrix(abs(rnorm(P1 * Q)), P1, Q) %*% matrix(abs(rnorm(Q * R)), Q, R) %*%
+        matrix(abs(rnorm(R * P2)), R, P2) %*% Y2 +
+        matrix(abs(rnorm(P1 * N, 0, 0.3)), P1, N)
+
+  ## labels are Resp (response basis X1) / Cov (covariate basis X2)
+  f <- nmfae(Y1, Y2 = Y2, rank = Q, rank.encoder = R, seed = 1, maxit = 1500)
+  expect_equal(colnames(f$X1), paste0("Resp", 1:Q))
+  expect_equal(rownames(f$X2), paste0("Cov", 1:R))
+
+  ## nmf.rrr() is nmfae() with "nmf.rrr" prepended to the class
+  g <- nmf.rrr(Y1, Y2 = Y2, rank = Q, rank.encoder = R, seed = 1, maxit = 1500)
+  expect_s3_class(g, "nmf.rrr")
+  expect_s3_class(g, "nmfae")
+  expect_equal(f$objfunc, g$objfunc)
+
+  ## inference alias works and inherits the S3 machinery
+  gi <- nmf.rrr.inference(g, Y1, Y2 = Y2, wild.B = 50)
+  expect_true("Basis" %in% names(gi$coefficients))
+  expect_true(any(grepl("^Resp", gi$coefficients$Basis)))
+
+  ## signed alias
+  gs <- nmf.rrr.signed(Y1, Y2 = Y2, rank = Q, rank.encoder = R, seed = 1, maxit = 600)
+  expect_s3_class(gs, "nmf.rrr.signed")
+  expect_s3_class(gs, "nmfae.signed")
+  expect_equal(colnames(gs$X1), paste0("Resp", 1:Q))
+})

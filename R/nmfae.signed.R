@@ -17,7 +17,7 @@
 #   plot.nmfae.signed()         -- convergence plot
 #   summary.nmfae.signed()      -- summary with Cp/Cn diagnostics
 #   print.summary.nmfae.signed()
-#   nmfae.signed.rename()       -- rename Dec/Enc labels (propagates to Cp, Cn, C)
+#   nmfae.signed.rename()       -- rename Resp/Cov labels (propagates to Cp, Cn, C)
 # ==============================================================
 
 #' @title Signed-Bottleneck NMF-AE: Three-Layer NMF-AE with Signed Bottleneck
@@ -170,8 +170,8 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   seed       <- if (!is.null(extra_args$seed))       extra_args$seed       else 123L
   print.trace <- verbose
   if (!is.null(extra_args$print.trace)) print.trace <- extra_args$print.trace
-  prefix.dec <- if (!is.null(extra_args$prefix.dec)) extra_args$prefix.dec else "Dec"
-  prefix.enc <- if (!is.null(extra_args$prefix.enc)) extra_args$prefix.enc else "Enc"
+  prefix.dec <- if (!is.null(extra_args$prefix.dec)) extra_args$prefix.dec else "Resp"
+  prefix.enc <- if (!is.null(extra_args$prefix.enc)) extra_args$prefix.enc else "Cov"
 
   ## Validate warm.start value
   if (is.logical(warm.start)) {
@@ -709,8 +709,8 @@ nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
     p_value <- ifelse(is.finite(z_value), 2 * stats::pnorm(abs(z_value), lower.tail = FALSE), NA_real_)
   }
 
-  rlabs <- if (!is.null(rownames(C))) rownames(C) else paste0("Dec", 1:Q)
-  clabs <- if (!is.null(colnames(C))) colnames(C) else paste0("Enc", 1:R)
+  rlabs <- if (!is.null(rownames(C))) rownames(C) else paste0("Resp", 1:Q)
+  clabs <- if (!is.null(colnames(C))) colnames(C) else paste0("Cov", 1:R)
 
   coefficients <- data.frame(
     Basis     = rep(rlabs, times = R),
@@ -996,7 +996,7 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
     rownames(x$Cn) <- X1.colnames
     rownames(x$C)  <- X1.colnames
     if (!is.null(x$coefficients)) {
-      old <- paste0("Dec", seq_len(Q))
+      old <- paste0("Resp", seq_len(Q))
       for (k in seq_len(Q))
         x$coefficients$Basis[x$coefficients$Basis == old[k]] <- X1.colnames[k]
     }
@@ -1009,7 +1009,7 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
     colnames(x$Cn) <- X2.rownames
     colnames(x$C)  <- X2.rownames
     if (!is.null(x$coefficients)) {
-      old <- paste0("Enc", seq_len(R))
+      old <- paste0("Cov", seq_len(R))
       for (k in seq_len(R))
         x$coefficients$Covariate[x$coefficients$Covariate == old[k]] <- X2.rownames[k]
     }
@@ -1263,7 +1263,7 @@ print.summary.nmfae.signed.inference <- function(x,
                    formatC("(Boot)",     width = 6),
                    formatC("z value",    width = 7),
                    formatC(p_header,     width = 8))
-    cat(sprintf("%s %s\n", formatC("Dec:Enc", width = max_lw), hdr))
+    cat(sprintf("%s %s\n", formatC("Resp:Cov", width = max_lw), hdr))
     for (i in seq_len(n_total)) {
       cat(sprintf("%s %s %s %s %s %s %s\n",
                   formatC(rnames[i], width = max_lw),
@@ -1342,8 +1342,8 @@ nmfae.signed.heatmap <- function(x,
   if (is.null(X2.label)) X2.label <- rownames(X2)
   if (is.null(Y2.label)) Y2.label <- colnames(X2)
   if (is.null(Y1.label)) Y1.label <- as.character(seq_len(P1))
-  if (is.null(X1.label)) X1.label <- paste0("Dec", seq_len(Q))
-  if (is.null(X2.label)) X2.label <- paste0("Enc", seq_len(R))
+  if (is.null(X1.label)) X1.label <- paste0("Resp", seq_len(Q))
+  if (is.null(X2.label)) X2.label <- paste0("Cov", seq_len(R))
   if (is.null(Y2.label)) Y2.label <- as.character(seq_len(P2))
 
   .heat <- function(mat, title, pal, zlim = NULL) {
