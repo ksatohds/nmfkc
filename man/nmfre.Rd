@@ -59,6 +59,10 @@ Disabled when dfU cap is active.
 or \code{"off"} for no cap.
 \item \code{print.trace}: Logical. If \code{TRUE}, print progress every 100 iterations (default \code{FALSE}).
 \item \code{seed}: Integer seed for reproducibility (default 1).
+\item \code{nstart}: Number of random restarts for the \code{nmfkc()}
+initialisation step (passed to the k-means initialiser). Default
+\code{1} (single start; historical behaviour). A larger value
+(e.g.\ 10-20) gives a more stable initialisation.
 \item \code{C.p.side}: P-value sidedness: \code{"one.sided"} (default, for boundary null
 H0: C=0 vs H1: C>0) or \code{"two.sided"}.
 \item \code{wild.B}: Number of wild bootstrap replicates (default 500).

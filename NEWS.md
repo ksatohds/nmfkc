@@ -11,11 +11,12 @@
   L1/L2 penalties and the encoder structure are supported in both modes.
   For \code{"KL"} the residual SE \code{sigma} is \code{NA} (not on the data
   scale); \code{$method} records the objective used.
-- `nmfae()` now honours `nstart` (previously silently ignored): it is
-  forwarded to the `nmfkc()` initialisation steps for \eqn{X_1} and \eqn{X_2}
-  (k-means multi-start).  Default \code{1} keeps the historical single-start
+- `nmfae()` and `nmfre()` now honour `nstart` (previously silently ignored):
+  it is forwarded to the `nmfkc()` initialisation step(s) (k-means
+  multi-start).  Default \code{1} keeps the historical single-start
   behaviour; a larger value gives a more stable initialisation and is
-  recommended before inference.
+  recommended before inference.  (`nmfkc()`, `nmfae.signed()`, `nmfkc.net()`
+  and `nmfkc.signed()` already supported `nstart`; all expose it via `...`.)
 
 ### **`nmfkc.inference()`: re-fit wild bootstrap for singular information**
 - New `method = "refit"` (alongside the default backward-compatible

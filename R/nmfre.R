@@ -156,6 +156,10 @@
 #'       or \code{"off"} for no cap.
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, print progress every 100 iterations (default \code{FALSE}).
 #'     \item \code{seed}: Integer seed for reproducibility (default 1).
+#'     \item \code{nstart}: Number of random restarts for the \code{nmfkc()}
+#'       initialisation step (passed to the k-means initialiser). Default
+#'       \code{1} (single start; historical behaviour). A larger value
+#'       (e.g.\ 10-20) gives a more stable initialisation.
 #'     \item \code{C.p.side}: P-value sidedness: \code{"one.sided"} (default, for boundary null
 #'       H0: C=0 vs H1: C>0) or \code{"two.sided"}.
 #'     \item \code{wild.B}: Number of wild bootstrap replicates (default 500).
@@ -313,6 +317,9 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   X.init    <- if (!is.null(extra_args$X.init)) extra_args$X.init else NULL
   C.init    <- if (!is.null(extra_args$C.init)) extra_args$C.init else NULL
   U.init    <- if (!is.null(extra_args$U.init)) extra_args$U.init else NULL
+  ## Multi-start for the nmfkc() initialisation (k-means nstart).
+  ## Default 1 keeps the historical single-start behaviour.
+  nstart    <- if (!is.null(extra_args$nstart)) extra_args$nstart else 1
   prefix    <- if (!is.null(extra_args$prefix)) extra_args$prefix else "Basis"
 
   # variance handling
@@ -377,7 +384,7 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
 
   # ---- init via nmfkc when X.init/C.init are NULL ----
   if (is.null(X.init) || is.null(C.init)) {
-    res0 <- nmfkc(Y, A, Q = Q, epsilon = epsilon, seed = seed,
+    res0 <- nmfkc(Y, A, Q = Q, epsilon = epsilon, seed = seed, nstart = nstart,
                           print.trace = print.trace, print.dims = FALSE)
     if (is.null(X.init)) X.init <- res0$X
     if (is.null(C.init)) C.init <- res0$C
