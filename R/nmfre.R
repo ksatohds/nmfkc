@@ -313,7 +313,6 @@
 #'     \item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 #'     \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
 #'     \item{\code{C.signed}}{Logical. Whether \eqn{C} was sign-free (\code{TRUE}) or non-negative (\code{FALSE}).}
-#'     \item{\code{x.update}}{Basis update rule used: \code{"seminmf"} or \code{"mu"}.}
 #'   }
 #' @seealso \code{\link{nmfre.inference}}, \code{\link{nmfre.dfU.scan}},
 #'   \code{\link{nmfkc.DOT}}, \code{\link{summary.nmfre}}
@@ -371,13 +370,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, df.rate = NULL,
   ## C.mode is the internal string used throughout the optimizer.
   C.mode <- if (is.character(C.signed)) base::match.arg(C.signed, c("signed", "nonneg"))
             else if (isTRUE(C.signed)) "signed" else "nonneg"
-  ## X-step rule is selected by the sign convention of C: the sign-free (LS) C
-  ## pairs with the complete-EM semi-NMF step (Ding-Li-Jordan 2010), and the
-  ## non-negative (MU) C pairs with the legacy positive-part multiplicative
-  ## update.  An explicit x.update in ... overrides this default (advanced use).
-  x.update  <- if (!is.null(extra_args$x.update)) extra_args$x.update
-               else if (C.mode == "nonneg") "mu" else "seminmf"
-  x.update  <- base::match.arg(x.update, c("seminmf", "mu"))
+  ## The X-step rule follows the sign convention of C directly: sign-free (LS) C
+  ## uses the complete-EM semi-NMF step (Ding-Li-Jordan 2010); non-negative (MU)
+  ## C uses the legacy positive-part multiplicative update.
   ## Complete-EM X-step: add the posterior-variance term tr(X S X'),
   ## S = N*sigma2*(X'X+lambda I)^{-1}; FALSE recovers the conditional X-step.
   x.postvar <- if (!is.null(extra_args$x.postvar)) isTRUE(extra_args$x.postvar) else TRUE
@@ -559,7 +554,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, df.rate = NULL,
 
       # (2) X-step: X >= 0 with sign-free score matrix B = CA + U
       B_sem <- CA + U
-      if (x.update == "seminmf") {
+      if (C.mode == "signed") {
         ## complete-EM X-step: add posterior-variance S = N*sigma2*(X'X+lambda I)^{-1}
         S_pv <- if (isTRUE(x.postvar))
           N * clip_val(sigma2, sigma2.min, sigma2.max) * chol2inv(cholM) else NULL
@@ -970,8 +965,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, df.rate = NULL,
     C.boot.sd  = C.boot.sd,
 
     C.p.side = C.p.side,
-    C.signed = (C.mode == "signed"),
-    x.update = x.update
+    C.signed = (C.mode == "signed")
   )
 
   class(out) <- c("nmfre", "nmf")

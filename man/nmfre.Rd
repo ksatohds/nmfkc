@@ -199,7 +199,6 @@ Pr(>|z|), and confidence interval bounds for each element of \eqn{\Theta}.}
 \item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
 \item{\code{C.signed}}{Logical. Whether \eqn{C} was sign-free (\code{TRUE}) or non-negative (\code{FALSE}).}
-\item{\code{x.update}}{Basis update rule used: \code{"seminmf"} or \code{"mu"}.}
 }
 }
 \description{

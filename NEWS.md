@@ -22,8 +22,8 @@
   pairing.  \eqn{X} is non-negative in both cases.  (`x.postvar` remains an
   advanced toggle for the posterior-variance term of the semi-NMF step.)
 - **No cap is imposed on \eqn{df_U}**; it is reported as a diagnostic only.
-  `dfU.control` is now deprecated and inert.  Output gains `C.signed` and
-  `x.update`; `summary.nmfre()` reports the sign convention and p-value side.
+  `dfU.control` is now deprecated and inert.  Output gains the logical
+  `C.signed`; `summary.nmfre()` reports the sign convention and p-value side.
 
 # nmfkc 0.8.3 (development)
 
