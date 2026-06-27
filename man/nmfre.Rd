@@ -54,17 +54,36 @@ When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial v
 \item \code{sigma2.update}: Logical. Update \eqn{\sigma^2} during iterations (default \code{TRUE}).
 \item \code{tau2}: Initial random effect variance (default 1).
 \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
-Disabled when dfU cap is active.
-\item \code{dfU.control}: Either \code{"cap"} (default) to enforce a cap on dfU,
-or \code{"off"} for no cap.
+\item \code{C.signed}: Sign convention of the fixed-effect coefficients
+\eqn{C} (\eqn{= \Theta}). \code{"signed"} (default, recommended, matches
+the paper) treats \eqn{C} as real-valued and updates it by exact least
+squares; \code{"nonneg"} constrains \eqn{C \ge 0} via a multiplicative
+update (the historical non-negative variant).
+\item \code{x.update}: Basis (\eqn{X}) update rule: \code{"seminmf"}
+(default; complete-EM semi-NMF step incorporating the posterior
+variance of the random effects) or \code{"mu"} (legacy multiplicative
+update without the posterior-variance correction).
+\item \code{x.postvar}: Logical. Include the posterior-variance term in
+the semi-NMF \eqn{X}-step (default \code{TRUE}). Ignored when
+\code{x.update = "mu"}.
+\item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
+cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
+reported as a diagnostic only.
 \item \code{print.trace}: Logical. If \code{TRUE}, print progress every 100 iterations (default \code{FALSE}).
 \item \code{seed}: Integer seed for reproducibility (default 1).
 \item \code{nstart}: Number of random restarts for the \code{nmfkc()}
 initialisation step (passed to the k-means initialiser). Default
 \code{1} (single start; historical behaviour). A larger value
 (e.g.\ 10-20) gives a more stable initialisation.
-\item \code{C.p.side}: P-value sidedness: \code{"one.sided"} (default, for boundary null
-H0: C=0 vs H1: C>0) or \code{"two.sided"}.
+\item \code{inner.maxit}, \code{outer.maxit}: Maximum inner (fixed-\eqn{\lambda}
+block-coordinate) and outer (EM variance) iterations (defaults
+\code{10000} and \code{500}).
+\item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
+\eqn{\lambda} (default \code{1e-6}).
+\item \code{C.p.side}: P-value sidedness. Defaults to \code{"two.sided"}
+when \code{C.signed = "signed"} (interior null H0: C=0) and
+\code{"one.sided"} when \code{C.signed = "nonneg"} (boundary null
+H0: C=0 vs H1: C>0). Override explicitly if desired.
 \item \code{wild.B}: Number of wild bootstrap replicates (default 500).
 \item \code{wild.seed}: Seed for wild bootstrap (default 123).
 }}
@@ -176,6 +195,8 @@ Pr(>|z|), and confidence interval bounds for each element of \eqn{\Theta}.}
 \item{\code{C.ci.upper}}{Upper confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 \item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
+\item{\code{C.signed}}{Sign convention of \eqn{C} used: \code{"signed"} or \code{"nonneg"}.}
+\item{\code{x.update}}{Basis update rule used: \code{"seminmf"} or \code{"mu"}.}
 }
 }
 \description{

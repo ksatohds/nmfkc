@@ -1,3 +1,27 @@
+# nmfkc 0.8.4 (development)
+
+### **`nmfre`: EM/ECM algorithm and sign-free fixed effects (paper port)**
+- `nmfre()` is re-implemented to follow the Psychometrika manuscript's
+  NMF-RE mixed model \eqn{Y = X(\Theta A + U) + \mathcal{E}}.  The optimizer is
+  now an **outer-inner ECM**: the inner loop is a fixed-\eqn{\lambda}
+  block-coordinate descent (random-effect ridge BLUP for \eqn{U},
+  complete-EM semi-NMF step for the basis \eqn{X} including the posterior
+  variance \eqn{N\sigma^2(X'X+\lambda I)^{-1}}, and a fixed-effect update for
+  \eqn{C}); the outer loop runs the EM M-steps for \eqn{\sigma^2} and
+  \eqn{\tau^2} until \eqn{\lambda=\sigma^2/\tau^2} stabilizes.
+- New argument **`C.signed`** (default `"signed"`, recommended, matches the
+  paper) makes the fixed-effect coefficients \eqn{C} (\eqn{=\Theta})
+  **real-valued**, updated by exact least squares; `"nonneg"` restores the
+  historical non-negative variant via a multiplicative update.  For
+  sign-free \eqn{C} the wild-bootstrap inference uses a two-sided test
+  (interior null) and does **not** project replicates onto \eqn{C\ge 0};
+  the non-negative variant keeps the one-sided (boundary) test.
+- New arguments `x.update` (`"seminmf"` / `"mu"`) and `x.postvar` select the
+  basis update rule and whether the posterior-variance term is included.
+- **No cap is imposed on \eqn{df_U}**; it is reported as a diagnostic only.
+  `dfU.control` is now deprecated and inert.  Output gains `C.signed` and
+  `x.update`; `summary.nmfre()` reports the sign convention and p-value side.
+
 # nmfkc 0.8.3 (development)
 
 ### **`nmf.rrr`: NMF-RRR names for the `nmfae` family**

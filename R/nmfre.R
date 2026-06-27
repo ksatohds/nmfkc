@@ -19,6 +19,27 @@
   res
 }
 
+#' Semi-NMF multiplicative update for X >= 0 with a sign-free score matrix
+#'
+#' Solves (monotonically) \eqn{\min_{X\ge0}\|Y-XB\|_F^2} for a real-valued
+#' \eqn{B} (Ding, Li & Jordan, 2010): with \eqn{G=BB^\top},
+#' \eqn{X\leftarrow X\odot\sqrt{([YB^\top]^+ + X[G]^-)/([YB^\top]^- + X[G]^+)}}.
+#' When a symmetric PD matrix \code{S} is supplied (the EM posterior-variance
+#' term), it is added to \eqn{G}, solving \eqn{\min_{X\ge0}\|Y-XB\|_F^2 +
+#' \mathrm{tr}(XSX^\top)} (still monotone).
+#' @keywords internal
+#' @noRd
+.nmfre.seminmf.X <- function(X, Y, B, S = NULL, eps = 1e-10) {
+  YBt <- Y %*% t(B)
+  G   <- B %*% t(B)
+  if (!is.null(S)) G <- G + S
+  pos <- function(M) pmax(M, 0)
+  neg <- function(M) pmax(-M, 0)
+  numer <- pos(YBt) + X %*% neg(G)
+  denom <- neg(YBt) + X %*% pos(G)
+  X * sqrt(.nmfre.safe.div(numer, denom, eps = eps))
+}
+
 #' Normalize columns of X to sum 1, rescaling C and U
 #'
 #' Applies X <- X D^{-1}, C <- D C, U <- D U where D = diag(colSums(X)).
@@ -151,17 +172,36 @@
 #'     \item \code{sigma2.update}: Logical. Update \eqn{\sigma^2} during iterations (default \code{TRUE}).
 #'     \item \code{tau2}: Initial random effect variance (default 1).
 #'     \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
-#'       Disabled when dfU cap is active.
-#'     \item \code{dfU.control}: Either \code{"cap"} (default) to enforce a cap on dfU,
-#'       or \code{"off"} for no cap.
+#'     \item \code{C.signed}: Sign convention of the fixed-effect coefficients
+#'       \eqn{C} (\eqn{= \Theta}). \code{"signed"} (default, recommended, matches
+#'       the paper) treats \eqn{C} as real-valued and updates it by exact least
+#'       squares; \code{"nonneg"} constrains \eqn{C \ge 0} via a multiplicative
+#'       update (the historical non-negative variant).
+#'     \item \code{x.update}: Basis (\eqn{X}) update rule: \code{"seminmf"}
+#'       (default; complete-EM semi-NMF step incorporating the posterior
+#'       variance of the random effects) or \code{"mu"} (legacy multiplicative
+#'       update without the posterior-variance correction).
+#'     \item \code{x.postvar}: Logical. Include the posterior-variance term in
+#'       the semi-NMF \eqn{X}-step (default \code{TRUE}). Ignored when
+#'       \code{x.update = "mu"}.
+#'     \item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
+#'       cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
+#'       reported as a diagnostic only.
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, print progress every 100 iterations (default \code{FALSE}).
 #'     \item \code{seed}: Integer seed for reproducibility (default 1).
 #'     \item \code{nstart}: Number of random restarts for the \code{nmfkc()}
 #'       initialisation step (passed to the k-means initialiser). Default
 #'       \code{1} (single start; historical behaviour). A larger value
 #'       (e.g.\ 10-20) gives a more stable initialisation.
-#'     \item \code{C.p.side}: P-value sidedness: \code{"one.sided"} (default, for boundary null
-#'       H0: C=0 vs H1: C>0) or \code{"two.sided"}.
+#'     \item \code{inner.maxit}, \code{outer.maxit}: Maximum inner (fixed-\eqn{\lambda}
+#'       block-coordinate) and outer (EM variance) iterations (defaults
+#'       \code{10000} and \code{500}).
+#'     \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
+#'       \eqn{\lambda} (default \code{1e-6}).
+#'     \item \code{C.p.side}: P-value sidedness. Defaults to \code{"two.sided"}
+#'       when \code{C.signed = "signed"} (interior null H0: C=0) and
+#'       \code{"one.sided"} when \code{C.signed = "nonneg"} (boundary null
+#'       H0: C=0 vs H1: C>0). Override explicitly if desired.
 #'     \item \code{wild.B}: Number of wild bootstrap replicates (default 500).
 #'     \item \code{wild.seed}: Seed for wild bootstrap (default 123).
 #'   }
@@ -271,6 +311,8 @@
 #'     \item{\code{C.ci.upper}}{Upper confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 #'     \item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 #'     \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
+#'     \item{\code{C.signed}}{Sign convention of \eqn{C} used: \code{"signed"} or \code{"nonneg"}.}
+#'     \item{\code{x.update}}{Basis update rule used: \code{"seminmf"} or \code{"mu"}.}
 #'   }
 #' @seealso \code{\link{nmfre.inference}}, \code{\link{nmfre.dfU.scan}},
 #'   \code{\link{nmfkc.DOT}}, \code{\link{summary.nmfre}}
@@ -321,6 +363,18 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   ## Default 1 keeps the historical single-start behaviour.
   nstart    <- if (!is.null(extra_args$nstart)) extra_args$nstart else 1
   prefix    <- if (!is.null(extra_args$prefix)) extra_args$prefix else "Basis"
+  ## Sign constraint on C (= Theta in the paper): "signed" (real-valued,
+  ## sign-free covariate effects; default, the semi-NMF reading) or "nonneg"
+  ## (C >= 0, for compositional/intensity scores).
+  C.signed  <- if (!is.null(extra_args$C.signed)) extra_args$C.signed else "signed"
+  C.signed  <- base::match.arg(C.signed, c("signed", "nonneg"))
+  ## X-step: "seminmf" (Ding-Li-Jordan 2010 monotone semi-NMF; default) or
+  ## "mu" (legacy positive-part multiplicative update).
+  x.update  <- if (!is.null(extra_args$x.update)) extra_args$x.update else "seminmf"
+  x.update  <- base::match.arg(x.update, c("seminmf", "mu"))
+  ## Complete-EM X-step: add the posterior-variance term tr(X S X'),
+  ## S = N*sigma2*(X'X+lambda I)^{-1}; FALSE recovers the conditional X-step.
+  x.postvar <- if (!is.null(extra_args$x.postvar)) isTRUE(extra_args$x.postvar) else TRUE
 
   # variance handling
   sigma2        <- if (!is.null(extra_args$sigma2)) extra_args$sigma2 else 1
@@ -338,8 +392,11 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   tau2.update.rate  <- 0.2
   tau2.min <- 1e-12; tau2.max <- 1e12
 
-  # dfU control
-  dfU.control  <- if (!is.null(extra_args$dfU.control)) extra_args$dfU.control else "cap"
+  # dfU control (DEPRECATED: no cap is applied -- the variance components are
+  # estimated by ECM and df_U/(NQ) is reported only as a complexity diagnostic).
+  # The argument is accepted (inert) for backward compatibility; "cap" behaves
+  # identically to "off".
+  dfU.control  <- if (!is.null(extra_args$dfU.control)) extra_args$dfU.control else "off"
 
   # dfU internals (fixed at defaults)
   dfU.cap <- NULL
@@ -351,7 +408,11 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   seed        <- if (!is.null(extra_args$seed)) extra_args$seed else 1
 
   # inference settings
-  C.p.side <- if (!is.null(extra_args$C.p.side)) extra_args$C.p.side else "one.sided"
+  ## C.p.side default resolved from C.signed: two-sided for the sign-free
+  ## default (C is an interior parameter), one-sided for the non-negative
+  ## variant (boundary null H0: C = 0 vs H1: C > 0).
+  C.p.side <- if (!is.null(extra_args$C.p.side)) extra_args$C.p.side
+              else if (C.signed == "nonneg") "one.sided" else "two.sided"
 
   # inference internals (fixed at defaults)
   sigma2.hat  <- NULL
@@ -415,29 +476,14 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
     stopifnot(nrow(U) == Q, ncol(U) == N)
   }
 
-  # ---- dfU.cap.rate auto-selection via scan ----
+  # (dfU cap removed; dfU.cap.rate is inert, kept only for the diagnostic frac)
   dfU.cap.scan <- NULL
-  if (is.null(dfU.cap.rate) && dfU.control == "cap") {
-    dfU.cap.scan <- nmfre.dfU.scan(
-      Y = Y, A = A, Q = Q,
-      X.init = X, C.init = C_mat, U.init = U,
-      print.trace = FALSE, wild.bootstrap = FALSE,
-      maxit = maxit, epsilon = epsilon, seed = seed
-    )
-    selected_rate <- dfU.cap.scan$cap.rate
-    if (is.null(selected_rate) || is.na(selected_rate)) {
-      message("No safeguard rate found in auto scan. Scan results:")
-      print(dfU.cap.scan$table)
-      stop("No safeguard rate found in auto scan. Try specifying df.rate manually.")
-    }
-    dfU.cap.rate <- selected_rate
-  }
   if (is.null(dfU.cap.rate)) dfU.cap.rate <- 0.10
 
-  if (!is.numeric(dfU.cap.rate) || length(dfU.cap.rate) != 1 ||
-      !is.finite(dfU.cap.rate) || dfU.cap.rate <= 0) {
-    stop("'dfU.cap.rate' must be a positive finite number (e.g., 0.05).")
-  }
+  ## outer-inner ECM internals (no user knobs; df_U is uncapped)
+  inner.maxit   <- if (!is.null(extra_args$inner.maxit)) extra_args$inner.maxit else 10000L
+  outer.maxit   <- if (!is.null(extra_args$outer.maxit)) extra_args$outer.maxit else 500L
+  epsilon.outer <- if (!is.null(extra_args$epsilon.outer)) extra_args$epsilon.outer else 1e-6
 
   # ---- normalize X columns to sum 1 (rescale C AND U) ----
   normed <- .nmfre.normalize.X(pmax(X, .eps), pmax(C_mat, .eps), U)
@@ -468,155 +514,126 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   dfU_hit_iter <- integer(0)
 
   # =========================================================
-  # main loop
+  # main loop: outer-inner ECM
+  #   inner = fixed-lambda block-coordinate descent (U, X, C); monotone
+  #   outer = EM M-steps for (sigma2, tau2); repeat until lambda stabilizes
   # =========================================================
-  for (iter in 1:maxit) {
-    iter_done <- iter
+  any_var_update <- isTRUE(sigma2.update) || isTRUE(tau2.update)
+  total_iter <- 0L
+  lambda     <- sigma2 / tau2
 
-    # (0) current components
-    CA <- C_mat %*% A  # Q x N
+  for (outer in 1:outer.maxit) {
 
-    # (1) U-step: ridge BLUP with lambda = sigma2/tau2
-    tau2 <- clip_val(tau2, tau2.min, tau2.max)
+    tau2   <- clip_val(tau2,   tau2.min,   tau2.max)
     sigma2 <- clip_val(sigma2, sigma2.min, sigma2.max)
     lambda <- sigma2 / tau2
-
-    XtX <- crossprod(X)  # Q x Q
-
-    # ---- dfU cap enforcement ----
-    if (dfU.control == "cap" && (iter %% dfU.enforce.every == 0)) {
-
-      dfU_cap_now <- if (!is.null(dfU.cap)) dfU.cap else dfU.cap.rate * (N * Q)
-      dfU_cap_now <- max(dfU_cap_now, 1)
-
-      d <- eigen(XtX, symmetric = TRUE, only.values = TRUE)$values
-      d <- pmax(d, 0)
-
-      dfU_now <- .nmfre.dfU.from.lambda(d, N, lambda)
-
-      if (dfU_now > dfU_cap_now) {
-        lambda_new <- .nmfre.lambda.for.dfU.cap(
-          d, N, target = dfU_cap_now,
-          lambda_min = pmax(lambda, 0),
-          lambda_max = dfU.lambda.max
-        )
-        lambda <- lambda_new
-        tau2 <- clip_val(sigma2 / pmax(lambda, 1e-12), tau2.min, tau2.max)
-        dfU_now <- .nmfre.dfU.from.lambda(d, N, lambda)
-
-        dfU_hit_cap <- TRUE
-        dfU_hit_iter <- c(dfU_hit_iter, iter)
-      }
-
-      dfU_last <- dfU_now
-      dfU_cap_last <- dfU_cap_now
-    }
-
     lambda_last <- lambda
 
-    M <- XtX + diag(pmax(lambda, 1e-12), Q)
-    cholM <- tryCatch(chol(M), error = function(e) NULL)
-    if (is.null(cholM)) stop("Cholesky failed: XtX + lambda I not SPD. Increase lambda (or decrease tau2).")
+    # ----- INNER: fixed-lambda block-coordinate descent -----
+    obj_prev_inner <- Inf
+    inner_done <- 0L
+    for (inner in 1:inner.maxit) {
+      total_iter <- total_iter + 1L
+      iter_done  <- total_iter
+      inner_done <- inner
 
-    # residual without U
-    fit_fixed <- X %*% CA
-    R0 <- Y - fit_fixed
-
-    # solve for each column u_n
-    for (n in 1:N) {
-      rhs <- crossprod(X, R0[, n, drop = FALSE])  # Q x 1
-      u <- backsolve(cholM, forwardsolve(t(cholM), rhs))
-      U[, n] <- as.numeric(u)
-    }
-
-    # center U (identifiability)
-    U <- sweep(U, 1, rowMeans(U), "-")
-
-    # (1.5) tau2 update by moment matching (disabled when dfU cap is on)
-    if (isTRUE(tau2.update) && dfU.control != "cap" &&
-        iter >= tau2.update.start && (iter %% tau2.update.every == 0)) {
-
-      term1 <- sum(U^2) / (N * Q)
-
-      Minv <- tryCatch(chol2inv(cholM), error = function(e) NULL)
-      if (!is.null(Minv)) {
-        term2 <- sigma2 * sum(diag(Minv)) / Q
-        tau2_new <- clip_val(term1 + term2, tau2.min, tau2.max)
-        tau2 <- (1 - tau2.update.rate) * tau2 + tau2.update.rate * tau2_new
-      }
-    }
-
-    # (2) X-step (EU MU) with positive-part stabilization
-    Y_tilde <- pmax(Y, 0)
-    B_sem <- CA + U
-    B_pos <- pmax(B_sem, 0)
-
-    numX <- Y_tilde %*% t(B_pos)
-    denX <- X %*% (B_pos %*% t(B_pos))
-    X <- X * .nmfre.safe.div(numX, denX, eps = .eps)
-    X <- pmax(X, .eps)
-
-    # normalize columns sum 1; absorb scale into C AND U
-    normed <- .nmfre.normalize.X(X, C_mat, U)
-    X <- pmax(normed$X, .eps)
-    C_mat <- pmax(normed$C, .eps)
-    U <- normed$U
-
-    # (3) C-step (EU MU) with positive-part stabilization
-    Y_star <- Y_tilde - X %*% U
-    Y_star_pos <- pmax(Y_star, 0)
-
-    numC <- crossprod(X, Y_star_pos) %*% t(A)
-    denC <- (crossprod(X, X) %*% C_mat) %*% (A %*% t(A))
-    C_mat <- C_mat * .nmfre.safe.div(numC, denC, eps = .eps)
-    C_mat <- pmax(C_mat, .eps)
-
-    # (3.5) sigma2 update from residual
-    if (isTRUE(sigma2.update) && iter >= sigma2.update.start &&
-        (iter %% sigma2.update.every == 0)) {
       CA <- C_mat %*% A
-      fit <- X %*% (CA + U)
-      R <- Y - fit
-      sigma2_new <- clip_val(mean(R^2), sigma2.min, sigma2.max)
-      sigma2 <- (1 - sigma2.update.rate) * sigma2 + sigma2.update.rate * sigma2_new
+
+      # (1) U-step: ridge / BLUP at the fixed lambda (E-step posterior mean)
+      XtX   <- crossprod(X)
+      M     <- XtX + diag(pmax(lambda, 1e-12), Q)
+      cholM <- tryCatch(chol(M), error = function(e) NULL)
+      if (is.null(cholM)) stop("Cholesky failed: XtX + lambda I not SPD. Increase lambda (or decrease tau2).")
+      R0 <- Y - X %*% CA
+      for (n in 1:N) {
+        rhs <- crossprod(X, R0[, n, drop = FALSE])
+        U[, n] <- as.numeric(backsolve(cholM, forwardsolve(t(cholM), rhs)))
+      }
+      U <- sweep(U, 1, rowMeans(U), "-")          # center for identifiability
+
+      # (2) X-step: X >= 0 with sign-free score matrix B = CA + U
+      B_sem <- CA + U
+      if (x.update == "seminmf") {
+        ## complete-EM X-step: add posterior-variance S = N*sigma2*(X'X+lambda I)^{-1}
+        S_pv <- if (isTRUE(x.postvar))
+          N * clip_val(sigma2, sigma2.min, sigma2.max) * chol2inv(cholM) else NULL
+        X <- .nmfre.seminmf.X(X, Y, B_sem, S = S_pv, eps = .eps)
+      } else {
+        Y_tilde <- pmax(Y, 0); B_pos <- pmax(B_sem, 0)
+        numX <- Y_tilde %*% t(B_pos)
+        denX <- X %*% (B_pos %*% t(B_pos))
+        X <- X * .nmfre.safe.div(numX, denX, eps = .eps)
+      }
+      X <- pmax(X, .eps)
+      normed <- .nmfre.normalize.X(X, C_mat, U)
+      X     <- pmax(normed$X, .eps)
+      C_mat <- if (C.signed == "nonneg") pmax(normed$C, .eps) else normed$C
+      U     <- normed$U
+
+      # (3) C-step
+      if (C.signed == "signed") {
+        ## exact least squares (sign-free): C = (X'X)^{-1} X'(Y - X U) A'(A A')^{-1}
+        Y_star <- Y - X %*% U
+        XtX_t  <- crossprod(X) + diag(1e-10, Q)
+        AAt_t  <- tcrossprod(A) + diag(1e-10, K)
+        rhs    <- crossprod(X, Y_star) %*% t(A)
+        C_mat  <- solve(XtX_t, rhs)
+        C_mat  <- t(solve(AAt_t, t(C_mat)))
+      } else {
+        ## non-negative MU (Ding 2006), positive-part stabilization
+        Y_tilde <- pmax(Y, 0); Y_star <- Y_tilde - X %*% U; Y_star_pos <- pmax(Y_star, 0)
+        numC <- crossprod(X, Y_star_pos) %*% t(A)
+        denC <- (crossprod(X, X) %*% C_mat) %*% (A %*% t(A))
+        C_mat <- C_mat * .nmfre.safe.div(numC, denC, eps = .eps)
+        C_mat <- pmax(C_mat, .eps)
+      }
+
+      # (4) objective at the FIXED lambda (what the inner loop minimizes)
+      CA  <- C_mat %*% A
+      R   <- Y - X %*% (CA + U)
+      obj <- sum(R^2) + lambda * sum(U^2)
+      if (total_iter <= maxit) { obj_trace[total_iter] <- obj; rss_trace[total_iter] <- sum(R^2) }
+
+      if (!is.finite(obj)) { stop_reason <- "nonfinite_obj"; converged <- FALSE; break }
+      rel_change <- if (is.finite(obj_prev_inner))
+        abs(obj_prev_inner - obj) / (abs(obj_prev_inner) + .eps) else NA_real_
+      if (is.finite(obj_prev_inner) && rel_change < epsilon) break   # inner converged
+      obj_prev_inner <- obj
+      if (total_iter >= maxit) break
     }
 
-    # (4) objective & convergence
+    if (identical(stop_reason, "nonfinite_obj")) break
+
+    # ----- OUTER: EM M-steps for (sigma2, tau2) from the converged inner fit -----
     CA <- C_mat %*% A
-    fit <- X %*% (CA + U)
-    R <- Y - fit
-
-    lambda_obj <- sigma2 / clip_val(tau2, tau2.min, tau2.max)
-    obj <- sum(R^2) + lambda_obj * sum(U^2)
-    rss <- sum(R^2)
-
-    obj_trace[iter] <- obj
-    rss_trace[iter] <- rss
-
-    if (is.finite(obj_prev)) {
-      rel_change <- abs(obj_prev - obj) / (abs(obj_prev) + .eps)
-    } else {
-      rel_change <- NA_real_
+    R  <- Y - X %*% (CA + U)
+    sigma2_old <- sigma2
+    Minv <- if (isTRUE(sigma2.update) || isTRUE(tau2.update))
+      tryCatch(chol2inv(chol(crossprod(X) + diag(pmax(lambda, 1e-12), Q))),
+               error = function(e) NULL) else NULL
+    if (isTRUE(sigma2.update)) {
+      if (!is.null(Minv)) {
+        trH   <- Q - pmax(lambda, 1e-12) * sum(diag(Minv))   # tr(H_lambda) in [0,Q]
+        sigma2 <- clip_val(mean(R^2) + sigma2_old * (N * trH) / (P * N), sigma2.min, sigma2.max)
+      } else sigma2 <- clip_val(mean(R^2), sigma2.min, sigma2.max)
+    }
+    if (isTRUE(tau2.update) && !is.null(Minv)) {
+      tau2 <- clip_val(sum(U^2) / (N * Q) + sigma2_old * sum(diag(Minv)) / Q, tau2.min, tau2.max)
     }
 
-    if (!is.finite(obj)) {
-      stop_reason <- "nonfinite_obj"
-      converged <- FALSE
-      break
+    lambda_new <- clip_val(sigma2, sigma2.min, sigma2.max) / clip_val(tau2, tau2.min, tau2.max)
+
+    if (isTRUE(print.trace)) {
+      message(sprintf("[outer %d] inner=%d obj=%.6g sigma2=%.4g tau2=%.4g lambda %.4g -> %.4g",
+                      outer, inner_done, obj, sigma2, tau2, lambda, lambda_new))
     }
 
-    if (is.finite(obj_prev) && rel_change < epsilon) {
-      stop_reason <- "epsilon"
-      converged <- TRUE
-      break
+    # ----- outer convergence -----
+    if (!any_var_update) { converged <- TRUE; stop_reason <- "fixed_lambda"; break }
+    if (abs(lambda_new - lambda) / (abs(lambda) + .eps) < epsilon.outer) {
+      converged <- TRUE; stop_reason <- "outer_lambda"; break
     }
-
-    obj_prev <- obj
-
-    if (isTRUE(print.trace) && iter %% 100 == 0) {
-      message(sprintf("iter=%d  obj=%.6g  rel=%.3g  sigma2=%.4g  tau2=%.4g  lambda=%.4g",
-                      iter, obj, rel_change, sigma2, tau2, sigma2 / tau2))
-    }
+    if (total_iter >= maxit) { stop_reason <- "maxit"; converged <- FALSE; break }
   }
 
   # ---- post loop: finalize ----
@@ -660,11 +677,7 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   d_final <- pmax(d_final, 0)
   dfU_final <- .nmfre.dfU.from.lambda(d_final, N, lambda_final)
 
-  if (dfU.control == "cap") {
-    dfU_cap_last <- if (!is.null(dfU.cap)) max(dfU.cap, 1) else max(dfU.cap.rate * (N * Q), 1)
-  } else {
-    dfU_cap_last <- NA_real_
-  }
+  dfU_cap_last <- NA_real_   # no cap is applied (df_U is a diagnostic only)
   dfU_last <- dfU_final
   lambda_last <- lambda_final
 
@@ -818,8 +831,10 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
       score_mat[, n] <- as.vector(G_n)
     }
 
+    ## project to C >= 0 only for the non-negative variant; sign-free C is interior.
     C_boot <- .boot.onestep(as.vector(C_mat), score_mat, Hinv, wild.B,
-                            dist = "exp", seed = wild.seed, project = TRUE)
+                            dist = "exp", seed = wild.seed,
+                            project = (C.signed == "nonneg"))
 
     alpha <- 1 - wild.level
     lo_q <- alpha / 2
@@ -948,7 +963,9 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
     C.ci.upper = C.ci.upper,
     C.boot.sd  = C.boot.sd,
 
-    C.p.side = C.p.side
+    C.p.side = C.p.side,
+    C.signed = C.signed,
+    x.update = x.update
   )
 
   class(out) <- c("nmfre", "nmf")
@@ -1107,6 +1124,11 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
 
     cat("---\n")
     cat("Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n")
+    if (!is.null(x$C.signed)) {
+      conv <- if (identical(x$C.signed, "signed")) "sign-free (real-valued)" else "non-negative"
+      cat(sprintf("C (= Theta) update: %s; p-values %s\n",
+                  conv, if (!is.null(x$C.p.side)) x$C.p.side else "one.sided"))
+    }
 
     # CI
     if (isTRUE(show_ci) && all(c("CI_low", "CI_high") %in% names(cf))) {
@@ -1193,7 +1215,12 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
   wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
   wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
-  C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
+  ## sign convention of C (= Theta) from the fit; resolves the default p-side
+  ## (two-sided for sign-free C, one-sided for the non-negative variant) and
+  ## whether the bootstrap replicates are projected onto C >= 0.
+  C.signed    <- if (!is.null(object$C.signed)) object$C.signed else "nonneg"
+  C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side
+                 else if (C.signed == "nonneg") "one.sided" else "two.sided"
   cov.ridge   <- if (!is.null(extra_args$cov.ridge))   extra_args$cov.ridge   else 1e-8
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
 
@@ -1286,8 +1313,10 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
       score_mat[, n] <- base::as.vector(G_n)
     }
 
+    ## project to C >= 0 only for the non-negative variant; sign-free C is interior.
     C_boot <- .boot.onestep(base::as.vector(C_mat), score_mat, Hinv, wild.B,
-                            dist = "exp", seed = wild.seed, project = TRUE)
+                            dist = "exp", seed = wild.seed,
+                            project = (C.signed == "nonneg"))
 
     alpha <- 1 - wild.level
     lo <- base::apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
