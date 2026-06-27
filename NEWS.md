@@ -16,8 +16,11 @@
   sign-free \eqn{C} the wild-bootstrap inference uses a two-sided test
   (interior null) and does **not** project replicates onto \eqn{C\ge 0};
   the non-negative variant keeps the one-sided (boundary) test.
-- New arguments `x.update` (`"seminmf"` / `"mu"`) and `x.postvar` select the
-  basis update rule and whether the posterior-variance term is included.
+- `C.signed` is the single switch for the whole estimation scheme: it also
+  selects the basis (\eqn{X}) update rule (`"signed"` → complete-EM semi-NMF,
+  `"nonneg"` → positive-part multiplicative update), reproducing the paper's
+  pairing.  \eqn{X} is non-negative in both cases.  (`x.postvar` remains an
+  advanced toggle for the posterior-variance term of the semi-NMF step.)
 - **No cap is imposed on \eqn{df_U}**; it is reported as a diagnostic only.
   `dfU.control` is now deprecated and inert.  Output gains `C.signed` and
   `x.update`; `summary.nmfre()` reports the sign convention and p-value side.

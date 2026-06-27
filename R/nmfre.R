@@ -173,17 +173,17 @@
 #'     \item \code{tau2}: Initial random effect variance (default 1).
 #'     \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
 #'     \item \code{C.signed}: Sign convention of the fixed-effect coefficients
-#'       \eqn{C} (\eqn{= \Theta}). \code{"signed"} (default, recommended, matches
-#'       the paper) treats \eqn{C} as real-valued and updates it by exact least
-#'       squares; \code{"nonneg"} constrains \eqn{C \ge 0} via a multiplicative
-#'       update (the historical non-negative variant).
-#'     \item \code{x.update}: Basis (\eqn{X}) update rule: \code{"seminmf"}
-#'       (default; complete-EM semi-NMF step incorporating the posterior
-#'       variance of the random effects) or \code{"mu"} (legacy multiplicative
-#'       update without the posterior-variance correction).
+#'       \eqn{C} (\eqn{= \Theta}); the single switch that selects the whole
+#'       estimation scheme. \code{"signed"} (default, recommended, matches the
+#'       paper) treats \eqn{C} as real-valued and updates it by exact least
+#'       squares, with the basis \eqn{X} estimated by the complete-EM semi-NMF
+#'       step. \code{"nonneg"} constrains \eqn{C \ge 0} via a multiplicative
+#'       update, with \eqn{X} estimated by the positive-part multiplicative
+#'       update (the historical non-negative variant). In both cases the basis
+#'       \eqn{X} itself is always non-negative.
 #'     \item \code{x.postvar}: Logical. Include the posterior-variance term in
-#'       the semi-NMF \eqn{X}-step (default \code{TRUE}). Ignored when
-#'       \code{x.update = "mu"}.
+#'       the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies only
+#'       to the \code{"signed"} / semi-NMF path.
 #'     \item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
 #'       cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
 #'       reported as a diagnostic only.
@@ -368,9 +368,12 @@ nmfre <- function(Y, A = NULL, rank = 2, df.rate = NULL,
   ## (C >= 0, for compositional/intensity scores).
   C.signed  <- if (!is.null(extra_args$C.signed)) extra_args$C.signed else "signed"
   C.signed  <- base::match.arg(C.signed, c("signed", "nonneg"))
-  ## X-step: "seminmf" (Ding-Li-Jordan 2010 monotone semi-NMF; default) or
-  ## "mu" (legacy positive-part multiplicative update).
-  x.update  <- if (!is.null(extra_args$x.update)) extra_args$x.update else "seminmf"
+  ## X-step rule is selected by the sign convention of C: the sign-free (LS) C
+  ## pairs with the complete-EM semi-NMF step (Ding-Li-Jordan 2010), and the
+  ## non-negative (MU) C pairs with the legacy positive-part multiplicative
+  ## update.  An explicit x.update in ... overrides this default (advanced use).
+  x.update  <- if (!is.null(extra_args$x.update)) extra_args$x.update
+               else if (C.signed == "nonneg") "mu" else "seminmf"
   x.update  <- base::match.arg(x.update, c("seminmf", "mu"))
   ## Complete-EM X-step: add the posterior-variance term tr(X S X'),
   ## S = N*sigma2*(X'X+lambda I)^{-1}; FALSE recovers the conditional X-step.
