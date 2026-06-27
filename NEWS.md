@@ -9,17 +9,16 @@
   variance \eqn{N\sigma^2(X'X+\lambda I)^{-1}}, and a fixed-effect update for
   \eqn{C}); the outer loop runs the EM M-steps for \eqn{\sigma^2} and
   \eqn{\tau^2} until \eqn{\lambda=\sigma^2/\tau^2} stabilizes.
-- New **formal** argument **`C.nonnegative`** (logical, default `FALSE`, recommended,
-  matches the paper). `FALSE` makes the fixed-effect coefficients \eqn{C}
+- New **formal** argument **`C.signed`** (logical, default `TRUE`, recommended,
+  matches the paper). `TRUE` makes the fixed-effect coefficients \eqn{C}
   (\eqn{=\Theta}) **real-valued**, updated by exact least squares, with a
   two-sided test (interior null) and no \eqn{C\ge 0} projection of the
-  bootstrap replicates. `TRUE` restores the historical non-negative variant
-  (multiplicative update, one-sided/boundary test). The legacy
-  `C.signed = "signed"/"nonneg"` is still accepted via `...` for backward
-  compatibility.
-- `C.nonnegative` is the single switch for the whole estimation scheme: it also
-  selects the basis (\eqn{X}) update rule (`FALSE` → complete-EM semi-NMF,
-  `TRUE` → positive-part multiplicative update), reproducing the paper's
+  bootstrap replicates. `FALSE` restores the historical non-negative variant
+  (multiplicative update, one-sided/boundary test). A character value
+  (`"signed"` / `"nonneg"`) is also accepted for backward compatibility.
+- `C.signed` is the single switch for the whole estimation scheme: it also
+  selects the basis (\eqn{X}) update rule (`TRUE` → complete-EM semi-NMF,
+  `FALSE` → positive-part multiplicative update), reproducing the paper's
   pairing.  \eqn{X} is non-negative in both cases.  (`x.postvar` remains an
   advanced toggle for the posterior-variance term of the semi-NMF step.)
 - **No cap is imposed on \eqn{df_U}**; it is reported as a diagnostic only.

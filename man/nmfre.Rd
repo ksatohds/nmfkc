@@ -8,7 +8,7 @@ nmfre(
   Y,
   A = NULL,
   rank = 2,
-  C.nonnegative = FALSE,
+  C.signed = TRUE,
   df.rate = NULL,
   wild.bootstrap = TRUE,
   epsilon = 1e-05,
@@ -24,15 +24,16 @@ nmfre(
 \item{rank}{Integer. Rank of the basis matrix \eqn{X}. Default is 2.
 For backward compatibility, \code{Q} is accepted via \code{...}.}
 
-\item{C.nonnegative}{Logical. Sign constraint on the fixed-effect coefficients
-\eqn{C} (\eqn{= \Theta} in the paper); the single switch that selects the
-whole estimation scheme. \code{FALSE} (default, recommended, matches the
+\item{C.signed}{Logical. Whether the fixed-effect coefficients \eqn{C}
+(\eqn{= \Theta} in the paper) are sign-free; the single switch that selects
+the whole estimation scheme. \code{TRUE} (default, recommended, matches the
 paper) treats \eqn{C} as real-valued and updates it by exact least squares,
 with the basis \eqn{X} estimated by the complete-EM semi-NMF step and a
-two-sided test (interior null). \code{TRUE} constrains \eqn{C \ge 0} via a
+two-sided test (interior null). \code{FALSE} constrains \eqn{C \ge 0} via a
 multiplicative update, with \eqn{X} estimated by the positive-part
 multiplicative update and a one-sided test (boundary null). The basis
-\eqn{X} is always non-negative.}
+\eqn{X} is always non-negative. A character value (\code{"signed"} /
+\code{"nonneg"}) is also accepted for backward compatibility.}
 
 \item{df.rate}{Rate for computing the dfU cap (\code{cap = rate * N * Q}).
 For backward compatibility, \code{dfU.cap.rate} is accepted via \code{...}.
@@ -67,7 +68,7 @@ When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial v
 \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
 \item \code{x.postvar}: Logical. Include the posterior-variance term in
 the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies only
-to the sign-free / semi-NMF path (\code{C.nonnegative = FALSE}).
+to the sign-free / semi-NMF path (\code{C.signed = TRUE}).
 \item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
 cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
 reported as a diagnostic only.
@@ -83,8 +84,8 @@ block-coordinate) and outer (EM variance) iterations (defaults
 \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 \eqn{\lambda} (default \code{1e-6}).
 \item \code{C.p.side}: P-value sidedness. Defaults to \code{"two.sided"}
-when \code{C.nonnegative = FALSE} (interior null H0: C=0) and
-\code{"one.sided"} when \code{C.nonnegative = TRUE} (boundary null
+when \code{C.signed = TRUE} (interior null H0: C=0) and
+\code{"one.sided"} when \code{C.signed = FALSE} (boundary null
 H0: C=0 vs H1: C>0). Override explicitly if desired.
 \item \code{wild.B}: Number of wild bootstrap replicates (default 500).
 \item \code{wild.seed}: Seed for wild bootstrap (default 123).
@@ -197,7 +198,7 @@ Pr(>|z|), and confidence interval bounds for each element of \eqn{\Theta}.}
 \item{\code{C.ci.upper}}{Upper confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 \item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
-\item{\code{C.nonnegative}}{Logical. Whether the non-negative constraint on \eqn{C} was used.}
+\item{\code{C.signed}}{Logical. Whether \eqn{C} was sign-free (\code{TRUE}) or non-negative (\code{FALSE}).}
 \item{\code{x.update}}{Basis update rule used: \code{"seminmf"} or \code{"mu"}.}
 }
 }
