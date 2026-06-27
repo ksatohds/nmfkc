@@ -9,7 +9,6 @@ nmfre(
   A = NULL,
   rank = 2,
   C.signed = TRUE,
-  df.rate = NULL,
   wild.bootstrap = TRUE,
   epsilon = 1e-05,
   maxit = 5000,
@@ -34,10 +33,6 @@ multiplicative update, with \eqn{X} estimated by the positive-part
 multiplicative update and a one-sided test (boundary null). The basis
 \eqn{X} is always non-negative. A character value (\code{"signed"} /
 \code{"nonneg"}) is also accepted for backward compatibility.}
-
-\item{df.rate}{Deprecated and inert. The algorithm imposes no cap on
-\eqn{df_U}; this argument (and the legacy \code{dfU.cap.rate} via
-\code{...}) is ignored, retained only for backward compatibility.}
 
 \item{wild.bootstrap}{Logical. If \code{TRUE} (default), perform wild bootstrap inference
 on \eqn{\Theta}.}

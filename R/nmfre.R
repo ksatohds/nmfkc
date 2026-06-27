@@ -125,9 +125,6 @@
 #'   multiplicative update and a one-sided test (boundary null). The basis
 #'   \eqn{X} is always non-negative. A character value (\code{"signed"} /
 #'   \code{"nonneg"}) is also accepted for backward compatibility.
-#' @param df.rate Deprecated and inert. The algorithm imposes no cap on
-#'   \eqn{df_U}; this argument (and the legacy \code{dfU.cap.rate} via
-#'   \code{...}) is ignored, retained only for backward compatibility.
 #' @param wild.bootstrap Logical. If \code{TRUE} (default), perform wild bootstrap inference
 #'   on \eqn{\Theta}.
 #' @param epsilon Convergence tolerance for relative change in objective (default 1e-5).
@@ -306,16 +303,16 @@
 #'   summary(res)
 #' }}
 #'
-nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, df.rate = NULL,
+nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
                   wild.bootstrap = TRUE, epsilon = 1e-5,
                   maxit = 5000, ...) {
 
   extra_args <- base::list(...)
   # backward compatibility
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
-  if (!is.null(extra_args$dfU.cap.rate)) df.rate <- extra_args$dfU.cap.rate
   Q <- rank
-  dfU.cap.rate <- df.rate
+  ## legacy dfU.cap.rate via ... is tolerated but inert (no cap is applied)
+  dfU.cap.rate <- if (!is.null(extra_args$dfU.cap.rate)) extra_args$dfU.cap.rate else NULL
 
   # --- Parameter Extraction from ... ---
   # initialization
