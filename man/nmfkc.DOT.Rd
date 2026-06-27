@@ -8,6 +8,7 @@ nmfkc.DOT(
   result,
   type = c("YX", "YA", "YXA"),
   threshold = 0.01,
+  C.signed = NULL,
   sig.level = 0.1,
   rankdir = "LR",
   fill = TRUE,
@@ -31,7 +32,21 @@ nmfkc.DOT(
 \item{type}{Character string specifying the visualization style:
 one of \code{"YX"}, \code{"YA"}, \code{"YXA"}.}
 
-\item{threshold}{Minimum coefficient magnitude to display an edge.}
+\item{threshold}{Minimum coefficient magnitude to display an edge. When
+\code{C.signed = TRUE} (signed \eqn{\Theta}) this is an absolute-value cut,
+i.e. an edge is drawn when \eqn{|coef| \ge} \code{threshold}.}
+
+\item{C.signed}{Logical or \code{NULL}. Whether the coefficient matrix
+\eqn{\Theta} (\code{= C}) may be signed (real-valued). When \code{TRUE},
+the \code{threshold} is applied to \eqn{|coef|}, edge widths are scaled by
+\eqn{|coef|}, and negative edges are drawn in red (\dQuote{firebrick}) to
+distinguish them from positive ones; the numeric edge labels keep their
+sign. When \code{FALSE}, the historical non-negative behaviour is used
+(negative coefficients fall below the threshold and are hidden). When
+\code{NULL} (default), the mode is auto-detected from the fit
+(\code{result$C.signed}) or from the presence of negative entries in
+\eqn{C} / \eqn{XC}. The basis \eqn{X} is always non-negative, so
+\eqn{X \rightarrow Y} edges are unaffected.}
 
 \item{sig.level}{Significance level for filtering C edges when inference
 results are available (i.e., \code{x} is of class \code{"nmfkc.inference"}).

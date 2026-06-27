@@ -1805,7 +1805,20 @@ nmf.sem.DOT <- function(result,
 #'   \code{X}, \code{B}, and optionally \code{C}.
 #' @param type Character string specifying the visualization style:
 #'   one of \code{"YX"}, \code{"YA"}, \code{"YXA"}.
-#' @param threshold Minimum coefficient magnitude to display an edge.
+#' @param threshold Minimum coefficient magnitude to display an edge. When
+#'   \code{C.signed = TRUE} (signed \eqn{\Theta}) this is an absolute-value cut,
+#'   i.e. an edge is drawn when \eqn{|coef| \ge} \code{threshold}.
+#' @param C.signed Logical or \code{NULL}. Whether the coefficient matrix
+#'   \eqn{\Theta} (\code{= C}) may be signed (real-valued). When \code{TRUE},
+#'   the \code{threshold} is applied to \eqn{|coef|}, edge widths are scaled by
+#'   \eqn{|coef|}, and negative edges are drawn in red (\dQuote{firebrick}) to
+#'   distinguish them from positive ones; the numeric edge labels keep their
+#'   sign. When \code{FALSE}, the historical non-negative behaviour is used
+#'   (negative coefficients fall below the threshold and are hidden). When
+#'   \code{NULL} (default), the mode is auto-detected from the fit
+#'   (\code{result$C.signed}) or from the presence of negative entries in
+#'   \eqn{C} / \eqn{XC}. The basis \eqn{X} is always non-negative, so
+#'   \eqn{X \rightarrow Y} edges are unaffected.
 #' @param sig.level Significance level for filtering C edges when inference
 #'   results are available (i.e., \code{x} is of class \code{"nmfkc.inference"}).
 #'   Only edges with p-value below \code{sig.level} are shown, decorated with
@@ -1842,6 +1855,7 @@ nmfkc.DOT <- function(
     result,
     type = c("YX","YA","YXA"),
     threshold = 0.01,
+    C.signed = NULL,
     sig.level = 0.1,
     rankdir   = "LR",
     fill      = TRUE,
@@ -1911,6 +1925,24 @@ nmfkc.DOT <- function(
   }
 
   ## ---------------------------------------------------------
+  ## Sign mode of C (= Theta). When NULL, auto-detect from the fit
+  ## (result$C.signed) or from negative entries in C / XC. In signed mode the
+  ## threshold is an absolute-value cut (|coef| >= threshold), edge widths use
+  ## |coef|, and negative edges are coloured to distinguish them. The basis X
+  ## is always non-negative, so X -> Y edges are unaffected.
+  ## ---------------------------------------------------------
+  if (is.null(C.signed)) {
+    C.signed <- isTRUE(result$C.signed) ||
+      (!is.null(C)      && any(C      < 0, na.rm = TRUE)) ||
+      (!is.null(XC_mat) && any(XC_mat < 0, na.rm = TRUE))
+  }
+  C.signed <- isTRUE(C.signed)
+  ## magnitude used for thresholding and penwidth scaling (|.| in signed mode)
+  mag <- if (C.signed) function(v) abs(v) else function(v) v
+  ## edge colour by sign (negative -> firebrick) in signed mode
+  ecolour <- function(v) if (C.signed && is.finite(v) && v < 0) "firebrick" else "black"
+
+  ## ---------------------------------------------------------
   ## Filter isolated nodes (hide.isolated)
   ## ---------------------------------------------------------
   idx_Y <- seq_len(P)
@@ -1921,18 +1953,18 @@ nmfkc.DOT <- function(
       used_Y <- apply(X, 1L, function(row) any(row >= threshold, na.rm = TRUE))
       idx_Y <- which(used_Y)
     } else if (type == "YA" && !is.null(XC_mat)) {
-      # Y is connected via XC: XC_mat[i, ] >= threshold
-      used_Y <- apply(XC_mat, 1L, function(row) any(row >= threshold, na.rm = TRUE))
+      # Y is connected via XC: |XC_mat[i, ]| >= threshold
+      used_Y <- apply(XC_mat, 1L, function(row) any(mag(row) >= threshold, na.rm = TRUE))
       idx_Y <- which(used_Y)
     }
     if (hasA && type %in% c("YXA", "YA")) {
       if (type == "YXA" && !is.null(C)) {
-        # A is connected via C: C[, k] >= threshold
-        used_A <- apply(C, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+        # A is connected via C: |C[, k]| >= threshold
+        used_A <- apply(C, 2L, function(col) any(mag(col) >= threshold, na.rm = TRUE))
         idx_A <- which(used_A)
       } else if (type == "YA" && !is.null(XC_mat)) {
-        # A is connected via XC: XC_mat[, k] >= threshold
-        used_A <- apply(XC_mat, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+        # A is connected via XC: |XC_mat[, k]| >= threshold
+        used_A <- apply(XC_mat, 2L, function(col) any(mag(col) >= threshold, na.rm = TRUE))
         idx_A <- which(used_A)
       }
     }
@@ -2055,21 +2087,22 @@ nmfkc.DOT <- function(
       '  edge [color=black, fontcolor=black, style=solid];\n'
     )
 
-    max_C <- suppressWarnings(max(C, na.rm = TRUE))
+    max_C <- suppressWarnings(max(mag(C), na.rm = TRUE))
     if (is.finite(max_C) && max_C > 0) {
       for (q in seq_len(Q)) {
         for (k in idx_A) {
           val <- C[q, k]
           show <- if (!is.null(C_show)) C_show[q, k]
-                  else is.finite(val) && val >= threshold
+                  else is.finite(val) && mag(val) >= threshold
           if (show) {
-            pen <- pw(val, max_C, weight_scale_ax)
+            pen <- pw(mag(val), max_C, weight_scale_ax)
             lab <- fmtc(val)
             if (!is.null(C_stars)) lab <- paste0(lab, C_stars[q, k])
+            col <- ecolour(val)
             scr <- paste0(
               scr,
-              sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
-                      A_ids[k], X_ids[q], lab, pen)
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f, color="%s", fontcolor="%s"];\n',
+                      A_ids[k], X_ids[q], lab, pen, col, col)
             )
           }
         }
@@ -2113,18 +2146,19 @@ nmfkc.DOT <- function(
       '  edge [color=black, fontcolor=black, style=solid];\n'
     )
 
-    max_XC <- suppressWarnings(max(XC_mat, na.rm = TRUE))
+    max_XC <- suppressWarnings(max(mag(XC_mat), na.rm = TRUE))
     if (is.finite(max_XC) && max_XC > 0) {
       for (i in idx_Y) {
         for (k in idx_A) {
           val <- XC_mat[i, k]
-          if (is.finite(val) && val >= threshold) {
-            pen <- pw(val, max_XC, weight_scale_ay)
+          if (is.finite(val) && mag(val) >= threshold) {
+            pen <- pw(mag(val), max_XC, weight_scale_ay)
             lab <- fmtc(val)
+            col <- ecolour(val)
             scr <- paste0(
               scr,
-              sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
-                      A_ids[k], Y_ids[i], lab, pen)
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f, color="%s", fontcolor="%s"];\n',
+                      A_ids[k], Y_ids[i], lab, pen, col, col)
             )
           }
         }

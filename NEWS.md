@@ -1,5 +1,16 @@
 # nmfkc 0.8.4 (development)
 
+### **`nmfkc.DOT`: signed-coefficient graphs**
+- New argument `C.signed` lets `nmfkc.DOT()` draw graphs when \eqn{\Theta}
+  (\code{= C}) is signed (real-valued), e.g. from `nmfre(C.signed = TRUE)` or
+  the `*.signed` fits. In signed mode `threshold` is an **absolute-value** cut
+  (\eqn{|coef| \ge} `threshold`), edge widths scale by \eqn{|coef|}, and
+  **negative edges are drawn in red** with their signed numeric labels. Default
+  `C.signed = NULL` auto-detects from `result$C.signed` or negative entries in
+  \eqn{C} / \eqn{XC}; `FALSE` restores the historical non-negative behaviour.
+  The basis \eqn{X} is always non-negative, so \eqn{X \rightarrow Y} edges are
+  unaffected.
+
 ### **`nmfre`: EM/ECM algorithm and sign-free fixed effects (paper port)**
 - `nmfre()` is re-implemented to follow the Psychometrika manuscript's
   NMF-RE mixed model \eqn{Y = X(\Theta A + U) + \mathcal{E}}.  The optimizer is
