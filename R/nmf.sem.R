@@ -1811,9 +1811,9 @@ nmf.sem.DOT <- function(result,
 #' @param C.signed Logical or \code{NULL}. Whether the coefficient matrix
 #'   \eqn{\Theta} (\code{= C}) may be signed (real-valued). When \code{TRUE},
 #'   the \code{threshold} is applied to \eqn{|coef|}, edge widths are scaled by
-#'   \eqn{|coef|}, and negative edges are drawn in red (\dQuote{firebrick}) to
-#'   distinguish them from positive ones; the numeric edge labels keep their
-#'   sign. When \code{FALSE}, the historical non-negative behaviour is used
+#'   \eqn{|coef|}, and negative edges are drawn as black \strong{dashed} lines
+#'   (positive edges remain solid) to distinguish them; the numeric edge labels
+#'   keep their sign. When \code{FALSE}, the historical non-negative behaviour is used
 #'   (negative coefficients fall below the threshold and are hidden). When
 #'   \code{NULL} (default), the mode is auto-detected from the fit
 #'   (\code{result$C.signed}) or from the presence of negative entries in
@@ -1939,8 +1939,8 @@ nmfkc.DOT <- function(
   C.signed <- isTRUE(C.signed)
   ## magnitude used for thresholding and penwidth scaling (|.| in signed mode)
   mag <- if (C.signed) function(v) abs(v) else function(v) v
-  ## edge colour by sign (negative -> firebrick) in signed mode
-  ecolour <- function(v) if (C.signed && is.finite(v) && v < 0) "firebrick" else "black"
+  ## edge line style by sign (negative -> dashed) in signed mode; colour stays black
+  estyle <- function(v) if (C.signed && is.finite(v) && v < 0) "dashed" else "solid"
 
   ## ---------------------------------------------------------
   ## Filter isolated nodes (hide.isolated)
@@ -2098,11 +2098,11 @@ nmfkc.DOT <- function(
             pen <- pw(mag(val), max_C, weight_scale_ax)
             lab <- fmtc(val)
             if (!is.null(C_stars)) lab <- paste0(lab, C_stars[q, k])
-            col <- ecolour(val)
+            sty <- estyle(val)
             scr <- paste0(
               scr,
-              sprintf('  %s -> %s [label="%s", penwidth=%.2f, color="%s", fontcolor="%s"];\n',
-                      A_ids[k], X_ids[q], lab, pen, col, col)
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f, style=%s];\n',
+                      A_ids[k], X_ids[q], lab, pen, sty)
             )
           }
         }
@@ -2154,11 +2154,11 @@ nmfkc.DOT <- function(
           if (is.finite(val) && mag(val) >= threshold) {
             pen <- pw(mag(val), max_XC, weight_scale_ay)
             lab <- fmtc(val)
-            col <- ecolour(val)
+            sty <- estyle(val)
             scr <- paste0(
               scr,
-              sprintf('  %s -> %s [label="%s", penwidth=%.2f, color="%s", fontcolor="%s"];\n',
-                      A_ids[k], Y_ids[i], lab, pen, col, col)
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f, style=%s];\n',
+                      A_ids[k], Y_ids[i], lab, pen, sty)
             )
           }
         }

@@ -39,9 +39,9 @@ i.e. an edge is drawn when \eqn{|coef| \ge} \code{threshold}.}
 \item{C.signed}{Logical or \code{NULL}. Whether the coefficient matrix
 \eqn{\Theta} (\code{= C}) may be signed (real-valued). When \code{TRUE},
 the \code{threshold} is applied to \eqn{|coef|}, edge widths are scaled by
-\eqn{|coef|}, and negative edges are drawn in red (\dQuote{firebrick}) to
-distinguish them from positive ones; the numeric edge labels keep their
-sign. When \code{FALSE}, the historical non-negative behaviour is used
+\eqn{|coef|}, and negative edges are drawn as black \strong{dashed} lines
+(positive edges remain solid) to distinguish them; the numeric edge labels
+keep their sign. When \code{FALSE}, the historical non-negative behaviour is used
 (negative coefficients fall below the threshold and are hidden). When
 \code{NULL} (default), the mode is auto-detected from the fit
 (\code{result$C.signed}) or from the presence of negative entries in

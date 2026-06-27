@@ -5,7 +5,8 @@
   (\code{= C}) is signed (real-valued), e.g. from `nmfre(C.signed = TRUE)` or
   the `*.signed` fits. In signed mode `threshold` is an **absolute-value** cut
   (\eqn{|coef| \ge} `threshold`), edge widths scale by \eqn{|coef|}, and
-  **negative edges are drawn in red** with their signed numeric labels. Default
+  **negative edges are drawn as black dashed lines** (positive edges solid)
+  with their signed numeric labels. Default
   `C.signed = NULL` auto-detects from `result$C.signed` or negative entries in
   \eqn{C} / \eqn{XC}; `FALSE` restores the historical non-negative behaviour.
   The basis \eqn{X} is always non-negative, so \eqn{X \rightarrow Y} edges are
