@@ -176,6 +176,10 @@
 #'   \strong{Core matrices}
 #'   \describe{
 #'     \item{\code{X}}{Basis matrix \eqn{X} (\eqn{P \times Q}), columns normalized to sum to 1.}
+#'     \item{\code{X.prob}}{Row-wise soft-clustering probabilities from the
+#'       non-negative \eqn{X} (each row normalized to sum to 1), as in \code{\link{nmfkc}}.}
+#'     \item{\code{X.cluster}}{Hard-clustering label for each row of \eqn{X}
+#'       (argmax over \code{X.prob}).}
 #'     \item{\code{C}}{Coefficient matrix \eqn{\Theta} (\eqn{Q \times K}).}
 #'     \item{\code{U}}{Random effects matrix \eqn{U} (\eqn{Q \times N}).}
 #'   }
@@ -863,8 +867,16 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     sweep(M, 2, pmax(cs, eps), "/")
   }
 
+  ## row-wise soft clustering of the (non-negative) basis X, mirroring nmfkc():
+  ## each row of X is normalized to sum to 1 and assigned to its argmax factor.
+  X.prob <- X / (base::rowSums(X) + .eps)
+  X.cluster <- base::apply(X.prob, 1, base::which.max)
+  X.cluster[base::rowSums(X) == 0] <- NA
+
   out <- list(
     X = X,
+    X.prob = X.prob,
+    X.cluster = X.cluster,
     C = C_mat,
     U = U,
 

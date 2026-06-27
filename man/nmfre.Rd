@@ -90,6 +90,10 @@ The model is \eqn{Y = X(\Theta A + U) + \mathcal{E}}.
 \strong{Core matrices}
 \describe{
 \item{\code{X}}{Basis matrix \eqn{X} (\eqn{P \times Q}), columns normalized to sum to 1.}
+\item{\code{X.prob}}{Row-wise soft-clustering probabilities from the
+non-negative \eqn{X} (each row normalized to sum to 1), as in \code{\link{nmfkc}}.}
+\item{\code{X.cluster}}{Hard-clustering label for each row of \eqn{X}
+(argmax over \code{X.prob}).}
 \item{\code{C}}{Coefficient matrix \eqn{\Theta} (\eqn{Q \times K}).}
 \item{\code{U}}{Random effects matrix \eqn{U} (\eqn{Q \times N}).}
 }
