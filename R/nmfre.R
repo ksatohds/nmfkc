@@ -76,36 +76,6 @@
   N * sum(d / (d + lambda))
 }
 
-#' Find lambda that achieves a target dfU cap via bisection
-#' @param d Eigenvalues of X'X.
-#' @param N Number of observations.
-#' @param target Target dfU value.
-#' @param lambda_min Lower bound for search.
-#' @param lambda_max Upper bound for search.
-#' @param tol Convergence tolerance.
-#' @return Scalar lambda value.
-#' @keywords internal
-#' @noRd
-.nmfre.lambda.for.dfU.cap <- function(d, N, target,
-                                       lambda_min = 0,
-                                       lambda_max = 1e12,
-                                       tol = 1e-8) {
-  if (.nmfre.dfU.from.lambda(d, N, lambda_min) <= target) return(lambda_min)
-
-  hi <- lambda_min
-  df_hi <- Inf
-  while (hi < lambda_max) {
-    hi <- max(1e-12, if (hi == 0) 1e-6 else hi * 10)
-    df_hi <- .nmfre.dfU.from.lambda(d, N, hi)
-    if (df_hi <= target) break
-  }
-  if (df_hi > target) return(lambda_max)
-
-  f <- function(lam) .nmfre.dfU.from.lambda(d, N, lam) - target
-  out <- stats::uniroot(f, lower = lambda_min, upper = hi, tol = tol)
-  out$root
-}
-
 
 # ============================================================
 # nmfre() - Main estimation function
@@ -155,12 +125,9 @@
 #'   multiplicative update and a one-sided test (boundary null). The basis
 #'   \eqn{X} is always non-negative. A character value (\code{"signed"} /
 #'   \code{"nonneg"}) is also accepted for backward compatibility.
-#' @param df.rate Rate for computing the dfU cap (\code{cap = rate * N * Q}).
-#'   For backward compatibility, \code{dfU.cap.rate} is accepted via \code{...}.
-#'   If \code{NULL} (default), runs \code{\link{nmfre.dfU.scan}} internally and
-#'   selects the minimum rate where the cap is not binding.
-#'   Use \code{\link{nmfre.dfU.scan}} beforehand to examine dfU behavior across rates
-#'   and choose an appropriate value.
+#' @param df.rate Deprecated and inert. The algorithm imposes no cap on
+#'   \eqn{df_U}; this argument (and the legacy \code{dfU.cap.rate} via
+#'   \code{...}) is ignored, retained only for backward compatibility.
 #' @param wild.bootstrap Logical. If \code{TRUE} (default), perform wild bootstrap inference
 #'   on \eqn{\Theta}.
 #' @param epsilon Convergence tolerance for relative change in objective (default 1e-5).
@@ -244,7 +211,6 @@
 #'       where \eqn{d_q} are eigenvalues of \eqn{X'X}.}
 #'     \item{\code{dfU.cap}}{Upper bound imposed on \eqn{\mathrm{df}_U}.}
 #'     \item{\code{dfU.cap.rate}}{Rate used to compute the cap.}
-#'     \item{\code{dfU.cap.scan}}{Result of \code{\link{nmfre.dfU.scan}}, or \code{NULL}.}
 #'     \item{\code{lambda.enforced}}{Final \eqn{\lambda} enforced to satisfy the cap.}
 #'     \item{\code{dfU.hit.cap}}{Logical. Whether the cap was binding.}
 #'     \item{\code{dfU.hit.iter}}{Iteration at which the cap first bound.}
@@ -314,7 +280,7 @@
 #'     \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
 #'     \item{\code{C.signed}}{Logical. Whether \eqn{C} was sign-free (\code{TRUE}) or non-negative (\code{FALSE}).}
 #'   }
-#' @seealso \code{\link{nmfre.inference}}, \code{\link{nmfre.dfU.scan}},
+#' @seealso \code{\link{nmfre.inference}},
 #'   \code{\link{nmfkc.DOT}}, \code{\link{summary.nmfre}}
 #' @export
 #' @references
@@ -335,11 +301,8 @@
 #'   male <- ifelse(nlme::Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
 #'   A <- rbind(intercept = 1, male = male)
 #'
-#'   # Scan dfU cap rates to choose an appropriate value
-#'   nmfre.dfU.scan(1:10/10, Y, A, rank = 1)
-#'
-#'   # Fit with chosen rate
-#'   res <- nmfre(Y, A, rank = 1, df.rate = 0.2)
+#'   # Fit (sign-free Theta by default; variances estimated by EM/ECM)
+#'   res <- nmfre(Y, A, rank = 1)
 #'   summary(res)
 #' }}
 #'
@@ -478,7 +441,6 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, df.rate = NULL,
   }
 
   # (dfU cap removed; dfU.cap.rate is inert, kept only for the diagnostic frac)
-  dfU.cap.scan <- NULL
   if (is.null(dfU.cap.rate)) dfU.cap.rate <- 0.10
 
   ## outer-inner ECM internals (no user knobs; df_U is uncapped)
@@ -928,7 +890,6 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, df.rate = NULL,
     dfU = dfU_last,
     dfU.cap = dfU_cap_last,
     dfU.cap.rate = dfU.cap.rate,
-    dfU.cap.scan = dfU.cap.scan,
     lambda.enforced = lambda_last,
     dfU.hit.cap  = dfU_hit_cap,
     dfU.hit.iter = dfU_hit_iter,
@@ -1387,155 +1348,4 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
   return(object)
-}
-
-
-# ============================================================
-# nmfre.dfU.scan() - dfU scan utility
-# ============================================================
-
-#' @title Scan dfU cap rates for NMF-RE
-#' @description
-#' Fits the NMF-RE model across a range of \code{dfU.cap.rate} values and
-#' returns a diagnostic table showing the resulting effective degrees of freedom,
-#' variance components, and convergence diagnostics for each rate.
-#'
-#' The dfU cap limits the effective degrees of freedom consumed by the random
-#' effects \eqn{U}. The cap is computed as \code{rate * N * Q}, where \eqn{N}
-#' is the number of observations and \eqn{Q} is the rank. A suitable rate is
-#' one where the final \eqn{\mathrm{df}_U} is below the cap
-#' (\code{safeguard = TRUE}) and the model has converged
-#' (\code{converged = TRUE}).
-#'
-#' When called automatically by \code{\link{nmfre}} (i.e., \code{dfU.cap.rate = NULL}),
-#' the minimum rate satisfying both \code{safeguard = TRUE} and
-#' \code{converged = TRUE} is selected.
-#'
-#' @param rates Numeric vector of cap rates to scan (default \code{(1:10)/10}).
-#' @param Y Observation matrix (P x N).
-#' @param A Covariate matrix (K x N).
-#' @param rank Integer. Rank of the basis matrix.
-#'   For backward compatibility, \code{Q} is accepted via \code{...}.
-#' @param X.init Initial basis matrix, or \code{NULL}.
-#' @param C.init Initial coefficient matrix, or \code{NULL}.
-#' @param U.init Initial random effects matrix, or \code{NULL}.
-#' @param print.trace Logical. Print progress for each fit (default \code{FALSE}).
-#' @param ... Additional arguments passed to \code{\link{nmfre}}.
-#' @return An object of class \code{"nmfre.dfU.scan"} with two components:
-#' \describe{
-#'   \item{\code{table}}{A data frame with the following columns:
-#'   \describe{
-#'     \item{\code{rate}}{Cap rate used. The dfU cap is \code{rate * N * Q}.}
-#'     \item{\code{dfU.cap}}{The dfU cap value (upper bound on effective degrees of freedom).}
-#'     \item{\code{dfU}}{Final effective degrees of freedom for \eqn{U} at convergence.}
-#'     \item{\code{safeguard}}{Logical. \code{TRUE} if the dfU cap is functioning
-#'       as a safeguard (\code{dfU / dfU.cap < 0.99}): the cap prevents
-#'       random-effects saturation without over-constraining \eqn{U}.
-#'       \code{FALSE} if dfU is at or near the cap, indicating the cap is
-#'       binding and the rate may be too small.}
-#'     \item{\code{hit}}{Logical. \code{TRUE} if the cap was reached at least once
-#'       during iteration, even if dfU later decreased below the cap.}
-#'     \item{\code{converged}}{Logical. \code{TRUE} if the algorithm converged
-#'       within the maximum number of iterations.}
-#'     \item{\code{tau2}}{Final random effect variance \eqn{\hat{\tau}^2}.}
-#'     \item{\code{sigma2}}{Final residual variance \eqn{\hat{\sigma}^2}.}
-#'     \item{\code{ICC}}{Trace-based Intraclass Correlation Coefficient
-#'       \eqn{\tau^2 \, \mathrm{tr}(X^\top X) /
-#'       (\tau^2 \, \mathrm{tr}(X^\top X) + \sigma^2 P)}.
-#'       See \code{\link{nmfre}} for details.}
-#'   }}
-#'   \item{\code{cap.rate}}{Optimal cap rate selected automatically.
-#'     If rows with \code{safeguard = TRUE} and \code{hit = TRUE} exist,
-#'     the maximum rate among them is chosen (safeguard activated but
-#'     giving \eqn{U} the most freedom). Otherwise, the minimum rate
-#'     with \code{safeguard = TRUE} and \code{hit = FALSE} is chosen.
-#'     \code{NA} if no suitable rate is found.}
-#' }
-#'
-#' When printed, only the \code{table} is displayed. Access \code{cap.rate}
-#' directly from the returned object.
-#' @seealso \code{\link{nmfre}}
-#' @export
-#' @examples
-#' # Example 1. cars data (small maxit for speed)
-#' Y <- matrix(cars$dist, nrow = 1)
-#' A <- rbind(intercept = 1, speed = cars$speed)
-#' tab <- nmfre.dfU.scan(rates = c(0.1, 0.2), Y = Y, A = A, rank = 1, maxit = 1000)
-#' print(tab)
-#'
-#' \donttest{
-#' # Example 2. Orthodont data (nlme)
-#' if (requireNamespace("nlme", quietly = TRUE)) {
-#'   Y <- matrix(nlme::Orthodont$distance, 4, 27)
-#'   male <- ifelse(nlme::Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
-#'   A <- rbind(intercept = 1, male = male)
-#'   nmfre.dfU.scan(1:10/10, Y, A, rank = 1)
-#' }}
-#'
-nmfre.dfU.scan <- function(
-  rates = (1:10) / 10,
-  Y, A, rank = NULL,
-  X.init = NULL, C.init = NULL, U.init = NULL,
-  print.trace = FALSE,
-  ...
-) {
-  extra_scan <- base::list(...)
-  if (!is.null(extra_scan$Q)) rank <- extra_scan$Q
-  Q <- rank
-  N <- ncol(Y)
-  NQ <- N * Q
-
-  one_run <- function(rate) {
-
-    r <- nmfre(
-      Y = Y, A = A, Q = Q,
-      X.init = X.init, C.init = C.init, U.init = U.init,
-      print.trace = print.trace,
-      dfU.control = "cap",
-      dfU.cap.rate = rate,
-      ...
-    )
-
-    safeguard <- if (is.finite(r$dfU) && is.finite(r$dfU.cap) && r$dfU.cap > 0) {
-      r$dfU / r$dfU.cap < 0.99
-    } else {
-      NA
-    }
-    data.frame(
-      rate = rate,
-      dfU.cap = r$dfU.cap,
-      dfU = round(r$dfU, 2),
-      safeguard = safeguard,
-      hit = isTRUE(r$dfU.hit.cap),
-      converged = isTRUE(r$converged),
-      tau2 = round(r$tau2, 3),
-      sigma2 = round(r$sigma2, 3),
-      ICC = round(r$ICC, 4),
-      stringsAsFactors = FALSE
-    )
-  }
-  tbl <- do.call(rbind, lapply(rates, one_run))
-  rownames(tbl) <- NULL
-
-  # optimal rate selection
-  sg_hit <- tbl[tbl$safeguard == TRUE & tbl$hit == TRUE & tbl$converged, ]
-  sg_free <- tbl[tbl$safeguard == TRUE & tbl$hit == FALSE & tbl$converged, ]
-  cap.rate <- if (nrow(sg_hit) > 0) {
-    max(sg_hit$rate)
-  } else if (nrow(sg_free) > 0) {
-    min(sg_free$rate)
-  } else {
-    NA_real_
-  }
-
-  result <- list(table = tbl, cap.rate = cap.rate)
-  class(result) <- "nmfre.dfU.scan"
-  result
-}
-
-#' @seealso \code{\link{nmfre.dfU.scan}}
-#' @export
-print.nmfre.dfU.scan <- function(x, ...) {
-  print(x$table, ...)
-  invisible(x)
 }

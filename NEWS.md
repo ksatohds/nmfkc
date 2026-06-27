@@ -24,6 +24,9 @@
 - **No cap is imposed on \eqn{df_U}**; it is reported as a diagnostic only.
   `dfU.control` is now deprecated and inert.  Output gains the logical
   `C.signed`; `summary.nmfre()` reports the sign convention and p-value side.
+- **Removed** the exported helper `nmfre.dfU.scan()` (and its `print` method):
+  it scanned `df_U` cap rates, which no longer exist now that the variance
+  components are estimated. The `df.rate` argument is retained but inert.
 
 # nmfkc 0.8.3 (development)
 

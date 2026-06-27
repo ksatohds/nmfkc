@@ -35,12 +35,9 @@ multiplicative update and a one-sided test (boundary null). The basis
 \eqn{X} is always non-negative. A character value (\code{"signed"} /
 \code{"nonneg"}) is also accepted for backward compatibility.}
 
-\item{df.rate}{Rate for computing the dfU cap (\code{cap = rate * N * Q}).
-For backward compatibility, \code{dfU.cap.rate} is accepted via \code{...}.
-If \code{NULL} (default), runs \code{\link{nmfre.dfU.scan}} internally and
-selects the minimum rate where the cap is not binding.
-Use \code{\link{nmfre.dfU.scan}} beforehand to examine dfU behavior across rates
-and choose an appropriate value.}
+\item{df.rate}{Deprecated and inert. The algorithm imposes no cap on
+\eqn{df_U}; this argument (and the legacy \code{dfU.cap.rate} via
+\code{...}) is ignored, retained only for backward compatibility.}
 
 \item{wild.bootstrap}{Logical. If \code{TRUE} (default), perform wild bootstrap inference
 on \eqn{\Theta}.}
@@ -130,7 +127,6 @@ The model is \eqn{Y = X(\Theta A + U) + \mathcal{E}}.
 where \eqn{d_q} are eigenvalues of \eqn{X'X}.}
 \item{\code{dfU.cap}}{Upper bound imposed on \eqn{\mathrm{df}_U}.}
 \item{\code{dfU.cap.rate}}{Rate used to compute the cap.}
-\item{\code{dfU.cap.scan}}{Result of \code{\link{nmfre.dfU.scan}}, or \code{NULL}.}
 \item{\code{lambda.enforced}}{Final \eqn{\lambda} enforced to satisfy the cap.}
 \item{\code{dfU.hit.cap}}{Logical. Whether the cap was binding.}
 \item{\code{dfU.hit.iter}}{Iteration at which the cap first bound.}
@@ -244,11 +240,8 @@ if (requireNamespace("nlme", quietly = TRUE)) {
   male <- ifelse(nlme::Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
   A <- rbind(intercept = 1, male = male)
 
-  # Scan dfU cap rates to choose an appropriate value
-  nmfre.dfU.scan(1:10/10, Y, A, rank = 1)
-
-  # Fit with chosen rate
-  res <- nmfre(Y, A, rank = 1, df.rate = 0.2)
+  # Fit (sign-free Theta by default; variances estimated by EM/ECM)
+  res <- nmfre(Y, A, rank = 1)
   summary(res)
 }}
 
@@ -259,6 +252,6 @@ Factorization with Random Effects. arXiv:2603.01468.
 \url{https://arxiv.org/abs/2603.01468}
 }
 \seealso{
-\code{\link{nmfre.inference}}, \code{\link{nmfre.dfU.scan}},
+\code{\link{nmfre.inference}},
 \code{\link{nmfkc.DOT}}, \code{\link{summary.nmfre}}
 }
