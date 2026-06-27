@@ -145,7 +145,7 @@
 #' @param A Covariate matrix (K x N). Default is a row of ones (intercept only).
 #' @param rank Integer. Rank of the basis matrix \eqn{X}. Default is 2.
 #'   For backward compatibility, \code{Q} is accepted via \code{...}.
-#' @param C.nonneg Logical. Sign constraint on the fixed-effect coefficients
+#' @param C.nonnegative Logical. Sign constraint on the fixed-effect coefficients
 #'   \eqn{C} (\eqn{= \Theta} in the paper); the single switch that selects the
 #'   whole estimation scheme. \code{FALSE} (default, recommended, matches the
 #'   paper) treats \eqn{C} as real-valued and updates it by exact least squares,
@@ -183,7 +183,7 @@
 #'     \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
 #'     \item \code{x.postvar}: Logical. Include the posterior-variance term in
 #'       the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies only
-#'       to the sign-free / semi-NMF path (\code{C.nonneg = FALSE}).
+#'       to the sign-free / semi-NMF path (\code{C.nonnegative = FALSE}).
 #'     \item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
 #'       cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
 #'       reported as a diagnostic only.
@@ -199,8 +199,8 @@
 #'     \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 #'       \eqn{\lambda} (default \code{1e-6}).
 #'     \item \code{C.p.side}: P-value sidedness. Defaults to \code{"two.sided"}
-#'       when \code{C.nonneg = FALSE} (interior null H0: C=0) and
-#'       \code{"one.sided"} when \code{C.nonneg = TRUE} (boundary null
+#'       when \code{C.nonnegative = FALSE} (interior null H0: C=0) and
+#'       \code{"one.sided"} when \code{C.nonnegative = TRUE} (boundary null
 #'       H0: C=0 vs H1: C>0). Override explicitly if desired.
 #'     \item \code{wild.B}: Number of wild bootstrap replicates (default 500).
 #'     \item \code{wild.seed}: Seed for wild bootstrap (default 123).
@@ -311,7 +311,7 @@
 #'     \item{\code{C.ci.upper}}{Upper confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 #'     \item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 #'     \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
-#'     \item{\code{C.nonneg}}{Logical. Whether the non-negative constraint on \eqn{C} was used.}
+#'     \item{\code{C.nonnegative}}{Logical. Whether the non-negative constraint on \eqn{C} was used.}
 #'     \item{\code{x.update}}{Basis update rule used: \code{"seminmf"} or \code{"mu"}.}
 #'   }
 #' @seealso \code{\link{nmfre.inference}}, \code{\link{nmfre.dfU.scan}},
@@ -343,7 +343,7 @@
 #'   summary(res)
 #' }}
 #'
-nmfre <- function(Y, A = NULL, rank = 2, C.nonneg = FALSE, df.rate = NULL,
+nmfre <- function(Y, A = NULL, rank = 2, C.nonnegative = FALSE, df.rate = NULL,
                   wild.bootstrap = TRUE, epsilon = 1e-5,
                   maxit = 5000, ...) {
 
@@ -363,14 +363,14 @@ nmfre <- function(Y, A = NULL, rank = 2, C.nonneg = FALSE, df.rate = NULL,
   ## Default 1 keeps the historical single-start behaviour.
   nstart    <- if (!is.null(extra_args$nstart)) extra_args$nstart else 1
   prefix    <- if (!is.null(extra_args$prefix)) extra_args$prefix else "Basis"
-  ## Sign constraint on C (= Theta in the paper). C.nonneg = FALSE (default)
+  ## Sign constraint on C (= Theta in the paper). C.nonnegative = FALSE (default)
   ## gives real-valued, sign-free covariate effects (the semi-NMF reading);
-  ## C.nonneg = TRUE constrains C >= 0 (compositional/intensity scores).
+  ## C.nonnegative = TRUE constrains C >= 0 (compositional/intensity scores).
   ## A character C.signed in ... is still honoured for backward compatibility.
   if (!is.null(extra_args$C.signed)) {
     C.signed <- base::match.arg(extra_args$C.signed, c("signed", "nonneg"))
   } else {
-    C.signed <- if (isTRUE(C.nonneg)) "nonneg" else "signed"
+    C.signed <- if (isTRUE(C.nonnegative)) "nonneg" else "signed"
   }
   ## X-step rule is selected by the sign convention of C: the sign-free (LS) C
   ## pairs with the complete-EM semi-NMF step (Ding-Li-Jordan 2010), and the
@@ -971,7 +971,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.nonneg = FALSE, df.rate = NULL,
     C.boot.sd  = C.boot.sd,
 
     C.p.side = C.p.side,
-    C.nonneg = (C.signed == "nonneg"),
+    C.nonnegative = (C.signed == "nonneg"),
     x.update = x.update
   )
 
@@ -1131,11 +1131,11 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
 
     cat("---\n")
     cat("Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n")
-    ## sign convention: prefer the logical C.nonneg, fall back to legacy C.signed
-    C.nonneg <- if (!is.null(x$C.nonneg)) isTRUE(x$C.nonneg)
+    ## sign convention: prefer the logical C.nonnegative, fall back to legacy C.signed
+    C.nonnegative <- if (!is.null(x$C.nonnegative)) isTRUE(x$C.nonnegative)
                 else if (!is.null(x$C.signed)) identical(x$C.signed, "nonneg") else NA
-    if (!is.na(C.nonneg)) {
-      conv <- if (!C.nonneg) "sign-free (real-valued)" else "non-negative"
+    if (!is.na(C.nonnegative)) {
+      conv <- if (!C.nonnegative) "sign-free (real-valued)" else "non-negative"
       cat(sprintf("C (= Theta) update: %s; p-values %s\n",
                   conv, if (!is.null(x$C.p.side)) x$C.p.side else "one.sided"))
     }
@@ -1228,8 +1228,8 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   ## sign convention of C (= Theta) from the fit; resolves the default p-side
   ## (two-sided for sign-free C, one-sided for the non-negative variant) and
   ## whether the bootstrap replicates are projected onto C >= 0. Prefer the
-  ## logical C.nonneg, fall back to the legacy C.signed string.
-  C.signed    <- if (!is.null(object$C.nonneg)) (if (isTRUE(object$C.nonneg)) "nonneg" else "signed")
+  ## logical C.nonnegative, fall back to the legacy C.signed string.
+  C.signed    <- if (!is.null(object$C.nonnegative)) (if (isTRUE(object$C.nonnegative)) "nonneg" else "signed")
                  else if (!is.null(object$C.signed)) object$C.signed else "nonneg"
   C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side
                  else if (C.signed == "nonneg") "one.sided" else "two.sided"

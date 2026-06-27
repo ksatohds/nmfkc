@@ -8,6 +8,7 @@ nmfre(
   Y,
   A = NULL,
   rank = 2,
+  C.nonnegative = FALSE,
   df.rate = NULL,
   wild.bootstrap = TRUE,
   epsilon = 1e-05,
@@ -22,6 +23,16 @@ nmfre(
 
 \item{rank}{Integer. Rank of the basis matrix \eqn{X}. Default is 2.
 For backward compatibility, \code{Q} is accepted via \code{...}.}
+
+\item{C.nonnegative}{Logical. Sign constraint on the fixed-effect coefficients
+\eqn{C} (\eqn{= \Theta} in the paper); the single switch that selects the
+whole estimation scheme. \code{FALSE} (default, recommended, matches the
+paper) treats \eqn{C} as real-valued and updates it by exact least squares,
+with the basis \eqn{X} estimated by the complete-EM semi-NMF step and a
+two-sided test (interior null). \code{TRUE} constrains \eqn{C \ge 0} via a
+multiplicative update, with \eqn{X} estimated by the positive-part
+multiplicative update and a one-sided test (boundary null). The basis
+\eqn{X} is always non-negative.}
 
 \item{df.rate}{Rate for computing the dfU cap (\code{cap = rate * N * Q}).
 For backward compatibility, \code{dfU.cap.rate} is accepted via \code{...}.
@@ -54,18 +65,9 @@ When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial v
 \item \code{sigma2.update}: Logical. Update \eqn{\sigma^2} during iterations (default \code{TRUE}).
 \item \code{tau2}: Initial random effect variance (default 1).
 \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
-\item \code{C.signed}: Sign convention of the fixed-effect coefficients
-\eqn{C} (\eqn{= \Theta}); the single switch that selects the whole
-estimation scheme. \code{"signed"} (default, recommended, matches the
-paper) treats \eqn{C} as real-valued and updates it by exact least
-squares, with the basis \eqn{X} estimated by the complete-EM semi-NMF
-step. \code{"nonneg"} constrains \eqn{C \ge 0} via a multiplicative
-update, with \eqn{X} estimated by the positive-part multiplicative
-update (the historical non-negative variant). In both cases the basis
-\eqn{X} itself is always non-negative.
 \item \code{x.postvar}: Logical. Include the posterior-variance term in
 the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies only
-to the \code{"signed"} / semi-NMF path.
+to the sign-free / semi-NMF path (\code{C.nonnegative = FALSE}).
 \item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
 cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
 reported as a diagnostic only.
@@ -81,8 +83,8 @@ block-coordinate) and outer (EM variance) iterations (defaults
 \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 \eqn{\lambda} (default \code{1e-6}).
 \item \code{C.p.side}: P-value sidedness. Defaults to \code{"two.sided"}
-when \code{C.signed = "signed"} (interior null H0: C=0) and
-\code{"one.sided"} when \code{C.signed = "nonneg"} (boundary null
+when \code{C.nonnegative = FALSE} (interior null H0: C=0) and
+\code{"one.sided"} when \code{C.nonnegative = TRUE} (boundary null
 H0: C=0 vs H1: C>0). Override explicitly if desired.
 \item \code{wild.B}: Number of wild bootstrap replicates (default 500).
 \item \code{wild.seed}: Seed for wild bootstrap (default 123).
@@ -195,7 +197,7 @@ Pr(>|z|), and confidence interval bounds for each element of \eqn{\Theta}.}
 \item{\code{C.ci.upper}}{Upper confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 \item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
 \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
-\item{\code{C.signed}}{Sign convention of \eqn{C} used: \code{"signed"} or \code{"nonneg"}.}
+\item{\code{C.nonnegative}}{Logical. Whether the non-negative constraint on \eqn{C} was used.}
 \item{\code{x.update}}{Basis update rule used: \code{"seminmf"} or \code{"mu"}.}
 }
 }
