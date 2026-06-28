@@ -12,6 +12,14 @@
   The basis \eqn{X} is always non-negative, so \eqn{X \rightarrow Y} edges are
   unaffected.
 
+### **`nmfre`: marginal-NLL convergence trace**
+- `nmfre()` now records `nll.trace`, the marginal negative log-likelihood
+  \eqn{\ell(X,\Theta,\sigma^2,\tau^2)} (random effects integrated out), which the
+  ECM algorithm decreases monotonically. `plot.nmfre()` displays this instead of
+  the fixed-\eqn{\lambda} penalized objective (`objfunc.iter`), which is *not*
+  monotone across outer iterations because it jumps when
+  \eqn{\lambda=\sigma^2/\tau^2} is updated.
+
 ### **`nmfre`: optimization and inference fully separated**
 - `nmfre()` now performs **optimization only**, mirroring the
   `nmfkc()` / `nmfkc.inference()` split. The `wild.bootstrap` argument and all

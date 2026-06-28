@@ -486,10 +486,16 @@ average; negative values indicate slower growth.</p>
 <span><span class="co">#&gt; Iterations: 41</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Stop reason:"</span>, <span class="va">res</span><span class="op">$</span><span class="va">stop.reason</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Stop reason: outer_lambda</span></span></code></pre></div>
+<p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> shows the <strong>marginal negative
+log-likelihood</strong> <span class="math inline">\(\ell(X,\Theta,\sigma^2,\tau^2)\)</span> (random
+effects integrated out), which the ECM algorithm decreases
+monotonically. Note that the fixed-<span class="math inline">\(\lambda\)</span> penalized objective
+(<code>res$objfunc.iter</code>) is <em>not</em> monotone across outer
+iterations — it jumps each time <span class="math inline">\(\lambda =
+\sigma^2/\tau^2\)</span> is updated — so it is unsuitable for
+illustrating convergence.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">objfunc.iter</span>, type <span class="op">=</span> <span class="st">"l"</span>,</span>
-<span>     xlab <span class="op">=</span> <span class="st">"Iteration"</span>, ylab <span class="op">=</span> <span class="st">"Objective function"</span>,</span>
-<span>     main <span class="op">=</span> <span class="st">"Convergence Trace"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span>, main <span class="op">=</span> <span class="st">"Convergence (marginal NLL)"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="nmf-re-with-nmfkc_files/figure-html/plot-convergence-1.png" width="672"></p>
 </div>
 <div class="section level3">

@@ -256,10 +256,15 @@ cat("Iterations:", res$iter, "\n")
 cat("Stop reason:", res$stop.reason, "\n")
 ```
 
+`plot()` shows the **marginal negative log-likelihood** $\ell(X,\Theta,\sigma^2,\tau^2)$
+(random effects integrated out), which the ECM algorithm decreases
+monotonically. Note that the fixed-$\lambda$ penalized objective
+(`res$objfunc.iter`) is *not* monotone across outer iterations --- it jumps
+each time $\lambda = \sigma^2/\tau^2$ is updated --- so it is unsuitable for
+illustrating convergence.
+
 ```{r plot-convergence, fig.height=4}
-plot(res$objfunc.iter, type = "l",
-     xlab = "Iteration", ylab = "Objective function",
-     main = "Convergence Trace")
+plot(res, main = "Convergence (marginal NLL)")
 ```
 
 ### 5.2 Residual Analysis

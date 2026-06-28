@@ -30,13 +30,20 @@ NULL
 #' @export
 plot.nmfre <- function(x, ...) {
   extra_args <- list(...)
-  args <- list(x = x$objfunc.iter)
+  ## Default to the marginal negative log-likelihood, which the ECM decreases
+  ## monotonically. The fixed-lambda penalized objective (objfunc.iter) is NOT
+  ## monotone across outer iterations because lambda = sigma2/tau2 is updated
+  ## (the penalty jumps by (lambda' - lambda) ||U||^2), so it is unsuitable for
+  ## illustrating monotone convergence. Fall back to objfunc.iter for objects
+  ## fitted before nll.trace was recorded.
+  use_nll <- !is.null(x$nll.trace) && any(is.finite(x$nll.trace))
+  args <- list(x = if (use_nll) x$nll.trace else x$objfunc.iter)
   if (is.null(extra_args$main)) {
     r2 <- if (!is.null(x$r.squared) && is.finite(x$r.squared)) round(x$r.squared, 3) else "NA"
     args$main <- paste0("R2 = ", r2)
   }
   if (is.null(extra_args$xlab)) args$xlab <- "iter"
-  if (is.null(extra_args$ylab)) args$ylab <- "objfunc"
+  if (is.null(extra_args$ylab)) args$ylab <- if (use_nll) "marginal NLL" else "objfunc"
   if (is.null(extra_args$type)) args$type <- "l"
   all_args <- c(args, extra_args)
   do.call("plot", all_args)

@@ -40,6 +40,28 @@
   X * sqrt(.nmfre.safe.div(numer, denom, eps = eps))
 }
 
+#' Marginal negative log-likelihood of the NMF-RE model
+#'
+#' \eqn{\ell(X,\Theta,\sigma^2,\tau^2) = \tfrac12\sum_n (y_n - X\Theta a_n)^\top
+#' \Sigma^{-1}(y_n - X\Theta a_n) + \tfrac{N}{2}\log|\Sigma|}, with
+#' \eqn{\Sigma = \tau^2 X X^\top + \sigma^2 I_P}. The random effects \eqn{U}
+#' are integrated out, so this is the quantity the ECM decreases monotonically
+#' (unlike the fixed-\eqn{\lambda} penalized objective, which jumps when
+#' \eqn{\lambda=\sigma^2/\tau^2} is updated). The constant \eqn{(NP/2)\log 2\pi}
+#' is omitted.
+#' @keywords internal
+#' @noRd
+.nmfre.marginal.nll <- function(Y, X, C, A, sigma2, tau2, eps = 1e-12) {
+  P <- nrow(Y); N <- ncol(Y)
+  Sigma <- tau2 * tcrossprod(X) + max(sigma2, eps) * diag(P)   # P x P
+  chS <- tryCatch(chol(Sigma), error = function(e) NULL)
+  if (is.null(chS)) return(NA_real_)
+  logdet <- 2 * sum(log(diag(chS)))
+  Resid  <- Y - X %*% (C %*% A)
+  SinvR  <- backsolve(chS, forwardsolve(t(chS), Resid))
+  0.5 * (sum(Resid * SinvR) + N * logdet)
+}
+
 #' Normalize columns of X to sum 1, rescaling C and U
 #'
 #' Applies X <- X D^{-1}, C <- D C, U <- D U where D = diag(colSums(X)).
@@ -193,8 +215,15 @@
 #'     \item{\code{objfunc}}{Final objective function value
 #'       \eqn{\|Y - X(\Theta A + U)\|^2 + \lambda \|U\|^2}.}
 #'     \item{\code{rel.change.final}}{Final relative change in objective.}
-#'     \item{\code{objfunc.iter}}{Numeric vector of objective values per iteration.}
+#'     \item{\code{objfunc.iter}}{Numeric vector of the fixed-\eqn{\lambda}
+#'       penalized objective \eqn{\|Y - X(\Theta A + U)\|^2 + \lambda\|U\|^2}
+#'       per iteration. Monotone within an inner loop but \emph{not} across
+#'       outer iterations (the penalty jumps when \eqn{\lambda} is updated).}
 #'     \item{\code{rss.trace}}{Numeric vector of \eqn{\|Y - X(\Theta A + U)\|^2} per iteration.}
+#'     \item{\code{nll.trace}}{Numeric vector of the marginal negative
+#'       log-likelihood \eqn{\ell(X,\Theta,\sigma^2,\tau^2)} per iteration
+#'       (random effects integrated out). This is the ECM-monotone quantity and
+#'       is what \code{\link{plot.nmfre}} displays.}
 #'   }
 #'
 #'   \strong{Effective degrees of freedom (dfU) diagnostics}
@@ -431,6 +460,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 
   obj_trace <- rep(NA_real_, maxit)
   rss_trace <- rep(NA_real_, maxit)
+  nll_trace <- rep(NA_real_, maxit)   # marginal NLL (ECM-monotone; see plot.nmfre)
 
   # ---- dfU diagnostics ----
   dfU_last <- NA_real_
@@ -519,7 +549,12 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
       CA  <- C_mat %*% A
       R   <- Y - X %*% (CA + U)
       obj <- sum(R^2) + lambda * sum(U^2)
-      if (total_iter <= maxit) { obj_trace[total_iter] <- obj; rss_trace[total_iter] <- sum(R^2) }
+      if (total_iter <= maxit) {
+        obj_trace[total_iter] <- obj
+        rss_trace[total_iter] <- sum(R^2)
+        ## marginal NLL (U integrated out): the ECM-monotone diagnostic
+        nll_trace[total_iter] <- .nmfre.marginal.nll(Y, X, C_mat, A, sigma2, tau2)
+      }
 
       if (!is.finite(obj)) { stop_reason <- "nonfinite_obj"; converged <- FALSE; break }
       rel_change <- if (is.finite(obj_prev_inner))
@@ -665,6 +700,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     rel.change.final = rel_change_final,
     objfunc.iter = obj_trace[seq_len(iter_done)],
     rss.trace = rss_trace[seq_len(iter_done)],
+    nll.trace = nll_trace[seq_len(iter_done)],
 
     # dfU diagnostics
     dfU = dfU_last,

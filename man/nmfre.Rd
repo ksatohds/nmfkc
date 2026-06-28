@@ -105,8 +105,15 @@ non-negative \eqn{X} (each row normalized to sum to 1), as in \code{\link{nmfkc}
 \item{\code{objfunc}}{Final objective function value
 \eqn{\|Y - X(\Theta A + U)\|^2 + \lambda \|U\|^2}.}
 \item{\code{rel.change.final}}{Final relative change in objective.}
-\item{\code{objfunc.iter}}{Numeric vector of objective values per iteration.}
+\item{\code{objfunc.iter}}{Numeric vector of the fixed-\eqn{\lambda}
+penalized objective \eqn{\|Y - X(\Theta A + U)\|^2 + \lambda\|U\|^2}
+per iteration. Monotone within an inner loop but \emph{not} across
+outer iterations (the penalty jumps when \eqn{\lambda} is updated).}
 \item{\code{rss.trace}}{Numeric vector of \eqn{\|Y - X(\Theta A + U)\|^2} per iteration.}
+\item{\code{nll.trace}}{Numeric vector of the marginal negative
+log-likelihood \eqn{\ell(X,\Theta,\sigma^2,\tau^2)} per iteration
+(random effects integrated out). This is the ECM-monotone quantity and
+is what \code{\link{plot.nmfre}} displays.}
 }
 
 \strong{Effective degrees of freedom (dfU) diagnostics}
