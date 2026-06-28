@@ -42,24 +42,35 @@
 
 #' Marginal negative log-likelihood of the NMF-RE model
 #'
-#' \eqn{\ell(X,\Theta,\sigma^2,\tau^2) = \tfrac12\sum_n (y_n - X\Theta a_n)^\top
-#' \Sigma^{-1}(y_n - X\Theta a_n) + \tfrac{N}{2}\log|\Sigma|}, with
-#' \eqn{\Sigma = \tau^2 X X^\top + \sigma^2 I_P}. The random effects \eqn{U}
+#' \eqn{\ell = \tfrac12\big[N\,(P\log 2\pi + \log|\Sigma|) + \sum_n
+#' (y_n - X\Theta a_n)^\top \Sigma^{-1}(y_n - X\Theta a_n)\big]}, with
+#' \eqn{\Sigma = \sigma^2 I_P + \tau^2 X X^\top}. The random effects \eqn{U}
 #' are integrated out, so this is the quantity the ECM decreases monotonically
 #' (unlike the fixed-\eqn{\lambda} penalized objective, which jumps when
-#' \eqn{\lambda=\sigma^2/\tau^2} is updated). The constant \eqn{(NP/2)\log 2\pi}
-#' is omitted.
+#' \eqn{\lambda=\sigma^2/\tau^2} is updated).
+#'
+#' Evaluated in the Woodbury / \eqn{Q\times Q} form (efficient and numerically
+#' stable for \eqn{Q \ll P}); identical to the standalone NMF-RE core:
+#' \eqn{\log|\Sigma| = P\log\sigma^2 + \log|I_Q + (\tau^2/\sigma^2)X^\top X|} and
+#' \eqn{\mathrm{quad} = \sigma^{-2}\big[\|R\|^2 -
+#' \mathrm{tr}\{R^\top X(X^\top X + \lambda I_Q)^{-1}X^\top R\}\big]},
+#' \eqn{R = Y - X\Theta A}, \eqn{\lambda = \sigma^2/\tau^2}.
 #' @keywords internal
 #' @noRd
 .nmfre.marginal.nll <- function(Y, X, C, A, sigma2, tau2, eps = 1e-12) {
-  P <- nrow(Y); N <- ncol(Y)
-  Sigma <- tau2 * tcrossprod(X) + max(sigma2, eps) * diag(P)   # P x P
-  chS <- tryCatch(chol(Sigma), error = function(e) NULL)
-  if (is.null(chS)) return(NA_real_)
-  logdet <- 2 * sum(log(diag(chS)))
-  Resid  <- Y - X %*% (C %*% A)
-  SinvR  <- backsolve(chS, forwardsolve(t(chS), Resid))
-  0.5 * (sum(Resid * SinvR) + N * logdet)
+  P <- nrow(Y); N <- ncol(Y); Q <- ncol(X)
+  s2 <- max(sigma2, eps); t2 <- max(tau2, eps)
+  lambda <- s2 / t2
+  Rm   <- Y - X %*% (C %*% A)                       # P x N fixed-effects residual
+  XtRm <- crossprod(X, Rm)                          # Q x N
+  Mll  <- crossprod(X) + diag(pmax(lambda, 1e-12), Q)
+  quad <- tryCatch((sum(Rm^2) - sum(XtRm * solve(Mll, XtRm))) / s2,
+                   error = function(e) NA_real_)
+  logdetQ <- tryCatch(
+    as.numeric(determinant(diag(Q) + (t2 / s2) * crossprod(X), logarithm = TRUE)$modulus),
+    error = function(e) NA_real_)
+  if (!is.finite(quad) || !is.finite(logdetQ)) return(NA_real_)
+  0.5 * (N * (P * log(2 * pi) + P * log(s2) + logdetQ) + quad)
 }
 
 #' Normalize columns of X to sum 1, rescaling C and U
