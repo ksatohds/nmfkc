@@ -12,6 +12,16 @@
   The basis \eqn{X} is always non-negative, so \eqn{X \rightarrow Y} edges are
   unaffected.
 
+### **`nmfre`: optimization and inference fully separated**
+- `nmfre()` now performs **optimization only**, mirroring the
+  `nmfkc()` / `nmfkc.inference()` split. The `wild.bootstrap` argument and all
+  inference outputs (`coefficients`, `C.se`, `C.se.boot`, `C.ci.*`, `C.p.side`,
+  `sigma2.used`, …) are removed from `nmfre()`; the inline inference block is
+  gone, making the function lighter and easier to maintain. Obtain standard
+  errors, z-values, p-values, and confidence intervals for \eqn{\Theta} by
+  passing the fit to `nmfre.inference(fit, Y, A)`. `summary()` prints the
+  coefficient table only after inference has been run.
+
 ### **`nmfre`: EM/ECM algorithm and sign-free fixed effects (paper port)**
 - `nmfre()` is re-implemented to follow the Psychometrika manuscript's
   NMF-RE mixed model \eqn{Y = X(\Theta A + U) + \mathcal{E}}.  The optimizer is

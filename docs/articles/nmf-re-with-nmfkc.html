@@ -234,10 +234,14 @@ since the male effect on growth could in principle have either sign. The
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
-<h3 id="model-summary">2.1 Model Summary<a class="anchor" aria-label="anchor" href="#model-summary"></a>
+<h3 id="model-summary-fit">2.1 Model Summary (fit)<a class="anchor" aria-label="anchor" href="#model-summary-fit"></a>
 </h3>
-<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> displays variance components, fit statistics,
-and the coefficient table with significance stars.</p>
+<p><code><a href="../reference/nmfre.html">nmfre()</a></code> performs <strong>optimization only</strong>.
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> on a freshly fitted object shows the variance
+components, fit statistics, and the <span class="math inline">\(\mathrm{df}_U\)</span> diagnostic; standard errors
+and p-values for <span class="math inline">\(\Theta\)</span> are added
+in a separate inference step (Section 2.2), mirroring the
+<code><a href="../reference/nmfkc.html">nmfkc()</a></code> / <code><a href="../reference/nmfkc.inference.html">nmfkc.inference()</a></code> split.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
 <span><span class="co">#&gt; NMF-RE: Y(4,27) = X(4,1) [C(1,2) A + U(1,27)]</span></span>
@@ -253,17 +257,7 @@ and the coefficient table with significance stars.</p>
 <span><span class="co">#&gt;   ICC    = 0.6100  (tau2*tr(X'X) / (tau2*tr(X'X) + sigma2*P))</span></span>
 <span><span class="co">#&gt;   dfU    = 23.28</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Coefficients:</span></span>
-<span><span class="co">#&gt;                   Estimate Std. Error (Boot) z value Pr(&gt;|z|) </span></span>
-<span><span class="co">#&gt; intercept:Trend1    90.506      2.472  2.450   36.62   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt;      male:Trend1     9.423      3.057  2.991    3.08 0.002052 **</span></span>
-<span><span class="co">#&gt; ---</span></span>
-<span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span>
-<span><span class="co">#&gt; C (= Theta) update: sign-free (real-valued); p-values two.sided</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="understanding-the-output">Understanding the Output<a class="anchor" aria-label="anchor" href="#understanding-the-output"></a>
-</h3>
+<span><span class="co">#&gt; Coefficients (Theta): run nmfre.inference(fit, Y, A) for SE / p-values.</span></span></code></pre></div>
 <p><strong>Variance components:</strong></p>
 <ul>
 <li>
@@ -295,6 +289,50 @@ degrees of freedom consumed by the random effects, reported purely as a
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"dfU     ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">dfU</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>    <span class="st">"  dfU/(NQ) ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">dfU.frac</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; dfU     = 23.28   dfU/(NQ) = 0.8622</span></span></code></pre></div>
+<p><strong>R-squared:</strong></p>
+<ul>
+<li>
+<span class="math inline">\(R^2\)</span> (XB+blup): Fit including
+both fixed and random effects.</li>
+<li>
+<span class="math inline">\(R^2\)</span> (XB): Fit from fixed
+effects only — the gap shows how much the random effects improve the
+fit.</li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="inference-on-theta-with-nmfre-inference">2.2 Inference on <span class="math inline">\(\Theta\)</span> with
+<code>nmfre.inference()</code><a class="anchor" aria-label="anchor" href="#inference-on-theta-with-nmfre-inference"></a>
+</h3>
+<p>To obtain standard errors, z-values, p-values, and confidence
+intervals for <span class="math inline">\(\Theta\)</span>, pass the fit
+to <code><a href="../reference/nmfre.inference.html">nmfre.inference()</a></code> (sandwich SE + wild bootstrap,
+conditional on the estimated <span class="math inline">\(\hat X, \hat
+U\)</span>). It returns the same object with the inference fields added,
+so <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> now prints the coefficient table.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.inference.html">nmfre.inference</a></span><span class="op">(</span><span class="va">res</span>, <span class="va">Y</span>, <span class="va">A</span>, wild.B <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
+<span><span class="co">#&gt; NMF-RE: Y(4,27) = X(4,1) [C(1,2) A + U(1,27)]</span></span>
+<span><span class="co">#&gt; Iterations: 41 (converged, epsilon = 1e-05)</span></span>
+<span><span class="co">#&gt; R-squared (cor^2):    0.8246 (XB+blup), 0.4167 (XB)</span></span>
+<span><span class="co">#&gt; R-squared (uncentered):     0.9974 (XB+blup), 0.9915 (XB)</span></span>
+<span><span class="co">#&gt; R-squared (centered): 0.7594 (XB+blup), 0.2134 (XB)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Variance components:</span></span>
+<span><span class="co">#&gt;   sigma2 = 1.933  (residual)</span></span>
+<span><span class="co">#&gt;   tau2   = 48.19  (random effect)</span></span>
+<span><span class="co">#&gt;   lambda = 0.04011  (sigma2 / tau2)</span></span>
+<span><span class="co">#&gt;   ICC    = 0.6100  (tau2*tr(X'X) / (tau2*tr(X'X) + sigma2*P))</span></span>
+<span><span class="co">#&gt;   dfU    = 23.28</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Coefficients:</span></span>
+<span><span class="co">#&gt;                   Estimate Std. Error (Boot) z value Pr(&gt;|z|) </span></span>
+<span><span class="co">#&gt; intercept:Trend1    90.506      2.472  2.524   36.62   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt;      male:Trend1     9.423      3.057  3.070    3.08 0.002052 **</span></span>
+<span><span class="co">#&gt; ---</span></span>
+<span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span>
+<span><span class="co">#&gt; C (= Theta) update: sign-free (real-valued); p-values two.sided</span></span></code></pre></div>
 <p><strong>Coefficient table (<span class="math inline">\(\Theta\)</span>):</strong></p>
 <ul>
 <li>
@@ -311,16 +349,9 @@ p-value (<span class="math inline">\(H_0: \Theta_{qk} = 0\)</span>).
 Both the intercept and the male effect are detected as statistically
 significant.</li>
 </ul>
-<p><strong>R-squared:</strong></p>
-<ul>
-<li>
-<span class="math inline">\(R^2\)</span> (XB+blup): Fit including
-both fixed and random effects.</li>
-<li>
-<span class="math inline">\(R^2\)</span> (XB): Fit from fixed
-effects only — the gap shows how much the random effects improve the
-fit.</li>
-</ul>
+<p>The sidedness follows the fit: sign-free <span class="math inline">\(\Theta\)</span> (<code>C.signed = TRUE</code>)
+uses a two-sided test, while the non-negative variant
+(<code>C.signed = FALSE</code>) uses a one-sided (boundary) test.</p>
 <hr>
 </div>
 </div>
@@ -330,7 +361,7 @@ fit.</li>
 <p>We plot the growth curves to see how the model captures both
 population-level trends (fixed effects) and individual deviations
 (random effects).</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">age</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">8</span>, <span class="fl">10</span>, <span class="fl">12</span>, <span class="fl">14</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">age</span>, <span class="va">res</span><span class="op">$</span><span class="va">XB</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"n"</span>, ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>,</span>
@@ -389,7 +420,7 @@ trajectories.</li>
 </h3>
 <p>The basis <span class="math inline">\(X\)</span> represents the
 latent temporal pattern shared across all subjects.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Basis X (temporal pattern):\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Basis X (temporal pattern):</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">X</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
@@ -407,7 +438,7 @@ is normalized to sum to 1.</p>
 </h3>
 <p><span class="math inline">\(\Theta\)</span> (the <code>C</code>
 element) maps covariates to latent scores:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Coefficient matrix (Theta):\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Coefficient matrix (Theta):</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">C</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
@@ -429,7 +460,7 @@ average.</li>
 <p><span class="math inline">\(U\)</span> captures individual
 deviations. Subjects with positive <span class="math inline">\(U\)</span> values grow faster than the population
 average; negative values indicate slower growth.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/barplot.html" class="external-link">barplot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">U</span><span class="op">[</span><span class="fl">1</span>, <span class="op">]</span>, names.arg <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">Y</span><span class="op">)</span>,</span>
 <span>        las <span class="op">=</span> <span class="fl">2</span>, cex.names <span class="op">=</span> <span class="fl">0.7</span>,</span>
 <span>        col <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">male</span> <span class="op">==</span> <span class="fl">1</span>, <span class="st">"steelblue"</span>, <span class="st">"salmon"</span><span class="op">)</span>,</span>
@@ -448,14 +479,14 @@ average; negative values indicate slower growth.</p>
 <h3 id="convergence">5.1 Convergence<a class="anchor" aria-label="anchor" href="#convergence"></a>
 </h3>
 <p>Check that the algorithm converged properly:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Converged:"</span>, <span class="va">res</span><span class="op">$</span><span class="va">converged</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Converged: TRUE</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Iterations:"</span>, <span class="va">res</span><span class="op">$</span><span class="va">iter</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Iterations: 41</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Stop reason:"</span>, <span class="va">res</span><span class="op">$</span><span class="va">stop.reason</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Stop reason: outer_lambda</span></span></code></pre></div>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">objfunc.iter</span>, type <span class="op">=</span> <span class="st">"l"</span>,</span>
 <span>     xlab <span class="op">=</span> <span class="st">"Iteration"</span>, ylab <span class="op">=</span> <span class="st">"Objective function"</span>,</span>
 <span>     main <span class="op">=</span> <span class="st">"Convergence Trace"</span><span class="op">)</span></span></code></pre></div>
@@ -465,7 +496,7 @@ average; negative values indicate slower growth.</p>
 <h3 id="residual-analysis">5.2 Residual Analysis<a class="anchor" aria-label="anchor" href="#residual-analysis"></a>
 </h3>
 <p>Compare the fitted values against the original data:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">residuals</span> <span class="op">&lt;-</span> <span class="va">Y</span> <span class="op">-</span> <span class="va">res</span><span class="op">$</span><span class="va">XB.blup</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean absolute residual (BLUP):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">residuals</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Mean absolute residual (BLUP): 0.8799</span></span>
@@ -486,7 +517,7 @@ average; negative values indicate slower growth.</p>
 </h2>
 <p>To appreciate the value of random effects, compare NMF-RE with a
 standard NMF covariate model (no random effects).</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Standard NMF with covariates (no random effects)</span></span>
 <span><span class="va">res_fixed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span><span class="va">Y</span>, A <span class="op">=</span> <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Y(4,27)~X(4,1)C(1,2)A(2,27)=XB(1,27)...0sec</span></span>
@@ -509,19 +540,17 @@ individual random effects.</p>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="separated-inference-with-nmfre-inference">7. Separated Inference with <code>nmfre.inference()</code><a class="anchor" aria-label="anchor" href="#separated-inference-with-nmfre-inference"></a>
+<h2 id="why-optimization-and-inference-are-separated">7. Why optimization and inference are separated<a class="anchor" aria-label="anchor" href="#why-optimization-and-inference-are-separated"></a>
 </h2>
-<p>You can separate optimization from statistical inference. First fit
-with <code>wild.bootstrap = FALSE</code> (faster), then run inference
-separately:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Fit without bootstrap (fast)</span></span>
-<span><span class="va">res_fast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span>,</span>
-<span>                  wild.bootstrap <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Run inference separately (inherits the sign convention from the fit)</span></span>
-<span><span class="va">res_inf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.inference.html">nmfre.inference</a></span><span class="op">(</span><span class="va">res_fast</span>, <span class="va">Y</span>, <span class="va">A</span>, wild.B <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span>
-<span><span class="va">res_inf</span><span class="op">$</span><span class="va">coefficients</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Basis"</span>, <span class="st">"Covariate"</span>, <span class="st">"Estimate"</span>, <span class="st">"SE"</span>, <span class="st">"p_value"</span><span class="op">)</span><span class="op">]</span></span>
+<p>Because <code><a href="../reference/nmfre.html">nmfre()</a></code> does not run the bootstrap, fitting is
+cheap — useful when the model is fitted many times (rank selection,
+cross-validation). Run <code><a href="../reference/nmfre.inference.html">nmfre.inference()</a></code> only on the final
+model, and re-run it (without re-fitting) to try different settings such
+as the number of bootstrap replicates, confidence level, or p-value
+sidedness:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># coefficient table from the inference object built in Section 2.2</span></span>
+<span><span class="va">res</span><span class="op">$</span><span class="va">coefficients</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Basis"</span>, <span class="st">"Covariate"</span>, <span class="st">"Estimate"</span>, <span class="st">"SE"</span>, <span class="st">"p_value"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;    Basis Covariate  Estimate       SE     p_value</span></span>
 <span><span class="co">#&gt; 1 Trend1 intercept 90.505774 2.471719 0.000000000</span></span>
 <span><span class="co">#&gt; 2 Trend1      male  9.422697 3.056691 0.002051691</span></span></code></pre></div>
@@ -531,8 +560,8 @@ separately:</p>
 <p>The inference result is compatible with <code><a href="../reference/nmfkc.DOT.html">nmfkc.DOT()</a></code> for
 graph visualization. Edges are filtered by significance level and
 decorated with stars:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">dot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.DOT.html">nmfkc.DOT</a></span><span class="op">(</span><span class="va">res_inf</span>, type <span class="op">=</span> <span class="st">"YXA"</span>, sig.level <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">dot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.DOT.html">nmfkc.DOT</a></span><span class="op">(</span><span class="va">res</span>, type <span class="op">=</span> <span class="st">"YXA"</span>, sig.level <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">dot</span><span class="op">)</span></span></code></pre></div>
 <hr>
 </div>
@@ -545,8 +574,9 @@ covariate effects must be non-negative, set
 <code>C.signed = FALSE</code>. The basis is then updated by a
 positive-part multiplicative rule and inference switches to a one-sided
 (boundary) test.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_nn</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, prefix <span class="op">=</span> <span class="st">"Trend"</span>, C.signed <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">res_nn</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfre.inference.html">nmfre.inference</a></span><span class="op">(</span><span class="va">res_nn</span>, <span class="va">Y</span>, <span class="va">A</span>, wild.B <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"All Theta &gt;= 0 :"</span>, <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">res_nn</span><span class="op">$</span><span class="va">C</span> <span class="op">&gt;=</span> <span class="fl">0</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; All Theta &gt;= 0 : TRUE</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"P-value side   :"</span>, <span class="va">res_nn</span><span class="op">$</span><span class="va">C.p.side</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -581,18 +611,20 @@ heterogeneity</strong> in NMF:</p>
 <tr class="odd">
 <td align="left">1</td>
 <td align="left"><code><a href="../reference/nmfre.html">nmfre()</a></code></td>
-<td align="left">Fit the mixed-effects model (variances estimated by
-EM/ECM)</td>
+<td align="left">Fit the mixed-effects model (optimization only;
+variances estimated by EM/ECM)</td>
 </tr>
 <tr class="even">
 <td align="left">2</td>
-<td align="left"><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code></td>
-<td align="left">Examine variance components and inference</td>
+<td align="left"><code><a href="../reference/nmfre.inference.html">nmfre.inference()</a></code></td>
+<td align="left">Standard errors, p-values, and CIs for <span class="math inline">\(\Theta\)</span>
+</td>
 </tr>
 <tr class="odd">
 <td align="left">3</td>
-<td align="left"><code><a href="../reference/nmfre.inference.html">nmfre.inference()</a></code></td>
-<td align="left">Separated inference (optional)</td>
+<td align="left"><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code></td>
+<td align="left">Examine variance components and the coefficient
+table</td>
 </tr>
 <tr class="even">
 <td align="left">4</td>

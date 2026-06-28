@@ -9,7 +9,6 @@ nmfre(
   A = NULL,
   rank = 2,
   C.signed = TRUE,
-  wild.bootstrap = TRUE,
   epsilon = 1e-05,
   maxit = 5000,
   ...
@@ -33,9 +32,6 @@ multiplicative update, with \eqn{X} estimated by the positive-part
 multiplicative update and a one-sided test (boundary null). The basis
 \eqn{X} is always non-negative. A character value (\code{"signed"} /
 \code{"nonneg"}) is also accepted for backward compatibility.}
-
-\item{wild.bootstrap}{Logical. If \code{TRUE} (default), perform wild bootstrap inference
-on \eqn{\Theta}.}
 
 \item{epsilon}{Convergence tolerance for relative change in objective (default 1e-5).}
 
@@ -75,12 +71,6 @@ block-coordinate) and outer (EM variance) iterations (defaults
 \code{10000} and \code{500}).
 \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 \eqn{\lambda} (default \code{1e-6}).
-\item \code{C.p.side}: P-value sidedness. Defaults to \code{"two.sided"}
-when \code{C.signed = TRUE} (interior null H0: C=0) and
-\code{"one.sided"} when \code{C.signed = FALSE} (boundary null
-H0: C=0 vs H1: C>0). Override explicitly if desired.
-\item \code{wild.B}: Number of wild bootstrap replicates (default 500).
-\item \code{wild.seed}: Seed for wild bootstrap (default 123).
 }}
 }
 \value{
@@ -179,22 +169,14 @@ This equals the average (over \eqn{P} dimensions) proportion of
 per-column variance attributable to the random effects.}
 }
 
-\strong{Inference on \eqn{\Theta} (wild bootstrap)}
+\strong{Sign convention}
 \describe{
-\item{\code{sigma2.used}}{\eqn{\hat{\sigma}^2} used for inference.}
-\item{\code{C.vec.cov}}{Variance-covariance matrix for
-\eqn{\mathrm{vec}(\Theta)} (\eqn{QK \times QK}).}
-\item{\code{C.se}}{Standard error matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-\item{\code{C.se.hess}}{Sandwich (Hessian-based) SE matrix for \eqn{\Theta}.}
-\item{\code{C.se.boot}}{Bootstrap SE matrix for \eqn{\Theta}.}
-\item{\code{coefficients}}{Data frame with columns Estimate, Std. Error, z value,
-Pr(>|z|), and confidence interval bounds for each element of \eqn{\Theta}.}
-\item{\code{C.ci.lower}}{Lower confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-\item{\code{C.ci.upper}}{Upper confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-\item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-\item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
 \item{\code{C.signed}}{Logical. Whether \eqn{C} was sign-free (\code{TRUE}) or non-negative (\code{FALSE}).}
 }
+
+Standard errors, z-values, p-values, and confidence intervals for
+\eqn{\Theta} are \strong{not} computed here; obtain them by passing the fit
+to \code{\link{nmfre.inference}}.
 }
 \description{
 Estimates the NMF-RE model
@@ -214,16 +196,16 @@ selection without an explicit sparsity penalty. Inference on \eqn{\Theta}
 provides covariate-side variable selection by identifying which covariates
 significantly affect which components.
 
-Estimation alternates ridge-type BLUP-like closed-form updates for \eqn{U}
-with multiplicative non-negative updates for \eqn{X} and \eqn{\Theta}.
-The effective degrees of freedom consumed by \eqn{U} are monitored and a
-df-based cap can be enforced to prevent near-saturated fits.
+Estimation is an outer--inner ECM: an inner loop (fixed \eqn{\lambda}) runs a
+ridge/BLUP update for \eqn{U}, a complete-EM semi-NMF update for \eqn{X}, and
+a fixed-effect update for \eqn{\Theta}; an outer loop runs the EM M-steps for
+\eqn{(\sigma^2, \tau^2)}. The variance components are estimated from the data;
+the effective degrees of freedom \eqn{df_U} are reported only as a diagnostic.
 
-When \code{wild.bootstrap = TRUE}, inference on \eqn{\Theta} is performed
-conditional on \eqn{(\hat{X}, \hat{U})} via asymptotic linearization,
-a one-step Newton update, and a multiplier (wild) bootstrap, yielding
-standard errors, z-values, p-values, and confidence intervals without
-repeated constrained re-optimization.
+\code{nmfre()} performs \strong{optimization only}. Hypothesis tests and
+standard errors for \eqn{\Theta} are obtained separately with
+\code{\link{nmfre.inference}} (sandwich SE + wild bootstrap), mirroring the
+\code{\link{nmfkc}} / \code{nmfkc.inference} split.
 }
 \examples{
 # Example 1. cars data

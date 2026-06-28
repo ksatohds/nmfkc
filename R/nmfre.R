@@ -100,16 +100,16 @@
 #' provides covariate-side variable selection by identifying which covariates
 #' significantly affect which components.
 #'
-#' Estimation alternates ridge-type BLUP-like closed-form updates for \eqn{U}
-#' with multiplicative non-negative updates for \eqn{X} and \eqn{\Theta}.
-#' The effective degrees of freedom consumed by \eqn{U} are monitored and a
-#' df-based cap can be enforced to prevent near-saturated fits.
+#' Estimation is an outer--inner ECM: an inner loop (fixed \eqn{\lambda}) runs a
+#' ridge/BLUP update for \eqn{U}, a complete-EM semi-NMF update for \eqn{X}, and
+#' a fixed-effect update for \eqn{\Theta}; an outer loop runs the EM M-steps for
+#' \eqn{(\sigma^2, \tau^2)}. The variance components are estimated from the data;
+#' the effective degrees of freedom \eqn{df_U} are reported only as a diagnostic.
 #'
-#' When \code{wild.bootstrap = TRUE}, inference on \eqn{\Theta} is performed
-#' conditional on \eqn{(\hat{X}, \hat{U})} via asymptotic linearization,
-#' a one-step Newton update, and a multiplier (wild) bootstrap, yielding
-#' standard errors, z-values, p-values, and confidence intervals without
-#' repeated constrained re-optimization.
+#' \code{nmfre()} performs \strong{optimization only}. Hypothesis tests and
+#' standard errors for \eqn{\Theta} are obtained separately with
+#' \code{\link{nmfre.inference}} (sandwich SE + wild bootstrap), mirroring the
+#' \code{\link{nmfkc}} / \code{nmfkc.inference} split.
 #'
 #' @param Y Observation matrix (P x N), non-negative.
 #' @param A Covariate matrix (K x N). Default is a row of ones (intercept only).
@@ -125,8 +125,6 @@
 #'   multiplicative update and a one-sided test (boundary null). The basis
 #'   \eqn{X} is always non-negative. A character value (\code{"signed"} /
 #'   \code{"nonneg"}) is also accepted for backward compatibility.
-#' @param wild.bootstrap Logical. If \code{TRUE} (default), perform wild bootstrap inference
-#'   on \eqn{\Theta}.
 #' @param epsilon Convergence tolerance for relative change in objective (default 1e-5).
 #' @param maxit Maximum number of iterations.  Default \code{5000}
 #'   (matches \code{\link{nmfkc}} and the other MU functions in the
@@ -163,12 +161,6 @@
 #'       \code{10000} and \code{500}).
 #'     \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 #'       \eqn{\lambda} (default \code{1e-6}).
-#'     \item \code{C.p.side}: P-value sidedness. Defaults to \code{"two.sided"}
-#'       when \code{C.signed = TRUE} (interior null H0: C=0) and
-#'       \code{"one.sided"} when \code{C.signed = FALSE} (boundary null
-#'       H0: C=0 vs H1: C>0). Override explicitly if desired.
-#'     \item \code{wild.B}: Number of wild bootstrap replicates (default 500).
-#'     \item \code{wild.seed}: Seed for wild bootstrap (default 123).
 #'   }
 #' @return A list of class \code{"nmfre"} with components.
 #'   The model is \eqn{Y = X(\Theta A + U) + \mathcal{E}}.
@@ -265,22 +257,14 @@
 #'       per-column variance attributable to the random effects.}
 #'   }
 #'
-#'   \strong{Inference on \eqn{\Theta} (wild bootstrap)}
+#'   \strong{Sign convention}
 #'   \describe{
-#'     \item{\code{sigma2.used}}{\eqn{\hat{\sigma}^2} used for inference.}
-#'     \item{\code{C.vec.cov}}{Variance-covariance matrix for
-#'       \eqn{\mathrm{vec}(\Theta)} (\eqn{QK \times QK}).}
-#'     \item{\code{C.se}}{Standard error matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-#'     \item{\code{C.se.hess}}{Sandwich (Hessian-based) SE matrix for \eqn{\Theta}.}
-#'     \item{\code{C.se.boot}}{Bootstrap SE matrix for \eqn{\Theta}.}
-#'     \item{\code{coefficients}}{Data frame with columns Estimate, Std. Error, z value,
-#'       Pr(>|z|), and confidence interval bounds for each element of \eqn{\Theta}.}
-#'     \item{\code{C.ci.lower}}{Lower confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-#'     \item{\code{C.ci.upper}}{Upper confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-#'     \item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-#'     \item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
 #'     \item{\code{C.signed}}{Logical. Whether \eqn{C} was sign-free (\code{TRUE}) or non-negative (\code{FALSE}).}
 #'   }
+#'
+#'   Standard errors, z-values, p-values, and confidence intervals for
+#'   \eqn{\Theta} are \strong{not} computed here; obtain them by passing the fit
+#'   to \code{\link{nmfre.inference}}.
 #' @seealso \code{\link{nmfre.inference}},
 #'   \code{\link{nmfkc.DOT}}, \code{\link{summary.nmfre}}
 #' @export
@@ -308,8 +292,7 @@
 #' }}
 #'
 nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
-                  wild.bootstrap = TRUE, epsilon = 1e-5,
-                  maxit = 5000, ...) {
+                  epsilon = 1e-5, maxit = 5000, ...) {
 
   extra_args <- base::list(...)
   # backward compatibility
@@ -372,34 +355,14 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
   seed        <- if (!is.null(extra_args$seed)) extra_args$seed else 1
 
-  # inference settings
-  ## C.p.side default resolved from C.mode: two-sided for the sign-free
-  ## default (C is an interior parameter), one-sided for the non-negative
-  ## variant (boundary null H0: C = 0 vs H1: C > 0).
-  C.p.side <- if (!is.null(extra_args$C.p.side)) extra_args$C.p.side
-              else if (C.mode == "nonneg") "one.sided" else "two.sided"
-
-  # inference internals (fixed at defaults)
-  sigma2.hat  <- NULL
-  df.sigma    <- "PN-df"
-  C.info.mode <- "IminusH"
-  sandwich    <- TRUE
-  sandwich.cr1 <- TRUE
-  se.rule     <- "sandwich"
-  cov.ridge   <- 1e-8
-
-  # wild bootstrap
-  wild.B    <- if (!is.null(extra_args$wild.B)) extra_args$wild.B else 500
-  wild.seed <- if (!is.null(extra_args$wild.seed)) extra_args$wild.seed else 123
-
-  # wild bootstrap internals (fixed at defaults)
-  wild.level <- 0.95
+  ## NOTE: nmfre() performs optimization only. Hypothesis tests / standard errors
+  ## for Theta (= C) are obtained separately via nmfre.inference(), mirroring the
+  ## nmfkc() / nmfkc.inference() split.
 
   set.seed(seed)
   .eps <- 1e-10
 
   dfU.control <- match.arg(dfU.control, choices = c("cap", "off"))
-  C.p.side    <- match.arg(C.p.side, choices = c("one.sided", "two.sided"))
 
   # ---- dimensions ----
   P <- nrow(Y); N <- ncol(Y)
@@ -669,198 +632,6 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   trXtX <- sum(d_final)  # tr(X'X), using eigenvalues already computed
   ICC <- tau2 * trXtX / (tau2 * trXtX + sigma2 * P)
 
-  # =========================================================
-  # Inference on C
-  # =========================================================
-  C.vec.cov <- NULL
-  C.se <- NULL
-  C.se.hess <- NULL
-  C.se.boot <- NULL
-  coefficients <- NULL
-  sigma2_used <- sigma2.hat
-
-  C.ci.lower <- NULL
-  C.ci.upper <- NULL
-  C.boot.sd <- NULL
-
-  if (isTRUE(wild.bootstrap)) {
-
-    # Y_star for inference (conditioning on X,U)
-    Y_star_inf <- Y - X %*% U
-    R_C <- Y_star_inf - X %*% (C_mat %*% A)
-    RSS_inf <- sum(R_C^2)
-
-    lambda_inf <- sigma2 / pmax(tau2, 1e-12)
-
-    XtX_now <- crossprod(X)
-    AAt <- A %*% t(A)
-
-    M_inf <- XtX_now + diag(pmax(lambda_inf, 1e-12), Q)
-    cholM_inf <- tryCatch(chol(M_inf), error = function(e) NULL)
-    if (!is.null(cholM_inf)) {
-      Minv <- chol2inv(cholM_inf)
-    } else {
-      if (!requireNamespace("MASS", quietly = TRUE)) {
-        stop("Package 'MASS' is required for generalized inverse when Cholesky fails.")
-      }
-      Minv <- tryCatch(solve(M_inf), error = function(e) MASS::ginv(M_inf))
-    }
-
-    trH <- sum(diag(Minv %*% XtX_now))
-    dfU_inf <- N * trH
-
-    if (is.null(sigma2_used)) {
-      if (df.sigma == "PN") {
-        denom <- P * N
-      } else if (df.sigma == "PN-QR") {
-        denom <- max(P * N - Q * K, 1)
-      } else { # "PN-df"
-        dfC <- Q * K
-        denom <- max(P * N - dfU_inf - dfC, 1)
-      }
-      sigma2_used <- RSS_inf / denom
-    }
-
-    if (C.info.mode == "plain") {
-      Info_core <- kronecker(AAt, XtX_now)
-    } else {
-      Xt_IH_X <- XtX_now - XtX_now %*% Minv %*% XtX_now
-      Info_core <- kronecker(AAt, Xt_IH_X)
-    }
-
-    Info <- Info_core / max(sigma2_used, 1e-12)
-    Info <- Info + diag(cov.ridge, nrow(Info))
-
-    if (!requireNamespace("MASS", quietly = TRUE)) {
-      Hinv <- tryCatch(solve(Info), error = function(e) {
-        stop("Package 'MASS' is required for generalized inverse.")
-      })
-    } else {
-      Hinv <- tryCatch(solve(Info), error = function(e) MASS::ginv(Info))
-    }
-    V_naive <- Hinv
-
-    V_sand <- NULL
-    if (isTRUE(sandwich)) {
-      Xt <- t(X)
-      J <- matrix(0, Q * K, Q * K)
-
-      for (n in 1:N) {
-        a_n <- A[, n, drop = FALSE]
-        g_n <- Xt %*% R_C[, n, drop = FALSE]
-        S_n <- -(g_n %*% t(a_n)) / max(sigma2_used, 1e-12)
-        s_n <- as.vector(S_n)
-        J <- J + tcrossprod(s_n)
-      }
-
-      if (isTRUE(sandwich.cr1) && N > 1) {
-        J <- (N / (N - 1)) * J
-      }
-      V_sand <- Hinv %*% J %*% Hinv
-    }
-
-    if (se.rule == "naive") {
-      C.vec.cov <- V_naive
-    } else if (se.rule == "sandwich") {
-      C.vec.cov <- if (is.null(V_sand)) V_naive else V_sand
-    } else { # "max"
-      if (is.null(V_sand)) {
-        C.vec.cov <- V_naive
-      } else {
-        d1 <- pmax(diag(V_naive), 0)
-        d2 <- pmax(diag(V_sand), 0)
-        dmax <- pmax(d1, d2)
-        C.vec.cov <- V_naive
-        diag(C.vec.cov) <- dmax
-      }
-    }
-
-    se_vec <- sqrt(pmax(diag(C.vec.cov), 0))
-    C.se.hess <- matrix(se_vec, nrow = Q, ncol = K, byrow = FALSE)
-    dimnames(C.se.hess) <- dimnames(C_mat)
-
-    C.se <- C.se.hess
-
-    # ---- Multiplier (wild) bootstrap ----
-    set.seed(wild.seed)
-
-    Xt <- t(X)
-    score_mat <- matrix(0, Q * K, N)
-
-    for (n in 1:N) {
-      a_n <- A[, n, drop = FALSE]
-      r_n <- R_C[, n, drop = FALSE]
-      g_n <- Xt %*% r_n
-      G_n <- -(g_n %*% t(a_n)) / max(sigma2_used, 1e-12)
-      score_mat[, n] <- as.vector(G_n)
-    }
-
-    ## project to C >= 0 only for the non-negative variant; sign-free C is interior.
-    C_boot <- .boot.onestep(as.vector(C_mat), score_mat, Hinv, wild.B,
-                            dist = "exp", seed = wild.seed,
-                            project = (C.mode == "nonneg"))
-
-    alpha <- 1 - wild.level
-    lo_q <- alpha / 2
-    hi_q <- 1 - alpha / 2
-
-    lo <- apply(C_boot, 1, stats::quantile, probs = lo_q, na.rm = TRUE, names = FALSE)
-    hi <- apply(C_boot, 1, stats::quantile, probs = hi_q, na.rm = TRUE, names = FALSE)
-
-    C.ci.lower <- matrix(lo, nrow = Q, ncol = K, byrow = FALSE)
-    C.ci.upper <- matrix(hi, nrow = Q, ncol = K, byrow = FALSE)
-    dimnames(C.ci.lower) <- dimnames(C_mat)
-    dimnames(C.ci.upper) <- dimnames(C_mat)
-
-    sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
-    C.boot.sd <- matrix(sd_vec, nrow = Q, ncol = K, byrow = FALSE)
-    dimnames(C.boot.sd) <- dimnames(C_mat)
-
-    C.se.boot <- C.boot.sd
-
-    # ---- coefficients table ----
-    Estimate <- as.vector(C_mat)
-    SE_hess_vec <- as.vector(C.se.hess)
-    SE <- SE_hess_vec
-    BSE_vec <- as.vector(C.boot.sd)
-
-    z_value <- rep(NA_real_, length(Estimate))
-    ok <- is.finite(Estimate) & is.finite(SE) & (SE > 0)
-    z_value[ok] <- Estimate[ok] / SE[ok]
-
-    Wald <- rep(NA_real_, length(Estimate))
-    Wald[ok] <- z_value[ok]^2
-
-    p_two <- rep(NA_real_, length(Estimate))
-    p_two[ok] <- 1 - stats::pchisq(Wald[ok], df = 1)
-
-    p_one <- rep(NA_real_, length(Estimate))
-    p_one[ok] <- stats::pnorm(z_value[ok], lower.tail = FALSE)
-
-    p_value <- if (C.p.side == "one.sided") p_one else p_two
-
-    coefficients <- data.frame(
-      Basis     = rep(rownames(C_mat), times = K),
-      Covariate = rep(colnames(C_mat), each = Q),
-      Estimate = Estimate,
-      SE       = SE,
-      BSE      = BSE_vec,
-      z_value  = z_value,
-      Wald     = Wald,
-      p_value  = p_value,
-      p_two_sided = p_two,
-      p_one_sided = p_one,
-      p_side_used = C.p.side,
-      row.names = NULL,
-      stringsAsFactors = FALSE
-    )
-
-    if (!is.null(C.ci.lower) && !is.null(C.ci.upper)) {
-      coefficients$CI_low  <- as.vector(C.ci.lower)
-      coefficients$CI_high <- as.vector(C.ci.upper)
-    }
-  }
-
   # ---- convenience probabilities ----
   colnorm_prob <- function(M, eps = 1e-12) {
     cs <- colSums(M)
@@ -923,18 +694,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     r.squared.fixed.centered = r.squared.fixed.centered,
     ICC = ICC,
 
-    # inference outputs
-    sigma2.used = sigma2_used,
-    C.vec.cov = C.vec.cov,
-    C.se = C.se,
-    C.se.hess = C.se.hess,
-    C.se.boot = C.se.boot,
-    coefficients = coefficients,
-    C.ci.lower = C.ci.lower,
-    C.ci.upper = C.ci.upper,
-    C.boot.sd  = C.boot.sd,
-
-    C.p.side = C.p.side,
+    ## sign convention of C (used by nmfre.inference() to pick the test side)
     C.signed = (C.mode == "signed")
   )
 
@@ -1017,6 +777,9 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
   }
 
   # ---- coefficients ----
+  if (is.null(x$coefficients) || !is.data.frame(x$coefficients)) {
+    cat("\nCoefficients (Theta): run nmfre.inference(fit, Y, A) for SE / p-values.\n")
+  }
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cat("\nCoefficients:\n")
 

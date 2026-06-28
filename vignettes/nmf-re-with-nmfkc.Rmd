@@ -102,15 +102,17 @@ We fit the model with `rank = 1` (a single latent growth trend). No tuning param
 res <- nmfre(Y, A, rank = 1, prefix = "Trend")
 ```
 
-### 2.1 Model Summary
+### 2.1 Model Summary (fit)
 
-`summary()` displays variance components, fit statistics, and the coefficient table with significance stars.
+`nmfre()` performs **optimization only**. `summary()` on a freshly fitted
+object shows the variance components, fit statistics, and the $\mathrm{df}_U$
+diagnostic; standard errors and p-values for $\Theta$ are added in a separate
+inference step (Section 2.2), mirroring the `nmfkc()` / `nmfkc.inference()`
+split.
 
 ```{r summary}
 summary(res)
 ```
-
-### Understanding the Output
 
 **Variance components:**
 
@@ -128,16 +130,32 @@ cat("dfU     =", round(res$dfU, 2),
     "  dfU/(NQ) =", round(res$dfU.frac, 4), "\n")
 ```
 
+**R-squared:**
+
+- $R^2$ (XB+blup): Fit including both fixed and random effects.
+- $R^2$ (XB): Fit from fixed effects only --- the gap shows how much the random effects improve the fit.
+
+### 2.2 Inference on $\Theta$ with `nmfre.inference()`
+
+To obtain standard errors, z-values, p-values, and confidence intervals for
+$\Theta$, pass the fit to `nmfre.inference()` (sandwich SE + wild bootstrap,
+conditional on the estimated $\hat X, \hat U$). It returns the same object with
+the inference fields added, so `summary()` now prints the coefficient table.
+
+```{r inference}
+res <- nmfre.inference(res, Y, A, wild.B = 1000)
+summary(res)
+```
+
 **Coefficient table ($\Theta$):**
 
 - **Estimate**: Effect of each covariate on the latent trend.
 - **Std. Error**: Analytic (sandwich) standard error; the **(Boot)** column is the wild-bootstrap standard error.
 - **Pr(>|z|)**: With the default `C.signed = TRUE`, this is a **two-sided** p-value ($H_0: \Theta_{qk} = 0$). Both the intercept and the male effect are detected as statistically significant.
 
-**R-squared:**
-
-- $R^2$ (XB+blup): Fit including both fixed and random effects.
-- $R^2$ (XB): Fit from fixed effects only --- the gap shows how much the random effects improve the fit.
+The sidedness follows the fit: sign-free $\Theta$ (`C.signed = TRUE`) uses a
+two-sided test, while the non-negative variant (`C.signed = FALSE`) uses a
+one-sided (boundary) test.
 
 ---
 
@@ -283,18 +301,17 @@ The improvement from fixed-only $R^2$ to BLUP $R^2$ quantifies the contribution 
 
 ---
 
-## 7. Separated Inference with `nmfre.inference()`
+## 7. Why optimization and inference are separated
 
-You can separate optimization from statistical inference. First fit with `wild.bootstrap = FALSE` (faster), then run inference separately:
+Because `nmfre()` does not run the bootstrap, fitting is cheap --- useful when
+the model is fitted many times (rank selection, cross-validation). Run
+`nmfre.inference()` only on the final model, and re-run it (without re-fitting)
+to try different settings such as the number of bootstrap replicates,
+confidence level, or p-value sidedness:
 
-```{r separated-inference}
-# Fit without bootstrap (fast)
-res_fast <- nmfre(Y, A, rank = 1, prefix = "Trend",
-                  wild.bootstrap = FALSE)
-
-# Run inference separately (inherits the sign convention from the fit)
-res_inf <- nmfre.inference(res_fast, Y, A, wild.B = 500)
-res_inf$coefficients[, c("Basis", "Covariate", "Estimate", "SE", "p_value")]
+```{r reinference}
+# coefficient table from the inference object built in Section 2.2
+res$coefficients[, c("Basis", "Covariate", "Estimate", "SE", "p_value")]
 ```
 
 ### Visualization with `nmfkc.DOT()`
@@ -302,7 +319,7 @@ res_inf$coefficients[, c("Basis", "Covariate", "Estimate", "SE", "p_value")]
 The inference result is compatible with `nmfkc.DOT()` for graph visualization. Edges are filtered by significance level and decorated with stars:
 
 ```{r dot-visualization, eval=requireNamespace("DiagrammeR", quietly=TRUE)}
-dot <- nmfkc.DOT(res_inf, type = "YXA", sig.level = 0.05)
+dot <- nmfkc.DOT(res, type = "YXA", sig.level = 0.05)
 plot(dot)
 ```
 
@@ -314,6 +331,7 @@ When the latent scores are compositional or intensity-type and the covariate eff
 
 ```{r nonneg}
 res_nn <- nmfre(Y, A, rank = 1, prefix = "Trend", C.signed = FALSE)
+res_nn <- nmfre.inference(res_nn, Y, A, wild.B = 500)
 cat("All Theta >= 0 :", all(res_nn$C >= 0), "\n")
 cat("P-value side   :", res_nn$C.p.side, "\n")
 res_nn$coefficients[, c("Basis", "Covariate", "Estimate", "SE", "p_value")]
@@ -329,9 +347,9 @@ NMF-RE provides a principled way to model **individual heterogeneity** in NMF:
 
 | Step | Function | Purpose |
 |:---|:---|:---|
-| 1 | `nmfre()` | Fit the mixed-effects model (variances estimated by EM/ECM) |
-| 2 | `summary()` | Examine variance components and inference |
-| 3 | `nmfre.inference()` | Separated inference (optional) |
+| 1 | `nmfre()` | Fit the mixed-effects model (optimization only; variances estimated by EM/ECM) |
+| 2 | `nmfre.inference()` | Standard errors, p-values, and CIs for $\Theta$ |
+| 3 | `summary()` | Examine variance components and the coefficient table |
 | 4 | `nmfkc.DOT()` | Visualize with significance stars |
 
 **When to use NMF-RE:**
