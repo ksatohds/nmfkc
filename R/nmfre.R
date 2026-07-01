@@ -1168,3 +1168,179 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   object$C.p.side     <- C.p.side
   return(object)
 }
+
+
+# ============================================================
+# nmfre.ecv() - NMF-RE-native element-wise cross-validation
+# ============================================================
+
+#' @title NMF-RE element-wise cross-validation for rank selection
+#' @description
+#' Selects the basis rank \eqn{Q} for \code{\link{nmfre}} by Wold-style
+#' element-wise (entry-holdout) cross-validation that \strong{exercises the
+#' random effects}. For each fold the held-out entries are hidden and filled by
+#' iterative imputation: fit the NMF-RE model on the current matrix, replace the
+#' held-out entries with the BLUP prediction \eqn{X(\Theta A + U)}, and repeat.
+#' The score is the held-out prediction RMSE (\code{sigma.ecv}); the selected
+#' rank minimizes it.
+#'
+#' Because the held-out entries of a column are predicted using the random
+#' effect \eqn{u_n} fitted from that column's \emph{retained} entries, this
+#' evaluates the full NMF-RE model (including \eqn{U}) --- unlike
+#' \code{\link{nmfkc.ecv}}, which masks entries by zero weight and predicts from
+#' the fixed-effect fit \eqn{X\Theta A} only. The two scores are therefore
+#' \emph{not} directly comparable.
+#'
+#' @param Y Observation matrix (P x N), non-negative.
+#' @param A Covariate matrix (K x N). Default is a row of ones (intercept only).
+#' @param rank Integer vector of ranks \eqn{Q} to evaluate (default \code{1:3}).
+#' @param C.signed Logical. Sign convention for \eqn{\Theta} passed to each
+#'   \code{\link{nmfre}} fit (\code{TRUE} = sign-free, default; \code{FALSE} =
+#'   non-negative). The basis update rule follows this choice automatically.
+#' @param ... Additional arguments:
+#'   \itemize{
+#'     \item \code{nfold}: Number of folds (default 5).
+#'     \item \code{rounds}: Iterative-imputation rounds per fold (default 4).
+#'     \item \code{seed}: RNG seed for the fold assignment (default 1).
+#'     \item \code{print.trace}: Logical; print per-rank scores (default \code{FALSE}).
+#'     \item Convergence controls forwarded to \code{\link{nmfre}}:
+#'       \code{epsilon} (default \code{1e-5}), \code{epsilon.outer}
+#'       (default \code{1e-3}), \code{inner.maxit} (default \code{1500}),
+#'       \code{outer.maxit} (default \code{80}), \code{maxit}
+#'       (default \code{40000}). CV does not need the tight tolerances of a
+#'       final fit, so these are loosened by default.
+#'   }
+#' @return A list of class \code{"nmfre.ecv"} with components:
+#'   \describe{
+#'     \item{\code{rank}}{The ranks evaluated.}
+#'     \item{\code{sigma.ecv}}{Named numeric vector of held-out RMSE per rank.}
+#'     \item{\code{best}}{The rank minimizing \code{sigma.ecv}.}
+#'     \item{\code{nfold}, \code{rounds}, \code{C.signed}}{Settings used.}
+#'   }
+#' @seealso \code{\link{nmfre}}, \code{\link{nmfre.inference}}, \code{\link{nmfkc.ecv}}
+#' @export
+#' @examples
+#' \donttest{
+#' if (requireNamespace("nlme", quietly = TRUE)) {
+#'   Y <- matrix(nlme::Orthodont$distance, 4, 27)
+#'   male <- ifelse(nlme::Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
+#'   A <- rbind(intercept = 1, male = male)
+#'   cv <- nmfre.ecv(Y, A, rank = 1:3)
+#'   cv$best
+#'   plot(cv)
+#' }
+#' }
+nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
+  extra <- base::list(...)
+  if (!is.null(extra$Q)) rank <- extra$Q
+  nfold  <- if (!is.null(extra$nfold))  extra$nfold
+            else if (!is.null(extra$nfolds)) extra$nfolds else 5L
+  rounds <- if (!is.null(extra$rounds)) extra$rounds else 4L
+  seed   <- if (!is.null(extra$seed))   extra$seed   else 1L
+  print.trace <- isTRUE(extra$print.trace)
+  ## loosened CV tolerances (overridable via ...)
+  epsilon       <- if (!is.null(extra$epsilon))       extra$epsilon       else 1e-5
+  epsilon.outer <- if (!is.null(extra$epsilon.outer)) extra$epsilon.outer else 1e-3
+  inner.maxit   <- if (!is.null(extra$inner.maxit))   extra$inner.maxit   else 1500L
+  outer.maxit   <- if (!is.null(extra$outer.maxit))   extra$outer.maxit   else 80L
+  maxit         <- if (!is.null(extra$maxit))         extra$maxit         else 40000L
+
+  Y <- base::as.matrix(Y)
+  P <- base::nrow(Y); N <- base::ncol(Y)
+  if (is.null(A)) A <- base::matrix(1, nrow = 1, ncol = N)
+  A <- base::as.matrix(A)
+
+  base::set.seed(seed)
+  fold <- base::matrix(base::sample(base::rep(1:nfold, length.out = P * N)), P, N)  # fixed across ranks
+  rowm <- base::rowMeans(Y, na.rm = TRUE)
+  ridx <- base::row(Y)
+
+  ## one warm-started, output-silenced nmfre fit
+  fit_quiet <- function(fill, Q, Xi, Ci, Ui) {
+    tryCatch(
+      suppressMessages({
+        utils::capture.output(
+          f <- nmfre(fill, A, rank = Q, C.signed = C.signed,
+                     X.init = Xi, C.init = Ci, U.init = Ui,
+                     sigma2 = 1, tau2 = 1,
+                     epsilon = epsilon, epsilon.outer = epsilon.outer,
+                     inner.maxit = inner.maxit, outer.maxit = outer.maxit,
+                     maxit = maxit))
+        f
+      }),
+      error = function(e) {
+        if (print.trace) base::message("   fit err Q=", Q, ": ", base::conditionMessage(e))
+        NULL
+      })
+  }
+
+  sig <- stats::setNames(base::rep(NA_real_, length(rank)), base::as.character(rank))
+  for (Q in rank) {
+    sse <- 0; nt <- 0
+    for (k in 1:nfold) {
+      mask <- (fold == k)
+      fill <- Y; fill[mask] <- rowm[ridx[mask]]        # warm fill by row mean
+      Xi <- NULL; Ci <- NULL; Ui <- NULL; pred <- NULL
+      for (it in 1:rounds) {
+        f <- fit_quiet(fill, Q, Xi, Ci, Ui)
+        if (is.null(f)) break
+        pred <- f$XB.blup
+        fill[mask] <- pred[mask]                        # re-impute held-out
+        Xi <- f$X; Ci <- f$C; Ui <- f$U                 # warm-start next round
+      }
+      if (!is.null(pred)) {
+        sse <- sse + base::sum((Y[mask] - pred[mask])^2)
+        nt  <- nt  + base::sum(mask)
+      }
+    }
+    sig[base::as.character(Q)] <- if (nt > 0) base::sqrt(sse / nt) else NA_real_
+    if (print.trace) base::cat(sprintf("  Q=%d  sigma.ecv=%.4f\n", Q, sig[base::as.character(Q)]))
+  }
+
+  best <- rank[base::which.min(sig)]
+  out <- base::list(rank = rank, sigma.ecv = sig, best = best,
+                    nfold = nfold, rounds = rounds, C.signed = C.signed)
+  base::class(out) <- "nmfre.ecv"
+  out
+}
+
+#' @title Plot method for nmfre.ecv objects
+#' @description Draws the element-wise CV score (held-out RMSE) against the rank,
+#'   marking the minimizing rank as \dQuote{Best (Min)}.
+#' @param x An object of class \code{"nmfre.ecv"}.
+#' @param main Plot title.
+#' @param xlab,ylab Axis labels.
+#' @param ... Passed to \code{\link[graphics]{plot}}.
+#' @return The input object, invisibly.
+#' @seealso \code{\link{nmfre.ecv}}
+#' @export
+plot.nmfre.ecv <- function(x, main = "NMF-RE element-wise CV",
+                           xlab = "Rank (Q)",
+                           ylab = "sigma.ecv (held-out RMSE)", ...) {
+  rk <- x$rank; s <- base::as.numeric(x$sigma.ecv)
+  graphics::plot(rk, s, type = "b", pch = 19, xlab = xlab, ylab = ylab,
+                 main = main, ...)
+  if (base::any(is.finite(s))) {
+    bi <- base::which.min(s)
+    graphics::points(rk[bi], s[bi], pch = 19, col = "red", cex = 1.7)
+    ## place the label away from the plot edge; xpd=NA avoids clipping
+    lab.pos <- if (bi == 1L) 4 else if (bi == length(rk)) 2 else 3
+    graphics::text(rk[bi], s[bi], labels = "Best (Min)", pos = lab.pos,
+                   col = "red", xpd = NA)
+  }
+  invisible(x)
+}
+
+#' @title Print method for nmfre.ecv objects
+#' @param x An object of class \code{"nmfre.ecv"}.
+#' @param ... Not used.
+#' @return The input object, invisibly.
+#' @export
+print.nmfre.ecv <- function(x, ...) {
+  base::cat(sprintf("NMF-RE element-wise CV (%d-fold, %d imputation rounds, C.signed=%s)\n",
+                    x$nfold, x$rounds, base::as.character(x$C.signed)))
+  tab <- base::data.frame(rank = x$rank, sigma.ecv = base::as.numeric(x$sigma.ecv))
+  base::print(tab, row.names = FALSE)
+  base::cat(sprintf("Best rank (min sigma.ecv): %d\n", x$best))
+  invisible(x)
+}

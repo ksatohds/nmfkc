@@ -1,5 +1,18 @@
 # nmfkc 0.8.4 (development)
 
+### **`nmfre.ecv`: rank selection for NMF-RE**
+- New `nmfre.ecv()` selects the basis rank \eqn{Q} by Wold-style element-wise
+  (entry-holdout) cross-validation with iterative imputation, scoring the
+  held-out prediction RMSE (`sigma.ecv`). The held-out entries of a column are
+  predicted from that column's retained entries via the BLUP \eqn{X(\Theta A+U)},
+  so — unlike `nmfkc.ecv()` (zero-weight mask, fixed-effect prediction) — it
+  evaluates the full NMF-RE model including the random effects. Returns a
+  `"nmfre.ecv"` object with `print`/`plot` methods (the plot marks the
+  minimizing rank). Sign convention follows `C.signed`; CV tolerances are
+  loosened by default and overridable via `...`.
+
+
+
 ### **`nmfkc.DOT`: signed-coefficient graphs**
 - New argument `C.signed` lets `nmfkc.DOT()` draw graphs when \eqn{\Theta}
   (\code{= C}) is signed (real-valued), e.g. from `nmfre(C.signed = TRUE)` or
