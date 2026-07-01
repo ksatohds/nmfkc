@@ -1,5 +1,16 @@
 # nmfkc 0.8.4 (development)
 
+### **`nmf.rrr` / `nmfae` family: `rank1` / `rank2` arguments**
+- The two basis ranks of the NMF-RRR (tri-factorized) family are now the
+  symmetric `rank1` (response basis \eqn{X_1}) and `rank2` (covariate basis
+  \eqn{X_2}, default `rank1`), replacing the asymmetric `rank` / `rank.encoder`.
+  Applies across the whole family: `nmfae`/`nmfae.signed` and their
+  `.ecv`/`.cv`/`.rank`/`.kernel.beta.cv` helpers (and the `nmf.rrr*` aliases).
+  The legacy `rank` / `rank.encoder` (and `Q` / `R`) remain accepted for
+  backward compatibility, so existing calls keep working.
+
+
+
 ### **`nmfre.ecv`: rank selection for NMF-RE**
 - New `nmfre.ecv()` selects the basis rank \eqn{Q} by Wold-style element-wise
   (entry-holdout) cross-validation with iterative imputation, scoring the

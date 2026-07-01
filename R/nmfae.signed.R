@@ -48,10 +48,10 @@
 #'   (\code{Y.signed = TRUE} is auto-detected).
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N).  Must be non-negative.
 #'   Default \code{Y1} (autoencoder).
-#' @param rank Integer.  Decoder rank Q.  Default 2.
-#'   Alias \code{Q} accepted via \code{...}.
-#' @param rank.encoder Integer.  Encoder rank R.  Default \code{rank}.
-#'   Alias \code{R} accepted via \code{...}.
+#' @param rank1 Integer. Response-basis rank Q. Default 2.
+#' @param rank2 Integer. Covariate-basis rank R. Default (\code{NULL}) = \code{rank1}.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}
+#'   (\code{Q} / \code{R} also accepted via \code{...}).
 #' @param epsilon Relative convergence tolerance on the objective.
 #'   Default \code{1e-4}.
 #' @param maxit Maximum iterations.  Default 5000.
@@ -137,7 +137,7 @@
 #' set.seed(1)
 #' Y1 <- matrix(abs(rnorm(12)), 3, 4)
 #' Y2 <- matrix(abs(rnorm(20)), 5, 4)
-#' res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 500)
+#' res <- nmfae.signed(Y1, Y2, rank1 = 2, rank2 = 2, maxit = 500)
 #' summary(res)
 #' }
 #' @references
@@ -146,16 +146,22 @@
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
+nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
                        epsilon = 1e-4, maxit = 5000,
-                       verbose = FALSE, ...) {
+                       verbose = FALSE, ...,
+                       rank = NULL, rank.encoder = NULL) {
 
   cl <- match.call()
   extra_args <- list(...)
 
   ## ---- 1. Parameter extraction (compatibility with nmfae) ----
+  ## rank1 = response basis X1, rank2 = covariate basis X2 (default rank1);
+  ## legacy rank / rank.encoder (formals) and Q / R (via ...)
+  if (is.null(rank))          rank <- rank1
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
   if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
+  if (is.null(rank.encoder))  rank.encoder <- rank
   Q <- as.integer(rank)
   R <- as.integer(rank.encoder)
 
@@ -252,7 +258,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   tri_C_for_full <- NULL
   if (warm_mode %in% c("hybrid", "full") && !Y1_signed && !use_explicit_X) {
     if (print.trace) message("  Init: warm-start X1, X2 from nmfae() ...")
-    res0 <- nmfae(Y1, Y2, rank = Q, rank.encoder = R,
+    res0 <- nmfae(Y1, Y2, rank1 = Q, rank2 = R,
                           epsilon = epsilon, maxit = maxit,
                           verbose = FALSE, seed = seed)
     X1 <- res0$X1
@@ -1029,9 +1035,10 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'
 #' @param Y1 Output matrix (P1 x N).
 #' @param Y2 Input matrix (P2 x N).  Default \code{Y1}.
-#' @param rank Integer vector of candidate Q values.  Default \code{1:2}.
-#' @param rank.encoder Integer vector of candidate R values, or \code{NULL}
-#'   (default: pair R = Q, diagonal grid).
+#' @param rank1 Integer vector of candidate response-basis ranks. Default \code{1:2}.
+#' @param rank2 Integer vector of candidate covariate-basis ranks, or \code{NULL}
+#'   (default: pair rank2 = rank1, diagonal grid).
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}.
 #' @param ... Additional arguments:
 #'   \describe{
 #'     \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
@@ -1057,10 +1064,14 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
+nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
+                             rank = NULL, rank.encoder = NULL) {
   extra_ecv <- list(...)
-  if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
-  if (!is.null(extra_ecv$R)) rank.encoder <- extra_ecv$R
+  # rank1/rank2 = response/covariate basis ranks to sweep; legacy rank/rank.encoder/Q/R
+  if (is.null(rank))          rank <- rank1
+  if (!is.null(extra_ecv$Q))  rank <- extra_ecv$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
+  if (!is.null(extra_ecv$R))  rank.encoder <- extra_ecv$R
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds
             else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed)) extra_ecv$seed else 123
@@ -1129,7 +1140,9 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
 #' \code{\link{nmfae.signed.ecv}}.
 #' @param Y1 Endogenous matrix (\eqn{P_1 \times N}); may be signed.
 #' @param Y2 Exogenous matrix; defaults to \code{Y1}.
-#' @param rank Integer vector of (paired) ranks to evaluate.
+#' @param rank1 Integer vector of (paired) ranks to evaluate (both bases use
+#'   the same value). Legacy \code{Q} accepted via \code{...}.
+#' @param rank Deprecated alias of \code{rank1}.
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param detail \code{"full"} (default) also runs element-wise CV
 #'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
@@ -1149,23 +1162,27 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
 #' components in factor and principal components models.
 #' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 #' @export
-nmfae.signed.rank <- function(Y1, Y2 = Y1, rank = 1:5, detail = c("full", "fast"),
-                              plot = TRUE, ...) {
+nmfae.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
+                              plot = TRUE, ..., rank = NULL) {
+  extra <- list(...)
+  if (!is.null(rank))    rank1 <- rank
+  if (!is.null(extra$Q)) rank1 <- extra$Q
+  extra$Q <- NULL; extra$R <- NULL; extra$rank.encoder <- NULL
   detail <- match.arg(detail)
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
-  rs <- numeric(length(rank)); er <- numeric(length(rank))
-  for (i in seq_along(rank)) {
-    f <- suppressMessages(nmfae.signed(Y1, Y2, rank = rank[i],
-                                       rank.encoder = rank[i],
-                                       print.trace = FALSE, ...))
+  rs <- numeric(length(rank1)); er <- numeric(length(rank1))
+  for (i in seq_along(rank1)) {
+    f <- suppressMessages(do.call(nmfae.signed,
+           c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
+                  print.trace = FALSE), extra)))
     rs[i] <- f$r.squared
     er[i] <- .effective.rank(f$H)
   }
   ecv <- if (detail == "full")
-    suppressMessages(nmfae.signed.ecv(Y1, Y2, rank = rank, ...))$sigma
-    else rep(NA_real_, length(rank))
-  criteria <- data.frame(rank = rank, effective.rank = er,
-                         effective.rank.ratio = er / rank,
+    suppressMessages(do.call(nmfae.signed.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    else rep(NA_real_, length(rank1))
+  criteria <- data.frame(rank = rank1, effective.rank = er,
+                         effective.rank.ratio = er / rank1,
                          r.squared = rs, sigma.ecv = as.numeric(ecv))
   .rank.finish(criteria, plot = plot,
                main = "nmfae.signed rank selection (paired Q=R)")
@@ -1305,7 +1322,7 @@ print.summary.nmfae.signed.inference <- function(x,
 #' set.seed(1)
 #' Y1 <- matrix(abs(rnorm(12)), 3, 4)
 #' Y2 <- matrix(abs(rnorm(20)), 5, 4)
-#' res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 200)
+#' res <- nmfae.signed(Y1, Y2, rank1 = 2, rank2 = 2, maxit = 200)
 #' nmfae.signed.heatmap(res)
 #' }
 #' @section Lifecycle:

@@ -24,10 +24,12 @@
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Non-negative. May contain \code{NA}s
 #'   (handled via \code{Y1.weights}).
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N). Non-negative. Default is \code{Y1} (autoencoder).
-#' @param rank Integer. Rank of the decoder basis \eqn{X_1} (P1 x Q). Default is 2.
-#'   For backward compatibility, \code{Q} is accepted via \code{...}.
-#' @param rank.encoder Integer. Rank of the encoder basis \eqn{X_2} (R x P2).
-#'   Default is \code{rank}. For backward compatibility, \code{R} is accepted via \code{...}.
+#' @param rank1 Integer. Rank of the response basis \eqn{X_1} (P1 x Q). Default is 2.
+#' @param rank2 Integer. Rank of the covariate basis \eqn{X_2} (R x P2).
+#'   Default (\code{NULL}) sets \code{rank2 = rank1}.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2},
+#'   kept for backward compatibility (\code{Q} / \code{R} are also accepted via
+#'   \code{...}).
 #' @param epsilon Positive convergence tolerance. Default is \code{1e-4}.
 #' @param maxit Maximum number of multiplicative update iterations. Default is 5000.
 #' @param verbose Logical. If \code{TRUE}, prints progress messages during fitting. Default is \code{FALSE}.
@@ -97,23 +99,28 @@
 #' @examples
 #' # Autoencoder example
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-#' res <- nmfae(Y, rank=2, rank.encoder=2)
+#' res <- nmfae(Y, rank1=2, rank2=2)
 #' res$r.squared
 #'
 #' # Heteroencoder example
 #' Y1 <- matrix(c(1,0,0,1), nrow=2)
 #' Y2 <- matrix(runif(8), nrow=4)
-#' res2 <- nmfae(Y1, Y2, rank=2, rank.encoder=2)
+#' res2 <- nmfae(Y1, Y2, rank1=2, rank2=2)
 #'
-nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
-                  epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...) {
+nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
+                  epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...,
+                  rank = NULL, rank.encoder = NULL) {
 
   cl <- match.call()
 
   extra_args <- list(...)
-  # backward compatibility: Q -> rank, R -> rank.encoder
+  # rank1 = response basis X1, rank2 = covariate basis X2 (default rank1).
+  # Legacy rank / rank.encoder (formals, exact-matched) and Q / R (via ...).
+  if (is.null(rank))          rank <- rank1
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
   if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
+  if (is.null(rank.encoder))  rank.encoder <- rank
   Q <- rank
   R <- rank.encoder
   Y1.weights  <- if (!is.null(extra_args$Y1.weights))  extra_args$Y1.weights  else NULL
@@ -460,7 +467,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 #' @export
 #' @examples
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-#' res <- nmfae(Y, rank=2, rank.encoder=2)
+#' res <- nmfae(Y, rank1=2, rank2=2)
 #' res2 <- nmfae.inference(res, Y)
 #' summary(res2)
 #'
@@ -629,7 +636,7 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(15), nrow = 3)
-#' res <- nmfae(Y, rank = 2, rank.encoder = 2)
+#' res <- nmfae(Y, rank1 = 2, rank2 = 2)
 #' res <- nmfae.rename(res,
 #'   X1.colnames = c("Basis1", "Basis2"),
 #'   X2.rownames = c("Enc1", "Enc2"))
@@ -675,7 +682,7 @@ nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
+#' res <- nmfae(Y, rank1 = 2)
 #' plot(res)
 #' }
 #' @export
@@ -969,7 +976,7 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
+#' res <- nmfae(Y, rank1 = 2)
 #' nmfae.heatmap(res)
 #' }
 #' @export
@@ -1067,7 +1074,7 @@ nmfae.heatmap <- function(x,
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
+#' res <- nmfae(Y, rank1 = 2)
 #' pred <- predict(res)
 #' }
 #' @export
@@ -1118,7 +1125,7 @@ predict.nmfae <- function(object, newY2 = NULL, Y1 = NULL,
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
+#' res <- nmfae(Y, rank1 = 2)
 #' pred <- predict(res)
 #' plot(pred)
 #' }
@@ -1210,17 +1217,19 @@ plot.predict.nmfae <- function(x, ...) {
 #' held-out elements.
 #'
 #' This method (also known as Wold's CV) is suitable for determining the optimal
-#' rank pair \eqn{(Q, R)} in three-layer NMF. Both \code{rank} and \code{rank.encoder} accept
-#' vector inputs. When \code{rank.encoder = NULL} (default), \code{rank.encoder} is set equal to \code{rank}
+#' rank pair \eqn{(Q, R)} in three-layer NMF. Both \code{rank1} and \code{rank2} accept
+#' vector inputs. When \code{rank2 = NULL} (default), \code{rank2} is set equal to \code{rank1}
 #' and pairs are evaluated element-wise (i.e., \eqn{(Q_1, R_1), (Q_2, R_2), \dots}).
 #' When \code{rank.encoder} is explicitly specified, all combinations of \code{rank} and \code{rank.encoder}
 #' are evaluated via \code{expand.grid}.
 #'
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N).
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N). Default is \code{Y1}.
-#' @param rank Integer vector of decoder ranks to evaluate. Default is \code{1:2}.
-#' @param rank.encoder Integer vector of encoder ranks to evaluate. Default is \code{NULL},
-#'   which sets \code{rank.encoder = rank} and evaluates element-wise pairs.
+#' @param rank1 Integer vector of response-basis ranks to evaluate. Default is \code{1:2}.
+#' @param rank2 Integer vector of covariate-basis ranks to evaluate. Default is \code{NULL},
+#'   which sets \code{rank2 = rank1} and evaluates element-wise pairs.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}
+#'   (\code{Q} / \code{R} also accepted via \code{...}).
 #'   When explicitly specified, all combinations with \code{rank} are evaluated.
 #' @param ... Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
@@ -1243,17 +1252,21 @@ plot.predict.nmfae <- function(x, ...) {
 #' @export
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
-#' # Default: rank.encoder=NULL -> paired rank=rank.encoder
-#' res <- nmfae.ecv(Y, rank = 1:3, nfolds = 3, maxit = 500)
+#' # Default: rank2=NULL -> paired rank1=rank2
+#' res <- nmfae.ecv(Y, rank1 = 1:3, nfolds = 3, maxit = 500)
 #' res$sigma
 #' # Explicit rank.encoder: full grid
-#' res2 <- nmfae.ecv(Y, rank = 1:3, rank.encoder = 1:3, nfolds = 3, maxit = 500)
+#' res2 <- nmfae.ecv(Y, rank1 = 1:3, rank2 = 1:3, nfolds = 3, maxit = 500)
 #' res2$sigma
 #'
-nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
+nmfae.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
+                      rank = NULL, rank.encoder = NULL) {
   extra_ecv <- list(...)
-  if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
-  if (!is.null(extra_ecv$R)) rank.encoder <- extra_ecv$R
+  # rank1/rank2 = response/covariate basis ranks to sweep; legacy rank/rank.encoder/Q/R
+  if (is.null(rank))          rank <- rank1
+  if (!is.null(extra_ecv$Q))  rank <- extra_ecv$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
+  if (!is.null(extra_ecv$R))  rank.encoder <- extra_ecv$R
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed))   extra_ecv$seed   else 123
   Q <- rank; R <- rank.encoder
@@ -1321,7 +1334,9 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
 #' \code{\link{nmfae.ecv}} with \code{rank.encoder} and its heatmap.
 #' @param Y1 Endogenous matrix (\eqn{P_1 \times N}).
 #' @param Y2 Exogenous matrix; defaults to \code{Y1} (autoencoder).
-#' @param rank Integer vector of (paired) ranks to evaluate.
+#' @param rank1 Integer vector of (paired) ranks to evaluate (both bases use
+#'   the same value). Legacy \code{Q} accepted via \code{...}.
+#' @param rank Deprecated alias of \code{rank1}.
 #' @param detail \code{"full"} (default) also runs element-wise CV
 #'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
 #'   eff.rank only, and recommends the R-squared elbow).
@@ -1341,23 +1356,27 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
 #' components in factor and principal components models.
 #' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 #' @export
-nmfae.rank <- function(Y1, Y2 = Y1, rank = 1:5, detail = c("full", "fast"),
-                       plot = TRUE, ...) {
+nmfae.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
+                       plot = TRUE, ..., rank = NULL) {
+  extra <- list(...)
+  # sweep a single rank for both bases; legacy rank (formal) / Q (via ...)
+  if (!is.null(rank))    rank1 <- rank
+  if (!is.null(extra$Q)) rank1 <- extra$Q
+  extra$Q <- NULL; extra$R <- NULL; extra$rank.encoder <- NULL
   detail <- match.arg(detail)
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
-  rs <- numeric(length(rank)); er <- numeric(length(rank))
-  for (i in seq_along(rank)) {
-    f <- suppressMessages(nmfae(Y1, Y2, rank = rank[i],
-                                rank.encoder = rank[i],
-                                print.trace = FALSE, ...))
+  rs <- numeric(length(rank1)); er <- numeric(length(rank1))
+  for (i in seq_along(rank1)) {
+    f <- suppressMessages(do.call(nmfae, c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
+                                                print.trace = FALSE), extra)))
     rs[i] <- f$r.squared
     er[i] <- .effective.rank(f$H)
   }
   ecv <- if (detail == "full")
-    suppressMessages(nmfae.ecv(Y1, Y2, rank = rank, ...))$sigma
-    else rep(NA_real_, length(rank))
-  criteria <- data.frame(rank = rank, effective.rank = er,
-                         effective.rank.ratio = er / rank,
+    suppressMessages(do.call(nmfae.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    else rep(NA_real_, length(rank1))
+  criteria <- data.frame(rank = rank1, effective.rank = er,
+                         effective.rank.ratio = er / rank1,
                          r.squared = rs, sigma.ecv = as.numeric(ecv))
   .rank.finish(criteria, plot = plot, main = "nmfae rank selection (paired Q=R)")
 }
@@ -1466,8 +1485,9 @@ plot.nmfae.ecv <- function(x, ...) {
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Non-negative.
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N), or a kernel matrix (N x N).
 #'   Default is \code{Y1} (autoencoder).
-#' @param rank Integer. Rank of the decoder basis. Default is 2.
-#' @param rank.encoder Integer. Rank of the encoder basis. Default is \code{rank}.
+#' @param rank1 Integer. Rank of the response basis. Default is 2.
+#' @param rank2 Integer. Rank of the covariate basis. Default (\code{NULL}) = \code{rank1}.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}.
 #' @param ... Additional arguments passed to \code{\link{nmfae}}
 #'   (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
@@ -1490,13 +1510,17 @@ plot.nmfae.ecv <- function(x, ...) {
 #' @export
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
-#' res <- nmfae.cv(Y, rank = 2, rank.encoder = 2, nfolds = 5, maxit = 500)
+#' res <- nmfae.cv(Y, rank1 = 2, rank2 = 2, nfolds = 5, maxit = 500)
 #' res$sigma
 #'
-nmfae.cv <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank, ...) {
+nmfae.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
+                     rank = NULL, rank.encoder = NULL) {
   extra_cv <- list(...)
-  if (!is.null(extra_cv$Q)) rank <- extra_cv$Q
-  if (!is.null(extra_cv$R)) rank.encoder <- extra_cv$R
+  if (is.null(rank))          rank <- rank1
+  if (!is.null(extra_cv$Q))   rank <- extra_cv$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
+  if (!is.null(extra_cv$R))   rank.encoder <- extra_cv$R
+  if (is.null(rank.encoder))  rank.encoder <- rank
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
   seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else 123
   shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
@@ -1650,8 +1674,9 @@ plot.nmfae.cv <- function(x, ...) {
 #' \code{\link{nmfkc.kernel.beta.nearest.med}}.
 #'
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Non-negative.
-#' @param rank Integer. Rank of the decoder basis. Default is 2.
-#' @param rank.encoder Integer. Rank of the encoder basis. Default is \code{rank}.
+#' @param rank1 Integer. Rank of the response basis. Default is 2.
+#' @param rank2 Integer. Rank of the covariate basis. Default (\code{NULL}) = \code{rank1}.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}.
 #' @param U Covariate matrix \eqn{U} (K x M). Rows are features, columns are samples
 #'   (or knot points for non-symmetric kernels).
 #' @param V Covariate matrix \eqn{V} (K x N). If \code{NULL} (default), \code{V = U}
@@ -1676,17 +1701,21 @@ plot.nmfae.cv <- function(x, ...) {
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' U <- matrix(cars$speed, nrow = 1)
-#' res <- nmfae.kernel.beta.cv(Y, rank = 1, rank.encoder = 1, U = U,
+#' res <- nmfae.kernel.beta.cv(Y, rank1 = 1, rank2 = 1, U = U,
 #'                              beta = c(0.01, 0.02, 0.05), nfolds = 5)
 #' res$beta
 #'
-nmfae.kernel.beta.cv <- function(Y1, rank = 2, rank.encoder = rank, U, V = NULL,
-                                  beta = NULL, plot = TRUE, ...) {
+nmfae.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
+                                  beta = NULL, plot = TRUE, ...,
+                                  rank = NULL, rank.encoder = NULL) {
 
   extra_args <- list(...)
-  # backward compat: Q -> rank, R -> rank.encoder
+  # rank1/rank2 = response/covariate basis ranks; legacy rank/rank.encoder/Q/R
+  if (is.null(rank))          rank <- rank1
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
   if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
+  if (is.null(rank.encoder))  rank.encoder <- rank
   extra_args <- extra_args[!names(extra_args) %in% c("Q", "R")]
 
   # Separate kernel-specific args from cv/nmfae args
@@ -1811,7 +1840,7 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
+#' res <- nmfae(Y, rank1 = 2)
 #' dot <- nmfae.DOT(res)
 #' }
 #' @export

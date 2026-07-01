@@ -7,10 +7,11 @@
 nmfae.rank(
   Y1,
   Y2 = Y1,
-  rank = 1:5,
+  rank1 = 1:5,
   detail = c("full", "fast"),
   plot = TRUE,
-  ...
+  ...,
+  rank = NULL
 )
 }
 \arguments{
@@ -18,7 +19,8 @@ nmfae.rank(
 
 \item{Y2}{Exogenous matrix; defaults to \code{Y1} (autoencoder).}
 
-\item{rank}{Integer vector of (paired) ranks to evaluate.}
+\item{rank1}{Integer vector of (paired) ranks to evaluate (both bases use
+the same value). Legacy \code{Q} accepted via \code{...}.}
 
 \item{detail}{\code{"full"} (default) also runs element-wise CV
 (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
@@ -28,6 +30,8 @@ eff.rank only, and recommends the R-squared elbow).}
 
 \item{...}{Passed on to \code{\link{nmfae}} and \code{\link{nmfae.ecv}}
 (e.g.\ \code{maxit}, \code{nfolds}, \code{seed}).}
+
+\item{rank}{Deprecated alias of \code{rank1}.}
 }
 \value{
 A list with \code{rank.best} and \code{criteria}

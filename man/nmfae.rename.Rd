@@ -30,7 +30,7 @@ such as \code{summary}, \code{nmfae.DOT}, and \code{nmfae.heatmap}.
 \donttest{
 set.seed(1)
 Y <- matrix(runif(15), nrow = 3)
-res <- nmfae(Y, rank = 2, rank.encoder = 2)
+res <- nmfae(Y, rank1 = 2, rank2 = 2)
 res <- nmfae.rename(res,
   X1.colnames = c("Basis1", "Basis2"),
   X2.rownames = c("Enc1", "Enc2"))

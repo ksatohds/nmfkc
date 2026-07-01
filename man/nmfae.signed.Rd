@@ -7,12 +7,14 @@
 nmfae.signed(
   Y1,
   Y2 = Y1,
-  rank = 2,
-  rank.encoder = rank,
+  rank1 = 2,
+  rank2 = NULL,
   epsilon = 1e-04,
   maxit = 5000,
   verbose = FALSE,
-  ...
+  ...,
+  rank = NULL,
+  rank.encoder = NULL
 )
 }
 \arguments{
@@ -22,11 +24,9 @@ nmfae.signed(
 \item{Y2}{Input matrix \eqn{Y_2} (P2 x N).  Must be non-negative.
 Default \code{Y1} (autoencoder).}
 
-\item{rank}{Integer.  Decoder rank Q.  Default 2.
-Alias \code{Q} accepted via \code{...}.}
+\item{rank1}{Integer. Response-basis rank Q. Default 2.}
 
-\item{rank.encoder}{Integer.  Encoder rank R.  Default \code{rank}.
-Alias \code{R} accepted via \code{...}.}
+\item{rank2}{Integer. Covariate-basis rank R. Default (\code{NULL}) = \code{rank1}.}
 
 \item{epsilon}{Relative convergence tolerance on the objective.
 Default \code{1e-4}.}
@@ -78,6 +78,9 @@ Default \code{FALSE}.}
 \item{\code{prefix.dec}, \code{prefix.enc}}{Label prefixes for
 decoder/encoder factors.  Default \code{"Dec"}, \code{"Enc"}.}
 }}
+
+\item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2}
+(\code{Q} / \code{R} also accepted via \code{...}).}
 }
 \value{
 An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
@@ -131,7 +134,7 @@ This function is \strong{experimental}; interface may change.
 set.seed(1)
 Y1 <- matrix(abs(rnorm(12)), 3, 4)
 Y2 <- matrix(abs(rnorm(20)), 5, 4)
-res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 500)
+res <- nmfae.signed(Y1, Y2, rank1 = 2, rank2 = 2, maxit = 500)
 summary(res)
 }
 }

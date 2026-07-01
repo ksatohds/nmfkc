@@ -11,12 +11,14 @@ to Multivariate Time Series. \emph{Japanese Journal of Statistics and Data Scien
 nmfae(
   Y1,
   Y2 = Y1,
-  rank = 2,
-  rank.encoder = rank,
+  rank1 = 2,
+  rank2 = NULL,
   epsilon = 1e-04,
   maxit = 5000,
   verbose = FALSE,
-  ...
+  ...,
+  rank = NULL,
+  rank.encoder = NULL
 )
 }
 \arguments{
@@ -25,11 +27,10 @@ nmfae(
 
 \item{Y2}{Input matrix \eqn{Y_2} (P2 x N). Non-negative. Default is \code{Y1} (autoencoder).}
 
-\item{rank}{Integer. Rank of the decoder basis \eqn{X_1} (P1 x Q). Default is 2.
-For backward compatibility, \code{Q} is accepted via \code{...}.}
+\item{rank1}{Integer. Rank of the response basis \eqn{X_1} (P1 x Q). Default is 2.}
 
-\item{rank.encoder}{Integer. Rank of the encoder basis \eqn{X_2} (R x P2).
-Default is \code{rank}. For backward compatibility, \code{R} is accepted via \code{...}.}
+\item{rank2}{Integer. Rank of the covariate basis \eqn{X_2} (R x P2).
+Default (\code{NULL}) sets \code{rank2 = rank1}.}
 
 \item{epsilon}{Positive convergence tolerance. Default is \code{1e-4}.}
 
@@ -68,6 +69,10 @@ initialisation steps (passed to the k-means initialiser of the
 before inference.}
 \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
 }}
+
+\item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2},
+kept for backward compatibility (\code{Q} / \code{R} are also accepted via
+\code{...}).}
 }
 \value{
 An object of class \code{"nmfae"}, a list with components:
@@ -109,13 +114,13 @@ This function is \strong{experimental}. The interface may change in future versi
 \examples{
 # Autoencoder example
 Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-res <- nmfae(Y, rank=2, rank.encoder=2)
+res <- nmfae(Y, rank1=2, rank2=2)
 res$r.squared
 
 # Heteroencoder example
 Y1 <- matrix(c(1,0,0,1), nrow=2)
 Y2 <- matrix(runif(8), nrow=4)
-res2 <- nmfae(Y1, Y2, rank=2, rank.encoder=2)
+res2 <- nmfae(Y1, Y2, rank1=2, rank2=2)
 
 }
 \references{

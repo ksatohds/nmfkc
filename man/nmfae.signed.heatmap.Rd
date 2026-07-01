@@ -58,7 +58,7 @@ future versions.
 set.seed(1)
 Y1 <- matrix(abs(rnorm(12)), 3, 4)
 Y2 <- matrix(abs(rnorm(20)), 5, 4)
-res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 200)
+res <- nmfae.signed(Y1, Y2, rank1 = 2, rank2 = 2, maxit = 200)
 nmfae.signed.heatmap(res)
 }
 }

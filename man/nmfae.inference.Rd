@@ -53,7 +53,7 @@ future versions; details are to be described in an upcoming paper.
 
 \examples{
 Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-res <- nmfae(Y, rank=2, rank.encoder=2)
+res <- nmfae(Y, rank1=2, rank2=2)
 res2 <- nmfae.inference(res, Y)
 summary(res2)
 
