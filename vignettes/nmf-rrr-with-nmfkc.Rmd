@@ -1,0 +1,205 @@
+---
+title: "Co-clustering two variable blocks with NMF-RRR (nmf.rrr)"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Co-clustering two variable blocks with NMF-RRR (nmf.rrr)}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+# Data-dependent chunks run only when ade4 (source of the Doubs data) is
+# installed, so the vignette still builds on machines without it.
+has_ade4 <- requireNamespace("ade4", quietly = TRUE)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment  = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  eval = has_ade4
+)
+```
+
+## Introduction
+
+Many studies measure **two blocks of variables on the same individuals** -- a
+block of *covariates* (inputs) and a block of *responses* (outputs) -- and ask
+how *groups* of covariates relate to *groups* of responses. `nmf.rrr()` answers
+this by starting from the multivariate linear regression
+\eqn{Y_1 \approx M Y_2} of the responses on the covariates and giving its
+non-negative regression coefficient matrix a **tri-factorization**
+
+\deqn{Y_1 \;\approx\; X_1\,\Theta\,X_2\,Y_2,\qquad X_1,X_2\ge 0,\ \Theta\ge 0,}
+
+where \eqn{X_1} (each column summing to one) softly clusters the **response
+variables**, \eqn{X_2} (each row summing to one) softly clusters the
+**covariate variables**, and \eqn{\Theta} is a tested \eqn{Q\times R} matrix of
+**block correspondences**. Because \eqn{M = X_1\Theta X_2} has
+rank \eqn{\le \min(Q,R)}, this is the non-negative, parts-based member of the
+reduced-rank regression (RRR) family -- hence *NMF-RRR* -- related to RRR as
+NMF is to PCA.
+
+`nmf.rrr()` and its `nmf.rrr.*` helpers are thin aliases for the `nmfae()`
+family; the names emphasise the reduced-rank-regression reading.
+
+This vignette reproduces the **Doubs** example (community ecology), where a
+single dominant upstream--downstream gradient aligns both blocks, so the
+correspondence \eqn{\Theta} is a clean *permutation*.
+
+```{r lib}
+library(nmfkc)
+```
+
+```{r no-ade4, eval = !has_ade4, echo = FALSE, results = "asis"}
+cat("> **Note:** this vignette needs the `ade4` package for the Doubs data.",
+    "Install it with `install.packages(\"ade4\")` to run the code below.\n")
+```
+
+## The Doubs data
+
+The Doubs data (Verneaux, 1973) record `27` fish species and `11` environmental
+variables at `30` sites along a French river -- a classic illustration of
+canonical (correspondence) analysis. We take the fish abundances as the
+**response** block \eqn{Y_1} and the environmental variables as the
+**covariate** block \eqn{Y_2}.
+
+Each variable is mapped to \eqn{[0,1]} by a per-variable min--max transform
+(`nmfkc.normalize()`), which makes the sign-free environmental variables
+non-negative, and both blocks are laid out as *variables* \eqn{\times}
+*sites* (\eqn{P \times N}).
+
+```{r data}
+data(doubs, package = "ade4")
+
+# per-variable min-max to [0,1], then transpose to (variables x sites)
+nz <- function(M) t(nmfkc.normalize(as.matrix(M)))
+Y1 <- nz(doubs$fish)   # responses: 27 fish species x 30 sites
+Y2 <- nz(doubs$env)    # covariates: 11 environment x 30 sites
+dim(Y1)
+dim(Y2)
+```
+
+## Fitting NMF-RRR
+
+Element-wise cross-validation (below) selects \eqn{Q=R=2}. Signed models and
+inference benefit from several k-means restarts, so we set `nstart = 20` and a
+tight tolerance.
+
+```{r fit}
+fit <- nmf.rrr(Y1, Y2, rank1 = 2, rank2 = 2,
+               epsilon = 1e-8, nstart = 20, seed = 1)
+
+# in-sample, column-centered R^2
+Y1hat <- fit$X1 %*% fit$C %*% fit$X2 %*% Y2
+R2 <- 1 - sum((Y1 - Y1hat)^2) / sum((Y1 - rowMeans(Y1))^2)
+round(R2, 3)
+```
+
+The fit is `R2 = 0.435`, reproducing the classical longitudinal zonation of the
+river.
+
+### Response groups (fish guilds)
+
+Each column of \eqn{X_1} is a probability vector over the fish species; the top
+species per column name the guild.
+
+```{r resp-groups}
+for (q in 1:ncol(fit$X1))
+  cat(sprintf("Resp%d: %s\n", q,
+      paste(rownames(Y1)[order(-fit$X1[, q])[1:6]], collapse = ", ")))
+```
+
+`Resp1` is a **cold-water upstream guild** (brown trout *Satr*, *Phph*, *Neba*,
+*Cogo*, grayling *Thth*) and `Resp2` a **warm-water downstream guild** (roach
+*Ruru*, *Gogo*, barbel *Baba*, *Alal*).
+
+### Covariate groups (environmental gradients)
+
+Each row of \eqn{X_2} is a probability vector over the environmental variables.
+
+```{r cov-groups}
+for (r in 1:nrow(fit$X2))
+  cat(sprintf("Cov%d: %s\n", r,
+      paste(rownames(Y2)[order(-fit$X2[r, ])[1:5]], collapse = ", ")))
+```
+
+`Cov1` is a **nutrient / downstream gradient** (distance from source `dfs`,
+flow `flo`, nitrate `nit`, BOD `bdo`) and `Cov2` an **oxic / upstream gradient**
+(dissolved oxygen `oxy`, altitude `alt`, pH, slope `slo`).
+
+## Choosing the two ranks
+
+Because the attainable fit is bounded by \eqn{\min(Q,R)}, the *in-sample* fit
+cannot choose the ranks; we use **element-wise cross-validation**
+(`nmf.rrr.ecv()`), which holds out entries of \eqn{Y_1} and predicts them.
+
+```{r ecv}
+ecv <- nmf.rrr.ecv(Y1, Y2, rank1 = 1:2, rank2 = 1:2,
+                   nfolds = 5, seed = 123)
+round(ecv$sigma, 4)
+```
+
+The smallest hold-out error is at \eqn{Q=R=2}.
+
+## Inference for the correspondence matrix \eqn{\Theta}
+
+The entries of \eqn{\Theta} say how strongly each covariate group drives each
+response group. `nmf.rrr.inference()` attaches standard errors (Fisher +
+wild bootstrap) and a **one-sided boundary test** \eqn{H_0:\theta_{qr}=0}
+(each \eqn{\theta_{qr}\ge 0}).
+
+```{r inference}
+inf <- nmf.rrr.inference(fit, Y1, Y2)
+co  <- inf$coefficients
+print(format(co[order(co$p_value), c("Basis","Covariate","Estimate","SE","z_value","p_value")],
+             digits = 3))
+```
+
+\eqn{\Theta} is a **near-permutation**: the upstream guild is driven by the
+oxic gradient and the downstream guild by the nutrient gradient (both
+\eqn{p<0.001}), while the two off-diagonal paths are essentially zero
+(\eqn{p=0.5}).
+
+```{r theta}
+round(fit$C, 3)
+```
+
+## Visualising \eqn{\Theta} and the two co-clusterings
+
+`nmf.rrr.heatmap()` shows the response basis \eqn{X_1}, the correspondence
+\eqn{\Theta}, and the covariate basis \eqn{X_2} together.
+
+```{r heatmap, fig.width = 7.5, fig.height = 4}
+nmf.rrr.heatmap(fit)
+```
+
+## Relation to other methods
+
+Dropping non-negativity, \eqn{Y_1\approx M Y_2} at rank \eqn{\min(Q,R)} is
+ordinary **reduced-rank regression** (RRR): it attains a higher in-sample fit
+(\eqn{R^2\approx 0.66} on Doubs) but returns *signed* loadings and no clusters.
+On these data the two share the dominant fitted direction (leading
+principal-angle cosine \eqn{\approx 0.99}); they differ in the *basis* of that
+subspace -- non-negative parts versus signed singular directions -- exactly as
+NMF relates to PCA. An unsupervised **tri-NMF** of the association
+\eqn{Y_1 Y_2^\top} recovers the *same* guilds and gradients here (the gradient
+is so dominant that supervised and unsupervised co-clusterings coincide), but,
+unlike NMF-RRR, cannot predict the community at a new site through
+\eqn{\hat y_1 = X_1\Theta X_2\, y_2}.
+
+When within-block and cross-block structure disagree -- e.g. under
+\eqn{p>n} -- the non-negative, normalized parameterization of NMF-RRR stays
+well-behaved and exposes *cross-structure* (one response group driven by
+several covariate groups) that these baselines miss; see the paper for the
+nutrimouse and microbiome--metabolome examples.
+
+## References
+
+- Satoh, K. & Tokuda, Y. Co-clustering of Response and Covariate Variables by
+  Tri-Factorizing Their Non-negative Regression Coefficient Matrix
+  (manuscript).
+- Ding, C., Li, T., Peng, W. & Park, H. (2006). Orthogonal nonnegative matrix
+  tri-factorizations for clustering. *KDD*.
+- Verneaux, J. (1973). *Cours d'eau de Franche-Comté*. PhD thesis. (Doubs data,
+  R package `ade4`.)
+```
