@@ -745,9 +745,9 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 ## Internal: X initialization by named method.
 ## Shared across NMF variants (nmfkc, nmf.sem, ...) to avoid duplication
-## of the "nndsvd" / "kmeans" / "kmeansar" / "runif" dispatch logic.
+## of the "nndsvd" / "kmeans" / "kmeansar" / "kmeans++" / "runif" dispatch logic.
 ##
-## @param method  One of "nndsvd", "kmeans", "kmeansar", "runif".
+## @param method  One of "nndsvd", "kmeans", "kmeansar", "kmeans++", "runif".
 ## @param Y       A P x N reference matrix used for SVD (nndsvd) or
 ##                column clustering (kmeans/kmeansar).  For "runif" only
 ##                its dimensions matter.  Must contain no NA.
@@ -762,6 +762,25 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 ##                Default 100.
 ## @return A P x Q non-negative matrix.  Column normalization is the
 ##         caller's responsibility.
+## Internal: k-means++ seeding (Arthur & Vassilvitskii 2007, SODA).
+## Chooses k initial centres from the rows of `pts` (N x d) by D^2 weighting:
+## the first centre uniformly at random, each subsequent centre with probability
+## proportional to its squared distance to the nearest already-chosen centre.
+## Returns a k x d matrix of centres (for stats::kmeans(centers = ...)).
+.kmeanspp.seed <- function(pts, k) {
+  N <- nrow(pts)
+  centers <- matrix(0, nrow = k, ncol = ncol(pts))
+  i1 <- sample.int(N, 1L)
+  centers[1, ] <- pts[i1, ]
+  d2 <- colSums((t(pts) - pts[i1, ])^2)          # squared dist to first centre
+  for (j in seq_len(k)[-1]) {
+    idx <- if (sum(d2) > 0) sample.int(N, 1L, prob = d2) else sample.int(N, 1L)
+    centers[j, ] <- pts[idx, ]
+    d2 <- pmin(d2, colSums((t(pts) - pts[idx, ])^2))
+  }
+  centers
+}
+
 .init_X_method <- function(method, Y, Q,
                             seed = NULL,
                             nstart = 10,
@@ -787,11 +806,21 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
         X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
     }
     X
+  } else if (identical(method, "kmeans++") || identical(method, "kmeanspp")) {
+    ## D^2-weighted seeding then Lloyd refinement (Arthur & Vassilvitskii 2007).
+    ## nstart is not used here: the single careful seeding replaces random
+    ## restarts. Falls back to the raw seeds if stats::kmeans() fails.
+    if (N >= Q) {
+      seeds <- .kmeanspp.seed(t(Y), Q)           # Q x P centre matrix
+      res <- tryCatch(stats::kmeans(t(Y), centers = seeds, iter.max = kmeans.maxit),
+                      error = function(e) NULL)
+      if (!is.null(res)) t(res$centers) else t(seeds)
+    } else matrix(stats::runif(P * Q), P, Q)
   } else if (identical(method, "runif")) {
     matrix(stats::runif(P * Q), P, Q)
   } else {
     stop(".init_X_method: method must be one of \"nndsvd\", \"kmeans\", ",
-         "\"kmeansar\", \"runif\"; got \"", method, "\".")
+         "\"kmeansar\", \"kmeans++\", \"runif\"; got \"", method, "\".")
   }
 }
 
@@ -2159,7 +2188,7 @@ print.nmf.rank <- function(x, ...) {
 #'     \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 #'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 #'       \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
-#'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
+#'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"kmeans++"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar. \code{"kmeans++"} seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur & Vassilvitskii, 2007) before Lloyd refinement, giving a more careful, stable initialization (\code{nstart} is not used in this case).
 #'     \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 #'       Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 #'       multi-start evaluation (when \code{X.init = "runif"}).

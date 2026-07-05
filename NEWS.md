@@ -1,5 +1,17 @@
 # nmfkc 0.8.4 (development)
 
+### **`X.init = "kmeans++"` basis initialization**
+- New basis-initialization option `X.init = "kmeans++"` (alias `"kmeanspp"`)
+  seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur &
+  Vassilvitskii, 2007, SODA) before Lloyd refinement, giving a more careful,
+  \eqn{\Theta(\log k)}-competitive initialization than uniform-random seeding.
+  Available wherever the shared initializer is used (`nmfkc` and, through it,
+  `nmfae` / `nmfre` etc.). The default remains `"kmeans"` (unchanged results);
+  `nstart` is not used for `"kmeans++"` (one careful seeding replaces random
+  restarts).
+
+
+
 ### **`nmf.rrr` / `nmfae` family: `rank1` / `rank2` arguments**
 - The two basis ranks of the NMF-RRR (tri-factorized) family are now the
   symmetric `rank1` (response basis \eqn{X_1}) and `rank2` (covariate basis
