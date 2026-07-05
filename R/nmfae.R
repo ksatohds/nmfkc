@@ -131,6 +131,12 @@ nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   ## Multi-start for the nmfkc() initialisation steps (k-means nstart).
   ## Default 1 keeps the historical single-start behaviour.
   nstart      <- if (!is.null(extra_args$nstart))      extra_args$nstart      else 1
+  ## Basis-init method forwarded to the two internal nmfkc() init steps
+  ## (X1 from Y1, X2 from Y2). Default "kmeans"; "kmeans++" etc. are accepted.
+  ## Only string methods are forwarded (a user matrix is not meaningful for the
+  ## paired bases); matrices fall back to the default.
+  X.init      <- if (!is.null(extra_args$X.init))      extra_args$X.init      else "kmeans"
+  X.init.method <- if (is.character(X.init)) X.init else "kmeans"
   ## Objective: Euclidean distance "EU" (default) or KL divergence "KL".
   method      <- if (!is.null(extra_args$method))
                    match.arg(extra_args$method, c("EU", "KL")) else "EU"
@@ -188,7 +194,7 @@ nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   # Step 1: X1 from nmfkc(Y1, rank=Q)
   if (print.trace) message("  Init step 1: nmfkc(Y1, rank=Q)...")
   res1 <- nmfkc(Y1, rank = Q, seed = seed, nstart = nstart, print.dims = FALSE,
-                Y.weights = Y1.weights)
+                X.init = X.init.method, Y.weights = Y1.weights)
   X1 <- res1$X  # P1 x Q, column sum 1
 
   # Step 2: CX2 = C X2 with X1 fixed
@@ -201,7 +207,8 @@ nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
   # Step 3: X2 from nmfkc(Y2, rank=R), then C from CX2 ≈ C X2
   if (print.trace) message("  Init step 3: nmfkc(Y2, rank=R)...")
-  res3 <- nmfkc(Y2, rank = R, seed = seed, nstart = nstart, print.dims = FALSE)
+  res3 <- nmfkc(Y2, rank = R, seed = seed, nstart = nstart, print.dims = FALSE,
+                X.init = X.init.method)
   X2 <- t(res3$X)             # R x P2, row sum 1
   C <- CX2_init %*% t(X2)     # Q x R, non-negative
 

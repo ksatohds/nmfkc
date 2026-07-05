@@ -5,8 +5,10 @@
   seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur &
   Vassilvitskii, 2007, SODA) before Lloyd refinement, giving a more careful,
   \eqn{\Theta(\log k)}-competitive initialization than uniform-random seeding.
-  Available wherever the shared initializer is used (`nmfkc` and, through it,
-  `nmfae` / `nmfre` etc.). The default remains `"kmeans"` (unchanged results);
+  Available in every optimizer: `nmfkc`, `nmfre`, `nmf.sem`, `nmfkc.net`,
+  `nmfkc.signed` (shared initializer), and `nmfae` / `nmfae.signed`, which now
+  forward `X.init` to their internal `nmfkc()` basis-init steps. The default
+  remains `"kmeans"` (unchanged results);
   `nstart` is not used for `"kmeans++"` (one careful seeding replaces random
   restarts).
 

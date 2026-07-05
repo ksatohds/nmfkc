@@ -167,6 +167,10 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
   warm.start <- if (!is.null(extra_args$warm.start)) extra_args$warm.start else TRUE
   nstart  <- if (!is.null(extra_args$nstart))  extra_args$nstart  else 1L
+  ## Basis-init method forwarded to the nmfae() warm-start step (default
+  ## "kmeans"; "kmeans++" etc. accepted). String methods only.
+  X.init  <- if (!is.null(extra_args$X.init))  extra_args$X.init  else "kmeans"
+  X.init.method <- if (is.character(X.init)) X.init else "kmeans"
   Y1.weights <- if (!is.null(extra_args$Y1.weights)) extra_args$Y1.weights else NULL
   Cp.init    <- extra_args$Cp.init
   Cn.init    <- extra_args$Cn.init
@@ -260,7 +264,8 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     if (print.trace) message("  Init: warm-start X1, X2 from nmfae() ...")
     res0 <- nmfae(Y1, Y2, rank1 = Q, rank2 = R,
                           epsilon = epsilon, maxit = maxit,
-                          verbose = FALSE, seed = seed)
+                          verbose = FALSE, seed = seed,
+                          X.init = X.init.method)
     X1 <- res0$X1
     X2 <- res0$X2
     tri_C_for_full <- res0$C          # for warm_mode == "full"
