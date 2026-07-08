@@ -3,15 +3,21 @@
 # ============================================================
 
 ## Internal: row order for a coefficients table by grouping factor.
-## by = "covariate" (default): list all Basis for each Covariate
-##   (Covariate outer, Basis inner) -- the historical display order.
-## by = "basis": list all Covariate for each Basis (Basis outer).
+## Every parameter (Theta / C) table has a row factor (the basis / X slot)
+## and a column factor (the covariate / A slot). In the symmetric-network
+## case A = t(X), so the two factors are stored as "Basis.row"/"Basis.col"
+## instead of "Basis"/"Covariate", but the grouping rule is identical:
+##   by = "covariate" (default): list all rows within each column factor
+##     (column outer, row inner) -- the historical display order.
+##   by = "basis": list all columns within each row factor (row outer).
 ## The original appearance order of each factor is preserved.
 .coef.order.by <- function(cf, by = c("covariate", "basis")) {
   by <- match.arg(by)
-  if (is.null(cf$Basis) || is.null(cf$Covariate)) return(seq_len(nrow(cf)))
-  b  <- factor(cf$Basis,     levels = unique(cf$Basis))
-  cv <- factor(cf$Covariate, levels = unique(cf$Covariate))
+  rowf <- if (!is.null(cf$Basis))     cf$Basis     else cf$Basis.row  # X slot
+  colf <- if (!is.null(cf$Covariate)) cf$Covariate else cf$Basis.col  # A slot
+  if (is.null(rowf) || is.null(colf)) return(seq_len(nrow(cf)))
+  b  <- factor(rowf, levels = unique(rowf))
+  cv <- factor(colf, levels = unique(colf))
   if (by == "covariate") order(cv, b) else order(b, cv)
 }
 

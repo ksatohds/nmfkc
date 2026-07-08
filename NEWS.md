@@ -2,12 +2,17 @@
 
 ### **`by` option: grouping order of coefficient tables**
 - The `print()` methods for the inference summaries
-  (`nmfkc.inference`, `nmfae`/`nmfae.inference`, `nmfae.signed.inference`)
-  and `summary.nmfre()` gain a `by` argument controlling how the significance
-  table is grouped: `by = "covariate"` (default, unchanged behaviour) lists all
-  bases within each covariate (1-1, 1-2, ...), while `by = "basis"` lists all
-  covariates within each basis (1-1, 2-1, ...). The default reproduces the
-  previous ordering exactly.
+  (`nmfkc.inference`, `nmfae`/`nmfae.inference`, `nmfae.signed.inference`,
+  `nmfkc.net.inference`) and `summary.nmfre()` gain a `by` argument controlling
+  how the significance table is grouped: `by = "covariate"` (default, unchanged
+  behaviour) lists all bases within each covariate (1-1, 1-2, ...), while
+  `by = "basis"` lists all covariates within each basis (1-1, 2-1, ...). The
+  default reproduces the previous ordering exactly.
+- The symmetric-network model (`nmfkc.net`, tri-type) follows the **same rule**:
+  since it sets \eqn{A = X^\top}, the parameter matrix \eqn{C}'s column factor
+  (`Basis.col`) is the covariate slot and its row factor (`Basis.row`) is the
+  basis slot, so `by` groups by `Basis.col` / `Basis.row` respectively. (The
+  bi-type has no free \eqn{\Theta}, only \eqn{X}, so no coefficient table.)
 
 ### **Classed CV objects with `print` / `plot`**
 - `nmfkc.ecv()`, `nmfkc.cv()` and `nmfkc.bicv()` now return classed objects

@@ -4,12 +4,24 @@
 \alias{print.summary.nmfkc.net.inference}
 \title{Print method for summary.nmfkc.net.inference objects}
 \usage{
-\method{print}{summary.nmfkc.net.inference}(x, digits = max(3L, getOption("digits") - 3L), ...)
+\method{print}{summary.nmfkc.net.inference}(
+  x,
+  digits = max(3L, getOption("digits") - 3L),
+  by = c("covariate", "basis"),
+  ...
+)
 }
 \arguments{
 \item{x}{An object of class \code{"summary.nmfkc.net.inference"}.}
 
 \item{digits}{Minimum number of significant digits.}
+
+\item{by}{Character; grouping order of the coefficients table. Because the
+symmetric model sets \eqn{A = X^\top}, the column factor \code{Basis.col}
+plays the covariate role: \code{"covariate"} (default) lists all
+\code{Basis.row} within each \code{Basis.col} (1-1, 2-1, ...), while
+\code{"basis"} lists all \code{Basis.col} within each \code{Basis.row}
+(1-1, 1-2, ...).}
 
 \item{...}{Additional arguments (currently unused).}
 }
