@@ -40,15 +40,15 @@
 #' @param rank1 Integer. Rank of the response basis \eqn{X_1} (default 2).
 #' @param rank2 Integer. Rank of the covariate basis \eqn{X_2}. Default
 #'   (\code{NULL}) sets \code{rank2 = rank1}.
-#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2},
-#'   kept for backward compatibility.
 #' @param epsilon Positive convergence tolerance (default \code{1e-4}).
 #' @param maxit Maximum number of multiplicative-update iterations (default 5000).
 #' @param verbose Logical; print progress (default \code{FALSE}).
 #' @param ... Further arguments (e.g. \code{X.init}, \code{C.L1},
 #'   \code{Y1.weights}, \code{method}, \code{nstart}, and the helper-specific
 #'   arguments). For the helpers (\code{.ecv}, \code{.cv}, \code{.rank}, ...),
-#'   pass their arguments here (see the examples).
+#'   pass their arguments here (see the examples). The legacy rank aliases
+#'   \code{rank.encoder} / \code{Q} / \code{R} are also accepted via \code{...}
+#'   (use \code{rank1} / \code{rank2} in new code).
 #' @return A fitted NMF-RRR object (the two fitters additionally prepend the
 #'   NMF-RRR class); the helpers return as their respective function.
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.DOT}}
@@ -65,11 +65,9 @@
 #' @name nmf.rrr
 #' @export
 nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
-                    epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...,
-                    rank = NULL, rank.encoder = NULL) {
+                    epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...) {
   res <- nmfae(Y1, Y2, rank1 = rank1, rank2 = rank2,
-               epsilon = epsilon, maxit = maxit, verbose = verbose, ...,
-               rank = rank, rank.encoder = rank.encoder)
+               epsilon = epsilon, maxit = maxit, verbose = verbose, ...)
   class(res) <- base::unique(c("nmf.rrr", class(res)))
   res
 }
@@ -112,11 +110,9 @@ nmf.rrr.rename <- function(...) nmfae.rename(...)
 #' @rdname nmf.rrr
 #' @export
 nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
-                           epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...,
-                           rank = NULL, rank.encoder = NULL) {
+                           epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...) {
   res <- nmfae.signed(Y1, Y2, rank1 = rank1, rank2 = rank2,
-                      epsilon = epsilon, maxit = maxit, verbose = verbose, ...,
-                      rank = rank, rank.encoder = rank.encoder)
+                      epsilon = epsilon, maxit = maxit, verbose = verbose, ...)
   class(res) <- base::unique(c("nmf.rrr.signed", class(res)))
   res
 }

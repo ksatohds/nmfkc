@@ -26,9 +26,7 @@ nmf.rrr(
   epsilon = 1e-04,
   maxit = 5000,
   verbose = FALSE,
-  ...,
-  rank = NULL,
-  rank.encoder = NULL
+  ...
 )
 
 nmf.rrr.inference(...)
@@ -55,9 +53,7 @@ nmf.rrr.signed(
   epsilon = 1e-04,
   maxit = 5000,
   verbose = FALSE,
-  ...,
-  rank = NULL,
-  rank.encoder = NULL
+  ...
 )
 
 nmf.rrr.signed.inference(...)
@@ -89,10 +85,9 @@ nmf.rrr.signed.rename(...)
 \item{...}{Further arguments (e.g. \code{X.init}, \code{C.L1},
 \code{Y1.weights}, \code{method}, \code{nstart}, and the helper-specific
 arguments). For the helpers (\code{.ecv}, \code{.cv}, \code{.rank}, ...),
-pass their arguments here (see the examples).}
-
-\item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2},
-kept for backward compatibility.}
+pass their arguments here (see the examples). The legacy rank aliases
+\code{rank.encoder} / \code{Q} / \code{R} are also accepted via \code{...}
+(use \code{rank1} / \code{rank2} in new code).}
 }
 \value{
 A fitted NMF-RRR object (the two fitters additionally prepend the
