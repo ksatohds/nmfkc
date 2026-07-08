@@ -3289,7 +3289,10 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   # Calculate RMSE for EU (This corresponds to 'sigma')
   sigma <- if(method == "EU") sqrt(objfunc) else NA
 
-  return(list(objfunc=objfunc, sigma=sigma, objfunc.block=objfunc.block, block=block))
+  out <- list(objfunc = objfunc, sigma = sigma, rank = Q, nfolds = div,
+              objfunc.block = objfunc.block, block = block)
+  class(out) <- "nmfkc.cv"
+  out
 }
 
 
@@ -3423,10 +3426,14 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   cv <- .ecv.run(paste0("Q=", Q), div, run_one)
   if (method != "EU") cv$sigma[] <- NA   # sigma = RMSE only for EU loss
 
-  return(list(objfunc = cv$objfunc,
+  out <- list(objfunc = cv$objfunc,
               sigma = cv$sigma,
+              rank = Q,
+              nfolds = div,
               objfunc.fold = cv$objfunc.fold,
-              folds = folds))
+              folds = folds)
+  class(out) <- "nmfkc.ecv"
+  out
 }
 
 

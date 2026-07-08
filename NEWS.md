@@ -1,5 +1,13 @@
 # nmfkc 0.8.4 (development)
 
+### **Classed CV objects with `print` / `plot`**
+- `nmfkc.ecv()`, `nmfkc.cv()` and `nmfkc.bicv()` now return classed objects
+  (`"nmfkc.ecv"` / `"nmfkc.cv"` / `"nmfkc.bicv"`) with `print()` and `plot()`
+  methods — the rank sweeps (`ecv`, `bicv`) plot a score-vs-rank curve with a
+  \dQuote{Best (Min)} marker, matching `nmfae.ecv()` / `nmfre.ecv()`. Field
+  access (`cv$sigma`, etc.) is unchanged; `nmfkc.ecv()` also now returns the
+  swept `rank` vector.
+
 ### **Naming / API consistency pass (aligned to the nmfkc house style)**
 - Fit objects now report `runtime` as **numeric seconds** everywhere (was a
   preformatted string in `nmfkc()`); `print()` formats it for display.

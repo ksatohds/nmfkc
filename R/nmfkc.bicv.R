@@ -177,6 +177,115 @@ nmfkc.bicv <- function(Y, rank = 1:3, ...) {
     objfunc[ki] <- if (cnt > 0) sse / cnt else NA_real_
   }
 
-  base::list(objfunc = objfunc, sigma = base::sqrt(objfunc),
-             rank = rank, nfolds = nfolds)
+  out <- base::list(objfunc = objfunc, sigma = base::sqrt(objfunc),
+                    rank = rank, nfolds = nfolds)
+  base::class(out) <- "nmfkc.bicv"
+  out
+}
+
+
+## ============================================================
+## print / plot methods for the nmfkc CV objects
+## ============================================================
+
+## Internal: rank-vs-score curve with a Best (Min) marker (shared by ecv/bicv).
+## @keywords internal
+## @noRd
+.cv.rank.plot <- function(rank, score, main, ylab, ...) {
+  score <- base::as.numeric(score)
+  graphics::plot(rank, score, type = "b", pch = 19,
+                 xlab = "Rank (Q)", ylab = ylab, main = main, ...)
+  ok <- base::is.finite(score)
+  if (base::any(ok)) {
+    bi <- base::which.min(base::replace(score, !ok, Inf))
+    graphics::points(rank[bi], score[bi], pch = 19, col = "red", cex = 1.7)
+    lp <- if (bi == 1L) 4 else if (bi == base::length(rank)) 2 else 3
+    graphics::text(rank[bi], score[bi], labels = "Best (Min)",
+                   pos = lp, col = "red", xpd = NA)
+  }
+  invisible(NULL)
+}
+
+## Internal: score to plot/report -- sigma (RMSE) when available, else objfunc.
+## @keywords internal
+## @noRd
+.cv.score <- function(x) {
+  if (!base::is.null(x$sigma) && base::any(base::is.finite(x$sigma))) {
+    list(v = x$sigma, lab = "sigma (held-out RMSE)")
+  } else {
+    list(v = x$objfunc, lab = "objfunc (held-out loss)")
+  }
+}
+
+#' @title Print/plot methods for nmfkc cross-validation objects
+#' @description Compact print and (for rank sweeps) a score-vs-rank plot with a
+#'   \dQuote{Best (Min)} marker, for the objects returned by
+#'   \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.cv}} and \code{\link{nmfkc.bicv}}.
+#' @param x A \code{"nmfkc.ecv"} / \code{"nmfkc.cv"} / \code{"nmfkc.bicv"} object.
+#' @param main,ylab Plot labels.
+#' @param ... Passed to \code{\link[graphics]{plot}}.
+#' @return \code{x}, invisibly.
+#' @name nmfkc.cv.methods
+#' @export
+print.nmfkc.ecv <- function(x, ...) {
+  sc <- .cv.score(x)
+  base::cat(sprintf("nmfkc element-wise CV (%s-fold)\n",
+                    if (!base::is.null(x$nfolds)) x$nfolds else "?"))
+  base::print(base::data.frame(rank = x$rank, sigma = base::as.numeric(x$sigma),
+                               objfunc = base::as.numeric(x$objfunc)),
+              row.names = FALSE)
+  best <- x$rank[base::which.min(base::replace(sc$v, !base::is.finite(sc$v), Inf))]
+  base::cat(sprintf("Best rank (min %s): %d\n",
+                    if (grepl("sigma", sc$lab)) "sigma" else "objfunc", best))
+  invisible(x)
+}
+
+#' @rdname nmfkc.cv.methods
+#' @export
+plot.nmfkc.ecv <- function(x, main = "nmfkc element-wise CV", ylab = NULL, ...) {
+  sc <- .cv.score(x)
+  .cv.rank.plot(x$rank, sc$v, main = main,
+                ylab = if (!base::is.null(ylab)) ylab else sc$lab, ...)
+  invisible(x)
+}
+
+#' @rdname nmfkc.cv.methods
+#' @export
+print.nmfkc.bicv <- function(x, ...) {
+  base::cat(sprintf("nmfkc bi-cross-validation (%s-fold, Owen & Perry)\n",
+                    if (!base::is.null(x$nfolds)) x$nfolds else "?"))
+  base::print(base::data.frame(rank = x$rank, sigma = base::as.numeric(x$sigma),
+                               objfunc = base::as.numeric(x$objfunc)),
+              row.names = FALSE)
+  best <- x$rank[base::which.min(base::replace(x$sigma, !base::is.finite(x$sigma), Inf))]
+  base::cat(sprintf("Best rank (min sigma): %d\n", best))
+  invisible(x)
+}
+
+#' @rdname nmfkc.cv.methods
+#' @export
+plot.nmfkc.bicv <- function(x, main = "nmfkc bi-cross-validation", ylab = "sigma (held-out RMSE)", ...) {
+  .cv.rank.plot(x$rank, x$sigma, main = main, ylab = ylab, ...)
+  invisible(x)
+}
+
+#' @rdname nmfkc.cv.methods
+#' @export
+print.nmfkc.cv <- function(x, ...) {
+  base::cat(sprintf("nmfkc sample-wise CV (rank Q=%s, %s-fold)\n",
+                    base::paste(x$rank, collapse = ","),
+                    if (!base::is.null(x$nfolds)) x$nfolds else "?"))
+  base::cat(sprintf("  objfunc (mean held-out loss): %.6g\n", x$objfunc))
+  base::cat(sprintf("  sigma   (held-out RMSE):      %s\n",
+                    if (base::is.finite(x$sigma)) sprintf("%.6g", x$sigma) else "NA (non-EU)"))
+  invisible(x)
+}
+
+#' @rdname nmfkc.cv.methods
+#' @export
+plot.nmfkc.cv <- function(x, main = "nmfkc CV: per-fold held-out loss", ylab = "objfunc (block)", ...) {
+  graphics::barplot(base::as.numeric(x$objfunc.block),
+                    names.arg = base::seq_along(x$objfunc.block),
+                    xlab = "fold", ylab = ylab, main = main, ...)
+  invisible(x)
 }
