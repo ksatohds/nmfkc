@@ -22,26 +22,54 @@
 #' NMF-RRR: tri-factorized non-negative reduced-rank regression
 #'
 #' @description
-#' \code{nmf.rrr} and the \code{nmf.rrr.*} functions are the NMF-RRR names for
-#' the \code{\link{nmfae}} and \code{\link{nmfae.signed}} families.  NMF-RRR
-#' fits \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}: tri-factorizing the non-negative
-#' regression coefficient \eqn{M = X_1 \Theta X_2} co-clusters the response
-#' variables (\eqn{X_1}, labelled \dQuote{Resp}) and the covariate variables
-#' (\eqn{X_2}, \dQuote{Cov}), with \eqn{\Theta} the block correspondence whose
-#' entries are estimated and tested.  These are thin aliases: see the wrapped
-#' \code{nmfae*} / \code{nmfae.signed*} function for the arguments and full
-#' details.  \code{nmf.rrr()} and \code{nmf.rrr.signed()} additionally prepend
+#' NMF-RRR fits \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}: tri-factorizing the
+#' non-negative regression coefficient \eqn{M = X_1 \Theta X_2} co-clusters the
+#' response variables (\eqn{X_1}, labelled \dQuote{Resp}) and the covariate
+#' variables (\eqn{X_2}, \dQuote{Cov}), with \eqn{\Theta} the block
+#' correspondence whose entries are estimated and tested.
+#'
+#' \code{nmf.rrr()} fits the model; \code{nmf.rrr.signed()} allows a signed
+#' bottleneck \eqn{\Theta}. The \code{.inference}, \code{.ecv}, \code{.cv},
+#' \code{.rank}, \code{.DOT}, \code{.heatmap}, \code{.kernel.beta.cv} and
+#' \code{.rename} helpers provide inference, cross-validation / rank selection,
+#' visualization and relabelling. The two fitters prepend
 #' \code{"nmf.rrr"} / \code{"nmf.rrr.signed"} to the fitted object's class.
 #'
-#' @param ... Arguments passed to the wrapped \code{nmfae*} /
-#'   \code{nmfae.signed*} function.
-#' @return As the wrapped function (the two fitters additionally prepend the
-#'   NMF-RRR class to the result).
+#' @param Y1 Response matrix \eqn{Y_1} (P1 x N), non-negative.
+#' @param Y2 Covariate matrix \eqn{Y_2} (P2 x N). Default \code{Y1} (autoencoder).
+#' @param rank1 Integer. Rank of the response basis \eqn{X_1} (default 2).
+#' @param rank2 Integer. Rank of the covariate basis \eqn{X_2}. Default
+#'   (\code{NULL}) sets \code{rank2 = rank1}.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2},
+#'   kept for backward compatibility.
+#' @param epsilon Positive convergence tolerance (default \code{1e-4}).
+#' @param maxit Maximum number of multiplicative-update iterations (default 5000).
+#' @param verbose Logical; print progress (default \code{FALSE}).
+#' @param ... Further arguments (e.g. \code{X.init}, \code{C.L1},
+#'   \code{Y1.weights}, \code{method}, \code{nstart}, and the helper-specific
+#'   arguments). For the helpers (\code{.ecv}, \code{.cv}, \code{.rank}, ...),
+#'   pass their arguments here (see the examples).
+#' @return A fitted NMF-RRR object (the two fitters additionally prepend the
+#'   NMF-RRR class); the helpers return as their respective function.
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.DOT}}
+#' @examples
+#' \donttest{
+#' Y1 <- t(iris[, 1:2])
+#' Y2 <- t(iris[, 3:4])
+#' fit <- nmf.rrr(Y1, Y2, rank1 = 2, rank2 = 2, maxit = 500)
+#' summary(fit)
+#' # rank selection and inference
+#' # ecv <- nmf.rrr.ecv(Y1, Y2, rank1 = 1:3, rank2 = 1:3)
+#' # inf <- nmf.rrr.inference(fit, Y1, Y2)
+#' }
 #' @name nmf.rrr
 #' @export
-nmf.rrr <- function(...) {
-  res <- nmfae(...)
+nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
+                    epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...,
+                    rank = NULL, rank.encoder = NULL) {
+  res <- nmfae(Y1, Y2, rank1 = rank1, rank2 = rank2,
+               epsilon = epsilon, maxit = maxit, verbose = verbose, ...,
+               rank = rank, rank.encoder = rank.encoder)
   class(res) <- base::unique(c("nmf.rrr", class(res)))
   res
 }
@@ -83,8 +111,12 @@ nmf.rrr.rename <- function(...) nmfae.rename(...)
 
 #' @rdname nmf.rrr
 #' @export
-nmf.rrr.signed <- function(...) {
-  res <- nmfae.signed(...)
+nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
+                           epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...,
+                           rank = NULL, rank.encoder = NULL) {
+  res <- nmfae.signed(Y1, Y2, rank1 = rank1, rank2 = rank2,
+                      epsilon = epsilon, maxit = maxit, verbose = verbose, ...,
+                      rank = rank, rank.encoder = rank.encoder)
   class(res) <- base::unique(c("nmf.rrr.signed", class(res)))
   res
 }
