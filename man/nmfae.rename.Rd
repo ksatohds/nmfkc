@@ -32,8 +32,8 @@ set.seed(1)
 Y <- matrix(runif(15), nrow = 3)
 res <- nmfae(Y, rank1 = 2, rank2 = 2)
 res <- nmfae.rename(res,
-  X1.colnames = c("Basis1", "Basis2"),
-  X2.rownames = c("Enc1", "Enc2"))
+  X1.colnames = c("Resp1", "Resp2"),
+  X2.rownames = c("Cov1", "Cov2"))
 summary(res)
 }
 }

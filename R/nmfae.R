@@ -649,8 +649,8 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
 #' Y <- matrix(runif(15), nrow = 3)
 #' res <- nmfae(Y, rank1 = 2, rank2 = 2)
 #' res <- nmfae.rename(res,
-#'   X1.colnames = c("Basis1", "Basis2"),
-#'   X2.rownames = c("Enc1", "Enc2"))
+#'   X1.colnames = c("Resp1", "Resp2"),
+#'   X2.rownames = c("Cov1", "Cov2"))
 #' summary(res)
 #' }
 #' @seealso \code{\link{nmfae}}
@@ -832,8 +832,8 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
   type_str <- if (x$autoencoder) "  (autoencoder)" else "  (heteroencoder)"
   cat("  Y1:             ", sprintf("%d x %d", P1, N), "\n")
   cat("  Y2:             ", sprintf("%d x %d", P2, N), type_str, "\n")
-  cat("  Decoder rank Q: ", Q, "\n")
-  cat("  Encoder rank R: ", R, "\n")
+  cat("  Response rank Q:", Q, "\n")
+  cat("  Covariate rank R:", R, "\n")
   cat("  Parameters:     ",
       sprintf("X1(%dx%d) + C(%dx%d) + X2(%dx%d) = %d",
               P1, Q, Q, R, R, P2, x$n.params), "\n")
@@ -850,9 +850,9 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
   .print.fit.statistics(x, header = "Goodness of fit:", digits = digits)
 
   .print.structure.diagnostics(
-    sparsity = c("Decoder (X1)" = x$X1.sparsity,
+    sparsity = c("Response (X1)" = x$X1.sparsity,
                  "Bottleneck (C)" = x$C.sparsity,
-                 "Encoder (X2)" = x$X2.sparsity))
+                 "Covariate (X2)" = x$X2.sparsity))
 
   # Coefficients table (inference)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
@@ -1848,8 +1848,8 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' @param X2.label Character vector of encoder basis labels.
 #' @param Y2.label Character vector of input variable labels.
 #' @param Y1.title Character. Title for output node group. Default is \code{"Output (Y1)"}.
-#' @param X1.title Character. Title for decoder node group. Default is \code{"Decoder (X1)"}.
-#' @param X2.title Character. Title for encoder node group. Default is \code{"Encoder (X2)"}.
+#' @param X1.title Character. Title for the response-basis node group. Default is \code{"Response (X1)"}.
+#' @param X2.title Character. Title for the covariate-basis node group. Default is \code{"Covariate (X2)"}.
 #' @param Y2.title Character. Title for input node group. Default is \code{"Input (Y2)"}.
 #' @param hide.isolated Logical. If \code{TRUE} (default), Y1 and Y2 nodes that have no
 #'   edges at or above \code{threshold} are excluded from the graph. Only
@@ -1883,8 +1883,8 @@ nmfae.DOT <- function(result,
                       Y1.label = NULL, X1.label = NULL,
                       X2.label = NULL, Y2.label = NULL,
                       Y1.title = "Output (Y1)",
-                      X1.title = "Decoder (X1)",
-                      X2.title = "Encoder (X2)",
+                      X1.title = "Response (X1)",
+                      X2.title = "Covariate (X2)",
                       Y2.title = "Input (Y2)",
                       hide.isolated = TRUE) {
 

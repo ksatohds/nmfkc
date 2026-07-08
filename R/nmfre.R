@@ -1198,7 +1198,6 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   object$C.se.boot    <- C.se.boot
   object$C.ci.lower   <- C.ci.lower
   object$C.ci.upper   <- C.ci.upper
-  object$C.boot.sd    <- C.se.boot
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
   return(object)
