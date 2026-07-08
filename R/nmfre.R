@@ -763,8 +763,8 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #' @param object An object of class \code{nmfre}, returned by \code{\link{nmfre}}.
 #' @param ci.show Logical. If \code{TRUE}, show confidence interval columns
 #'   (default \code{FALSE}). Named object-first to match the package style
-#'   (\code{C.signed}, \code{X.init}, ...). Legacy \code{show.ci} / \code{show_ci}
-#'   are accepted via \code{...}.
+#'   (\code{C.signed}, \code{X.init}, ...). Legacy \code{show_ci} is accepted
+#'   via \code{...}.
 #' @param ... Additional arguments (currently unused).
 #' @return The input object, invisibly.
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfre.inference}}
@@ -777,9 +777,8 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #'
 summary.nmfre <- function(object, ci.show = FALSE, ...) {
 
-  ## legacy aliases (dot / snake case)
+  ## legacy alias (original snake_case name)
   .extra <- list(...)
-  if (!is.null(.extra$show.ci)) ci.show <- .extra$show.ci
   if (!is.null(.extra$show_ci)) ci.show <- .extra$show_ci
 
   x <- object

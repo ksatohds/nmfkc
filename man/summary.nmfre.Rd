@@ -11,8 +11,8 @@
 
 \item{ci.show}{Logical. If \code{TRUE}, show confidence interval columns
 (default \code{FALSE}). Named object-first to match the package style
-(\code{C.signed}, \code{X.init}, ...). Legacy \code{show.ci} / \code{show_ci}
-are accepted via \code{...}.}
+(\code{C.signed}, \code{X.init}, ...). Legacy \code{show_ci} is accepted
+via \code{...}.}
 
 \item{...}{Additional arguments (currently unused).}
 }
