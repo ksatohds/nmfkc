@@ -1283,7 +1283,7 @@ print.summary.nmfae.signed.inference <- function(x,
     n_sig <- sum(cf$p_value < 0.05, na.rm = TRUE)
     cat(sprintf("\nTheta coefficients: %d total, %d significant (p < 0.05)\n",
                 n_total, n_sig))
-    rnames <- paste0(cf$Basis, ":", cf$Covariate)
+    rnames <- paste0(cf$Covariate, ":", cf$Basis)   # Covariate:Basis (matches nmfre/nmfae)
     est <- formatC(cf$Estimate, format = "f", digits = 3, width = 9)
     se  <- formatC(cf$SE,       format = "f", digits = 3, width = 10)
     bse <- formatC(cf$BSE,      format = "f", digits = 3, width = 6)
@@ -1297,7 +1297,7 @@ print.summary.nmfae.signed.inference <- function(x,
                    formatC("(Boot)",     width = 6),
                    formatC("z value",    width = 7),
                    formatC(p_header,     width = 8))
-    cat(sprintf("%s %s\n", formatC("Resp:Cov", width = max_lw), hdr))
+    cat(sprintf("%s %s\n", formatC("Cov:Resp", width = max_lw), hdr))
     for (i in seq_len(n_total)) {
       cat(sprintf("%s %s %s %s %s %s %s\n",
                   formatC(rnames[i], width = max_lw),

@@ -1194,7 +1194,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   object$sigma2.used  <- sigma2_used
   object$C.vec.cov    <- C.vec.cov
   object$C.se         <- C.se
-  object$C.se.hess    <- C.se
+  object$C.se.sandwich <- C.se   # analytic SE (house-style name, matches nmfkc.inference)
   object$C.se.boot    <- C.se.boot
   object$C.ci.lower   <- C.ci.lower
   object$C.ci.upper   <- C.ci.upper
