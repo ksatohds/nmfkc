@@ -19,7 +19,7 @@ non-negative). The basis update rule follows this choice automatically.}
 
 \item{...}{Additional arguments:
 \itemize{
-\item \code{nfold}: Number of folds (default 5).
+\item \code{nfolds}: Number of folds (default 5; legacy \code{nfold} also accepted).
 \item \code{rounds}: Iterative-imputation rounds per fold (default 4).
 \item \code{seed}: RNG seed for the fold assignment (default 1).
 \item \code{print.trace}: Logical; print per-rank scores (default \code{FALSE}).
@@ -37,7 +37,7 @@ A list of class \code{"nmfre.ecv"} with components:
 \item{\code{rank}}{The ranks evaluated.}
 \item{\code{sigma.ecv}}{Named numeric vector of held-out RMSE per rank.}
 \item{\code{best}}{The rank minimizing \code{sigma.ecv}.}
-\item{\code{nfold}, \code{rounds}, \code{C.signed}}{Settings used.}
+\item{\code{nfolds}, \code{rounds}, \code{C.signed}}{Settings used.}
 }
 }
 \description{

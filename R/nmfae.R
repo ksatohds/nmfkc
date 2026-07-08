@@ -425,6 +425,7 @@ nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     sigma = sigma,
     mae = mae,
     niter = niter,
+    iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
     runtime = diff.time,
     n.missing = n.missing,
     n.total = P1 * N

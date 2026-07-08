@@ -4,12 +4,13 @@
 \alias{summary.nmfre}
 \title{Summary method for objects of class \code{nmfre}}
 \usage{
-\method{summary}{nmfre}(object, show_ci = FALSE, ...)
+\method{summary}{nmfre}(object, show.ci = FALSE, ...)
 }
 \arguments{
 \item{object}{An object of class \code{nmfre}, returned by \code{\link{nmfre}}.}
 
-\item{show_ci}{Logical. If \code{TRUE}, show confidence interval columns (default \code{FALSE}).}
+\item{show.ci}{Logical. If \code{TRUE}, show confidence interval columns
+(default \code{FALSE}). Legacy \code{show_ci} is accepted via \code{...}.}
 
 \item{...}{Additional arguments (currently unused).}
 }

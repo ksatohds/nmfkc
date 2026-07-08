@@ -761,7 +761,8 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #' standard R regression output conventions.
 #'
 #' @param object An object of class \code{nmfre}, returned by \code{\link{nmfre}}.
-#' @param show_ci Logical. If \code{TRUE}, show confidence interval columns (default \code{FALSE}).
+#' @param show.ci Logical. If \code{TRUE}, show confidence interval columns
+#'   (default \code{FALSE}). Legacy \code{show_ci} is accepted via \code{...}.
 #' @param ... Additional arguments (currently unused).
 #' @return The input object, invisibly.
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfre.inference}}
@@ -772,7 +773,11 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #' res <- nmfre(Y, A, rank = 1, maxit = 5000)
 #' summary(res)
 #'
-summary.nmfre <- function(object, show_ci = FALSE, ...) {
+summary.nmfre <- function(object, show.ci = FALSE, ...) {
+
+  ## legacy snake_case alias
+  .extra <- list(...)
+  if (!is.null(.extra$show_ci)) show.ci <- .extra$show_ci
 
   x <- object
   P <- nrow(x$X); Q <- ncol(x$X)
@@ -916,7 +921,7 @@ summary.nmfre <- function(object, show_ci = FALSE, ...) {
     }
 
     # CI
-    if (isTRUE(show_ci) && all(c("CI_low", "CI_high") %in% names(cf))) {
+    if (isTRUE(show.ci) && all(c("CI_low", "CI_high") %in% names(cf))) {
       level <- if (!is.null(x$wild.level)) x$wild.level else 0.95
       cat(sprintf("\n%.0f%% Bootstrap CI:\n", level * 100))
       ci_lo <- formatC(cf$CI_low, format = "f", digits = 3, width = 9)
@@ -1199,7 +1204,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #'   non-negative). The basis update rule follows this choice automatically.
 #' @param ... Additional arguments:
 #'   \itemize{
-#'     \item \code{nfold}: Number of folds (default 5).
+#'     \item \code{nfolds}: Number of folds (default 5; legacy \code{nfold} also accepted).
 #'     \item \code{rounds}: Iterative-imputation rounds per fold (default 4).
 #'     \item \code{seed}: RNG seed for the fold assignment (default 1).
 #'     \item \code{print.trace}: Logical; print per-rank scores (default \code{FALSE}).
@@ -1215,7 +1220,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #'     \item{\code{rank}}{The ranks evaluated.}
 #'     \item{\code{sigma.ecv}}{Named numeric vector of held-out RMSE per rank.}
 #'     \item{\code{best}}{The rank minimizing \code{sigma.ecv}.}
-#'     \item{\code{nfold}, \code{rounds}, \code{C.signed}}{Settings used.}
+#'     \item{\code{nfolds}, \code{rounds}, \code{C.signed}}{Settings used.}
 #'   }
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfre.inference}}, \code{\link{nmfkc.ecv}}
 #' @export
@@ -1233,8 +1238,9 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
   extra <- base::list(...)
   if (!is.null(extra$Q)) rank <- extra$Q
-  nfold  <- if (!is.null(extra$nfold))  extra$nfold
-            else if (!is.null(extra$nfolds)) extra$nfolds else 5L
+  ## nfolds is the house-style name (matches nmfkc.ecv etc.); legacy nfold via ...
+  nfolds <- if (!is.null(extra$nfolds)) extra$nfolds
+            else if (!is.null(extra$nfold)) extra$nfold else 5L
   rounds <- if (!is.null(extra$rounds)) extra$rounds else 4L
   seed   <- if (!is.null(extra$seed))   extra$seed   else 1L
   print.trace <- isTRUE(extra$print.trace)
@@ -1251,7 +1257,7 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
   A <- base::as.matrix(A)
 
   base::set.seed(seed)
-  fold <- base::matrix(base::sample(base::rep(1:nfold, length.out = P * N)), P, N)  # fixed across ranks
+  fold <- base::matrix(base::sample(base::rep(1:nfolds, length.out = P * N)), P, N)  # fixed across ranks
   rowm <- base::rowMeans(Y, na.rm = TRUE)
   ridx <- base::row(Y)
 
@@ -1277,7 +1283,7 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
   sig <- stats::setNames(base::rep(NA_real_, length(rank)), base::as.character(rank))
   for (Q in rank) {
     sse <- 0; nt <- 0
-    for (k in 1:nfold) {
+    for (k in 1:nfolds) {
       mask <- (fold == k)
       fill <- Y; fill[mask] <- rowm[ridx[mask]]        # warm fill by row mean
       Xi <- NULL; Ci <- NULL; Ui <- NULL; pred <- NULL
@@ -1299,7 +1305,7 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
 
   best <- rank[base::which.min(sig)]
   out <- base::list(rank = rank, sigma.ecv = sig, best = best,
-                    nfold = nfold, rounds = rounds, C.signed = C.signed)
+                    nfolds = nfolds, rounds = rounds, C.signed = C.signed)
   base::class(out) <- "nmfre.ecv"
   out
 }
@@ -1338,7 +1344,7 @@ plot.nmfre.ecv <- function(x, main = "NMF-RE element-wise CV",
 #' @export
 print.nmfre.ecv <- function(x, ...) {
   base::cat(sprintf("NMF-RE element-wise CV (%d-fold, %d imputation rounds, C.signed=%s)\n",
-                    x$nfold, x$rounds, base::as.character(x$C.signed)))
+                    x$nfolds, x$rounds, base::as.character(x$C.signed)))
   tab <- base::data.frame(rank = x$rank, sigma.ecv = base::as.numeric(x$sigma.ecv))
   base::print(tab, row.names = FALSE)
   base::cat(sprintf("Best rank (min sigma.ecv): %d\n", x$best))
