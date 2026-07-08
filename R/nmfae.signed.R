@@ -97,8 +97,8 @@
 #'     \item{\code{seed}}{RNG seed.  Default 123.}
 #'     \item{\code{print.trace}}{Logical.  Print iteration trace.
 #'       Default \code{FALSE}.}
-#'     \item{\code{prefix.dec}, \code{prefix.enc}}{Label prefixes for
-#'       decoder/encoder factors.  Default \code{"Dec"}, \code{"Enc"}.}
+#'     \item{\code{prefix.dec}, \code{prefix.enc}}{Label prefixes for the
+#'       response/covariate bases.  Default \code{"Resp"}, \code{"Cov"}.}
 #'   }
 #'
 #' @return An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
@@ -982,11 +982,11 @@ print.summary.nmfae.signed <- function(x,
 
 
 ## ==============================================================
-#' @title Rename Dec/Enc labels on nmfae.signed objects
+#' @title Rename Resp/Cov labels on nmfae.signed objects
 #' @keywords internal
 #' @description
-#' Replaces the default \code{"Dec1", "Dec2", ...} (decoder / X1 columns
-#' and Cp/Cn/C rows) and \code{"Enc1", "Enc2", ...} (encoder / X2 rows and
+#' Replaces the default \code{"Resp1", "Resp2", ...} (response basis / X1 columns
+#' and Cp/Cn/C rows) and \code{"Cov1", "Cov2", ...} (covariate basis / X2 rows and
 #' Cp/Cn/C columns) with user-supplied labels.  Propagates to coefficients
 #' tables if present (e.g., from \code{nmfae.inference}).
 #'

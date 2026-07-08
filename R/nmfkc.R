@@ -3083,7 +3083,9 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
   Q <- rank
 
-  div <- if (!is.null(extra_args$div)) extra_args$div else 5
+  # fold count: accept nfolds (house-style name) as well as div
+  div <- if (!is.null(extra_args$nfolds)) extra_args$nfolds
+         else if (!is.null(extra_args$div)) extra_args$div else 5
   seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
   shuffle <- if (!is.null(extra_args$shuffle)) extra_args$shuffle else TRUE
 

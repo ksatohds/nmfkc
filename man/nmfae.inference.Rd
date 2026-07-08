@@ -19,8 +19,8 @@ and z-test p-values are computed (faster).}
 
 \item{...}{Additional arguments:
 \describe{
-\item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
-\item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
+\item{\code{wild.B}}{Number of bootstrap replicates. Default is 500.}
+\item{\code{wild.seed}}{Seed for bootstrap. Default is 123.}
 \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
 \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
 \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}

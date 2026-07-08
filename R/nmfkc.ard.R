@@ -98,7 +98,9 @@
 #'   \code{rank} (estimated = mode over restarts), \code{rank.runs} (the
 #'   per-run estimates), \code{relevance} (representative run, descending),
 #'   \code{lambda}, \code{W}, \code{H} (ordered by relevance),
-#'   \code{rank.init}, \code{prior}, \code{nrun} and \code{objfunc}.
+#'   \code{rank.init}, \code{prior}, \code{nrun}, \code{objfunc} (final
+#'   objective value of the representative run) and \code{objfunc.iter} (its
+#'   per-iteration trajectory).
 #' @references V. Y. F. Tan and C. Fevotte (2013).  Automatic relevance
 #'   determination in nonnegative matrix factorization with the
 #'   beta-divergence.  \emph{IEEE TPAMI} 35(7):1592--1605.
@@ -152,7 +154,10 @@ nmfkc.ard <- function(Y, rank = NULL, nrun = 10, plot = FALSE, ...) {
     base::list(rank = rank.mode, rank.runs = rank.runs,
                relevance = rep$relevance, lambda = rep$lambda,
                W = rep$W, H = rep$H, rank.init = K, prior = prior,
-               nrun = nrun, objfunc = rep$objfunc, tol = tol),
+               nrun = nrun,
+               ## house style: objfunc = final scalar, objfunc.iter = trajectory
+               objfunc = rep$objfunc[base::length(rep$objfunc)],
+               objfunc.iter = rep$objfunc, tol = tol),
     class = "nmfkc.ard")
   if (plot) graphics::plot(out)
   out

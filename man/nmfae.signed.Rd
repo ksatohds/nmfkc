@@ -75,8 +75,8 @@ internally split into \eqn{(C_{+}, C_{-})}.}
 \item{\code{seed}}{RNG seed.  Default 123.}
 \item{\code{print.trace}}{Logical.  Print iteration trace.
 Default \code{FALSE}.}
-\item{\code{prefix.dec}, \code{prefix.enc}}{Label prefixes for
-decoder/encoder factors.  Default \code{"Dec"}, \code{"Enc"}.}
+\item{\code{prefix.dec}, \code{prefix.enc}}{Label prefixes for the
+response/covariate bases.  Default \code{"Resp"}, \code{"Cov"}.}
 }}
 
 \item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2}

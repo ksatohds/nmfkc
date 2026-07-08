@@ -449,8 +449,8 @@ nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #'   and z-test p-values are computed (faster).
 #' @param ... Additional arguments:
 #'   \describe{
-#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
-#'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
+#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 500.}
+#'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 123.}
 #'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
 #'     \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
 #'     \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
@@ -1020,8 +1020,8 @@ nmfae.heatmap <- function(x,
     lab
   }
   Y1.label <- resolve_lab(Y1.label, rownames(X1), P1, "Y1.")
-  X1.label <- resolve_lab(X1.label, colnames(X1), Q,  "Q")
-  X2.label <- resolve_lab(X2.label, rownames(X2), R,  "R")
+  X1.label <- resolve_lab(X1.label, colnames(X1), Q,  "Resp")
+  X2.label <- resolve_lab(X2.label, rownames(X2), R,  "Cov")
   Y2.label <- resolve_lab(Y2.label, colnames(X2), P2, "Y2.")
 
   # Helper: plot a matrix as heatmap (row 1 at top)
@@ -1900,9 +1900,9 @@ nmfae.DOT <- function(result,
   Y1_labels <- if (!is.null(Y1.label)) Y1.label else rownames(X1)
   if (is.null(Y1_labels)) Y1_labels <- paste0("Y1_", seq_len(P1))
   X1_labels <- if (!is.null(X1.label)) X1.label else colnames(X1)
-  if (is.null(X1_labels)) X1_labels <- paste0("D", seq_len(Q))
+  if (is.null(X1_labels)) X1_labels <- paste0("Resp", seq_len(Q))
   X2_labels <- if (!is.null(X2.label)) X2.label else rownames(X2)
-  if (is.null(X2_labels)) X2_labels <- paste0("E", seq_len(R))
+  if (is.null(X2_labels)) X2_labels <- paste0("Cov", seq_len(R))
   Y2_labels <- if (!is.null(Y2.label)) Y2.label else colnames(X2)
   if (is.null(Y2_labels)) Y2_labels <- paste0("Y2_", seq_len(P2))
 

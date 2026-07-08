@@ -374,6 +374,17 @@ fitted.nmfae <- function(object, ...) {
 }
 
 #' @rdname fitted.nmf
+#' @param type For \code{nmfre} objects: \code{"blup"} (default, the fit
+#'   \eqn{X(\Theta A + U)} including random effects) or \code{"fixed"}
+#'   (\eqn{X\Theta A}, fixed effects only). Chosen so that
+#'   \code{Y - fitted(object, type)} equals \code{residuals(object, Y, type)}.
+#' @export
+fitted.nmfre <- function(object, type = c("blup", "fixed"), ...) {
+  type <- match.arg(type)
+  if (type == "blup") object$XB.blup else object$XB
+}
+
+#' @rdname fitted.nmf
 #' @export
 fitted.nmf.sem <- function(object, ...) {
   extra <- list(...)
@@ -446,14 +457,11 @@ residuals.nmfre <- function(object, Y, type = c("blup", "fixed"), ...) {
 #' @rdname residuals.nmf
 #' @export
 residuals.nmf.sem <- function(object, Y, ...) {
-  extra <- list(...)
-  Y2 <- extra$Y2
-  if (is.null(Y2)) stop("Supply Y2 to compute residuals.")
-  if (!anyNA(object$M.model)) {
-    Y - object$M.model %*% Y2
-  } else {
-    stop("Leontief inverse is NA; cannot compute residuals.")
-  }
+  ## Delegate to fitted.nmf.sem so residuals use the SAME reconstruction as
+  ## fitted (direct if Y1/Y2 given via ..., else the Y2-equilibrium form).
+  ## Y is the observed response block (Y1). nmf.sem/nmf.ffb need Y2 (and,
+  ## for the direct form, Y1) supplied via ... -- see fitted.nmf.sem.
+  Y - fitted(object, ...)
 }
 
 

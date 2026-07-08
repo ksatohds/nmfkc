@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfae.signed.R
 \name{nmfae.signed.rename}
 \alias{nmfae.signed.rename}
-\title{Rename Dec/Enc labels on nmfae.signed objects}
+\title{Rename Resp/Cov labels on nmfae.signed objects}
 \usage{
 nmfae.signed.rename(x, X1.colnames = NULL, X2.rownames = NULL)
 }
@@ -17,8 +17,8 @@ nmfae.signed.rename(x, X1.colnames = NULL, X2.rownames = NULL)
 The renamed object (same class).
 }
 \description{
-Replaces the default \code{"Dec1", "Dec2", ...} (decoder / X1 columns
-and Cp/Cn/C rows) and \code{"Enc1", "Enc2", ...} (encoder / X2 rows and
+Replaces the default \code{"Resp1", "Resp2", ...} (response basis / X1 columns
+and Cp/Cn/C rows) and \code{"Cov1", "Cov2", ...} (covariate basis / X2 rows and
 Cp/Cn/C columns) with user-supplied labels.  Propagates to coefficients
 tables if present (e.g., from \code{nmfae.inference}).
 }

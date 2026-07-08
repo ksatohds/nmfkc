@@ -3,12 +3,15 @@
 \name{fitted.nmf}
 \alias{fitted.nmf}
 \alias{fitted.nmfae}
+\alias{fitted.nmfre}
 \alias{fitted.nmf.sem}
 \title{Extract fitted values from NMF models}
 \usage{
 \method{fitted}{nmf}(object, ...)
 
 \method{fitted}{nmfae}(object, ...)
+
+\method{fitted}{nmfre}(object, type = c("blup", "fixed"), ...)
 
 \method{fitted}{nmf.sem}(object, ...)
 }
@@ -17,6 +20,11 @@
 \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.}
 
 \item{...}{For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.}
+
+\item{type}{For \code{nmfre} objects: \code{"blup"} (default, the fit
+\eqn{X(\Theta A + U)} including random effects) or \code{"fixed"}
+(\eqn{X\Theta A}, fixed effects only). Chosen so that
+\code{Y - fitted(object, type)} equals \code{residuals(object, Y, type)}.}
 }
 \value{
 The fitted matrix \eqn{X B}.
