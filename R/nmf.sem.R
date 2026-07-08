@@ -465,7 +465,7 @@ nmf.sem <- function(
   ## Carry both the canonical NMF-FFB class (paper-aligned, primary) and
   ## the legacy "nmf.sem" class (back-compat).  S3 methods registered on
   ## either class are dispatched correctly via inheritance.
-  class(out) <- c("nmf.ffb", "nmf.sem")
+  class(out) <- c("nmf.ffb", "nmf.sem", "nmf")
   out
 }
 

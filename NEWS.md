@@ -1,5 +1,22 @@
 # nmfkc 0.8.4 (development)
 
+### **Naming / API consistency pass (aligned to the nmfkc house style)**
+- Fit objects now report `runtime` as **numeric seconds** everywhere (was a
+  preformatted string in `nmfkc()`); `print()` formats it for display.
+- `nmfkc.net()` fit objects now return `sigma` (RMSE), for parity with
+  `nmfkc()` / `nmfkc.signed()`.
+- `nmfre.ecv()` returns the held-out RMSE as `$sigma` (was `$sigma.ecv`) to
+  match `nmfkc.ecv()`.
+- New `predict.nmfre()`: fixed-effect prediction \eqn{X\Theta A_{new}} for new
+  covariates, or the in-sample BLUP fit when `newA` is omitted.
+- `nmf.sem`/`nmf.ffb` fit objects now carry the shared `"nmf"` class, so the
+  common `coef`/`fitted`/`residuals` fallbacks apply.
+- Fold-count argument unified to `nfolds` (`nmfre.ecv` was `nfold`; legacy names
+  accepted via `...`); `summary.nmfre()` CI toggle is `ci.show` (object-first);
+  `nmfae`/`nmfae.signed` fit objects gained an `iter` alias of `niter`.
+
+
+
 ### **`X.L2.smooth`: row-smoothness penalty on the basis**
 - New penalty `X.L2.smooth` (nonnegative, default 0) adds
   \eqn{\lambda\,\mathrm{tr}(X^\top L X)} with \eqn{L} the path-graph Laplacian

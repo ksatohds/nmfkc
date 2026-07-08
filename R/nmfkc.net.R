@@ -1030,6 +1030,9 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   r.squared.centered <- r2_all$r.squared.centered
   mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
          else mean(abs(resid))
+  ## sigma (RMSE) for parity with nmfkc / nmfkc.signed fit objects
+  sigma <- if (has.weights) sqrt(sum(Wmat * resid^2) / max(sum(Wmat), small))
+           else sqrt(mean(resid^2))
 
   X.prob <- X / (rowSums(X) + small)
   X.cluster <- apply(X.prob, 1, which.max)
@@ -1046,6 +1049,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     r.squared.uncentered     = r.squared.uncentered,
     r.squared.centered = r.squared.centered,
     mae = mae,
+    sigma = sigma,
     iter = iter,
     runtime = as.numeric((proc.time() - t0)[3]),
     X.restriction = X.restriction

@@ -939,6 +939,34 @@ summary.nmfre <- function(object, ci.show = FALSE, ...) {
 
 
 # ============================================================
+# predict.nmfre() - fixed-effect prediction
+# ============================================================
+
+#' @title Predict method for nmfre objects
+#' @description
+#' Predicts the response from a fitted NMF-RE model. With \code{newA} supplied,
+#' returns the \strong{fixed-effect} prediction \eqn{X\,\Theta\,A_{new}} (new
+#' units carry no estimated random effect \eqn{U}, so only the population mean
+#' is predicted). Without \code{newA}, returns the in-sample BLUP fit
+#' \eqn{X(\Theta A + U)} (\code{object$XB.blup}), matching \code{fitted()}.
+#' @param object An object of class \code{"nmfre"} from \code{\link{nmfre}}.
+#' @param newA Optional covariate matrix (K x M) for new units. If \code{NULL}
+#'   (default), the in-sample BLUP fit is returned.
+#' @param ... Not used.
+#' @return A matrix of predicted (P x M) values.
+#' @seealso \code{\link{nmfre}}, \code{\link{fitted.nmf}}
+#' @export
+predict.nmfre <- function(object, newA = NULL, ...) {
+  if (is.null(newA)) {
+    object$XB.blup
+  } else {
+    newA <- base::as.matrix(newA)
+    object$X %*% (object$C %*% newA)
+  }
+}
+
+
+# ============================================================
 # nmfre.inference() - statistical inference on C (separated)
 # ============================================================
 
@@ -1188,7 +1216,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #' random effects}. For each fold the held-out entries are hidden and filled by
 #' iterative imputation: fit the NMF-RE model on the current matrix, replace the
 #' held-out entries with the BLUP prediction \eqn{X(\Theta A + U)}, and repeat.
-#' The score is the held-out prediction RMSE (\code{sigma.ecv}); the selected
+#' The score is the held-out prediction RMSE (\code{sigma}); the selected
 #' rank minimizes it.
 #'
 #' Because the held-out entries of a column are predicted using the random
@@ -1220,8 +1248,9 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #' @return A list of class \code{"nmfre.ecv"} with components:
 #'   \describe{
 #'     \item{\code{rank}}{The ranks evaluated.}
-#'     \item{\code{sigma.ecv}}{Named numeric vector of held-out RMSE per rank.}
-#'     \item{\code{best}}{The rank minimizing \code{sigma.ecv}.}
+#'     \item{\code{sigma}}{Named numeric vector of held-out RMSE per rank
+#'       (same field name as \code{\link{nmfkc.ecv}}).}
+#'     \item{\code{best}}{The rank minimizing \code{sigma}.}
 #'     \item{\code{nfolds}, \code{rounds}, \code{C.signed}}{Settings used.}
 #'   }
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfre.inference}}, \code{\link{nmfkc.ecv}}
@@ -1302,11 +1331,11 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
       }
     }
     sig[base::as.character(Q)] <- if (nt > 0) base::sqrt(sse / nt) else NA_real_
-    if (print.trace) base::cat(sprintf("  Q=%d  sigma.ecv=%.4f\n", Q, sig[base::as.character(Q)]))
+    if (print.trace) base::cat(sprintf("  Q=%d  sigma=%.4f\n", Q, sig[base::as.character(Q)]))
   }
 
   best <- rank[base::which.min(sig)]
-  out <- base::list(rank = rank, sigma.ecv = sig, best = best,
+  out <- base::list(rank = rank, sigma = sig, best = best,
                     nfolds = nfolds, rounds = rounds, C.signed = C.signed)
   base::class(out) <- "nmfre.ecv"
   out
@@ -1325,7 +1354,7 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
 plot.nmfre.ecv <- function(x, main = "NMF-RE element-wise CV",
                            xlab = "Rank (Q)",
                            ylab = "sigma.ecv (held-out RMSE)", ...) {
-  rk <- x$rank; s <- base::as.numeric(x$sigma.ecv)
+  rk <- x$rank; s <- base::as.numeric(x$sigma)
   graphics::plot(rk, s, type = "b", pch = 19, xlab = xlab, ylab = ylab,
                  main = main, ...)
   if (base::any(is.finite(s))) {
@@ -1347,8 +1376,8 @@ plot.nmfre.ecv <- function(x, main = "NMF-RE element-wise CV",
 print.nmfre.ecv <- function(x, ...) {
   base::cat(sprintf("NMF-RE element-wise CV (%d-fold, %d imputation rounds, C.signed=%s)\n",
                     x$nfolds, x$rounds, base::as.character(x$C.signed)))
-  tab <- base::data.frame(rank = x$rank, sigma.ecv = base::as.numeric(x$sigma.ecv))
+  tab <- base::data.frame(rank = x$rank, sigma = base::as.numeric(x$sigma))
   base::print(tab, row.names = FALSE)
-  base::cat(sprintf("Best rank (min sigma.ecv): %d\n", x$best))
+  base::cat(sprintf("Best rank (min sigma): %d\n", x$best))
   invisible(x)
 }

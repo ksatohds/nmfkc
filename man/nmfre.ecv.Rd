@@ -35,8 +35,9 @@ final fit, so these are loosened by default.
 A list of class \code{"nmfre.ecv"} with components:
 \describe{
 \item{\code{rank}}{The ranks evaluated.}
-\item{\code{sigma.ecv}}{Named numeric vector of held-out RMSE per rank.}
-\item{\code{best}}{The rank minimizing \code{sigma.ecv}.}
+\item{\code{sigma}}{Named numeric vector of held-out RMSE per rank
+(same field name as \code{\link{nmfkc.ecv}}).}
+\item{\code{best}}{The rank minimizing \code{sigma}.}
 \item{\code{nfolds}, \code{rounds}, \code{C.signed}}{Settings used.}
 }
 }
@@ -46,7 +47,7 @@ element-wise (entry-holdout) cross-validation that \strong{exercises the
 random effects}. For each fold the held-out entries are hidden and filled by
 iterative imputation: fit the NMF-RE model on the current matrix, replace the
 held-out entries with the BLUP prediction \eqn{X(\Theta A + U)}, and repeat.
-The score is the held-out prediction RMSE (\code{sigma.ecv}); the selected
+The score is the held-out prediction RMSE (\code{sigma}); the selected
 rank minimizes it.
 
 Because the held-out entries of a column are predicted using the random

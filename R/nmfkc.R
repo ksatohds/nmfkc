@@ -2619,8 +2619,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 
   if(epsilon.iter > abs(epsilon)) warning(paste0("maximum iterations (",maxit,") reached..."))
   end.time <- Sys.time()
-  diff.time.st <- paste0(round(difftime(end.time,start.time,units="sec"),1),"sec")
-  if(print.dims) message(diff.time.st)
+  ## runtime stored as numeric seconds (house style, matches nmfkc.net/.signed);
+  ## formatted for display in print()/summary().
+  diff.time.sec <- as.numeric(difftime(end.time, start.time, units = "sec"))
+  if(print.dims) message(paste0(round(diff.time.sec, 1), "sec"))
 
   n.missing <- sum(Y.weights == 0)
   n.total <- prod(dim(Y))
@@ -2630,7 +2632,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   result <- list(
     call      = match.call(),
     dims      = dims,
-    runtime   = diff.time.st,
+    runtime   = diff.time.sec,
     method    = method,
     X         = X,
     B         = B,
@@ -2790,7 +2792,8 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   }
   cat("Dimensions:", x$dims, "\n")
   if(!is.null(x$rank)) cat("Rank (Q):   ", x$rank, "\n")
-  cat("Runtime:    ", x$runtime, "\n")
+  cat("Runtime:    ",
+      if (is.numeric(x$runtime)) sprintf("%.1fsec", x$runtime) else x$runtime, "\n")
   if (!is.null(x$method)) cat("Method:     ", x$method, "\n")
   cat("Iterations: ", x$iter, "\n")
 
