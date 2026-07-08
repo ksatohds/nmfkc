@@ -1230,6 +1230,7 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
          else
            c("nmfkc.net.ecv", "nmfkc.ecv")
   structure(list(objfunc = cv$objfunc, sigma = cv$sigma,
+                 rank = rank, nfolds = nfolds,
                  objfunc.fold = cv$objfunc.fold, folds = folds,
                  Q.grid = rank, type = type),
             class = cls)

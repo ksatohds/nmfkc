@@ -941,6 +941,7 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
                    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", rank[i], o, s)))
   structure(list(
     objfunc = cv$objfunc, sigma = cv$sigma,
+    rank = rank, nfolds = nfolds,
     objfunc.fold = cv$objfunc.fold, folds = folds, Q.grid = rank
   ), class = c("nmfkc.signed.ecv", "nmfkc.ecv"))
 }
