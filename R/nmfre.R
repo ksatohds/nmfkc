@@ -761,8 +761,10 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #' standard R regression output conventions.
 #'
 #' @param object An object of class \code{nmfre}, returned by \code{\link{nmfre}}.
-#' @param show.ci Logical. If \code{TRUE}, show confidence interval columns
-#'   (default \code{FALSE}). Legacy \code{show_ci} is accepted via \code{...}.
+#' @param ci.show Logical. If \code{TRUE}, show confidence interval columns
+#'   (default \code{FALSE}). Named object-first to match the package style
+#'   (\code{C.signed}, \code{X.init}, ...). Legacy \code{show.ci} / \code{show_ci}
+#'   are accepted via \code{...}.
 #' @param ... Additional arguments (currently unused).
 #' @return The input object, invisibly.
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfre.inference}}
@@ -773,11 +775,12 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #' res <- nmfre(Y, A, rank = 1, maxit = 5000)
 #' summary(res)
 #'
-summary.nmfre <- function(object, show.ci = FALSE, ...) {
+summary.nmfre <- function(object, ci.show = FALSE, ...) {
 
-  ## legacy snake_case alias
+  ## legacy aliases (dot / snake case)
   .extra <- list(...)
-  if (!is.null(.extra$show_ci)) show.ci <- .extra$show_ci
+  if (!is.null(.extra$show.ci)) ci.show <- .extra$show.ci
+  if (!is.null(.extra$show_ci)) ci.show <- .extra$show_ci
 
   x <- object
   P <- nrow(x$X); Q <- ncol(x$X)
@@ -921,7 +924,7 @@ summary.nmfre <- function(object, show.ci = FALSE, ...) {
     }
 
     # CI
-    if (isTRUE(show.ci) && all(c("CI_low", "CI_high") %in% names(cf))) {
+    if (isTRUE(ci.show) && all(c("CI_low", "CI_high") %in% names(cf))) {
       level <- if (!is.null(x$wild.level)) x$wild.level else 0.95
       cat(sprintf("\n%.0f%% Bootstrap CI:\n", level * 100))
       ci_lo <- formatC(cf$CI_low, format = "f", digits = 3, width = 9)
