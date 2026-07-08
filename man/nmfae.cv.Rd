@@ -66,3 +66,4 @@ res$sigma
 \code{\link{nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.kernel.beta.cv}},
 \code{\link{nmfkc.cv}}
 }
+\keyword{internal}

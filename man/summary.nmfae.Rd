@@ -39,3 +39,4 @@ and structure diagnostics (sparsity of factor matrices).
 \seealso{
 \code{\link{nmfae}}, \code{\link{print.summary.nmfae}}
 }
+\keyword{internal}

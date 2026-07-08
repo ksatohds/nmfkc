@@ -70,3 +70,4 @@ res$beta
 \code{\link{nmfae.cv}}, \code{\link{nmfkc.kernel}},
 \code{\link{nmfkc.kernel.beta.cv}}
 }
+\keyword{internal}

@@ -70,3 +70,4 @@ Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 \seealso{
 \code{\link{nmfae.signed}}, \code{\link{nmfae.heatmap}}
 }
+\keyword{internal}

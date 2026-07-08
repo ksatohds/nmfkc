@@ -7,6 +7,7 @@
 # Suggests: DiagrammeR, DiagrammeRsvg, rsvg (for DOT graph rendering)
 
 #' @title Three-Layer Non-negative Matrix Factorization (NMF-AE)
+#' @keywords internal
 #' @description
 #' \code{nmfae} fits a three-layer nonnegative matrix factorization model
 #' \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}, where \eqn{X_1} is a decoder basis
@@ -433,6 +434,7 @@ nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 }
 
 #' @title Statistical Inference for NMF-AE Parameter Matrix
+#' @keywords internal
 #' @description
 #' Performs post-estimation inference for \eqn{\Theta} in the three-layer NMF model
 #' \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}, conditional on \eqn{(\hat{X}_1, \hat{X}_2)}.
@@ -624,6 +626,7 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
 }
 
 #' @title Rename decoder and encoder bases
+#' @keywords internal
 #' @description
 #' Assigns user-specified names to the decoder (X1 columns) and encoder
 #' (X2 rows) bases of an \code{nmfae} object.  The names propagate to
@@ -707,6 +710,7 @@ plot.nmfae <- function(x, ...) {
 }
 
 #' @title Summary method for nmfae objects
+#' @keywords internal
 #' @description
 #' \code{summary.nmfae} produces a summary of a fitted NMF-AE model,
 #' including dimensions, convergence status, goodness-of-fit statistics,
@@ -802,6 +806,7 @@ summary.nmfae <- function(object, ...) {
 }
 
 #' @title Print method for summary.nmfae objects
+#' @keywords internal
 #' @description
 #' Prints a formatted summary of an NMF-AE model fit.
 #'
@@ -926,6 +931,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
 }
 
 #' @title Summary method for nmfae.inference objects
+#' @keywords internal
 #' @description
 #' Produces a summary of a fitted NMF-AE model with inference results,
 #' including the coefficients table for \eqn{\Theta}.
@@ -942,6 +948,7 @@ summary.nmfae.inference <- function(object, ...) {
 }
 
 #' @title Print method for summary.nmfae.inference objects
+#' @keywords internal
 #' @description
 #' Prints a formatted summary including the coefficients table.
 #' @param x An object of class \code{"summary.nmfae.inference"}.
@@ -959,6 +966,7 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 
 
 #' @title Heatmap visualization of nmfae factor matrices
+#' @keywords internal
 #' @description
 #' \code{nmfae.heatmap} displays the three factor matrices \eqn{X_1}, \eqn{\Theta},
 #' and \eqn{X_2} as side-by-side heatmaps. This provides an alternative to DOT graph
@@ -1049,6 +1057,7 @@ nmfae.heatmap <- function(x,
 }
 
 #' @title Predict method for nmfae objects
+#' @keywords internal
 #' @description
 #' \code{predict.nmfae} computes fitted or predicted values from a three-layer NMF model.
 #' Without \code{newY2}, returns the in-sample fitted values \eqn{X_1 \Theta X_2 Y_2}.
@@ -1115,6 +1124,7 @@ predict.nmfae <- function(object, newY2 = NULL, Y1 = NULL,
 }
 
 #' @title Plot method for predict.nmfae objects
+#' @keywords internal
 #' @description
 #' For \code{type = "response"}: if actual values \eqn{Y_1} were stored,
 #' displays an observed-vs-predicted scatter plot with \eqn{R^2} in the title.
@@ -1217,6 +1227,7 @@ plot.predict.nmfae <- function(x, ...) {
 }
 
 #' @title Element-wise Cross-Validation for nmfae (Wold's CV)
+#' @keywords internal
 #' @description
 #' \code{nmfae.ecv} performs k-fold element-wise cross-validation by randomly
 #' holding out individual elements of \eqn{Y_1}, assigning them a weight of 0
@@ -1332,6 +1343,7 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 
 
 #' @title Rank selection for nmfae (paired rank, concise diagnostics)
+#' @keywords internal
 #' @description
 #' Fits \code{\link{nmfae}} with a \strong{paired} decoder/encoder rank
 #' (\eqn{Q = R}) across a range of ranks and reports \code{r.squared},
@@ -1389,6 +1401,7 @@ nmfae.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
 }
 
 #' @title Plot method for nmfae.ecv objects
+#' @keywords internal
 #' @description
 #' Visualizes element-wise cross-validation results.
 #' When \code{rank.encoder} was \code{NULL} (paired), a line plot of sigma vs rank is drawn.
@@ -1479,6 +1492,7 @@ plot.nmfae.ecv <- function(x, ...) {
 }
 
 #' @title Sample-wise k-fold Cross-Validation for nmfae
+#' @keywords internal
 #' @description
 #' \code{nmfae.cv} performs k-fold cross-validation by splitting columns (samples)
 #' of \eqn{Y_1} and \eqn{Y_2} into \code{div} folds. For each fold, the model
@@ -1645,6 +1659,7 @@ nmfae.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
 }
 
 #' @title Plot method for nmfae.cv objects
+#' @keywords internal
 #' @description
 #' Displays a bar chart of per-fold cross-validation errors from
 #' \code{\link{nmfae.cv}}. The overall RMSE (sigma) is shown in the title.
@@ -1671,6 +1686,7 @@ plot.nmfae.cv <- function(x, ...) {
 }
 
 #' @title Optimize kernel beta for nmfae by cross-validation
+#' @keywords internal
 #' @description
 #' \code{nmfae.kernel.beta.cv} selects the optimal \code{beta} parameter of the
 #' kernel function by evaluating \code{\link{nmfae.cv}} for each candidate value.
@@ -1771,6 +1787,7 @@ nmfae.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
 }
 
 #' @title Plot method for nmfae.kernel.beta.cv objects
+#' @keywords internal
 #' @description
 #' Displays the cross-validation objective function across candidate
 #' \code{beta} values (log scale). The optimal beta is highlighted in red.
@@ -1802,6 +1819,7 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 }
 
 #' @title DOT graph visualization for nmfae objects
+#' @keywords internal
 #' @description
 #' \code{nmfae.DOT} generates a DOT language string for visualizing the structure
 #' of a three-layer NMF model. Two graph types are supported:

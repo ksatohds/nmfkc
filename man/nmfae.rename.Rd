@@ -40,3 +40,4 @@ summary(res)
 \seealso{
 \code{\link{nmfae}}
 }
+\keyword{internal}

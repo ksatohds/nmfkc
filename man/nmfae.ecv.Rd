@@ -74,3 +74,4 @@ res2$sigma
 \seealso{
 \code{\link{nmfae}}, \code{\link{nmfkc.ecv}}
 }
+\keyword{internal}

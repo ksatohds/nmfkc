@@ -58,3 +58,4 @@ components in factor and principal components models.
 \code{\link{nmfae}}, \code{\link{nmfae.ecv}},
 \code{\link{nmfkc.rank}}
 }
+\keyword{internal}

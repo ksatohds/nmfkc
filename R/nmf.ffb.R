@@ -22,7 +22,45 @@
 # ============================================================
 
 
-#' @rdname nmf.sem
+#' NMF-FFB: NMF with Feed-Forward and Feedback structure
+#'
+#' @description
+#' \code{nmf.ffb} and the \code{nmf.ffb.*} functions fit NMF-FFB
+#' (Non-negative Matrix Factorization with Feed-Forward + Feedback), the
+#' canonical name adopted in Satoh (2025), arXiv:2512.18250. They are thin
+#' wrappers over the internal \code{nmf.sem*} implementation (an earlier name
+#' for the same model); result objects carry \code{class = c("nmf.ffb",
+#' "nmf.sem")} so all S3 methods are reused by inheritance.
+#' \itemize{
+#'   \item \code{nmf.ffb()} fits the model.
+#'   \item \code{nmf.ffb.inference()} adds bootstrap inference on the feedback /
+#'     feed-forward coefficients.
+#'   \item \code{nmf.ffb.cv()} performs cross-validation for rank selection.
+#'   \item \code{nmf.ffb.DOT()} renders the fitted structure as a Graphviz graph.
+#'   \item \code{nmf.ffb.split()} heuristically splits variables into
+#'     exogenous / endogenous groups.
+#' }
+#'
+#' @param Y1,Y2 Non-negative data matrices (endogenous and exogenous blocks).
+#' @param rank Integer basis rank (\code{NULL} lets the model choose).
+#' @param X.init Basis initialization method (default \code{"nndsvd"}); accepts
+#'   the same menu as \code{\link{nmfkc}} (e.g. \code{"kmeans"}, \code{"kmeans++"}).
+#' @param X.L2.ortho,C1.L1,C2.L1 Non-negative penalty parameters (basis
+#'   orthogonality, and L1 on the two coefficient blocks).
+#' @param epsilon,maxit Convergence tolerance and maximum iterations.
+#' @param seed Integer RNG seed.
+#' @param object A fitted \code{nmf.ffb} object (for \code{nmf.ffb.inference}).
+#' @param B Number of bootstrap replicates.
+#' @param threshold Minimum coefficient magnitude to display / test.
+#' @param ci.level Confidence level for bootstrap intervals.
+#' @param result A fitted object (for \code{nmf.ffb.DOT}).
+#' @param x A fitted object (for \code{nmf.ffb.split}).
+#' @param ... Further arguments passed to the underlying implementation.
+#' @return As the corresponding fitter / helper (fits carry the \code{"nmf.ffb"}
+#'   class in addition to \code{"nmf.sem"}).
+#' @references Satoh, K. (2025). arXiv:2512.18250.
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.DOT}}
+#' @name nmf.ffb
 #' @export
 nmf.ffb <- function(Y1, Y2, rank = NULL, X.init = "nndsvd",
                     X.L2.ortho = 100.0, C1.L1 = 1.0, C2.L1 = 0.1,
@@ -33,7 +71,7 @@ nmf.ffb <- function(Y1, Y2, rank = NULL, X.init = "nndsvd",
 }
 
 
-#' @rdname nmf.sem.inference
+#' @rdname nmf.ffb
 #' @export
 nmf.ffb.inference <- function(object, Y1, Y2,
                               B = 1000L, threshold = 0.01,
@@ -48,16 +86,16 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 }
 
 
-#' @rdname nmf.sem.cv
+#' @rdname nmf.ffb
 #' @export
 nmf.ffb.cv <- function(...) nmf.sem.cv(...)
 
 
-#' @rdname nmf.sem.DOT
+#' @rdname nmf.ffb
 #' @export
 nmf.ffb.DOT <- function(result, ...) nmf.sem.DOT(result, ...)
 
 
-#' @rdname nmf.sem.split
+#' @rdname nmf.ffb
 #' @export
 nmf.ffb.split <- function(x, ...) nmf.sem.split(x, ...)

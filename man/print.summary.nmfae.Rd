@@ -25,3 +25,4 @@ Prints a formatted summary of an NMF-AE model fit.
 \seealso{
 \code{\link{summary.nmfae}}
 }
+\keyword{internal}

@@ -54,3 +54,4 @@ nmfae.heatmap(res)
 \seealso{
 \code{\link{nmfae}}, \code{\link{plot.nmfae}}, \code{\link{nmfae.DOT}}
 }
+\keyword{internal}

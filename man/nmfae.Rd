@@ -134,3 +134,4 @@ An Artificial Intelligence (AI) Framework for Computational Science and Engineer
 \seealso{
 \code{\link{nmfae.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.DOT}}, \code{\link{nmfkc}}
 }
+\keyword{internal}

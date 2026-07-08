@@ -34,3 +34,4 @@ Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 \seealso{
 \code{\link{summary.nmfae.signed.inference}}
 }
+\keyword{internal}

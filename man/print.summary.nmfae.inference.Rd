@@ -24,3 +24,4 @@ Prints a formatted summary including the coefficients table.
 \seealso{
 \code{\link{summary.nmfae.inference}}
 }
+\keyword{internal}

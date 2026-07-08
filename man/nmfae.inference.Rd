@@ -61,3 +61,4 @@ summary(res2)
 \seealso{
 \code{\link{nmfae}}, \code{\link{summary.nmfae.inference}}
 }
+\keyword{internal}

@@ -34,3 +34,4 @@ plot(pred)
 \seealso{
 \code{\link{predict.nmfae}}
 }
+\keyword{internal}

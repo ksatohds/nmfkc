@@ -21,6 +21,7 @@
 # ==============================================================
 
 #' @title Signed-Bottleneck NMF-AE: Three-Layer NMF-AE with Signed Bottleneck
+#' @keywords internal
 #' @description
 #' \code{nmfae.signed} fits a three-layer non-negative matrix factorization
 #' autoencoder with a \strong{signed} bottleneck, solving
@@ -582,6 +583,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
 ## ==============================================================
 #' @title Statistical Inference for Signed-Bottleneck NMF-AE Signed Bottleneck
+#' @keywords internal
 #' @description
 #' Post-estimation inference for the \strong{signed} bottleneck
 #' \eqn{\Theta = C_{+} - C_{-}} in the Signed-Bottleneck NMF-AE model
@@ -757,6 +759,7 @@ nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
 
 ## ==============================================================
 #' @title Predict method for nmfae.signed
+#' @keywords internal
 #' @description
 #' Computes \eqn{\hat Y_1 = X_1 (C_{+} - C_{-}) X_2 Y_2^{\mathrm{new}}}.
 #' Since \eqn{\Theta = C_{+} - C_{-}} is signed, predictions may contain
@@ -815,6 +818,7 @@ predict.nmfae.signed <- function(object, newY2 = NULL, Y1 = NULL,
 
 ## ==============================================================
 #' @title Plot method for nmfae.signed (convergence)
+#' @keywords internal
 #' @description
 #' Displays the convergence trajectory of the objective function.
 #' @param x An \code{nmfae.signed} object.
@@ -846,6 +850,7 @@ plot.nmfae.signed <- function(x, ...) {
 
 ## ==============================================================
 #' @title Summary method for nmfae.signed
+#' @keywords internal
 #' @description
 #' Produces a summary with dimensions, convergence, fit statistics,
 #' and structure diagnostics (sparsity and negative-mass ratio).
@@ -908,6 +913,7 @@ summary.nmfae.signed <- function(object, ...) {
 }
 
 #' @title Print method for summary.nmfae.signed
+#' @keywords internal
 #' @param x A \code{"summary.nmfae.signed"} object.
 #' @param digits Number of significant digits.
 #' @param ... Unused.
@@ -977,6 +983,7 @@ print.summary.nmfae.signed <- function(x,
 
 ## ==============================================================
 #' @title Rename Dec/Enc labels on nmfae.signed objects
+#' @keywords internal
 #' @description
 #' Replaces the default \code{"Dec1", "Dec2", ...} (decoder / X1 columns
 #' and Cp/Cn/C rows) and \code{"Enc1", "Enc2", ...} (encoder / X2 rows and
@@ -1031,6 +1038,7 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 
 ## ==============================================================
 #' @title Element-wise Cross-Validation for Signed-Bottleneck NMF-AE
+#' @keywords internal
 #' @description
 #' Element-wise k-fold cross-validation for \code{\link{nmfae.signed}} to
 #' select the decoder / encoder ranks \eqn{(Q, R)}.  Mirrors
@@ -1136,6 +1144,7 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 
 
 #' @title Rank selection for nmfae.signed (paired rank, concise diagnostics)
+#' @keywords internal
 #' @description
 #' Fits \code{\link{nmfae.signed}} with a \strong{paired} decoder/encoder
 #' rank (\eqn{Q = R}) across a range of ranks and reports
@@ -1196,6 +1205,7 @@ nmfae.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast
 
 ## ==============================================================
 #' @title Summary method for nmfae.signed.inference objects
+#' @keywords internal
 #' @description
 #' Produces a summary of a fitted Signed-Bottleneck NMF-AE model with
 #' inference results.  Extends \code{\link{summary.nmfae.signed}} by
@@ -1227,6 +1237,7 @@ summary.nmfae.signed.inference <- function(object, ...) {
 }
 
 #' @title Print method for summary.nmfae.signed.inference objects
+#' @keywords internal
 #' @description
 #' Prints the Signed-Bottleneck NMF-AE summary followed by the
 #' coefficients table of Theta.
@@ -1301,6 +1312,7 @@ print.summary.nmfae.signed.inference <- function(x,
 
 ## ==============================================================
 #' @title Heatmap visualization of nmfae.signed factor matrices
+#' @keywords internal
 #' @description
 #' Displays the factor blocks of a \code{\link{nmfae.signed}} fit as
 #' side-by-side heatmaps.  Non-negative blocks (\eqn{X_1, C_{+}, C_{-},

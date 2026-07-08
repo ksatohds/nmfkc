@@ -8,6 +8,7 @@
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 #' @title NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)
+#' @keywords internal
 #'
 #' @description
 #' Fits the NMF-FFB model
@@ -470,6 +471,7 @@ nmf.sem <- function(
 
 
 #' @title Statistical inference for NMF-FFB via X-fixed full pair bootstrap
+#' @keywords internal
 #' @description
 #' \code{nmf.sem.inference} performs statistical inference on the structural
 #' coefficient matrices \eqn{C_1} (latent feedback, \eqn{\Theta_1}) and
@@ -870,6 +872,7 @@ nmf.sem.inference <- function(object, Y1, Y2,
 
 
 #' @title Cross-Validation for NMF-FFB
+#' @keywords internal
 #' @description
 #' Performs K-fold cross-validation to evaluate the equilibrium mapping of
 #' the NMF-FFB model.
@@ -1104,6 +1107,7 @@ nmf.sem.cv <- function(
 
 
 #' @title Heuristic Variable Splitting for NMF-FFB
+#' @keywords internal
 #'
 #' @description
 #' Infers a heuristic partition of observed variables into exogenous (\eqn{Y_2})
@@ -1436,6 +1440,7 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #'
 #' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.inference}},
 #'   \code{\link{plot.nmfkc.DOT}}
+#' @keywords internal
 #' @export
 nmf.sem.DOT <- function(result,
                         weight_scale          = 5,

@@ -1,5 +1,16 @@
 # nmfkc 0.8.4 (development)
 
+### **Public API: `nmf.rrr` and `nmf.ffb` are the documented names**
+- The legacy `nmfae*` and `nmf.sem*` families are now marked internal
+  (`@keywords internal`): they remain exported and fully functional for
+  backward compatibility, but no longer appear in the reference index / pkgdown
+  site. Their documented, user-facing names are the NMF-RRR aliases
+  (`nmf.rrr*`) and the NMF-FFB aliases (`nmf.ffb*`), which now each have their
+  own self-contained help page (previously `nmf.ffb*` shared the `nmf.sem*`
+  pages).
+
+
+
 ### **`X.init = "kmeans++"` basis initialization**
 - New basis-initialization option `X.init = "kmeans++"` (alias `"kmeanspp"`)
   seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur &

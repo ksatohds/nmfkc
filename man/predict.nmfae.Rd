@@ -51,3 +51,4 @@ pred <- predict(res)
 \code{\link{nmfae}}, \code{\link{plot.predict.nmfae}},
 \code{\link{nmfkc.class}}
 }
+\keyword{internal}

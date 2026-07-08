@@ -154,3 +154,4 @@ Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 \code{\link{nmfae}}, \code{\link{predict.nmfae.signed}},
 \code{\link{summary.nmfae.signed}}, \code{\link{nmfae.signed.rename}}
 }
+\keyword{internal}

@@ -69,6 +69,5 @@ details.  \code{nmf.rrr()} and \code{nmf.rrr.signed()} additionally prepend
 \code{"nmf.rrr"} / \code{"nmf.rrr.signed"} to the fitted object's class.
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{nmfae.inference}},
-\code{\link{nmfae.ecv}}, \code{\link{nmfae.signed}}
+\code{\link{nmfkc}}, \code{\link{nmfkc.DOT}}
 }

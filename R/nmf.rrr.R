@@ -37,8 +37,7 @@
 #'   \code{nmfae.signed*} function.
 #' @return As the wrapped function (the two fitters additionally prepend the
 #'   NMF-RRR class to the result).
-#' @seealso \code{\link{nmfae}}, \code{\link{nmfae.inference}},
-#'   \code{\link{nmfae.ecv}}, \code{\link{nmfae.signed}}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.DOT}}
 #' @name nmf.rrr
 #' @export
 nmf.rrr <- function(...) {

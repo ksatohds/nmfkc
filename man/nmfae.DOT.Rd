@@ -99,3 +99,4 @@ dot <- nmfae.DOT(res)
 \seealso{
 \code{\link{nmfae}}
 }
+\keyword{internal}

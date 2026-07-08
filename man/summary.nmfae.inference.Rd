@@ -21,3 +21,4 @@ including the coefficients table for \eqn{\Theta}.
 \seealso{
 \code{\link{nmfae.inference}}, \code{\link{summary.nmfae}}
 }
+\keyword{internal}

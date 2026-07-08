@@ -22,3 +22,4 @@ When \code{rank.encoder} was explicitly specified (grid), a heatmap of sigma ove
 \seealso{
 \code{\link{nmfae.ecv}}
 }
+\keyword{internal}
