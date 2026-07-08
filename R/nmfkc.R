@@ -2180,6 +2180,13 @@ print.nmf.rank <- function(x, ...) {
 #'       It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
 #'       between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
 #'       (Formerly \code{lambda.ortho}).
+#'     \item \code{X.L2.smooth}: Nonnegative penalty parameter for row-smoothness of
+#'       \eqn{X} (default: 0). Adds \eqn{\lambda\,\mathrm{tr}(X^\top L X)} with \eqn{L}
+#'       the path-graph Laplacian over the \eqn{P} rows, i.e.\ it penalizes squared
+#'       differences between adjacent rows \eqn{\sum_q\sum_{j\ge 2}(x_{jq}-x_{j-1,q})^2},
+#'       yielding gently-varying (smooth) bases. Integrates with the multiplicative
+#'       updates (non-negativity and monotone descent preserved). Useful when the rows
+#'       of \eqn{Y} have a natural order (e.g.\ time points).
 #'     \item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).
 #'       Promotes **sparsity in the coefficients**. (Formerly \code{gamma}).
 #'     \item \code{C.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{C} (default: 0).
@@ -2299,6 +2306,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   C.L1 <- if (!base::is.null(extra_args$C.L1)) extra_args$C.L1 else 0
   B.L1 <- if (!base::is.null(extra_args$B.L1)) extra_args$B.L1 else 0
   X.L2.ortho <- if (!base::is.null(extra_args$X.L2.ortho)) extra_args$X.L2.ortho else 0
+  ## Row-smoothness penalty on X: lambda * tr(X' L X) with L the path-graph
+  ## Laplacian over the P rows (adjacent rows only). Encourages gently-varying
+  ## bases. Default 0 = off (exact current behaviour).
+  X.L2.smooth <- if (!base::is.null(extra_args$X.L2.smooth)) extra_args$X.L2.smooth else 0
 
   if (C.L1 == 0 && !base::is.null(extra_args$lambda)) C.L1 <- extra_args$lambda
   if (B.L1 == 0 && !base::is.null(extra_args$gamma)) B.L1 <- extra_args$gamma
@@ -2462,6 +2473,16 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
+        if (X.L2.smooth > 0 && nrow(X) >= 2) {
+          ## path-graph Laplacian over rows: grad = lambda (D X - W X)
+          Pr <- nrow(X)
+          WX <- X * 0
+          WX[-Pr, ] <- WX[-Pr, ] + X[-1, , drop = FALSE]   # + lower neighbour
+          WX[-1, ]  <- WX[-1, ]  + X[-Pr, , drop = FALSE]  # + upper neighbour
+          degX <- c(1, rep(2, Pr - 2), 1) * X
+          num_X <- num_X + X.L2.smooth * WX
+          den_X <- den_X + X.L2.smooth * degX
+        }
         update_ratio <- num_X / (den_X + .eps)
         X <- X * update_ratio
         X <- xnorm(X)
@@ -2497,6 +2518,16 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
+        if (X.L2.smooth > 0 && nrow(X) >= 2) {
+          ## path-graph Laplacian over rows: grad = lambda (D X - W X)
+          Pr <- nrow(X)
+          WX <- X * 0
+          WX[-Pr, ] <- WX[-Pr, ] + X[-1, , drop = FALSE]
+          WX[-1, ]  <- WX[-1, ]  + X[-Pr, , drop = FALSE]
+          degX <- c(1, rep(2, Pr - 2), 1) * X
+          num_X <- num_X + X.L2.smooth * WX
+          den_X <- den_X + X.L2.smooth * degX
+        }
         update_ratio <- num_X / (den_X + .eps)
         X <- X * update_ratio
         X <- xnorm(X)
@@ -2527,6 +2558,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     if (X.L2.ortho != 0) {
       XtX <- crossprod(X); diag(XtX) <- 0
       obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
+    }
+    if (X.L2.smooth != 0 && nrow(X) >= 2) {
+      ## (lambda/2) tr(X' L X) = (lambda/2) sum of squared adjacent-row diffs
+      obj <- obj + (X.L2.smooth / 2) * sum((X[-1, , drop = FALSE] -
+                                            X[-nrow(X), , drop = FALSE])^2)
     }
     objfunc.iter[i] <- obj
 

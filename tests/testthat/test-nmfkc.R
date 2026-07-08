@@ -26,3 +26,19 @@ test_that(".kmeanspp.seed returns k distinct-ish centres of right shape", {
   expect_equal(dim(s), c(4L, 5L))
   expect_true(all(is.finite(s)))
 })
+
+test_that("X.L2.smooth is off by default, smooths rows, and stays monotone", {
+  set.seed(1)
+  P <- 24; N <- 30; Q <- 2
+  Xt <- matrix(abs(rnorm(P * Q)), P, Q)
+  B  <- matrix(abs(rnorm(Q * N)), Q, N)
+  Y  <- Xt %*% B + matrix(abs(rnorm(P * N, 0, 0.1)), P, N)
+  rough <- function(X) sum((X[-1, ] - X[-nrow(X), ])^2) / sum(X^2)
+  r0 <- nmfkc(Y, rank = Q, seed = 1, verbose = FALSE, print.dims = FALSE)
+  r0b <- nmfkc(Y, rank = Q, seed = 1, X.L2.smooth = 0, verbose = FALSE, print.dims = FALSE)
+  rS <- nmfkc(Y, rank = Q, seed = 1, X.L2.smooth = 1000, verbose = FALSE, print.dims = FALSE)
+  expect_equal(r0$X, r0b$X)                              # default == explicit 0
+  expect_lt(rough(rS$X), rough(r0$X))                    # smoothing reduces roughness
+  o <- rS$objfunc.iter; o <- o[is.finite(o)]
+  expect_true(all(diff(o) <= 1e-6))                      # MU stays monotone
+})

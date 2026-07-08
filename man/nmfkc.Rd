@@ -54,6 +54,13 @@ otherwise no weighting.
 It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
 between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
 (Formerly \code{lambda.ortho}).
+\item \code{X.L2.smooth}: Nonnegative penalty parameter for row-smoothness of
+\eqn{X} (default: 0). Adds \eqn{\lambda\,\mathrm{tr}(X^\top L X)} with \eqn{L}
+the path-graph Laplacian over the \eqn{P} rows, i.e.\ it penalizes squared
+differences between adjacent rows \eqn{\sum_q\sum_{j\ge 2}(x_{jq}-x_{j-1,q})^2},
+yielding gently-varying (smooth) bases. Integrates with the multiplicative
+updates (non-negativity and monotone descent preserved). Useful when the rows
+of \eqn{Y} have a natural order (e.g.\ time points).
 \item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).
 Promotes \strong{sparsity in the coefficients}. (Formerly \code{gamma}).
 \item \code{C.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{C} (default: 0).

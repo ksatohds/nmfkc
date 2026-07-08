@@ -1,5 +1,18 @@
 # nmfkc 0.8.4 (development)
 
+### **`X.L2.smooth`: row-smoothness penalty on the basis**
+- New penalty `X.L2.smooth` (nonnegative, default 0) adds
+  \eqn{\lambda\,\mathrm{tr}(X^\top L X)} with \eqn{L} the path-graph Laplacian
+  over the \eqn{P} rows, i.e. it penalizes squared differences between adjacent
+  rows and yields gently-varying (smooth) bases — useful when the rows of
+  \eqn{Y} have a natural order (e.g. time points). Like `X.L2.ortho`, it slots
+  into the multiplicative \eqn{X}-step
+  (\eqn{X \leftarrow X \odot (\mathrm{num} + \lambda W X)/(\mathrm{den} + \lambda D X)}),
+  preserving non-negativity and monotone descent. Default 0 reproduces prior
+  results exactly.
+
+
+
 ### **Public API: `nmf.rrr` and `nmf.ffb` are the documented names**
 - The legacy `nmfae*` and `nmf.sem*` families are now marked internal
   (`@keywords internal`): they remain exported and fully functional for
