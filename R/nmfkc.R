@@ -4318,7 +4318,8 @@ summary.nmfkc.inference <- function(object, ...) {
 #' @seealso \code{\link{summary.nmfkc.inference}}
 #' @export
 print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits") - 3L),
-                                           max.coef = 20, ...) {
+                                           max.coef = 20, by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
   # Print base summary
   print.summary.nmfkc(x, digits = digits, ...)
 
@@ -4329,6 +4330,7 @@ print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits"
   # Coefficients table (formatted like lm summary)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
+    cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
     n_total <- nrow(cf)
     rnames <- paste0(cf$Covariate, ":", cf$Basis)
 

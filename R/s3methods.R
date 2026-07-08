@@ -2,6 +2,19 @@
 # S3 generic methods: coef, fitted, residuals, plot, summary
 # ============================================================
 
+## Internal: row order for a coefficients table by grouping factor.
+## by = "covariate" (default): list all Basis for each Covariate
+##   (Covariate outer, Basis inner) -- the historical display order.
+## by = "basis": list all Covariate for each Basis (Basis outer).
+## The original appearance order of each factor is preserved.
+.coef.order.by <- function(cf, by = c("covariate", "basis")) {
+  by <- match.arg(by)
+  if (is.null(cf$Basis) || is.null(cf$Covariate)) return(seq_len(nrow(cf)))
+  b  <- factor(cf$Basis,     levels = unique(cf$Basis))
+  cv <- factor(cf$Covariate, levels = unique(cf$Covariate))
+  if (by == "covariate") order(cv, b) else order(b, cv)
+}
+
 # --- plot (convergence) ---
 
 #' @title Plot convergence diagnostics for NMF models

@@ -815,12 +815,17 @@ summary.nmfae <- function(object, ...) {
 #' @param digits Minimum number of significant digits to be used.
 #' @param max.coef Maximum number of coefficient rows to display. If the table
 #'   has more rows, only significant rows (p < 0.05) are shown. Default is 20.
+#' @param by Character; grouping order of the coefficients table.
+#'   \code{"covariate"} (default) lists all bases within each covariate
+#'   (1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+#'   (1-1, 2-1, ...).
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @seealso \code{\link{summary.nmfae}}
 #' @export
 print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
-                                max.coef = 20, ...) {
+                                max.coef = 20, by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
   cat("\nCall:\n",
       paste(deparse(x$call), sep = "\n", collapse = "\n"),
       "\n\n", sep = "")
@@ -857,6 +862,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
   # Coefficients table (inference)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
+    cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
     n_total <- nrow(cf)
     rnames <- paste0(cf$Covariate, ":", cf$Basis)
 
@@ -955,13 +961,18 @@ summary.nmfae.inference <- function(object, ...) {
 #' @param x An object of class \code{"summary.nmfae.inference"}.
 #' @param digits Minimum number of significant digits.
 #' @param max.coef Maximum coefficient rows to display. Default is 20.
+#' @param by Character; grouping order of the coefficients table.
+#'   \code{"covariate"} (default) lists all bases within each covariate
+#'   (1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+#'   (1-1, 2-1, ...).
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @seealso \code{\link{summary.nmfae.inference}}
 #' @export
 print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits") - 3L),
-                                          max.coef = 20, ...) {
-  print.summary.nmfae(x, digits = digits, max.coef = max.coef, ...)
+                                          max.coef = 20, by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
+  print.summary.nmfae(x, digits = digits, max.coef = max.coef, by = by, ...)
 }
 
 

@@ -4,7 +4,7 @@
 \alias{summary.nmfre}
 \title{Summary method for objects of class \code{nmfre}}
 \usage{
-\method{summary}{nmfre}(object, ci.show = FALSE, ...)
+\method{summary}{nmfre}(object, ci.show = FALSE, by = c("covariate", "basis"), ...)
 }
 \arguments{
 \item{object}{An object of class \code{nmfre}, returned by \code{\link{nmfre}}.}
@@ -13,6 +13,10 @@
 (default \code{FALSE}). Named object-first to match the package style
 (\code{C.signed}, \code{X.init}, ...). Legacy \code{show_ci} is accepted
 via \code{...}.}
+
+\item{by}{Grouping order of the coefficient rows: \code{"covariate"}
+(default; list all bases for each covariate) or \code{"basis"} (list all
+covariates for each basis).}
 
 \item{...}{Additional arguments (currently unused).}
 }

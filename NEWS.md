@@ -1,5 +1,14 @@
 # nmfkc 0.8.4 (development)
 
+### **`by` option: grouping order of coefficient tables**
+- The `print()` methods for the inference summaries
+  (`nmfkc.inference`, `nmfae`/`nmfae.inference`, `nmfae.signed.inference`)
+  and `summary.nmfre()` gain a `by` argument controlling how the significance
+  table is grouped: `by = "covariate"` (default, unchanged behaviour) lists all
+  bases within each covariate (1-1, 1-2, ...), while `by = "basis"` lists all
+  covariates within each basis (1-1, 2-1, ...). The default reproduces the
+  previous ordering exactly.
+
 ### **Classed CV objects with `print` / `plot`**
 - `nmfkc.ecv()`, `nmfkc.cv()` and `nmfkc.bicv()` now return classed objects
   (`"nmfkc.ecv"` / `"nmfkc.cv"` / `"nmfkc.bicv"`) with `print()` and `plot()`

@@ -765,6 +765,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #'   (default \code{FALSE}). Named object-first to match the package style
 #'   (\code{C.signed}, \code{X.init}, ...). Legacy \code{show_ci} is accepted
 #'   via \code{...}.
+#' @param by Grouping order of the coefficient rows: \code{"covariate"}
+#'   (default; list all bases for each covariate) or \code{"basis"} (list all
+#'   covariates for each basis).
 #' @param ... Additional arguments (currently unused).
 #' @return The input object, invisibly.
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfre.inference}}
@@ -775,7 +778,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #' res <- nmfre(Y, A, rank = 1, maxit = 5000)
 #' summary(res)
 #'
-summary.nmfre <- function(object, ci.show = FALSE, ...) {
+summary.nmfre <- function(object, ci.show = FALSE,
+                          by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
 
   ## legacy alias (original snake_case name)
   .extra <- list(...)
@@ -838,6 +843,7 @@ summary.nmfre <- function(object, ci.show = FALSE, ...) {
     cat("\nCoefficients:\n")
 
     cf <- x$coefficients
+    cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
 
     # row names: Covariate:Basis
     rnames <- paste0(cf$Covariate, ":", cf$Basis)

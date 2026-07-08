@@ -4,7 +4,13 @@
 \alias{print.summary.nmfkc.inference}
 \title{Print method for summary.nmfkc.inference objects}
 \usage{
-\method{print}{summary.nmfkc.inference}(x, digits = max(3L, getOption("digits") - 3L), max.coef = 20, ...)
+\method{print}{summary.nmfkc.inference}(
+  x,
+  digits = max(3L, getOption("digits") - 3L),
+  max.coef = 20,
+  by = c("covariate", "basis"),
+  ...
+)
 }
 \arguments{
 \item{x}{An object of class \code{"summary.nmfkc.inference"}.}

@@ -1244,6 +1244,10 @@ summary.nmfae.signed.inference <- function(object, ...) {
 #' coefficients table of Theta.
 #' @param x An object of class \code{"summary.nmfae.signed.inference"}.
 #' @param digits Minimum number of significant digits.
+#' @param by Character; grouping order of the coefficients table.
+#'   \code{"covariate"} (default) lists all bases within each covariate
+#'   (1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+#'   (1-1, 2-1, ...).
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @seealso \code{\link{summary.nmfae.signed.inference}}
@@ -1258,11 +1262,14 @@ summary.nmfae.signed.inference <- function(object, ...) {
 #'
 #' @export
 print.summary.nmfae.signed.inference <- function(x,
-    digits = max(3L, getOption("digits") - 3L), ...) {
+    digits = max(3L, getOption("digits") - 3L),
+    by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
   print.summary.nmfae.signed(x, digits = digits, ...)
 
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
+    cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
     p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "two.sided"
     p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
 
