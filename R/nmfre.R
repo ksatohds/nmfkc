@@ -29,14 +29,16 @@
 #' \mathrm{tr}(XSX^\top)} (still monotone).
 #' @keywords internal
 #' @noRd
-.nmfre.seminmf.X <- function(X, Y, B, S = NULL, eps = 1e-10) {
+.nmfre.seminmf.X <- function(X, Y, B, S = NULL, pen.num = 0, pen.den = 0, eps = 1e-10) {
   YBt <- Y %*% t(B)
   G   <- B %*% t(B)
   if (!is.null(S)) G <- G + S
   pos <- function(M) pmax(M, 0)
   neg <- function(M) pmax(-M, 0)
-  numer <- pos(YBt) + X %*% neg(G)
-  denom <- neg(YBt) + X %*% pos(G)
+  ## pen.num / pen.den: non-negative MAP-penalty contributions on X
+  ## (ortho / smooth), added to the numerator / denominator before the sqrt.
+  numer <- pos(YBt) + X %*% neg(G) + pen.num
+  denom <- neg(YBt) + X %*% pos(G) + pen.den
   X * sqrt(.nmfre.safe.div(numer, denom, eps = eps))
 }
 
@@ -180,6 +182,21 @@
 #'     \item \code{x.postvar}: Logical. Include the posterior-variance term in
 #'       the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies only
 #'       to the sign-free / semi-NMF path (\code{C.signed = TRUE}).
+#'     \item \code{X.L2.smooth}: Non-negative row-smoothness penalty on the
+#'       basis \eqn{X} (default 0), adding
+#'       \eqn{(\lambda/2)\,\mathrm{tr}(X^\top L X)} with \eqn{L} the path-graph
+#'       Laplacian over rows (squared adjacent-row differences).  Well suited to
+#'       ordered rows (e.g.\ longitudinal / spatial bases).  Injected into the
+#'       \eqn{X}-step for both \code{C.signed = TRUE/FALSE}; leaves the
+#'       random-effect variance updates unchanged.
+#'     \item \code{X.L2.ortho}: Non-negative column-orthogonality penalty on
+#'       \eqn{X} (default 0), penalizing
+#'       \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X^\top X)\rVert^2}.
+#'     \item \code{C.L2}: Non-negative ridge penalty on \eqn{\Theta = C}
+#'       (default 0), adding \eqn{\lambda\lVert C\rVert^2}.  A Gaussian prior on
+#'       the fixed effects; for \code{C.signed = TRUE} the \eqn{C}-step stays a
+#'       closed-form Sylvester ridge-LS solve, for \code{C.signed = FALSE} it is
+#'       added to the multiplicative-update denominator.
 #'     \item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
 #'       cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
 #'       reported as a diagnostic only.
@@ -364,6 +381,17 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## S = N*sigma2*(X'X+lambda I)^{-1}; FALSE recovers the conditional X-step.
   x.postvar <- if (!is.null(extra_args$x.postvar)) isTRUE(extra_args$x.postvar) else TRUE
 
+  ## MAP penalties (default off).  These act on X (basis) and C (= Theta) as
+  ## Gaussian priors and are orthogonal to the random-effect machinery
+  ## (U, lambda, sigma2, tau2), so the variance M-steps are unchanged.
+  ##   X.L2.ortho : (l/2)||offdiag(X'X)||^2   -- column orthogonality of X
+  ##   X.L2.smooth: (l/2) tr(X' L X)          -- path-graph row smoothness of X
+  ##   C.L2       : l * ||C||^2               -- ridge on Theta (keeps the signed
+  ##                C-step in closed form: a Sylvester ridge-LS solve)
+  X.L2.ortho  <- if (!is.null(extra_args$X.L2.ortho))  extra_args$X.L2.ortho  else 0
+  X.L2.smooth <- if (!is.null(extra_args$X.L2.smooth)) extra_args$X.L2.smooth else 0
+  C.L2        <- if (!is.null(extra_args$C.L2))        extra_args$C.L2        else 0
+
   # variance handling
   sigma2        <- if (!is.null(extra_args$sigma2)) extra_args$sigma2 else 1
   sigma2.update <- if (!is.null(extra_args$sigma2.update)) extra_args$sigma2.update else TRUE
@@ -490,6 +518,29 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   total_iter <- 0L
   lambda     <- sigma2 / tau2
 
+  ## X-penalty MU contributions (num / den) and the penalty value added to the
+  ## inner objective.  ortho -> denominator only; smooth -> +W X (num) / +D X (den).
+  .xpen <- function(X) {
+    num <- 0; den <- 0
+    if (X.L2.ortho > 0) { G <- crossprod(X); diag(G) <- 0; den <- den + X.L2.ortho * (X %*% G) }
+    if (X.L2.smooth > 0 && nrow(X) >= 2) {
+      Pr <- nrow(X); WX <- X * 0
+      WX[-Pr, ] <- WX[-Pr, ] + X[-1, , drop = FALSE]
+      WX[-1, ]  <- WX[-1, ]  + X[-Pr, , drop = FALSE]
+      num <- num + X.L2.smooth * WX
+      den <- den + X.L2.smooth * (c(1, rep(2, Pr - 2), 1) * X)
+    }
+    list(num = num, den = den)
+  }
+  .xpen.val <- function(X) {
+    v <- 0
+    if (X.L2.ortho > 0) { G <- crossprod(X); diag(G) <- 0; v <- v + (X.L2.ortho / 2) * sum(G^2) }
+    if (X.L2.smooth > 0 && nrow(X) >= 2)
+      v <- v + (X.L2.smooth / 2) * sum((X[-1, , drop = FALSE] -
+                                        X[-nrow(X), , drop = FALSE])^2)
+    v
+  }
+
   for (outer in 1:outer.maxit) {
 
     tau2   <- clip_val(tau2,   tau2.min,   tau2.max)
@@ -521,15 +572,17 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 
       # (2) X-step: X >= 0 with sign-free score matrix B = CA + U
       B_sem <- CA + U
+      xp <- .xpen(X)
       if (C.mode == "signed") {
         ## complete-EM X-step: add posterior-variance S = N*sigma2*(X'X+lambda I)^{-1}
         S_pv <- if (isTRUE(x.postvar))
           N * clip_val(sigma2, sigma2.min, sigma2.max) * chol2inv(cholM) else NULL
-        X <- .nmfre.seminmf.X(X, Y, B_sem, S = S_pv, eps = .eps)
+        X <- .nmfre.seminmf.X(X, Y, B_sem, S = S_pv,
+                              pen.num = xp$num, pen.den = xp$den, eps = .eps)
       } else {
         Y_tilde <- pmax(Y, 0); B_pos <- pmax(B_sem, 0)
-        numX <- Y_tilde %*% t(B_pos)
-        denX <- X %*% (B_pos %*% t(B_pos))
+        numX <- Y_tilde %*% t(B_pos) + xp$num
+        denX <- X %*% (B_pos %*% t(B_pos)) + xp$den
         X <- X * .nmfre.safe.div(numX, denX, eps = .eps)
       }
       X <- pmax(X, .eps)
@@ -540,18 +593,31 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 
       # (3) C-step
       if (C.mode == "signed") {
-        ## exact least squares (sign-free): C = (X'X)^{-1} X'(Y - X U) A'(A A')^{-1}
+        ## sign-free least squares.  With C.L2 = 0 this is the exact separable
+        ## solution C = (X'X)^{-1} X'(Y - X U) A'(A A')^{-1}.  With C.L2 > 0 the
+        ## normal equations become the Sylvester ridge system
+        ##   (X'X) C (A A') + C.L2 * C = X'(Y - X U) A',
+        ## solved in closed form via the eigenbases of X'X and A A'.
         Y_star <- Y - X %*% U
-        XtX_t  <- crossprod(X) + diag(1e-10, Q)
-        AAt_t  <- tcrossprod(A) + diag(1e-10, K)
         rhs    <- crossprod(X, Y_star) %*% t(A)
-        C_mat  <- solve(XtX_t, rhs)
-        C_mat  <- t(solve(AAt_t, t(C_mat)))
+        if (C.L2 > 0) {
+          ex <- eigen(crossprod(X),  symmetric = TRUE)
+          ea <- eigen(tcrossprod(A), symmetric = TRUE)
+          Mt <- crossprod(ex$vectors, rhs) %*% ea$vectors
+          Z  <- Mt / (outer(ex$values, ea$values) + C.L2)
+          C_mat <- ex$vectors %*% Z %*% t(ea$vectors)
+        } else {
+          XtX_t <- crossprod(X)  + diag(1e-10, Q)
+          AAt_t <- tcrossprod(A) + diag(1e-10, K)
+          C_mat <- solve(XtX_t, rhs)
+          C_mat <- t(solve(AAt_t, t(C_mat)))
+        }
       } else {
         ## non-negative MU (Ding 2006), positive-part stabilization
         Y_tilde <- pmax(Y, 0); Y_star <- Y_tilde - X %*% U; Y_star_pos <- pmax(Y_star, 0)
         numC <- crossprod(X, Y_star_pos) %*% t(A)
         denC <- (crossprod(X, X) %*% C_mat) %*% (A %*% t(A))
+        if (C.L2 > 0) denC <- denC + C.L2 * C_mat
         C_mat <- C_mat * .nmfre.safe.div(numC, denC, eps = .eps)
         C_mat <- pmax(C_mat, .eps)
       }
@@ -559,7 +625,8 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
       # (4) objective at the FIXED lambda (what the inner loop minimizes)
       CA  <- C_mat %*% A
       R   <- Y - X %*% (CA + U)
-      obj <- sum(R^2) + lambda * sum(U^2)
+      obj <- sum(R^2) + lambda * sum(U^2) +
+             .xpen.val(X) + if (C.L2 > 0) C.L2 * sum(C_mat^2) else 0
       if (total_iter <= maxit) {
         obj_trace[total_iter] <- obj
         rss_trace[total_iter] <- sum(R^2)

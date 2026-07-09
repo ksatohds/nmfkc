@@ -1,5 +1,20 @@
 # nmfkc 0.8.4 (development)
 
+### **MAP penalties for `nmfre()`**
+- `nmfre()` gains three optional penalties (default 0, via `...`), acting as
+  Gaussian priors on the basis/coefficients and orthogonal to the random-effect
+  machinery (`U`, `lambda`, `sigma2`, `tau2` are unchanged):
+  - `X.L2.smooth`: path-graph row smoothness of the basis `X` — well suited to
+    longitudinal / ordered-row models.
+  - `X.L2.ortho`: column orthogonality of `X`.
+  - `C.L2`: ridge on `Theta = C`. For `C.signed = TRUE` the C-step stays a
+    closed-form solve (a Sylvester ridge-least-squares via the eigenbases of
+    `X'X` and `AA'`); for `C.signed = FALSE` it is added to the MU denominator.
+  Penalties enter the fixed-lambda inner objective; the EM variance updates are
+  untouched. (L1 sparsity on `Theta` is intentionally not offered: it would
+  break the signed closed-form step and conflicts with the random-effect
+  shrinkage that already regularizes the model.)
+
 ### **`nmfae*` deprecated in favour of `nmf.rrr*`**
 - The canonical implementation of the three-layer NMF-RRR model now lives
   under the `nmf.rrr*` / `nmf.rrr.signed*` names (`nmf.rrr`, `.inference`,

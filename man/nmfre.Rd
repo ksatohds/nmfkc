@@ -57,6 +57,21 @@ When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial v
 \item \code{x.postvar}: Logical. Include the posterior-variance term in
 the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies only
 to the sign-free / semi-NMF path (\code{C.signed = TRUE}).
+\item \code{X.L2.smooth}: Non-negative row-smoothness penalty on the
+basis \eqn{X} (default 0), adding
+\eqn{(\lambda/2)\,\mathrm{tr}(X^\top L X)} with \eqn{L} the path-graph
+Laplacian over rows (squared adjacent-row differences).  Well suited to
+ordered rows (e.g.\ longitudinal / spatial bases).  Injected into the
+\eqn{X}-step for both \code{C.signed = TRUE/FALSE}; leaves the
+random-effect variance updates unchanged.
+\item \code{X.L2.ortho}: Non-negative column-orthogonality penalty on
+\eqn{X} (default 0), penalizing
+\eqn{(\lambda/2)\lVert\mathrm{offdiag}(X^\top X)\rVert^2}.
+\item \code{C.L2}: Non-negative ridge penalty on \eqn{\Theta = C}
+(default 0), adding \eqn{\lambda\lVert C\rVert^2}.  A Gaussian prior on
+the fixed effects; for \code{C.signed = TRUE} the \eqn{C}-step stays a
+closed-form Sylvester ridge-LS solve, for \code{C.signed = FALSE} it is
+added to the multiplicative-update denominator.
 \item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
 cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
 reported as a diagnostic only.
