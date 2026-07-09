@@ -1,5 +1,15 @@
 # nmfkc 0.8.4 (development)
 
+### **Basis penalties extended to the signed families**
+- `nmfkc.signed()` now accepts `X.L2.ortho` (column orthogonality) and
+  `X.L2.smooth` (path-graph row smoothness), matching `nmfkc()`. Both default
+  to 0 (off), are passed via `...`, and are skipped when `X.restriction =
+  "fixed"`. The penalties are folded into both the fast unweighted and the
+  weighted MU paths and into the tracked objective.
+- `nmfae.signed()` now accepts `X1.L2.ortho` / `X2.L2.ortho` (orthogonality of
+  the response-basis columns and covariate-basis rows), matching `nmfae()`.
+  Default 0, via `...`, wired into both MU paths and the objective.
+
 ### **`by` option: grouping order of coefficient tables**
 - The `print()` methods for the inference summaries
   (`nmfkc.inference`, `nmfae`/`nmfae.inference`, `nmfae.signed.inference`,

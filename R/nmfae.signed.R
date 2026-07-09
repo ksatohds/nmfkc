@@ -78,6 +78,13 @@
 #'       point (particularly the \eqn{C_{-} = 0} trap from warm-start
 #'       from non-negative tri-NMF-AE).  Use the default 1 for fast
 #'       development and raise for publication-grade runs.}
+#'     \item{\code{X1.L2.ortho}, \code{X2.L2.ortho}}{Non-negative L2
+#'       orthogonality penalties (default 0) on the \strong{columns} of
+#'       \eqn{X_1} and the \strong{rows} of \eqn{X_2}, penalizing
+#'       \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_1^\top X_1)\rVert^2} and
+#'       \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_2 X_2^\top)\rVert^2}
+#'       respectively.  Same convention as \code{\link{nmfae}}; encourage
+#'       more distinct (less overlapping) response / covariate bases.}
 #'     \item{\code{Y1.weights}}{Optional non-negative weight matrix
 #'       (P1 x N) or vector (length N) for \eqn{Y_1}, analogous to the
 #'       \code{weights} argument of \code{\link[stats]{lm}}.  Loss
@@ -183,6 +190,10 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   if (!is.null(extra_args$print.trace)) print.trace <- extra_args$print.trace
   prefix.dec <- if (!is.null(extra_args$prefix.dec)) extra_args$prefix.dec else "Resp"
   prefix.enc <- if (!is.null(extra_args$prefix.enc)) extra_args$prefix.enc else "Cov"
+  ## Basis orthogonality penalties (same convention as nmfae(): off-diagonal
+  ## L2 on X1 columns and X2 rows; both default off).
+  X1.L2.ortho <- if (!is.null(extra_args$X1.L2.ortho)) extra_args$X1.L2.ortho else 0
+  X2.L2.ortho <- if (!is.null(extra_args$X2.L2.ortho)) extra_args$X2.L2.ortho else 0
 
   ## Validate warm.start value
   if (is.logical(warm.start)) {
@@ -327,6 +338,23 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     if (has.weights) sum(Wmat * (Y1 - Y1hat)^2) else sum((Y1 - Y1hat)^2)
   }
 
+  ## Basis-orthogonality penalty value and MU denominator contributions
+  ## (same convention as nmfae()): (lambda/2)||offdiag(X1'X1)||^2 for X1
+  ## columns and (lambda/2)||offdiag(X2 X2')||^2 for X2 rows; the positive
+  ## gradient X1 offdiag(X1'X1) / offdiag(X2 X2') X2 goes to the denominator.
+  pen_X12 <- function(X1, X2) {
+    p <- 0
+    if (X1.L2.ortho > 0) { G <- crossprod(X1);  diag(G) <- 0; p <- p + (X1.L2.ortho / 2) * sum(G^2) }
+    if (X2.L2.ortho > 0) { G <- tcrossprod(X2); diag(G) <- 0; p <- p + (X2.L2.ortho / 2) * sum(G^2) }
+    p
+  }
+  den_X1_pen <- function(X1) {
+    if (X1.L2.ortho > 0) { G <- crossprod(X1); diag(G) <- 0; X1.L2.ortho * (X1 %*% G) } else 0
+  }
+  den_X2_pen <- function(X2) {
+    if (X2.L2.ortho > 0) { G <- tcrossprod(X2); diag(G) <- 0; X2.L2.ortho * (G %*% X2) } else 0
+  }
+
   ## ---- 6. Main loop wrapped for multi-restart ----
   run_once <- function(X1, X2, Cp, Cn) {
     ## Normalize
@@ -334,7 +362,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     X1 <- sweep(X1, 2, cs, "/"); Cp <- sweep(Cp, 1, cs, "*"); Cn <- sweep(Cn, 1, cs, "*")
     rs <- rowSums(X2) + small
     X2 <- sweep(X2, 1, rs, "/"); Cp <- sweep(Cp, 2, rs, "*"); Cn <- sweep(Cn, 2, rs, "*")
-    obj_prev <- compute_obj(X1, Cp, Cn, X2)
+    obj_prev <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2)
     objfunc.iter <- numeric(maxit)
     iter <- 0L
     for (iter in seq_len(maxit)) {
@@ -357,7 +385,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       MMt_p <- Cp %*% SX %*% t(Cp) + Cn %*% SX %*% t(Cn)
       MMt_n <- Cp %*% SX %*% t(Cn) + Cn %*% SX %*% t(Cp)
       X1 <- X1 * (G0X_p %*% t(Cp) + G0X_n %*% t(Cn) + X1 %*% MMt_n) /
-                 (G0X_n %*% t(Cp) + G0X_p %*% t(Cn) + X1 %*% MMt_p + small)
+                 (G0X_n %*% t(Cp) + G0X_p %*% t(Cn) + X1 %*% MMt_p + den_X1_pen(X1) + small)
       ## Normalize X1 cols -> absorb into Cp, Cn rows
       cs <- colSums(X1) + small
       X1 <- sweep(X1, 2, cs, "/")
@@ -371,7 +399,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       HtH_p <- crossprod(Cp, P1m) %*% Cp + crossprod(Cn, P1m) %*% Cn
       HtH_n <- crossprod(Cp, P1m) %*% Cn + crossprod(Cn, P1m) %*% Cp
       X2 <- X2 * (HG_p + HtH_n %*% X2 %*% S) /
-                 (HG_n + HtH_p %*% X2 %*% S + small)
+                 (HG_n + HtH_p %*% X2 %*% S + den_X2_pen(X2) + small)
       ## Normalize X2 rows -> absorb into Cp, Cn cols
       rs <- rowSums(X2) + small
       X2 <- sweep(X2, 1, rs, "/")
@@ -407,7 +435,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       P_pp <- WXMp %*% t(Mp); P_pn <- WXMp %*% t(Mn)
       P_np <- WXMn %*% t(Mp); P_nn <- WXMn %*% t(Mn)
       X1 <- X1 * (W1Mp_p + W1Mn_n + P_pn + P_np) /
-                 (W1Mp_n + W1Mn_p + P_pp + P_nn + small)
+                 (W1Mp_n + W1Mn_p + P_pp + P_nn + den_X1_pen(X1) + small)
       cs <- colSums(X1) + small
       X1 <- sweep(X1, 2, cs, "/")
       Cp <- sweep(Cp, 1, cs, "*"); Cn <- sweep(Cn, 1, cs, "*")
@@ -425,14 +453,14 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       Q_np <- crossprod(Hn, WHpF) %*% t(Y2)
       Q_nn <- crossprod(Hn, WHnF) %*% t(Y2)
       X2 <- X2 * (Hp_tW1_p + Hn_tW1_n + Q_pn + Q_np) /
-                 (Hp_tW1_n + Hn_tW1_p + Q_pp + Q_nn + small)
+                 (Hp_tW1_n + Hn_tW1_p + Q_pp + Q_nn + den_X2_pen(X2) + small)
       rs <- rowSums(X2) + small
       X2 <- sweep(X2, 1, rs, "/")
       Cp <- sweep(Cp, 2, rs, "*"); Cn <- sweep(Cn, 2, rs, "*")
     }
 
     ## Objective and convergence
-    obj_cur <- compute_obj(X1, Cp, Cn, X2)
+    obj_cur <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2)
     objfunc.iter[iter] <- obj_cur
 
     if (print.trace && (iter %% 100 == 0 || iter == 1)) {

@@ -74,6 +74,17 @@
 #'       \eqn{C_{+}, C_{-}}.  One of \code{"colSums"} (default,
 #'       \eqn{\mathrm{colSums}(X) = 1}), \code{"colSqSums"},
 #'       \code{"totalSum"}, \code{"none"}, \code{"fixed"}.
+#'     \item \code{X.L2.ortho}: non-negative L2 orthogonality penalty on the
+#'       columns of \eqn{X} (default 0), penalizing
+#'       \eqn{(\lambda/2)\lVert \mathrm{offdiag}(X^\top X)\rVert^2}.  Same
+#'       convention as \code{\link{nmfkc}}; skipped when \code{X.restriction
+#'       = "fixed"}.
+#'     \item \code{X.L2.smooth}: non-negative L2 row-smoothness penalty on
+#'       \eqn{X} (default 0), penalizing
+#'       \eqn{(\lambda/2)\,\mathrm{tr}(X^\top L X)} with \eqn{L} the
+#'       path-graph Laplacian over rows (adjacent-row differences).  Useful
+#'       for ordered rows (e.g. time / space); skipped when
+#'       \code{X.restriction = "fixed"}.
 #'     \item \code{X.init}: initialization strategy for the basis matrix
 #'       \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
 #'       menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
@@ -213,6 +224,10 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   prefix     <- if (!is.null(extra_args$prefix))     extra_args$prefix     else "Basis"
   pars_rff   <- extra_args$pars
   Y.weights  <- extra_args$Y.weights
+  ## X penalties (same convention as nmfkc(): off-diagonal L2 orthogonality and
+  ## path-graph L2 row-smoothness; both default off and skipped when X is fixed).
+  X.L2.ortho  <- if (!is.null(extra_args$X.L2.ortho))  extra_args$X.L2.ortho  else 0
+  X.L2.smooth <- if (!is.null(extra_args$X.L2.smooth)) extra_args$X.L2.smooth else 0
 
   ## --- 2. Input preparation & validation ---
   if (is.vector(Y)) Y <- matrix(Y, nrow = 1)
@@ -368,12 +383,40 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     if (has.weights) sum(Wmat * (Y - Yhat)^2) else sum((Y - Yhat)^2)
   }
 
+  ## X-penalty value (added to the tracked objective) and its MU num/den split.
+  ## Same convention as nmfkc(): ortho penalty (X.L2.ortho/2)||offdiag(X'X)||^2
+  ## goes to the denominator; row-smoothness (X.L2.smooth/2) tr(X' L X) splits
+  ## as +W X (numerator) / +D X (denominator) with L = D - W the path Laplacian.
+  pen_X <- function(X) {
+    p <- 0
+    if (X.L2.ortho > 0) { XtX <- crossprod(X); diag(XtX) <- 0; p <- p + (X.L2.ortho / 2) * sum(XtX^2) }
+    if (X.L2.smooth > 0 && nrow(X) >= 2)
+      p <- p + (X.L2.smooth / 2) * sum((X[-1, , drop = FALSE] -
+                                        X[-nrow(X), , drop = FALSE])^2)
+    p
+  }
+  apply_Xpen <- function(X, num_X, den_X) {
+    if (X.L2.ortho > 0) {
+      XtX <- crossprod(X); diag(XtX) <- 0
+      den_X <- den_X + X.L2.ortho * (X %*% XtX)
+    }
+    if (X.L2.smooth > 0 && nrow(X) >= 2) {
+      Pr <- nrow(X); WX <- X * 0
+      WX[-Pr, ] <- WX[-Pr, ] + X[-1, , drop = FALSE]
+      WX[-1, ]  <- WX[-1, ]  + X[-Pr, , drop = FALSE]
+      degX <- c(1, rep(2, Pr - 2), 1) * X
+      num_X <- num_X + X.L2.smooth * WX
+      den_X <- den_X + X.L2.smooth * degX
+    }
+    list(num = num_X, den = den_X)
+  }
+
   if (!has.weights) {
     P <- crossprod(X); G <- crossprod(X, G0)
     H <- Cp - Cn; PH <- P %*% H
-    obj_prev <- Y_sqnorm - 2 * sum(G * H) + sum(H * (PH %*% S))
+    obj_prev <- Y_sqnorm - 2 * sum(G * H) + sum(H * (PH %*% S)) + pen_X(X)
   } else {
-    obj_prev <- compute_obj(X, Cp, Cn)
+    obj_prev <- compute_obj(X, Cp, Cn) + pen_X(X)
   }
   objfunc.iter <- numeric(maxit)
 
@@ -399,8 +442,10 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         H   <- Cp - Cn; Ht <- t(H)
         YMt <- G0 %*% Ht
         HS  <- H %*% S; MMt <- HS %*% Ht
-        X <- X * (pmax(YMt, 0) + X %*% pmax(-MMt, 0)) /
-                 (pmax(-YMt, 0) + X %*% pmax(MMt, 0) + small)
+        num_X <- pmax(YMt, 0) + X %*% pmax(-MMt, 0)
+        den_X <- pmax(-YMt, 0) + X %*% pmax(MMt, 0)
+        pen <- apply_Xpen(X, num_X, den_X)
+        X <- X * pen$num / (pen$den + small)
         if (X.restriction != "none") {
           d <- xscale(X)
           X  <- sweep(X,  2, d, "/")
@@ -412,7 +457,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       ## 6d. Refresh precomputed quantities & evaluate objective in closed form
       P  <- crossprod(X); G <- crossprod(X, G0)
       H  <- Cp - Cn; PH <- P %*% H
-      obj_cur <- Y_sqnorm - 2 * sum(G * H) + sum(H * (PH %*% S))
+      obj_cur <- Y_sqnorm - 2 * sum(G * H) + sum(H * (PH %*% S)) + pen_X(X)
 
     } else {
       ## ---- Weighted path (no S/G0 precompute) ----
@@ -456,7 +501,8 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         A2  <- WXM %*% t(M)        # Q_obs x Q, signed
         num <- pmax(A1, 0) + pmax(-A2, 0)
         den <- pmax(-A1, 0) + pmax(A2, 0)
-        X <- X * num / (den + small)
+        pen <- apply_Xpen(X, num, den)
+        X <- X * pen$num / (pen$den + small)
         if (X.restriction != "none") {
           d <- xscale(X)
           X  <- sweep(X,  2, d, "/")
@@ -465,7 +511,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         }
       }
 
-      obj_cur <- compute_obj(X, Cp, Cn)
+      obj_cur <- compute_obj(X, Cp, Cn) + pen_X(X)
     }
 
     objfunc.iter[iter] <- obj_cur

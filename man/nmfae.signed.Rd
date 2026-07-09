@@ -56,6 +56,13 @@ reduces the chance of being trapped at an inferior stationary
 point (particularly the \eqn{C_{-} = 0} trap from warm-start
 from non-negative tri-NMF-AE).  Use the default 1 for fast
 development and raise for publication-grade runs.}
+\item{\code{X1.L2.ortho}, \code{X2.L2.ortho}}{Non-negative L2
+orthogonality penalties (default 0) on the \strong{columns} of
+\eqn{X_1} and the \strong{rows} of \eqn{X_2}, penalizing
+\eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_1^\top X_1)\rVert^2} and
+\eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_2 X_2^\top)\rVert^2}
+respectively.  Same convention as \code{\link{nmfae}}; encourage
+more distinct (less overlapping) response / covariate bases.}
 \item{\code{Y1.weights}}{Optional non-negative weight matrix
 (P1 x N) or vector (length N) for \eqn{Y_1}, analogous to the
 \code{weights} argument of \code{\link[stats]{lm}}.  Loss
