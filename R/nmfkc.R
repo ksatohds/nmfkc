@@ -2187,10 +2187,9 @@ print.nmf.rank <- function(x, ...) {
 #'       yielding gently-varying (smooth) bases. Integrates with the multiplicative
 #'       updates (non-negativity and monotone descent preserved). Useful when the rows
 #'       of \eqn{Y} have a natural order (e.g.\ time points).
-#'     \item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).
-#'       Promotes **sparsity in the coefficients**. (Formerly \code{gamma}).
 #'     \item \code{C.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{C} (default: 0).
-#'       Promotes **sparsity in the parameter matrix**. (Formerly \code{lambda}).
+#'       Promotes **sparsity in the parameter matrix** \eqn{\Theta} (variable
+#'       selection over basis-covariate links). (Formerly \code{lambda}).
 #'     \item \code{Q}: Backward-compatible name for the rank of the basis matrix (Q).
 #'     \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 #'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
@@ -2304,7 +2303,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   Q <- Q_val
 
   C.L1 <- if (!base::is.null(extra_args$C.L1)) extra_args$C.L1 else 0
-  B.L1 <- if (!base::is.null(extra_args$B.L1)) extra_args$B.L1 else 0
   X.L2.ortho <- if (!base::is.null(extra_args$X.L2.ortho)) extra_args$X.L2.ortho else 0
   ## Row-smoothness penalty on X: lambda * tr(X' L X) with L the path-graph
   ## Laplacian over the P rows (adjacent rows only). Encourages gently-varying
@@ -2312,7 +2310,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   X.L2.smooth <- if (!base::is.null(extra_args$X.L2.smooth)) extra_args$X.L2.smooth else 0
 
   if (C.L1 == 0 && !base::is.null(extra_args$lambda)) C.L1 <- extra_args$lambda
-  if (B.L1 == 0 && !base::is.null(extra_args$gamma)) B.L1 <- extra_args$gamma
   if (X.L2.ortho == 0 && !base::is.null(extra_args$lambda.ortho)) X.L2.ortho <- extra_args$lambda.ortho
 
   method <- if (!base::is.null(extra_args$method)) extra_args$method else "EU"
@@ -2452,7 +2449,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   ones_QN <- matrix(1, nrow=Q, ncol=ncol(Y))
   if(hasA) {
     At <- t(A)
-    ones_QN_At <- ones_QN %*% At
   }
 
   epsilon.iter <- Inf
@@ -2492,13 +2488,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         num_C <- tX %*% (Y.weights * Y)
         den_C <- tX %*% (Y.weights * XB)
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QN
-        if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
         num_C <- tX %*% (Y.weights * Y) %*% At
         den_C <- tX %*% (Y.weights * XB) %*% At
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * matrix(1, nrow=Q, ncol=nrow(A))
-        if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN_At
         C <- C * (num_C / (den_C + .eps))
       }
       ## lm()-style weighted least squares: L = sum(W * (Y - XB)^2).
@@ -2538,14 +2532,12 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         num_C <- tX %*% ratio
         den_C <- tX %*% Y.weights
         if (C.L1 != 0) den_C <- den_C + C.L1 * ones_QN
-        if (B.L1 != 0) den_C <- den_C + B.L1 * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
         ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio %*% At
         den_C <- tX %*% Y.weights %*% At
         if (C.L1 != 0) den_C <- den_C + C.L1 * matrix(1, nrow=Q, ncol=nrow(A))
-        if (B.L1 != 0) den_C <- den_C + B.L1 * ones_QN_At
         C <- C * (num_C / (den_C + .eps))
       }
       term1 <- - (Y.weights * Y) * log(XB + .eps)
@@ -2554,7 +2546,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     }
 
     if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
-    if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
     if (X.L2.ortho != 0) {
       XtX <- crossprod(X); diag(XtX) <- 0
       obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
@@ -3036,7 +3027,7 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response"
 #'     \item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);
 #'       if \code{FALSE}, splits sequentially (block CV; recommended for time series).}
 #'     \item{\code{Q}}{(Deprecated) Alias for \code{rank}.}
-#'     \item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{gamma} (\code{B.L1}), \code{epsilon},
+#'     \item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{C.L1}, \code{epsilon},
 #'       \code{maxit}, \code{method} (\code{"EU"} or \code{"KL"}), \code{X.restriction}, \code{X.init}, etc.}
 #'   }
 #'
@@ -3092,7 +3083,6 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
   shuffle <- if (!is.null(extra_args$shuffle)) extra_args$shuffle else TRUE
 
-  gamma <- if (!is.null(extra_args$B.L1)) extra_args$B.L1 else if (!is.null(extra_args$gamma)) extra_args$gamma else 0
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
   maxit   <- if (!is.null(extra_args$maxit))   extra_args$maxit   else 5000
   method  <- if (!is.null(extra_args$method))  extra_args$method  else "EU"
@@ -3130,13 +3120,10 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   }
 
   # --- Helper: Weighted Optimization of B given fixed X and Y_test ---
-  optimize.B.from.Y <- function(result, Y_test, W_test, gamma, epsilon, maxit, method){
+  optimize.B.from.Y <- function(result, Y_test, W_test, epsilon, maxit, method){
     X <- result$X
     # Initialize C (which acts as B here)
     C <- matrix(1, nrow=ncol(X), ncol=ncol(Y_test))
-
-    # Precompute ones for penalty (must match test dimension)
-    ones_QN <- matrix(1, nrow=ncol(X), ncol=ncol(Y_test))
 
     oldSum <- 0
     epsilon.iter <- Inf
@@ -3152,7 +3139,6 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
         # Den: X^T (W * XB)
         den <- t(X) %*% (W_test * XB)
 
-        if(gamma != 0) den <- den + (gamma/2) * ones_QN
         C <- C * ( num / (den + .eps) )
 
       }else{ # KL
@@ -3163,7 +3149,6 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
         # Den: X^T W
         den <- t(X) %*% W_test
 
-        if(gamma != 0) den <- den + gamma * ones_QN
         C <- C * ( num / (den + .eps) )
       }
 
@@ -3261,7 +3246,7 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
     # Predict on Test set
     if(is_identity){
       # Standard NMF: Optimize B for test set using weights
-      resj <- optimize.B.from.Y(res_j, Y_test, W_test, gamma, epsilon, maxit, method)
+      resj <- optimize.B.from.Y(res_j, Y_test, W_test, epsilon, maxit, method)
       XB_test <- resj$XB
     }else{
       # Covariate NMF: Predict using A_test

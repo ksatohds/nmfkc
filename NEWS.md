@@ -1,5 +1,16 @@
 # nmfkc 0.8.4 (development)
 
+### **Removed the `B.L1` penalty (and its `gamma` alias)**
+- `B.L1` placed an L1 penalty on the fitted coefficient field \eqn{B = C A}.
+  Because \eqn{B} is dense and \eqn{\mathrm{sum}(CA)} tracks the overall
+  reconstruction magnitude, `B.L1` acted as a crude global shrinkage that pulls
+  the fit toward zero and degrades prediction, without producing useful
+  structural sparsity. It has been removed from `nmfkc()` and from the
+  test-set B refit inside `nmfkc.cv()`. Use `C.L1` for sparsity / variable
+  selection on the parameter matrix \eqn{\Theta = C} (individual entries are
+  driven to exactly zero). Passing `B.L1`/`gamma` now has no effect (silently
+  ignored via `...`).
+
 ### **MAP penalties for `nmfre()`**
 - `nmfre()` gains three optional penalties (default 0, via `...`), acting as
   Gaussian priors on the basis/coefficients and orthogonal to the random-effect

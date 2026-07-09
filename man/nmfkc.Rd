@@ -61,10 +61,9 @@ differences between adjacent rows \eqn{\sum_q\sum_{j\ge 2}(x_{jq}-x_{j-1,q})^2},
 yielding gently-varying (smooth) bases. Integrates with the multiplicative
 updates (non-negativity and monotone descent preserved). Useful when the rows
 of \eqn{Y} have a natural order (e.g.\ time points).
-\item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).
-Promotes \strong{sparsity in the coefficients}. (Formerly \code{gamma}).
 \item \code{C.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{C} (default: 0).
-Promotes \strong{sparsity in the parameter matrix}. (Formerly \code{lambda}).
+Promotes \strong{sparsity in the parameter matrix} \eqn{\Theta} (variable
+selection over basis-covariate links). (Formerly \code{lambda}).
 \item \code{Q}: Backward-compatible name for the rank of the basis matrix (Q).
 \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
