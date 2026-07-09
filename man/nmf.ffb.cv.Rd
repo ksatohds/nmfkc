@@ -71,7 +71,7 @@ inspection of the internal structural matrices.
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]
 Y2 <- Y[3:4, ]
-mae <- nmf.sem.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
+mae <- nmf.ffb.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 mae
 
 }

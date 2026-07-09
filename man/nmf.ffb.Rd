@@ -173,7 +173,7 @@ respectively.
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]  # Sepal
 Y2 <- Y[3:4, ]  # Petal
-result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
 result$MAE
 
 }

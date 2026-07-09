@@ -97,8 +97,8 @@ edges above the threshold are displayed, while latent factors are always shown.
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]
 Y2 <- Y[3:4, ]
-result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
-dot <- nmf.sem.DOT(result)
+result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
+dot <- nmf.ffb.DOT(result)
 cat(dot)
 
 }

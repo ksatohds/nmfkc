@@ -47,8 +47,8 @@ future versions; details are to be described in an upcoming paper.
 \donttest{
 set.seed(1)
 Y <- matrix(runif(20), nrow = 4)
-res <- nmfae(Y, rank1 = 2)
-nmfae.heatmap(res)
+res <- nmf.rrr(Y, rank1 = 2)
+nmf.rrr.heatmap(res)
 }
 }
 \seealso{

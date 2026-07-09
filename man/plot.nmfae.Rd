@@ -23,7 +23,7 @@ across iterations. The title shows the achieved \eqn{R^2}.
 \donttest{
 set.seed(1)
 Y <- matrix(runif(20), nrow = 4)
-res <- nmfae(Y, rank1 = 2)
+res <- nmf.rrr(Y, rank1 = 2)
 plot(res)
 }
 }

@@ -71,7 +71,7 @@ If \code{n.exogenous} is supplied, it overrides the automatic threshold rule.
 }
 \examples{
 # Infer exogenous/endogenous split from iris
-sp <- nmf.sem.split(iris[, -5], n.exogenous = 2)
+sp <- nmf.ffb.split(iris[, -5], n.exogenous = 2)
 sp$endogenous.variables
 sp$exogenous.variables
 

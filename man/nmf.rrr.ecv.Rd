@@ -64,10 +64,10 @@ future versions; details are to be described in an upcoming paper.
 \examples{
 Y <- t(iris[1:30, 1:4])
 # Default: rank2=NULL -> paired rank1=rank2
-res <- nmfae.ecv(Y, rank1 = 1:3, nfolds = 3, maxit = 500)
+res <- nmf.rrr.ecv(Y, rank1 = 1:3, nfolds = 3, maxit = 500)
 res$sigma
 # Explicit rank.encoder: full grid
-res2 <- nmfae.ecv(Y, rank1 = 1:3, rank2 = 1:3, nfolds = 3, maxit = 500)
+res2 <- nmf.rrr.ecv(Y, rank1 = 1:3, rank2 = 1:3, nfolds = 3, maxit = 500)
 res2$sigma
 
 }

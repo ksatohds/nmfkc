@@ -137,8 +137,8 @@ that the previous implementation produced are no longer present.
 \donttest{
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
-res  <- nmf.sem(Y1, Y2, rank = 2)
-res2 <- nmf.sem.inference(res, Y1, Y2, B = 200)  # quick demo
+res  <- nmf.ffb(Y1, Y2, rank = 2)
+res2 <- nmf.ffb.inference(res, Y1, Y2, B = 200)  # quick demo
 head(res2$coefficients)
 }
 }

@@ -43,7 +43,7 @@ If \code{Y1} (actual values) is provided, it is stored as an attribute so that
 \donttest{
 set.seed(1)
 Y <- matrix(runif(20), nrow = 4)
-res <- nmfae(Y, rank1 = 2)
+res <- nmf.rrr(Y, rank1 = 2)
 pred <- predict(res)
 }
 }

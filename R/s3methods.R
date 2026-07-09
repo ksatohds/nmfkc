@@ -480,7 +480,7 @@ residuals.nmf.sem <- function(object, Y, ...) {
   ## fitted (direct if Y1/Y2 given via ..., else the Y2-equilibrium form).
   ## Y is the observed response block (Y1). nmf.sem/nmf.ffb need Y2 (and,
   ## for the direct form, Y1) supplied via ... -- see fitted.nmf.sem.
-  Y - fitted(object, ...)
+  Y - stats::fitted(object, ...)
 }
 
 

@@ -58,7 +58,7 @@ future versions; details are to be described in an upcoming paper.
 
 \examples{
 Y <- t(iris[1:30, 1:4])
-res <- nmfae.cv(Y, rank1 = 2, rank2 = 2, nfolds = 5, maxit = 500)
+res <- nmf.rrr.cv(Y, rank1 = 2, rank2 = 2, nfolds = 5, maxit = 500)
 res$sigma
 
 }

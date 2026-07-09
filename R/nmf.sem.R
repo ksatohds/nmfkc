@@ -154,7 +154,7 @@
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]  # Sepal
 #' Y2 <- Y[3:4, ]  # Petal
-#' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+#' result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
 #' result$MAE
 #'
 #' @seealso \code{\link{nmf.ffb.inference}}, \code{\link{nmf.ffb.cv}},
@@ -586,8 +586,8 @@ nmf.ffb <- function(
 #' \donttest{
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
-#' res  <- nmf.sem(Y1, Y2, rank = 2)
-#' res2 <- nmf.sem.inference(res, Y1, Y2, B = 200)  # quick demo
+#' res  <- nmf.ffb(Y1, Y2, rank = 2)
+#' res2 <- nmf.ffb.inference(res, Y1, Y2, B = 200)  # quick demo
 #' head(res2$coefficients)
 #' }
 nmf.ffb.inference <- function(object, Y1, Y2,
@@ -915,7 +915,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]
 #' Y2 <- Y[3:4, ]
-#' mae <- nmf.sem.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
+#' mae <- nmf.ffb.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 #' mae
 #'
 #' @seealso \code{\link{nmf.sem}}
@@ -1158,7 +1158,7 @@ nmf.ffb.cv <- function(
 #'
 #' @examples
 #' # Infer exogenous/endogenous split from iris
-#' sp <- nmf.sem.split(iris[, -5], n.exogenous = 2)
+#' sp <- nmf.ffb.split(iris[, -5], n.exogenous = 2)
 #' sp$endogenous.variables
 #' sp$exogenous.variables
 #'
@@ -1432,8 +1432,8 @@ nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]
 #' Y2 <- Y[3:4, ]
-#' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
-#' dot <- nmf.sem.DOT(result)
+#' result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
+#' dot <- nmf.ffb.DOT(result)
 #' cat(dot)
 #'
 #' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}},

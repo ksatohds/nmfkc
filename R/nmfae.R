@@ -99,13 +99,13 @@
 #' @examples
 #' # Autoencoder example
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-#' res <- nmfae(Y, rank1=2, rank2=2)
+#' res <- nmf.rrr(Y, rank1=2, rank2=2)
 #' res$r.squared
 #'
 #' # Heteroencoder example
 #' Y1 <- matrix(c(1,0,0,1), nrow=2)
 #' Y2 <- matrix(runif(8), nrow=4)
-#' res2 <- nmfae(Y1, Y2, rank1=2, rank2=2)
+#' res2 <- nmf.rrr(Y1, Y2, rank1=2, rank2=2)
 #'
 nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
                   epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...,
@@ -475,8 +475,8 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' @export
 #' @examples
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-#' res <- nmfae(Y, rank1=2, rank2=2)
-#' res2 <- nmfae.inference(res, Y)
+#' res <- nmf.rrr(Y, rank1=2, rank2=2)
+#' res2 <- nmf.rrr.inference(res, Y)
 #' summary(res2)
 #'
 nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
@@ -644,8 +644,8 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(15), nrow = 3)
-#' res <- nmfae(Y, rank1 = 2, rank2 = 2)
-#' res <- nmfae.rename(res,
+#' res <- nmf.rrr(Y, rank1 = 2, rank2 = 2)
+#' res <- nmf.rrr.rename(res,
 #'   X1.colnames = c("Resp1", "Resp2"),
 #'   X2.rownames = c("Cov1", "Cov2"))
 #' summary(res)
@@ -690,7 +690,7 @@ nmf.rrr.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank1 = 2)
+#' res <- nmf.rrr(Y, rank1 = 2)
 #' plot(res)
 #' }
 #' @export
@@ -999,8 +999,8 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank1 = 2)
-#' nmfae.heatmap(res)
+#' res <- nmf.rrr(Y, rank1 = 2)
+#' nmf.rrr.heatmap(res)
 #' }
 #' @export
 nmf.rrr.heatmap <- function(x,
@@ -1098,7 +1098,7 @@ nmf.rrr.heatmap <- function(x,
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank1 = 2)
+#' res <- nmf.rrr(Y, rank1 = 2)
 #' pred <- predict(res)
 #' }
 #' @export
@@ -1150,7 +1150,7 @@ predict.nmfae <- function(object, newY2 = NULL, Y1 = NULL,
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank1 = 2)
+#' res <- nmf.rrr(Y, rank1 = 2)
 #' pred <- predict(res)
 #' plot(pred)
 #' }
@@ -1278,10 +1278,10 @@ plot.predict.nmfae <- function(x, ...) {
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
 #' # Default: rank2=NULL -> paired rank1=rank2
-#' res <- nmfae.ecv(Y, rank1 = 1:3, nfolds = 3, maxit = 500)
+#' res <- nmf.rrr.ecv(Y, rank1 = 1:3, nfolds = 3, maxit = 500)
 #' res$sigma
 #' # Explicit rank.encoder: full grid
-#' res2 <- nmfae.ecv(Y, rank1 = 1:3, rank2 = 1:3, nfolds = 3, maxit = 500)
+#' res2 <- nmf.rrr.ecv(Y, rank1 = 1:3, rank2 = 1:3, nfolds = 3, maxit = 500)
 #' res2$sigma
 #'
 nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
@@ -1536,7 +1536,7 @@ plot.nmfae.ecv <- function(x, ...) {
 #' @export
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
-#' res <- nmfae.cv(Y, rank1 = 2, rank2 = 2, nfolds = 5, maxit = 500)
+#' res <- nmf.rrr.cv(Y, rank1 = 2, rank2 = 2, nfolds = 5, maxit = 500)
 #' res$sigma
 #'
 nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
@@ -1728,7 +1728,7 @@ plot.nmfae.cv <- function(x, ...) {
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' U <- matrix(cars$speed, nrow = 1)
-#' res <- nmfae.kernel.beta.cv(Y, rank1 = 1, rank2 = 1, U = U,
+#' res <- nmf.rrr.kernel.beta.cv(Y, rank1 = 1, rank2 = 1, U = U,
 #'                              beta = c(0.01, 0.02, 0.05), nfolds = 5)
 #' res$beta
 #'
@@ -1868,8 +1868,8 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank1 = 2)
-#' dot <- nmfae.DOT(res)
+#' res <- nmf.rrr(Y, rank1 = 2)
+#' dot <- nmf.rrr.DOT(res)
 #' }
 #' @export
 nmf.rrr.DOT <- function(result,

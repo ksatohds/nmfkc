@@ -114,13 +114,13 @@ This function is \strong{experimental}. The interface may change in future versi
 \examples{
 # Autoencoder example
 Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-res <- nmfae(Y, rank1=2, rank2=2)
+res <- nmf.rrr(Y, rank1=2, rank2=2)
 res$r.squared
 
 # Heteroencoder example
 Y1 <- matrix(c(1,0,0,1), nrow=2)
 Y2 <- matrix(runif(8), nrow=4)
-res2 <- nmfae(Y1, Y2, rank1=2, rank2=2)
+res2 <- nmf.rrr(Y1, Y2, rank1=2, rank2=2)
 
 }
 \references{

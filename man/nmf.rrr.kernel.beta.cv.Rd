@@ -61,7 +61,7 @@ When \code{beta = NULL}, candidate values are automatically generated via
 \examples{
 Y <- matrix(cars$dist, nrow = 1)
 U <- matrix(cars$speed, nrow = 1)
-res <- nmfae.kernel.beta.cv(Y, rank1 = 1, rank2 = 1, U = U,
+res <- nmf.rrr.kernel.beta.cv(Y, rank1 = 1, rank2 = 1, U = U,
                              beta = c(0.01, 0.02, 0.05), nfolds = 5)
 res$beta
 
