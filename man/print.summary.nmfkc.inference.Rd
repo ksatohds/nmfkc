@@ -19,6 +19,11 @@
 
 \item{max.coef}{Maximum coefficient rows to display. Default is 20.}
 
+\item{by}{Character; grouping order of the coefficients table.
+\code{"covariate"} (default) lists all bases within each covariate
+(1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+(1-1, 2-1, ...).}
+
 \item{...}{Additional arguments (currently unused).}
 }
 \value{

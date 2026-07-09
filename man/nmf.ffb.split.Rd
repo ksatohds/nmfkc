@@ -9,7 +9,8 @@ nmf.ffb.split(
   n.exogenous = NULL,
   threshold = 0.1,
   auto.flipped = TRUE,
-  verbose = FALSE
+  verbose = FALSE,
+  ...
 )
 }
 \arguments{

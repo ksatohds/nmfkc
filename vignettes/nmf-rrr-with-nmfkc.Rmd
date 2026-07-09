@@ -39,8 +39,9 @@ rank \eqn{\le \min(Q,R)}, this is the non-negative, parts-based member of the
 reduced-rank regression (RRR) family -- hence *NMF-RRR* -- related to RRR as
 NMF is to PCA.
 
-`nmf.rrr()` and its `nmf.rrr.*` helpers are thin aliases for the `nmfae()`
-family; the names emphasise the reduced-rank-regression reading.
+`nmf.rrr()` and its `nmf.rrr.*` helpers are the canonical interface; the
+names emphasise the reduced-rank-regression reading. The former `nmfae()`
+family names are retained as deprecated aliases for backward compatibility.
 
 This vignette reproduces the **Doubs** example (community ecology), where a
 single dominant upstream--downstream gradient aligns both blocks, so the

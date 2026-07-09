@@ -1165,7 +1165,7 @@ nmf.ffb.cv <- function(
 #' @seealso \code{\link{nmf.sem}}
 #' @export
 nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
-                          auto.flipped = TRUE, verbose = FALSE) {
+                          auto.flipped = TRUE, verbose = FALSE, ...) {
 
   if (!is.matrix(x) && !is.data.frame(x))
     stop("x must be a numeric matrix or data frame.")

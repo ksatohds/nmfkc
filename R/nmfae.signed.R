@@ -21,7 +21,6 @@
 # ==============================================================
 
 #' @title Signed-Bottleneck NMF-AE: Three-Layer NMF-AE with Signed Bottleneck
-#' @keywords internal
 #' @description
 #' \code{nmfae.signed} fits a three-layer non-negative matrix factorization
 #' autoencoder with a \strong{signed} bottleneck, solving
@@ -154,7 +153,7 @@
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
+nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
                        epsilon = 1e-4, maxit = 5000,
                        verbose = FALSE, ...,
                        rank = NULL, rank.encoder = NULL) {
@@ -274,7 +273,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   tri_C_for_full <- NULL
   if (warm_mode %in% c("hybrid", "full") && !Y1_signed && !use_explicit_X) {
     if (print.trace) message("  Init: warm-start X1, X2 from nmfae() ...")
-    res0 <- nmfae(Y1, Y2, rank1 = Q, rank2 = R,
+    res0 <- nmf.rrr(Y1, Y2, rank1 = Q, rank2 = R,
                           epsilon = epsilon, maxit = maxit,
                           verbose = FALSE, seed = seed,
                           X.init = X.init.method)
@@ -605,14 +604,13 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     n.total = P1 * N,
     Y.signed = Y1_signed
   )
-  class(result) <- c("nmfae.signed", "nmfae", "nmf")
+  class(result) <- c("nmf.rrr.signed", "nmfae.signed", "nmfae", "nmf")
   result
 }
 
 
 ## ==============================================================
 #' @title Statistical Inference for Signed-Bottleneck NMF-AE Signed Bottleneck
-#' @keywords internal
 #' @description
 #' Post-estimation inference for the \strong{signed} bottleneck
 #' \eqn{\Theta = C_{+} - C_{-}} in the Signed-Bottleneck NMF-AE model
@@ -656,7 +654,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
+nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
                                  wild.bootstrap = TRUE, ...) {
   if (!inherits(object, "nmfae.signed"))
     stop("object must be of class 'nmfae.signed'")
@@ -1012,7 +1010,6 @@ print.summary.nmfae.signed <- function(x,
 
 ## ==============================================================
 #' @title Rename Resp/Cov labels on nmfae.signed objects
-#' @keywords internal
 #' @description
 #' Replaces the default \code{"Resp1", "Resp2", ...} (response basis / X1 columns
 #' and Cp/Cn/C rows) and \code{"Cov1", "Cov2", ...} (covariate basis / X2 rows and
@@ -1034,7 +1031,7 @@ print.summary.nmfae.signed <- function(x,
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
+nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
   if (!is.null(X1.colnames)) {
     Q <- ncol(x$X1)
     if (length(X1.colnames) != Q) stop("X1.colnames must have length ", Q)
@@ -1067,7 +1064,6 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 
 ## ==============================================================
 #' @title Element-wise Cross-Validation for Signed-Bottleneck NMF-AE
-#' @keywords internal
 #' @description
 #' Element-wise k-fold cross-validation for \code{\link{nmfae.signed}} to
 #' select the decoder / encoder ranks \eqn{(Q, R)}.  Mirrors
@@ -1106,7 +1102,7 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
+nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
                              rank = NULL, rank.encoder = NULL) {
   extra_ecv <- list(...)
   # rank1/rank2 = response/covariate basis ranks to sweep; legacy rank/rank.encoder/Q/R
@@ -1149,7 +1145,7 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
     if (has_na) W_train[is.na(Y1)] <- 0
     W_train[test_idx] <- 0
     fit <- suppressMessages(
-      do.call(nmfae.signed,
+      do.call(nmf.rrr.signed,
               c(list(Y1 = Y1, Y2 = Y2, rank = QR$Q[i], rank.encoder = QR$R[i],
                      Y1.weights = W_train), fit_args))
     )
@@ -1173,7 +1169,6 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 
 
 #' @title Rank selection for nmfae.signed (paired rank, concise diagnostics)
-#' @keywords internal
 #' @description
 #' Fits \code{\link{nmfae.signed}} with a \strong{paired} decoder/encoder
 #' rank (\eqn{Q = R}) across a range of ranks and reports
@@ -1205,7 +1200,7 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #' components in factor and principal components models.
 #' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 #' @export
-nmfae.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
+nmf.rrr.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
                               plot = TRUE, ..., rank = NULL) {
   extra <- list(...)
   if (!is.null(rank))    rank1 <- rank
@@ -1215,14 +1210,14 @@ nmfae.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
   rs <- numeric(length(rank1)); er <- numeric(length(rank1))
   for (i in seq_along(rank1)) {
-    f <- suppressMessages(do.call(nmfae.signed,
+    f <- suppressMessages(do.call(nmf.rrr.signed,
            c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
                   print.trace = FALSE), extra)))
     rs[i] <- f$r.squared
     er[i] <- .effective.rank(f$H)
   }
   ecv <- if (detail == "full")
-    suppressMessages(do.call(nmfae.signed.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    suppressMessages(do.call(nmf.rrr.signed.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
     else rep(NA_real_, length(rank1))
   criteria <- data.frame(rank = rank1, effective.rank = er,
                          effective.rank.ratio = er / rank1,
@@ -1348,7 +1343,6 @@ print.summary.nmfae.signed.inference <- function(x,
 
 ## ==============================================================
 #' @title Heatmap visualization of nmfae.signed factor matrices
-#' @keywords internal
 #' @description
 #' Displays the factor blocks of a \code{\link{nmfae.signed}} fit as
 #' side-by-side heatmaps.  Non-negative blocks (\eqn{X_1, C_{+}, C_{-},
@@ -1388,7 +1382,7 @@ print.summary.nmfae.signed.inference <- function(x,
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed.heatmap <- function(x,
+nmf.rrr.signed.heatmap <- function(x,
                                   Y1.label = NULL, X1.label = NULL,
                                   X2.label = NULL, Y2.label = NULL,
                                   palette.pos = NULL,

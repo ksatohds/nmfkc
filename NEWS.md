@@ -1,5 +1,15 @@
 # nmfkc 0.8.4 (development)
 
+### **`nmfae*` deprecated in favour of `nmf.rrr*`**
+- The canonical implementation of the three-layer NMF-RRR model now lives
+  under the `nmf.rrr*` / `nmf.rrr.signed*` names (`nmf.rrr`, `.inference`,
+  `.ecv`, `.cv`, `.rank`, `.DOT`, `.heatmap`, `.kernel.beta.cv`, `.rename`,
+  and the six signed variants). The former `nmfae*` / `nmfae.signed*` names are
+  now thin deprecated wrappers that emit `.Deprecated()` and forward to their
+  `nmf.rrr*` counterpart. Fitted objects keep the legacy S3 classes (e.g.
+  `class = c("nmf.rrr", "nmfae", "nmf")`), so all S3 methods and saved objects
+  continue to work unchanged.
+
 ### **`nmf.sem*` deprecated in favour of `nmf.ffb*`**
 - The canonical implementation of the NMF-FFB (feed-forward + feedback) model
   now lives under the `nmf.ffb*` names (`nmf.ffb`, `nmf.ffb.inference`,

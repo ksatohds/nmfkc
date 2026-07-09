@@ -7,7 +7,6 @@
 # Suggests: DiagrammeR, DiagrammeRsvg, rsvg (for DOT graph rendering)
 
 #' @title Three-Layer Non-negative Matrix Factorization (NMF-AE)
-#' @keywords internal
 #' @description
 #' \code{nmfae} fits a three-layer nonnegative matrix factorization model
 #' \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}, where \eqn{X_1} is a decoder basis
@@ -108,7 +107,7 @@
 #' Y2 <- matrix(runif(8), nrow=4)
 #' res2 <- nmfae(Y1, Y2, rank1=2, rank2=2)
 #'
-nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
+nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
                   epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...,
                   rank = NULL, rank.encoder = NULL) {
 
@@ -430,12 +429,11 @@ nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     n.missing = n.missing,
     n.total = P1 * N
   )
-  class(result) <- c("nmfae", "nmf")
+  class(result) <- c("nmf.rrr", "nmfae", "nmf")
   return(result)
 }
 
 #' @title Statistical Inference for NMF-AE Parameter Matrix
-#' @keywords internal
 #' @description
 #' Performs post-estimation inference for \eqn{\Theta} in the three-layer NMF model
 #' \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}, conditional on \eqn{(\hat{X}_1, \hat{X}_2)}.
@@ -481,7 +479,7 @@ nmfae <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' res2 <- nmfae.inference(res, Y)
 #' summary(res2)
 #'
-nmfae.inference <- function(object, Y1, Y2 = Y1,
+nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
                             wild.bootstrap = TRUE, ...) {
   if (!inherits(object, "nmfae")) stop("object must be of class 'nmfae'")
 
@@ -627,7 +625,6 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
 }
 
 #' @title Rename decoder and encoder bases
-#' @keywords internal
 #' @description
 #' Assigns user-specified names to the decoder (X1 columns) and encoder
 #' (X2 rows) bases of an \code{nmfae} object.  The names propagate to
@@ -655,7 +652,7 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
 #' }
 #' @seealso \code{\link{nmfae}}
 #' @export
-nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
+nmf.rrr.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
   if (!is.null(X1.colnames)) {
     Q <- ncol(x$X1)
     if (length(X1.colnames) != Q) stop("X1.colnames must have length ", Q)
@@ -978,7 +975,6 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 
 
 #' @title Heatmap visualization of nmfae factor matrices
-#' @keywords internal
 #' @description
 #' \code{nmfae.heatmap} displays the three factor matrices \eqn{X_1}, \eqn{\Theta},
 #' and \eqn{X_2} as side-by-side heatmaps. This provides an alternative to DOT graph
@@ -1007,7 +1003,7 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 #' nmfae.heatmap(res)
 #' }
 #' @export
-nmfae.heatmap <- function(x,
+nmf.rrr.heatmap <- function(x,
                           Y1.label = NULL, X1.label = NULL,
                           X2.label = NULL, Y2.label = NULL,
                           palette = NULL, ...) {
@@ -1239,7 +1235,6 @@ plot.predict.nmfae <- function(x, ...) {
 }
 
 #' @title Element-wise Cross-Validation for nmfae (Wold's CV)
-#' @keywords internal
 #' @description
 #' \code{nmfae.ecv} performs k-fold element-wise cross-validation by randomly
 #' holding out individual elements of \eqn{Y_1}, assigning them a weight of 0
@@ -1289,7 +1284,7 @@ plot.predict.nmfae <- function(x, ...) {
 #' res2 <- nmfae.ecv(Y, rank1 = 1:3, rank2 = 1:3, nfolds = 3, maxit = 500)
 #' res2$sigma
 #'
-nmfae.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
+nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
                       rank = NULL, rank.encoder = NULL) {
   extra_ecv <- list(...)
   # rank1/rank2 = response/covariate basis ranks to sweep; legacy rank/rank.encoder/Q/R
@@ -1332,7 +1327,7 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
     if (has_na) weights_train[is.na(Y1)] <- 0
     weights_train[test_idx] <- 0
     fit <- suppressMessages(
-      do.call(nmfae, c(list(Y1 = Y1, Y2 = Y2, Q = QR$Q[i], R = QR$R[i],
+      do.call(nmf.rrr, c(list(Y1 = Y1, Y2 = Y2, Q = QR$Q[i], R = QR$R[i],
                             Y1.weights = weights_train), extra_args))
     )
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
@@ -1355,7 +1350,6 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 
 
 #' @title Rank selection for nmfae (paired rank, concise diagnostics)
-#' @keywords internal
 #' @description
 #' Fits \code{\link{nmfae}} with a \strong{paired} decoder/encoder rank
 #' (\eqn{Q = R}) across a range of ranks and reports \code{r.squared},
@@ -1387,7 +1381,7 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #' components in factor and principal components models.
 #' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 #' @export
-nmfae.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
+nmf.rrr.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
                        plot = TRUE, ..., rank = NULL) {
   extra <- list(...)
   # sweep a single rank for both bases; legacy rank (formal) / Q (via ...)
@@ -1398,13 +1392,13 @@ nmfae.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
   rs <- numeric(length(rank1)); er <- numeric(length(rank1))
   for (i in seq_along(rank1)) {
-    f <- suppressMessages(do.call(nmfae, c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
+    f <- suppressMessages(do.call(nmf.rrr, c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
                                                 print.trace = FALSE), extra)))
     rs[i] <- f$r.squared
     er[i] <- .effective.rank(f$H)
   }
   ecv <- if (detail == "full")
-    suppressMessages(do.call(nmfae.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    suppressMessages(do.call(nmf.rrr.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
     else rep(NA_real_, length(rank1))
   criteria <- data.frame(rank = rank1, effective.rank = er,
                          effective.rank.ratio = er / rank1,
@@ -1504,7 +1498,6 @@ plot.nmfae.ecv <- function(x, ...) {
 }
 
 #' @title Sample-wise k-fold Cross-Validation for nmfae
-#' @keywords internal
 #' @description
 #' \code{nmfae.cv} performs k-fold cross-validation by splitting columns (samples)
 #' of \eqn{Y_1} and \eqn{Y_2} into \code{div} folds. For each fold, the model
@@ -1546,7 +1539,7 @@ plot.nmfae.ecv <- function(x, ...) {
 #' res <- nmfae.cv(Y, rank1 = 2, rank2 = 2, nfolds = 5, maxit = 500)
 #' res$sigma
 #'
-nmfae.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
+nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
                      rank = NULL, rank.encoder = NULL) {
   extra_cv <- list(...)
   if (is.null(rank))          rank <- rank1
@@ -1651,7 +1644,7 @@ nmfae.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
            Y1.weights = W_train, print.trace = FALSE),
       nmfae_extra
     )
-    res_j <- suppressMessages(do.call("nmfae", nmfae_args))
+    res_j <- suppressMessages(do.call("nmf.rrr", nmfae_args))
 
     # Predict on test set
     Y1hat_test <- res_j$X1 %*% res_j$C %*% res_j$X2 %*% Y2_test
@@ -1698,7 +1691,6 @@ plot.nmfae.cv <- function(x, ...) {
 }
 
 #' @title Optimize kernel beta for nmfae by cross-validation
-#' @keywords internal
 #' @description
 #' \code{nmfae.kernel.beta.cv} selects the optimal \code{beta} parameter of the
 #' kernel function by evaluating \code{\link{nmfae.cv}} for each candidate value.
@@ -1740,7 +1732,7 @@ plot.nmfae.cv <- function(x, ...) {
 #'                              beta = c(0.01, 0.02, 0.05), nfolds = 5)
 #' res$beta
 #'
-nmfae.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
+nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
                                   beta = NULL, plot = TRUE, ...,
                                   rank = NULL, rank.encoder = NULL) {
 
@@ -1776,7 +1768,7 @@ nmfae.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
     A <- do.call("nmfkc.kernel", kernel_call)
 
     cv_call <- c(list(Y1 = Y1, Y2 = A, rank = rank, rank.encoder = rank.encoder), cv_args)
-    result <- do.call("nmfae.cv", cv_call)
+    result <- do.call("nmf.rrr.cv", cv_call)
 
     objfuncs[i] <- result$objfunc
 
@@ -1831,7 +1823,6 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 }
 
 #' @title DOT graph visualization for nmfae objects
-#' @keywords internal
 #' @description
 #' \code{nmfae.DOT} generates a DOT language string for visualizing the structure
 #' of a three-layer NMF model. Two graph types are supported:
@@ -1881,7 +1872,7 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' dot <- nmfae.DOT(res)
 #' }
 #' @export
-nmfae.DOT <- function(result,
+nmf.rrr.DOT <- function(result,
                       type = c("XCX", "YXCXY"),
                       threshold = 0.01,
                       sig.level = 0.1,
