@@ -84,6 +84,12 @@
 #'       \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_2 X_2^\top)\rVert^2}
 #'       respectively.  Same convention as \code{\link{nmfae}}; encourage
 #'       more distinct (less overlapping) response / covariate bases.}
+#'     \item{\code{C.L2}}{Non-negative ridge penalty (default 0) on the signed
+#'       bottleneck \eqn{C = C_{+} - C_{-}}, adding
+#'       \eqn{\lambda\lVert C_{+} - C_{-}\rVert^2}.  Shrinks \eqn{\Theta} toward
+#'       zero (with zero gradient on the unidentified common mode
+#'       \eqn{C_{+} + C_{-}}), injected into both the unweighted and weighted
+#'       \eqn{C_{+}}/\eqn{C_{-}} updates.}
 #'     \item{\code{Y1.weights}}{Optional non-negative weight matrix
 #'       (P1 x N) or vector (length N) for \eqn{Y_1}, analogous to the
 #'       \code{weights} argument of \code{\link[stats]{lm}}.  Loss
@@ -193,6 +199,10 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   ## L2 on X1 columns and X2 rows; both default off).
   X1.L2.ortho <- if (!is.null(extra_args$X1.L2.ortho)) extra_args$X1.L2.ortho else 0
   X2.L2.ortho <- if (!is.null(extra_args$X2.L2.ortho)) extra_args$X2.L2.ortho else 0
+  ## Ridge on the signed bottleneck C = Cp - Cn (default off): the penalty
+  ## C.L2 * ||Cp - Cn||^2 shrinks Theta only (zero gradient on the common
+  ## mode Cp + Cn); num_Cp += C.L2 Cn, den_Cp += C.L2 Cp (symmetric for Cn).
+  C.L2        <- if (!is.null(extra_args$C.L2))        extra_args$C.L2        else 0
 
   ## Validate warm.start value
   if (is.logical(warm.start)) {
@@ -353,6 +363,8 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   den_X2_pen <- function(X2) {
     if (X2.L2.ortho > 0) { G <- tcrossprod(X2); diag(G) <- 0; X2.L2.ortho * (G %*% X2) } else 0
   }
+  ## Ridge penalty value on the bottleneck C = Cp - Cn (added to the objective).
+  pen_C <- function(Cp, Cn) if (C.L2 > 0) C.L2 * sum((Cp - Cn)^2) else 0
 
   ## ---- 6. Main loop wrapped for multi-restart ----
   run_once <- function(X1, X2, Cp, Cn) {
@@ -361,7 +373,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     X1 <- sweep(X1, 2, cs, "/"); Cp <- sweep(Cp, 1, cs, "*"); Cn <- sweep(Cn, 1, cs, "*")
     rs <- rowSums(X2) + small
     X2 <- sweep(X2, 1, rs, "/"); Cp <- sweep(Cp, 2, rs, "*"); Cn <- sweep(Cn, 2, rs, "*")
-    obj_prev <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2)
+    obj_prev <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2) + pen_C(Cp, Cn)
     objfunc.iter <- numeric(maxit)
     iter <- 0L
     for (iter in seq_len(maxit)) {
@@ -373,11 +385,11 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       GX  <- crossprod(X1, G0) %*% t(X2)
       GX_p <- pmax(GX,  0); GX_n <- pmax(-GX, 0)
       ## Cp update
-      Cp <- Cp * (GX_p + P1m %*% Cn %*% SX) /
-                 (GX_n + P1m %*% Cp %*% SX + small)
+      Cp <- Cp * (GX_p + P1m %*% Cn %*% SX + C.L2 * Cn) /
+                 (GX_n + P1m %*% Cp %*% SX + C.L2 * Cp + small)
       ## Cn update (Gauss-Seidel)
-      Cn <- Cn * (GX_n + P1m %*% Cp %*% SX) /
-                 (GX_p + P1m %*% Cn %*% SX + small)
+      Cn <- Cn * (GX_n + P1m %*% Cp %*% SX + C.L2 * Cp) /
+                 (GX_p + P1m %*% Cn %*% SX + C.L2 * Cn + small)
       ## X1 update
       G0X <- G0 %*% t(X2)
       G0X_p <- pmax(G0X, 0); G0X_n <- pmax(-G0X, 0)
@@ -417,12 +429,12 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       Hp_w <- crossprod(X1, WXCpF) %*% t(F_mat)          # Q x R, >= 0
       Hn_w <- crossprod(X1, WXCnF) %*% t(F_mat)          # Q x R, >= 0
       Gp <- pmax(G_w, 0); Gn <- pmax(-G_w, 0)
-      Cp <- Cp * (Gp + Hn_w) / (Gn + Hp_w + small)
+      Cp <- Cp * (Gp + Hn_w + C.L2 * Cn) / (Gn + Hp_w + C.L2 * Cp + small)
       ## Cn update (recompute Hp_w with new Cp)
       XCpF  <- X1 %*% Cp %*% F_mat
       WXCpF <- Wmat * XCpF
       Hp_w  <- crossprod(X1, WXCpF) %*% t(F_mat)
-      Cn <- Cn * (Gn + Hp_w) / (Gp + Hn_w + small)
+      Cn <- Cn * (Gn + Hp_w + C.L2 * Cp) / (Gp + Hn_w + C.L2 * Cn + small)
       ## X1 update
       Mp <- Cp %*% F_mat; Mn <- Cn %*% F_mat
       XMp <- X1 %*% Mp; XMn <- X1 %*% Mn
@@ -459,7 +471,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     }
 
     ## Objective and convergence
-    obj_cur <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2)
+    obj_cur <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2) + pen_C(Cp, Cn)
     objfunc.iter[iter] <- obj_cur
 
     if (print.trace && (iter %% 100 == 0 || iter == 1)) {

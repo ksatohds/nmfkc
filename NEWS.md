@@ -34,6 +34,15 @@
   "nmf.sem", "nmf")`, so all S3 methods and existing saved objects continue to
   work unchanged.
 
+### **`C.L2` ridge for the signed families**
+- `nmfkc.signed()` and `nmf.rrr.signed()` gain a `C.L2` ridge (default 0, via
+  `...`) on the signed coefficient matrix \eqn{C = C_{+} - C_{-}}, penalizing
+  `C.L2 * ||Cp - Cn||^2`. Because only the difference (= \eqn{\Theta}) enters
+  the model, the penalty has zero gradient on the unidentified common mode
+  \eqn{C_{+} + C_{-}}; it is injected symmetrically into the `Cp`/`Cn`
+  multiplicative updates (`num_Cp += C.L2*Cn`, `den_Cp += C.L2*Cp`) across both
+  the unweighted and weighted paths, and added to the tracked objective.
+
 ### **Basis penalties extended to the signed families**
 - `nmfkc.signed()` now accepts `X.L2.ortho` (column orthogonality) and
   `X.L2.smooth` (path-graph row smoothness), matching `nmfkc()`. Both default

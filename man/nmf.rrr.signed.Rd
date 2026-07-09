@@ -63,6 +63,12 @@ orthogonality penalties (default 0) on the \strong{columns} of
 \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_2 X_2^\top)\rVert^2}
 respectively.  Same convention as \code{\link{nmfae}}; encourage
 more distinct (less overlapping) response / covariate bases.}
+\item{\code{C.L2}}{Non-negative ridge penalty (default 0) on the signed
+bottleneck \eqn{C = C_{+} - C_{-}}, adding
+\eqn{\lambda\lVert C_{+} - C_{-}\rVert^2}.  Shrinks \eqn{\Theta} toward
+zero (with zero gradient on the unidentified common mode
+\eqn{C_{+} + C_{-}}), injected into both the unweighted and weighted
+\eqn{C_{+}}/\eqn{C_{-}} updates.}
 \item{\code{Y1.weights}}{Optional non-negative weight matrix
 (P1 x N) or vector (length N) for \eqn{Y_1}, analogous to the
 \code{weights} argument of \code{\link[stats]{lm}}.  Loss

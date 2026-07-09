@@ -85,6 +85,12 @@
 #'       path-graph Laplacian over rows (adjacent-row differences).  Useful
 #'       for ordered rows (e.g. time / space); skipped when
 #'       \code{X.restriction = "fixed"}.
+#'     \item \code{C.L2}: non-negative ridge penalty on the signed coefficient
+#'       matrix \eqn{C = C_{+} - C_{-}} (default 0), adding
+#'       \eqn{\lambda\lVert C_{+} - C_{-}\rVert^2}.  Shrinks \eqn{\Theta}
+#'       toward zero (with zero gradient on the unidentified common mode
+#'       \eqn{C_{+} + C_{-}}), injected into both the fast unweighted and the
+#'       weighted \eqn{C_{+}}/\eqn{C_{-}} updates.
 #'     \item \code{X.init}: initialization strategy for the basis matrix
 #'       \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
 #'       menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
@@ -228,6 +234,11 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   ## path-graph L2 row-smoothness; both default off and skipped when X is fixed).
   X.L2.ortho  <- if (!is.null(extra_args$X.L2.ortho))  extra_args$X.L2.ortho  else 0
   X.L2.smooth <- if (!is.null(extra_args$X.L2.smooth)) extra_args$X.L2.smooth else 0
+  ## Ridge on the signed coefficient matrix C = Cp - Cn (default off).  The
+  ## penalty C.L2 * ||Cp - Cn||^2 shrinks Theta only (zero gradient on the
+  ## unidentified common mode Cp + Cn): num_Cp += C.L2 Cn, den_Cp += C.L2 Cp
+  ## (and symmetrically for Cn).
+  C.L2        <- if (!is.null(extra_args$C.L2))        extra_args$C.L2        else 0
 
   ## --- 2. Input preparation & validation ---
   if (is.vector(Y)) Y <- matrix(Y, nrow = 1)
@@ -395,6 +406,8 @@ nmfkc.signed <- function(Y, A, rank = NULL,
                                         X[-nrow(X), , drop = FALSE])^2)
     p
   }
+  ## Ridge penalty value on C = Cp - Cn (added to the tracked objective).
+  pen_C <- function(Cp, Cn) if (C.L2 > 0) C.L2 * sum((Cp - Cn)^2) else 0
   apply_Xpen <- function(X, num_X, den_X) {
     if (X.L2.ortho > 0) {
       XtX <- crossprod(X); diag(XtX) <- 0
@@ -414,9 +427,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   if (!has.weights) {
     P <- crossprod(X); G <- crossprod(X, G0)
     H <- Cp - Cn; PH <- P %*% H
-    obj_prev <- Y_sqnorm - 2 * sum(G * H) + sum(H * (PH %*% S)) + pen_X(X)
+    obj_prev <- Y_sqnorm - 2 * sum(G * H) + sum(H * (PH %*% S)) + pen_X(X) + pen_C(Cp, Cn)
   } else {
-    obj_prev <- compute_obj(X, Cp, Cn) + pen_X(X)
+    obj_prev <- compute_obj(X, Cp, Cn) + pen_X(X) + pen_C(Cp, Cn)
   }
   objfunc.iter <- numeric(maxit)
 
@@ -429,13 +442,13 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       ## 6a. Cp update
       G_p <- pmax(G, 0); G_n <- pmax(-G, 0)
       PCp <- P %*% Cp;   PCn <- P %*% Cn
-      Cp  <- Cp * (G_p + PCp %*% S_n + PCn %*% S_p) /
-                  (G_n + PCp %*% S_p + PCn %*% S_n + small)
+      Cp  <- Cp * (G_p + PCp %*% S_n + PCn %*% S_p + C.L2 * Cn) /
+                  (G_n + PCp %*% S_p + PCn %*% S_n + C.L2 * Cp + small)
 
       ## 6b. Cn update (Gauss-Seidel)
       PCp <- P %*% Cp
-      Cn  <- Cn * (G_n + PCp %*% S_p + PCn %*% S_n) /
-                  (G_p + PCp %*% S_n + PCn %*% S_p + small)
+      Cn  <- Cn * (G_n + PCp %*% S_p + PCn %*% S_n + C.L2 * Cp) /
+                  (G_p + PCp %*% S_n + PCn %*% S_p + C.L2 * Cn + small)
 
       ## 6c. X update
       if (X.restriction != "fixed") {
@@ -457,7 +470,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       ## 6d. Refresh precomputed quantities & evaluate objective in closed form
       P  <- crossprod(X); G <- crossprod(X, G0)
       H  <- Cp - Cn; PH <- P %*% H
-      obj_cur <- Y_sqnorm - 2 * sum(G * H) + sum(H * (PH %*% S)) + pen_X(X)
+      obj_cur <- Y_sqnorm - 2 * sum(G * H) + sum(H * (PH %*% S)) + pen_X(X) + pen_C(Cp, Cn)
 
     } else {
       ## ---- Weighted path (no S/G0 precompute) ----
@@ -478,14 +491,14 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       Gp <- pmax(G_w, 0); Gn <- pmax(-G_w, 0)
       Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
       Hnp <- pmax(Hn_w, 0); Hnn <- pmax(-Hn_w, 0)
-      Cp <- Cp * (Gp + Hpn + Hnp) / (Gn + Hpp + Hnn + small)
+      Cp <- Cp * (Gp + Hpn + Hnp + C.L2 * Cn) / (Gn + Hpp + Hnn + C.L2 * Cp + small)
       ## Recompute Hp_w with updated Cp
       Yhat_p <- X %*% Cp %*% A_diff
       WYhp   <- Wmat * Yhat_p
       Hp_w   <- tX %*% WYhp %*% t(A_diff)
       Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
       ## 6b'. Cn update
-      Cn <- Cn * (Gn + Hpp + Hnn) / (Gp + Hpn + Hnp + small)
+      Cn <- Cn * (Gn + Hpp + Hnn + C.L2 * Cp) / (Gp + Hpn + Hnp + C.L2 * Cn + small)
 
       ## 6c'. X update (weighted)
       ## -dL/(2) = (W*Y) M^T - (W*(XM)) M^T   where M = H A (signed).
@@ -511,7 +524,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         }
       }
 
-      obj_cur <- compute_obj(X, Cp, Cn) + pen_X(X)
+      obj_cur <- compute_obj(X, Cp, Cn) + pen_X(X) + pen_C(Cp, Cn)
     }
 
     objfunc.iter[iter] <- obj_cur
