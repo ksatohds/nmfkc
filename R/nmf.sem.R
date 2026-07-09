@@ -1,5 +1,7 @@
-# nmf.sem.R — NMF-FFB (formerly NMF-SEM) related functions
-# nmf.sem, nmf.sem.cv, nmf.sem.split, nmf.sem.DOT
+# nmf.sem.R — NMF-FFB (formerly NMF-SEM) canonical engines + generic DOT
+# Canonical:  nmf.ffb, nmf.ffb.inference, nmf.ffb.cv, nmf.ffb.split, nmf.ffb.DOT
+#             (deprecated nmf.sem* aliases live in nmf.sem-deprecated.R).
+# Also hosts: nmfkc.DOT / plot.nmfkc.DOT (shared DOT utilities).
 
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
@@ -8,7 +10,6 @@
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 #' @title NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)
-#' @keywords internal
 #'
 #' @description
 #' Fits the NMF-FFB model
@@ -156,15 +157,15 @@
 #' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
 #' result$MAE
 #'
-#' @seealso \code{\link{nmf.sem.inference}}, \code{\link{nmf.sem.cv}},
-#'   \code{\link{nmf.sem.split}}, \code{\link{nmf.sem.DOT}},
+#' @seealso \code{\link{nmf.ffb.inference}}, \code{\link{nmf.ffb.cv}},
+#'   \code{\link{nmf.ffb.split}}, \code{\link{nmf.ffb.DOT}},
 #'   \code{\link{summary.nmf.sem}}
 #' @references
 #' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
 #'   to structural equation modeling for blind input-output analysis.
 #'   arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 #' @export
-nmf.sem <- function(
+nmf.ffb <- function(
     Y1, Y2,
     rank = NULL,
     X.init = "nndsvd",
@@ -471,7 +472,6 @@ nmf.sem <- function(
 
 
 #' @title Statistical inference for NMF-FFB via X-fixed full pair bootstrap
-#' @keywords internal
 #' @description
 #' \code{nmf.sem.inference} performs statistical inference on the structural
 #' coefficient matrices \eqn{C_1} (latent feedback, \eqn{\Theta_1}) and
@@ -590,7 +590,7 @@ nmf.sem <- function(
 #' res2 <- nmf.sem.inference(res, Y1, Y2, B = 200)  # quick demo
 #' head(res2$coefficients)
 #' }
-nmf.sem.inference <- function(object, Y1, Y2,
+nmf.ffb.inference <- function(object, Y1, Y2,
                                B = 1000L,
                                threshold = 0.01,
                                ci.level = 0.95,
@@ -872,7 +872,6 @@ nmf.sem.inference <- function(object, Y1, Y2,
 
 
 #' @title Cross-Validation for NMF-FFB
-#' @keywords internal
 #' @description
 #' Performs K-fold cross-validation to evaluate the equilibrium mapping of
 #' the NMF-FFB model.
@@ -921,14 +920,14 @@ nmf.sem.inference <- function(object, Y1, Y2,
 #'
 #' @seealso \code{\link{nmf.sem}}
 #' @export
-nmf.sem.cv <- function(
+nmf.ffb.cv <- function(
     Y1, Y2,
     rank = NULL,
     X.init = "nndsvd",
     X.L2.ortho = 100.0,
     C1.L1 = 1.0,        # L1 sparsity for C1 (Theta1)
     C2.L1 = 0.1,        # L1 sparsity for C2 (Theta2)
-    epsilon = 1e-6,     # Convergence tolerance passed to nmf.sem
+    epsilon = 1e-6,     # Convergence tolerance passed to nmf.ffb
     maxit = 5000,
     ...
 ){
@@ -1078,7 +1077,7 @@ nmf.sem.cv <- function(
     }
 
     # Call nmf.sem on the training data (suppress messages for cleaner CV output)
-    res_j <- suppressMessages(do.call("nmf.sem", nmf.sem.args))
+    res_j <- suppressMessages(do.call("nmf.ffb", nmf.sem.args))
 
     # If mapping is not usable, penalize this fold (do not crash CV)
     if (is.null(res_j$M.model) || any(!is.finite(res_j$M.model))) {
@@ -1107,7 +1106,6 @@ nmf.sem.cv <- function(
 
 
 #' @title Heuristic Variable Splitting for NMF-FFB
-#' @keywords internal
 #'
 #' @description
 #' Infers a heuristic partition of observed variables into exogenous (\eqn{Y_2})
@@ -1166,7 +1164,7 @@ nmf.sem.cv <- function(
 #'
 #' @seealso \code{\link{nmf.sem}}
 #' @export
-nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
+nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
                           auto.flipped = TRUE, verbose = FALSE) {
 
   if (!is.matrix(x) && !is.data.frame(x))
@@ -1438,11 +1436,10 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' dot <- nmf.sem.DOT(result)
 #' cat(dot)
 #'
-#' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.inference}},
+#' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}},
 #'   \code{\link{plot.nmfkc.DOT}}
-#' @keywords internal
 #' @export
-nmf.sem.DOT <- function(result,
+nmf.ffb.DOT <- function(result,
                         weight_scale          = 5,
                         weight_scale_c2       = weight_scale,
                         weight_scale_x1       = weight_scale,

@@ -1,5 +1,14 @@
 # nmfkc 0.8.4 (development)
 
+### **`nmf.sem*` deprecated in favour of `nmf.ffb*`**
+- The canonical implementation of the NMF-FFB (feed-forward + feedback) model
+  now lives under the `nmf.ffb*` names (`nmf.ffb`, `nmf.ffb.inference`,
+  `nmf.ffb.cv`, `nmf.ffb.split`, `nmf.ffb.DOT`). The former `nmf.sem*` names
+  are now thin deprecated wrappers that emit `.Deprecated()` and forward to
+  their `nmf.ffb*` counterpart. Fitted objects keep `class = c("nmf.ffb",
+  "nmf.sem", "nmf")`, so all S3 methods and existing saved objects continue to
+  work unchanged.
+
 ### **Basis penalties extended to the signed families**
 - `nmfkc.signed()` now accepts `X.L2.ortho` (column orthogonality) and
   `X.L2.smooth` (path-graph row smoothness), matching `nmfkc()`. Both default
