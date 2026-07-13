@@ -1,8 +1,8 @@
 Package: nmfkc
 Type: Package
 Title: Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.8.2
-Date: 2026-06-09
+Version: 0.8.8
+Date: 2026-07-14
 Authors@R:
     person("Kenichi", "Satoh",
            email = "kenichi-satoh@biwako.shiga-u.ac.jp",
@@ -48,7 +48,8 @@ Suggests:
     DiagrammeR,
     MASS,
     nlme,
-    lavaan
+    lavaan,
+    ade4
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
 RoxygenNote: 7.2.3

@@ -17,7 +17,7 @@
 #   plot.nmfae.signed()         -- convergence plot
 #   summary.nmfae.signed()      -- summary with Cp/Cn diagnostics
 #   print.summary.nmfae.signed()
-#   nmfae.signed.rename()       -- rename Dec/Enc labels (propagates to Cp, Cn, C)
+#   nmfae.signed.rename()       -- rename Resp/Cov labels (propagates to Cp, Cn, C)
 # ==============================================================
 
 #' @title Signed-Bottleneck NMF-AE: Three-Layer NMF-AE with Signed Bottleneck
@@ -48,10 +48,10 @@
 #'   (\code{Y.signed = TRUE} is auto-detected).
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N).  Must be non-negative.
 #'   Default \code{Y1} (autoencoder).
-#' @param rank Integer.  Decoder rank Q.  Default 2.
-#'   Alias \code{Q} accepted via \code{...}.
-#' @param rank.encoder Integer.  Encoder rank R.  Default \code{rank}.
-#'   Alias \code{R} accepted via \code{...}.
+#' @param rank1 Integer. Response-basis rank Q. Default 2.
+#' @param rank2 Integer. Covariate-basis rank R. Default (\code{NULL}) = \code{rank1}.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}
+#'   (\code{Q} / \code{R} also accepted via \code{...}).
 #' @param epsilon Relative convergence tolerance on the objective.
 #'   Default \code{1e-4}.
 #' @param maxit Maximum iterations.  Default 5000.
@@ -77,6 +77,19 @@
 #'       point (particularly the \eqn{C_{-} = 0} trap from warm-start
 #'       from non-negative tri-NMF-AE).  Use the default 1 for fast
 #'       development and raise for publication-grade runs.}
+#'     \item{\code{X1.L2.ortho}, \code{X2.L2.ortho}}{Non-negative L2
+#'       orthogonality penalties (default 0) on the \strong{columns} of
+#'       \eqn{X_1} and the \strong{rows} of \eqn{X_2}, penalizing
+#'       \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_1^\top X_1)\rVert^2} and
+#'       \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_2 X_2^\top)\rVert^2}
+#'       respectively.  Same convention as \code{\link{nmfae}}; encourage
+#'       more distinct (less overlapping) response / covariate bases.}
+#'     \item{\code{C.L2}}{Non-negative ridge penalty (default 0) on the signed
+#'       bottleneck \eqn{C = C_{+} - C_{-}}, adding
+#'       \eqn{\lambda\lVert C_{+} - C_{-}\rVert^2}.  Shrinks \eqn{\Theta} toward
+#'       zero (with zero gradient on the unidentified common mode
+#'       \eqn{C_{+} + C_{-}}), injected into both the unweighted and weighted
+#'       \eqn{C_{+}}/\eqn{C_{-}} updates.}
 #'     \item{\code{Y1.weights}}{Optional non-negative weight matrix
 #'       (P1 x N) or vector (length N) for \eqn{Y_1}, analogous to the
 #'       \code{weights} argument of \code{\link[stats]{lm}}.  Loss
@@ -96,8 +109,8 @@
 #'     \item{\code{seed}}{RNG seed.  Default 123.}
 #'     \item{\code{print.trace}}{Logical.  Print iteration trace.
 #'       Default \code{FALSE}.}
-#'     \item{\code{prefix.dec}, \code{prefix.enc}}{Label prefixes for
-#'       decoder/encoder factors.  Default \code{"Dec"}, \code{"Enc"}.}
+#'     \item{\code{prefix.dec}, \code{prefix.enc}}{Label prefixes for the
+#'       response/covariate bases.  Default \code{"Resp"}, \code{"Cov"}.}
 #'   }
 #'
 #' @return An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
@@ -137,7 +150,7 @@
 #' set.seed(1)
 #' Y1 <- matrix(abs(rnorm(12)), 3, 4)
 #' Y2 <- matrix(abs(rnorm(20)), 5, 4)
-#' res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 500)
+#' res <- nmf.rrr.signed(Y1, Y2, rank1 = 2, rank2 = 2, maxit = 500)
 #' summary(res)
 #' }
 #' @references
@@ -146,21 +159,31 @@
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
+nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
                        epsilon = 1e-4, maxit = 5000,
-                       verbose = FALSE, ...) {
+                       verbose = FALSE, ...,
+                       rank = NULL, rank.encoder = NULL) {
 
   cl <- match.call()
   extra_args <- list(...)
 
   ## ---- 1. Parameter extraction (compatibility with nmfae) ----
+  ## rank1 = response basis X1, rank2 = covariate basis X2 (default rank1);
+  ## legacy rank / rank.encoder (formals) and Q / R (via ...)
+  if (is.null(rank))          rank <- rank1
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
   if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
+  if (is.null(rank.encoder))  rank.encoder <- rank
   Q <- as.integer(rank)
   R <- as.integer(rank.encoder)
 
   warm.start <- if (!is.null(extra_args$warm.start)) extra_args$warm.start else TRUE
   nstart  <- if (!is.null(extra_args$nstart))  extra_args$nstart  else 1L
+  ## Basis-init method forwarded to the nmfae() warm-start step (default
+  ## "kmeans"; "kmeans++" etc. accepted). String methods only.
+  X.init  <- if (!is.null(extra_args$X.init))  extra_args$X.init  else "kmeans"
+  X.init.method <- if (is.character(X.init)) X.init else "kmeans"
   Y1.weights <- if (!is.null(extra_args$Y1.weights)) extra_args$Y1.weights else NULL
   Cp.init    <- extra_args$Cp.init
   Cn.init    <- extra_args$Cn.init
@@ -170,8 +193,16 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   seed       <- if (!is.null(extra_args$seed))       extra_args$seed       else 123L
   print.trace <- verbose
   if (!is.null(extra_args$print.trace)) print.trace <- extra_args$print.trace
-  prefix.dec <- if (!is.null(extra_args$prefix.dec)) extra_args$prefix.dec else "Dec"
-  prefix.enc <- if (!is.null(extra_args$prefix.enc)) extra_args$prefix.enc else "Enc"
+  prefix.dec <- if (!is.null(extra_args$prefix.dec)) extra_args$prefix.dec else "Resp"
+  prefix.enc <- if (!is.null(extra_args$prefix.enc)) extra_args$prefix.enc else "Cov"
+  ## Basis orthogonality penalties (same convention as nmfae(): off-diagonal
+  ## L2 on X1 columns and X2 rows; both default off).
+  X1.L2.ortho <- if (!is.null(extra_args$X1.L2.ortho)) extra_args$X1.L2.ortho else 0
+  X2.L2.ortho <- if (!is.null(extra_args$X2.L2.ortho)) extra_args$X2.L2.ortho else 0
+  ## Ridge on the signed bottleneck C = Cp - Cn (default off): the penalty
+  ## C.L2 * ||Cp - Cn||^2 shrinks Theta only (zero gradient on the common
+  ## mode Cp + Cn); num_Cp += C.L2 Cn, den_Cp += C.L2 Cp (symmetric for Cn).
+  C.L2        <- if (!is.null(extra_args$C.L2))        extra_args$C.L2        else 0
 
   ## Validate warm.start value
   if (is.logical(warm.start)) {
@@ -252,9 +283,10 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   tri_C_for_full <- NULL
   if (warm_mode %in% c("hybrid", "full") && !Y1_signed && !use_explicit_X) {
     if (print.trace) message("  Init: warm-start X1, X2 from nmfae() ...")
-    res0 <- nmfae(Y1, Y2, rank = Q, rank.encoder = R,
+    res0 <- nmf.rrr(Y1, Y2, rank1 = Q, rank2 = R,
                           epsilon = epsilon, maxit = maxit,
-                          verbose = FALSE, seed = seed)
+                          verbose = FALSE, seed = seed,
+                          X.init = X.init.method)
     X1 <- res0$X1
     X2 <- res0$X2
     tri_C_for_full <- res0$C          # for warm_mode == "full"
@@ -315,6 +347,25 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     if (has.weights) sum(Wmat * (Y1 - Y1hat)^2) else sum((Y1 - Y1hat)^2)
   }
 
+  ## Basis-orthogonality penalty value and MU denominator contributions
+  ## (same convention as nmfae()): (lambda/2)||offdiag(X1'X1)||^2 for X1
+  ## columns and (lambda/2)||offdiag(X2 X2')||^2 for X2 rows; the positive
+  ## gradient X1 offdiag(X1'X1) / offdiag(X2 X2') X2 goes to the denominator.
+  pen_X12 <- function(X1, X2) {
+    p <- 0
+    if (X1.L2.ortho > 0) { G <- crossprod(X1);  diag(G) <- 0; p <- p + (X1.L2.ortho / 2) * sum(G^2) }
+    if (X2.L2.ortho > 0) { G <- tcrossprod(X2); diag(G) <- 0; p <- p + (X2.L2.ortho / 2) * sum(G^2) }
+    p
+  }
+  den_X1_pen <- function(X1) {
+    if (X1.L2.ortho > 0) { G <- crossprod(X1); diag(G) <- 0; X1.L2.ortho * (X1 %*% G) } else 0
+  }
+  den_X2_pen <- function(X2) {
+    if (X2.L2.ortho > 0) { G <- tcrossprod(X2); diag(G) <- 0; X2.L2.ortho * (G %*% X2) } else 0
+  }
+  ## Ridge penalty value on the bottleneck C = Cp - Cn (added to the objective).
+  pen_C <- function(Cp, Cn) if (C.L2 > 0) C.L2 * sum((Cp - Cn)^2) else 0
+
   ## ---- 6. Main loop wrapped for multi-restart ----
   run_once <- function(X1, X2, Cp, Cn) {
     ## Normalize
@@ -322,7 +373,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     X1 <- sweep(X1, 2, cs, "/"); Cp <- sweep(Cp, 1, cs, "*"); Cn <- sweep(Cn, 1, cs, "*")
     rs <- rowSums(X2) + small
     X2 <- sweep(X2, 1, rs, "/"); Cp <- sweep(Cp, 2, rs, "*"); Cn <- sweep(Cn, 2, rs, "*")
-    obj_prev <- compute_obj(X1, Cp, Cn, X2)
+    obj_prev <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2) + pen_C(Cp, Cn)
     objfunc.iter <- numeric(maxit)
     iter <- 0L
     for (iter in seq_len(maxit)) {
@@ -334,18 +385,18 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
       GX  <- crossprod(X1, G0) %*% t(X2)
       GX_p <- pmax(GX,  0); GX_n <- pmax(-GX, 0)
       ## Cp update
-      Cp <- Cp * (GX_p + P1m %*% Cn %*% SX) /
-                 (GX_n + P1m %*% Cp %*% SX + small)
+      Cp <- Cp * (GX_p + P1m %*% Cn %*% SX + C.L2 * Cn) /
+                 (GX_n + P1m %*% Cp %*% SX + C.L2 * Cp + small)
       ## Cn update (Gauss-Seidel)
-      Cn <- Cn * (GX_n + P1m %*% Cp %*% SX) /
-                 (GX_p + P1m %*% Cn %*% SX + small)
+      Cn <- Cn * (GX_n + P1m %*% Cp %*% SX + C.L2 * Cp) /
+                 (GX_p + P1m %*% Cn %*% SX + C.L2 * Cn + small)
       ## X1 update
       G0X <- G0 %*% t(X2)
       G0X_p <- pmax(G0X, 0); G0X_n <- pmax(-G0X, 0)
       MMt_p <- Cp %*% SX %*% t(Cp) + Cn %*% SX %*% t(Cn)
       MMt_n <- Cp %*% SX %*% t(Cn) + Cn %*% SX %*% t(Cp)
       X1 <- X1 * (G0X_p %*% t(Cp) + G0X_n %*% t(Cn) + X1 %*% MMt_n) /
-                 (G0X_n %*% t(Cp) + G0X_p %*% t(Cn) + X1 %*% MMt_p + small)
+                 (G0X_n %*% t(Cp) + G0X_p %*% t(Cn) + X1 %*% MMt_p + den_X1_pen(X1) + small)
       ## Normalize X1 cols -> absorb into Cp, Cn rows
       cs <- colSums(X1) + small
       X1 <- sweep(X1, 2, cs, "/")
@@ -359,7 +410,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
       HtH_p <- crossprod(Cp, P1m) %*% Cp + crossprod(Cn, P1m) %*% Cn
       HtH_n <- crossprod(Cp, P1m) %*% Cn + crossprod(Cn, P1m) %*% Cp
       X2 <- X2 * (HG_p + HtH_n %*% X2 %*% S) /
-                 (HG_n + HtH_p %*% X2 %*% S + small)
+                 (HG_n + HtH_p %*% X2 %*% S + den_X2_pen(X2) + small)
       ## Normalize X2 rows -> absorb into Cp, Cn cols
       rs <- rowSums(X2) + small
       X2 <- sweep(X2, 1, rs, "/")
@@ -378,12 +429,12 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
       Hp_w <- crossprod(X1, WXCpF) %*% t(F_mat)          # Q x R, >= 0
       Hn_w <- crossprod(X1, WXCnF) %*% t(F_mat)          # Q x R, >= 0
       Gp <- pmax(G_w, 0); Gn <- pmax(-G_w, 0)
-      Cp <- Cp * (Gp + Hn_w) / (Gn + Hp_w + small)
+      Cp <- Cp * (Gp + Hn_w + C.L2 * Cn) / (Gn + Hp_w + C.L2 * Cp + small)
       ## Cn update (recompute Hp_w with new Cp)
       XCpF  <- X1 %*% Cp %*% F_mat
       WXCpF <- Wmat * XCpF
       Hp_w  <- crossprod(X1, WXCpF) %*% t(F_mat)
-      Cn <- Cn * (Gn + Hp_w) / (Gp + Hn_w + small)
+      Cn <- Cn * (Gn + Hp_w + C.L2 * Cp) / (Gp + Hn_w + C.L2 * Cn + small)
       ## X1 update
       Mp <- Cp %*% F_mat; Mn <- Cn %*% F_mat
       XMp <- X1 %*% Mp; XMn <- X1 %*% Mn
@@ -395,7 +446,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
       P_pp <- WXMp %*% t(Mp); P_pn <- WXMp %*% t(Mn)
       P_np <- WXMn %*% t(Mp); P_nn <- WXMn %*% t(Mn)
       X1 <- X1 * (W1Mp_p + W1Mn_n + P_pn + P_np) /
-                 (W1Mp_n + W1Mn_p + P_pp + P_nn + small)
+                 (W1Mp_n + W1Mn_p + P_pp + P_nn + den_X1_pen(X1) + small)
       cs <- colSums(X1) + small
       X1 <- sweep(X1, 2, cs, "/")
       Cp <- sweep(Cp, 1, cs, "*"); Cn <- sweep(Cn, 1, cs, "*")
@@ -413,14 +464,14 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
       Q_np <- crossprod(Hn, WHpF) %*% t(Y2)
       Q_nn <- crossprod(Hn, WHnF) %*% t(Y2)
       X2 <- X2 * (Hp_tW1_p + Hn_tW1_n + Q_pn + Q_np) /
-                 (Hp_tW1_n + Hn_tW1_p + Q_pp + Q_nn + small)
+                 (Hp_tW1_n + Hn_tW1_p + Q_pp + Q_nn + den_X2_pen(X2) + small)
       rs <- rowSums(X2) + small
       X2 <- sweep(X2, 1, rs, "/")
       Cp <- sweep(Cp, 2, rs, "*"); Cn <- sweep(Cn, 2, rs, "*")
     }
 
     ## Objective and convergence
-    obj_cur <- compute_obj(X1, Cp, Cn, X2)
+    obj_cur <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2) + pen_C(Cp, Cn)
     objfunc.iter[iter] <- obj_cur
 
     if (print.trace && (iter %% 100 == 0 || iter == 1)) {
@@ -559,12 +610,13 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     sigma = sigma,
     mae = mae,
     niter = niter,
+    iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
     runtime = diff.time,
     n.missing = if (has.weights) sum(Wmat == 0) else 0L,
     n.total = P1 * N,
     Y.signed = Y1_signed
   )
-  class(result) <- c("nmfae.signed", "nmfae", "nmf")
+  class(result) <- c("nmf.rrr.signed", "nmfae.signed", "nmfae", "nmf")
   result
 }
 
@@ -614,7 +666,7 @@ nmfae.signed <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
+nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
                                  wild.bootstrap = TRUE, ...) {
   if (!inherits(object, "nmfae.signed"))
     stop("object must be of class 'nmfae.signed'")
@@ -686,15 +738,9 @@ nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
       G_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
       score_mat[, n] <- as.vector(G_n)
     }
-    C_hat_vec <- as.vector(C)
-    C_boot <- matrix(NA_real_, nrow = Q * R, ncol = wild.B)
-    for (b in 1:wild.B) {
-      w <- stats::rexp(N, rate = 1) - 1
-      grad_b <- as.vector(score_mat %*% w)
-      c_b <- C_hat_vec - as.vector(Hinv %*% grad_b)
-      ## NOTE: no pmax(c_b, 0) -- Theta is signed
-      C_boot[, b] <- c_b
-    }
+    ## NOTE: project = FALSE -- Theta is signed (no non-negative projection)
+    C_boot <- .boot.onestep(as.vector(C), score_mat, Hinv, wild.B,
+                            dist = "exp", seed = wild.seed, project = FALSE)
     sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
     C.se.boot <- matrix(sd_vec, nrow = Q, ncol = R, byrow = FALSE)
     alpha <- 1 - wild.level
@@ -715,8 +761,8 @@ nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
     p_value <- ifelse(is.finite(z_value), 2 * stats::pnorm(abs(z_value), lower.tail = FALSE), NA_real_)
   }
 
-  rlabs <- if (!is.null(rownames(C))) rownames(C) else paste0("Dec", 1:Q)
-  clabs <- if (!is.null(colnames(C))) colnames(C) else paste0("Enc", 1:R)
+  rlabs <- if (!is.null(rownames(C))) rownames(C) else paste0("Resp", 1:Q)
+  clabs <- if (!is.null(colnames(C))) colnames(C) else paste0("Cov", 1:R)
 
   coefficients <- data.frame(
     Basis     = rep(rlabs, times = R),
@@ -752,6 +798,7 @@ nmfae.signed.inference <- function(object, Y1, Y2 = Y1,
 
 ## ==============================================================
 #' @title Predict method for nmfae.signed
+#' @keywords internal
 #' @description
 #' Computes \eqn{\hat Y_1 = X_1 (C_{+} - C_{-}) X_2 Y_2^{\mathrm{new}}}.
 #' Since \eqn{\Theta = C_{+} - C_{-}} is signed, predictions may contain
@@ -810,6 +857,7 @@ predict.nmfae.signed <- function(object, newY2 = NULL, Y1 = NULL,
 
 ## ==============================================================
 #' @title Plot method for nmfae.signed (convergence)
+#' @keywords internal
 #' @description
 #' Displays the convergence trajectory of the objective function.
 #' @param x An \code{nmfae.signed} object.
@@ -841,6 +889,7 @@ plot.nmfae.signed <- function(x, ...) {
 
 ## ==============================================================
 #' @title Summary method for nmfae.signed
+#' @keywords internal
 #' @description
 #' Produces a summary with dimensions, convergence, fit statistics,
 #' and structure diagnostics (sparsity and negative-mass ratio).
@@ -903,6 +952,7 @@ summary.nmfae.signed <- function(object, ...) {
 }
 
 #' @title Print method for summary.nmfae.signed
+#' @keywords internal
 #' @param x A \code{"summary.nmfae.signed"} object.
 #' @param digits Number of significant digits.
 #' @param ... Unused.
@@ -971,10 +1021,10 @@ print.summary.nmfae.signed <- function(x,
 
 
 ## ==============================================================
-#' @title Rename Dec/Enc labels on nmfae.signed objects
+#' @title Rename Resp/Cov labels on nmfae.signed objects
 #' @description
-#' Replaces the default \code{"Dec1", "Dec2", ...} (decoder / X1 columns
-#' and Cp/Cn/C rows) and \code{"Enc1", "Enc2", ...} (encoder / X2 rows and
+#' Replaces the default \code{"Resp1", "Resp2", ...} (response basis / X1 columns
+#' and Cp/Cn/C rows) and \code{"Cov1", "Cov2", ...} (covariate basis / X2 rows and
 #' Cp/Cn/C columns) with user-supplied labels.  Propagates to coefficients
 #' tables if present (e.g., from \code{nmfae.inference}).
 #'
@@ -993,7 +1043,7 @@ print.summary.nmfae.signed <- function(x,
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
+nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
   if (!is.null(X1.colnames)) {
     Q <- ncol(x$X1)
     if (length(X1.colnames) != Q) stop("X1.colnames must have length ", Q)
@@ -1002,7 +1052,7 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
     rownames(x$Cn) <- X1.colnames
     rownames(x$C)  <- X1.colnames
     if (!is.null(x$coefficients)) {
-      old <- paste0("Dec", seq_len(Q))
+      old <- paste0("Resp", seq_len(Q))
       for (k in seq_len(Q))
         x$coefficients$Basis[x$coefficients$Basis == old[k]] <- X1.colnames[k]
     }
@@ -1015,7 +1065,7 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
     colnames(x$Cn) <- X2.rownames
     colnames(x$C)  <- X2.rownames
     if (!is.null(x$coefficients)) {
-      old <- paste0("Enc", seq_len(R))
+      old <- paste0("Cov", seq_len(R))
       for (k in seq_len(R))
         x$coefficients$Covariate[x$coefficients$Covariate == old[k]] <- X2.rownames[k]
     }
@@ -1035,9 +1085,10 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'
 #' @param Y1 Output matrix (P1 x N).
 #' @param Y2 Input matrix (P2 x N).  Default \code{Y1}.
-#' @param rank Integer vector of candidate Q values.  Default \code{1:2}.
-#' @param rank.encoder Integer vector of candidate R values, or \code{NULL}
-#'   (default: pair R = Q, diagonal grid).
+#' @param rank1 Integer vector of candidate response-basis ranks. Default \code{1:2}.
+#' @param rank2 Integer vector of candidate covariate-basis ranks, or \code{NULL}
+#'   (default: pair rank2 = rank1, diagonal grid).
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}.
 #' @param ... Additional arguments:
 #'   \describe{
 #'     \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
@@ -1063,10 +1114,14 @@ nmfae.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
+nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
+                             rank = NULL, rank.encoder = NULL) {
   extra_ecv <- list(...)
-  if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
-  if (!is.null(extra_ecv$R)) rank.encoder <- extra_ecv$R
+  # rank1/rank2 = response/covariate basis ranks to sweep; legacy rank/rank.encoder/Q/R
+  if (is.null(rank))          rank <- rank1
+  if (!is.null(extra_ecv$Q))  rank <- extra_ecv$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
+  if (!is.null(extra_ecv$R))  rank.encoder <- extra_ecv$R
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds
             else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed)) extra_ecv$seed else 123
@@ -1102,7 +1157,7 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
     if (has_na) W_train[is.na(Y1)] <- 0
     W_train[test_idx] <- 0
     fit <- suppressMessages(
-      do.call(nmfae.signed,
+      do.call(nmf.rrr.signed,
               c(list(Y1 = Y1, Y2 = Y2, rank = QR$Q[i], rank.encoder = QR$R[i],
                      Y1.weights = W_train), fit_args))
     )
@@ -1135,7 +1190,9 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
 #' \code{\link{nmfae.signed.ecv}}.
 #' @param Y1 Endogenous matrix (\eqn{P_1 \times N}); may be signed.
 #' @param Y2 Exogenous matrix; defaults to \code{Y1}.
-#' @param rank Integer vector of (paired) ranks to evaluate.
+#' @param rank1 Integer vector of (paired) ranks to evaluate (both bases use
+#'   the same value). Legacy \code{Q} accepted via \code{...}.
+#' @param rank Deprecated alias of \code{rank1}.
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param detail \code{"full"} (default) also runs element-wise CV
 #'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
@@ -1155,23 +1212,27 @@ nmfae.signed.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) 
 #' components in factor and principal components models.
 #' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 #' @export
-nmfae.signed.rank <- function(Y1, Y2 = Y1, rank = 1:5, detail = c("full", "fast"),
-                              plot = TRUE, ...) {
+nmf.rrr.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
+                              plot = TRUE, ..., rank = NULL) {
+  extra <- list(...)
+  if (!is.null(rank))    rank1 <- rank
+  if (!is.null(extra$Q)) rank1 <- extra$Q
+  extra$Q <- NULL; extra$R <- NULL; extra$rank.encoder <- NULL
   detail <- match.arg(detail)
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
-  rs <- numeric(length(rank)); er <- numeric(length(rank))
-  for (i in seq_along(rank)) {
-    f <- suppressMessages(nmfae.signed(Y1, Y2, rank = rank[i],
-                                       rank.encoder = rank[i],
-                                       print.trace = FALSE, ...))
+  rs <- numeric(length(rank1)); er <- numeric(length(rank1))
+  for (i in seq_along(rank1)) {
+    f <- suppressMessages(do.call(nmf.rrr.signed,
+           c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
+                  print.trace = FALSE), extra)))
     rs[i] <- f$r.squared
     er[i] <- .effective.rank(f$H)
   }
   ecv <- if (detail == "full")
-    suppressMessages(nmfae.signed.ecv(Y1, Y2, rank = rank, ...))$sigma
-    else rep(NA_real_, length(rank))
-  criteria <- data.frame(rank = rank, effective.rank = er,
-                         effective.rank.ratio = er / rank,
+    suppressMessages(do.call(nmf.rrr.signed.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    else rep(NA_real_, length(rank1))
+  criteria <- data.frame(rank = rank1, effective.rank = er,
+                         effective.rank.ratio = er / rank1,
                          r.squared = rs, sigma.ecv = as.numeric(ecv))
   .rank.finish(criteria, plot = plot,
                main = "nmfae.signed rank selection (paired Q=R)")
@@ -1180,6 +1241,7 @@ nmfae.signed.rank <- function(Y1, Y2 = Y1, rank = 1:5, detail = c("full", "fast"
 
 ## ==============================================================
 #' @title Summary method for nmfae.signed.inference objects
+#' @keywords internal
 #' @description
 #' Produces a summary of a fitted Signed-Bottleneck NMF-AE model with
 #' inference results.  Extends \code{\link{summary.nmfae.signed}} by
@@ -1211,11 +1273,16 @@ summary.nmfae.signed.inference <- function(object, ...) {
 }
 
 #' @title Print method for summary.nmfae.signed.inference objects
+#' @keywords internal
 #' @description
 #' Prints the Signed-Bottleneck NMF-AE summary followed by the
 #' coefficients table of Theta.
 #' @param x An object of class \code{"summary.nmfae.signed.inference"}.
 #' @param digits Minimum number of significant digits.
+#' @param by Character; grouping order of the coefficients table.
+#'   \code{"covariate"} (default) lists all bases within each covariate
+#'   (1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+#'   (1-1, 2-1, ...).
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @seealso \code{\link{summary.nmfae.signed.inference}}
@@ -1230,11 +1297,14 @@ summary.nmfae.signed.inference <- function(object, ...) {
 #'
 #' @export
 print.summary.nmfae.signed.inference <- function(x,
-    digits = max(3L, getOption("digits") - 3L), ...) {
+    digits = max(3L, getOption("digits") - 3L),
+    by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
   print.summary.nmfae.signed(x, digits = digits, ...)
 
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
+    cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
     p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "two.sided"
     p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
 
@@ -1255,7 +1325,7 @@ print.summary.nmfae.signed.inference <- function(x,
     n_sig <- sum(cf$p_value < 0.05, na.rm = TRUE)
     cat(sprintf("\nTheta coefficients: %d total, %d significant (p < 0.05)\n",
                 n_total, n_sig))
-    rnames <- paste0(cf$Basis, ":", cf$Covariate)
+    rnames <- paste0(cf$Covariate, ":", cf$Basis)   # Covariate:Basis (matches nmfre/nmfae)
     est <- formatC(cf$Estimate, format = "f", digits = 3, width = 9)
     se  <- formatC(cf$SE,       format = "f", digits = 3, width = 10)
     bse <- formatC(cf$BSE,      format = "f", digits = 3, width = 6)
@@ -1269,7 +1339,7 @@ print.summary.nmfae.signed.inference <- function(x,
                    formatC("(Boot)",     width = 6),
                    formatC("z value",    width = 7),
                    formatC(p_header,     width = 8))
-    cat(sprintf("%s %s\n", formatC("Dec:Enc", width = max_lw), hdr))
+    cat(sprintf("%s %s\n", formatC("Cov:Resp", width = max_lw), hdr))
     for (i in seq_len(n_total)) {
       cat(sprintf("%s %s %s %s %s %s %s\n",
                   formatC(rnames[i], width = max_lw),
@@ -1311,8 +1381,8 @@ print.summary.nmfae.signed.inference <- function(x,
 #' set.seed(1)
 #' Y1 <- matrix(abs(rnorm(12)), 3, 4)
 #' Y2 <- matrix(abs(rnorm(20)), 5, 4)
-#' res <- nmfae.signed(Y1, Y2, rank = 2, rank.encoder = 2, maxit = 200)
-#' nmfae.signed.heatmap(res)
+#' res <- nmf.rrr.signed(Y1, Y2, rank1 = 2, rank2 = 2, maxit = 200)
+#' nmf.rrr.signed.heatmap(res)
 #' }
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
@@ -1324,7 +1394,7 @@ print.summary.nmfae.signed.inference <- function(x,
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmfae.signed.heatmap <- function(x,
+nmf.rrr.signed.heatmap <- function(x,
                                   Y1.label = NULL, X1.label = NULL,
                                   X2.label = NULL, Y2.label = NULL,
                                   palette.pos = NULL,
@@ -1348,8 +1418,8 @@ nmfae.signed.heatmap <- function(x,
   if (is.null(X2.label)) X2.label <- rownames(X2)
   if (is.null(Y2.label)) Y2.label <- colnames(X2)
   if (is.null(Y1.label)) Y1.label <- as.character(seq_len(P1))
-  if (is.null(X1.label)) X1.label <- paste0("Dec", seq_len(Q))
-  if (is.null(X2.label)) X2.label <- paste0("Enc", seq_len(R))
+  if (is.null(X1.label)) X1.label <- paste0("Resp", seq_len(Q))
+  if (is.null(X2.label)) X2.label <- paste0("Cov", seq_len(R))
   if (is.null(Y2.label)) Y2.label <- as.character(seq_len(P2))
 
   .heat <- function(mat, title, pal, zlim = NULL) {

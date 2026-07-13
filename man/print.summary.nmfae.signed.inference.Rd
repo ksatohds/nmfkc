@@ -4,12 +4,22 @@
 \alias{print.summary.nmfae.signed.inference}
 \title{Print method for summary.nmfae.signed.inference objects}
 \usage{
-\method{print}{summary.nmfae.signed.inference}(x, digits = max(3L, getOption("digits") - 3L), ...)
+\method{print}{summary.nmfae.signed.inference}(
+  x,
+  digits = max(3L, getOption("digits") - 3L),
+  by = c("covariate", "basis"),
+  ...
+)
 }
 \arguments{
 \item{x}{An object of class \code{"summary.nmfae.signed.inference"}.}
 
 \item{digits}{Minimum number of significant digits.}
+
+\item{by}{Character; grouping order of the coefficients table.
+\code{"covariate"} (default) lists all bases within each covariate
+(1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+(1-1, 2-1, ...).}
 
 \item{...}{Additional arguments (currently unused).}
 }
@@ -34,3 +44,4 @@ Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 \seealso{
 \code{\link{summary.nmfae.signed.inference}}
 }
+\keyword{internal}

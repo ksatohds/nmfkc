@@ -43,6 +43,23 @@ features for new data (see \code{pars} entry in \code{\dots} below).}
 \eqn{C_{+}, C_{-}}.  One of \code{"colSums"} (default,
 \eqn{\mathrm{colSums}(X) = 1}), \code{"colSqSums"},
 \code{"totalSum"}, \code{"none"}, \code{"fixed"}.
+\item \code{X.L2.ortho}: non-negative L2 orthogonality penalty on the
+columns of \eqn{X} (default 0), penalizing
+\eqn{(\lambda/2)\lVert \mathrm{offdiag}(X^\top X)\rVert^2}.  Same
+convention as \code{\link{nmfkc}}; skipped when \code{X.restriction
+      = "fixed"}.
+\item \code{X.L2.smooth}: non-negative L2 row-smoothness penalty on
+\eqn{X} (default 0), penalizing
+\eqn{(\lambda/2)\,\mathrm{tr}(X^\top L X)} with \eqn{L} the
+path-graph Laplacian over rows (adjacent-row differences).  Useful
+for ordered rows (e.g. time / space); skipped when
+\code{X.restriction = "fixed"}.
+\item \code{C.L2}: non-negative ridge penalty on the signed coefficient
+matrix \eqn{C = C_{+} - C_{-}} (default 0), adding
+\eqn{\lambda\lVert C_{+} - C_{-}\rVert^2}.  Shrinks \eqn{\Theta}
+toward zero (with zero gradient on the unidentified common mode
+\eqn{C_{+} + C_{-}}), injected into both the fast unweighted and the
+weighted \eqn{C_{+}}/\eqn{C_{-}} updates.
 \item \code{X.init}: initialization strategy for the basis matrix
 \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
 menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),

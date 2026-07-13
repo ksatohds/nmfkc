@@ -28,7 +28,7 @@ See \code{\link{nmfkc}} for full details.}
 \item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);
 if \code{FALSE}, splits sequentially (block CV; recommended for time series).}
 \item{\code{Q}}{(Deprecated) Alias for \code{rank}.}
-\item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{gamma} (\code{B.L1}), \code{epsilon},
+\item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{C.L1}, \code{epsilon},
 \code{maxit}, \code{method} (\code{"EU"} or \code{"KL"}), \code{X.restriction}, \code{X.init}, etc.}
 }}
 }

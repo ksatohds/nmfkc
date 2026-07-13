@@ -26,7 +26,7 @@ confusion matrix heatmap with accuracy (ACC) in the title.
 \donttest{
 set.seed(1)
 Y <- matrix(runif(20), nrow = 4)
-res <- nmfae(Y, rank = 2)
+res <- nmf.rrr(Y, rank1 = 2)
 pred <- predict(res)
 plot(pred)
 }
@@ -34,3 +34,4 @@ plot(pred)
 \seealso{
 \code{\link{predict.nmfae}}
 }
+\keyword{internal}

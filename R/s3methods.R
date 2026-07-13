@@ -2,6 +2,25 @@
 # S3 generic methods: coef, fitted, residuals, plot, summary
 # ============================================================
 
+## Internal: row order for a coefficients table by grouping factor.
+## Every parameter (Theta / C) table has a row factor (the basis / X slot)
+## and a column factor (the covariate / A slot). In the symmetric-network
+## case A = t(X), so the two factors are stored as "Basis.row"/"Basis.col"
+## instead of "Basis"/"Covariate", but the grouping rule is identical:
+##   by = "covariate" (default): list all rows within each column factor
+##     (column outer, row inner) -- the historical display order.
+##   by = "basis": list all columns within each row factor (row outer).
+## The original appearance order of each factor is preserved.
+.coef.order.by <- function(cf, by = c("covariate", "basis")) {
+  by <- match.arg(by)
+  rowf <- if (!is.null(cf$Basis))     cf$Basis     else cf$Basis.row  # X slot
+  colf <- if (!is.null(cf$Covariate)) cf$Covariate else cf$Basis.col  # A slot
+  if (is.null(rowf) || is.null(colf)) return(seq_len(nrow(cf)))
+  b  <- factor(rowf, levels = unique(rowf))
+  cv <- factor(colf, levels = unique(colf))
+  if (by == "covariate") order(cv, b) else order(b, cv)
+}
+
 # --- plot (convergence) ---
 
 #' @title Plot convergence diagnostics for NMF models
@@ -20,7 +39,7 @@
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
 #' A <- diag(5)
-#' res <- nmfre(Y, A, rank = 2, wild.bootstrap = FALSE)
+#' res <- nmfre(Y, A, rank = 2)
 #' plot(res)
 #' }
 #'
@@ -30,13 +49,20 @@ NULL
 #' @export
 plot.nmfre <- function(x, ...) {
   extra_args <- list(...)
-  args <- list(x = x$objfunc.iter)
+  ## Default to the marginal negative log-likelihood, which the ECM decreases
+  ## monotonically. The fixed-lambda penalized objective (objfunc.iter) is NOT
+  ## monotone across outer iterations because lambda = sigma2/tau2 is updated
+  ## (the penalty jumps by (lambda' - lambda) ||U||^2), so it is unsuitable for
+  ## illustrating monotone convergence. Fall back to objfunc.iter for objects
+  ## fitted before nll.trace was recorded.
+  use_nll <- !is.null(x$nll.trace) && any(is.finite(x$nll.trace))
+  args <- list(x = if (use_nll) x$nll.trace else x$objfunc.iter)
   if (is.null(extra_args$main)) {
     r2 <- if (!is.null(x$r.squared) && is.finite(x$r.squared)) round(x$r.squared, 3) else "NA"
     args$main <- paste0("R2 = ", r2)
   }
   if (is.null(extra_args$xlab)) args$xlab <- "iter"
-  if (is.null(extra_args$ylab)) args$ylab <- "objfunc"
+  if (is.null(extra_args$ylab)) args$ylab <- if (use_nll) "marginal NLL" else "objfunc"
   if (is.null(extra_args$type)) args$type <- "l"
   all_args <- c(args, extra_args)
   do.call("plot", all_args)
@@ -367,6 +393,17 @@ fitted.nmfae <- function(object, ...) {
 }
 
 #' @rdname fitted.nmf
+#' @param type For \code{nmfre} objects: \code{"blup"} (default, the fit
+#'   \eqn{X(\Theta A + U)} including random effects) or \code{"fixed"}
+#'   (\eqn{X\Theta A}, fixed effects only). Chosen so that
+#'   \code{Y - fitted(object, type)} equals \code{residuals(object, Y, type)}.
+#' @export
+fitted.nmfre <- function(object, type = c("blup", "fixed"), ...) {
+  type <- match.arg(type)
+  if (type == "blup") object$XB.blup else object$XB
+}
+
+#' @rdname fitted.nmf
 #' @export
 fitted.nmf.sem <- function(object, ...) {
   extra <- list(...)
@@ -439,14 +476,11 @@ residuals.nmfre <- function(object, Y, type = c("blup", "fixed"), ...) {
 #' @rdname residuals.nmf
 #' @export
 residuals.nmf.sem <- function(object, Y, ...) {
-  extra <- list(...)
-  Y2 <- extra$Y2
-  if (is.null(Y2)) stop("Supply Y2 to compute residuals.")
-  if (!anyNA(object$M.model)) {
-    Y - object$M.model %*% Y2
-  } else {
-    stop("Leontief inverse is NA; cannot compute residuals.")
-  }
+  ## Delegate to fitted.nmf.sem so residuals use the SAME reconstruction as
+  ## fitted (direct if Y1/Y2 given via ..., else the Y2-equilibrium form).
+  ## Y is the observed response block (Y1). nmf.sem/nmf.ffb need Y2 (and,
+  ## for the direct form, Y1) supplied via ... -- see fitted.nmf.sem.
+  Y - stats::fitted(object, ...)
 }
 
 

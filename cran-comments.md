@@ -16,26 +16,27 @@
 
 ## This is an update
 
-This is a feature/maintenance update from v0.7.3 (currently on CRAN,
-published 2026-05-14) to v0.8.2.  All changes since v0.7.3 are listed in
+This is a feature/maintenance update from v0.8.2 (currently on CRAN,
+published 2026-06-14) to v0.8.8.  All changes since v0.8.2 are listed in
 NEWS.md; the major items are:
 
-* New rank-selection engines, complementing the existing element-wise
-  cross-validation: `nmfkc.bicv()` (bi-cross-validation, Owen & Perry 2009),
-  `nmfkc.consensus()` (consensus clustering with cophenetic / dispersion / PAC,
-  Brunet et al. 2004; Kim & Park 2007; Senbabaoglu et al. 2014), and
-  `nmfkc.ard()` (automatic relevance determination, Tan & Fevotte 2013).
-* `nmfkc.rank()` now reports the broken-stick-corrected effective rank
-  (Roy & Vetterli 2007) together with R-squared and the element-wise CV error
-  (Wold 1978); the heavier clustering criteria moved to `nmfkc.consensus()`.
-* Leaner, safer interfaces for `nmfkc.ard()`, `nmfkc.bicv()` and
-  `nmfkc.consensus()` (fine-tuning arguments moved into `...` with the same
-  safe defaults; existing named-argument calls are unaffected).
-* Bug fix in `nmfkc.net.DOT()`: a `type = "bi"` fit was mis-detected as
-  `"tri"` when the C matrix carried dimnames; detection now uses the result's
-  `$type`.  The default Graphviz layout is now `"neato"`.
-* Two new vignettes ("Choosing the NMF rank on data with a known true rank"
-  and "Soft community detection in networks with nmfkc.net").
+* New `nmfre()` family: non-negative matrix factorization as a linear
+  mixed model (random-effect basis coefficients), estimated by an
+  outer-inner ECM with automatic ridge selection from the variance
+  components, plus `nmfre.inference()` / `nmfre.ecv()` and S3 methods.
+* Optional MAP penalties rolled out consistently across the multiplicative-
+  update fitters: `X.L2.ortho` (basis orthogonality), `X.L2.smooth`
+  (row smoothness), `C.L1` (sparsity of the parameter matrix), and `C.L2`
+  (ridge on the signed coefficient matrix).  All default to 0 (off).
+* New `by` argument on the coefficient-table `print` methods to choose the
+  grouping order (by covariate or by basis).
+* Canonical names `nmf.rrr*` (three-layer NMF as reduced-rank regression)
+  and `nmf.ffb*` (feed-forward + feedback) are now the primary interface;
+  the previous `nmfae*` and `nmf.sem*` names are retained as deprecated
+  aliases that forward with a `.Deprecated()` note, so existing code and
+  saved objects continue to work unchanged.
+* Removed the `B.L1` penalty (an L1 on the fitted field `C A` that acted as a
+  degenerate global shrinkage); use `C.L1` for sparsity / variable selection.
 
 ## Additional checks
 

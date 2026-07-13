@@ -24,15 +24,23 @@
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Non-negative. May contain \code{NA}s
 #'   (handled via \code{Y1.weights}).
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N). Non-negative. Default is \code{Y1} (autoencoder).
-#' @param rank Integer. Rank of the decoder basis \eqn{X_1} (P1 x Q). Default is 2.
-#'   For backward compatibility, \code{Q} is accepted via \code{...}.
-#' @param rank.encoder Integer. Rank of the encoder basis \eqn{X_2} (R x P2).
-#'   Default is \code{rank}. For backward compatibility, \code{R} is accepted via \code{...}.
+#' @param rank1 Integer. Rank of the response basis \eqn{X_1} (P1 x Q). Default is 2.
+#' @param rank2 Integer. Rank of the covariate basis \eqn{X_2} (R x P2).
+#'   Default (\code{NULL}) sets \code{rank2 = rank1}.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2},
+#'   kept for backward compatibility (\code{Q} / \code{R} are also accepted via
+#'   \code{...}).
 #' @param epsilon Positive convergence tolerance. Default is \code{1e-4}.
 #' @param maxit Maximum number of multiplicative update iterations. Default is 5000.
 #' @param verbose Logical. If \code{TRUE}, prints progress messages during fitting. Default is \code{FALSE}.
 #' @param ... Additional arguments:
 #'   \describe{
+#'     \item{\code{method}}{Objective function: Euclidean distance
+#'       \code{"EU"} (default) or Kullback-Leibler divergence \code{"KL"}.
+#'       Both use Lee-Seung multiplicative updates for the three factors
+#'       \eqn{X_1, \Theta, X_2} of \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}; for
+#'       \code{"KL"} the residual SE \code{sigma} is \code{NA} (not on the
+#'       data scale).}
 #'     \item{\code{Y1.weights}}{Optional non-negative weight matrix
 #'       (P1 x N) or vector for \eqn{Y_1}, analogous to the
 #'       \code{weights} argument of \code{\link[stats]{lm}}.  Loss becomes
@@ -48,6 +56,12 @@
 #'     \item{\code{X1.L2.ortho}}{L2 orthogonality regularization for \eqn{X_1} columns. Default is 0.}
 #'     \item{\code{X2.L2.ortho}}{L2 orthogonality regularization for \eqn{X_2} rows. Default is 0.}
 #'     \item{\code{seed}}{Integer seed for reproducibility. Default is 123.}
+#'     \item{\code{nstart}}{Number of random restarts for the \code{nmfkc()}
+#'       initialisation steps (passed to the k-means initialiser of the
+#'       \eqn{X_1} and \eqn{X_2} factorisations). Default \code{1}
+#'       (single start; the historical behaviour). A larger value
+#'       (e.g.\ 10-20) gives a more stable initialisation and is recommended
+#'       before inference.}
 #'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
 #'   }
 #'
@@ -57,6 +71,7 @@
 #' \item{X2}{Encoder basis matrix (R x P2), row sum 1.}
 #' \item{Y1hat}{Fitted values \eqn{X_1 \Theta X_2 Y_2} (P1 x N).}
 #' \item{rank}{Named integer vector \code{c(Q, R)}.}
+#' \item{method}{Objective used (\code{"EU"} or \code{"KL"}).}
 #' \item{objfunc}{Final objective value.}
 #' \item{objfunc.iter}{Objective values by iteration.}
 #' \item{r.squared}{\eqn{\mathrm{cor}(Y, \widehat Y)^2} (Pearson; in \eqn{[0,1]}).}
@@ -84,23 +99,28 @@
 #' @examples
 #' # Autoencoder example
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-#' res <- nmfae(Y, rank=2, rank.encoder=2)
+#' res <- nmf.rrr(Y, rank1=2, rank2=2)
 #' res$r.squared
 #'
 #' # Heteroencoder example
 #' Y1 <- matrix(c(1,0,0,1), nrow=2)
 #' Y2 <- matrix(runif(8), nrow=4)
-#' res2 <- nmfae(Y1, Y2, rank=2, rank.encoder=2)
+#' res2 <- nmf.rrr(Y1, Y2, rank1=2, rank2=2)
 #'
-nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
-                  epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...) {
+nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
+                  epsilon = 1e-4, maxit = 5000, verbose = FALSE, ...,
+                  rank = NULL, rank.encoder = NULL) {
 
   cl <- match.call()
 
   extra_args <- list(...)
-  # backward compatibility: Q -> rank, R -> rank.encoder
+  # rank1 = response basis X1, rank2 = covariate basis X2 (default rank1).
+  # Legacy rank / rank.encoder (formals, exact-matched) and Q / R (via ...).
+  if (is.null(rank))          rank <- rank1
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
   if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
+  if (is.null(rank.encoder))  rank.encoder <- rank
   Q <- rank
   R <- rank.encoder
   Y1.weights  <- if (!is.null(extra_args$Y1.weights))  extra_args$Y1.weights  else NULL
@@ -108,6 +128,18 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   X1.L2.ortho <- if (!is.null(extra_args$X1.L2.ortho)) extra_args$X1.L2.ortho else 0
   X2.L2.ortho <- if (!is.null(extra_args$X2.L2.ortho)) extra_args$X2.L2.ortho else 0
   seed        <- if (!is.null(extra_args$seed))        extra_args$seed        else 123
+  ## Multi-start for the nmfkc() initialisation steps (k-means nstart).
+  ## Default 1 keeps the historical single-start behaviour.
+  nstart      <- if (!is.null(extra_args$nstart))      extra_args$nstart      else 1
+  ## Basis-init method forwarded to the two internal nmfkc() init steps
+  ## (X1 from Y1, X2 from Y2). Default "kmeans"; "kmeans++" etc. are accepted.
+  ## Only string methods are forwarded (a user matrix is not meaningful for the
+  ## paired bases); matrices fall back to the default.
+  X.init      <- if (!is.null(extra_args$X.init))      extra_args$X.init      else "kmeans"
+  X.init.method <- if (is.character(X.init)) X.init else "kmeans"
+  ## Objective: Euclidean distance "EU" (default) or KL divergence "KL".
+  method      <- if (!is.null(extra_args$method))
+                   match.arg(extra_args$method, c("EU", "KL")) else "EU"
   print.trace <- verbose
   if (!is.null(extra_args$print.trace)) print.trace <- extra_args$print.trace  # backward compat
 
@@ -161,8 +193,8 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   # === Initialization using nmfkc ===
   # Step 1: X1 from nmfkc(Y1, rank=Q)
   if (print.trace) message("  Init step 1: nmfkc(Y1, rank=Q)...")
-  res1 <- nmfkc(Y1, rank = Q, seed = seed, print.dims = FALSE,
-                Y.weights = Y1.weights)
+  res1 <- nmfkc(Y1, rank = Q, seed = seed, nstart = nstart, print.dims = FALSE,
+                X.init = X.init.method, Y.weights = Y1.weights)
   X1 <- res1$X  # P1 x Q, column sum 1
 
   # Step 2: CX2 = C X2 with X1 fixed
@@ -175,7 +207,8 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 
   # Step 3: X2 from nmfkc(Y2, rank=R), then C from CX2 ≈ C X2
   if (print.trace) message("  Init step 3: nmfkc(Y2, rank=R)...")
-  res3 <- nmfkc(Y2, rank = R, seed = seed, print.dims = FALSE)
+  res3 <- nmfkc(Y2, rank = R, seed = seed, nstart = nstart, print.dims = FALSE,
+                X.init = X.init.method)
   X2 <- t(res3$X)             # R x P2, row sum 1
   C <- CX2_init %*% t(X2)     # Q x R, non-negative
 
@@ -190,12 +223,20 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
   for (iter in 1:maxit) {
     # 1. Update X1: Y1 ≈ X1 F, F = C X2 Y2
     F_mat <- C %*% X2 %*% Y2                           # Q x N
-    if (has.weights) {
-      num_X1 <- (W * Y1) %*% t(F_mat)
-      den_X1 <- (W * (X1 %*% F_mat)) %*% t(F_mat) + eps
-    } else {
-      num_X1 <- tcrossprod(Y1, F_mat)
-      den_X1 <- X1 %*% tcrossprod(F_mat) + eps
+    if (method == "EU") {
+      if (has.weights) {
+        num_X1 <- (W * Y1) %*% t(F_mat)
+        den_X1 <- (W * (X1 %*% F_mat)) %*% t(F_mat) + eps
+      } else {
+        num_X1 <- tcrossprod(Y1, F_mat)
+        den_X1 <- X1 %*% tcrossprod(F_mat) + eps
+      }
+    } else {                                           # KL: ratio Y1/Y1hat
+      ratio <- Y1 / (X1 %*% F_mat + eps)
+      if (has.weights) ratio <- W * ratio
+      num_X1 <- ratio %*% t(F_mat)
+      den_X1 <- (if (has.weights) W %*% t(F_mat)
+                 else matrix(rowSums(F_mat), P1, Q, byrow = TRUE)) + eps
     }
     if (X1.L2.ortho > 0) {
       X1tX1 <- crossprod(X1); diag(X1tX1) <- 0
@@ -210,24 +251,41 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 
     # 3. Update C: Y1 ≈ X1 C G, G = X2 Y2
     G <- X2 %*% Y2                                     # R x N
-    if (has.weights) {
-      num_C <- crossprod(X1, W * Y1) %*% t(G)
-      den_C <- crossprod(X1, W * (X1 %*% C %*% G)) %*% t(G) + eps
-    } else {
-      num_C <- crossprod(X1, Y1) %*% t(G)
-      den_C <- crossprod(X1) %*% C %*% tcrossprod(G) + eps
+    if (method == "EU") {
+      if (has.weights) {
+        num_C <- crossprod(X1, W * Y1) %*% t(G)
+        den_C <- crossprod(X1, W * (X1 %*% C %*% G)) %*% t(G) + eps
+      } else {
+        num_C <- crossprod(X1, Y1) %*% t(G)
+        den_C <- crossprod(X1) %*% C %*% tcrossprod(G) + eps
+      }
+      if (C.L1 > 0) den_C <- den_C + (C.L1 / 2)
+    } else {                                           # KL
+      ratio <- Y1 / (X1 %*% C %*% G + eps)
+      if (has.weights) ratio <- W * ratio
+      num_C <- crossprod(X1, ratio) %*% t(G)
+      den_C <- (if (has.weights) crossprod(X1, W) %*% t(G)
+                else outer(colSums(X1), rowSums(G))) + eps
+      if (C.L1 > 0) den_C <- den_C + C.L1
     }
-    if (C.L1 > 0) den_C <- den_C + (C.L1 / 2)
     C <- C * (num_C / den_C)
 
     # 4. Update X2: Y1 ≈ H X2 Y2, H = X1 C
     H <- X1 %*% C                                      # P1 x R
-    if (has.weights) {
-      num_X2 <- crossprod(H, W * Y1) %*% t(Y2)
-      den_X2 <- crossprod(H, W * (H %*% X2 %*% Y2)) %*% t(Y2) + eps
-    } else {
-      num_X2 <- crossprod(H, Y1) %*% t(Y2)
-      den_X2 <- crossprod(H) %*% X2 %*% Y2Y2t + eps
+    if (method == "EU") {
+      if (has.weights) {
+        num_X2 <- crossprod(H, W * Y1) %*% t(Y2)
+        den_X2 <- crossprod(H, W * (H %*% X2 %*% Y2)) %*% t(Y2) + eps
+      } else {
+        num_X2 <- crossprod(H, Y1) %*% t(Y2)
+        den_X2 <- crossprod(H) %*% X2 %*% Y2Y2t + eps
+      }
+    } else {                                           # KL
+      ratio <- Y1 / (H %*% X2 %*% Y2 + eps)
+      if (has.weights) ratio <- W * ratio
+      num_X2 <- crossprod(H, ratio) %*% t(Y2)
+      den_X2 <- (if (has.weights) crossprod(H, W) %*% t(Y2)
+                 else outer(colSums(H), rowSums(Y2))) + eps
     }
     if (X2.L2.ortho > 0) {
       X2X2t <- tcrossprod(X2); diag(X2X2t) <- 0
@@ -247,10 +305,15 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     # For binary W in {0,1} (standard ECV / NA-mask case) this is identical
     # to sum((W*(Y1-Y1hat))^2) since W == W^2.
     Y1hat <- X1 %*% C %*% X2 %*% Y2
-    if (has.weights) {
-      obj <- sum(W * (Y1 - Y1hat)^2)
-    } else {
-      obj <- sum((Y1 - Y1hat)^2)
+    if (method == "EU") {
+      if (has.weights) {
+        obj <- sum(W * (Y1 - Y1hat)^2)
+      } else {
+        obj <- sum((Y1 - Y1hat)^2)
+      }
+    } else {                                           # KL: sum(-Y1 log Y1hat + Y1hat)
+      Wm <- if (has.weights) W else 1
+      obj <- sum(-(Wm * Y1) * log(Y1hat + eps) + Wm * Y1hat)
     }
     if (C.L1 > 0) obj <- obj + C.L1 * sum(C)
     if (X1.L2.ortho > 0) {
@@ -300,11 +363,11 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     C <- C[, idx2, drop = FALSE]
   }
 
-  # --- Assign Dec/Enc names ---
-  colnames(X1) <- paste0("Dec", 1:Q)
-  rownames(C)  <- paste0("Dec", 1:Q)
-  colnames(C)  <- paste0("Enc", 1:R)
-  rownames(X2) <- paste0("Enc", 1:R)
+  # --- Assign Resp/Cov names (response basis X1, covariate basis X2) ---
+  colnames(X1) <- paste0("Resp", 1:Q)
+  rownames(C)  <- paste0("Resp", 1:Q)
+  colnames(C)  <- paste0("Cov", 1:R)
+  rownames(X2) <- paste0("Cov", 1:R)
 
   Y1hat <- X1 %*% C %*% X2 %*% Y2
   objfunc <- utils::tail(objfunc.iter, 1)
@@ -315,13 +378,13 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     n.missing <- sum(!valid)
     n.valid <- sum(valid)
     r2_all <- .r.squared.all(Y1, Y1hat, Y.weights = W)
-    sigma <- sqrt(objfunc / n.valid)
+    sigma <- if (method == "EU") sqrt(objfunc / n.valid) else NA_real_
     mae <- mean(abs(Y1[valid] - Y1hat[valid]))
   } else {
     n.missing <- 0L
     n.valid <- P1 * N
     r2_all <- .r.squared.all(Y1, Y1hat)
-    sigma <- sqrt(objfunc / n.valid)
+    sigma <- if (method == "EU") sqrt(objfunc / n.valid) else NA_real_
     mae <- mean(abs(Y1 - Y1hat))
   }
   r.squared          <- r2_all$r.squared
@@ -352,6 +415,7 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     B.cluster = B.cluster,
     rank = c(Q = Q, R = R),
     dims = c(P1 = P1, P2 = P2, N = N),
+    method = method,
     objfunc = objfunc,
     objfunc.iter = objfunc.iter,
     r.squared          = r.squared,
@@ -360,11 +424,12 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
     sigma = sigma,
     mae = mae,
     niter = niter,
+    iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
     runtime = diff.time,
     n.missing = n.missing,
     n.total = P1 * N
   )
-  class(result) <- c("nmfae", "nmf")
+  class(result) <- c("nmf.rrr", "nmfae", "nmf")
   return(result)
 }
 
@@ -383,8 +448,8 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 #'   and z-test p-values are computed (faster).
 #' @param ... Additional arguments:
 #'   \describe{
-#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
-#'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
+#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 500.}
+#'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 123.}
 #'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
 #'     \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
 #'     \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
@@ -410,11 +475,11 @@ nmfae <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank,
 #' @export
 #' @examples
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
-#' res <- nmfae(Y, rank=2, rank.encoder=2)
-#' res2 <- nmfae.inference(res, Y)
+#' res <- nmf.rrr(Y, rank1=2, rank2=2)
+#' res2 <- nmf.rrr.inference(res, Y)
 #' summary(res2)
 #'
-nmfae.inference <- function(object, Y1, Y2 = Y1,
+nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
                             wild.bootstrap = TRUE, ...) {
   if (!inherits(object, "nmfae")) stop("object must be of class 'nmfae'")
 
@@ -495,15 +560,8 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
       score_mat[, n] <- as.vector(G_n)
     }
 
-    C_hat_vec <- as.vector(C)
-    C_boot <- matrix(NA_real_, nrow = Q * R, ncol = wild.B)
-    for (b in 1:wild.B) {
-      w <- stats::rexp(N, rate = 1) - 1     # Exp(1)-centered multiplier
-      grad_b <- as.vector(score_mat %*% w)
-      c_b <- C_hat_vec - as.vector(Hinv %*% grad_b)
-      c_b <- pmax(c_b, 0)                   # project onto Theta >= 0
-      C_boot[, b] <- c_b
-    }
+    C_boot <- .boot.onestep(as.vector(C), score_mat, Hinv, wild.B,
+                            dist = "exp", seed = wild.seed, project = TRUE)
 
     # Bootstrap SE
     sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
@@ -530,8 +588,8 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
   }
 
   # Row/column labels for C
-  rlabs <- if (!is.null(rownames(C))) rownames(C) else paste0("Dec", 1:Q)
-  clabs <- if (!is.null(colnames(C))) colnames(C) else paste0("Enc", 1:R)
+  rlabs <- if (!is.null(rownames(C))) rownames(C) else paste0("Resp", 1:Q)
+  clabs <- if (!is.null(colnames(C))) colnames(C) else paste0("Cov", 1:R)
 
   coefficients <- data.frame(
     Basis    = rep(rlabs, times = R),
@@ -586,22 +644,22 @@ nmfae.inference <- function(object, Y1, Y2 = Y1,
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(15), nrow = 3)
-#' res <- nmfae(Y, rank = 2, rank.encoder = 2)
-#' res <- nmfae.rename(res,
-#'   X1.colnames = c("Basis1", "Basis2"),
-#'   X2.rownames = c("Enc1", "Enc2"))
+#' res <- nmf.rrr(Y, rank1 = 2, rank2 = 2)
+#' res <- nmf.rrr.rename(res,
+#'   X1.colnames = c("Resp1", "Resp2"),
+#'   X2.rownames = c("Cov1", "Cov2"))
 #' summary(res)
 #' }
 #' @seealso \code{\link{nmfae}}
 #' @export
-nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
+nmf.rrr.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
   if (!is.null(X1.colnames)) {
     Q <- ncol(x$X1)
     if (length(X1.colnames) != Q) stop("X1.colnames must have length ", Q)
     colnames(x$X1) <- X1.colnames
     rownames(x$C)  <- X1.colnames
     if (!is.null(x$coefficients)) {
-      old <- paste0("Dec", 1:Q)
+      old <- paste0("Resp", 1:Q)
       for (k in seq_len(Q))
         x$coefficients$Basis[x$coefficients$Basis == old[k]] <- X1.colnames[k]
     }
@@ -612,7 +670,7 @@ nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
     rownames(x$X2) <- X2.rownames
     colnames(x$C)  <- X2.rownames
     if (!is.null(x$coefficients)) {
-      old <- paste0("Enc", 1:R)
+      old <- paste0("Cov", 1:R)
       for (k in seq_len(R))
         x$coefficients$Covariate[x$coefficients$Covariate == old[k]] <- X2.rownames[k]
     }
@@ -632,7 +690,7 @@ nmfae.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
+#' res <- nmf.rrr(Y, rank1 = 2)
 #' plot(res)
 #' }
 #' @export
@@ -650,6 +708,7 @@ plot.nmfae <- function(x, ...) {
 }
 
 #' @title Summary method for nmfae objects
+#' @keywords internal
 #' @description
 #' \code{summary.nmfae} produces a summary of a fitted NMF-AE model,
 #' including dimensions, convergence status, goodness-of-fit statistics,
@@ -745,6 +804,7 @@ summary.nmfae <- function(object, ...) {
 }
 
 #' @title Print method for summary.nmfae objects
+#' @keywords internal
 #' @description
 #' Prints a formatted summary of an NMF-AE model fit.
 #'
@@ -752,12 +812,17 @@ summary.nmfae <- function(object, ...) {
 #' @param digits Minimum number of significant digits to be used.
 #' @param max.coef Maximum number of coefficient rows to display. If the table
 #'   has more rows, only significant rows (p < 0.05) are shown. Default is 20.
+#' @param by Character; grouping order of the coefficients table.
+#'   \code{"covariate"} (default) lists all bases within each covariate
+#'   (1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+#'   (1-1, 2-1, ...).
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @seealso \code{\link{summary.nmfae}}
 #' @export
 print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
-                                max.coef = 20, ...) {
+                                max.coef = 20, by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
   cat("\nCall:\n",
       paste(deparse(x$call), sep = "\n", collapse = "\n"),
       "\n\n", sep = "")
@@ -769,8 +834,8 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
   type_str <- if (x$autoencoder) "  (autoencoder)" else "  (heteroencoder)"
   cat("  Y1:             ", sprintf("%d x %d", P1, N), "\n")
   cat("  Y2:             ", sprintf("%d x %d", P2, N), type_str, "\n")
-  cat("  Decoder rank Q: ", Q, "\n")
-  cat("  Encoder rank R: ", R, "\n")
+  cat("  Response rank Q:", Q, "\n")
+  cat("  Covariate rank R:", R, "\n")
   cat("  Parameters:     ",
       sprintf("X1(%dx%d) + C(%dx%d) + X2(%dx%d) = %d",
               P1, Q, Q, R, R, P2, x$n.params), "\n")
@@ -787,13 +852,14 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
   .print.fit.statistics(x, header = "Goodness of fit:", digits = digits)
 
   .print.structure.diagnostics(
-    sparsity = c("Decoder (X1)" = x$X1.sparsity,
+    sparsity = c("Response (X1)" = x$X1.sparsity,
                  "Bottleneck (C)" = x$C.sparsity,
-                 "Encoder (X2)" = x$X2.sparsity))
+                 "Covariate (X2)" = x$X2.sparsity))
 
   # Coefficients table (inference)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
+    cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
     n_total <- nrow(cf)
     rnames <- paste0(cf$Covariate, ":", cf$Basis)
 
@@ -854,7 +920,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
                    formatC("(Boot)", width = 6),
                    formatC("z value", width = 7),
                    formatC(p_header, width = 8), "")
-    cat(sprintf("%s %s\n", formatC("Enc:Dec", width = max_lw), hdr))
+    cat(sprintf("%s %s\n", formatC("Cov:Resp", width = max_lw), hdr))
     for (i in seq_along(show_names)) {
       cat(sprintf("%s %s %s %s %s %s %s\n",
                   formatC(show_names[i], width = max_lw),
@@ -869,6 +935,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
 }
 
 #' @title Summary method for nmfae.inference objects
+#' @keywords internal
 #' @description
 #' Produces a summary of a fitted NMF-AE model with inference results,
 #' including the coefficients table for \eqn{\Theta}.
@@ -885,18 +952,24 @@ summary.nmfae.inference <- function(object, ...) {
 }
 
 #' @title Print method for summary.nmfae.inference objects
+#' @keywords internal
 #' @description
 #' Prints a formatted summary including the coefficients table.
 #' @param x An object of class \code{"summary.nmfae.inference"}.
 #' @param digits Minimum number of significant digits.
 #' @param max.coef Maximum coefficient rows to display. Default is 20.
+#' @param by Character; grouping order of the coefficients table.
+#'   \code{"covariate"} (default) lists all bases within each covariate
+#'   (1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+#'   (1-1, 2-1, ...).
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @seealso \code{\link{summary.nmfae.inference}}
 #' @export
 print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits") - 3L),
-                                          max.coef = 20, ...) {
-  print.summary.nmfae(x, digits = digits, max.coef = max.coef, ...)
+                                          max.coef = 20, by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
+  print.summary.nmfae(x, digits = digits, max.coef = max.coef, by = by, ...)
 }
 
 
@@ -926,11 +999,11 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
-#' nmfae.heatmap(res)
+#' res <- nmf.rrr(Y, rank1 = 2)
+#' nmf.rrr.heatmap(res)
 #' }
 #' @export
-nmfae.heatmap <- function(x,
+nmf.rrr.heatmap <- function(x,
                           Y1.label = NULL, X1.label = NULL,
                           X2.label = NULL, Y2.label = NULL,
                           palette = NULL, ...) {
@@ -955,8 +1028,8 @@ nmfae.heatmap <- function(x,
     lab
   }
   Y1.label <- resolve_lab(Y1.label, rownames(X1), P1, "Y1.")
-  X1.label <- resolve_lab(X1.label, colnames(X1), Q,  "Q")
-  X2.label <- resolve_lab(X2.label, rownames(X2), R,  "R")
+  X1.label <- resolve_lab(X1.label, colnames(X1), Q,  "Resp")
+  X2.label <- resolve_lab(X2.label, rownames(X2), R,  "Cov")
   Y2.label <- resolve_lab(Y2.label, colnames(X2), P2, "Y2.")
 
   # Helper: plot a matrix as heatmap (row 1 at top)
@@ -992,6 +1065,7 @@ nmfae.heatmap <- function(x,
 }
 
 #' @title Predict method for nmfae objects
+#' @keywords internal
 #' @description
 #' \code{predict.nmfae} computes fitted or predicted values from a three-layer NMF model.
 #' Without \code{newY2}, returns the in-sample fitted values \eqn{X_1 \Theta X_2 Y_2}.
@@ -1024,7 +1098,7 @@ nmfae.heatmap <- function(x,
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
+#' res <- nmf.rrr(Y, rank1 = 2)
 #' pred <- predict(res)
 #' }
 #' @export
@@ -1058,6 +1132,7 @@ predict.nmfae <- function(object, newY2 = NULL, Y1 = NULL,
 }
 
 #' @title Plot method for predict.nmfae objects
+#' @keywords internal
 #' @description
 #' For \code{type = "response"}: if actual values \eqn{Y_1} were stored,
 #' displays an observed-vs-predicted scatter plot with \eqn{R^2} in the title.
@@ -1075,7 +1150,7 @@ predict.nmfae <- function(object, newY2 = NULL, Y1 = NULL,
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
+#' res <- nmf.rrr(Y, rank1 = 2)
 #' pred <- predict(res)
 #' plot(pred)
 #' }
@@ -1167,17 +1242,19 @@ plot.predict.nmfae <- function(x, ...) {
 #' held-out elements.
 #'
 #' This method (also known as Wold's CV) is suitable for determining the optimal
-#' rank pair \eqn{(Q, R)} in three-layer NMF. Both \code{rank} and \code{rank.encoder} accept
-#' vector inputs. When \code{rank.encoder = NULL} (default), \code{rank.encoder} is set equal to \code{rank}
+#' rank pair \eqn{(Q, R)} in three-layer NMF. Both \code{rank1} and \code{rank2} accept
+#' vector inputs. When \code{rank2 = NULL} (default), \code{rank2} is set equal to \code{rank1}
 #' and pairs are evaluated element-wise (i.e., \eqn{(Q_1, R_1), (Q_2, R_2), \dots}).
 #' When \code{rank.encoder} is explicitly specified, all combinations of \code{rank} and \code{rank.encoder}
 #' are evaluated via \code{expand.grid}.
 #'
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N).
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N). Default is \code{Y1}.
-#' @param rank Integer vector of decoder ranks to evaluate. Default is \code{1:2}.
-#' @param rank.encoder Integer vector of encoder ranks to evaluate. Default is \code{NULL},
-#'   which sets \code{rank.encoder = rank} and evaluates element-wise pairs.
+#' @param rank1 Integer vector of response-basis ranks to evaluate. Default is \code{1:2}.
+#' @param rank2 Integer vector of covariate-basis ranks to evaluate. Default is \code{NULL},
+#'   which sets \code{rank2 = rank1} and evaluates element-wise pairs.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}
+#'   (\code{Q} / \code{R} also accepted via \code{...}).
 #'   When explicitly specified, all combinations with \code{rank} are evaluated.
 #' @param ... Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
@@ -1200,17 +1277,21 @@ plot.predict.nmfae <- function(x, ...) {
 #' @export
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
-#' # Default: rank.encoder=NULL -> paired rank=rank.encoder
-#' res <- nmfae.ecv(Y, rank = 1:3, nfolds = 3, maxit = 500)
+#' # Default: rank2=NULL -> paired rank1=rank2
+#' res <- nmf.rrr.ecv(Y, rank1 = 1:3, nfolds = 3, maxit = 500)
 #' res$sigma
 #' # Explicit rank.encoder: full grid
-#' res2 <- nmfae.ecv(Y, rank = 1:3, rank.encoder = 1:3, nfolds = 3, maxit = 500)
+#' res2 <- nmf.rrr.ecv(Y, rank1 = 1:3, rank2 = 1:3, nfolds = 3, maxit = 500)
 #' res2$sigma
 #'
-nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
+nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
+                      rank = NULL, rank.encoder = NULL) {
   extra_ecv <- list(...)
-  if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
-  if (!is.null(extra_ecv$R)) rank.encoder <- extra_ecv$R
+  # rank1/rank2 = response/covariate basis ranks to sweep; legacy rank/rank.encoder/Q/R
+  if (is.null(rank))          rank <- rank1
+  if (!is.null(extra_ecv$Q))  rank <- extra_ecv$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
+  if (!is.null(extra_ecv$R))  rank.encoder <- extra_ecv$R
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed))   extra_ecv$seed   else 123
   Q <- rank; R <- rank.encoder
@@ -1246,7 +1327,7 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
     if (has_na) weights_train[is.na(Y1)] <- 0
     weights_train[test_idx] <- 0
     fit <- suppressMessages(
-      do.call(nmfae, c(list(Y1 = Y1, Y2 = Y2, Q = QR$Q[i], R = QR$R[i],
+      do.call(nmf.rrr, c(list(Y1 = Y1, Y2 = Y2, Q = QR$Q[i], R = QR$R[i],
                             Y1.weights = weights_train), extra_args))
     )
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
@@ -1278,7 +1359,9 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
 #' \code{\link{nmfae.ecv}} with \code{rank.encoder} and its heatmap.
 #' @param Y1 Endogenous matrix (\eqn{P_1 \times N}).
 #' @param Y2 Exogenous matrix; defaults to \code{Y1} (autoencoder).
-#' @param rank Integer vector of (paired) ranks to evaluate.
+#' @param rank1 Integer vector of (paired) ranks to evaluate (both bases use
+#'   the same value). Legacy \code{Q} accepted via \code{...}.
+#' @param rank Deprecated alias of \code{rank1}.
 #' @param detail \code{"full"} (default) also runs element-wise CV
 #'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
 #'   eff.rank only, and recommends the R-squared elbow).
@@ -1298,28 +1381,33 @@ nmfae.ecv <- function(Y1, Y2 = Y1, rank = 1:2, rank.encoder = NULL, ...) {
 #' components in factor and principal components models.
 #' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 #' @export
-nmfae.rank <- function(Y1, Y2 = Y1, rank = 1:5, detail = c("full", "fast"),
-                       plot = TRUE, ...) {
+nmf.rrr.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
+                       plot = TRUE, ..., rank = NULL) {
+  extra <- list(...)
+  # sweep a single rank for both bases; legacy rank (formal) / Q (via ...)
+  if (!is.null(rank))    rank1 <- rank
+  if (!is.null(extra$Q)) rank1 <- extra$Q
+  extra$Q <- NULL; extra$R <- NULL; extra$rank.encoder <- NULL
   detail <- match.arg(detail)
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
-  rs <- numeric(length(rank)); er <- numeric(length(rank))
-  for (i in seq_along(rank)) {
-    f <- suppressMessages(nmfae(Y1, Y2, rank = rank[i],
-                                rank.encoder = rank[i],
-                                print.trace = FALSE, ...))
+  rs <- numeric(length(rank1)); er <- numeric(length(rank1))
+  for (i in seq_along(rank1)) {
+    f <- suppressMessages(do.call(nmf.rrr, c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
+                                                print.trace = FALSE), extra)))
     rs[i] <- f$r.squared
     er[i] <- .effective.rank(f$H)
   }
   ecv <- if (detail == "full")
-    suppressMessages(nmfae.ecv(Y1, Y2, rank = rank, ...))$sigma
-    else rep(NA_real_, length(rank))
-  criteria <- data.frame(rank = rank, effective.rank = er,
-                         effective.rank.ratio = er / rank,
+    suppressMessages(do.call(nmf.rrr.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    else rep(NA_real_, length(rank1))
+  criteria <- data.frame(rank = rank1, effective.rank = er,
+                         effective.rank.ratio = er / rank1,
                          r.squared = rs, sigma.ecv = as.numeric(ecv))
   .rank.finish(criteria, plot = plot, main = "nmfae rank selection (paired Q=R)")
 }
 
 #' @title Plot method for nmfae.ecv objects
+#' @keywords internal
 #' @description
 #' Visualizes element-wise cross-validation results.
 #' When \code{rank.encoder} was \code{NULL} (paired), a line plot of sigma vs rank is drawn.
@@ -1423,8 +1511,9 @@ plot.nmfae.ecv <- function(x, ...) {
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Non-negative.
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N), or a kernel matrix (N x N).
 #'   Default is \code{Y1} (autoencoder).
-#' @param rank Integer. Rank of the decoder basis. Default is 2.
-#' @param rank.encoder Integer. Rank of the encoder basis. Default is \code{rank}.
+#' @param rank1 Integer. Rank of the response basis. Default is 2.
+#' @param rank2 Integer. Rank of the covariate basis. Default (\code{NULL}) = \code{rank1}.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}.
 #' @param ... Additional arguments passed to \code{\link{nmfae}}
 #'   (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
@@ -1447,13 +1536,17 @@ plot.nmfae.ecv <- function(x, ...) {
 #' @export
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
-#' res <- nmfae.cv(Y, rank = 2, rank.encoder = 2, nfolds = 5, maxit = 500)
+#' res <- nmf.rrr.cv(Y, rank1 = 2, rank2 = 2, nfolds = 5, maxit = 500)
 #' res$sigma
 #'
-nmfae.cv <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank, ...) {
+nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
+                     rank = NULL, rank.encoder = NULL) {
   extra_cv <- list(...)
-  if (!is.null(extra_cv$Q)) rank <- extra_cv$Q
-  if (!is.null(extra_cv$R)) rank.encoder <- extra_cv$R
+  if (is.null(rank))          rank <- rank1
+  if (!is.null(extra_cv$Q))   rank <- extra_cv$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
+  if (!is.null(extra_cv$R))   rank.encoder <- extra_cv$R
+  if (is.null(rank.encoder))  rank.encoder <- rank
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
   seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else 123
   shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
@@ -1551,7 +1644,7 @@ nmfae.cv <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank, ...) {
            Y1.weights = W_train, print.trace = FALSE),
       nmfae_extra
     )
-    res_j <- suppressMessages(do.call("nmfae", nmfae_args))
+    res_j <- suppressMessages(do.call("nmf.rrr", nmfae_args))
 
     # Predict on test set
     Y1hat_test <- res_j$X1 %*% res_j$C %*% res_j$X2 %*% Y2_test
@@ -1571,6 +1664,7 @@ nmfae.cv <- function(Y1, Y2 = Y1, rank = 2, rank.encoder = rank, ...) {
 }
 
 #' @title Plot method for nmfae.cv objects
+#' @keywords internal
 #' @description
 #' Displays a bar chart of per-fold cross-validation errors from
 #' \code{\link{nmfae.cv}}. The overall RMSE (sigma) is shown in the title.
@@ -1607,8 +1701,9 @@ plot.nmfae.cv <- function(x, ...) {
 #' \code{\link{nmfkc.kernel.beta.nearest.med}}.
 #'
 #' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Non-negative.
-#' @param rank Integer. Rank of the decoder basis. Default is 2.
-#' @param rank.encoder Integer. Rank of the encoder basis. Default is \code{rank}.
+#' @param rank1 Integer. Rank of the response basis. Default is 2.
+#' @param rank2 Integer. Rank of the covariate basis. Default (\code{NULL}) = \code{rank1}.
+#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}.
 #' @param U Covariate matrix \eqn{U} (K x M). Rows are features, columns are samples
 #'   (or knot points for non-symmetric kernels).
 #' @param V Covariate matrix \eqn{V} (K x N). If \code{NULL} (default), \code{V = U}
@@ -1633,17 +1728,21 @@ plot.nmfae.cv <- function(x, ...) {
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' U <- matrix(cars$speed, nrow = 1)
-#' res <- nmfae.kernel.beta.cv(Y, rank = 1, rank.encoder = 1, U = U,
+#' res <- nmf.rrr.kernel.beta.cv(Y, rank1 = 1, rank2 = 1, U = U,
 #'                              beta = c(0.01, 0.02, 0.05), nfolds = 5)
 #' res$beta
 #'
-nmfae.kernel.beta.cv <- function(Y1, rank = 2, rank.encoder = rank, U, V = NULL,
-                                  beta = NULL, plot = TRUE, ...) {
+nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
+                                  beta = NULL, plot = TRUE, ...,
+                                  rank = NULL, rank.encoder = NULL) {
 
   extra_args <- list(...)
-  # backward compat: Q -> rank, R -> rank.encoder
+  # rank1/rank2 = response/covariate basis ranks; legacy rank/rank.encoder/Q/R
+  if (is.null(rank))          rank <- rank1
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
+  if (is.null(rank.encoder))  rank.encoder <- rank2
   if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
+  if (is.null(rank.encoder))  rank.encoder <- rank
   extra_args <- extra_args[!names(extra_args) %in% c("Q", "R")]
 
   # Separate kernel-specific args from cv/nmfae args
@@ -1669,7 +1768,7 @@ nmfae.kernel.beta.cv <- function(Y1, rank = 2, rank.encoder = rank, U, V = NULL,
     A <- do.call("nmfkc.kernel", kernel_call)
 
     cv_call <- c(list(Y1 = Y1, Y2 = A, rank = rank, rank.encoder = rank.encoder), cv_args)
-    result <- do.call("nmfae.cv", cv_call)
+    result <- do.call("nmf.rrr.cv", cv_call)
 
     objfuncs[i] <- result$objfunc
 
@@ -1692,6 +1791,7 @@ nmfae.kernel.beta.cv <- function(Y1, rank = 2, rank.encoder = rank, U, V = NULL,
 }
 
 #' @title Plot method for nmfae.kernel.beta.cv objects
+#' @keywords internal
 #' @description
 #' Displays the cross-validation objective function across candidate
 #' \code{beta} values (log scale). The optimal beta is highlighted in red.
@@ -1750,8 +1850,8 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' @param X2.label Character vector of encoder basis labels.
 #' @param Y2.label Character vector of input variable labels.
 #' @param Y1.title Character. Title for output node group. Default is \code{"Output (Y1)"}.
-#' @param X1.title Character. Title for decoder node group. Default is \code{"Decoder (X1)"}.
-#' @param X2.title Character. Title for encoder node group. Default is \code{"Encoder (X2)"}.
+#' @param X1.title Character. Title for the response-basis node group. Default is \code{"Response (X1)"}.
+#' @param X2.title Character. Title for the covariate-basis node group. Default is \code{"Covariate (X2)"}.
 #' @param Y2.title Character. Title for input node group. Default is \code{"Input (Y2)"}.
 #' @param hide.isolated Logical. If \code{TRUE} (default), Y1 and Y2 nodes that have no
 #'   edges at or above \code{threshold} are excluded from the graph. Only
@@ -1768,11 +1868,11 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' \donttest{
 #' set.seed(1)
 #' Y <- matrix(runif(20), nrow = 4)
-#' res <- nmfae(Y, rank = 2)
-#' dot <- nmfae.DOT(res)
+#' res <- nmf.rrr(Y, rank1 = 2)
+#' dot <- nmf.rrr.DOT(res)
 #' }
 #' @export
-nmfae.DOT <- function(result,
+nmf.rrr.DOT <- function(result,
                       type = c("XCX", "YXCXY"),
                       threshold = 0.01,
                       sig.level = 0.1,
@@ -1785,8 +1885,8 @@ nmfae.DOT <- function(result,
                       Y1.label = NULL, X1.label = NULL,
                       X2.label = NULL, Y2.label = NULL,
                       Y1.title = "Output (Y1)",
-                      X1.title = "Decoder (X1)",
-                      X2.title = "Encoder (X2)",
+                      X1.title = "Response (X1)",
+                      X2.title = "Covariate (X2)",
                       Y2.title = "Input (Y2)",
                       hide.isolated = TRUE) {
 
@@ -1803,9 +1903,9 @@ nmfae.DOT <- function(result,
   Y1_labels <- if (!is.null(Y1.label)) Y1.label else rownames(X1)
   if (is.null(Y1_labels)) Y1_labels <- paste0("Y1_", seq_len(P1))
   X1_labels <- if (!is.null(X1.label)) X1.label else colnames(X1)
-  if (is.null(X1_labels)) X1_labels <- paste0("D", seq_len(Q))
+  if (is.null(X1_labels)) X1_labels <- paste0("Resp", seq_len(Q))
   X2_labels <- if (!is.null(X2.label)) X2.label else rownames(X2)
-  if (is.null(X2_labels)) X2_labels <- paste0("E", seq_len(R))
+  if (is.null(X2_labels)) X2_labels <- paste0("Cov", seq_len(R))
   Y2_labels <- if (!is.null(Y2.label)) Y2.label else colnames(X2)
   if (is.null(Y2_labels)) Y2_labels <- paste0("Y2_", seq_len(P2))
 

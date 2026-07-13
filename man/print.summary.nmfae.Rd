@@ -4,7 +4,13 @@
 \alias{print.summary.nmfae}
 \title{Print method for summary.nmfae objects}
 \usage{
-\method{print}{summary.nmfae}(x, digits = max(3L, getOption("digits") - 3L), max.coef = 20, ...)
+\method{print}{summary.nmfae}(
+  x,
+  digits = max(3L, getOption("digits") - 3L),
+  max.coef = 20,
+  by = c("covariate", "basis"),
+  ...
+)
 }
 \arguments{
 \item{x}{An object of class \code{"summary.nmfae"}.}
@@ -13,6 +19,11 @@
 
 \item{max.coef}{Maximum number of coefficient rows to display. If the table
 has more rows, only significant rows (p < 0.05) are shown. Default is 20.}
+
+\item{by}{Character; grouping order of the coefficients table.
+\code{"covariate"} (default) lists all bases within each covariate
+(1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+(1-1, 2-1, ...).}
 
 \item{...}{Additional arguments (currently unused).}
 }
@@ -25,3 +36,4 @@ Prints a formatted summary of an NMF-AE model fit.
 \seealso{
 \code{\link{summary.nmfae}}
 }
+\keyword{internal}

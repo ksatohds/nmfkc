@@ -127,12 +127,20 @@ summary.nmfkc.net.inference <- function(object, ...) {
 #'
 #' @param x An object of class \code{"summary.nmfkc.net.inference"}.
 #' @param digits Minimum number of significant digits.
+#' @param by Character; grouping order of the coefficients table. Because the
+#'   symmetric model sets \eqn{A = X^\top}, the column factor \code{Basis.col}
+#'   plays the covariate role: \code{"covariate"} (default) lists all
+#'   \code{Basis.row} within each \code{Basis.col} (1-1, 2-1, ...), while
+#'   \code{"basis"} lists all \code{Basis.col} within each \code{Basis.row}
+#'   (1-1, 1-2, ...).
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @seealso \code{\link{summary.nmfkc.net.inference}}
 #' @export
 print.summary.nmfkc.net.inference <- function(x,
-    digits = max(3L, getOption("digits") - 3L), ...) {
+    digits = max(3L, getOption("digits") - 3L),
+    by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
 
   # Print base summary
   print.summary.nmfkc(x, digits = digits, ...)
@@ -159,6 +167,7 @@ print.summary.nmfkc.net.inference <- function(x,
   # Coefficients table
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
+    cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
 
     p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "one.sided"
     p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
@@ -1030,6 +1039,9 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   r.squared.centered <- r2_all$r.squared.centered
   mae <- if (has.weights) sum(Wmat * abs(resid)) / max(sum(Wmat), small)
          else mean(abs(resid))
+  ## sigma (RMSE) for parity with nmfkc / nmfkc.signed fit objects
+  sigma <- if (has.weights) sqrt(sum(Wmat * resid^2) / max(sum(Wmat), small))
+           else sqrt(mean(resid^2))
 
   X.prob <- X / (rowSums(X) + small)
   X.cluster <- apply(X.prob, 1, which.max)
@@ -1046,6 +1058,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     r.squared.uncentered     = r.squared.uncentered,
     r.squared.centered = r.squared.centered,
     mae = mae,
+    sigma = sigma,
     iter = iter,
     runtime = as.numeric((proc.time() - t0)[3]),
     X.restriction = X.restriction
@@ -1226,6 +1239,7 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
          else
            c("nmfkc.net.ecv", "nmfkc.ecv")
   structure(list(objfunc = cv$objfunc, sigma = cv$sigma,
+                 rank = rank, nfolds = nfolds,
                  objfunc.fold = cv$objfunc.fold, folds = folds,
                  Q.grid = rank, type = type),
             class = cls)

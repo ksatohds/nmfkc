@@ -22,3 +22,4 @@ Displays the cross-validation objective function across candidate
 \seealso{
 \code{\link{nmfae.kernel.beta.cv}}
 }
+\keyword{internal}

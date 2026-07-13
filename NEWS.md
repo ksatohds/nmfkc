@@ -1,3 +1,290 @@
+# nmfkc 0.8.8
+
+### **Removed the `B.L1` penalty (and its `gamma` alias)**
+- `B.L1` placed an L1 penalty on the fitted coefficient field \eqn{B = C A}.
+  Because \eqn{B} is dense and \eqn{\mathrm{sum}(CA)} tracks the overall
+  reconstruction magnitude, `B.L1` acted as a crude global shrinkage that pulls
+  the fit toward zero and degrades prediction, without producing useful
+  structural sparsity. It has been removed from `nmfkc()` and from the
+  test-set B refit inside `nmfkc.cv()`. Use `C.L1` for sparsity / variable
+  selection on the parameter matrix \eqn{\Theta = C} (individual entries are
+  driven to exactly zero). Passing `B.L1`/`gamma` now has no effect (silently
+  ignored via `...`).
+
+### **MAP penalties for `nmfre()`**
+- `nmfre()` gains three optional penalties (default 0, via `...`), acting as
+  Gaussian priors on the basis/coefficients and orthogonal to the random-effect
+  machinery (`U`, `lambda`, `sigma2`, `tau2` are unchanged):
+  - `X.L2.smooth`: path-graph row smoothness of the basis `X` — well suited to
+    longitudinal / ordered-row models.
+  - `X.L2.ortho`: column orthogonality of `X`.
+  - `C.L2`: ridge on `Theta = C`. For `C.signed = TRUE` the C-step stays a
+    closed-form solve (a Sylvester ridge-least-squares via the eigenbases of
+    `X'X` and `AA'`); for `C.signed = FALSE` it is added to the MU denominator.
+  Penalties enter the fixed-lambda inner objective; the EM variance updates are
+  untouched. (L1 sparsity on `Theta` is intentionally not offered: it would
+  break the signed closed-form step and conflicts with the random-effect
+  shrinkage that already regularizes the model.)
+
+### **`nmfae*` deprecated in favour of `nmf.rrr*`**
+- The canonical implementation of the three-layer NMF-RRR model now lives
+  under the `nmf.rrr*` / `nmf.rrr.signed*` names (`nmf.rrr`, `.inference`,
+  `.ecv`, `.cv`, `.rank`, `.DOT`, `.heatmap`, `.kernel.beta.cv`, `.rename`,
+  and the six signed variants). The former `nmfae*` / `nmfae.signed*` names are
+  now thin deprecated wrappers that emit `.Deprecated()` and forward to their
+  `nmf.rrr*` counterpart. Fitted objects keep the legacy S3 classes (e.g.
+  `class = c("nmf.rrr", "nmfae", "nmf")`), so all S3 methods and saved objects
+  continue to work unchanged.
+
+### **`nmf.sem*` deprecated in favour of `nmf.ffb*`**
+- The canonical implementation of the NMF-FFB (feed-forward + feedback) model
+  now lives under the `nmf.ffb*` names (`nmf.ffb`, `nmf.ffb.inference`,
+  `nmf.ffb.cv`, `nmf.ffb.split`, `nmf.ffb.DOT`). The former `nmf.sem*` names
+  are now thin deprecated wrappers that emit `.Deprecated()` and forward to
+  their `nmf.ffb*` counterpart. Fitted objects keep `class = c("nmf.ffb",
+  "nmf.sem", "nmf")`, so all S3 methods and existing saved objects continue to
+  work unchanged.
+
+### **`C.L2` ridge for the signed families**
+- `nmfkc.signed()` and `nmf.rrr.signed()` gain a `C.L2` ridge (default 0, via
+  `...`) on the signed coefficient matrix \eqn{C = C_{+} - C_{-}}, penalizing
+  `C.L2 * ||Cp - Cn||^2`. Because only the difference (= \eqn{\Theta}) enters
+  the model, the penalty has zero gradient on the unidentified common mode
+  \eqn{C_{+} + C_{-}}; it is injected symmetrically into the `Cp`/`Cn`
+  multiplicative updates (`num_Cp += C.L2*Cn`, `den_Cp += C.L2*Cp`) across both
+  the unweighted and weighted paths, and added to the tracked objective.
+
+### **Basis penalties extended to the signed families**
+- `nmfkc.signed()` now accepts `X.L2.ortho` (column orthogonality) and
+  `X.L2.smooth` (path-graph row smoothness), matching `nmfkc()`. Both default
+  to 0 (off), are passed via `...`, and are skipped when `X.restriction =
+  "fixed"`. The penalties are folded into both the fast unweighted and the
+  weighted MU paths and into the tracked objective.
+- `nmfae.signed()` now accepts `X1.L2.ortho` / `X2.L2.ortho` (orthogonality of
+  the response-basis columns and covariate-basis rows), matching `nmfae()`.
+  Default 0, via `...`, wired into both MU paths and the objective.
+
+### **`by` option: grouping order of coefficient tables**
+- The `print()` methods for the inference summaries
+  (`nmfkc.inference`, `nmfae`/`nmfae.inference`, `nmfae.signed.inference`,
+  `nmfkc.net.inference`) and `summary.nmfre()` gain a `by` argument controlling
+  how the significance table is grouped: `by = "covariate"` (default, unchanged
+  behaviour) lists all bases within each covariate (1-1, 1-2, ...), while
+  `by = "basis"` lists all covariates within each basis (1-1, 2-1, ...). The
+  default reproduces the previous ordering exactly.
+- The symmetric-network model (`nmfkc.net`, tri-type) follows the **same rule**:
+  since it sets \eqn{A = X^\top}, the parameter matrix \eqn{C}'s column factor
+  (`Basis.col`) is the covariate slot and its row factor (`Basis.row`) is the
+  basis slot, so `by` groups by `Basis.col` / `Basis.row` respectively. (The
+  bi-type has no free \eqn{\Theta}, only \eqn{X}, so no coefficient table.)
+
+### **Classed CV objects with `print` / `plot`**
+- `nmfkc.ecv()`, `nmfkc.cv()` and `nmfkc.bicv()` now return classed objects
+  (`"nmfkc.ecv"` / `"nmfkc.cv"` / `"nmfkc.bicv"`) with `print()` and `plot()`
+  methods — the rank sweeps (`ecv`, `bicv`) plot a score-vs-rank curve with a
+  \dQuote{Best (Min)} marker, matching `nmfae.ecv()` / `nmfre.ecv()`. Field
+  access (`cv$sigma`, etc.) is unchanged; `nmfkc.ecv()` also now returns the
+  swept `rank` vector.
+
+### **Naming / API consistency pass (aligned to the nmfkc house style)**
+- Fit objects now report `runtime` as **numeric seconds** everywhere (was a
+  preformatted string in `nmfkc()`); `print()` formats it for display.
+- `nmfkc.net()` fit objects now return `sigma` (RMSE), for parity with
+  `nmfkc()` / `nmfkc.signed()`.
+- `nmfre.ecv()` returns the held-out RMSE as `$sigma` (was `$sigma.ecv`) to
+  match `nmfkc.ecv()`.
+- New `predict.nmfre()`: fixed-effect prediction \eqn{X\Theta A_{new}} for new
+  covariates, or the in-sample BLUP fit when `newA` is omitted.
+- `nmf.sem`/`nmf.ffb` fit objects now carry the shared `"nmf"` class, so the
+  common `coef`/`fitted`/`residuals` fallbacks apply.
+- Fold-count argument unified to `nfolds` (`nmfre.ecv` was `nfold`; legacy names
+  accepted via `...`); `summary.nmfre()` CI toggle is `ci.show` (object-first);
+  `nmfae`/`nmfae.signed` fit objects gained an `iter` alias of `niter`.
+
+
+
+### **`X.L2.smooth`: row-smoothness penalty on the basis**
+- New penalty `X.L2.smooth` (nonnegative, default 0) adds
+  \eqn{\lambda\,\mathrm{tr}(X^\top L X)} with \eqn{L} the path-graph Laplacian
+  over the \eqn{P} rows, i.e. it penalizes squared differences between adjacent
+  rows and yields gently-varying (smooth) bases — useful when the rows of
+  \eqn{Y} have a natural order (e.g. time points). Like `X.L2.ortho`, it slots
+  into the multiplicative \eqn{X}-step
+  (\eqn{X \leftarrow X \odot (\mathrm{num} + \lambda W X)/(\mathrm{den} + \lambda D X)}),
+  preserving non-negativity and monotone descent. Default 0 reproduces prior
+  results exactly.
+
+
+
+### **Public API: `nmf.rrr` and `nmf.ffb` are the documented names**
+- The legacy `nmfae*` and `nmf.sem*` families are now marked internal
+  (`@keywords internal`): they remain exported and fully functional for
+  backward compatibility, but no longer appear in the reference index / pkgdown
+  site. Their documented, user-facing names are the NMF-RRR aliases
+  (`nmf.rrr*`) and the NMF-FFB aliases (`nmf.ffb*`), which now each have their
+  own self-contained help page (previously `nmf.ffb*` shared the `nmf.sem*`
+  pages).
+
+
+
+### **`X.init = "kmeans++"` basis initialization**
+- New basis-initialization option `X.init = "kmeans++"` (alias `"kmeanspp"`)
+  seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur &
+  Vassilvitskii, 2007, SODA) before Lloyd refinement, giving a more careful,
+  \eqn{\Theta(\log k)}-competitive initialization than uniform-random seeding.
+  Available in every optimizer: `nmfkc`, `nmfre`, `nmf.sem`, `nmfkc.net`,
+  `nmfkc.signed` (shared initializer), and `nmfae` / `nmfae.signed`, which now
+  forward `X.init` to their internal `nmfkc()` basis-init steps. The default
+  remains `"kmeans"` (unchanged results);
+  `nstart` is not used for `"kmeans++"` (one careful seeding replaces random
+  restarts).
+
+
+
+### **`nmf.rrr` / `nmfae` family: `rank1` / `rank2` arguments**
+- The two basis ranks of the NMF-RRR (tri-factorized) family are now the
+  symmetric `rank1` (response basis \eqn{X_1}) and `rank2` (covariate basis
+  \eqn{X_2}, default `rank1`), replacing the asymmetric `rank` / `rank.encoder`.
+  Applies across the whole family: `nmfae`/`nmfae.signed` and their
+  `.ecv`/`.cv`/`.rank`/`.kernel.beta.cv` helpers (and the `nmf.rrr*` aliases).
+  The legacy `rank` / `rank.encoder` (and `Q` / `R`) remain accepted for
+  backward compatibility, so existing calls keep working.
+
+
+
+### **`nmfre.ecv`: rank selection for NMF-RE**
+- New `nmfre.ecv()` selects the basis rank \eqn{Q} by Wold-style element-wise
+  (entry-holdout) cross-validation with iterative imputation, scoring the
+  held-out prediction RMSE (`sigma.ecv`). The held-out entries of a column are
+  predicted from that column's retained entries via the BLUP \eqn{X(\Theta A+U)},
+  so — unlike `nmfkc.ecv()` (zero-weight mask, fixed-effect prediction) — it
+  evaluates the full NMF-RE model including the random effects. Returns a
+  `"nmfre.ecv"` object with `print`/`plot` methods (the plot marks the
+  minimizing rank). Sign convention follows `C.signed`; CV tolerances are
+  loosened by default and overridable via `...`.
+
+
+
+### **`nmfkc.DOT`: signed-coefficient graphs**
+- New argument `C.signed` lets `nmfkc.DOT()` draw graphs when \eqn{\Theta}
+  (\code{= C}) is signed (real-valued), e.g. from `nmfre(C.signed = TRUE)` or
+  the `*.signed` fits. In signed mode `threshold` is an **absolute-value** cut
+  (\eqn{|coef| \ge} `threshold`), edge widths scale by \eqn{|coef|}, and
+  **negative edges are drawn as black dashed lines** (positive edges solid)
+  with their signed numeric labels. Default
+  `C.signed = NULL` auto-detects from `result$C.signed` or negative entries in
+  \eqn{C} / \eqn{XC}; `FALSE` restores the historical non-negative behaviour.
+  The basis \eqn{X} is always non-negative, so \eqn{X \rightarrow Y} edges are
+  unaffected.
+
+### **`nmfre`: marginal-NLL convergence trace**
+- `nmfre()` now records `nll.trace`, the marginal negative log-likelihood
+  \eqn{\ell(X,\Theta,\sigma^2,\tau^2)} (random effects integrated out), which the
+  ECM algorithm decreases monotonically. `plot.nmfre()` displays this instead of
+  the fixed-\eqn{\lambda} penalized objective (`objfunc.iter`), which is *not*
+  monotone across outer iterations because it jumps when
+  \eqn{\lambda=\sigma^2/\tau^2} is updated.
+
+### **`nmfre`: optimization and inference fully separated**
+- `nmfre()` now performs **optimization only**, mirroring the
+  `nmfkc()` / `nmfkc.inference()` split. The `wild.bootstrap` argument and all
+  inference outputs (`coefficients`, `C.se`, `C.se.boot`, `C.ci.*`, `C.p.side`,
+  `sigma2.used`, …) are removed from `nmfre()`; the inline inference block is
+  gone, making the function lighter and easier to maintain. Obtain standard
+  errors, z-values, p-values, and confidence intervals for \eqn{\Theta} by
+  passing the fit to `nmfre.inference(fit, Y, A)`. `summary()` prints the
+  coefficient table only after inference has been run.
+
+### **`nmfre`: EM/ECM algorithm and sign-free fixed effects (paper port)**
+- `nmfre()` is re-implemented to follow the Psychometrika manuscript's
+  NMF-RE mixed model \eqn{Y = X(\Theta A + U) + \mathcal{E}}.  The optimizer is
+  now an **outer-inner ECM**: the inner loop is a fixed-\eqn{\lambda}
+  block-coordinate descent (random-effect ridge BLUP for \eqn{U},
+  complete-EM semi-NMF step for the basis \eqn{X} including the posterior
+  variance \eqn{N\sigma^2(X'X+\lambda I)^{-1}}, and a fixed-effect update for
+  \eqn{C}); the outer loop runs the EM M-steps for \eqn{\sigma^2} and
+  \eqn{\tau^2} until \eqn{\lambda=\sigma^2/\tau^2} stabilizes.
+- New **formal** argument **`C.signed`** (logical, default `TRUE`, recommended,
+  matches the paper). `TRUE` makes the fixed-effect coefficients \eqn{C}
+  (\eqn{=\Theta}) **real-valued**, updated by exact least squares, with a
+  two-sided test (interior null) and no \eqn{C\ge 0} projection of the
+  bootstrap replicates. `FALSE` restores the historical non-negative variant
+  (multiplicative update, one-sided/boundary test). A character value
+  (`"signed"` / `"nonneg"`) is also accepted for backward compatibility.
+- `C.signed` is the single switch for the whole estimation scheme: it also
+  selects the basis (\eqn{X}) update rule (`TRUE` → complete-EM semi-NMF,
+  `FALSE` → positive-part multiplicative update), reproducing the paper's
+  pairing.  \eqn{X} is non-negative in both cases.  (`x.postvar` remains an
+  advanced toggle for the posterior-variance term of the semi-NMF step.)
+- **No cap is imposed on \eqn{df_U}**; it is reported as a diagnostic only.
+  `dfU.control` is now deprecated and inert.  Output gains the logical
+  `C.signed`; `summary.nmfre()` reports the sign convention and p-value side.
+- **Removed** the exported helper `nmfre.dfU.scan()` (and its `print` method):
+  it scanned `df_U` cap rates, which no longer exist now that the variance
+  components are estimated. The `df.rate` argument is retained but inert.
+
+### **`nmf.rrr`: NMF-RRR names for the `nmfae` family**
+- New `nmf.rrr` / `nmf.rrr.signed` (and `.inference`, `.ecv`, `.cv`, `.rank`,
+  `.DOT`, `.heatmap`, `.kernel.beta.cv`, `.rename`) are thin aliases of the
+  corresponding `nmfae*` / `nmfae.signed*` functions, matching the
+  \dQuote{NMF-RRR} (tri-factorized non-negative reduced-rank regression) name
+  used in Satoh & Tokuda.  The legacy `nmfae*` names remain fully functional
+  (no deprecation).  `nmf.rrr()` / `nmf.rrr.signed()` prepend the NMF-RRR
+  class to the fit; all existing S3 methods are reused by inheritance.
+- The fitted bases are now labelled **`Resp`** (response basis \eqn{X_1}) and
+  **`Cov`** (covariate basis \eqn{X_2}) instead of `Dec`/`Enc`, in both
+  `nmfae()`/`nmfae.signed()` (and so `nmf.rrr*`), matching the
+  response/covariate co-clustering reading.
+
+### **`nmfae()`: Kullback-Leibler divergence objective**
+- `nmfae()` gains `method = c("EU", "KL")` (mirroring `nmfkc()`).  \code{"EU"}
+  (default, unchanged) minimises the Frobenius distance; \code{"KL"}
+  minimises the generalised Kullback-Leibler divergence
+  \eqn{\sum [-Y_1 \log \widehat Y_1 + \widehat Y_1]} via Lee-Seung
+  multiplicative updates for all three factors of
+  \eqn{Y_1 \approx X_1 \Theta X_2 Y_2} (numerator carries the ratio
+  \eqn{Y_1/\widehat Y_1}, denominator the column/weight sums).  Weights,
+  L1/L2 penalties and the encoder structure are supported in both modes.
+  For \code{"KL"} the residual SE \code{sigma} is \code{NA} (not on the data
+  scale); \code{$method} records the objective used.
+- `nmfae()` and `nmfre()` now honour `nstart` (previously silently ignored):
+  it is forwarded to the `nmfkc()` initialisation step(s) (k-means
+  multi-start).  Default \code{1} keeps the historical single-start
+  behaviour; a larger value gives a more stable initialisation and is
+  recommended before inference.  (`nmfkc()`, `nmfae.signed()`, `nmfkc.net()`
+  and `nmfkc.signed()` already supported `nstart`; all expose it via `...`.)
+- Bug fix in `nmfre()`: a character `X.init` (e.g.\ `"runif"`, `"nndsvd"`,
+  `"kmeans"`) previously fell through unresolved and crashed in
+  `.nmfre.normalize.X()` ("'x' must be an array of at least two
+  dimensions").  `X.init` now accepts \code{NULL} (default), a named init
+  method forwarded to `nmfkc()` (so random-init multi-start works), or a
+  numeric basis matrix (used as-is, with \eqn{C} estimated given that fixed
+  \eqn{X}).
+
+### **`nmfkc.inference()`: re-fit wild bootstrap for singular information**
+- New `method = "refit"` (alongside the default backward-compatible
+  `"onestep"`) performs a residual wild (multiplier) bootstrap that
+  re-estimates \eqn{\Theta} (\eqn{C}) to convergence with the basis \eqn{X}
+  held FIXED, using **no information matrix**.  It stays valid when the Fisher
+  information \eqn{AA'} is singular (over-parameterised / kernel covariates) or
+  \eqn{\Theta} lies on the \eqn{\ge 0} boundary, where the one-step / sandwich
+  SE is unreliable.  With \eqn{X} fixed there is no label switching or scale
+  ambiguity, so element-wise SE/CI of \eqn{\hat\Theta_b} are valid even for
+  \eqn{Q>1}.  The bootstrap SE/CI become primary and the p-value is a two-sided
+  bootstrap p-value.
+- `wild.dist` selects the multiplier distribution (`"rademacher"`, `"mammen"`,
+  `"exp"`), orthogonal to `method`; `wild.unit` (`"element"` / `"column"`) the
+  granularity.  Raw \eqn{vec(C)} draws are returned in `$C.boot.draws` so any
+  identifiable functional (e.g. a contrast or fitted curve) and its percentile
+  band can be formed.  `nmfkc.net.inference()` inherits the mode by delegation.
+- Internal: the wild-bootstrap engine is factored into shared helpers in
+  `R/inference-boot.R` (`.wild.multipliers`, `.boot.onestep`, `.boot.refit`,
+  `.refit.C.MU`, `.boot.summarize`).  The previously duplicated one-step loop
+  in `nmfkc.inference()`, `nmfre()` / `nmfre.inference()`, `nmfae.inference()`
+  and `nmfae.signed.inference()` now all call the shared `.boot.onestep()`
+  (behaviour unchanged; `nmfae.signed` uses `project = FALSE` for signed
+  \eqn{\Theta}).
+
 # nmfkc 0.8.2
 
 ### **`nmfkc.net.DOT()`: default layout is now `"neato"`**

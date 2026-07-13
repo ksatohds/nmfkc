@@ -4,7 +4,13 @@
 \alias{print.summary.nmfae.inference}
 \title{Print method for summary.nmfae.inference objects}
 \usage{
-\method{print}{summary.nmfae.inference}(x, digits = max(3L, getOption("digits") - 3L), max.coef = 20, ...)
+\method{print}{summary.nmfae.inference}(
+  x,
+  digits = max(3L, getOption("digits") - 3L),
+  max.coef = 20,
+  by = c("covariate", "basis"),
+  ...
+)
 }
 \arguments{
 \item{x}{An object of class \code{"summary.nmfae.inference"}.}
@@ -12,6 +18,11 @@
 \item{digits}{Minimum number of significant digits.}
 
 \item{max.coef}{Maximum coefficient rows to display. Default is 20.}
+
+\item{by}{Character; grouping order of the coefficients table.
+\code{"covariate"} (default) lists all bases within each covariate
+(1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+(1-1, 2-1, ...).}
 
 \item{...}{Additional arguments (currently unused).}
 }
@@ -24,3 +35,4 @@ Prints a formatted summary including the coefficients table.
 \seealso{
 \code{\link{summary.nmfae.inference}}
 }
+\keyword{internal}

@@ -21,3 +21,4 @@ Displays a bar chart of per-fold cross-validation errors from
 \seealso{
 \code{\link{nmfae.cv}}
 }
+\keyword{internal}

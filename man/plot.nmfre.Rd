@@ -37,7 +37,7 @@ are defined in their respective source files.)
 set.seed(1)
 Y <- matrix(runif(20), nrow = 4)
 A <- diag(5)
-res <- nmfre(Y, A, rank = 2, wild.bootstrap = FALSE)
+res <- nmfre(Y, A, rank = 2)
 plot(res)
 }
 

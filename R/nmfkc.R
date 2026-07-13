@@ -745,9 +745,9 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 ## Internal: X initialization by named method.
 ## Shared across NMF variants (nmfkc, nmf.sem, ...) to avoid duplication
-## of the "nndsvd" / "kmeans" / "kmeansar" / "runif" dispatch logic.
+## of the "nndsvd" / "kmeans" / "kmeansar" / "kmeans++" / "runif" dispatch logic.
 ##
-## @param method  One of "nndsvd", "kmeans", "kmeansar", "runif".
+## @param method  One of "nndsvd", "kmeans", "kmeansar", "kmeans++", "runif".
 ## @param Y       A P x N reference matrix used for SVD (nndsvd) or
 ##                column clustering (kmeans/kmeansar).  For "runif" only
 ##                its dimensions matter.  Must contain no NA.
@@ -762,6 +762,25 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 ##                Default 100.
 ## @return A P x Q non-negative matrix.  Column normalization is the
 ##         caller's responsibility.
+## Internal: k-means++ seeding (Arthur & Vassilvitskii 2007, SODA).
+## Chooses k initial centres from the rows of `pts` (N x d) by D^2 weighting:
+## the first centre uniformly at random, each subsequent centre with probability
+## proportional to its squared distance to the nearest already-chosen centre.
+## Returns a k x d matrix of centres (for stats::kmeans(centers = ...)).
+.kmeanspp.seed <- function(pts, k) {
+  N <- nrow(pts)
+  centers <- matrix(0, nrow = k, ncol = ncol(pts))
+  i1 <- sample.int(N, 1L)
+  centers[1, ] <- pts[i1, ]
+  d2 <- colSums((t(pts) - pts[i1, ])^2)          # squared dist to first centre
+  for (j in seq_len(k)[-1]) {
+    idx <- if (sum(d2) > 0) sample.int(N, 1L, prob = d2) else sample.int(N, 1L)
+    centers[j, ] <- pts[idx, ]
+    d2 <- pmin(d2, colSums((t(pts) - pts[idx, ])^2))
+  }
+  centers
+}
+
 .init_X_method <- function(method, Y, Q,
                             seed = NULL,
                             nstart = 10,
@@ -787,11 +806,21 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
         X[idx_zero] <- stats::runif(length(idx_zero)) * avg_Y / 100
     }
     X
+  } else if (identical(method, "kmeans++") || identical(method, "kmeanspp")) {
+    ## D^2-weighted seeding then Lloyd refinement (Arthur & Vassilvitskii 2007).
+    ## nstart is not used here: the single careful seeding replaces random
+    ## restarts. Falls back to the raw seeds if stats::kmeans() fails.
+    if (N >= Q) {
+      seeds <- .kmeanspp.seed(t(Y), Q)           # Q x P centre matrix
+      res <- tryCatch(stats::kmeans(t(Y), centers = seeds, iter.max = kmeans.maxit),
+                      error = function(e) NULL)
+      if (!is.null(res)) t(res$centers) else t(seeds)
+    } else matrix(stats::runif(P * Q), P, Q)
   } else if (identical(method, "runif")) {
     matrix(stats::runif(P * Q), P, Q)
   } else {
     stop(".init_X_method: method must be one of \"nndsvd\", \"kmeans\", ",
-         "\"kmeansar\", \"runif\"; got \"", method, "\".")
+         "\"kmeansar\", \"kmeans++\", \"runif\"; got \"", method, "\".")
   }
 }
 
@@ -2151,15 +2180,21 @@ print.nmf.rank <- function(x, ...) {
 #'       It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
 #'       between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
 #'       (Formerly \code{lambda.ortho}).
-#'     \item \code{B.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{B = C A} (default: 0).
-#'       Promotes **sparsity in the coefficients**. (Formerly \code{gamma}).
+#'     \item \code{X.L2.smooth}: Nonnegative penalty parameter for row-smoothness of
+#'       \eqn{X} (default: 0). Adds \eqn{\lambda\,\mathrm{tr}(X^\top L X)} with \eqn{L}
+#'       the path-graph Laplacian over the \eqn{P} rows, i.e.\ it penalizes squared
+#'       differences between adjacent rows \eqn{\sum_q\sum_{j\ge 2}(x_{jq}-x_{j-1,q})^2},
+#'       yielding gently-varying (smooth) bases. Integrates with the multiplicative
+#'       updates (non-negativity and monotone descent preserved). Useful when the rows
+#'       of \eqn{Y} have a natural order (e.g.\ time points).
 #'     \item \code{C.L1}: Nonnegative penalty parameter for L1 regularization on \eqn{C} (default: 0).
-#'       Promotes **sparsity in the parameter matrix**. (Formerly \code{lambda}).
+#'       Promotes **sparsity in the parameter matrix** \eqn{\Theta} (variable
+#'       selection over basis-covariate links). (Formerly \code{lambda}).
 #'     \item \code{Q}: Backward-compatible name for the rank of the basis matrix (Q).
 #'     \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 #'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 #'       \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
-#'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar.
+#'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"kmeans++"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar. \code{"kmeans++"} seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur & Vassilvitskii, 2007) before Lloyd refinement, giving a more careful, stable initialization (\code{nstart} is not used in this case).
 #'     \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 #'       Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 #'       multi-start evaluation (when \code{X.init = "runif"}).
@@ -2268,11 +2303,13 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   Q <- Q_val
 
   C.L1 <- if (!base::is.null(extra_args$C.L1)) extra_args$C.L1 else 0
-  B.L1 <- if (!base::is.null(extra_args$B.L1)) extra_args$B.L1 else 0
   X.L2.ortho <- if (!base::is.null(extra_args$X.L2.ortho)) extra_args$X.L2.ortho else 0
+  ## Row-smoothness penalty on X: lambda * tr(X' L X) with L the path-graph
+  ## Laplacian over the P rows (adjacent rows only). Encourages gently-varying
+  ## bases. Default 0 = off (exact current behaviour).
+  X.L2.smooth <- if (!base::is.null(extra_args$X.L2.smooth)) extra_args$X.L2.smooth else 0
 
   if (C.L1 == 0 && !base::is.null(extra_args$lambda)) C.L1 <- extra_args$lambda
-  if (B.L1 == 0 && !base::is.null(extra_args$gamma)) B.L1 <- extra_args$gamma
   if (X.L2.ortho == 0 && !base::is.null(extra_args$lambda.ortho)) X.L2.ortho <- extra_args$lambda.ortho
 
   method <- if (!base::is.null(extra_args$method)) extra_args$method else "EU"
@@ -2412,7 +2449,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   ones_QN <- matrix(1, nrow=Q, ncol=ncol(Y))
   if(hasA) {
     At <- t(A)
-    ones_QN_At <- ones_QN %*% At
   }
 
   epsilon.iter <- Inf
@@ -2433,6 +2469,16 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
+        if (X.L2.smooth > 0 && nrow(X) >= 2) {
+          ## path-graph Laplacian over rows: grad = lambda (D X - W X)
+          Pr <- nrow(X)
+          WX <- X * 0
+          WX[-Pr, ] <- WX[-Pr, ] + X[-1, , drop = FALSE]   # + lower neighbour
+          WX[-1, ]  <- WX[-1, ]  + X[-Pr, , drop = FALSE]  # + upper neighbour
+          degX <- c(1, rep(2, Pr - 2), 1) * X
+          num_X <- num_X + X.L2.smooth * WX
+          den_X <- den_X + X.L2.smooth * degX
+        }
         update_ratio <- num_X / (den_X + .eps)
         X <- X * update_ratio
         X <- xnorm(X)
@@ -2442,13 +2488,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         num_C <- tX %*% (Y.weights * Y)
         den_C <- tX %*% (Y.weights * XB)
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QN
-        if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
         num_C <- tX %*% (Y.weights * Y) %*% At
         den_C <- tX %*% (Y.weights * XB) %*% At
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * matrix(1, nrow=Q, ncol=nrow(A))
-        if (B.L1 != 0) den_C <- den_C + (B.L1/2) * ones_QN_At
         C <- C * (num_C / (den_C + .eps))
       }
       ## lm()-style weighted least squares: L = sum(W * (Y - XB)^2).
@@ -2468,6 +2512,16 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
         }
+        if (X.L2.smooth > 0 && nrow(X) >= 2) {
+          ## path-graph Laplacian over rows: grad = lambda (D X - W X)
+          Pr <- nrow(X)
+          WX <- X * 0
+          WX[-Pr, ] <- WX[-Pr, ] + X[-1, , drop = FALSE]
+          WX[-1, ]  <- WX[-1, ]  + X[-Pr, , drop = FALSE]
+          degX <- c(1, rep(2, Pr - 2), 1) * X
+          num_X <- num_X + X.L2.smooth * WX
+          den_X <- den_X + X.L2.smooth * degX
+        }
         update_ratio <- num_X / (den_X + .eps)
         X <- X * update_ratio
         X <- xnorm(X)
@@ -2478,14 +2532,12 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         num_C <- tX %*% ratio
         den_C <- tX %*% Y.weights
         if (C.L1 != 0) den_C <- den_C + C.L1 * ones_QN
-        if (B.L1 != 0) den_C <- den_C + B.L1 * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
         ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio %*% At
         den_C <- tX %*% Y.weights %*% At
         if (C.L1 != 0) den_C <- den_C + C.L1 * matrix(1, nrow=Q, ncol=nrow(A))
-        if (B.L1 != 0) den_C <- den_C + B.L1 * ones_QN_At
         C <- C * (num_C / (den_C + .eps))
       }
       term1 <- - (Y.weights * Y) * log(XB + .eps)
@@ -2494,10 +2546,14 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     }
 
     if (C.L1 != 0) obj <- obj + C.L1 * sum(C)
-    if (B.L1 != 0) obj <- obj + if (hasA) B.L1 * sum(C %*% A) else B.L1 * sum(C)
     if (X.L2.ortho != 0) {
       XtX <- crossprod(X); diag(XtX) <- 0
       obj <- obj + (X.L2.ortho / 2) * sum(XtX^2)
+    }
+    if (X.L2.smooth != 0 && nrow(X) >= 2) {
+      ## (lambda/2) tr(X' L X) = (lambda/2) sum of squared adjacent-row diffs
+      obj <- obj + (X.L2.smooth / 2) * sum((X[-1, , drop = FALSE] -
+                                            X[-nrow(X), , drop = FALSE])^2)
     }
     objfunc.iter[i] <- obj
 
@@ -2554,8 +2610,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 
   if(epsilon.iter > abs(epsilon)) warning(paste0("maximum iterations (",maxit,") reached..."))
   end.time <- Sys.time()
-  diff.time.st <- paste0(round(difftime(end.time,start.time,units="sec"),1),"sec")
-  if(print.dims) message(diff.time.st)
+  ## runtime stored as numeric seconds (house style, matches nmfkc.net/.signed);
+  ## formatted for display in print()/summary().
+  diff.time.sec <- as.numeric(difftime(end.time, start.time, units = "sec"))
+  if(print.dims) message(paste0(round(diff.time.sec, 1), "sec"))
 
   n.missing <- sum(Y.weights == 0)
   n.total <- prod(dim(Y))
@@ -2565,7 +2623,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   result <- list(
     call      = match.call(),
     dims      = dims,
-    runtime   = diff.time.st,
+    runtime   = diff.time.sec,
     method    = method,
     X         = X,
     B         = B,
@@ -2725,7 +2783,8 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   }
   cat("Dimensions:", x$dims, "\n")
   if(!is.null(x$rank)) cat("Rank (Q):   ", x$rank, "\n")
-  cat("Runtime:    ", x$runtime, "\n")
+  cat("Runtime:    ",
+      if (is.numeric(x$runtime)) sprintf("%.1fsec", x$runtime) else x$runtime, "\n")
   if (!is.null(x$method)) cat("Method:     ", x$method, "\n")
   cat("Iterations: ", x$iter, "\n")
 
@@ -2968,7 +3027,7 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response"
 #'     \item{\code{shuffle}}{Logical. If \code{TRUE} (default), randomly shuffles samples (standard CV);
 #'       if \code{FALSE}, splits sequentially (block CV; recommended for time series).}
 #'     \item{\code{Q}}{(Deprecated) Alias for \code{rank}.}
-#'     \item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{gamma} (\code{B.L1}), \code{epsilon},
+#'     \item{\emph{Arguments passed to} \code{\link{nmfkc}}}{e.g., \code{C.L1}, \code{epsilon},
 #'       \code{maxit}, \code{method} (\code{"EU"} or \code{"KL"}), \code{X.restriction}, \code{X.init}, etc.}
 #'   }
 #'
@@ -3018,11 +3077,12 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
   Q <- rank
 
-  div <- if (!is.null(extra_args$div)) extra_args$div else 5
+  # fold count: accept nfolds (house-style name) as well as div
+  div <- if (!is.null(extra_args$nfolds)) extra_args$nfolds
+         else if (!is.null(extra_args$div)) extra_args$div else 5
   seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
   shuffle <- if (!is.null(extra_args$shuffle)) extra_args$shuffle else TRUE
 
-  gamma <- if (!is.null(extra_args$B.L1)) extra_args$B.L1 else if (!is.null(extra_args$gamma)) extra_args$gamma else 0
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
   maxit   <- if (!is.null(extra_args$maxit))   extra_args$maxit   else 5000
   method  <- if (!is.null(extra_args$method))  extra_args$method  else "EU"
@@ -3060,13 +3120,10 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   }
 
   # --- Helper: Weighted Optimization of B given fixed X and Y_test ---
-  optimize.B.from.Y <- function(result, Y_test, W_test, gamma, epsilon, maxit, method){
+  optimize.B.from.Y <- function(result, Y_test, W_test, epsilon, maxit, method){
     X <- result$X
     # Initialize C (which acts as B here)
     C <- matrix(1, nrow=ncol(X), ncol=ncol(Y_test))
-
-    # Precompute ones for penalty (must match test dimension)
-    ones_QN <- matrix(1, nrow=ncol(X), ncol=ncol(Y_test))
 
     oldSum <- 0
     epsilon.iter <- Inf
@@ -3082,7 +3139,6 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
         # Den: X^T (W * XB)
         den <- t(X) %*% (W_test * XB)
 
-        if(gamma != 0) den <- den + (gamma/2) * ones_QN
         C <- C * ( num / (den + .eps) )
 
       }else{ # KL
@@ -3093,7 +3149,6 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
         # Den: X^T W
         den <- t(X) %*% W_test
 
-        if(gamma != 0) den <- den + gamma * ones_QN
         C <- C * ( num / (den + .eps) )
       }
 
@@ -3191,7 +3246,7 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
     # Predict on Test set
     if(is_identity){
       # Standard NMF: Optimize B for test set using weights
-      resj <- optimize.B.from.Y(res_j, Y_test, W_test, gamma, epsilon, maxit, method)
+      resj <- optimize.B.from.Y(res_j, Y_test, W_test, epsilon, maxit, method)
       XB_test <- resj$XB
     }else{
       # Covariate NMF: Predict using A_test
@@ -3219,7 +3274,10 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   # Calculate RMSE for EU (This corresponds to 'sigma')
   sigma <- if(method == "EU") sqrt(objfunc) else NA
 
-  return(list(objfunc=objfunc, sigma=sigma, objfunc.block=objfunc.block, block=block))
+  out <- list(objfunc = objfunc, sigma = sigma, rank = Q, nfolds = div,
+              objfunc.block = objfunc.block, block = block)
+  class(out) <- "nmfkc.cv"
+  out
 }
 
 
@@ -3353,10 +3411,14 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   cv <- .ecv.run(paste0("Q=", Q), div, run_one)
   if (method != "EU") cv$sigma[] <- NA   # sigma = RMSE only for EU loss
 
-  return(list(objfunc = cv$objfunc,
+  out <- list(objfunc = cv$objfunc,
               sigma = cv$sigma,
+              rank = Q,
+              nfolds = div,
               objfunc.fold = cv$objfunc.fold,
-              folds = folds))
+              folds = folds)
+  class(out) <- "nmfkc.ecv"
+  out
 }
 
 
@@ -3986,6 +4048,23 @@ nmfkc.residual.plot <- function(Y, result,
 #'   to skip bootstrap (faster, only sandwich SE is computed).
 #' @param ... Additional arguments:
 #'   \describe{
+#'     \item{\code{method}}{Bootstrap engine. \code{"onestep"} (default): a
+#'       one-step Newton linearisation around the fit using the inverse
+#'       information \code{Hinv} (fast; the sandwich SE is primary).
+#'       \code{"refit"}: a residual wild bootstrap that re-estimates \eqn{C}
+#'       to convergence with the basis \eqn{X} held FIXED. The "refit" engine
+#'       uses no information matrix, so it stays valid when the Fisher
+#'       information \eqn{AA'} is singular (over-parameterised covariates) or
+#'       \eqn{C} sits on the \eqn{\ge 0} boundary; the bootstrap SE/CI become
+#'       primary and the p-value is a two-sided bootstrap p-value.}
+#'     \item{\code{wild.dist}}{Multiplier distribution (orthogonal to
+#'       \code{method}): \code{"rademacher"} (\eqn{\pm 1}), \code{"mammen"}
+#'       (Mammen 1993 two-point), or \code{"exp"} (\eqn{\mathrm{Exp}(1)-1}).
+#'       Default \code{"exp"} for \code{method="onestep"} (backward
+#'       compatible), \code{"rademacher"} for \code{"refit"}.}
+#'     \item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
+#'       (default, i.i.d. multiplier per matrix cell) or \code{"column"}
+#'       (one multiplier per sample column, shared over rows).}
 #'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
 #'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
 #'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
@@ -4030,6 +4109,15 @@ nmfkc.inference <- function(object, Y, A = NULL,
   C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
   cov.ridge   <- if (!is.null(extra_args$cov.ridge))   extra_args$cov.ridge   else 1e-8
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
+  ## Bootstrap engine: "onestep" (Hinv-linearised; historical default) or
+  ## "refit" (X-fixed residual wild bootstrap; valid when AA' is singular).
+  method    <- if (!is.null(extra_args$method))
+                 base::match.arg(extra_args$method, c("onestep", "refit")) else "onestep"
+  wild.dist <- if (!is.null(extra_args$wild.dist))
+                 base::match.arg(extra_args$wild.dist, c("rademacher", "mammen", "exp"))
+               else if (method == "onestep") "exp" else "rademacher"
+  wild.unit <- if (!is.null(extra_args$wild.unit))
+                 base::match.arg(extra_args$wild.unit, c("element", "column")) else "element"
 
   X <- object$X   # P x Q
   C_mat <- object$C   # Q x K (or Q x N if A is NULL)
@@ -4080,48 +4168,51 @@ nmfkc.inference <- function(object, Y, A = NULL,
 
   C.vec.cov <- if (!is.null(V_sand)) V_sand else Hinv
 
-  # Sandwich SE
+  # Sandwich SE (always computed; primary under method = "onestep")
   se_vec <- sqrt(pmax(diag(C.vec.cov), 0))
-  C.se <- matrix(se_vec, nrow = Q, ncol = K, byrow = FALSE)
+  C.se.sandwich <- matrix(se_vec, nrow = Q, ncol = K, byrow = FALSE)
 
-  # ---- Wild bootstrap (one-step Newton) ----
+  # ---- Wild bootstrap: "onestep" (Hinv-linearised) or "refit" (X-fixed) ----
   C.se.boot <- NULL
   C.ci.lower <- NULL
   C.ci.upper <- NULL
+  p.boot.vec <- NULL
+  C_boot <- NULL
 
   if (isTRUE(wild.bootstrap)) {
-    set.seed(wild.seed)
-    Xt <- t(X)
-    score_mat <- matrix(0, Q * K, N)
-    for (n in 1:N) {
-      a_n <- A[, n, drop = FALSE]
-      r_n <- R_C[, n, drop = FALSE]
-      g_n <- Xt %*% r_n
-      G_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
-      score_mat[, n] <- as.vector(G_n)
+    if (method == "onestep") {
+      Xt <- t(X)
+      score_mat <- matrix(0, Q * K, N)
+      for (n in 1:N) {
+        a_n <- A[, n, drop = FALSE]
+        r_n <- R_C[, n, drop = FALSE]
+        g_n <- Xt %*% r_n
+        G_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
+        score_mat[, n] <- as.vector(G_n)
+      }
+      C_boot <- .boot.onestep(as.vector(C_mat), score_mat, Hinv, wild.B,
+                              dist = wild.dist, seed = wild.seed, project = TRUE)
+    } else {                                   # method == "refit"
+      ## Re-fit with nmfkc()'s own optimiser, basis X held FIXED, so the
+      ## result matches the model's fitting behaviour (faithful even under
+      ## singular AA', where the solution is regularisation-dependent).
+      Qrank <- ncol(X)
+      refit.fun <- function(Ys) nmfkc(Ys, A = A, rank = Qrank,
+                                      X.init = X, X.restriction = "fixed",
+                                      verbose = FALSE)$C
+      C_boot <- .boot.refit(XB, R_C, refit.fun, wild.B,
+                            dist = wild.dist, seed = wild.seed,
+                            unit = wild.unit, clipY = TRUE)
     }
-
-    C_hat_vec <- as.vector(C_mat)
-    C_boot <- matrix(NA_real_, nrow = Q * K, ncol = wild.B)
-    for (b in 1:wild.B) {
-      w <- stats::rexp(N, rate = 1) - 1   # Exp(1)-centered multiplier
-      grad_b <- as.vector(score_mat %*% w)
-      c_b <- C_hat_vec - as.vector(Hinv %*% grad_b)
-      c_b <- pmax(c_b, 0)   # project onto C >= 0
-      C_boot[, b] <- c_b
-    }
-
-    # Bootstrap SE
-    sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
-    C.se.boot <- matrix(sd_vec, nrow = Q, ncol = K, byrow = FALSE)
-
-    # Bootstrap CI
-    alpha <- 1 - wild.level
-    lo <- apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
-    hi <- apply(C_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
-    C.ci.lower <- matrix(lo, nrow = Q, ncol = K, byrow = FALSE)
-    C.ci.upper <- matrix(hi, nrow = Q, ncol = K, byrow = FALSE)
+    bs <- .boot.summarize(C_boot, level = wild.level)
+    C.se.boot  <- matrix(bs$se,       nrow = Q, ncol = K, byrow = FALSE)
+    C.ci.lower <- matrix(bs$ci.lower, nrow = Q, ncol = K, byrow = FALSE)
+    C.ci.upper <- matrix(bs$ci.upper, nrow = Q, ncol = K, byrow = FALSE)
+    p.boot.vec <- bs$p.boot
   }
+
+  # Primary SE driving z / p: bootstrap SE under "refit", sandwich under "onestep"
+  C.se <- if (method == "refit" && !is.null(C.se.boot)) C.se.boot else C.se.sandwich
 
   # ---- Coefficients table ----
   Estimate <- as.vector(C_mat)
@@ -4129,7 +4220,9 @@ nmfkc.inference <- function(object, Y, A = NULL,
   BSE <- if (!is.null(C.se.boot)) as.vector(C.se.boot) else rep(NA_real_, length(Estimate))
   z_value <- ifelse(SE > 0, Estimate / SE, NA_real_)
 
-  if (C.p.side == "one.sided") {
+  if (method == "refit" && !is.null(p.boot.vec)) {
+    p_value <- p.boot.vec               # bootstrap two-sided p (no analytical z)
+  } else if (C.p.side == "one.sided") {
     p_value <- ifelse(is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
   } else {
     p_value <- ifelse(is.finite(z_value), 1 - stats::pchisq(z_value^2, df = 1), NA_real_)
@@ -4163,11 +4256,17 @@ nmfkc.inference <- function(object, Y, A = NULL,
   # Add inference fields to the object
   object$sigma2.used  <- sigma2.used
   object$C.se         <- C.se
+  object$C.se.sandwich <- C.se.sandwich
   object$C.se.boot    <- C.se.boot
   object$C.ci.lower   <- C.ci.lower
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
+  object$boot.method  <- method
+  object$wild.dist    <- if (isTRUE(wild.bootstrap)) wild.dist else NA_character_
+  ## Raw QK x B bootstrap draws of vec(C): lets callers form any functional
+  ## (e.g. an identifiable contrast / fitted curve) and its percentile band.
+  object$C.boot.draws <- C_boot
   class(object) <- c("nmfkc.inference", "nmf.inference", "nmfkc", "nmf")
   return(object)
 }
@@ -4199,12 +4298,17 @@ summary.nmfkc.inference <- function(object, ...) {
 #' @param x An object of class \code{"summary.nmfkc.inference"}.
 #' @param digits Minimum number of significant digits.
 #' @param max.coef Maximum coefficient rows to display. Default is 20.
+#' @param by Character; grouping order of the coefficients table.
+#'   \code{"covariate"} (default) lists all bases within each covariate
+#'   (1-1, 1-2, ...); \code{"basis"} lists all covariates within each basis
+#'   (1-1, 2-1, ...).
 #' @param ... Additional arguments (currently unused).
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
 #' @seealso \code{\link{summary.nmfkc.inference}}
 #' @export
 print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits") - 3L),
-                                           max.coef = 20, ...) {
+                                           max.coef = 20, by = c("covariate", "basis"), ...) {
+  by <- match.arg(by)
   # Print base summary
   print.summary.nmfkc(x, digits = digits, ...)
 
@@ -4215,6 +4319,7 @@ print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits"
   # Coefficients table (formatted like lm summary)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
+    cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
     n_total <- nrow(cf)
     rnames <- paste0(cf$Covariate, ":", cf$Basis)
 

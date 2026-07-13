@@ -1,5 +1,7 @@
-# nmf.sem.R — NMF-FFB (formerly NMF-SEM) related functions
-# nmf.sem, nmf.sem.cv, nmf.sem.split, nmf.sem.DOT
+# nmf.sem.R — NMF-FFB (formerly NMF-SEM) canonical engines + generic DOT
+# Canonical:  nmf.ffb, nmf.ffb.inference, nmf.ffb.cv, nmf.ffb.split, nmf.ffb.DOT
+#             (deprecated nmf.sem* aliases live in nmf.sem-deprecated.R).
+# Also hosts: nmfkc.DOT / plot.nmfkc.DOT (shared DOT utilities).
 
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
@@ -152,18 +154,18 @@
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]  # Sepal
 #' Y2 <- Y[3:4, ]  # Petal
-#' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
+#' result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
 #' result$MAE
 #'
-#' @seealso \code{\link{nmf.sem.inference}}, \code{\link{nmf.sem.cv}},
-#'   \code{\link{nmf.sem.split}}, \code{\link{nmf.sem.DOT}},
+#' @seealso \code{\link{nmf.ffb.inference}}, \code{\link{nmf.ffb.cv}},
+#'   \code{\link{nmf.ffb.split}}, \code{\link{nmf.ffb.DOT}},
 #'   \code{\link{summary.nmf.sem}}
 #' @references
 #' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
 #'   to structural equation modeling for blind input-output analysis.
 #'   arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 #' @export
-nmf.sem <- function(
+nmf.ffb <- function(
     Y1, Y2,
     rank = NULL,
     X.init = "nndsvd",
@@ -464,7 +466,7 @@ nmf.sem <- function(
   ## Carry both the canonical NMF-FFB class (paper-aligned, primary) and
   ## the legacy "nmf.sem" class (back-compat).  S3 methods registered on
   ## either class are dispatched correctly via inheritance.
-  class(out) <- c("nmf.ffb", "nmf.sem")
+  class(out) <- c("nmf.ffb", "nmf.sem", "nmf")
   out
 }
 
@@ -584,11 +586,11 @@ nmf.sem <- function(
 #' \donttest{
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
-#' res  <- nmf.sem(Y1, Y2, rank = 2)
-#' res2 <- nmf.sem.inference(res, Y1, Y2, B = 200)  # quick demo
+#' res  <- nmf.ffb(Y1, Y2, rank = 2)
+#' res2 <- nmf.ffb.inference(res, Y1, Y2, B = 200)  # quick demo
 #' head(res2$coefficients)
 #' }
-nmf.sem.inference <- function(object, Y1, Y2,
+nmf.ffb.inference <- function(object, Y1, Y2,
                                B = 1000L,
                                threshold = 0.01,
                                ci.level = 0.95,
@@ -913,19 +915,19 @@ nmf.sem.inference <- function(object, Y1, Y2,
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]
 #' Y2 <- Y[3:4, ]
-#' mae <- nmf.sem.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
+#' mae <- nmf.ffb.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 #' mae
 #'
 #' @seealso \code{\link{nmf.sem}}
 #' @export
-nmf.sem.cv <- function(
+nmf.ffb.cv <- function(
     Y1, Y2,
     rank = NULL,
     X.init = "nndsvd",
     X.L2.ortho = 100.0,
     C1.L1 = 1.0,        # L1 sparsity for C1 (Theta1)
     C2.L1 = 0.1,        # L1 sparsity for C2 (Theta2)
-    epsilon = 1e-6,     # Convergence tolerance passed to nmf.sem
+    epsilon = 1e-6,     # Convergence tolerance passed to nmf.ffb
     maxit = 5000,
     ...
 ){
@@ -1075,7 +1077,7 @@ nmf.sem.cv <- function(
     }
 
     # Call nmf.sem on the training data (suppress messages for cleaner CV output)
-    res_j <- suppressMessages(do.call("nmf.sem", nmf.sem.args))
+    res_j <- suppressMessages(do.call("nmf.ffb", nmf.sem.args))
 
     # If mapping is not usable, penalize this fold (do not crash CV)
     if (is.null(res_j$M.model) || any(!is.finite(res_j$M.model))) {
@@ -1156,14 +1158,14 @@ nmf.sem.cv <- function(
 #'
 #' @examples
 #' # Infer exogenous/endogenous split from iris
-#' sp <- nmf.sem.split(iris[, -5], n.exogenous = 2)
+#' sp <- nmf.ffb.split(iris[, -5], n.exogenous = 2)
 #' sp$endogenous.variables
 #' sp$exogenous.variables
 #'
 #' @seealso \code{\link{nmf.sem}}
 #' @export
-nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
-                          auto.flipped = TRUE, verbose = FALSE) {
+nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
+                          auto.flipped = TRUE, verbose = FALSE, ...) {
 
   if (!is.matrix(x) && !is.data.frame(x))
     stop("x must be a numeric matrix or data frame.")
@@ -1430,14 +1432,14 @@ nmf.sem.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]
 #' Y2 <- Y[3:4, ]
-#' result <- nmf.sem(Y1, Y2, rank = 2, maxit = 500)
-#' dot <- nmf.sem.DOT(result)
+#' result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
+#' dot <- nmf.ffb.DOT(result)
 #' cat(dot)
 #'
-#' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.inference}},
+#' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}},
 #'   \code{\link{plot.nmfkc.DOT}}
 #' @export
-nmf.sem.DOT <- function(result,
+nmf.ffb.DOT <- function(result,
                         weight_scale          = 5,
                         weight_scale_c2       = weight_scale,
                         weight_scale_x1       = weight_scale,
@@ -1805,7 +1807,20 @@ nmf.sem.DOT <- function(result,
 #'   \code{X}, \code{B}, and optionally \code{C}.
 #' @param type Character string specifying the visualization style:
 #'   one of \code{"YX"}, \code{"YA"}, \code{"YXA"}.
-#' @param threshold Minimum coefficient magnitude to display an edge.
+#' @param threshold Minimum coefficient magnitude to display an edge. When
+#'   \code{C.signed = TRUE} (signed \eqn{\Theta}) this is an absolute-value cut,
+#'   i.e. an edge is drawn when \eqn{|coef| \ge} \code{threshold}.
+#' @param C.signed Logical or \code{NULL}. Whether the coefficient matrix
+#'   \eqn{\Theta} (\code{= C}) may be signed (real-valued). When \code{TRUE},
+#'   the \code{threshold} is applied to \eqn{|coef|}, edge widths are scaled by
+#'   \eqn{|coef|}, and negative edges are drawn as black \strong{dashed} lines
+#'   (positive edges remain solid) to distinguish them; the numeric edge labels
+#'   keep their sign. When \code{FALSE}, the historical non-negative behaviour is used
+#'   (negative coefficients fall below the threshold and are hidden). When
+#'   \code{NULL} (default), the mode is auto-detected from the fit
+#'   (\code{result$C.signed}) or from the presence of negative entries in
+#'   \eqn{C} / \eqn{XC}. The basis \eqn{X} is always non-negative, so
+#'   \eqn{X \rightarrow Y} edges are unaffected.
 #' @param sig.level Significance level for filtering C edges when inference
 #'   results are available (i.e., \code{x} is of class \code{"nmfkc.inference"}).
 #'   Only edges with p-value below \code{sig.level} are shown, decorated with
@@ -1842,6 +1857,7 @@ nmfkc.DOT <- function(
     result,
     type = c("YX","YA","YXA"),
     threshold = 0.01,
+    C.signed = NULL,
     sig.level = 0.1,
     rankdir   = "LR",
     fill      = TRUE,
@@ -1911,6 +1927,24 @@ nmfkc.DOT <- function(
   }
 
   ## ---------------------------------------------------------
+  ## Sign mode of C (= Theta). When NULL, auto-detect from the fit
+  ## (result$C.signed) or from negative entries in C / XC. In signed mode the
+  ## threshold is an absolute-value cut (|coef| >= threshold), edge widths use
+  ## |coef|, and negative edges are coloured to distinguish them. The basis X
+  ## is always non-negative, so X -> Y edges are unaffected.
+  ## ---------------------------------------------------------
+  if (is.null(C.signed)) {
+    C.signed <- isTRUE(result$C.signed) ||
+      (!is.null(C)      && any(C      < 0, na.rm = TRUE)) ||
+      (!is.null(XC_mat) && any(XC_mat < 0, na.rm = TRUE))
+  }
+  C.signed <- isTRUE(C.signed)
+  ## magnitude used for thresholding and penwidth scaling (|.| in signed mode)
+  mag <- if (C.signed) function(v) abs(v) else function(v) v
+  ## edge line style by sign (negative -> dashed) in signed mode; colour stays black
+  estyle <- function(v) if (C.signed && is.finite(v) && v < 0) "dashed" else "solid"
+
+  ## ---------------------------------------------------------
   ## Filter isolated nodes (hide.isolated)
   ## ---------------------------------------------------------
   idx_Y <- seq_len(P)
@@ -1921,18 +1955,18 @@ nmfkc.DOT <- function(
       used_Y <- apply(X, 1L, function(row) any(row >= threshold, na.rm = TRUE))
       idx_Y <- which(used_Y)
     } else if (type == "YA" && !is.null(XC_mat)) {
-      # Y is connected via XC: XC_mat[i, ] >= threshold
-      used_Y <- apply(XC_mat, 1L, function(row) any(row >= threshold, na.rm = TRUE))
+      # Y is connected via XC: |XC_mat[i, ]| >= threshold
+      used_Y <- apply(XC_mat, 1L, function(row) any(mag(row) >= threshold, na.rm = TRUE))
       idx_Y <- which(used_Y)
     }
     if (hasA && type %in% c("YXA", "YA")) {
       if (type == "YXA" && !is.null(C)) {
-        # A is connected via C: C[, k] >= threshold
-        used_A <- apply(C, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+        # A is connected via C: |C[, k]| >= threshold
+        used_A <- apply(C, 2L, function(col) any(mag(col) >= threshold, na.rm = TRUE))
         idx_A <- which(used_A)
       } else if (type == "YA" && !is.null(XC_mat)) {
-        # A is connected via XC: XC_mat[, k] >= threshold
-        used_A <- apply(XC_mat, 2L, function(col) any(col >= threshold, na.rm = TRUE))
+        # A is connected via XC: |XC_mat[, k]| >= threshold
+        used_A <- apply(XC_mat, 2L, function(col) any(mag(col) >= threshold, na.rm = TRUE))
         idx_A <- which(used_A)
       }
     }
@@ -2055,21 +2089,22 @@ nmfkc.DOT <- function(
       '  edge [color=black, fontcolor=black, style=solid];\n'
     )
 
-    max_C <- suppressWarnings(max(C, na.rm = TRUE))
+    max_C <- suppressWarnings(max(mag(C), na.rm = TRUE))
     if (is.finite(max_C) && max_C > 0) {
       for (q in seq_len(Q)) {
         for (k in idx_A) {
           val <- C[q, k]
           show <- if (!is.null(C_show)) C_show[q, k]
-                  else is.finite(val) && val >= threshold
+                  else is.finite(val) && mag(val) >= threshold
           if (show) {
-            pen <- pw(val, max_C, weight_scale_ax)
+            pen <- pw(mag(val), max_C, weight_scale_ax)
             lab <- fmtc(val)
             if (!is.null(C_stars)) lab <- paste0(lab, C_stars[q, k])
+            sty <- estyle(val)
             scr <- paste0(
               scr,
-              sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
-                      A_ids[k], X_ids[q], lab, pen)
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f, style=%s];\n',
+                      A_ids[k], X_ids[q], lab, pen, sty)
             )
           }
         }
@@ -2113,18 +2148,19 @@ nmfkc.DOT <- function(
       '  edge [color=black, fontcolor=black, style=solid];\n'
     )
 
-    max_XC <- suppressWarnings(max(XC_mat, na.rm = TRUE))
+    max_XC <- suppressWarnings(max(mag(XC_mat), na.rm = TRUE))
     if (is.finite(max_XC) && max_XC > 0) {
       for (i in idx_Y) {
         for (k in idx_A) {
           val <- XC_mat[i, k]
-          if (is.finite(val) && val >= threshold) {
-            pen <- pw(val, max_XC, weight_scale_ay)
+          if (is.finite(val) && mag(val) >= threshold) {
+            pen <- pw(mag(val), max_XC, weight_scale_ay)
             lab <- fmtc(val)
+            sty <- estyle(val)
             scr <- paste0(
               scr,
-              sprintf('  %s -> %s [label="%s", penwidth=%.2f];\n',
-                      A_ids[k], Y_ids[i], lab, pen)
+              sprintf('  %s -> %s [label="%s", penwidth=%.2f, style=%s];\n',
+                      A_ids[k], Y_ids[i], lab, pen, sty)
             )
           }
         }

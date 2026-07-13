@@ -8,8 +8,7 @@ nmfre(
   Y,
   A = NULL,
   rank = 2,
-  df.rate = NULL,
-  wild.bootstrap = TRUE,
+  C.signed = TRUE,
   epsilon = 1e-05,
   maxit = 5000,
   ...
@@ -23,15 +22,16 @@ nmfre(
 \item{rank}{Integer. Rank of the basis matrix \eqn{X}. Default is 2.
 For backward compatibility, \code{Q} is accepted via \code{...}.}
 
-\item{df.rate}{Rate for computing the dfU cap (\code{cap = rate * N * Q}).
-For backward compatibility, \code{dfU.cap.rate} is accepted via \code{...}.
-If \code{NULL} (default), runs \code{\link{nmfre.dfU.scan}} internally and
-selects the minimum rate where the cap is not binding.
-Use \code{\link{nmfre.dfU.scan}} beforehand to examine dfU behavior across rates
-and choose an appropriate value.}
-
-\item{wild.bootstrap}{Logical. If \code{TRUE} (default), perform wild bootstrap inference
-on \eqn{\Theta}.}
+\item{C.signed}{Logical. Whether the fixed-effect coefficients \eqn{C}
+(\eqn{= \Theta} in the paper) are sign-free; the single switch that selects
+the whole estimation scheme. \code{TRUE} (default, recommended, matches the
+paper) treats \eqn{C} as real-valued and updates it by exact least squares,
+with the basis \eqn{X} estimated by the complete-EM semi-NMF step and a
+two-sided test (interior null). \code{FALSE} constrains \eqn{C \ge 0} via a
+multiplicative update, with \eqn{X} estimated by the positive-part
+multiplicative update and a one-sided test (boundary null). The basis
+\eqn{X} is always non-negative. A character value (\code{"signed"} /
+\code{"nonneg"}) is also accepted for backward compatibility.}
 
 \item{epsilon}{Convergence tolerance for relative change in objective (default 1e-5).}
 
@@ -54,15 +54,38 @@ When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial v
 \item \code{sigma2.update}: Logical. Update \eqn{\sigma^2} during iterations (default \code{TRUE}).
 \item \code{tau2}: Initial random effect variance (default 1).
 \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
-Disabled when dfU cap is active.
-\item \code{dfU.control}: Either \code{"cap"} (default) to enforce a cap on dfU,
-or \code{"off"} for no cap.
+\item \code{x.postvar}: Logical. Include the posterior-variance term in
+the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies only
+to the sign-free / semi-NMF path (\code{C.signed = TRUE}).
+\item \code{X.L2.smooth}: Non-negative row-smoothness penalty on the
+basis \eqn{X} (default 0), adding
+\eqn{(\lambda/2)\,\mathrm{tr}(X^\top L X)} with \eqn{L} the path-graph
+Laplacian over rows (squared adjacent-row differences).  Well suited to
+ordered rows (e.g.\ longitudinal / spatial bases).  Injected into the
+\eqn{X}-step for both \code{C.signed = TRUE/FALSE}; leaves the
+random-effect variance updates unchanged.
+\item \code{X.L2.ortho}: Non-negative column-orthogonality penalty on
+\eqn{X} (default 0), penalizing
+\eqn{(\lambda/2)\lVert\mathrm{offdiag}(X^\top X)\rVert^2}.
+\item \code{C.L2}: Non-negative ridge penalty on \eqn{\Theta = C}
+(default 0), adding \eqn{\lambda\lVert C\rVert^2}.  A Gaussian prior on
+the fixed effects; for \code{C.signed = TRUE} the \eqn{C}-step stays a
+closed-form Sylvester ridge-LS solve, for \code{C.signed = FALSE} it is
+added to the multiplicative-update denominator.
+\item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
+cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
+reported as a diagnostic only.
 \item \code{print.trace}: Logical. If \code{TRUE}, print progress every 100 iterations (default \code{FALSE}).
 \item \code{seed}: Integer seed for reproducibility (default 1).
-\item \code{C.p.side}: P-value sidedness: \code{"one.sided"} (default, for boundary null
-H0: C=0 vs H1: C>0) or \code{"two.sided"}.
-\item \code{wild.B}: Number of wild bootstrap replicates (default 500).
-\item \code{wild.seed}: Seed for wild bootstrap (default 123).
+\item \code{nstart}: Number of random restarts for the \code{nmfkc()}
+initialisation step (passed to the k-means initialiser). Default
+\code{1} (single start; historical behaviour). A larger value
+(e.g.\ 10-20) gives a more stable initialisation.
+\item \code{inner.maxit}, \code{outer.maxit}: Maximum inner (fixed-\eqn{\lambda}
+block-coordinate) and outer (EM variance) iterations (defaults
+\code{10000} and \code{500}).
+\item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
+\eqn{\lambda} (default \code{1e-6}).
 }}
 }
 \value{
@@ -72,6 +95,10 @@ The model is \eqn{Y = X(\Theta A + U) + \mathcal{E}}.
 \strong{Core matrices}
 \describe{
 \item{\code{X}}{Basis matrix \eqn{X} (\eqn{P \times Q}), columns normalized to sum to 1.}
+\item{\code{X.prob}}{Row-wise soft-clustering probabilities from the
+non-negative \eqn{X} (each row normalized to sum to 1), as in \code{\link{nmfkc}}.}
+\item{\code{X.cluster}}{Hard-clustering label for each row of \eqn{X}
+(argmax over \code{X.prob}).}
 \item{\code{C}}{Coefficient matrix \eqn{\Theta} (\eqn{Q \times K}).}
 \item{\code{U}}{Random effects matrix \eqn{U} (\eqn{Q \times N}).}
 }
@@ -93,8 +120,15 @@ The model is \eqn{Y = X(\Theta A + U) + \mathcal{E}}.
 \item{\code{objfunc}}{Final objective function value
 \eqn{\|Y - X(\Theta A + U)\|^2 + \lambda \|U\|^2}.}
 \item{\code{rel.change.final}}{Final relative change in objective.}
-\item{\code{objfunc.iter}}{Numeric vector of objective values per iteration.}
+\item{\code{objfunc.iter}}{Numeric vector of the fixed-\eqn{\lambda}
+penalized objective \eqn{\|Y - X(\Theta A + U)\|^2 + \lambda\|U\|^2}
+per iteration. Monotone within an inner loop but \emph{not} across
+outer iterations (the penalty jumps when \eqn{\lambda} is updated).}
 \item{\code{rss.trace}}{Numeric vector of \eqn{\|Y - X(\Theta A + U)\|^2} per iteration.}
+\item{\code{nll.trace}}{Numeric vector of the marginal negative
+log-likelihood \eqn{\ell(X,\Theta,\sigma^2,\tau^2)} per iteration
+(random effects integrated out). This is the ECM-monotone quantity and
+is what \code{\link{plot.nmfre}} displays.}
 }
 
 \strong{Effective degrees of freedom (dfU) diagnostics}
@@ -104,7 +138,6 @@ The model is \eqn{Y = X(\Theta A + U) + \mathcal{E}}.
 where \eqn{d_q} are eigenvalues of \eqn{X'X}.}
 \item{\code{dfU.cap}}{Upper bound imposed on \eqn{\mathrm{df}_U}.}
 \item{\code{dfU.cap.rate}}{Rate used to compute the cap.}
-\item{\code{dfU.cap.scan}}{Result of \code{\link{nmfre.dfU.scan}}, or \code{NULL}.}
 \item{\code{lambda.enforced}}{Final \eqn{\lambda} enforced to satisfy the cap.}
 \item{\code{dfU.hit.cap}}{Logical. Whether the cap was binding.}
 \item{\code{dfU.hit.iter}}{Iteration at which the cap first bound.}
@@ -158,21 +191,14 @@ This equals the average (over \eqn{P} dimensions) proportion of
 per-column variance attributable to the random effects.}
 }
 
-\strong{Inference on \eqn{\Theta} (wild bootstrap)}
+\strong{Sign convention}
 \describe{
-\item{\code{sigma2.used}}{\eqn{\hat{\sigma}^2} used for inference.}
-\item{\code{C.vec.cov}}{Variance-covariance matrix for
-\eqn{\mathrm{vec}(\Theta)} (\eqn{QK \times QK}).}
-\item{\code{C.se}}{Standard error matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-\item{\code{C.se.hess}}{Sandwich (Hessian-based) SE matrix for \eqn{\Theta}.}
-\item{\code{C.se.boot}}{Bootstrap SE matrix for \eqn{\Theta}.}
-\item{\code{coefficients}}{Data frame with columns Estimate, Std. Error, z value,
-Pr(>|z|), and confidence interval bounds for each element of \eqn{\Theta}.}
-\item{\code{C.ci.lower}}{Lower confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-\item{\code{C.ci.upper}}{Upper confidence interval matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-\item{\code{C.boot.sd}}{Bootstrap standard deviation matrix for \eqn{\Theta} (\eqn{Q \times K}).}
-\item{\code{C.p.side}}{P-value sidedness used: \code{"one.sided"} or \code{"two.sided"}.}
+\item{\code{C.signed}}{Logical. Whether \eqn{C} was sign-free (\code{TRUE}) or non-negative (\code{FALSE}).}
 }
+
+Standard errors, z-values, p-values, and confidence intervals for
+\eqn{\Theta} are \strong{not} computed here; obtain them by passing the fit
+to \code{\link{nmfre.inference}}.
 }
 \description{
 Estimates the NMF-RE model
@@ -192,16 +218,16 @@ selection without an explicit sparsity penalty. Inference on \eqn{\Theta}
 provides covariate-side variable selection by identifying which covariates
 significantly affect which components.
 
-Estimation alternates ridge-type BLUP-like closed-form updates for \eqn{U}
-with multiplicative non-negative updates for \eqn{X} and \eqn{\Theta}.
-The effective degrees of freedom consumed by \eqn{U} are monitored and a
-df-based cap can be enforced to prevent near-saturated fits.
+Estimation is an outer--inner ECM: an inner loop (fixed \eqn{\lambda}) runs a
+ridge/BLUP update for \eqn{U}, a complete-EM semi-NMF update for \eqn{X}, and
+a fixed-effect update for \eqn{\Theta}; an outer loop runs the EM M-steps for
+\eqn{(\sigma^2, \tau^2)}. The variance components are estimated from the data;
+the effective degrees of freedom \eqn{df_U} are reported only as a diagnostic.
 
-When \code{wild.bootstrap = TRUE}, inference on \eqn{\Theta} is performed
-conditional on \eqn{(\hat{X}, \hat{U})} via asymptotic linearization,
-a one-step Newton update, and a multiplier (wild) bootstrap, yielding
-standard errors, z-values, p-values, and confidence intervals without
-repeated constrained re-optimization.
+\code{nmfre()} performs \strong{optimization only}. Hypothesis tests and
+standard errors for \eqn{\Theta} are obtained separately with
+\code{\link{nmfre.inference}} (sandwich SE + wild bootstrap), mirroring the
+\code{\link{nmfkc}} / \code{nmfkc.inference} split.
 }
 \examples{
 # Example 1. cars data
@@ -217,11 +243,8 @@ if (requireNamespace("nlme", quietly = TRUE)) {
   male <- ifelse(nlme::Orthodont$Sex[seq(1, 108, 4)] == "Male", 1, 0)
   A <- rbind(intercept = 1, male = male)
 
-  # Scan dfU cap rates to choose an appropriate value
-  nmfre.dfU.scan(1:10/10, Y, A, rank = 1)
-
-  # Fit with chosen rate
-  res <- nmfre(Y, A, rank = 1, df.rate = 0.2)
+  # Fit (sign-free Theta by default; variances estimated by EM/ECM)
+  res <- nmfre(Y, A, rank = 1)
   summary(res)
 }}
 
@@ -232,6 +255,6 @@ Factorization with Random Effects. arXiv:2603.01468.
 \url{https://arxiv.org/abs/2603.01468}
 }
 \seealso{
-\code{\link{nmfre.inference}}, \code{\link{nmfre.dfU.scan}},
+\code{\link{nmfre.inference}},
 \code{\link{nmfkc.DOT}}, \code{\link{summary.nmfre}}
 }

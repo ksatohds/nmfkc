@@ -35,7 +35,9 @@ An object of class \code{"nmfkc.ard"}: a list with
 \code{rank} (estimated = mode over restarts), \code{rank.runs} (the
 per-run estimates), \code{relevance} (representative run, descending),
 \code{lambda}, \code{W}, \code{H} (ordered by relevance),
-\code{rank.init}, \code{prior}, \code{nrun} and \code{objfunc}.
+\code{rank.init}, \code{prior}, \code{nrun}, \code{objfunc} (final
+objective value of the representative run) and \code{objfunc.iter} (its
+per-iteration trajectory).
 }
 \description{
 \strong{Prototype} of Tan & Fevotte's (2013) ARD-NMF (Euclidean /
