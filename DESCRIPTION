@@ -1,8 +1,8 @@
 Package: nmfkc
 Type: Package
 Title: Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.8.7
-Date: 2026-06-15
+Version: 0.8.8
+Date: 2026-07-14
 Authors@R:
     person("Kenichi", "Satoh",
            email = "kenichi-satoh@biwako.shiga-u.ac.jp",

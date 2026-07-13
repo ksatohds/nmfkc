@@ -1,4 +1,4 @@
-# nmfkc 0.8.4 (development)
+# nmfkc 0.8.8
 
 ### **Removed the `B.L1` penalty (and its `gamma` alias)**
 - `B.L1` placed an L1 penalty on the fitted coefficient field \eqn{B = C A}.
@@ -222,8 +222,6 @@
 - **Removed** the exported helper `nmfre.dfU.scan()` (and its `print` method):
   it scanned `df_U` cap rates, which no longer exist now that the variance
   components are estimated. The `df.rate` argument is retained but inert.
-
-# nmfkc 0.8.3 (development)
 
 ### **`nmf.rrr`: NMF-RRR names for the `nmfae` family**
 - New `nmf.rrr` / `nmf.rrr.signed` (and `.inference`, `.ecv`, `.cv`, `.rank`,
