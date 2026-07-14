@@ -23,7 +23,7 @@ The rank of the basis matrix can be specified using either the rank argument
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@ The rank of the basis matrix can be specified using either the rank argument
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -138,15 +139,21 @@ otherwise no weighting.</p></li>
 It minimizes the off-diagonal elements of the Gram matrix \(X^\top X\), reducing the correlation
 between basis vectors (conceptually minimizing \(\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2\)).
 (Formerly <code>lambda.ortho</code>).</p></li>
-<li><p><code>B.L1</code>: Nonnegative penalty parameter for L1 regularization on \(B = C A\) (default: 0).
-Promotes <strong>sparsity in the coefficients</strong>. (Formerly <code>gamma</code>).</p></li>
+<li><p><code>X.L2.smooth</code>: Nonnegative penalty parameter for row-smoothness of
+\(X\) (default: 0). Adds \(\lambda\,\mathrm{tr}(X^\top L X)\) with \(L\)
+the path-graph Laplacian over the \(P\) rows, i.e.\ it penalizes squared
+differences between adjacent rows \(\sum_q\sum_{j\ge 2}(x_{jq}-x_{j-1,q})^2\),
+yielding gently-varying (smooth) bases. Integrates with the multiplicative
+updates (non-negativity and monotone descent preserved). Useful when the rows
+of \(Y\) have a natural order (e.g.\ time points).</p></li>
 <li><p><code>C.L1</code>: Nonnegative penalty parameter for L1 regularization on \(C\) (default: 0).
-Promotes <strong>sparsity in the parameter matrix</strong>. (Formerly <code>lambda</code>).</p></li>
+Promotes <strong>sparsity in the parameter matrix</strong> \(\Theta\) (variable
+selection over basis-covariate links). (Formerly <code>lambda</code>).</p></li>
 <li><p><code>Q</code>: Backward-compatible name for the rank of the basis matrix (Q).</p></li>
 <li><p><code>method</code>: Objective function: Euclidean distance <code>"EU"</code> (default) or Kullback–Leibler divergence <code>"KL"</code>.</p></li>
 <li><p><code>X.restriction</code>: Constraint for columns of \(X\). Options: <code>"colSums"</code> (default), <code>"colSqSums"</code>, <code>"totalSum"</code>, <code>"none"</code>, or <code>"fixed"</code>.
 <code>"none"</code> applies no normalization to \(X\) after each update, allowing it to absorb the scale freely.</p></li>
-<li><p><code>X.init</code>: Method for initializing the basis matrix \(X\). Options: <code>"kmeans"</code> (default), <code>"kmeansar"</code>, <code>"runif"</code>, <code>"nndsvd"</code>, or a user-specified matrix. <code>"kmeansar"</code> applies \(k\)-means initialization and then fills zero entries with <code>Uniform(0, mean(Y)/100)</code>, analogous to NNDSVDar.</p></li>
+<li><p><code>X.init</code>: Method for initializing the basis matrix \(X\). Options: <code>"kmeans"</code> (default), <code>"kmeansar"</code>, <code>"kmeans++"</code>, <code>"runif"</code>, <code>"nndsvd"</code>, or a user-specified matrix. <code>"kmeansar"</code> applies \(k\)-means initialization and then fills zero entries with <code>Uniform(0, mean(Y)/100)</code>, analogous to NNDSVDar. <code>"kmeans++"</code> seeds the \(k\)-means centres by \(D^2\) weighting (Arthur &amp; Vassilvitskii, 2007) before Lloyd refinement, giving a more careful, stable initialization (<code>nstart</code> is not used in this case).</p></li>
 <li><p><code>nstart</code>: Number of random starts for initialization of \(X\) (default: 1).
 Used by <code>kmeans</code> (when <code>X.init = "kmeans"</code> or <code>"kmeansar"</code>) and by the
 multi-start evaluation (when <code>X.init = "runif"</code>).</p></li>

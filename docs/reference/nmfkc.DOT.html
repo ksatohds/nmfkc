@@ -27,7 +27,7 @@ above the threshold are omitted from the visualization.'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,6 +43,7 @@ above the threshold are omitted from the visualization.'></head><body>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -81,6 +82,7 @@ above the threshold are omitted from the visualization.</p>
 <span>  <span class="va">result</span>,</span>
 <span>  type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"YX"</span>, <span class="st">"YA"</span>, <span class="st">"YXA"</span><span class="op">)</span>,</span>
 <span>  threshold <span class="op">=</span> <span class="fl">0.01</span>,</span>
+<span>  C.signed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sig.level <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  rankdir <span class="op">=</span> <span class="st">"LR"</span>,</span>
 <span>  fill <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -113,7 +115,23 @@ one of <code>"YX"</code>, <code>"YA"</code>, <code>"YXA"</code>.</p></dd>
 
 
 <dt id="arg-threshold">threshold<a class="anchor" aria-label="anchor" href="#arg-threshold"></a></dt>
-<dd><p>Minimum coefficient magnitude to display an edge.</p></dd>
+<dd><p>Minimum coefficient magnitude to display an edge. When
+<code>C.signed = TRUE</code> (signed \(\Theta\)) this is an absolute-value cut,
+i.e. an edge is drawn when \(|coef| \ge\) <code>threshold</code>.</p></dd>
+
+
+<dt id="arg-c-signed">C.signed<a class="anchor" aria-label="anchor" href="#arg-c-signed"></a></dt>
+<dd><p>Logical or <code>NULL</code>. Whether the coefficient matrix
+\(\Theta\) (<code>= C</code>) may be signed (real-valued). When <code>TRUE</code>,
+the <code>threshold</code> is applied to \(|coef|\), edge widths are scaled by
+\(|coef|\), and negative edges are drawn as black <strong>dashed</strong> lines
+(positive edges remain solid) to distinguish them; the numeric edge labels
+keep their sign. When <code>FALSE</code>, the historical non-negative behaviour is used
+(negative coefficients fall below the threshold and are hidden). When
+<code>NULL</code> (default), the mode is auto-detected from the fit
+(<code>result$C.signed</code>) or from the presence of negative entries in
+\(C\) / \(XC\). The basis \(X\) is always non-negative, so
+\(X \rightarrow Y\) edges are unaffected.</p></dd>
 
 
 <dt id="arg-sig-level">sig.level<a class="anchor" aria-label="anchor" href="#arg-sig-level"></a></dt>
@@ -183,7 +201,7 @@ edges at or above <code>threshold</code> are excluded from the graph.</p></dd>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfkc.html">nmfkc</a></code>, <code><a href="nmfae.DOT.html">nmfae.DOT</a></code>, <code><a href="nmf.sem.DOT.html">nmf.sem.DOT</a></code>,
+    <div class="dont-index"><p><code><a href="nmfkc.html">nmfkc</a></code>, <code><a href="nmfae-deprecated.html">nmfae.DOT</a></code>, <code><a href="nmf.sem-deprecated.html">nmf.sem.DOT</a></code>,
 <code><a href="nmfkc.ar.DOT.html">nmfkc.ar.DOT</a></code>, <code><a href="plot.nmfkc.DOT.html">plot.nmfkc.DOT</a></code></p></div>
     </div>
 

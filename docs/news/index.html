@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -23,6 +23,7 @@
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -44,7 +45,135 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.8.2" id="nmfkc-082">nmfkc 0.8.2<a class="anchor" aria-label="anchor" href="#nmfkc-082"></a></h2>
+<h2 class="pkg-version" data-toc-text="0.8.8" id="nmfkc-088">nmfkc 0.8.8<a class="anchor" aria-label="anchor" href="#nmfkc-088"></a></h2><p class="text-muted">CRAN release: 2026-07-13</p>
+<div class="section level4">
+<h4 id="removed-the-bl1-penalty-and-its-gamma-alias-0-8-8"><strong>Removed the <code>B.L1</code> penalty (and its <code>gamma</code> alias)</strong><a class="anchor" aria-label="anchor" href="#removed-the-bl1-penalty-and-its-gamma-alias-0-8-8"></a></h4>
+<ul><li>
+<code>B.L1</code> placed an L1 penalty on the fitted coefficient field . Because  is dense and  tracks the overall reconstruction magnitude, <code>B.L1</code> acted as a crude global shrinkage that pulls the fit toward zero and degrades prediction, without producing useful structural sparsity. It has been removed from <code><a href="../reference/nmfkc.html">nmfkc()</a></code> and from the test-set B refit inside <code><a href="../reference/nmfkc.cv.html">nmfkc.cv()</a></code>. Use <code>C.L1</code> for sparsity / variable selection on the parameter matrix  (individual entries are driven to exactly zero). Passing <code>B.L1</code>/<code>gamma</code> now has no effect (silently ignored via <code>...</code>).</li>
+</ul></div>
+<div class="section level4">
+<h4 id="map-penalties-for-nmfre-0-8-8"><strong>MAP penalties for <code>nmfre()</code></strong><a class="anchor" aria-label="anchor" href="#map-penalties-for-nmfre-0-8-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfre.html">nmfre()</a></code> gains three optional penalties (default 0, via <code>...</code>), acting as Gaussian priors on the basis/coefficients and orthogonal to the random-effect machinery (<code>U</code>, <code>lambda</code>, <code>sigma2</code>, <code>tau2</code> are unchanged):
+<ul><li>
+<code>X.L2.smooth</code>: path-graph row smoothness of the basis <code>X</code> — well suited to longitudinal / ordered-row models.</li>
+<li>
+<code>X.L2.ortho</code>: column orthogonality of <code>X</code>.</li>
+<li>
+<code>C.L2</code>: ridge on <code>Theta = C</code>. For <code>C.signed = TRUE</code> the C-step stays a closed-form solve (a Sylvester ridge-least-squares via the eigenbases of <code>X'X</code> and <code>AA'</code>); for <code>C.signed = FALSE</code> it is added to the MU denominator. Penalties enter the fixed-lambda inner objective; the EM variance updates are untouched. (L1 sparsity on <code>Theta</code> is intentionally not offered: it would break the signed closed-form step and conflicts with the random-effect shrinkage that already regularizes the model.)</li>
+</ul></li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfae-deprecated-in-favour-of-nmfrrr-0-8-8"><strong><code>nmfae*</code> deprecated in favour of <code>nmf.rrr*</code></strong><a class="anchor" aria-label="anchor" href="#nmfae-deprecated-in-favour-of-nmfrrr-0-8-8"></a></h4>
+<ul><li>The canonical implementation of the three-layer NMF-RRR model now lives under the <code>nmf.rrr*</code> / <code>nmf.rrr.signed*</code> names (<code>nmf.rrr</code>, <code>.inference</code>, <code>.ecv</code>, <code>.cv</code>, <code>.rank</code>, <code>.DOT</code>, <code>.heatmap</code>, <code>.kernel.beta.cv</code>, <code>.rename</code>, and the six signed variants). The former <code>nmfae*</code> / <code>nmfae.signed*</code> names are now thin deprecated wrappers that emit <code><a href="https://rdrr.io/r/base/Deprecated.html" class="external-link">.Deprecated()</a></code> and forward to their <code>nmf.rrr*</code> counterpart. Fitted objects keep the legacy S3 classes (e.g. <code>class = c("nmf.rrr", "nmfae", "nmf")</code>), so all S3 methods and saved objects continue to work unchanged.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfsem-deprecated-in-favour-of-nmfffb-0-8-8"><strong><code>nmf.sem*</code> deprecated in favour of <code>nmf.ffb*</code></strong><a class="anchor" aria-label="anchor" href="#nmfsem-deprecated-in-favour-of-nmfffb-0-8-8"></a></h4>
+<ul><li>The canonical implementation of the NMF-FFB (feed-forward + feedback) model now lives under the <code>nmf.ffb*</code> names (<code>nmf.ffb</code>, <code>nmf.ffb.inference</code>, <code>nmf.ffb.cv</code>, <code>nmf.ffb.split</code>, <code>nmf.ffb.DOT</code>). The former <code>nmf.sem*</code> names are now thin deprecated wrappers that emit <code><a href="https://rdrr.io/r/base/Deprecated.html" class="external-link">.Deprecated()</a></code> and forward to their <code>nmf.ffb*</code> counterpart. Fitted objects keep <code>class = c("nmf.ffb",   "nmf.sem", "nmf")</code>, so all S3 methods and existing saved objects continue to work unchanged.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="cl2-ridge-for-the-signed-families-0-8-8"><strong><code>C.L2</code> ridge for the signed families</strong><a class="anchor" aria-label="anchor" href="#cl2-ridge-for-the-signed-families-0-8-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code> and <code><a href="../reference/nmf.rrr.signed.html">nmf.rrr.signed()</a></code> gain a <code>C.L2</code> ridge (default 0, via <code>...</code>) on the signed coefficient matrix , penalizing <code>C.L2 * ||Cp - Cn||^2</code>. Because only the difference (= ) enters the model, the penalty has zero gradient on the unidentified common mode ; it is injected symmetrically into the <code>Cp</code>/<code>Cn</code> multiplicative updates (<code>num_Cp += C.L2*Cn</code>, <code>den_Cp += C.L2*Cp</code>) across both the unweighted and weighted paths, and added to the tracked objective.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="basis-penalties-extended-to-the-signed-families-0-8-8"><strong>Basis penalties extended to the signed families</strong><a class="anchor" aria-label="anchor" href="#basis-penalties-extended-to-the-signed-families-0-8-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code> now accepts <code>X.L2.ortho</code> (column orthogonality) and <code>X.L2.smooth</code> (path-graph row smoothness), matching <code><a href="../reference/nmfkc.html">nmfkc()</a></code>. Both default to 0 (off), are passed via <code>...</code>, and are skipped when <code>X.restriction =   "fixed"</code>. The penalties are folded into both the fast unweighted and the weighted MU paths and into the tracked objective.</li>
+<li>
+<code><a href="../reference/nmfae-deprecated.html">nmfae.signed()</a></code> now accepts <code>X1.L2.ortho</code> / <code>X2.L2.ortho</code> (orthogonality of the response-basis columns and covariate-basis rows), matching <code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>. Default 0, via <code>...</code>, wired into both MU paths and the objective.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="by-option-grouping-order-of-coefficient-tables-0-8-8"><strong><code>by</code> option: grouping order of coefficient tables</strong><a class="anchor" aria-label="anchor" href="#by-option-grouping-order-of-coefficient-tables-0-8-8"></a></h4>
+<ul><li>The <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> methods for the inference summaries (<code>nmfkc.inference</code>, <code>nmfae</code>/<code>nmfae.inference</code>, <code>nmfae.signed.inference</code>, <code>nmfkc.net.inference</code>) and <code><a href="../reference/summary.nmfre.html">summary.nmfre()</a></code> gain a <code>by</code> argument controlling how the significance table is grouped: <code>by = "covariate"</code> (default, unchanged behaviour) lists all bases within each covariate (1-1, 1-2, …), while <code>by = "basis"</code> lists all covariates within each basis (1-1, 2-1, …). The default reproduces the previous ordering exactly.</li>
+<li>The symmetric-network model (<code>nmfkc.net</code>, tri-type) follows the <strong>same rule</strong>: since it sets , the parameter matrix ’s column factor (<code>Basis.col</code>) is the covariate slot and its row factor (<code>Basis.row</code>) is the basis slot, so <code>by</code> groups by <code>Basis.col</code> / <code>Basis.row</code> respectively. (The bi-type has no free , only , so no coefficient table.)</li>
+</ul></div>
+<div class="section level4">
+<h4 id="classed-cv-objects-with-print--plot-0-8-8"><strong>Classed CV objects with <code>print</code> / <code>plot</code></strong><a class="anchor" aria-label="anchor" href="#classed-cv-objects-with-print--plot-0-8-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfkc.cv.html">nmfkc.cv()</a></code> and <code><a href="../reference/nmfkc.bicv.html">nmfkc.bicv()</a></code> now return classed objects (<code>"nmfkc.ecv"</code> / <code>"nmfkc.cv"</code> / <code>"nmfkc.bicv"</code>) with <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> and <code><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot()</a></code> methods — the rank sweeps (<code>ecv</code>, <code>bicv</code>) plot a score-vs-rank curve with a  marker, matching <code><a href="../reference/nmfae-deprecated.html">nmfae.ecv()</a></code> / <code><a href="../reference/nmfre.ecv.html">nmfre.ecv()</a></code>. Field access (<code>cv$sigma</code>, etc.) is unchanged; <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code> also now returns the swept <code>rank</code> vector.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="naming--api-consistency-pass-aligned-to-the-nmfkc-house-style-0-8-8"><strong>Naming / API consistency pass (aligned to the nmfkc house style)</strong><a class="anchor" aria-label="anchor" href="#naming--api-consistency-pass-aligned-to-the-nmfkc-house-style-0-8-8"></a></h4>
+<ul><li>Fit objects now report <code>runtime</code> as <strong>numeric seconds</strong> everywhere (was a preformatted string in <code><a href="../reference/nmfkc.html">nmfkc()</a></code>); <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> formats it for display.</li>
+<li>
+<code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code> fit objects now return <code>sigma</code> (RMSE), for parity with <code><a href="../reference/nmfkc.html">nmfkc()</a></code> / <code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code>.</li>
+<li>
+<code><a href="../reference/nmfre.ecv.html">nmfre.ecv()</a></code> returns the held-out RMSE as <code>$sigma</code> (was <code>$sigma.ecv</code>) to match <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>.</li>
+<li>New <code><a href="../reference/predict.nmfre.html">predict.nmfre()</a></code>: fixed-effect prediction  for new covariates, or the in-sample BLUP fit when <code>newA</code> is omitted.</li>
+<li>
+<code>nmf.sem</code>/<code>nmf.ffb</code> fit objects now carry the shared <code>"nmf"</code> class, so the common <code>coef</code>/<code>fitted</code>/<code>residuals</code> fallbacks apply.</li>
+<li>Fold-count argument unified to <code>nfolds</code> (<code>nmfre.ecv</code> was <code>nfold</code>; legacy names accepted via <code>...</code>); <code><a href="../reference/summary.nmfre.html">summary.nmfre()</a></code> CI toggle is <code>ci.show</code> (object-first); <code>nmfae</code>/<code>nmfae.signed</code> fit objects gained an <code>iter</code> alias of <code>niter</code>.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="xl2smooth-row-smoothness-penalty-on-the-basis-0-8-8"><strong><code>X.L2.smooth</code>: row-smoothness penalty on the basis</strong><a class="anchor" aria-label="anchor" href="#xl2smooth-row-smoothness-penalty-on-the-basis-0-8-8"></a></h4>
+<ul><li>New penalty <code>X.L2.smooth</code> (nonnegative, default 0) adds  with  the path-graph Laplacian over the  rows, i.e. it penalizes squared differences between adjacent rows and yields gently-varying (smooth) bases — useful when the rows of  have a natural order (e.g. time points). Like <code>X.L2.ortho</code>, it slots into the multiplicative -step (), preserving non-negativity and monotone descent. Default 0 reproduces prior results exactly.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="public-api-nmfrrr-and-nmfffb-are-the-documented-names-0-8-8"><strong>Public API: <code>nmf.rrr</code> and <code>nmf.ffb</code> are the documented names</strong><a class="anchor" aria-label="anchor" href="#public-api-nmfrrr-and-nmfffb-are-the-documented-names-0-8-8"></a></h4>
+<ul><li>The legacy <code>nmfae*</code> and <code>nmf.sem*</code> families are now marked internal (<code>@keywords internal</code>): they remain exported and fully functional for backward compatibility, but no longer appear in the reference index / pkgdown site. Their documented, user-facing names are the NMF-RRR aliases (<code>nmf.rrr*</code>) and the NMF-FFB aliases (<code>nmf.ffb*</code>), which now each have their own self-contained help page (previously <code>nmf.ffb*</code> shared the <code>nmf.sem*</code> pages).</li>
+</ul></div>
+<div class="section level4">
+<h4 id="xinit--kmeans-basis-initialization-0-8-8"><strong><code>X.init = "kmeans++"</code> basis initialization</strong><a class="anchor" aria-label="anchor" href="#xinit--kmeans-basis-initialization-0-8-8"></a></h4>
+<ul><li>New basis-initialization option <code>X.init = "kmeans++"</code> (alias <code>"kmeanspp"</code>) seeds the -means centres by  weighting (Arthur &amp; Vassilvitskii, 2007, SODA) before Lloyd refinement, giving a more careful, -competitive initialization than uniform-random seeding. Available in every optimizer: <code>nmfkc</code>, <code>nmfre</code>, <code>nmf.sem</code>, <code>nmfkc.net</code>, <code>nmfkc.signed</code> (shared initializer), and <code>nmfae</code> / <code>nmfae.signed</code>, which now forward <code>X.init</code> to their internal <code><a href="../reference/nmfkc.html">nmfkc()</a></code> basis-init steps. The default remains <code>"kmeans"</code> (unchanged results); <code>nstart</code> is not used for <code>"kmeans++"</code> (one careful seeding replaces random restarts).</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfrrr--nmfae-family-rank1--rank2-arguments-0-8-8"><strong><code>nmf.rrr</code> / <code>nmfae</code> family: <code>rank1</code> / <code>rank2</code> arguments</strong><a class="anchor" aria-label="anchor" href="#nmfrrr--nmfae-family-rank1--rank2-arguments-0-8-8"></a></h4>
+<ul><li>The two basis ranks of the NMF-RRR (tri-factorized) family are now the symmetric <code>rank1</code> (response basis ) and <code>rank2</code> (covariate basis , default <code>rank1</code>), replacing the asymmetric <code>rank</code> / <code>rank.encoder</code>. Applies across the whole family: <code>nmfae</code>/<code>nmfae.signed</code> and their <code>.ecv</code>/<code>.cv</code>/<code>.rank</code>/<code>.kernel.beta.cv</code> helpers (and the <code>nmf.rrr*</code> aliases). The legacy <code>rank</code> / <code>rank.encoder</code> (and <code>Q</code> / <code>R</code>) remain accepted for backward compatibility, so existing calls keep working.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfreecv-rank-selection-for-nmf-re-0-8-8"><strong><code>nmfre.ecv</code>: rank selection for NMF-RE</strong><a class="anchor" aria-label="anchor" href="#nmfreecv-rank-selection-for-nmf-re-0-8-8"></a></h4>
+<ul><li>New <code><a href="../reference/nmfre.ecv.html">nmfre.ecv()</a></code> selects the basis rank  by Wold-style element-wise (entry-holdout) cross-validation with iterative imputation, scoring the held-out prediction RMSE (<code>sigma.ecv</code>). The held-out entries of a column are predicted from that column’s retained entries via the BLUP , so — unlike <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code> (zero-weight mask, fixed-effect prediction) — it evaluates the full NMF-RE model including the random effects. Returns a <code>"nmfre.ecv"</code> object with <code>print</code>/<code>plot</code> methods (the plot marks the minimizing rank). Sign convention follows <code>C.signed</code>; CV tolerances are loosened by default and overridable via <code>...</code>.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfkcdot-signed-coefficient-graphs-0-8-8"><strong><code>nmfkc.DOT</code>: signed-coefficient graphs</strong><a class="anchor" aria-label="anchor" href="#nmfkcdot-signed-coefficient-graphs-0-8-8"></a></h4>
+<ul><li>New argument <code>C.signed</code> lets <code><a href="../reference/nmfkc.DOT.html">nmfkc.DOT()</a></code> draw graphs when  () is signed (real-valued), e.g. from <code>nmfre(C.signed = TRUE)</code> or the <code>*.signed</code> fits. In signed mode <code>threshold</code> is an <strong>absolute-value</strong> cut ( <code>threshold</code>), edge widths scale by , and <strong>negative edges are drawn as black dashed lines</strong> (positive edges solid) with their signed numeric labels. Default <code>C.signed = NULL</code> auto-detects from <code>result$C.signed</code> or negative entries in  / ; <code>FALSE</code> restores the historical non-negative behaviour. The basis  is always non-negative, so  edges are unaffected.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfre-marginal-nll-convergence-trace-0-8-8"><strong><code>nmfre</code>: marginal-NLL convergence trace</strong><a class="anchor" aria-label="anchor" href="#nmfre-marginal-nll-convergence-trace-0-8-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfre.html">nmfre()</a></code> now records <code>nll.trace</code>, the marginal negative log-likelihood  (random effects integrated out), which the ECM algorithm decreases monotonically. <code><a href="../reference/plot.nmfre.html">plot.nmfre()</a></code> displays this instead of the fixed- penalized objective (<code>objfunc.iter</code>), which is <em>not</em> monotone across outer iterations because it jumps when  is updated.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfre-optimization-and-inference-fully-separated-0-8-8"><strong><code>nmfre</code>: optimization and inference fully separated</strong><a class="anchor" aria-label="anchor" href="#nmfre-optimization-and-inference-fully-separated-0-8-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfre.html">nmfre()</a></code> now performs <strong>optimization only</strong>, mirroring the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> / <code><a href="../reference/nmfkc.inference.html">nmfkc.inference()</a></code> split. The <code>wild.bootstrap</code> argument and all inference outputs (<code>coefficients</code>, <code>C.se</code>, <code>C.se.boot</code>, <code>C.ci.*</code>, <code>C.p.side</code>, <code>sigma2.used</code>, …) are removed from <code><a href="../reference/nmfre.html">nmfre()</a></code>; the inline inference block is gone, making the function lighter and easier to maintain. Obtain standard errors, z-values, p-values, and confidence intervals for  by passing the fit to <code>nmfre.inference(fit, Y, A)</code>. <code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code> prints the coefficient table only after inference has been run.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfre-emecm-algorithm-and-sign-free-fixed-effects-paper-port-0-8-8"><strong><code>nmfre</code>: EM/ECM algorithm and sign-free fixed effects (paper port)</strong><a class="anchor" aria-label="anchor" href="#nmfre-emecm-algorithm-and-sign-free-fixed-effects-paper-port-0-8-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfre.html">nmfre()</a></code> is re-implemented to follow the Psychometrika manuscript’s NMF-RE mixed model . The optimizer is now an <strong>outer-inner ECM</strong>: the inner loop is a fixed- block-coordinate descent (random-effect ridge BLUP for , complete-EM semi-NMF step for the basis  including the posterior variance , and a fixed-effect update for ); the outer loop runs the EM M-steps for  and  until  stabilizes.</li>
+<li>New <strong>formal</strong> argument <strong><code>C.signed</code></strong> (logical, default <code>TRUE</code>, recommended, matches the paper). <code>TRUE</code> makes the fixed-effect coefficients  () <strong>real-valued</strong>, updated by exact least squares, with a two-sided test (interior null) and no  projection of the bootstrap replicates. <code>FALSE</code> restores the historical non-negative variant (multiplicative update, one-sided/boundary test). A character value (<code>"signed"</code> / <code>"nonneg"</code>) is also accepted for backward compatibility.</li>
+<li>
+<code>C.signed</code> is the single switch for the whole estimation scheme: it also selects the basis () update rule (<code>TRUE</code> → complete-EM semi-NMF, <code>FALSE</code> → positive-part multiplicative update), reproducing the paper’s pairing.  is non-negative in both cases. (<code>x.postvar</code> remains an advanced toggle for the posterior-variance term of the semi-NMF step.)</li>
+<li>
+<strong>No cap is imposed on </strong>; it is reported as a diagnostic only. <code>dfU.control</code> is now deprecated and inert. Output gains the logical <code>C.signed</code>; <code><a href="../reference/summary.nmfre.html">summary.nmfre()</a></code> reports the sign convention and p-value side.</li>
+<li>
+<strong>Removed</strong> the exported helper <code>nmfre.dfU.scan()</code> (and its <code>print</code> method): it scanned <code>df_U</code> cap rates, which no longer exist now that the variance components are estimated. The <code>df.rate</code> argument is retained but inert.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfrrr-nmf-rrr-names-for-the-nmfae-family-0-8-8"><strong><code>nmf.rrr</code>: NMF-RRR names for the <code>nmfae</code> family</strong><a class="anchor" aria-label="anchor" href="#nmfrrr-nmf-rrr-names-for-the-nmfae-family-0-8-8"></a></h4>
+<ul><li>New <code>nmf.rrr</code> / <code>nmf.rrr.signed</code> (and <code>.inference</code>, <code>.ecv</code>, <code>.cv</code>, <code>.rank</code>, <code>.DOT</code>, <code>.heatmap</code>, <code>.kernel.beta.cv</code>, <code>.rename</code>) are thin aliases of the corresponding <code>nmfae*</code> / <code>nmfae.signed*</code> functions, matching the  (tri-factorized non-negative reduced-rank regression) name used in Satoh &amp; Tokuda. The legacy <code>nmfae*</code> names remain fully functional (no deprecation). <code><a href="../reference/nmf.rrr.html">nmf.rrr()</a></code> / <code><a href="../reference/nmf.rrr.signed.html">nmf.rrr.signed()</a></code> prepend the NMF-RRR class to the fit; all existing S3 methods are reused by inheritance.</li>
+<li>The fitted bases are now labelled <strong><code>Resp</code></strong> (response basis ) and <strong><code>Cov</code></strong> (covariate basis ) instead of <code>Dec</code>/<code>Enc</code>, in both <code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>/<code><a href="../reference/nmfae-deprecated.html">nmfae.signed()</a></code> (and so <code>nmf.rrr*</code>), matching the response/covariate co-clustering reading.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfae-kullback-leibler-divergence-objective-0-8-8"><strong><code>nmfae()</code>: Kullback-Leibler divergence objective</strong><a class="anchor" aria-label="anchor" href="#nmfae-kullback-leibler-divergence-objective-0-8-8"></a></h4>
+<ul><li>
+<code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code> gains <code>method = c("EU", "KL")</code> (mirroring <code><a href="../reference/nmfkc.html">nmfkc()</a></code>).  (default, unchanged) minimises the Frobenius distance;  minimises the generalised Kullback-Leibler divergence  via Lee-Seung multiplicative updates for all three factors of  (numerator carries the ratio , denominator the column/weight sums). Weights, L1/L2 penalties and the encoder structure are supported in both modes. For  the residual SE  is  (not on the data scale);  records the objective used.</li>
+<li>
+<code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code> and <code><a href="../reference/nmfre.html">nmfre()</a></code> now honour <code>nstart</code> (previously silently ignored): it is forwarded to the <code><a href="../reference/nmfkc.html">nmfkc()</a></code> initialisation step(s) (k-means multi-start). Default  keeps the historical single-start behaviour; a larger value gives a more stable initialisation and is recommended before inference. (<code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.signed()</a></code>, <code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code> and <code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code> already supported <code>nstart</code>; all expose it via <code>...</code>.)</li>
+<li>Bug fix in <code><a href="../reference/nmfre.html">nmfre()</a></code>: a character <code>X.init</code> (e.g. <code>"runif"</code>, <code>"nndsvd"</code>, <code>"kmeans"</code>) previously fell through unresolved and crashed in <code>.nmfre.normalize.X()</code> (“‘x’ must be an array of at least two dimensions”). <code>X.init</code> now accepts  (default), a named init method forwarded to <code><a href="../reference/nmfkc.html">nmfkc()</a></code> (so random-init multi-start works), or a numeric basis matrix (used as-is, with  estimated given that fixed ).</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfkcinference-re-fit-wild-bootstrap-for-singular-information-0-8-8"><strong><code>nmfkc.inference()</code>: re-fit wild bootstrap for singular information</strong><a class="anchor" aria-label="anchor" href="#nmfkcinference-re-fit-wild-bootstrap-for-singular-information-0-8-8"></a></h4>
+<ul><li>New <code>method = "refit"</code> (alongside the default backward-compatible <code>"onestep"</code>) performs a residual wild (multiplier) bootstrap that re-estimates  () to convergence with the basis  held FIXED, using <strong>no information matrix</strong>. It stays valid when the Fisher information  is singular (over-parameterised / kernel covariates) or  lies on the  boundary, where the one-step / sandwich SE is unreliable. With  fixed there is no label switching or scale ambiguity, so element-wise SE/CI of  are valid even for . The bootstrap SE/CI become primary and the p-value is a two-sided bootstrap p-value.</li>
+<li>
+<code>wild.dist</code> selects the multiplier distribution (<code>"rademacher"</code>, <code>"mammen"</code>, <code>"exp"</code>), orthogonal to <code>method</code>; <code>wild.unit</code> (<code>"element"</code> / <code>"column"</code>) the granularity. Raw  draws are returned in <code>$C.boot.draws</code> so any identifiable functional (e.g. a contrast or fitted curve) and its percentile band can be formed. <code><a href="../reference/nmfkc.net.inference.html">nmfkc.net.inference()</a></code> inherits the mode by delegation.</li>
+<li>Internal: the wild-bootstrap engine is factored into shared helpers in <code>R/inference-boot.R</code> (<code>.wild.multipliers</code>, <code>.boot.onestep</code>, <code>.boot.refit</code>, <code>.refit.C.MU</code>, <code>.boot.summarize</code>). The previously duplicated one-step loop in <code><a href="../reference/nmfkc.inference.html">nmfkc.inference()</a></code>, <code><a href="../reference/nmfre.html">nmfre()</a></code> / <code><a href="../reference/nmfre.inference.html">nmfre.inference()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.inference()</a></code> and <code><a href="../reference/nmfae-deprecated.html">nmfae.signed.inference()</a></code> now all call the shared <code>.boot.onestep()</code> (behaviour unchanged; <code>nmfae.signed</code> uses <code>project = FALSE</code> for signed ).</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.8.2" id="nmfkc-082">nmfkc 0.8.2<a class="anchor" aria-label="anchor" href="#nmfkc-082"></a></h2><p class="text-muted">CRAN release: 2026-06-14</p>
 <div class="section level4">
 <h4 id="nmfkcnetdot-default-layout-is-now-neato-0-8-2"><strong><code>nmfkc.net.DOT()</code>: default layout is now <code>"neato"</code></strong><a class="anchor" aria-label="anchor" href="#nmfkcnetdot-default-layout-is-now-neato-0-8-2"></a></h4>
 <ul><li>The <code>layout</code> choices are reordered by recommendation (<code>neato</code>, <code>fdp</code>, <code>twopi</code>, <code>circo</code>, <code>dot</code>), so the default changes from <code>"fdp"</code> to <code>"neato"</code>, which separates community graphs more clearly. Raising <code>threshold</code> (e.g. 0.2–0.3) further declutters weak membership edges.</li>
@@ -92,7 +221,7 @@
 </ul></div>
 <div class="section level4">
 <h4 id="rank-results-gain-plot--print-methods-0-8-2"><strong><code>*.rank</code> results gain <code>plot()</code> / <code>print()</code> methods</strong><a class="anchor" aria-label="anchor" href="#rank-results-gain-plot--print-methods-0-8-2"></a></h4>
-<ul><li>The rank-selection functions (<code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code>, <code><a href="../reference/nmfkc.net.rank.html">nmfkc.net.rank()</a></code>, <code><a href="../reference/nmfkc.signed.rank.html">nmfkc.signed.rank()</a></code>, <code><a href="../reference/nmfae.rank.html">nmfae.rank()</a></code>, <code><a href="../reference/nmfae.signed.rank.html">nmfae.signed.rank()</a></code>) now return a classed object (<code>"nmf.rank"</code>). <code><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot()</a></code> redraws the three-criterion diagnostics plot (honouring <code>main</code>, <code>xlab</code>, <code>ylab</code>, <code>lwd</code>) and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows the recommended rank, the per-criterion best ranks, and the criteria table. As before the constructor draws immediately when <code>plot = TRUE</code>; the <code>$rank.best</code> and <code>$criteria</code> fields are unchanged, so existing code keeps working.</li>
+<ul><li>The rank-selection functions (<code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code>, <code><a href="../reference/nmfkc.net.rank.html">nmfkc.net.rank()</a></code>, <code><a href="../reference/nmfkc.signed.rank.html">nmfkc.signed.rank()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.rank()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.signed.rank()</a></code>) now return a classed object (<code>"nmf.rank"</code>). <code><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot()</a></code> redraws the three-criterion diagnostics plot (honouring <code>main</code>, <code>xlab</code>, <code>ylab</code>, <code>lwd</code>) and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows the recommended rank, the per-criterion best ranks, and the criteria table. As before the constructor draws immediately when <code>plot = TRUE</code>; the <code>$rank.best</code> and <code>$criteria</code> fields are unchanged, so existing code keeps working.</li>
 </ul></div>
 <div class="section level4">
 <h4 id="new-nmfclusterflow-cluster-flow-diagram-across-ranks-0-8-2"><strong>New <code>nmf.cluster.flow()</code>: cluster-flow diagram across ranks</strong><a class="anchor" aria-label="anchor" href="#new-nmfclusterflow-cluster-flow-diagram-across-ranks-0-8-2"></a></h4>
@@ -118,15 +247,15 @@
 </ul></div>
 <div class="section level4">
 <h4 id="rank-selection-functions-for-the-other-nmf-families-0-8-2"><strong>Rank-selection functions for the other NMF families</strong><a class="anchor" aria-label="anchor" href="#rank-selection-functions-for-the-other-nmf-families-0-8-2"></a></h4>
-<ul><li>New <code><a href="../reference/nmfkc.net.rank.html">nmfkc.net.rank()</a></code>, <code><a href="../reference/nmfkc.signed.rank.html">nmfkc.signed.rank()</a></code>, <code><a href="../reference/nmfae.rank.html">nmfae.rank()</a></code> (paired ) and <code><a href="../reference/nmfae.signed.rank.html">nmfae.signed.rank()</a></code> (paired) bring <code>nmfkc.rank</code>-style rank selection to the other multiplicative-update models. Each reports the three criteria that are well defined for every family – <code>r.squared</code>, the effective rank (utilization), and the element-wise CV error <code>sigma.ecv</code> – and returns <code>list(rank.best, criteria)</code>. (<code>nmf.ffb</code> / <code>nmfre</code> are not covered: they do not support the element masking that ECV needs.)</li>
+<ul><li>New <code><a href="../reference/nmfkc.net.rank.html">nmfkc.net.rank()</a></code>, <code><a href="../reference/nmfkc.signed.rank.html">nmfkc.signed.rank()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.rank()</a></code> (paired ) and <code><a href="../reference/nmfae-deprecated.html">nmfae.signed.rank()</a></code> (paired) bring <code>nmfkc.rank</code>-style rank selection to the other multiplicative-update models. Each reports the three criteria that are well defined for every family – <code>r.squared</code>, the effective rank (utilization), and the element-wise CV error <code>sigma.ecv</code> – and returns <code>list(rank.best, criteria)</code>. (<code>nmf.ffb</code> / <code>nmfre</code> are not covered: they do not support the element masking that ECV needs.)</li>
 <li>
 <strong><code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> plot simplified and unified.</strong> All <code>*.rank</code> functions now share one back-end <code>.rank.finish()</code> and draw the same concise three-criterion figure: <code>r.squared</code> (red), <code>eff.rank</code> (green), and <code>sigma.ecv</code> (blue, right axis), each as a line with points, rank-number labels, and a highlighted best marker – “Best (Elbow)” for the R-squared knee, “Best (Peak)” for the effective-rank utilization, and “Best (Min)” for the CV minimum. <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> still computes <code>ARI</code>, <code>silhouette</code>, <code>CPCC</code>, and <code>dist.cor</code> into its <code>criteria</code> table, but no longer plots them.</li>
 <li>The four new <code>*.rank</code> functions gain a <code>detail</code> argument matching <code>nmfkc.rank</code>: <code>"full"</code> (default) runs the element-wise CV and reports <code>sigma.ecv</code>; <code>"fast"</code> skips the (expensive) CV, so the plot shows only <code>r.squared</code> and <code>eff.rank</code> and the recommended rank falls back to the R-squared elbow.</li>
 </ul></div>
 <div class="section level4">
 <h4 id="internal-shared-element-wise-cv-helpers-0-8-2"><strong>Internal: shared element-wise CV helpers</strong><a class="anchor" aria-label="anchor" href="#internal-shared-element-wise-cv-helpers-0-8-2"></a></h4>
-<ul><li>The four element-wise cross-validation functions (<code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfae.ecv.html">nmfae.ecv()</a></code>, <code><a href="../reference/nmfkc.signed.ecv.html">nmfkc.signed.ecv()</a></code>, <code><a href="../reference/nmfae.signed.ecv.html">nmfae.signed.ecv()</a></code>) now build their folds through a single internal helper <code>.ecv.make.folds()</code>, removing four near-identical copies of the fold-partitioning loop. <code><a href="../reference/nmfkc.net.ecv.html">nmfkc.net.ecv()</a></code> keeps its symmetric upper-triangle folds.</li>
-<li> element-wise CV functions now share one config-indexed loop driver <code>.ecv.run(labels, nfolds, run_one,   progress)</code>: the single-rank ones (<code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfkc.net.ecv.html">nmfkc.net.ecv()</a></code>, <code><a href="../reference/nmfkc.signed.ecv.html">nmfkc.signed.ecv()</a></code>) and the -grid ones (<code><a href="../reference/nmfae.ecv.html">nmfae.ecv()</a></code>, <code><a href="../reference/nmfae.signed.ecv.html">nmfae.signed.ecv()</a></code>). Each supplies a model-specific <code>run_one(i, k)</code> closure (mask fold, refit config <code>i</code>, return held-out loss) and an optional progress callback; <code>.ecv.run()</code> handles the config-by-fold loop, the <code>objfunc</code>/<code>sigma</code>/<code>objfunc.fold</code> aggregation, and naming. This removes the last copies of the CV-loop machinery, including the per-grid reshaping in <code><a href="../reference/nmfae.ecv.html">nmfae.ecv()</a></code>.</li>
+<ul><li>The four element-wise cross-validation functions (<code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.ecv()</a></code>, <code><a href="../reference/nmfkc.signed.ecv.html">nmfkc.signed.ecv()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.signed.ecv()</a></code>) now build their folds through a single internal helper <code>.ecv.make.folds()</code>, removing four near-identical copies of the fold-partitioning loop. <code><a href="../reference/nmfkc.net.ecv.html">nmfkc.net.ecv()</a></code> keeps its symmetric upper-triangle folds.</li>
+<li> element-wise CV functions now share one config-indexed loop driver <code>.ecv.run(labels, nfolds, run_one,   progress)</code>: the single-rank ones (<code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfkc.net.ecv.html">nmfkc.net.ecv()</a></code>, <code><a href="../reference/nmfkc.signed.ecv.html">nmfkc.signed.ecv()</a></code>) and the -grid ones (<code><a href="../reference/nmfae-deprecated.html">nmfae.ecv()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.signed.ecv()</a></code>). Each supplies a model-specific <code>run_one(i, k)</code> closure (mask fold, refit config <code>i</code>, return held-out loss) and an optional progress callback; <code>.ecv.run()</code> handles the config-by-fold loop, the <code>objfunc</code>/<code>sigma</code>/<code>objfunc.fold</code> aggregation, and naming. This removes the last copies of the CV-loop machinery, including the per-grid reshaping in <code><a href="../reference/nmfae-deprecated.html">nmfae.ecv()</a></code>.</li>
 <li>The refactor is behaviour-preserving: for the same seed the folds and all CV values (<code>objfunc</code>, <code>sigma</code>, <code>objfunc.fold</code>, names/labels) are byte-for-byte identical to before, verified across EU and KL losses, the symmetric (upper-triangle) case, and both paired and full  grids.</li>
 </ul></div>
 <div class="section level4">
@@ -136,7 +265,7 @@
 <div class="section level4">
 <h4 id="effective-rank-in-all-five-mu-family-summaries-0-8-2"><strong>Effective Rank in all five MU-family summaries</strong><a class="anchor" aria-label="anchor" href="#effective-rank-in-all-five-mu-family-summaries-0-8-2"></a></h4>
 <ul><li>
-<code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code> now reports the <strong>Effective Rank</strong> as <code>x.xx / Q  (NN.N%)</code> – the absolute value, the nominal rank, and the utilization ratio <code>effective.rank / Q</code> as a percentage – for <code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>, <code><a href="../reference/nmfae.html">nmfae()</a></code>, <code><a href="../reference/nmf.sem.html">nmf.ffb()</a></code> / <code><a href="../reference/nmf.sem.html">nmf.sem()</a></code>, and <code><a href="../reference/nmfre.html">nmfre()</a></code> — previously only <code><a href="../reference/nmfkc.html">nmfkc()</a></code> showed it. Each is computed by the new shared internal helper <code>.effective.rank(B)</code> from the model’s natural  coefficient/score matrix: the coefficients  (<code>nmfkc</code>), the latent encoding  (<code>nmfae</code>), the node membership  (<code>nmfkc.net</code>), the latent scores  (<code>nmf.ffb</code>), and the BLUP scores  (<code>nmfre</code>). <code>NA</code> at .</li>
+<code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code> now reports the <strong>Effective Rank</strong> as <code>x.xx / Q  (NN.N%)</code> – the absolute value, the nominal rank, and the utilization ratio <code>effective.rank / Q</code> as a percentage – for <code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>, <code><a href="../reference/nmf.ffb.html">nmf.ffb()</a></code> / <code><a href="../reference/nmf.sem-deprecated.html">nmf.sem()</a></code>, and <code><a href="../reference/nmfre.html">nmfre()</a></code> — previously only <code><a href="../reference/nmfkc.html">nmfkc()</a></code> showed it. Each is computed by the new shared internal helper <code>.effective.rank(B)</code> from the model’s natural  coefficient/score matrix: the coefficients  (<code>nmfkc</code>), the latent encoding  (<code>nmfae</code>), the node membership  (<code>nmfkc.net</code>), the latent scores  (<code>nmf.ffb</code>), and the BLUP scores  (<code>nmfre</code>). <code>NA</code> at .</li>
 </ul></div>
 <div class="section level4">
 <h4 id="rank-selection-diagnostics-silhouette--cpcc-fixed-ic-removed-0-8-2"><strong>Rank-selection diagnostics: silhouette / CPCC fixed, IC removed</strong><a class="anchor" aria-label="anchor" href="#rank-selection-diagnostics-silhouette--cpcc-fixed-ic-removed-0-8-2"></a></h4>
@@ -174,7 +303,7 @@
 <div class="section level4">
 <h4 id="improvements-0-8-2"><strong>Improvements</strong><a class="anchor" aria-label="anchor" href="#improvements-0-8-2"></a></h4>
 <ul><li>
-<strong>Unified three-variant R² across all NMF functions.</strong> Every NMF variant (<code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfae.html">nmfae()</a></code>, <code><a href="../reference/nmfae.signed.html">nmfae.signed()</a></code>, <code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>, <code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code>, <code><a href="../reference/nmfre.html">nmfre()</a></code>) now returns three goodness-of-fit summaries on the same scale, computed by the new internal helper <code>.r.squared.all()</code>:
+<strong>Unified three-variant R² across all NMF functions.</strong> Every NMF variant (<code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.signed()</a></code>, <code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>, <code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code>, <code><a href="../reference/nmfre.html">nmfre()</a></code>) now returns three goodness-of-fit summaries on the same scale, computed by the new internal helper <code>.r.squared.all()</code>:
 <ul><li>
 <code>r.squared</code>: Pearson  (scale-invariant, in ). Unchanged from before.</li>
 <li>
@@ -187,7 +316,7 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <div class="section level4">
 <h4 id="bug-fixes-0-8-2"><strong>Bug Fixes</strong><a class="anchor" aria-label="anchor" href="#bug-fixes-0-8-2"></a></h4>
 <ul><li>
-<code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>: <code>r.squared</code> now correctly excludes weight-zero (NA-masked) entries when <code>Y.weights</code> is supplied or auto-masking is in effect, matching the convention used by <code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfae.html">nmfae()</a></code>, <code><a href="../reference/nmfae.signed.html">nmfae.signed()</a></code>, and <code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code>. Previously the correlation was computed over the full matrix including replaced-NA cells, giving a distorted r.squared.</li>
+<code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>: <code>r.squared</code> now correctly excludes weight-zero (NA-masked) entries when <code>Y.weights</code> is supplied or auto-masking is in effect, matching the convention used by <code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.signed()</a></code>, and <code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code>. Previously the correlation was computed over the full matrix including replaced-NA cells, giving a distorted r.squared.</li>
 </ul></div>
 <div class="section level4">
 <h4 id="documentation-0-8-2"><strong>Documentation</strong><a class="anchor" aria-label="anchor" href="#documentation-0-8-2"></a></h4>
@@ -201,7 +330,7 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <h2 class="pkg-version" data-toc-text="0.7.3" id="nmfkc-073">nmfkc 0.7.3<a class="anchor" aria-label="anchor" href="#nmfkc-073"></a></h2><p class="text-muted">CRAN release: 2026-05-13</p>
 <div class="section level4">
 <h4 id="documentation-0-7-3"><strong>Documentation</strong><a class="anchor" aria-label="anchor" href="#documentation-0-7-3"></a></h4>
-<ul><li>README and <code>nmf-sem-with-nmfkc.Rmd</code> vignette code now reference the canonical <code>nmf.ffb.*</code> aliases (<code><a href="../reference/nmf.sem.html">nmf.ffb()</a></code>, <code><a href="../reference/nmf.sem.cv.html">nmf.ffb.cv()</a></code>, <code><a href="../reference/nmf.sem.DOT.html">nmf.ffb.DOT()</a></code>) instead of the legacy <code>nmf.sem.*</code> names. Both names continue to work; the change only affects what users see on the GitHub Pages homepage and in the vignette source.</li>
+<ul><li>README and <code>nmf-sem-with-nmfkc.Rmd</code> vignette code now reference the canonical <code>nmf.ffb.*</code> aliases (<code><a href="../reference/nmf.ffb.html">nmf.ffb()</a></code>, <code><a href="../reference/nmf.ffb.cv.html">nmf.ffb.cv()</a></code>, <code><a href="../reference/nmf.ffb.DOT.html">nmf.ffb.DOT()</a></code>) instead of the legacy <code>nmf.sem.*</code> names. Both names continue to work; the change only affects what users see on the GitHub Pages homepage and in the vignette source.</li>
 </ul></div>
 </div>
     <div class="section level2">
@@ -211,14 +340,14 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <ul><li>
 <code>nmf.ffb*</code> family added as the canonical alias for <code>nmf.sem*</code> (Satoh 2025, arXiv:2512.18250 adopts “NMF-FFB” — Non-negative Matrix Factorization with Feed-Forward + Feedback — as the model’s canonical name). <code>nmf.sem*</code> continues to work and shares the same return classes (<code>c("nmf.ffb", "nmf.sem")</code> and <code>c("nmf.ffb.inference", "nmf.sem.inference", ...)</code>), so existing scripts are unaffected.</li>
 <li>
-<code><a href="../reference/nmf.sem.inference.html">nmf.sem.inference()</a></code> / <code><a href="../reference/nmf.sem.inference.html">nmf.ffb.inference()</a></code>: replaced the legacy 1-step Newton wild bootstrap with a <strong>full X-fixed pair bootstrap</strong>. Resamples columns of (Y1, Y2), refits (C1, C2) with X held at the original fit, and reports per-element <code>support_rate = mean(|c_b| &gt;   threshold)</code> together with percentile CIs. Significance markers (<code>*</code> / <code>**</code> / <code>***</code> at sup &gt; 0.95 / 0.99 / 0.999) follow the lavaan convention. Both Theta_1 (feedback) and Theta_2 (exogenous) are inference targets (previous version covered only Theta_2).</li>
+<code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.inference()</a></code> / <code><a href="../reference/nmf.ffb.inference.html">nmf.ffb.inference()</a></code>: replaced the legacy 1-step Newton wild bootstrap with a <strong>full X-fixed pair bootstrap</strong>. Resamples columns of (Y1, Y2), refits (C1, C2) with X held at the original fit, and reports per-element <code>support_rate = mean(|c_b| &gt;   threshold)</code> together with percentile CIs. Significance markers (<code>*</code> / <code>**</code> / <code>***</code> at sup &gt; 0.95 / 0.99 / 0.999) follow the lavaan convention. Both Theta_1 (feedback) and Theta_2 (exogenous) are inference targets (previous version covered only Theta_2).</li>
 <li>
-<code><a href="../reference/nmf.sem.html">nmf.sem()</a></code> / <code><a href="../reference/nmf.sem.html">nmf.ffb()</a></code>: now runs <code>nmfkc(Y1, A = Y2)</code> <strong>internally by default</strong> when <code>X.init</code> is a string method, forwarding <code>X.init</code>, <code>X.L2.ortho</code>, <code>epsilon</code>, <code>maxit</code>, <code>seed</code>. The feedforward fit is used both as the X warm-start and as the baseline for <code>SC.map</code>. <code>nmfkc.baseline = FALSE</code> opts out.</li>
+<code><a href="../reference/nmf.sem-deprecated.html">nmf.sem()</a></code> / <code><a href="../reference/nmf.ffb.html">nmf.ffb()</a></code>: now runs <code>nmfkc(Y1, A = Y2)</code> <strong>internally by default</strong> when <code>X.init</code> is a string method, forwarding <code>X.init</code>, <code>X.L2.ortho</code>, <code>epsilon</code>, <code>maxit</code>, <code>seed</code>. The feedforward fit is used both as the X warm-start and as the baseline for <code>SC.map</code>. <code>nmfkc.baseline = FALSE</code> opts out.</li>
 </ul></div>
 <div class="section level4">
 <h4 id="bug-fixes-0-7-2"><strong>Bug Fixes</strong><a class="anchor" aria-label="anchor" href="#bug-fixes-0-7-2"></a></h4>
 <ul><li>
-<code><a href="../reference/nmf.sem.inference.html">nmf.sem.inference()</a></code>: fixed dimension bug in the Leontief identity matrix (<code>I_mat &lt;- diag(Q)</code> should have been <code>diag(P1)</code>); previously every replicate was silently marked invalid when <code>P1 != Q</code>.</li>
+<code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.inference()</a></code>: fixed dimension bug in the Leontief identity matrix (<code>I_mat &lt;- diag(Q)</code> should have been <code>diag(P1)</code>); previously every replicate was silently marked invalid when <code>P1 != Q</code>.</li>
 <li>
 <code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>: now auto-masks NA entries of <code>Y</code> (parity with the other four NMF variants); previously errored at the <code>min(Y) &lt; 0</code> check when <code>Y</code> contained NA.</li>
 <li>
@@ -227,12 +356,12 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <div class="section level4">
 <h4 id="improvements-0-7-2"><strong>Improvements</strong><a class="anchor" aria-label="anchor" href="#improvements-0-7-2"></a></h4>
 <ul><li>
-<code>Y.weights</code> semantics unified to <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>-style weighted least squares across <code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfae.html">nmfae()</a></code>, <code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>, <code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code>, <code><a href="../reference/nmfae.signed.html">nmfae.signed()</a></code>: loss is now <code>sum(W * (Y - Yhat)^2)</code> (linear in W, matching <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>’s <code>weights</code> argument). Binary masks (W ∈ {0, 1}; the standard ECV / NA-mask case) are unaffected since W = W^2.</li>
+<code>Y.weights</code> semantics unified to <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>-style weighted least squares across <code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>, <code><a href="../reference/nmfkc.net.html">nmfkc.net()</a></code>, <code><a href="../reference/nmfkc.signed.html">nmfkc.signed()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.signed()</a></code>: loss is now <code>sum(W * (Y - Yhat)^2)</code> (linear in W, matching <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>’s <code>weights</code> argument). Binary masks (W ∈ {0, 1}; the standard ECV / NA-mask case) are unaffected since W = W^2.</li>
 <li>All MU functions now emit a <code>"maximum iterations (N) reached..."</code> warning when <code>maxit</code> is exhausted without meeting the relative- tolerance criterion (previously silent in <code>nmfae</code>, <code>nmfae.signed</code>, <code>nmfkc.net</code>, <code>nmfkc.signed</code>, <code>nmfre</code>, and <code>nmf.sem</code>).</li>
 <li>All MU functions now share <code>maxit = 5000</code> as the default (was 5000 / 20000 / 50000 inconsistently). Together with the maxit warning above, users see explicit feedback when 5000 is insufficient and can opt into a larger cap.</li>
 <li>New shared internal helper <code>.init_X_method()</code> for X initialization via <code>"nndsvd"</code> / <code>"kmeans"</code> / <code>"kmeansar"</code> / <code>"runif"</code> / numeric matrix. All NMF families now use the same dispatch logic; previous ad-hoc inline implementations are removed.</li>
 <li>
-<code><a href="../reference/nmf.sem.html">nmf.sem()</a></code> returns <code>SC.map</code> (input-output structural fidelity: correlation between the equilibrium operator and the feedforward baseline mapping; Satoh 2025 §4.SC.map) automatically when <code>nmfkc.baseline</code> is supplied or computed internally.</li>
+<code><a href="../reference/nmf.sem-deprecated.html">nmf.sem()</a></code> returns <code>SC.map</code> (input-output structural fidelity: correlation between the equilibrium operator and the feedforward baseline mapping; Satoh 2025 §4.SC.map) automatically when <code>nmfkc.baseline</code> is supplied or computed internally.</li>
 <li>
 <code><a href="../reference/summary.nmf.sem.html">summary.nmf.sem()</a></code>: rewritten to display the full-bootstrap inference output — separate Theta_1 / Theta_2 blocks with <code>Estimate | CI_low | CI_high | support | Pr(&gt;0) | sig</code>, plus a bootstrap meta-info header.</li>
 <li>
@@ -240,13 +369,13 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <li>
 <code><a href="../reference/plot.nmfre.html">plot.nmf.sem()</a></code>: default trace is now <code>objfunc.full</code> (loss + penalties — the actual monotonically-decreasing quantity that the multiplicative updates minimize) instead of <code>objfunc</code> (reconstruction only). New argument <code>which = "full" | "reconstruction" | "both"</code>.</li>
 <li>
-<code><a href="../reference/nmf.sem.DOT.html">nmf.sem.DOT()</a></code>: significance stars now appear on Theta_1 (feedback Y1 → F) edges in addition to Theta_2 (exogenous Y2 → F); X (F → Y1) edges remain unstarred since the basis is not the inference target.</li>
+<code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.DOT()</a></code>: significance stars now appear on Theta_1 (feedback Y1 → F) edges in addition to Theta_2 (exogenous Y2 → F); X (F → Y1) edges remain unstarred since the basis is not the inference target.</li>
 <li>
 <code><a href="../reference/plot.nmfae.ecv.html">plot.nmfae.ecv()</a></code>: Heatmap cell text color is now always black for better readability on light-colored cells.</li>
 <li>
 <code><a href="../reference/nmfkc.html">nmfkc()</a></code>: <code>X.init = "runif"</code> now supports <code>nstart &gt; 1</code> for multi-start initialization. Multiple random starting points are evaluated with 10 standard NMF iterations, and the best (lowest Frobenius error) is selected.</li>
 <li>
-<code><a href="../reference/nmfae.html">nmfae()</a></code>, <code><a href="../reference/nmfre.html">nmfre()</a></code>: <code>r.squared</code> is now computed as <code>cor(Y, fitted)^2</code> (squared correlation between observed and fitted values), consistent with <code><a href="../reference/nmfkc.html">nmfkc()</a></code>. Previously <code><a href="../reference/nmfae.html">nmfae()</a></code> used <code>1 - SS_res/SS_tot</code> and <code><a href="../reference/nmfre.html">nmfre()</a></code> used the same regression-style R-squared, which can behave unexpectedly for intercept-free non-negative models.</li>
+<code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>, <code><a href="../reference/nmfre.html">nmfre()</a></code>: <code>r.squared</code> is now computed as <code>cor(Y, fitted)^2</code> (squared correlation between observed and fitted values), consistent with <code><a href="../reference/nmfkc.html">nmfkc()</a></code>. Previously <code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code> used <code>1 - SS_res/SS_tot</code> and <code><a href="../reference/nmfre.html">nmfre()</a></code> used the same regression-style R-squared, which can behave unexpectedly for intercept-free non-negative models.</li>
 <li>
 <code><a href="../reference/nmfkc.kernel.beta.nearest.med.html">nmfkc.kernel.beta.nearest.med()</a></code>: added a <code>candidates</code> argument controlling the bandwidth grid. Options: <code>"7points"</code> (new default, <code>t = {-1,-2/3,-1/3,0,1/3,2/3,1}</code>), <code>"4points"</code> (<code>t = {-1/2, 0, 1/2, 1}</code>), or a user-supplied numeric vector of  values. Previously the grid silently differed between the no-landmark (<code>Uk = NULL</code>; 4 points) and landmark (7 points) branches.</li>
 </ul></div>
@@ -257,12 +386,12 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <li>
 <code><a href="../reference/nmfkc.signed.cv.html">nmfkc.signed.cv()</a></code>, <code><a href="../reference/nmfkc.signed.ecv.html">nmfkc.signed.ecv()</a></code>: column-wise and element-wise k-fold CV for rank selection on signed data.</li>
 <li>
-<code><a href="../reference/nmfae.signed.html">nmfae.signed()</a></code>: Three-layer autoencoder with  .  preserve soft clustering on both decoder and encoder sides while the bottleneck  can carry negative weights (e.g., anti-correlated properties). Hybrid warm-start (from <code><a href="../reference/nmfae.html">nmfae()</a></code>) + Direct MU with multi-restart.</li>
+<code><a href="../reference/nmfae-deprecated.html">nmfae.signed()</a></code>: Three-layer autoencoder with  .  preserve soft clustering on both decoder and encoder sides while the bottleneck  can carry negative weights (e.g., anti-correlated properties). Hybrid warm-start (from <code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>) + Direct MU with multi-restart.</li>
 <li>
-<code><a href="../reference/nmfae.signed.ecv.html">nmfae.signed.ecv()</a></code>: element-wise CV for (decoder-rank, encoder-rank) selection.</li>
+<code><a href="../reference/nmfae-deprecated.html">nmfae.signed.ecv()</a></code>: element-wise CV for (decoder-rank, encoder-rank) selection.</li>
 <li>
-<code><a href="../reference/nmfae.signed.inference.html">nmfae.signed.inference()</a></code>: sandwich SE + wild bootstrap for  (no non-negativity projection on  since it is signed).</li>
-<li>S3 methods <code>predict.*.signed()</code>, <code>plot.*.signed()</code>, <code>summary.*.signed()</code>, and <code><a href="../reference/nmfae.signed.rename.html">nmfae.signed.rename()</a></code> helper.</li>
+<code><a href="../reference/nmfae-deprecated.html">nmfae.signed.inference()</a></code>: sandwich SE + wild bootstrap for  (no non-negativity projection on  since it is signed).</li>
+<li>S3 methods <code>predict.*.signed()</code>, <code>plot.*.signed()</code>, <code>summary.*.signed()</code>, and <code><a href="../reference/nmfae-deprecated.html">nmfae.signed.rename()</a></code> helper.</li>
 </ul></div>
 <div class="section level4">
 <h4 id="new-functions-network-nmf-family-0-7-2"><strong>New Functions (Network NMF family)</strong><a class="anchor" aria-label="anchor" href="#new-functions-network-nmf-family-0-7-2"></a></h4>
@@ -284,9 +413,9 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <h4 id="parameter-renames-old-names-remain-usable-for-backward-compatibility-0-7-2">
 <strong>Parameter Renames</strong> (old names remain usable for backward compatibility)<a class="anchor" aria-label="anchor" href="#parameter-renames-old-names-remain-usable-for-backward-compatibility-0-7-2"></a></h4>
 <ul><li>
-<code><a href="../reference/nmf.sem.DOT.html">nmf.sem.DOT()</a></code>: <code>weight_scale_y2f</code> → <code>weight_scale_c2</code>, <code>weight_scale_fy1</code> → <code>weight_scale_x1</code> (matrix-name-based naming, consistent with <code><a href="../reference/nmfae.DOT.html">nmfae.DOT()</a></code> and <code><a href="../reference/nmfkc.DOT.html">nmfkc.DOT()</a></code>).</li>
+<code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.DOT()</a></code>: <code>weight_scale_y2f</code> → <code>weight_scale_c2</code>, <code>weight_scale_fy1</code> → <code>weight_scale_x1</code> (matrix-name-based naming, consistent with <code><a href="../reference/nmfae-deprecated.html">nmfae.DOT()</a></code> and <code><a href="../reference/nmfkc.DOT.html">nmfkc.DOT()</a></code>).</li>
 <li>
-<code><a href="../reference/nmf.sem.DOT.html">nmf.sem.DOT()</a></code>: <code>sig.level</code> moved to after <code>threshold</code> for consistency with other <code>.DOT</code> functions.</li>
+<code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.DOT()</a></code>: <code>sig.level</code> moved to after <code>threshold</code> for consistency with other <code>.DOT</code> functions.</li>
 </ul></div>
 <div class="section level4">
 <h4 id="documentation-0-7-2"><strong>Documentation</strong><a class="anchor" aria-label="anchor" href="#documentation-0-7-2"></a></h4>
@@ -302,10 +431,10 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <div class="section level4">
 <h4 id="naming-unification-old-names-remain-usable-for-backward-compatibility-0-6-7">
 <strong>Naming Unification</strong> (old names remain usable for backward compatibility)<a class="anchor" aria-label="anchor" href="#naming-unification-old-names-remain-usable-for-backward-compatibility-0-6-7"></a></h4>
-<ul><li>Coefficient tables: all inference functions now use <code>Basis</code> / <code>Covariate</code> columns (was <code>Factor</code>/<code>Exogenous</code> in <code><a href="../reference/nmf.sem.inference.html">nmf.sem.inference()</a></code>, <code>Decoder</code>/<code>Encoder</code> in <code><a href="../reference/nmfae.inference.html">nmfae.inference()</a></code>).</li>
+<ul><li>Coefficient tables: all inference functions now use <code>Basis</code> / <code>Covariate</code> columns (was <code>Factor</code>/<code>Exogenous</code> in <code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.inference()</a></code>, <code>Decoder</code>/<code>Encoder</code> in <code><a href="../reference/nmfae-deprecated.html">nmfae.inference()</a></code>).</li>
 <li>Wild bootstrap defaults unified: <code>wild.B = 500</code>, <code>wild.seed = 123</code> across all inference functions.</li>
 <li>First argument of all <code>.DOT</code> functions renamed to <code>result</code> for consistency.</li>
-<li>CV tuning parameters (<code>nfolds</code>, <code>seed</code>, <code>shuffle</code>) moved to <code>...</code> in <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfae.ecv.html">nmfae.ecv()</a></code>, <code><a href="../reference/nmfae.cv.html">nmfae.cv()</a></code>, <code><a href="../reference/nmf.sem.cv.html">nmf.sem.cv()</a></code>; <code>div</code> also accepted for backward compatibility.</li>
+<li>CV tuning parameters (<code>nfolds</code>, <code>seed</code>, <code>shuffle</code>) moved to <code>...</code> in <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.ecv()</a></code>, <code><a href="../reference/nmfae-deprecated.html">nmfae.cv()</a></code>, <code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.cv()</a></code>; <code>div</code> also accepted for backward compatibility.</li>
 </ul></div>
 </div>
     <div class="section level2">
@@ -317,7 +446,7 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <li>
 <code><a href="../reference/nmfre.inference.html">nmfre.inference()</a></code>: Separated statistical inference from <code><a href="../reference/nmfre.html">nmfre()</a></code> optimization. Returns coefficient table with SE, z-values, and p-values via wild bootstrap.</li>
 <li>
-<code><a href="../reference/nmf.sem.inference.html">nmf.sem.inference()</a></code>: Statistical inference for the C2 parameter matrix in NMF-SEM. Uses sandwich SE and wild bootstrap.</li>
+<code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.inference()</a></code>: Statistical inference for the C2 parameter matrix in NMF-SEM. Uses sandwich SE and wild bootstrap.</li>
 <li>S3 methods <code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code>, <code><a href="https://rdrr.io/r/stats/fitted.values.html" class="external-link">fitted()</a></code>, <code><a href="https://rdrr.io/r/stats/residuals.html" class="external-link">residuals()</a></code> for all model classes (<code>nmfkc</code>, <code>nmfae</code>, <code>nmfre</code>, <code>nmf.sem</code>).</li>
 <li>S3 methods <code><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot()</a></code> for <code>nmfre</code> and <code>nmf.sem</code> (convergence diagnostics).</li>
 <li>
@@ -330,13 +459,13 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <code><a href="../reference/nmfkc.html">nmfkc()</a></code>, <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code>: <code>save.time</code> / <code>save.memory</code> → <code>detail</code>
 </li>
 <li>
-<code><a href="../reference/nmfae.html">nmfae()</a></code>: <code>Q</code> → <code>rank</code>, <code>R</code> → <code>rank.encoder</code>
+<code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>: <code>Q</code> → <code>rank</code>, <code>R</code> → <code>rank.encoder</code>
 </li>
 <li>
 <code><a href="../reference/nmfre.html">nmfre()</a></code>: <code>Q</code> → <code>rank</code>, <code>dfU.cap.rate</code> → <code>df.rate</code>
 </li>
 <li>
-<code><a href="../reference/nmfre.dfU.scan.html">nmfre.dfU.scan()</a></code>, <code><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv()</a></code>: <code>Q</code> → <code>rank</code>
+<code>nmfre.dfU.scan()</code>, <code><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv()</a></code>: <code>Q</code> → <code>rank</code>
 </li>
 <li>
 <code><a href="../reference/nmfkc.residual.plot.html">nmfkc.residual.plot()</a></code>: <code>Y_XB_palette</code> → <code>fitted.palette</code>, <code>E_palette</code> → <code>residual.palette</code>
@@ -350,13 +479,13 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <ul><li>
 <code>hide.isolated</code> option added to all <code>.DOT</code> functions (default <code>TRUE</code>).</li>
 <li>
-<code><a href="../reference/nmf.sem.DOT.html">nmf.sem.DOT()</a></code>: Added <code>sig.level</code> parameter; C2 edges decorated with significance stars.</li>
+<code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.DOT()</a></code>: Added <code>sig.level</code> parameter; C2 edges decorated with significance stars.</li>
 <li>
 <code><a href="../reference/nmfkc.html">nmfkc()</a></code>: Added <code>X.restriction = "none"</code> option and <code>X.init = "kmeansar"</code> initialization.</li>
 <li>Added arXiv/DOI references to roxygen documentation for all main functions.</li>
 <li>
-<code>@section Lifecycle: Experimental</code> added to <code><a href="../reference/nmfae.html">nmfae()</a></code>.</li>
-<li>Removed <code>mc.cores</code> parallel option from <code><a href="../reference/nmfae.ecv.html">nmfae.ecv()</a></code> for CRAN compliance.</li>
+<code>@section Lifecycle: Experimental</code> added to <code><a href="../reference/nmfae-deprecated.html">nmfae()</a></code>.</li>
+<li>Removed <code>mc.cores</code> parallel option from <code><a href="../reference/nmfae-deprecated.html">nmfae.ecv()</a></code> for CRAN compliance.</li>
 </ul></div>
 </div>
     <div class="section level2">
@@ -368,8 +497,8 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <li>Added performance flags (<code>save.time=TRUE</code>) to <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code> inner calls.</li>
 <li>Fixed zero-division in <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> elbow normalization when R-squared values are identical.</li>
 <li>Fixed parameter name mismatch (<code>rank</code> → <code>Q</code>) in <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> call to <code><a href="../reference/nmfkc.ecv.html">nmfkc.ecv()</a></code>.</li>
-<li>Fixed descending loop in <code><a href="../reference/nmf.sem.split.html">nmf.sem.split()</a></code> when P=2.</li>
-<li>Added input validation for <code>n.exogenous</code> in <code><a href="../reference/nmf.sem.split.html">nmf.sem.split()</a></code>.</li>
+<li>Fixed descending loop in <code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.split()</a></code> when P=2.</li>
+<li>Added input validation for <code>n.exogenous</code> in <code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.split()</a></code>.</li>
 </ul></div>
 <div class="section level4">
 <h4 id="documentation-0-6-0"><strong>Documentation</strong><a class="anchor" aria-label="anchor" href="#documentation-0-6-0"></a></h4>
@@ -382,7 +511,7 @@ The two suffixed variants differ only in their baseline (denominator); both use 
 <ul><li>Replaced <code>T</code>/<code>F</code> with <code>TRUE</code>/<code>FALSE</code>.</li>
 <li>Replaced <code>1:length()</code> with <code><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along()</a></code>.</li>
 <li>Changed default font from Meiryo to Arial in DOT functions.</li>
-<li>Aligned <code><a href="../reference/nmf.sem.cv.html">nmf.sem.cv()</a></code> defaults with <code><a href="../reference/nmf.sem.html">nmf.sem()</a></code>.</li>
+<li>Aligned <code><a href="../reference/nmf.sem-deprecated.html">nmf.sem.cv()</a></code> defaults with <code><a href="../reference/nmf.sem-deprecated.html">nmf.sem()</a></code>.</li>
 </ul></div>
 </div>
     <div class="section level2">

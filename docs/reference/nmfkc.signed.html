@@ -35,7 +35,7 @@ nmfkc(Y, A, rank) with Euclidean loss, up to reordering."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,6 +51,7 @@ nmfkc(Y, A, rank) with Euclidean loss, up to reordering."></head><body>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -146,6 +147,23 @@ features for new data (see <code>pars</code> entry in <code>...</code> below).</
 \(C_{+}, C_{-}\).  One of <code>"colSums"</code> (default,
 \(\mathrm{colSums}(X) = 1\)), <code>"colSqSums"</code>,
 <code>"totalSum"</code>, <code>"none"</code>, <code>"fixed"</code>.</p></li>
+<li><p><code>X.L2.ortho</code>: non-negative L2 orthogonality penalty on the
+columns of \(X\) (default 0), penalizing
+\((\lambda/2)\lVert \mathrm{offdiag}(X^\top X)\rVert^2\).  Same
+convention as <code><a href="nmfkc.html">nmfkc</a></code>; skipped when <code>X.restriction
+      = "fixed"</code>.</p></li>
+<li><p><code>X.L2.smooth</code>: non-negative L2 row-smoothness penalty on
+\(X\) (default 0), penalizing
+\((\lambda/2)\,\mathrm{tr}(X^\top L X)\) with \(L\) the
+path-graph Laplacian over rows (adjacent-row differences).  Useful
+for ordered rows (e.g. time / space); skipped when
+<code>X.restriction = "fixed"</code>.</p></li>
+<li><p><code>C.L2</code>: non-negative ridge penalty on the signed coefficient
+matrix \(C = C_{+} - C_{-}\) (default 0), adding
+\(\lambda\lVert C_{+} - C_{-}\rVert^2\).  Shrinks \(\Theta\)
+toward zero (with zero gradient on the unidentified common mode
+\(C_{+} + C_{-}\)), injected into both the fast unweighted and the
+weighted \(C_{+}\)/\(C_{-}\) updates.</p></li>
 <li><p><code>X.init</code>: initialization strategy for the basis matrix
 \(X\) (\(Q_{\mathrm{obs}} \times Q\)).  Accepts the same
 menu as <code><a href="nmfkc.html">nmfkc</a></code>: <code>"kmeans"</code> (default),

@@ -11,7 +11,7 @@ standard R regression output conventions."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -27,6 +27,7 @@ standard R regression output conventions."></head><body>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -57,7 +58,7 @@ standard R regression output conventions.</p>
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># S3 method for class 'nmfre'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">object</span>, show_ci <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">object</span>, ci.show <span class="op">=</span> <span class="cn">FALSE</span>, by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"covariate"</span>, <span class="st">"basis"</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -68,8 +69,17 @@ standard R regression output conventions.</p>
 <dd><p>An object of class <code>nmfre</code>, returned by <code><a href="nmfre.html">nmfre</a></code>.</p></dd>
 
 
-<dt id="arg-show-ci">show_ci<a class="anchor" aria-label="anchor" href="#arg-show-ci"></a></dt>
-<dd><p>Logical. If <code>TRUE</code>, show confidence interval columns (default <code>FALSE</code>).</p></dd>
+<dt id="arg-ci-show">ci.show<a class="anchor" aria-label="anchor" href="#arg-ci-show"></a></dt>
+<dd><p>Logical. If <code>TRUE</code>, show confidence interval columns
+(default <code>FALSE</code>). Named object-first to match the package style
+(<code>C.signed</code>, <code>X.init</code>, ...). Legacy <code>show_ci</code> is accepted
+via <code>...</code>.</p></dd>
+
+
+<dt id="arg-by">by<a class="anchor" aria-label="anchor" href="#arg-by"></a></dt>
+<dd><p>Grouping order of the coefficient rows: <code>"covariate"</code>
+(default; list all bases for each covariate) or <code>"basis"</code> (list all
+covariates for each basis).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -92,24 +102,19 @@ standard R regression output conventions.</p>
 <span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="nmfre.html">nmfre</a></span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, maxit <span class="op">=</span> <span class="fl">5000</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> NMF-RE: Y(1,50) = X(1,1) [C(1,2) A + U(1,50)]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 4 (converged, epsilon = 1e-05)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (cor^2):    0.9515 (XB+blup), 0.6511 (XB)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (uncentered):     0.9752 (XB+blup), 0.8959 (XB)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (centered): 0.9047 (XB+blup), 0.6005 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 43 (converged, epsilon = 1e-05)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (cor^2):    0.9328 (XB+blup), 0.6511 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (uncentered):     0.9799 (XB+blup), 0.9091 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (centered): 0.9227 (XB+blup), 0.6511 (XB)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Variance components:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 1  (residual)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   tau2   = 1  (random effect)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   lambda = 1  (sigma2 / tau2)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   ICC    = 0.5000  (tau2*tr(X'X) / (tau2*tr(X'X) + sigma2*P))</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   dfU    = 25.00 &lt;= 30.00 (cap rate = 0.60)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 106.9  (residual)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   tau2   = 120.2  (random effect)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   lambda = 0.8888  (sigma2 / tau2)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   ICC    = 0.5294  (tau2*tr(X'X) / (tau2*tr(X'X) + sigma2*P))</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   dfU    = 26.47</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Coefficients:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                   Estimate Std. Error (Boot) z value   Pr(&gt;z) </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> intercept:Basis1     0.014      6.427  3.254    0.00   0.4991  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     speed:Basis1     2.851      0.456  0.432    6.25 2.118e-10 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Coefficients (Theta): run nmfre.inference(fit, Y, A) for SE / p-values.</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
