@@ -23,7 +23,7 @@ training split and predictive performance is evaluated on the held-out split."><
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@ training split and predictive performance is evaluated on the held-out split."><
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -119,7 +120,7 @@ if <code>FALSE</code>, splits sequentially (block CV; recommended for time serie
 <dd><p>(Deprecated) Alias for <code>rank</code>.</p></dd>
 
 <dt><em>Arguments passed to</em> <code><a href="nmfkc.html">nmfkc</a></code></dt>
-<dd><p>e.g., <code>gamma</code> (<code>B.L1</code>), <code>epsilon</code>,
+<dd><p>e.g., <code>C.L1</code>, <code>epsilon</code>,
 <code>maxit</code>, <code>method</code> (<code>"EU"</code> or <code>"KL"</code>), <code>X.restriction</code>, <code>X.init</code>, etc.</p></dd>
 
 
@@ -167,7 +168,7 @@ if <code>FALSE</code>, splits sequentially (block CV; recommended for time serie
 <span class="r-in"><span>  <span class="va">obj</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu">nmfkc.cv</span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, nfolds <span class="op">=</span> <span class="fl">10</span><span class="op">)</span><span class="op">$</span><span class="va">objfunc</span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>
 <span class="r-in"><span><span class="va">betas</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/which.min.html" class="external-link">which.min</a></span><span class="op">(</span><span class="va">obj</span><span class="op">)</span><span class="op">]</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.028</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.031</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

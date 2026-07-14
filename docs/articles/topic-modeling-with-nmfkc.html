@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,6 +42,7 @@
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -263,7 +264,7 @@ using Cross-Validation.</p>
 <span><span class="co"># Note: We use the same rank (rank=3) as selected above.</span></span>
 <span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.kernel.beta.cv.html">nmfkc.kernel.beta.cv</a></span><span class="op">(</span><span class="va">Y</span>, rank <span class="op">=</span> <span class="va">rank</span>, U <span class="op">=</span> <span class="va">U</span>, beta <span class="op">=</span> <span class="va">beta_candidates</span>, plot <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; beta=2e-05...0.1sec</span></span>
-<span><span class="co">#&gt; beta=5e-05...0sec</span></span>
+<span><span class="co">#&gt; beta=5e-05...0.1sec</span></span>
 <span><span class="co">#&gt; beta=1e-04...0.1sec</span></span>
 <span><span class="co">#&gt; beta=2e-04...0sec</span></span>
 <span><span class="co">#&gt; beta=5e-04...0sec</span></span>

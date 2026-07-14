@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -23,6 +23,7 @@
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -61,7 +62,7 @@
         <dd>Extract coefficients from NMF models</dd>
       </dl><dl><dt>
 
-          <code><a href="fitted.nmf.html">fitted(<i>&lt;nmf&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmfae&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmf.sem&gt;</i>)</a></code>
+          <code><a href="fitted.nmf.html">fitted(<i>&lt;nmf&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmfae&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmf.sem&gt;</i>)</a></code>
 
         </dt>
         <dd>Extract fitted values from NMF models</dd>
@@ -79,124 +80,124 @@
         <dd>Cluster-flow (alluvial) diagram across a sequence of fits</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.cv.html">nmf.ffb.cv()</a></code> <code><a href="nmf.sem.cv.html">nmf.sem.cv()</a></code>
+          <code><a href="nmf.ffb.cv.html">nmf.ffb.cv()</a></code>
 
         </dt>
         <dd>Cross-Validation for NMF-FFB</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.DOT.html">nmf.ffb.DOT()</a></code> <code><a href="nmf.sem.DOT.html">nmf.sem.DOT()</a></code>
+          <code><a href="nmf.ffb.DOT.html">nmf.ffb.DOT()</a></code>
 
         </dt>
         <dd>Generate a Graphviz DOT Diagram for an NMF-FFB Model</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.inference.html">nmf.ffb.inference()</a></code> <code><a href="nmf.sem.inference.html">nmf.sem.inference()</a></code>
+          <code><a href="nmf.ffb.inference.html">nmf.ffb.inference()</a></code>
 
         </dt>
         <dd>Statistical inference for NMF-FFB via X-fixed full pair bootstrap</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.html">nmf.ffb()</a></code> <code><a href="nmf.sem.html">nmf.sem()</a></code>
+          <code><a href="nmf.ffb.html">nmf.ffb()</a></code>
 
         </dt>
         <dd>NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)</dd>
       </dl><dl><dt>
 
-          <code><a href="nmf.sem.split.html">nmf.ffb.split()</a></code> <code><a href="nmf.sem.split.html">nmf.sem.split()</a></code>
+          <code><a href="nmf.ffb.split.html">nmf.ffb.split()</a></code>
 
         </dt>
         <dd>Heuristic Variable Splitting for NMF-FFB</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.cv.html">nmfae.cv()</a></code>
+          <code><a href="nmf.rrr.cv.html">nmf.rrr.cv()</a></code>
 
         </dt>
         <dd>Sample-wise k-fold Cross-Validation for nmfae</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.DOT.html">nmfae.DOT()</a></code>
+          <code><a href="nmf.rrr.DOT.html">nmf.rrr.DOT()</a></code>
 
         </dt>
         <dd>DOT graph visualization for nmfae objects</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.ecv.html">nmfae.ecv()</a></code>
+          <code><a href="nmf.rrr.ecv.html">nmf.rrr.ecv()</a></code>
 
         </dt>
         <dd>Element-wise Cross-Validation for nmfae (Wold's CV)</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.heatmap.html">nmfae.heatmap()</a></code>
+          <code><a href="nmf.rrr.heatmap.html">nmf.rrr.heatmap()</a></code>
 
         </dt>
         <dd>Heatmap visualization of nmfae factor matrices</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.inference.html">nmfae.inference()</a></code>
+          <code><a href="nmf.rrr.inference.html">nmf.rrr.inference()</a></code>
 
         </dt>
         <dd>Statistical Inference for NMF-AE Parameter Matrix</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.kernel.beta.cv.html">nmfae.kernel.beta.cv()</a></code>
+          <code><a href="nmf.rrr.kernel.beta.cv.html">nmf.rrr.kernel.beta.cv()</a></code>
 
         </dt>
         <dd>Optimize kernel beta for nmfae by cross-validation</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.rank.html">nmfae.rank()</a></code>
+          <code><a href="nmf.rrr.rank.html">nmf.rrr.rank()</a></code>
 
         </dt>
         <dd>Rank selection for nmfae (paired rank, concise diagnostics)</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.html">nmfae()</a></code>
+          <code><a href="nmf.rrr.html">nmf.rrr()</a></code>
 
         </dt>
         <dd>Three-Layer Non-negative Matrix Factorization (NMF-AE)</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.rename.html">nmfae.rename()</a></code>
+          <code><a href="nmf.rrr.rename.html">nmf.rrr.rename()</a></code>
 
         </dt>
         <dd>Rename decoder and encoder bases</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.signed.ecv.html">nmfae.signed.ecv()</a></code>
+          <code><a href="nmf.rrr.signed.ecv.html">nmf.rrr.signed.ecv()</a></code>
 
         </dt>
         <dd>Element-wise Cross-Validation for Signed-Bottleneck NMF-AE</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.signed.heatmap.html">nmfae.signed.heatmap()</a></code>
+          <code><a href="nmf.rrr.signed.heatmap.html">nmf.rrr.signed.heatmap()</a></code>
 
         </dt>
         <dd>Heatmap visualization of nmfae.signed factor matrices</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.signed.inference.html">nmfae.signed.inference()</a></code>
+          <code><a href="nmf.rrr.signed.inference.html">nmf.rrr.signed.inference()</a></code>
 
         </dt>
         <dd>Statistical Inference for Signed-Bottleneck NMF-AE Signed Bottleneck</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.signed.rank.html">nmfae.signed.rank()</a></code>
+          <code><a href="nmf.rrr.signed.rank.html">nmf.rrr.signed.rank()</a></code>
 
         </dt>
         <dd>Rank selection for nmfae.signed (paired rank, concise diagnostics)</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.signed.html">nmfae.signed()</a></code>
+          <code><a href="nmf.rrr.signed.html">nmf.rrr.signed()</a></code>
 
         </dt>
         <dd>Signed-Bottleneck NMF-AE: Three-Layer NMF-AE with Signed Bottleneck</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfae.signed.rename.html">nmfae.signed.rename()</a></code>
+          <code><a href="nmf.rrr.signed.rename.html">nmf.rrr.signed.rename()</a></code>
 
         </dt>
-        <dd>Rename Dec/Enc labels on nmfae.signed objects</dd>
+        <dd>Rename Resp/Cov labels on nmfae.signed objects</dd>
       </dl><dl><dt>
 
           <code><a href="nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv()</a></code>
@@ -257,6 +258,12 @@
 
         </dt>
         <dd>Compute model selection criteria for a fitted nmfkc model</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.cv.methods.html">print(<i>&lt;nmfkc.ecv&gt;</i>)</a></code> <code><a href="nmfkc.cv.methods.html">plot(<i>&lt;nmfkc.ecv&gt;</i>)</a></code> <code><a href="nmfkc.cv.methods.html">print(<i>&lt;nmfkc.bicv&gt;</i>)</a></code> <code><a href="nmfkc.cv.methods.html">plot(<i>&lt;nmfkc.bicv&gt;</i>)</a></code> <code><a href="nmfkc.cv.methods.html">print(<i>&lt;nmfkc.cv&gt;</i>)</a></code> <code><a href="nmfkc.cv.methods.html">plot(<i>&lt;nmfkc.cv&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print/plot methods for nmfkc cross-validation objects</dd>
       </dl><dl><dt>
 
           <code><a href="nmfkc.cv.html">nmfkc.cv()</a></code>
@@ -397,10 +404,10 @@
         <dd>Random Fourier Features for nmfkc.signed()</dd>
       </dl><dl><dt>
 
-          <code><a href="nmfre.dfU.scan.html">nmfre.dfU.scan()</a></code>
+          <code><a href="nmfre.ecv.html">nmfre.ecv()</a></code>
 
         </dt>
-        <dd>Scan dfU cap rates for NMF-RE</dd>
+        <dd>NMF-RE element-wise cross-validation for rank selection</dd>
       </dl><dl><dt>
 
           <code><a href="nmfre.inference.html">nmfre.inference()</a></code>
@@ -433,34 +440,10 @@
         <dd>Plot a rank-selection (nmf.rank) object</dd>
       </dl><dl><dt>
 
-          <code><a href="plot.nmfae.cv.html">plot(<i>&lt;nmfae.cv&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Plot method for nmfae.cv objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="plot.nmfae.ecv.html">plot(<i>&lt;nmfae.ecv&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Plot method for nmfae.ecv objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="plot.nmfae.kernel.beta.cv.html">plot(<i>&lt;nmfae.kernel.beta.cv&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Plot method for nmfae.kernel.beta.cv objects</dd>
-      </dl><dl><dt>
-
           <code><a href="plot.nmfae.html">plot(<i>&lt;nmfae&gt;</i>)</a></code>
 
         </dt>
         <dd><code>plot.nmfae</code> displays the convergence trajectory of the objective function across iterations. The title shows the achieved \(R^2\).</dd>
-      </dl><dl><dt>
-
-          <code><a href="plot.nmfae.signed.html">plot(<i>&lt;nmfae.signed&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Plot method for nmfae.signed (convergence)</dd>
       </dl><dl><dt>
 
           <code><a href="plot.nmfkc.ard.html">plot(<i>&lt;nmfkc.ard&gt;</i>)</a></code>
@@ -493,28 +476,16 @@
         <dd>Plot method for nmfkc.signed (convergence)</dd>
       </dl><dl><dt>
 
+          <code><a href="plot.nmfre.ecv.html">plot(<i>&lt;nmfre.ecv&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot method for nmfre.ecv objects</dd>
+      </dl><dl><dt>
+
           <code><a href="plot.nmfre.html">plot(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="plot.nmfre.html">plot(<i>&lt;nmf.sem&gt;</i>)</a></code>
 
         </dt>
         <dd>Plot convergence diagnostics for NMF models</dd>
-      </dl><dl><dt>
-
-          <code><a href="plot.predict.nmfae.html">plot(<i>&lt;predict.nmfae&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Plot method for predict.nmfae objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="predict.nmfae.html">predict(<i>&lt;nmfae&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Predict method for nmfae objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="predict.nmfae.signed.html">predict(<i>&lt;nmfae.signed&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Predict method for nmfae.signed</dd>
       </dl><dl><dt>
 
           <code><a href="predict.nmfkc.html">predict(<i>&lt;nmfkc&gt;</i>)</a></code>
@@ -527,6 +498,12 @@
 
         </dt>
         <dd>Predict method for nmfkc.signed</dd>
+      </dl><dl><dt>
+
+          <code><a href="predict.nmfre.html">predict(<i>&lt;nmfre&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Predict method for nmfre objects</dd>
       </dl><dl><dt>
 
           <code><a href="print.nmf.cluster.criteria.html">print(<i>&lt;nmf.cluster.criteria&gt;</i>)</a></code>
@@ -565,34 +542,16 @@
         <dd>Print method for nmfkc.consensus objects</dd>
       </dl><dl><dt>
 
+          <code><a href="print.nmfre.ecv.html">print(<i>&lt;nmfre.ecv&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmfre.ecv objects</dd>
+      </dl><dl><dt>
+
           <code><a href="print.summary.nmf.sem.html">print(<i>&lt;summary.nmf.sem&gt;</i>)</a></code>
 
         </dt>
         <dd>Print method for summary.nmf.sem objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="print.summary.nmfae.inference.html">print(<i>&lt;summary.nmfae.inference&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print method for summary.nmfae.inference objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="print.summary.nmfae.html">print(<i>&lt;summary.nmfae&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print method for summary.nmfae objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="print.summary.nmfae.signed.inference.html">print(<i>&lt;summary.nmfae.signed.inference&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print method for summary.nmfae.signed.inference objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="print.summary.nmfae.signed.html">print(<i>&lt;summary.nmfae.signed&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print method for summary.nmfae.signed</dd>
       </dl><dl><dt>
 
           <code><a href="print.summary.nmfkc.inference.html">print(<i>&lt;summary.nmfkc.inference&gt;</i>)</a></code>
@@ -641,30 +600,6 @@
 
         </dt>
         <dd>Summary method for nmf.sem objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="summary.nmfae.inference.html">summary(<i>&lt;nmfae.inference&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Summary method for nmfae.inference objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="summary.nmfae.html">summary(<i>&lt;nmfae&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Summary method for nmfae objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="summary.nmfae.signed.inference.html">summary(<i>&lt;nmfae.signed.inference&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Summary method for nmfae.signed.inference objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="summary.nmfae.signed.html">summary(<i>&lt;nmfae.signed&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Summary method for nmfae.signed</dd>
       </dl><dl><dt>
 
           <code><a href="summary.nmfkc.inference.html">summary(<i>&lt;nmfkc.inference&gt;</i>)</a></code>

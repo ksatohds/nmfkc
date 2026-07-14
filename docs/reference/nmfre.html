@@ -14,15 +14,15 @@ induces sparse, parts-based loadings, achieving measurement-side variable
 selection without an explicit sparsity penalty. Inference on \(\Theta\)
 provides covariate-side variable selection by identifying which covariates
 significantly affect which components.
-Estimation alternates ridge-type BLUP-like closed-form updates for \(U\)
-with multiplicative non-negative updates for \(X\) and \(\Theta\).
-The effective degrees of freedom consumed by \(U\) are monitored and a
-df-based cap can be enforced to prevent near-saturated fits.
-When wild.bootstrap = TRUE, inference on \(\Theta\) is performed
-conditional on \((\hat{X}, \hat{U})\) via asymptotic linearization,
-a one-step Newton update, and a multiplier (wild) bootstrap, yielding
-standard errors, z-values, p-values, and confidence intervals without
-repeated constrained re-optimization."><meta property="og:description" content="Estimates the NMF-RE model
+Estimation is an outer–inner ECM: an inner loop (fixed \(\lambda\)) runs a
+ridge/BLUP update for \(U\), a complete-EM semi-NMF update for \(X\), and
+a fixed-effect update for \(\Theta\); an outer loop runs the EM M-steps for
+\((\sigma^2, \tau^2)\). The variance components are estimated from the data;
+the effective degrees of freedom \(df_U\) are reported only as a diagnostic.
+nmfre() performs optimization only. Hypothesis tests and
+standard errors for \(\Theta\) are obtained separately with
+nmfre.inference (sandwich SE + wild bootstrap), mirroring the
+nmfkc / nmfkc.inference split."><meta property="og:description" content="Estimates the NMF-RE model
 $$Y = X(\Theta A + U) + \mathcal{E}$$
 where \(Y\) (\(P \times N\)) is a non-negative observation matrix,
 \(X\) (\(P \times Q\)) is a non-negative basis matrix learned from the data,
@@ -37,15 +37,15 @@ induces sparse, parts-based loadings, achieving measurement-side variable
 selection without an explicit sparsity penalty. Inference on \(\Theta\)
 provides covariate-side variable selection by identifying which covariates
 significantly affect which components.
-Estimation alternates ridge-type BLUP-like closed-form updates for \(U\)
-with multiplicative non-negative updates for \(X\) and \(\Theta\).
-The effective degrees of freedom consumed by \(U\) are monitored and a
-df-based cap can be enforced to prevent near-saturated fits.
-When wild.bootstrap = TRUE, inference on \(\Theta\) is performed
-conditional on \((\hat{X}, \hat{U})\) via asymptotic linearization,
-a one-step Newton update, and a multiplier (wild) bootstrap, yielding
-standard errors, z-values, p-values, and confidence intervals without
-repeated constrained re-optimization."></head><body>
+Estimation is an outer–inner ECM: an inner loop (fixed \(\lambda\)) runs a
+ridge/BLUP update for \(U\), a complete-EM semi-NMF update for \(X\), and
+a fixed-effect update for \(\Theta\); an outer loop runs the EM M-steps for
+\((\sigma^2, \tau^2)\). The variance components are estimated from the data;
+the effective degrees of freedom \(df_U\) are reported only as a diagnostic.
+nmfre() performs optimization only. Hypothesis tests and
+standard errors for \(\Theta\) are obtained separately with
+nmfre.inference (sandwich SE + wild bootstrap), mirroring the
+nmfkc / nmfkc.inference split."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -53,7 +53,7 @@ repeated constrained re-optimization."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -69,6 +69,7 @@ repeated constrained re-optimization."></head><body>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -106,15 +107,15 @@ induces sparse, parts-based loadings, achieving measurement-side variable
 selection without an explicit sparsity penalty. Inference on \(\Theta\)
 provides covariate-side variable selection by identifying which covariates
 significantly affect which components.</p>
-<p>Estimation alternates ridge-type BLUP-like closed-form updates for \(U\)
-with multiplicative non-negative updates for \(X\) and \(\Theta\).
-The effective degrees of freedom consumed by \(U\) are monitored and a
-df-based cap can be enforced to prevent near-saturated fits.</p>
-<p>When <code>wild.bootstrap = TRUE</code>, inference on \(\Theta\) is performed
-conditional on \((\hat{X}, \hat{U})\) via asymptotic linearization,
-a one-step Newton update, and a multiplier (wild) bootstrap, yielding
-standard errors, z-values, p-values, and confidence intervals without
-repeated constrained re-optimization.</p>
+<p>Estimation is an outer–inner ECM: an inner loop (fixed \(\lambda\)) runs a
+ridge/BLUP update for \(U\), a complete-EM semi-NMF update for \(X\), and
+a fixed-effect update for \(\Theta\); an outer loop runs the EM M-steps for
+\((\sigma^2, \tau^2)\). The variance components are estimated from the data;
+the effective degrees of freedom \(df_U\) are reported only as a diagnostic.</p>
+<p><code>nmfre()</code> performs <strong>optimization only</strong>. Hypothesis tests and
+standard errors for \(\Theta\) are obtained separately with
+<code><a href="nmfre.inference.html">nmfre.inference</a></code> (sandwich SE + wild bootstrap), mirroring the
+<code><a href="nmfkc.html">nmfkc</a></code> / <code>nmfkc.inference</code> split.</p>
     </div>
 
     <div class="section level2">
@@ -123,8 +124,7 @@ repeated constrained re-optimization.</p>
 <span>  <span class="va">Y</span>,</span>
 <span>  A <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  rank <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  df.rate <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  wild.bootstrap <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  C.signed <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  epsilon <span class="op">=</span> <span class="fl">1e-05</span>,</span>
 <span>  maxit <span class="op">=</span> <span class="fl">5000</span>,</span>
 <span>  <span class="va">...</span></span>
@@ -148,18 +148,17 @@ repeated constrained re-optimization.</p>
 For backward compatibility, <code>Q</code> is accepted via <code>...</code>.</p></dd>
 
 
-<dt id="arg-df-rate">df.rate<a class="anchor" aria-label="anchor" href="#arg-df-rate"></a></dt>
-<dd><p>Rate for computing the dfU cap (<code>cap = rate * N * Q</code>).
-For backward compatibility, <code>dfU.cap.rate</code> is accepted via <code>...</code>.
-If <code>NULL</code> (default), runs <code><a href="nmfre.dfU.scan.html">nmfre.dfU.scan</a></code> internally and
-selects the minimum rate where the cap is not binding.
-Use <code><a href="nmfre.dfU.scan.html">nmfre.dfU.scan</a></code> beforehand to examine dfU behavior across rates
-and choose an appropriate value.</p></dd>
-
-
-<dt id="arg-wild-bootstrap">wild.bootstrap<a class="anchor" aria-label="anchor" href="#arg-wild-bootstrap"></a></dt>
-<dd><p>Logical. If <code>TRUE</code> (default), perform wild bootstrap inference
-on \(\Theta\).</p></dd>
+<dt id="arg-c-signed">C.signed<a class="anchor" aria-label="anchor" href="#arg-c-signed"></a></dt>
+<dd><p>Logical. Whether the fixed-effect coefficients \(C\)
+(\(= \Theta\) in the paper) are sign-free; the single switch that selects
+the whole estimation scheme. <code>TRUE</code> (default, recommended, matches the
+paper) treats \(C\) as real-valued and updates it by exact least squares,
+with the basis \(X\) estimated by the complete-EM semi-NMF step and a
+two-sided test (interior null). <code>FALSE</code> constrains \(C \ge 0\) via a
+multiplicative update, with \(X\) estimated by the positive-part
+multiplicative update and a one-sided test (boundary null). The basis
+\(X\) is always non-negative. A character value (<code>"signed"</code> /
+<code>"nonneg"</code>) is also accepted for backward compatibility.</p></dd>
 
 
 <dt id="arg-epsilon">epsilon<a class="anchor" aria-label="anchor" href="#arg-epsilon"></a></dt>
@@ -185,16 +184,39 @@ When <code>NULL</code>, <code><a href="nmfkc.html">nmfkc</a></code> is called in
 <li><p><code>sigma2</code>: Initial residual variance (default 1).</p></li>
 <li><p><code>sigma2.update</code>: Logical. Update \(\sigma^2\) during iterations (default <code>TRUE</code>).</p></li>
 <li><p><code>tau2</code>: Initial random effect variance (default 1).</p></li>
-<li><p><code>tau2.update</code>: Logical. Update \(\tau^2\) by moment matching (default <code>TRUE</code>).
-Disabled when dfU cap is active.</p></li>
-<li><p><code>dfU.control</code>: Either <code>"cap"</code> (default) to enforce a cap on dfU,
-or <code>"off"</code> for no cap.</p></li>
+<li><p><code>tau2.update</code>: Logical. Update \(\tau^2\) by moment matching (default <code>TRUE</code>).</p></li>
+<li><p><code>x.postvar</code>: Logical. Include the posterior-variance term in
+the semi-NMF \(X\)-step (default <code>TRUE</code>; advanced). Applies only
+to the sign-free / semi-NMF path (<code>C.signed = TRUE</code>).</p></li>
+<li><p><code>X.L2.smooth</code>: Non-negative row-smoothness penalty on the
+basis \(X\) (default 0), adding
+\((\lambda/2)\,\mathrm{tr}(X^\top L X)\) with \(L\) the path-graph
+Laplacian over rows (squared adjacent-row differences).  Well suited to
+ordered rows (e.g.\ longitudinal / spatial bases).  Injected into the
+\(X\)-step for both <code>C.signed = TRUE/FALSE</code>; leaves the
+random-effect variance updates unchanged.</p></li>
+<li><p><code>X.L2.ortho</code>: Non-negative column-orthogonality penalty on
+\(X\) (default 0), penalizing
+\((\lambda/2)\lVert\mathrm{offdiag}(X^\top X)\rVert^2\).</p></li>
+<li><p><code>C.L2</code>: Non-negative ridge penalty on \(\Theta = C\)
+(default 0), adding \(\lambda\lVert C\rVert^2\).  A Gaussian prior on
+the fixed effects; for <code>C.signed = TRUE</code> the \(C\)-step stays a
+closed-form Sylvester ridge-LS solve, for <code>C.signed = FALSE</code> it is
+added to the multiplicative-update denominator.</p></li>
+<li><p><code>dfU.control</code>: Deprecated and inert. The algorithm imposes no
+cap on \(df_U\) (<code>"off"</code>, the only behaviour); \(df_U\) is
+reported as a diagnostic only.</p></li>
 <li><p><code>print.trace</code>: Logical. If <code>TRUE</code>, print progress every 100 iterations (default <code>FALSE</code>).</p></li>
 <li><p><code>seed</code>: Integer seed for reproducibility (default 1).</p></li>
-<li><p><code>C.p.side</code>: P-value sidedness: <code>"one.sided"</code> (default, for boundary null
-H0: C=0 vs H1: C&gt;0) or <code>"two.sided"</code>.</p></li>
-<li><p><code>wild.B</code>: Number of wild bootstrap replicates (default 500).</p></li>
-<li><p><code>wild.seed</code>: Seed for wild bootstrap (default 123).</p></li>
+<li><p><code>nstart</code>: Number of random restarts for the <code><a href="nmfkc.html">nmfkc()</a></code>
+initialisation step (passed to the k-means initialiser). Default
+<code>1</code> (single start; historical behaviour). A larger value
+(e.g.\ 10-20) gives a more stable initialisation.</p></li>
+<li><p><code>inner.maxit</code>, <code>outer.maxit</code>: Maximum inner (fixed-\(\lambda\)
+block-coordinate) and outer (EM variance) iterations (defaults
+<code>10000</code> and <code>500</code>).</p></li>
+<li><p><code>epsilon.outer</code>: Convergence tolerance for the outer EM loop on
+\(\lambda\) (default <code>1e-6</code>).</p></li>
 </ul></dd>
 
 </dl></div>
@@ -204,6 +226,14 @@ H0: C=0 vs H1: C&gt;0) or <code>"two.sided"</code>.</p></li>
 The model is \(Y = X(\Theta A + U) + \mathcal{E}\).</p>
 <p><strong>Core matrices</strong></p><dl><dt><code>X</code></dt>
 <dd><p>Basis matrix \(X\) (\(P \times Q\)), columns normalized to sum to 1.</p></dd>
+
+<dt><code>X.prob</code></dt>
+<dd><p>Row-wise soft-clustering probabilities from the
+non-negative \(X\) (each row normalized to sum to 1), as in <code><a href="nmfkc.html">nmfkc</a></code>.</p></dd>
+
+<dt><code>X.cluster</code></dt>
+<dd><p>Hard-clustering label for each row of \(X\)
+(argmax over <code>X.prob</code>).</p></dd>
 
 <dt><code>C</code></dt>
 <dd><p>Coefficient matrix \(\Theta\) (\(Q \times K\)).</p></dd>
@@ -245,10 +275,19 @@ The model is \(Y = X(\Theta A + U) + \mathcal{E}\).</p>
 <dd><p>Final relative change in objective.</p></dd>
 
 <dt><code>objfunc.iter</code></dt>
-<dd><p>Numeric vector of objective values per iteration.</p></dd>
+<dd><p>Numeric vector of the fixed-\(\lambda\)
+penalized objective \(\|Y - X(\Theta A + U)\|^2 + \lambda\|U\|^2\)
+per iteration. Monotone within an inner loop but <em>not</em> across
+outer iterations (the penalty jumps when \(\lambda\) is updated).</p></dd>
 
 <dt><code>rss.trace</code></dt>
 <dd><p>Numeric vector of \(\|Y - X(\Theta A + U)\|^2\) per iteration.</p></dd>
+
+<dt><code>nll.trace</code></dt>
+<dd><p>Numeric vector of the marginal negative
+log-likelihood \(\ell(X,\Theta,\sigma^2,\tau^2)\) per iteration
+(random effects integrated out). This is the ECM-monotone quantity and
+is what <code><a href="plot.nmfre.html">plot.nmfre</a></code> displays.</p></dd>
 
 
 </dl><p><strong>Effective degrees of freedom (dfU) diagnostics</strong></p><dl><dt><code>dfU</code></dt>
@@ -261,9 +300,6 @@ where \(d_q\) are eigenvalues of \(X'X\).</p></dd>
 
 <dt><code>dfU.cap.rate</code></dt>
 <dd><p>Rate used to compute the cap.</p></dd>
-
-<dt><code>dfU.cap.scan</code></dt>
-<dd><p>Result of <code><a href="nmfre.dfU.scan.html">nmfre.dfU.scan</a></code>, or <code>NULL</code>.</p></dd>
 
 <dt><code>lambda.enforced</code></dt>
 <dd><p>Final \(\lambda\) enforced to satisfy the cap.</p></dd>
@@ -347,40 +383,14 @@ This equals the average (over \(P\) dimensions) proportion of
 per-column variance attributable to the random effects.</p></dd>
 
 
-</dl><p><strong>Inference on \(\Theta\) (wild bootstrap)</strong></p><dl><dt><code>sigma2.used</code></dt>
-<dd><p>\(\hat{\sigma}^2\) used for inference.</p></dd>
-
-<dt><code>C.vec.cov</code></dt>
-<dd><p>Variance-covariance matrix for
-\(\mathrm{vec}(\Theta)\) (\(QK \times QK\)).</p></dd>
-
-<dt><code>C.se</code></dt>
-<dd><p>Standard error matrix for \(\Theta\) (\(Q \times K\)).</p></dd>
-
-<dt><code>C.se.hess</code></dt>
-<dd><p>Sandwich (Hessian-based) SE matrix for \(\Theta\).</p></dd>
-
-<dt><code>C.se.boot</code></dt>
-<dd><p>Bootstrap SE matrix for \(\Theta\).</p></dd>
-
-<dt><code>coefficients</code></dt>
-<dd><p>Data frame with columns Estimate, Std. Error, z value,
-Pr(&gt;|z|), and confidence interval bounds for each element of \(\Theta\).</p></dd>
-
-<dt><code>C.ci.lower</code></dt>
-<dd><p>Lower confidence interval matrix for \(\Theta\) (\(Q \times K\)).</p></dd>
-
-<dt><code>C.ci.upper</code></dt>
-<dd><p>Upper confidence interval matrix for \(\Theta\) (\(Q \times K\)).</p></dd>
-
-<dt><code>C.boot.sd</code></dt>
-<dd><p>Bootstrap standard deviation matrix for \(\Theta\) (\(Q \times K\)).</p></dd>
-
-<dt><code>C.p.side</code></dt>
-<dd><p>P-value sidedness used: <code>"one.sided"</code> or <code>"two.sided"</code>.</p></dd>
+</dl><p><strong>Sign convention</strong></p><dl><dt><code>C.signed</code></dt>
+<dd><p>Logical. Whether \(C\) was sign-free (<code>TRUE</code>) or non-negative (<code>FALSE</code>).</p></dd>
 
 
-</dl></div>
+</dl><p>Standard errors, z-values, p-values, and confidence intervals for
+\(\Theta\) are <strong>not</strong> computed here; obtain them by passing the fit
+to <code><a href="nmfre.inference.html">nmfre.inference</a></code>.</p>
+    </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
     <p>Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix
@@ -389,7 +399,7 @@ Factorization with Random Effects. arXiv:2603.01468.
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfre.inference.html">nmfre.inference</a></code>, <code><a href="nmfre.dfU.scan.html">nmfre.dfU.scan</a></code>,
+    <div class="dont-index"><p><code><a href="nmfre.inference.html">nmfre.inference</a></code>,
 <code><a href="nmfkc.DOT.html">nmfkc.DOT</a></code>, <code><a href="summary.nmfre.html">summary.nmfre</a></code></p></div>
     </div>
 
@@ -401,24 +411,19 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">nmfre</span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, maxit <span class="op">=</span> <span class="fl">5000</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> NMF-RE: Y(1,50) = X(1,1) [C(1,2) A + U(1,50)]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 4 (converged, epsilon = 1e-05)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (cor^2):    0.9515 (XB+blup), 0.6511 (XB)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (uncentered):     0.9752 (XB+blup), 0.8959 (XB)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (centered): 0.9047 (XB+blup), 0.6005 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 43 (converged, epsilon = 1e-05)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (cor^2):    0.9328 (XB+blup), 0.6511 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (uncentered):     0.9799 (XB+blup), 0.9091 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (centered): 0.9227 (XB+blup), 0.6511 (XB)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Variance components:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 1  (residual)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   tau2   = 1  (random effect)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   lambda = 1  (sigma2 / tau2)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   ICC    = 0.5000  (tau2*tr(X'X) / (tau2*tr(X'X) + sigma2*P))</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   dfU    = 25.00 &lt;= 30.00 (cap rate = 0.60)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 106.9  (residual)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   tau2   = 120.2  (random effect)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   lambda = 0.8888  (sigma2 / tau2)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   ICC    = 0.5294  (tau2*tr(X'X) / (tau2*tr(X'X) + sigma2*P))</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   dfU    = 26.47</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Coefficients:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                   Estimate Std. Error (Boot) z value   Pr(&gt;z) </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> intercept:Basis1     0.014      6.427  3.254    0.00   0.4991  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     speed:Basis1     2.851      0.456  0.432    6.25 2.118e-10 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Coefficients (Theta): run nmfre.inference(fit, Y, A) for SE / p-values.</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="co"># Example 2. Orthodont data (nlme)</span></span></span>
@@ -427,32 +432,24 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-in"><span>  <span class="va">male</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="fu">nlme</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/nlme/man/Orthodont.html" class="external-link">Orthodont</a></span><span class="op">$</span><span class="va">Sex</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">108</span>, <span class="fl">4</span><span class="op">)</span><span class="op">]</span> <span class="op">==</span> <span class="st">"Male"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>intercept <span class="op">=</span> <span class="fl">1</span>, male <span class="op">=</span> <span class="va">male</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span>  <span class="co"># Scan dfU cap rates to choose an appropriate value</span></span></span>
-<span class="r-in"><span>  <span class="fu"><a href="nmfre.dfU.scan.html">nmfre.dfU.scan</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">/</span><span class="fl">10</span>, <span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span>  <span class="co"># Fit with chosen rate</span></span></span>
-<span class="r-in"><span>  <span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">nmfre</span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, df.rate <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="co"># Fit (sign-free Theta by default; variances estimated by EM/ECM)</span></span></span>
+<span class="r-in"><span>  <span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">nmfre</span><span class="op">(</span><span class="va">Y</span>, <span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span><span class="co"># }</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> NMF-RE: Y(4,27) = X(4,1) [C(1,2) A + U(1,27)]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 2 (converged, epsilon = 1e-05)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (cor^2):    0.5739 (XB+blup), 0.4167 (XB)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (uncentered):     0.9937 (XB+blup), 0.9915 (XB)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (centered): 0.4139 (XB+blup), 0.2133 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 41 (converged, epsilon = 1e-05)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (cor^2):    0.8246 (XB+blup), 0.4167 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (uncentered):     0.9974 (XB+blup), 0.9915 (XB)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> R-squared (centered): 0.7594 (XB+blup), 0.2134 (XB)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Variance components:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 1  (residual)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   tau2   = 0.9961  (random effect)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   lambda = 1.004  (sigma2 / tau2)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   ICC    = 0.0588  (tau2*tr(X'X) / (tau2*tr(X'X) + sigma2*P))</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   dfU    = 5.40 &lt;= 5.40 (cap rate = 0.20)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   sigma2 = 1.933  (residual)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   tau2   = 48.19  (random effect)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   lambda = 0.04011  (sigma2 / tau2)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   ICC    = 0.6100  (tau2*tr(X'X) / (tau2*tr(X'X) + sigma2*P))</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   dfU    = 23.28</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Coefficients:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                   Estimate Std. Error (Boot) z value   Pr(&gt;z) </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> intercept:Basis1    90.393      2.471  2.452   36.58   &lt;2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>      male:Basis1     9.606      3.056  2.977    3.14 0.0008356 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Coefficients (Theta): run nmfre.inference(fit, Y, A) for SE / p-values.</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

@@ -19,7 +19,7 @@ one-step wild bootstrap with non-negative projection."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,6 +35,7 @@ one-step wild bootstrap with non-negative projection."></head><body>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
@@ -95,7 +96,30 @@ to skip bootstrap (faster, only sandwich SE is computed).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Additional arguments:</p><dl><dt><code>wild.B</code></dt>
+<dd><p>Additional arguments:</p><dl><dt><code>method</code></dt>
+<dd><p>Bootstrap engine. <code>"onestep"</code> (default): a
+one-step Newton linearisation around the fit using the inverse
+information <code>Hinv</code> (fast; the sandwich SE is primary).
+<code>"refit"</code>: a residual wild bootstrap that re-estimates \(C\)
+to convergence with the basis \(X\) held FIXED. The "refit" engine
+uses no information matrix, so it stays valid when the Fisher
+information \(AA'\) is singular (over-parameterised covariates) or
+\(C\) sits on the \(\ge 0\) boundary; the bootstrap SE/CI become
+primary and the p-value is a two-sided bootstrap p-value.</p></dd>
+
+<dt><code>wild.dist</code></dt>
+<dd><p>Multiplier distribution (orthogonal to
+<code>method</code>): <code>"rademacher"</code> (\(\pm 1\)), <code>"mammen"</code>
+(Mammen 1993 two-point), or <code>"exp"</code> (\(\mathrm{Exp}(1)-1\)).
+Default <code>"exp"</code> for <code>method="onestep"</code> (backward
+compatible), <code>"rademacher"</code> for <code>"refit"</code>.</p></dd>
+
+<dt><code>wild.unit</code></dt>
+<dd><p>For <code>method="refit"</code>: <code>"element"</code>
+(default, i.i.d. multiplier per matrix cell) or <code>"column"</code>
+(one multiplier per sample column, shared over rows).</p></dd>
+
+<dt><code>wild.B</code></dt>
 <dd><p>Number of bootstrap replicates. Default is 1000.</p></dd>
 
 <dt><code>wild.seed</code></dt>
@@ -172,7 +196,7 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Dimensions: Y(1,50)~X(1,1)C(1,2)A(2,50)=XB(1,50) </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Rank (Q):    1 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Runtime:     0sec </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Runtime:     0.0sec </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Method:      EU </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Iterations:  58 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Missing:     0 (0.0%) </span>
