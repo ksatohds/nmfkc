@@ -1,3 +1,18 @@
+# nmfkc 0.8.9 (development)
+
+### **`nmfre()` correctness fixes (identification + signed warm start)**
+- Removed the row-centering of the random-effect matrix `U` inside the U-step.
+  The (U, Theta) indeterminacy is `U -> U + Delta A`, `Theta -> Theta - Delta`,
+  so the identification condition is `U A' = 0`, not `U 1 = 0`; the alternating
+  fixed point satisfies `U A' = 0` automatically, and imposing row-centering on
+  top broke it whenever `1'` is not in the row space of `A`. (Verified: after
+  the fix `||U A'||` is ~1e-6 at convergence.)
+- The initialization no longer clips `C.init` to `+eps` when
+  `C.signed = TRUE`: a warm-start `C.init` may legitimately carry negative
+  entries (e.g. a full-refit bootstrap restarting from the previous estimate),
+  and the unconditional `pmax()` destroyed their sign at every refit. Clipping
+  now applies only in the non-negative mode, mirroring the in-loop update rule.
+
 # nmfkc 0.8.8
 
 ### **Removed the `B.L1` penalty (and its `gamma` alias)**

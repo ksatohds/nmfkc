@@ -481,7 +481,12 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   epsilon.outer <- if (!is.null(extra_args$epsilon.outer)) extra_args$epsilon.outer else 1e-6
 
   # ---- normalize X columns to sum 1 (rescale C AND U) ----
-  normed <- .nmfre.normalize.X(pmax(X, .eps), pmax(C_mat, .eps), U)
+  ## Clip C to +eps only in nonneg mode: under C.signed = TRUE a warm-start
+  ## C.init may legitimately carry negative entries (e.g. full-refit
+  ## bootstrap), and clipping here would destroy their sign at every refit.
+  ## This mirrors the in-loop rule `if (C.mode == "nonneg") pmax(...)`.
+  C0 <- if (C.mode == "nonneg") pmax(C_mat, .eps) else C_mat
+  normed <- .nmfre.normalize.X(pmax(X, .eps), C0, U)
   X <- normed$X
   C_mat <- normed$C
   U <- normed$U
@@ -568,7 +573,11 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
         rhs <- crossprod(X, R0[, n, drop = FALSE])
         U[, n] <- as.numeric(backsolve(cholM, forwardsolve(t(cholM), rhs)))
       }
-      U <- sweep(U, 1, rowMeans(U), "-")          # center for identifiability
+      ## NOTE: do NOT row-center U here. The (U, Theta) indeterminacy is
+      ## U -> U + Delta A, Theta -> Theta - Delta, so the identification
+      ## condition is U A' = 0, not U 1 = 0. The alternating fixed point
+      ## satisfies U A' = 0 automatically; imposing row-centering on top
+      ## breaks it whenever 1' is not in rowspace(A).
 
       # (2) X-step: X >= 0 with sign-free score matrix B = CA + U
       B_sem <- CA + U
