@@ -232,6 +232,12 @@ print(round(res$C, 4))
 
 $U$ captures individual deviations. Subjects with positive $U$ values grow faster than the population average; negative values indicate slower growth.
 
+At convergence the random effects satisfy the identification condition
+$U A^\top = 0$: they are orthogonal to the covariate rows, so $U$ contains
+exactly the individual variation that the covariates cannot explain. (When
+$A$ includes an intercept row, as here, this implies the familiar
+sum-to-zero centering of each row of $U$ across subjects.)
+
 ```{r random-effects, fig.height=4}
 barplot(res$U[1, ], names.arg = colnames(Y),
         las = 2, cex.names = 0.7,
