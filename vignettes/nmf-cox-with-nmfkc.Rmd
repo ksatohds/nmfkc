@@ -1,0 +1,240 @@
+---
+title: "NMF-COX: Interpretable Non-Proportional Hazards with nmfkc"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{NMF-COX: Interpretable Non-Proportional Hazards with nmfkc}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteDepends{survival}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+```
+
+## Introduction
+
+The Cox proportional-hazards model assumes that each covariate acts with a
+time-constant log hazard ratio. When that assumption fails --- the effect of a
+covariate strengthens or fades over follow-up --- the usual coefficient is hard
+to interpret. **NMF-COX** models the non-proportional part explicitly with a
+low-rank, non-negative time-varying offset and keeps a clean, time-constant
+effect for the covariates of interest.
+
+The hazard is
+$$\lambda_n(t) = h_0(t)\exp\!\big(\boldsymbol z_n^\top\gamma + \boldsymbol a_n^\top\beta(t)\big),
+\qquad \beta(t) = C^\top \boldsymbol x(t),\quad \boldsymbol x(t) \ge 0.$$
+
+- $\boldsymbol z$ are the **proportional-hazards covariates of interest**; their
+  effect $\gamma$ is time-constant and is the *estimand*.
+- $\boldsymbol a$ are the **non-proportional covariates**; they receive a
+  time-varying coefficient $\beta(t)$.
+- $X$ ($P\times Q$) is a **non-negative time basis** over the $P$ event times
+  (columns normalised to sum to one, i.e. composition profiles), and $C$
+  ($Q\times R$; $\Theta$ in the paper) is a **sign-free parameter matrix** ---
+  the combination is a semi-NMF representation, estimated directly on the Cox
+  partial likelihood (Breslow ties).
+
+Because the offset is linear in $\boldsymbol a$ at each event time, $\gamma$ is
+separated from the time-varying part and can be estimated by a cross-fit
+(Neyman-orthogonal) procedure. The non-negative, sum-to-one basis makes each
+$\beta_r(t)$ readable as a *time-phase profile*, unlike a sign-free reduced-rank
+fit whose components oscillate and are hard to interpret.
+
+Following the rest of the package, `nmf.cox()` performs **optimization only**;
+`nmf.cox.inference()` adds standard errors and tests (mirroring the
+`nmfkc()` / `nmfkc.inference()` split).
+
+---
+
+## 1. Data: the `veteran` lung-cancer trial
+
+We use the `veteran` data from the `survival` package (137 patients, 128
+deaths). We treat treatment (`trt`) and `age` as the covariates of interest
+$\boldsymbol z$, and the Karnofsky performance score (`karno`) and cell type
+(`celltype`) as the potentially non-proportional covariates $\boldsymbol a$
+--- Karnofsky score is the classic textbook example of a fading effect.
+
+```{r data}
+library(nmfkc)
+library(survival)
+
+data(veteran)
+veteran$y <- Surv(veteran$time, veteran$status)
+```
+
+---
+
+## 2. Fitting the model (optimization only)
+
+`A` accepts a one-sided formula for the non-proportional covariates. We use a
+rank-2 time basis and a roughness penalty `X.L2.smooth` on $\beta(t)$ (chosen
+in Section 5).
+
+```{r fit}
+fit <- nmf.cox(y ~ trt + age, data = veteran, A = ~ karno + celltype,
+               rank = 2, X.L2.smooth = 1000, verbose = FALSE)
+fit
+```
+
+The printed proportional-hazards coefficients $\gamma$ (for `trt`, `age`) come
+from a Cox fit that carries the estimated time-varying offset for
+`karno`/`celltype`. The object follows the house style:
+
+```{r fit-fields}
+fit$dims
+round(fit$gamma, 4)      # gamma: time-constant effects of z (trt, age)
+dim(fit$C)               # C (= Theta): Q x R sign-free parameter matrix
+```
+
+---
+
+## 3. Inference: `nmf.cox.inference()`
+
+To obtain standard errors of $\beta(t)$, the coefficients table for $C$, and the
+Wald tests, pass the fit and the same model specification to
+`nmf.cox.inference()`. It returns the object with the inference fields added, so
+`summary()` now prints the full report.
+
+```{r inference}
+fit <- nmf.cox.inference(fit, y ~ trt + age, data = veteran, A = ~ karno + celltype)
+summary(fit)
+```
+
+The **Wald test** is of $H_0:\beta_r(t)=0$ for each non-proportional covariate,
+*conditional on the estimated basis* $\hat X$: a significant result means the
+covariate has a genuinely time-varying effect. Here the Karnofsky score has a
+strong non-proportional effect. The **coefficients table for $C$** uses the
+house-style `Basis` / `Covariate` columns:
+
+```{r coef-table}
+head(fit$coefficients, 6)
+```
+
+For inference that also accounts for having *selected* the basis on the data,
+use the cross-fitted tests in Sections 6--7.
+
+---
+
+## 4. Reading the time-varying effect $\beta(t)$
+
+`fitted()` returns $\beta(t) = XC$ at the event times (rows are event times,
+columns are covariates), with pointwise standard errors in `fit$se.beta.t`.
+
+```{r beta-plot, fig.height=5, fig.alt="Estimated time-varying log hazard ratio of the Karnofsky score with a 95% confidence band; strongly negative early and attenuating over follow-up."}
+et  <- fit$event.times
+B   <- fitted(fit)                 # beta(t): P x R
+SE  <- fit$se.beta.t
+cov <- "karno"
+
+est <- B[, cov]; lo <- est - 1.96 * SE[, cov]; hi <- est + 1.96 * SE[, cov]
+plot(et, est, type = "l", lwd = 2, col = "steelblue",
+     ylim = range(lo, hi, 0),
+     xlab = "Time (days)", ylab = expression(beta[karno](t)),
+     main = "Time-varying log hazard ratio of Karnofsky score (per SD)")
+polygon(c(et, rev(et)), c(lo, rev(hi)),
+        col = adjustcolor("steelblue", 0.2), border = NA)
+lines(et, est, lwd = 2, col = "steelblue")
+abline(h = 0, lty = 2, col = "grey40")
+```
+
+The Karnofsky effect is strongly **protective (negative log hazard ratio) early**
+and **attenuates over follow-up** --- the textbook non-proportional pattern that
+a single Cox coefficient would average away.
+
+The non-negative basis itself is directly interpretable as time-phase profiles
+(each column of `X.prob` sums to one over event times):
+
+```{r basis-plot, fig.alt="The two non-negative time-basis columns as composition-probability profiles over event times, each concentrating on a different time phase."}
+matplot(et, fit$X.prob, type = "l", lwd = 2, lty = 1,
+        col = c("darkorange", "purple"),
+        xlab = "Time (days)", ylab = "Composition probability",
+        main = "Non-negative time basis (phase profiles)")
+legend("topright", colnames(fit$X.prob), col = c("darkorange", "purple"),
+       lwd = 2, bty = "n")
+```
+
+---
+
+## 5. Choosing the rank and smoothing: `nmf.cox.cv()`
+
+`nmf.cox.cv()` sweeps vectors of `rank` and `X.L2.smooth`, by the
+cross-validated partial likelihood (CVPL) or a partial-likelihood AIC/BIC. It
+returns `rank.best` / `X.L2.smooth.best` (and, for CVPL, the parsimonious
+1-SE variants). The AIC criterion needs a single fit per grid point and is a
+fast proxy.
+
+```{r cv}
+cv <- nmf.cox.cv(y ~ trt + age, data = veteran, A = ~ karno + celltype,
+                 rank = 2, X.L2.smooth = c(100, 300, 1000, 3000),
+                 criterion = "aic", verbose = FALSE)
+cv$X.L2.smooth.best
+round(cv$aic, 1)
+```
+
+---
+
+## 6. The estimand $\gamma$: cross-fit inference with `nmf.cox.cf()`
+
+The clean, time-constant effect of the covariates of interest is estimated by a
+two-stage cross-fit: for each fold the time-varying nuisance $\beta^{(-k)}(t)$
+is learned *without* that fold, its out-of-fold offset is frozen, and $\gamma$
+is estimated on the full sample with cluster-robust standard errors.
+
+```{r cf}
+cf <- nmf.cox.cf(y ~ trt + age, data = veteran, A = ~ karno + celltype,
+                 rank = 2, X.L2.smooth = 1000, nfolds = 5, seed = 1)
+cf
+```
+
+It is instructive to compare with a **standard Cox model that ignores the
+non-proportionality** of `karno`/`celltype`:
+
+```{r naive}
+naive <- coxph(Surv(time, status) ~ trt + age, data = veteran)
+round(cbind(`NMF-COX (cross-fit)` = cf$gamma,
+            `standard Cox`        = coef(naive)), 4)
+```
+
+Once the time-varying effect of the strong prognostic covariates is modelled,
+the estimand $\gamma$ for the covariates of interest can differ appreciably from
+the naive adjustment.
+
+---
+
+## 7. Cross-fitted test of a time-varying effect: `nmf.cox.phtest()`
+
+Section 3's Wald test conditions on the basis learned from the same data.
+`nmf.cox.phtest()` instead learns the basis **out of fold**, so the test of
+$H_0:\beta_r(t)=0$ is not invalidated by basis selection.
+
+```{r phtest}
+ph <- nmf.cox.phtest(y ~ trt + age, data = veteran, A = ~ karno + celltype,
+                     rank = 2, X.L2.smooth = 1000, nfolds = 5, seed = 1)
+ph
+```
+
+---
+
+## Summary
+
+| Step | Function | Purpose |
+|:---|:---|:---|
+| 1 | `nmf.cox()` | Fit the model (optimization only) |
+| 2 | `nmf.cox.inference()` | SEs of $\beta(t)$, coefficients table for $C$, given-basis Wald tests |
+| 3 | `nmf.cox.cv()` | Select `rank` and `X.L2.smooth` (CVPL / AIC / BIC) |
+| 4 | `nmf.cox.cf()` | Cross-fit estimand $\gamma$ for the covariates of interest |
+| 5 | `nmf.cox.phtest()` | Cross-fitted test of a time-varying effect |
+
+**When to use NMF-COX:** survival data where some covariates violate
+proportional hazards in an interpretable, gradually-changing way, and you still
+want a clean time-constant effect for the covariates of interest.
+
+For methodological details see Satoh, K. (2026), *NMF-COX: Interpretable
+modelling of non-proportional hazards and cross-fit inference for the
+proportional effect*.
