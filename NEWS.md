@@ -1,5 +1,30 @@
 # nmfkc 0.8.9 (development)
 
+### **New: NMF-COX family (`nmf.cox*`)**
+- `nmf.cox()` fits a Cox model with a low-rank, non-negative time-varying
+  offset: \eqn{\lambda_n(t) = h_0(t)\exp(z_n'\gamma + a_n'\beta(t))} with
+  \eqn{\beta(t) = C' x(t)}, a non-negative time basis \eqn{X} (P x Q) and a
+  sign-free parameter matrix \eqn{C} (Q x R; \eqn{\Theta} in the paper),
+  estimated on the Breslow partial likelihood by alternating block updates
+  (projected block-Newton for the \eqn{X \ge 0} block). Satoh (2026), NMF-COX.
+- House-style interface throughout: `rank`, `X.L2.smooth` (roughness penalty
+  \eqn{\lambda_X}), `epsilon`/`maxit`/`verbose` visible; fine-tuning
+  (`X.init`, `X.restriction`, `X.update`, `X.maxit`, `nstart`, `seed`,
+  `prefix`, ...) via `...`; returns `C`, `X`, `beta.t`, `objfunc(.iter)`,
+  `iter`, `converged`, `stop.reason`, `runtime`, `dims`.
+- Optimization / inference split as in the rest of the package:
+  `nmf.cox.inference()` adds a Basis/Covariate `coefficients` table for `C`,
+  pointwise SEs of \eqn{\beta(t)} and given-basis Wald tests;
+  `nmf.cox.cv()` sweeps `rank` / `X.L2.smooth` vectors (CVPL / AIC / BIC;
+  returns `rank.best`, `X.L2.smooth.best`, 1-SE variants);
+  `nmf.cox.cf()` is the two-stage cross-fit estimator of \eqn{\gamma};
+  `nmf.cox.phtest()` the cross-fitted Wald test of \eqn{H_0: \beta_r(t)=0}.
+- S3: `coef`, `fitted`, `print`, `summary`, `plot` for `nmf.cox`; `print`
+  methods for the cf / phtest objects. New dependency: `survival` (Imports).
+- Verified numerically identical to the standalone research implementation on
+  the veteran data (gamma, beta.t, objfunc, C, se.beta.t, Wald, CV grids,
+  cross-fit estimates all equal).
+
 ### **`nmfre()` correctness fixes (identification + signed warm start)**
 - Removed the row-centering of the random-effect matrix `U` inside the U-step.
   The (U, Theta) indeterminacy is `U -> U + Delta A`, `Theta -> Theta - Delta`,
