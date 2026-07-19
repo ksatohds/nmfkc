@@ -147,6 +147,44 @@ The Karnofsky effect is strongly **protective (negative log hazard ratio) early*
 and **attenuates over follow-up** --- the textbook non-proportional pattern that
 a single Cox coefficient would average away.
 
+### Hazard ratio on the natural scale
+
+The more interpretable version exponentiates the coefficient:
+$\mathrm{HR}_r(t) = \exp\{\beta_r(t)\}$ is the hazard ratio for a one-SD increase
+in covariate $r$ at time $t$, with reference $\mathrm{HR}=1$ (no effect). We plot
+it on a log scale (so $\mathrm{HR}$ and $1/\mathrm{HR}$ are symmetric) with a 95%
+confidence band $\exp\{\beta_r(t)\pm1.96\,\mathrm{SE}\}$.
+
+```{r hr-plot, fig.height=5, fig.alt="Time-varying hazard ratio of the Karnofsky score (per SD) on a log scale with a 95% confidence band; well below one early (protective) and rising toward one over follow-up."}
+hr <- exp(est); hlo <- exp(lo); hhi <- exp(hi)
+plot(et, hr, type = "n", log = "y", ylim = range(hlo, hhi, 1),
+     xlab = "Time (days)", ylab = expression(HR[karno](t)~"(per SD)"),
+     main = "Time-varying hazard ratio of Karnofsky score")
+polygon(c(et, rev(et)), c(hlo, rev(hhi)),
+        col = adjustcolor("firebrick", 0.15), border = NA)
+lines(et, hr, lwd = 2, col = "firebrick")
+abline(h = 1, lty = 2, col = "grey40")
+```
+
+On this scale a one-SD higher Karnofsky score multiplies the hazard by about
+$\exp(-0.81)\approx 0.44$ early on, rising to roughly $\exp(-0.45)\approx 0.64$
+late in follow-up: a strong early protective effect that fades but does not
+reverse.
+
+We can overlay all non-proportional covariates to see which ones deviate from
+$\mathrm{HR}=1$ and how their effects evolve:
+
+```{r hr-all, fig.alt="Time-varying hazard ratios of all non-proportional covariates on a log scale; Karnofsky score protective and adenocarcinoma cell type increasingly harmful over time."}
+HRall <- exp(B)
+cols <- c("firebrick", "darkorange", "purple", "seagreen")
+matplot(et, HRall, type = "l", lwd = 2, lty = 1, log = "y", col = cols,
+        ylim = range(HRall, 1),
+        xlab = "Time (days)", ylab = "HR(t) (per SD)",
+        main = "Time-varying hazard ratios (all covariates)")
+abline(h = 1, lty = 2, col = "grey40")
+legend("topleft", colnames(B), col = cols, lwd = 2, bty = "n", cex = 0.85)
+```
+
 The non-negative basis itself is directly interpretable as time-phase profiles
 (each column of `X.prob` sums to one over event times):
 
