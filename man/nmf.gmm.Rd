@@ -33,6 +33,12 @@ or an initialization method name passed to the shared initializer
 \item \code{intercept}: index of the intercept row of \code{A} (default 1);
 the class-mean average is absorbed into that column of \eqn{C}.
 \item \code{nstart}: EM restarts (default 1 for \code{K=1}, else 8).
+\item \code{cores}: run the \code{nstart} restarts in parallel (default
+\code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+elsewhere). Each restart is an independent self-seeded EM and results
+are combined in order, so the returned fit is identical for any
+\code{cores}. (\code{\link{nmf.gmm.select}} parallelizes over \code{K}
+instead and runs each inner fit with \code{cores = 1}.)
 \item \code{maxit}, \code{tol}: outer EM cap / tolerance (500, 1e-7).
 \item \code{seed}: RNG seed (default 1). \code{prefix}: basis-name prefix
 (default \code{"Basis"}).

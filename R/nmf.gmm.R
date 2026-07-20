@@ -229,11 +229,13 @@
 .nmfgmm.fit <- function(Y, A, X0, K, cov = "tied", intercept = 1,
                        maxit = 500, tol = 1e-7,
                        nstart = if (K == 1) 1 else 8,
-                       inner_tol = 1e-12, inner_max = 50) {
+                       inner_tol = 1e-12, inner_max = 50, cores = 1L) {
   bls <- solve(crossprod(X0), crossprod(X0, Y))
   s2_0 <- max(mean((Y - X0 %*% bls)^2), 1e-3)
-  best <- NULL
-  for (s in 1:nstart) {
+  ## One EM restart. Each start re-seeds from `s` (via .nmfgmm.init_par) and the
+  ## EM loop is RNG-free, so run_start(s) is a deterministic function of s alone
+  ## -- independent of the other starts and of execution order.
+  run_start <- function(s) {
     par <- .nmfgmm.init_par(Y, A, X0, K, s2_0, intercept, seed = s, cov = cov)
     ll_old <- -Inf; hist <- numeric(0)
     for (it in 1:maxit) {
@@ -251,10 +253,14 @@
     tm <- .nmfgmm.solve_theta_mu(par$Theta, par$mu, es$bhat, es$gamma, es$Nj, A,
                          intercept, inner_tol, inner_max)
     par$Theta <- tm$Theta; par$mu <- tm$mu
-    if (is.null(best) || es$loglik > best$loglik)
-      best <- list(par = par, es = es, loglik = es$loglik, iter = it, hist = hist)
+    list(par = par, es = es, loglik = es$loglik, iter = it, hist = hist)
   }
-  best
+  ## .nmfkc.parlapply preserves input order, so which.max() picks the same
+  ## first-best restart as the sequential `> best$loglik` scan -- the returned
+  ## fit is identical for any `cores`.
+  starts <- .nmfkc.parlapply(seq_len(nstart), run_start,
+                             cores = if (nstart > 1L) cores else 1L)
+  starts[[which.max(vapply(starts, function(r) r$loglik, numeric(1)))]]
 }
 
 ## ---------------------------------------------------------------------
@@ -319,6 +325,12 @@
 #'     \item \code{intercept}: index of the intercept row of \code{A} (default 1);
 #'       the class-mean average is absorbed into that column of \eqn{C}.
 #'     \item \code{nstart}: EM restarts (default 1 for \code{K=1}, else 8).
+#'     \item \code{cores}: run the \code{nstart} restarts in parallel (default
+#'       \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+#'       elsewhere). Each restart is an independent self-seeded EM and results
+#'       are combined in order, so the returned fit is identical for any
+#'       \code{cores}. (\code{\link{nmf.gmm.select}} parallelizes over \code{K}
+#'       instead and runs each inner fit with \code{cores = 1}.)
 #'     \item \code{maxit}, \code{tol}: outer EM cap / tolerance (500, 1e-7).
 #'     \item \code{seed}: RNG seed (default 1). \code{prefix}: basis-name prefix
 #'       (default \code{"Basis"}).
@@ -365,6 +377,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   if (ncol(A) != N) stop("A must have N columns (R x N).")
   R <- nrow(A)
   nstart <- getopt("nstart", if (K == 1) 1L else 8L)
+  cores  <- getopt("cores", getOption("mc.cores", 1L))
 
   ## --- initial non-negative, column-normalized basis X0 ---
   if (is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)) {
@@ -377,7 +390,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
 
   fit <- .nmfgmm.fit(Y, A, X0, K, cov = cov, intercept = intercept,
                      maxit = maxit, tol = tol, nstart = nstart,
-                     inner_tol = inner_tol, inner_max = inner_max)
+                     inner_tol = inner_tol, inner_max = inner_max, cores = cores)
   par <- fit$par; es <- fit$es
 
   ## --- labels (house style) ---
@@ -574,8 +587,10 @@ nmf.gmm.select <- function(Y, A = NULL, rank, K = 1:5, ...) {
 
   ## Each K is an independent, self-seeded nmf.gmm() fit; .nmfkc.parlapply
   ## preserves input order so the table and selection are identical to the
-  ## sequential loop for any `cores`.
-  fit_one <- function(k) do.call(nmf.gmm, c(list(Y = Y, A = A, rank = rank, K = k), fit_args))
+  ## sequential loop for any `cores`. The inner fit runs its nstart restarts
+  ## sequentially (cores = 1) so the K-level parallelism here does not nest.
+  fit_one <- function(k)
+    do.call(nmf.gmm, c(list(Y = Y, A = A, rank = rank, K = k, cores = 1L), fit_args))
   fits <- .nmfkc.parlapply(K, fit_one, cores = cores)
   rows <- lapply(seq_along(K), function(i) {
     f <- fits[[i]]
