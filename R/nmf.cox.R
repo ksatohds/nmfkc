@@ -180,7 +180,7 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
   }
   R <- nrow(A); anames <- rownames(A); if (is.null(anames)) anames <- paste0("A", 1:R)
   if (A.normalize == "center") {
-    A.center <- rowMeans(A); A.scale <- apply(A, 1, sd); A.scale[A.scale < .eps] <- 1
+    A.center <- rowMeans(A); A.scale <- apply(A, 1, stats::sd); A.scale[A.scale < .eps] <- 1
   } else if (A.normalize == "minmax") {
     A.center <- apply(A, 1, min); A.rng <- apply(A, 1, function(v) diff(range(v)))
     A.scale <- ifelse(A.rng < .eps, 1, A.rng)
@@ -221,7 +221,7 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
   if (is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)) {
     X <- as.matrix(X.init)
   } else if (is.character(X.init)) {
-    a0 <- tryCatch(coef(survival::coxph(y ~ Z, ties = ties)), error = function(e) rep(0, p))
+    a0 <- tryCatch(stats::coef(survival::coxph(y ~ Z, ties = ties)), error = function(e) rep(0, p))
     sig <- matrix(0, P, R)
     for (j in seq_len(P)) {
       rows <- rows_by_j[[j]]; ids <- rid[rows]
@@ -238,7 +238,7 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
     X <- Xk
   } else X <- det_init()
   X <- normX(X)
-  gamma <- tryCatch(coef(survival::coxph(y ~ Z, ties = ties)), error = function(e) rep(0, p))
+  gamma <- tryCatch(stats::coef(survival::coxph(y ~ Z, ties = ties)), error = function(e) rep(0, p))
   names(gamma) <- znames
   C_mat <- matrix(0, Q, R)
 
@@ -310,7 +310,7 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
       f0 <- tryCatch(suppressWarnings(survival::coxph(survival::Surv(start, stop, ev) ~ des, data = dat, ties = ties,
                      init = bcoef, control = survival::coxph.control(iter.max = 0))), error = function(e) NULL)
       if (is.null(f0)) break
-      U  <- tryCatch(colSums(residuals(f0, type = "score")), error = function(e) NULL)
+      U  <- tryCatch(colSums(stats::residuals(f0, type = "score")), error = function(e) NULL)
       Hn <- tryCatch(solve(f0$var), error = function(e) NULL)
       if (is.null(U) || is.null(Hn) || any(!is.finite(U)) || any(!is.finite(Hn))) break
       g  <- U - as.vector(Ppad %*% bcoef)
@@ -327,7 +327,7 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
         conv.msg <- sprintf("(gamma,C_mat)-block failed at iter %d; returning last successful state", it)
         converged <- FALSE; break
       }
-      cf <- coef(fit); cf[is.na(cf)] <- 0; bcoef <- cf
+      cf <- stats::coef(fit); cf[is.na(cf)] <- 0; bcoef <- cf
     }
     gamma_new <- bcoef[1:p]; names(gamma_new) <- znames
     C_mat <- matrix(bcoef[(p + 1):(p + Q * R)], Q, R, byrow = TRUE)  # rows q, cols l
@@ -533,7 +533,7 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
     call = match.call(), dims = dims, runtime = runtime, method = X.update,
     rank = Q, objfunc = objfunc, objfunc.iter = objfunc.iter,
     X = X, X.prob = X.prob, X.cluster = X.cluster, X.restriction = X.restriction,
-    gamma = coef(cox.fit)[znames], gamma.raw = gamma,
+    gamma = stats::coef(cox.fit)[znames], gamma.raw = gamma,
     C = C_mat, beta.t = beta.t,
     event.times = et,
     cox.fit = cox.fit, offset = o_final, gamma.history = gamma.history,
@@ -638,7 +638,7 @@ nmf.cox.inference <- function(object, formula, data, A, ...) {
     W <- sum((crossprod(U, theta)^2) / ee$values[keep])
     c(chisq = as.numeric(W), df = sum(keep))
   }
-  av <- stats::setNames(rep(0, ncol(Zexp)), colnames(Zexp)); cc <- coef(object$cox.fit)
+  av <- stats::setNames(rep(0, ncol(Zexp)), colnames(Zexp)); cc <- stats::coef(object$cox.fit)
   av[names(cc)] <- ifelse(is.na(cc), 0, cc)
   init.inf <- c(as.numeric(av), as.vector(t(C_mat)))
   inf.fit <- tryCatch(survival::coxph(survival::Surv(rstart, rstop, rev) ~ Zexp + Finf + cluster(rid),
@@ -648,7 +648,7 @@ nmf.cox.inference <- function(object, formula, data, A, ...) {
   if (is.null(inf.fit)) stop("nmf.cox.inference: the inference coxph refit failed.")
 
   se.beta.t <- matrix(NA_real_, P, R); beta.vcov <- vector("list", R)
-  V <- stats::vcov(inf.fit); cf <- coef(inf.fit); nz <- ncol(Zexp); idxTh <- (nz + 1):(nz + Q * R)
+  V <- stats::vcov(inf.fit); cf <- stats::coef(inf.fit); nz <- ncol(Zexp); idxTh <- (nz + 1):(nz + Q * R)
   wald <- data.frame(covariate = anames, df = Q, chisq = NA_real_, p.value = NA_real_,
                      stringsAsFactors = FALSE)
   for (r in 1:R) {
@@ -762,7 +762,7 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
   nQ <- length(rank.grid); nS <- length(X.L2.smooth.grid)
 
   if (criterion %in% c("aic", "bic")) {
-    one <- function(qi, si) {
+    one_ic <- function(qi, si) {
       f <- tryCatch(do.call(nmf.cox,
                     c(list(formula, data = data, A = A, rank = rank.grid[qi],
                            X.L2.smooth = X.L2.smooth.grid[si], verbose = FALSE,
@@ -774,8 +774,8 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
     tasks <- expand.grid(qi = seq_len(nQ), si = seq_len(nS))
     m <- if (mc.cores > 1)
            do.call(rbind, parallel::mclapply(seq_len(nrow(tasks)),
-                     function(r) one(tasks$qi[r], tasks$si[r]), mc.cores = mc.cores))
-         else t(vapply(seq_len(nrow(tasks)), function(r) one(tasks$qi[r], tasks$si[r]), numeric(3)))
+                     function(r) one_ic(tasks$qi[r], tasks$si[r]), mc.cores = mc.cores))
+         else t(vapply(seq_len(nrow(tasks)), function(r) one_ic(tasks$qi[r], tasks$si[r]), numeric(3)))
     aicM <- matrix(m[, 1], nQ, nS); llM <- matrix(m[, 2], nQ, nS); dfM <- matrix(m[, 3], nQ, nS)
     nev  <- sum(as.integer(stats::model.response(stats::model.frame(formula, data))[, 2]))
     bicM <- -2 * llM + log(nev) * dfM
@@ -974,7 +974,7 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
   cox.fit <- survival::coxph(fml, data = dat, ties = ties)
   sm <- summary(cox.fit)$coefficients
   se.col <- if ("robust se" %in% colnames(sm)) "robust se" else "se(coef)"
-  structure(list(gamma = coef(cox.fit)[znames], se = stats::setNames(sm[znames, se.col], znames),
+  structure(list(gamma = stats::coef(cox.fit)[znames], se = stats::setNames(sm[znames, se.col], znames),
                  cox.fit = cox.fit, offset = Ocross, fold = fold, nfolds = nfolds,
                  nuisance.converged = conv, rank = rank, X.L2.smooth = X.L2.smooth),
             class = "nmf.cox.cf")
@@ -1042,7 +1042,7 @@ nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
     Araw <- t(Am)
   } else { Araw <- as.matrix(A); if (ncol(Araw) != N && nrow(Araw) == N) Araw <- t(Araw) }
   R <- nrow(Araw); anames <- rownames(Araw); if (is.null(anames)) anames <- paste0("A", 1:R)
-  Ac <- rowMeans(Araw); As <- apply(Araw, 1, sd); As[As < 1e-10] <- 1
+  Ac <- rowMeans(Araw); As <- apply(Araw, 1, stats::sd); As[As < 1e-10] <- 1
   Astd <- (Araw - Ac) / As
   et <- sort(unique(time[status == 1])); P <- length(et); s_prev <- c(0, et[-P])
   set.seed(seed)
@@ -1076,7 +1076,7 @@ nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
   inf.fit <- tryCatch(survival::coxph(survival::Surv(rstart, rstop, rev) ~ Zexp + Finf + cluster(rid), ties = ties,
                             control = survival::coxph.control(iter.max = 200, eps = 1e-9)), error = function(e) NULL)
   if (is.null(inf.fit)) return(NULL)
-  V <- stats::vcov(inf.fit); cf <- coef(inf.fit); nz <- ncol(Zexp); idxTh <- (nz + 1):(nz + Q * R)
+  V <- stats::vcov(inf.fit); cf <- stats::coef(inf.fit); nz <- ncol(Zexp); idxTh <- (nz + 1):(nz + Q * R)
   quad.wald <- function(theta, Vmat) {
     Vs <- (Vmat + t(Vmat)) / 2; ee <- eigen(Vs, symmetric = TRUE)
     tol <- max(ee$values, 0) * 1e-8 * length(ee$values); keep <- ee$values > tol
@@ -1167,7 +1167,7 @@ print.nmf.cox <- function(x, ...) {
   if (!isTRUE(x$converged) && !is.null(x$stop.reason))
     cat("  ** ", x$stop.reason, " **\n", sep = "")
   cat("\nProportional-hazards coefficients (gamma), net of the time-varying effect of a:\n")
-  if (!is.null(x$cox.fit)) print(round(coef(summary(x$cox.fit)), 4)) else print(round(x$gamma, 4))
+  if (!is.null(x$cox.fit)) print(round(stats::coef(summary(x$cox.fit)), 4)) else print(round(x$gamma, 4))
   if (!is.null(x$wald)) {
     cat("\nWald test for a time-varying effect  H0: beta_r(t)=0  (given basis X):\n")
     w <- x$wald
@@ -1227,7 +1227,7 @@ print.summary.nmf.cox <- function(x, digits = max(3L, getOption("digits") - 3L),
               ifelse(isTRUE(x$converged), "converged", "NOT converged"),
               x$iter, x$objfunc, x$runtime))
   cat("\nProportional-hazards coefficients (gamma):\n")
-  if (!is.null(x$cox.fit)) print(round(coef(summary(x$cox.fit)), 4)) else print(round(x$gamma, 4))
+  if (!is.null(x$cox.fit)) print(round(stats::coef(summary(x$cox.fit)), 4)) else print(round(x$gamma, 4))
   if (!is.null(x$coefficients)) {
     cf <- x$coefficients
     stars <- ifelse(!is.finite(cf$p_value), " ",
