@@ -220,13 +220,17 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
   W <- Y1.weights  # alias for readability (NULL when unweighted)
 
+  ## Loop-invariant: the weighted response W*Y1 is constant (W, Y1 fixed); it is
+  ## used by the X1-, C- and X2-steps every iteration.  Compute it once.
+  if (has.weights) WY1 <- W * Y1
+
   for (iter in 1:maxit) {
     # 1. Update X1: Y1 ≈ X1 F, F = C X2 Y2
     F_mat <- C %*% X2 %*% Y2                           # Q x N
     if (method == "EU") {
       if (has.weights) {
-        num_X1 <- (W * Y1) %*% t(F_mat)
-        den_X1 <- (W * (X1 %*% F_mat)) %*% t(F_mat) + eps
+        num_X1 <- tcrossprod(WY1, F_mat)               # = (W*Y1) %*% t(F_mat)
+        den_X1 <- tcrossprod(W * (X1 %*% F_mat), F_mat) + eps
       } else {
         num_X1 <- tcrossprod(Y1, F_mat)
         den_X1 <- X1 %*% tcrossprod(F_mat) + eps
@@ -253,8 +257,8 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     G <- X2 %*% Y2                                     # R x N
     if (method == "EU") {
       if (has.weights) {
-        num_C <- crossprod(X1, W * Y1) %*% t(G)
-        den_C <- crossprod(X1, W * (X1 %*% C %*% G)) %*% t(G) + eps
+        num_C <- tcrossprod(crossprod(X1, WY1), G)
+        den_C <- tcrossprod(crossprod(X1, W * (X1 %*% C %*% G)), G) + eps
       } else {
         num_C <- crossprod(X1, Y1) %*% t(G)
         den_C <- crossprod(X1) %*% C %*% tcrossprod(G) + eps
@@ -274,8 +278,8 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     H <- X1 %*% C                                      # P1 x R
     if (method == "EU") {
       if (has.weights) {
-        num_X2 <- crossprod(H, W * Y1) %*% t(Y2)
-        den_X2 <- crossprod(H, W * (H %*% X2 %*% Y2)) %*% t(Y2) + eps
+        num_X2 <- tcrossprod(crossprod(H, WY1), Y2)
+        den_X2 <- tcrossprod(crossprod(H, W * (H %*% X2 %*% Y2)), Y2) + eps
       } else {
         num_X2 <- crossprod(H, Y1) %*% t(Y2)
         den_X2 <- crossprod(H) %*% X2 %*% Y2Y2t + eps

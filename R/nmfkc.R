@@ -2455,6 +2455,12 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   objfunc.iter <- 0*(1:maxit)
   i_end <- NULL
 
+  ## Loop-invariant precompute: Y.weights and Y are fixed throughout, so the
+  ## weighted response W*Y is constant.  (Used by the X- and C-steps and the
+  ## objective every iteration; computing it once avoids a P x N element-wise
+  ## product per iteration.  Numerically identical to the inline form.)
+  WY <- Y.weights * Y
+
   # --- 4. Main Loop (Weighted) ---
   for(i in 1:maxit){
     if(is.null(A)) B <- C else B <- C %*% A
@@ -2462,9 +2468,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     if(print.trace && i %% 10==0) message(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
     if(method=="EU"){
+      WXB <- Y.weights * XB                # within-iteration invariant (XB fixed)
       if(!is.X.scalar && X.restriction!="fixed"){
-        num_X <- (Y.weights * Y) %*% t(B)
-        den_X <- (Y.weights * XB) %*% t(B)
+        num_X <- tcrossprod(WY, B)         # = (Y.weights*Y) %*% t(B)
+        den_X <- tcrossprod(WXB, B)        # = (Y.weights*XB) %*% t(B)
         if (X.L2.ortho > 0) {
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
@@ -2485,13 +2492,13 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         tX <- t(X)
       }
       if(is.null(A)) {
-        num_C <- tX %*% (Y.weights * Y)
-        den_C <- tX %*% (Y.weights * XB)
+        num_C <- tX %*% WY
+        den_C <- tX %*% WXB
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
-        num_C <- tX %*% (Y.weights * Y) %*% At
-        den_C <- tX %*% (Y.weights * XB) %*% At
+        num_C <- tX %*% WY %*% At
+        den_C <- tX %*% WXB %*% At
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * matrix(1, nrow=Q, ncol=nrow(A))
         C <- C * (num_C / (den_C + .eps))
       }
@@ -2504,10 +2511,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
       obj <- sum(Y.weights * (Y - XB)^2)
 
     }else{ # KL
+      Xeps  <- XB + .eps                          # within-iteration invariant
+      ratio <- Y.weights * (Y / Xeps)             # computed once, used by X- and C-steps
       if(!is.X.scalar && X.restriction!="fixed"){
-        ratio <- Y.weights * (Y / (XB + .eps))
-        num_X <- ratio %*% t(B)
-        den_X <- Y.weights %*% t(B)
+        num_X <- tcrossprod(ratio, B)             # = ratio %*% t(B)
+        den_X <- tcrossprod(Y.weights, B)         # = Y.weights %*% t(B)
         if (X.L2.ortho > 0) {
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
@@ -2528,19 +2536,17 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         tX <- t(X)
       }
       if(is.null(A)) {
-        ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio
         den_C <- tX %*% Y.weights
         if (C.L1 != 0) den_C <- den_C + C.L1 * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
-        ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio %*% At
         den_C <- tX %*% Y.weights %*% At
         if (C.L1 != 0) den_C <- den_C + C.L1 * matrix(1, nrow=Q, ncol=nrow(A))
         C <- C * (num_C / (den_C + .eps))
       }
-      term1 <- - (Y.weights * Y) * log(XB + .eps)
+      term1 <- - WY * log(Xeps)                   # WY = Y.weights*Y; Xeps = XB+.eps
       term2 <- Y.weights * XB
       obj <- sum(term1 + term2)
     }
