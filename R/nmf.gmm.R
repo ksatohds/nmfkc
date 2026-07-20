@@ -689,8 +689,9 @@ print.summary.nmf.gmm <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' \code{type = "convergence"} (default) plots the EM objective
 #' (\eqn{-\log L}) over iterations. \code{type = "scores"} draws a cluster
 #' scatterplot: the covariate-adjusted least-squares scores
-#' (\eqn{(X'X)^{-1}X'Y - C A}) projected onto their first two principal
-#' components, coloured by the hard cluster assignment (or by \code{group}).
+#' (\eqn{(X'X)^{-1}X'Y - C A}), each coordinate standardized so no single basis
+#' direction dominates, projected onto their first two principal components and
+#' coloured by the hard cluster assignment (or by \code{group}).
 #' @param x An object of class \code{"nmf.gmm"}.
 #' @param type \code{"convergence"} or \code{"scores"}.
 #' @param group Optional length-N factor/vector to colour the score plot by
@@ -723,6 +724,15 @@ plot.nmf.gmm <- function(x, type = c("convergence", "scores"), group = NULL, ...
   g   <- if (!is.null(group)) as.factor(group) else as.factor(x$cluster)
   pal <- grDevices::hcl.colors(max(nlevels(g), 2), "Dark 3")
   col <- pal[as.integer(g)]
+  ## Standardize each score coordinate before PCA so that no single basis
+  ## direction (typically overall "size", whose least-squares score has by far
+  ## the largest spread) dominates the 2-D view and flattens it into a strip.
+  ## Constant coordinates are dropped (they carry no information and would break
+  ## the rescaling).
+  if (nrow(adj) >= 2) {
+    sdv <- apply(adj, 1, stats::sd)
+    adj <- adj[sdv > 0, , drop = FALSE] / sdv[sdv > 0]
+  }
   if (nrow(adj) >= 2) {
     pc <- stats::prcomp(t(adj))$x[, 1:2, drop = FALSE]
     xl <- "adjusted score PC1"; yl <- "adjusted score PC2"
