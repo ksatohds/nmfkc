@@ -14,7 +14,12 @@ nmf.gmm.select(Y, A = NULL, rank, K = 1:5, ...)
 \item{...}{Additional arguments passed to \code{\link{nmf.gmm}} (e.g.
 \code{cov}, \code{X.init}, \code{nstart}, \code{maxit}, \code{seed}). Also
 accepts \code{truth} (a length-N vector of known class labels for the ARI
-column) and \code{verbose} (logical, print the table; default \code{TRUE}).}
+column), \code{verbose} (logical, print the table; default \code{TRUE}), and
+\code{cores} (evaluate the \code{K} candidates in parallel; default
+\code{getOption("mc.cores", 1L)}). Parallelism uses a PSOCK cluster on
+Windows and forking elsewhere; because each \code{K} is an independent
+self-seeded fit and results are returned in order, the table and the
+selected \code{K} are identical for any \code{cores}.}
 }
 \value{
 An object of class \code{"nmf.gmm.select"}: a list with the

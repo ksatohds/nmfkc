@@ -546,7 +546,12 @@ nmf.gmm.inference <- function(object, Y, A = object$A, ...) {
 #' @param ... Additional arguments passed to \code{\link{nmf.gmm}} (e.g.
 #'   \code{cov}, \code{X.init}, \code{nstart}, \code{maxit}, \code{seed}). Also
 #'   accepts \code{truth} (a length-N vector of known class labels for the ARI
-#'   column) and \code{verbose} (logical, print the table; default \code{TRUE}).
+#'   column), \code{verbose} (logical, print the table; default \code{TRUE}), and
+#'   \code{cores} (evaluate the \code{K} candidates in parallel; default
+#'   \code{getOption("mc.cores", 1L)}). Parallelism uses a PSOCK cluster on
+#'   Windows and forking elsewhere; because each \code{K} is an independent
+#'   self-seeded fit and results are returned in order, the table and the
+#'   selected \code{K} are identical for any \code{cores}.
 #'
 #' @return An object of class \code{"nmf.gmm.select"}: a list with the
 #'   \code{table} (data frame over \code{K}), \code{K.best} (min BIC),
@@ -564,16 +569,20 @@ nmf.gmm.select <- function(Y, A = NULL, rank, K = 1:5, ...) {
   extra <- base::list(...)
   truth   <- extra$truth
   verbose <- if (!is.null(extra$verbose)) extra$verbose else TRUE
-  fit_args <- extra[!names(extra) %in% c("truth", "verbose")]
+  cores   <- if (!is.null(extra$cores)) extra$cores else getOption("mc.cores", 1L)
+  fit_args <- extra[!names(extra) %in% c("truth", "verbose", "cores")]
 
-  fits <- vector("list", length(K)); rows <- vector("list", length(K))
-  for (i in seq_along(K)) {
-    f <- do.call(nmf.gmm, c(list(Y = Y, A = A, rank = rank, K = K[i]), fit_args))
-    fits[[i]] <- f
+  ## Each K is an independent, self-seeded nmf.gmm() fit; .nmfkc.parlapply
+  ## preserves input order so the table and selection are identical to the
+  ## sequential loop for any `cores`.
+  fit_one <- function(k) do.call(nmf.gmm, c(list(Y = Y, A = A, rank = rank, K = k), fit_args))
+  fits <- .nmfkc.parlapply(K, fit_one, cores = cores)
+  rows <- lapply(seq_along(K), function(i) {
+    f <- fits[[i]]
     ari <- if (!is.null(truth) && K[i] > 1) .nmfgmm.ARI(f$cluster, truth) else NA_real_
-    rows[[i]] <- data.frame(K = K[i], logLik = f$loglik, n.params = f$n.params,
-                            BIC = f$BIC, ICL = f$ICL, ARI = ari)
-  }
+    data.frame(K = K[i], logLik = f$loglik, n.params = f$n.params,
+               BIC = f$BIC, ICL = f$ICL, ARI = ari)
+  })
   tab <- do.call(rbind, rows)
   K.best     <- tab$K[which.min(tab$BIC)]
   K.best.icl <- tab$K[which.min(tab$ICL)]

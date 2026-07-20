@@ -719,7 +719,10 @@ nmf.cox.inference <- function(object, formula, data, A, ...) {
 #' @param ... Additional arguments passed to \code{\link{nmf.cox}}
 #'   (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
 #'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
-#'   \code{mc.cores} (cores for \code{\link[parallel]{mclapply}}, default 1),
+#'   \code{mc.cores} (evaluate the rank x smooth (x fold) grid in parallel;
+#'   default \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+#'   elsewhere; results are identical for any value since each grid cell is an
+#'   independent self-seeded fit returned in order),
 #'   \code{maxit} (outer iterations per fit, default 30).
 #'
 #' @return An object of class \code{"nmf.cox.cv"}. For \code{"cvpl"} it contains
@@ -753,7 +756,7 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
                         nfolds = 5, verbose = TRUE, ...) {
   extra_args <- base::list(...)
   seed     <- if (!is.null(extra_args$seed))     extra_args$seed     else 123
-  mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else 1
+  mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else getOption("mc.cores", 1L)
   maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
   ## remaining ... are forwarded to nmf.cox (fitter-level options)
   fit_args <- extra_args[!names(extra_args) %in% c("seed", "mc.cores", "maxit")]
@@ -772,10 +775,9 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
       c(f$aic, f$loglik, f$df.eff)
     }
     tasks <- expand.grid(qi = seq_len(nQ), si = seq_len(nS))
-    m <- if (mc.cores > 1)
-           do.call(rbind, parallel::mclapply(seq_len(nrow(tasks)),
-                     function(r) one_ic(tasks$qi[r], tasks$si[r]), mc.cores = mc.cores))
-         else t(vapply(seq_len(nrow(tasks)), function(r) one_ic(tasks$qi[r], tasks$si[r]), numeric(3)))
+    m <- do.call(rbind, .nmfkc.parlapply(seq_len(nrow(tasks)),
+                   function(r) one_ic(tasks$qi[r], tasks$si[r]), cores = mc.cores,
+                   packages = c("nmfkc", "survival")))
     aicM <- matrix(m[, 1], nQ, nS); llM <- matrix(m[, 2], nQ, nS); dfM <- matrix(m[, 3], nQ, nS)
     nev  <- sum(as.integer(stats::model.response(stats::model.frame(formula, data))[, 2]))
     bicM <- -2 * llM + log(nev) * dfM
@@ -833,11 +835,9 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
     plik(1:N) - plik(tr)
   }
   tasks <- expand.grid(qi = seq_len(nQ), si = seq_len(nS), k = 1:nfolds)
-  vals <- if (mc.cores > 1)
-            unlist(parallel::mclapply(seq_len(nrow(tasks)),
-                     function(r) one(tasks$qi[r], tasks$si[r], tasks$k[r]), mc.cores = mc.cores))
-          else vapply(seq_len(nrow(tasks)),
-                     function(r) one(tasks$qi[r], tasks$si[r], tasks$k[r]), numeric(1))
+  vals <- unlist(.nmfkc.parlapply(seq_len(nrow(tasks)),
+                   function(r) one(tasks$qi[r], tasks$si[r], tasks$k[r]), cores = mc.cores,
+                   packages = c("nmfkc", "survival")))
   arr  <- array(vals, dim = c(nQ, nS, nfolds))
   cvpl <- apply(arr, c(1, 2), function(v) sum(v, na.rm = TRUE))
   se   <- apply(arr, c(1, 2), function(v) { v <- v[is.finite(v)]

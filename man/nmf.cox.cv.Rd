@@ -32,7 +32,10 @@ nmf.cox.cv(
 \item{...}{Additional arguments passed to \code{\link{nmf.cox}}
 (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
 \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
-\code{mc.cores} (cores for \code{\link[parallel]{mclapply}}, default 1),
+\code{mc.cores} (evaluate the rank x smooth (x fold) grid in parallel;
+default \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+elsewhere; results are identical for any value since each grid cell is an
+independent self-seeded fit returned in order),
 \code{maxit} (outer iterations per fit, default 30).}
 }
 \value{
