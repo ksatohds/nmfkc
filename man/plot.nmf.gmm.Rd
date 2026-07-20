@@ -23,9 +23,8 @@ Invisible \code{NULL}.
 \code{type = "convergence"} (default) plots the EM objective
 (\eqn{-\log L}) over iterations. \code{type = "scores"} draws a cluster
 scatterplot: the covariate-adjusted least-squares scores
-(\eqn{(X'X)^{-1}X'Y - C A}), each coordinate standardized so no single basis
-direction dominates, projected onto their first two principal components and
-coloured by the hard cluster assignment (or by \code{group}).
+(\eqn{(X'X)^{-1}X'Y - C A}) projected onto their first two principal
+components, coloured by the hard cluster assignment (or by \code{group}).
 }
 \examples{
 \donttest{

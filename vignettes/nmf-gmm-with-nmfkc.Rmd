@@ -62,6 +62,11 @@ Y    <- t(as.matrix(crabs[, meas]))                 # 5 x 200 (non-negative)
 grp  <- interaction(crabs$sp, crabs$sex)            # 4 species-sex groups
 size <- as.numeric(scale(rowMeans(crabs[, meas])))  # overall size (standardized)
 N    <- ncol(Y)
+
+## Warm-start the mixture from a plain rank-3 NMF basis. Anchoring every fit
+## on the same non-negative parts makes the runs reproducible and comparable,
+## and keeps the score space fixed across the with/without-covariate contrast.
+X0   <- nmfkc(Y, rank = 3, seed = 1)$X
 ```
 
 ---
@@ -73,7 +78,8 @@ the raw scores. Size dominates the leading score directions, so the mixture
 tends to split the crabs by **size**, not by species/sex.
 
 ```{r fit-nocov}
-fit_a <- nmf.gmm(Y, A = matrix(1, 1, N), rank = 3, K = 4, cov = "tied", seed = 1)
+fit_a <- nmf.gmm(Y, A = matrix(1, 1, N), rank = 3, K = 4, cov = "tied",
+                 X.init = X0, seed = 1)
 ari <- function(cl) round(nmfkc:::.nmfgmm.ARI(cl, grp), 3)
 ari(fit_a$cluster)      # adjusted Rand index vs the four species-sex groups
 ```
@@ -90,7 +96,8 @@ $C\boldsymbol a_n$ absorbs the size effect on the scores, and the mixture cluste
 the **size-adjusted** structure --- recovering the species--sex groups.
 
 ```{r fit-cov}
-fit_b <- nmf.gmm(Y, A = rbind(1, size), rank = 3, K = 4, cov = "tied", seed = 1)
+fit_b <- nmf.gmm(Y, A = rbind(1, size), rank = 3, K = 4, cov = "tied",
+                 X.init = X0, seed = 1)
 ari(fit_b$cluster)
 ```
 
@@ -120,7 +127,7 @@ class structure.
 
 ```{r select}
 sel <- nmf.gmm.select(Y, A = rbind(1, size), rank = 3, K = 1:5, cov = "tied",
-                      truth = grp, verbose = FALSE)
+                      X.init = X0, truth = grp, verbose = FALSE)
 sel
 ```
 
@@ -175,7 +182,7 @@ par(op)
 
 **The message:** clustering *while* adjusting for a confounder (here, size)
 recovers the structure of interest (species and sex) that clustering the raw
-scores misses --- the adjusted Rand index rises from about 0.3 to about 0.84.
+scores misses --- the adjusted Rand index rises from about 0.25 to about 0.86.
 NMF-GMM makes this a single model fit rather than a two-stage pipeline.
 The covariance structure is controlled by `cov` (`"tied"`, `"free"`, or the
 isotropic `"scalar"`, which at $K=1$ is the `nmfre()` model).
