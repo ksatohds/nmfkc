@@ -376,27 +376,35 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     obj_prev <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2) + pen_C(Cp, Cn)
     objfunc.iter <- numeric(maxit)
     iter <- 0L
+    ## Hoist loop-invariant element-wise product (Wmat, Y1 both fixed): used
+    ## by the Cp/Cn/X1/X2 weighted updates below, recomputed identically each
+    ## iteration otherwise.
+    if (has.weights) WY1 <- Wmat * Y1
     for (iter in seq_len(maxit)) {
 
     if (!has.weights) {
       ## ---- Fast unweighted path (uses precomputed S, G0) ----
       P1m <- crossprod(X1)
-      SX  <- X2 %*% S %*% t(X2)
-      GX  <- crossprod(X1, G0) %*% t(X2)
+      SX  <- tcrossprod(X2 %*% S, X2)
+      GX  <- tcrossprod(crossprod(X1, G0), X2)
       GX_p <- pmax(GX,  0); GX_n <- pmax(-GX, 0)
-      ## Cp update
-      Cp <- Cp * (GX_p + P1m %*% Cn %*% SX + C.L2 * Cn) /
+      ## Cp update.  P1m %*% Cn %*% SX (Cn unchanged between the Cp and Cn
+      ## updates) is loop-invariant across the two Gauss-Seidel steps below,
+      ## so compute it once and reuse.
+      PCnSX <- P1m %*% Cn %*% SX
+      Cp <- Cp * (GX_p + PCnSX + C.L2 * Cn) /
                  (GX_n + P1m %*% Cp %*% SX + C.L2 * Cp + small)
       ## Cn update (Gauss-Seidel)
       Cn <- Cn * (GX_n + P1m %*% Cp %*% SX + C.L2 * Cp) /
-                 (GX_p + P1m %*% Cn %*% SX + C.L2 * Cn + small)
+                 (GX_p + PCnSX + C.L2 * Cn + small)
       ## X1 update
-      G0X <- G0 %*% t(X2)
+      G0X <- tcrossprod(G0, X2)
       G0X_p <- pmax(G0X, 0); G0X_n <- pmax(-G0X, 0)
-      MMt_p <- Cp %*% SX %*% t(Cp) + Cn %*% SX %*% t(Cn)
-      MMt_n <- Cp %*% SX %*% t(Cn) + Cn %*% SX %*% t(Cp)
-      X1 <- X1 * (G0X_p %*% t(Cp) + G0X_n %*% t(Cn) + X1 %*% MMt_n) /
-                 (G0X_n %*% t(Cp) + G0X_p %*% t(Cn) + X1 %*% MMt_p + den_X1_pen(X1) + small)
+      CpSX <- Cp %*% SX; CnSX <- Cn %*% SX
+      MMt_p <- tcrossprod(CpSX, Cp) + tcrossprod(CnSX, Cn)
+      MMt_n <- tcrossprod(CpSX, Cn) + tcrossprod(CnSX, Cp)
+      X1 <- X1 * (tcrossprod(G0X_p, Cp) + tcrossprod(G0X_n, Cn) + X1 %*% MMt_n) /
+                 (tcrossprod(G0X_n, Cp) + tcrossprod(G0X_p, Cn) + X1 %*% MMt_p + den_X1_pen(X1) + small)
       ## Normalize X1 cols -> absorb into Cp, Cn rows
       cs <- colSums(X1) + small
       X1 <- sweep(X1, 2, cs, "/")
@@ -422,29 +430,27 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       ## Cp update
       XCpF <- X1 %*% Cp %*% F_mat                        # P1 x N, >= 0
       XCnF <- X1 %*% Cn %*% F_mat                        # P1 x N, >= 0
-      WY1  <- Wmat * Y1
       WXCpF <- Wmat * XCpF
       WXCnF <- Wmat * XCnF
-      G_w  <- crossprod(X1, WY1) %*% t(F_mat)            # Q x R, signed iff Y1 signed
-      Hp_w <- crossprod(X1, WXCpF) %*% t(F_mat)          # Q x R, >= 0
-      Hn_w <- crossprod(X1, WXCnF) %*% t(F_mat)          # Q x R, >= 0
+      G_w  <- tcrossprod(crossprod(X1, WY1), F_mat)      # Q x R, signed iff Y1 signed
+      Hp_w <- tcrossprod(crossprod(X1, WXCpF), F_mat)    # Q x R, >= 0
+      Hn_w <- tcrossprod(crossprod(X1, WXCnF), F_mat)    # Q x R, >= 0
       Gp <- pmax(G_w, 0); Gn <- pmax(-G_w, 0)
       Cp <- Cp * (Gp + Hn_w + C.L2 * Cn) / (Gn + Hp_w + C.L2 * Cp + small)
       ## Cn update (recompute Hp_w with new Cp)
       XCpF  <- X1 %*% Cp %*% F_mat
       WXCpF <- Wmat * XCpF
-      Hp_w  <- crossprod(X1, WXCpF) %*% t(F_mat)
+      Hp_w  <- tcrossprod(crossprod(X1, WXCpF), F_mat)
       Cn <- Cn * (Gn + Hp_w + C.L2 * Cp) / (Gp + Hn_w + C.L2 * Cn + small)
       ## X1 update
       Mp <- Cp %*% F_mat; Mn <- Cn %*% F_mat
       XMp <- X1 %*% Mp; XMn <- X1 %*% Mn
-      WY1  <- Wmat * Y1
       WXMp <- Wmat * XMp; WXMn <- Wmat * XMn
-      W1Mp <- WY1 %*% t(Mp); W1Mn <- WY1 %*% t(Mn)
+      W1Mp <- tcrossprod(WY1, Mp); W1Mn <- tcrossprod(WY1, Mn)
       W1Mp_p <- pmax(W1Mp, 0); W1Mp_n <- pmax(-W1Mp, 0)
       W1Mn_p <- pmax(W1Mn, 0); W1Mn_n <- pmax(-W1Mn, 0)
-      P_pp <- WXMp %*% t(Mp); P_pn <- WXMp %*% t(Mn)
-      P_np <- WXMn %*% t(Mp); P_nn <- WXMn %*% t(Mn)
+      P_pp <- tcrossprod(WXMp, Mp); P_pn <- tcrossprod(WXMp, Mn)
+      P_np <- tcrossprod(WXMn, Mp); P_nn <- tcrossprod(WXMn, Mn)
       X1 <- X1 * (W1Mp_p + W1Mn_n + P_pn + P_np) /
                  (W1Mp_n + W1Mn_p + P_pp + P_nn + den_X1_pen(X1) + small)
       cs <- colSums(X1) + small
@@ -454,15 +460,14 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       Hp <- X1 %*% Cp; Hn <- X1 %*% Cn  # both >= 0
       HpF <- Hp %*% X2 %*% Y2; HnF <- Hn %*% X2 %*% Y2   # >= 0
       WHpF <- Wmat * HpF; WHnF <- Wmat * HnF
-      WY1 <- Wmat * Y1
-      Hp_tW1 <- crossprod(Hp, WY1) %*% t(Y2)              # R x P2, signed iff Y1 signed
-      Hn_tW1 <- crossprod(Hn, WY1) %*% t(Y2)
+      Hp_tW1 <- tcrossprod(crossprod(Hp, WY1), Y2)        # R x P2, signed iff Y1 signed
+      Hn_tW1 <- tcrossprod(crossprod(Hn, WY1), Y2)
       Hp_tW1_p <- pmax(Hp_tW1, 0); Hp_tW1_n <- pmax(-Hp_tW1, 0)
       Hn_tW1_p <- pmax(Hn_tW1, 0); Hn_tW1_n <- pmax(-Hn_tW1, 0)
-      Q_pp <- crossprod(Hp, WHpF) %*% t(Y2)
-      Q_pn <- crossprod(Hp, WHnF) %*% t(Y2)
-      Q_np <- crossprod(Hn, WHpF) %*% t(Y2)
-      Q_nn <- crossprod(Hn, WHnF) %*% t(Y2)
+      Q_pp <- tcrossprod(crossprod(Hp, WHpF), Y2)
+      Q_pn <- tcrossprod(crossprod(Hp, WHnF), Y2)
+      Q_np <- tcrossprod(crossprod(Hn, WHpF), Y2)
+      Q_nn <- tcrossprod(crossprod(Hn, WHnF), Y2)
       X2 <- X2 * (Hp_tW1_p + Hn_tW1_n + Q_pn + Q_np) /
                  (Hp_tW1_n + Hn_tW1_p + Q_pp + Q_nn + den_X2_pen(X2) + small)
       rs <- rowSums(X2) + small

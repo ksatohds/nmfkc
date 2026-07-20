@@ -303,11 +303,10 @@ nmf.ffb <- function(
   # ----------------------------- main loop ----------------------------
   for (it in 1:maxit) {
     M  <- C1 %*% Y1 + C2 %*% Y2
-    Mt <- t(M)
 
     # 2.1 update X
-    Numerator_X       <- Y1 %*% Mt
-    Denominator_X_rec <- X %*% M %*% Mt
+    Numerator_X       <- tcrossprod(Y1, M)
+    Denominator_X_rec <- tcrossprod(X %*% M, M)
 
     if (X.L2.ortho > 0) {
       XtX <- t(X) %*% X
@@ -325,13 +324,14 @@ nmf.ffb <- function(
     XtX <- Xt %*% X
 
     # 2.2 update C1
-    Numerator_C1   <- Xt %*% Y1 %*% t(Y1)
-    Denominator_C1 <- XtX %*% (C1 %*% Y1 + C2 %*% Y2) %*% t(Y1) + C1.L1 + .eps
+    XtY1           <- Xt %*% Y1
+    Numerator_C1   <- tcrossprod(XtY1, Y1)
+    Denominator_C1 <- tcrossprod(XtX %*% M, Y1) + C1.L1 + .eps
     C1 <- C1 * (Numerator_C1 / Denominator_C1)
 
     # 2.3 update C2
-    Numerator_C2   <- Xt %*% Y1 %*% t(Y2)
-    Denominator_C2 <- XtX %*% (C1 %*% Y1 + C2 %*% Y2) %*% t(Y2) + C2.L1 + .eps
+    Numerator_C2   <- tcrossprod(XtY1, Y2)
+    Denominator_C2 <- tcrossprod(XtX %*% (C1 %*% Y1 + C2 %*% Y2), Y2) + C2.L1 + .eps
     C2 <- C2 * (Numerator_C2 / Denominator_C2)
 
     # loss + penalties
@@ -650,8 +650,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     XtX <- Xt %*% X.hat
     Y1tY1_b <- tcrossprod(Y1_b)        # P1 x P1
     XtY1_b  <- Xt %*% Y1_b              # Q x N (re-used via crossprods below)
-    XtY1Y1t <- XtY1_b %*% t(Y1_b)       # Q x P1   = Xt %*% Y1_b %*% t(Y1_b)
-    XtY1Y2t <- XtY1_b %*% t(Y2_b)       # Q x P2
+    XtY1Y1t <- tcrossprod(XtY1_b, Y1_b) # Q x P1   = Xt %*% Y1_b %*% t(Y1_b)
+    XtY1Y2t <- tcrossprod(XtY1_b, Y2_b) # Q x P2
     prev_loss <- Inf
     iter_used <- 0L
 
@@ -660,12 +660,12 @@ nmf.ffb.inference <- function(object, Y1, Y2,
       M_b <- C1 %*% Y1_b + C2 %*% Y2_b   # Q x N latent representation
 
       ## C1 update
-      Den_C1 <- XtX %*% M_b %*% t(Y1_b) + C1.L1 + .eps_local
+      Den_C1 <- tcrossprod(XtX %*% M_b, Y1_b) + C1.L1 + .eps_local
       C1 <- C1 * (XtY1Y1t / Den_C1)
 
       ## C2 update (uses updated C1 via fresh M_b)
       M_b <- C1 %*% Y1_b + C2 %*% Y2_b
-      Den_C2 <- XtX %*% M_b %*% t(Y2_b) + C2.L1 + .eps_local
+      Den_C2 <- tcrossprod(XtX %*% M_b, Y2_b) + C2.L1 + .eps_local
       C2 <- C2 * (XtY1Y2t / Den_C2)
 
       ## Convergence check (relative change in reconstruction loss)

@@ -386,6 +386,13 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
   small <- 1e-16
   Wmat <- Y.weights  # short alias; NULL if no weights
+  ## Hoist loop-invariants used by the weighted path (Wmat, Y, A_diff are all
+  ## fixed across iterations): WY = Wmat * Y and tAd = t(A_diff) are otherwise
+  ## recomputed every iteration below, so compute them once here and reuse.
+  if (has.weights) {
+    WY  <- Wmat * Y
+    tAd <- t(A_diff)
+  }
 
   compute_obj <- function(X, Cp, Cn) {
     Yhat <- X %*% (Cp - Cn) %*% A_diff
@@ -452,9 +459,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
       ## 6c. X update
       if (X.restriction != "fixed") {
-        H   <- Cp - Cn; Ht <- t(H)
-        YMt <- G0 %*% Ht
-        HS  <- H %*% S; MMt <- HS %*% Ht
+        H   <- Cp - Cn
+        YMt <- tcrossprod(G0, H)
+        HS  <- H %*% S; MMt <- tcrossprod(HS, H)
         num_X <- pmax(YMt, 0) + X %*% pmax(-MMt, 0)
         den_X <- pmax(-YMt, 0) + X %*% pmax(MMt, 0)
         pen <- apply_Xpen(X, num_X, den_X)
@@ -478,16 +485,15 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       tX <- t(X)
       Yhat_p <- X %*% Cp %*% A_diff          # signed if A signed
       Yhat_n <- X %*% Cn %*% A_diff
-      WY     <- Wmat * Y                      # weighted observations
       WYhp   <- Wmat * Yhat_p
       WYhn   <- Wmat * Yhat_n
 
       ## 6a'. Cp update via weighted split
       ## grad_{Cp} L = -2 X^T (W*(Y - X(Cp-Cn)A)) A^T
       ##             = -2 ( X^T (W*Y) A^T - X^T (W*Yhat_p) A^T + X^T (W*Yhat_n) A^T )
-      G_w   <- tX %*% WY   %*% t(A_diff)      # Q x D, signed
-      Hp_w  <- tX %*% WYhp %*% t(A_diff)      # Q x D, signed
-      Hn_w  <- tX %*% WYhn %*% t(A_diff)      # Q x D, signed
+      G_w   <- tX %*% WY   %*% tAd            # Q x D, signed
+      Hp_w  <- tX %*% WYhp %*% tAd            # Q x D, signed
+      Hn_w  <- tX %*% WYhn %*% tAd            # Q x D, signed
       Gp <- pmax(G_w, 0); Gn <- pmax(-G_w, 0)
       Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
       Hnp <- pmax(Hn_w, 0); Hnn <- pmax(-Hn_w, 0)
@@ -495,7 +501,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       ## Recompute Hp_w with updated Cp
       Yhat_p <- X %*% Cp %*% A_diff
       WYhp   <- Wmat * Yhat_p
-      Hp_w   <- tX %*% WYhp %*% t(A_diff)
+      Hp_w   <- tX %*% WYhp %*% tAd
       Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
       ## 6b'. Cn update
       Cn <- Cn * (Gn + Hpp + Hnn + C.L2 * Cp) / (Gp + Hpn + Hnp + C.L2 * Cn + small)
@@ -508,10 +514,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         H   <- Cp - Cn
         M   <- H %*% A_diff        # Q x N, signed
         XM  <- X %*% M             # Q_obs x N, signed
-        WY  <- Wmat * Y
         WXM <- Wmat * XM
-        A1  <- WY  %*% t(M)        # Q_obs x Q, signed
-        A2  <- WXM %*% t(M)        # Q_obs x Q, signed
+        A1  <- tcrossprod(WY,  M)  # Q_obs x Q, signed
+        A2  <- tcrossprod(WXM, M)  # Q_obs x Q, signed
         num <- pmax(A1, 0) + pmax(-A2, 0)
         den <- pmax(-A1, 0) + pmax(A2, 0)
         pen <- apply_Xpen(X, num, den)

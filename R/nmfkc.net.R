@@ -641,13 +641,14 @@ nmfkc.net.DOT <- function(
   obj_prev <- compute_obj(X, C)
   objfunc.iter <- numeric(maxit)
   iter <- 0L
+  if (has.weights) WmatY <- Wmat * Y
   for (iter in seq_len(maxit)) {
     tX <- t(X)
 
     ## ---- C update (symmetric tri) ----
     if (has.weights) {
       Yhat <- X %*% C %*% tX
-      num_C <- tX %*% (Wmat * Y) %*% X
+      num_C <- tX %*% WmatY %*% X
       den_C <- tX %*% (Wmat * Yhat) %*% X
     } else {
       num_C <- tX %*% Y %*% X
@@ -660,11 +661,10 @@ nmfkc.net.DOT <- function(
     ## ---- X update (bilateral gradient for Y = X C X^T, symmetric C) ----
     ##   num = (W*Y) X (C + C^T)
     ##   den = (W*Yhat) X (C + C^T)
-    tX <- t(X)
     Yhat <- X %*% C %*% tX
     Ssym <- C + t(C)
     if (has.weights) {
-      WY <- Wmat * Y; WYhat <- Wmat * Yhat
+      WY <- WmatY; WYhat <- Wmat * Yhat
     } else {
       WY <- Y; WYhat <- Yhat
     }
@@ -712,10 +712,11 @@ nmfkc.net.DOT <- function(
   obj_prev <- compute_obj(X)
   objfunc.iter <- numeric(maxit)
   iter <- 0L
+  if (has.weights) WmatY <- Wmat * Y
   for (iter in seq_len(maxit)) {
     Yhat <- tcrossprod(X)
     if (has.weights) {
-      num_X <- (Wmat * Y)    %*% X
+      num_X <- WmatY    %*% X
       den_X <- (Wmat * Yhat) %*% X
     } else {
       num_X <- Y %*% X
@@ -1099,6 +1100,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   obj_prev <- compute_obj(X, Cp, Cn)
   objfunc.iter <- numeric(maxit)
   iter <- 0L
+  if (has.weights) WmatY <- Wmat * Y
 
   for (iter in seq_len(maxit)) {
     tX <- t(X)
@@ -1108,7 +1110,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     if (has.weights) {
       Yh_p <- X %*% Cp %*% tX
       Yh_n <- X %*% Cn %*% tX
-      G    <- tX %*% (Wmat * Y) %*% X
+      G    <- tX %*% WmatY %*% X
       Hp   <- tX %*% (Wmat * Yh_p) %*% X
       Hn   <- tX %*% (Wmat * Yh_n) %*% X
     } else {
@@ -1124,12 +1126,11 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     Cn <- Cn * (Hp) / (G + Hn + small)
 
     ## ---- X update (bilateral + Ding split, exact for symmetric Cp, Cn) ----
-    tX <- t(X)
     Sp <- Cp + t(Cp); Sn <- Cn + t(Cn)
     Yh_p <- X %*% Cp %*% tX
     Yh_n <- X %*% Cn %*% tX
     if (has.weights) {
-      WY   <- Wmat * Y;    WYhp <- Wmat * Yh_p;    WYhn <- Wmat * Yh_n
+      WY   <- WmatY;    WYhp <- Wmat * Yh_p;    WYhn <- Wmat * Yh_n
     } else {
       WY <- Y; WYhp <- Yh_p; WYhn <- Yh_n
     }
