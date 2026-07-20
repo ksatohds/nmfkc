@@ -22,8 +22,8 @@ Invisible \code{NULL}.
 \description{
 \code{type = "convergence"} (default) plots the EM objective
 (\eqn{-\log L}) over iterations. \code{type = "scores"} draws a cluster
-scatterplot: the covariate-adjusted posterior-mean scores
-(\eqn{\bar{\bm b}_n - C\bm a_n}) projected onto their first two principal
+scatterplot: the covariate-adjusted least-squares scores
+(\eqn{(X'X)^{-1}X'Y - C A}) projected onto their first two principal
 components, coloured by the hard cluster assignment (or by \code{group}).
 }
 \examples{

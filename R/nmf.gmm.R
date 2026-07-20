@@ -398,10 +398,14 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   ent <- -sum(ifelse(gamma > 1e-300, gamma * log(gamma), 0))
   icl <- bic + 2 * ent
 
-  ## --- responsibility-averaged posterior-mean scores (Q x N) ---
-  ## bbar_n = sum_k gamma_nk E[b_n | z=k]; used by plot(type = "scores").
-  scores <- matrix(0, Q, N)
-  for (k in seq_len(K)) scores <- scores + sweep(es$bhat[[k]], 2, gamma[, k], "*")
+  ## --- least-squares scores (Q x N): bls = (X'X)^{-1} X'Y ---
+  ## The geometric projection of Y onto the estimated basis X, used by
+  ## plot(type = "scores"). This matches the paper's score-space figure: the
+  ## covariate mean C %*% A is removed at plot time to show the size-adjusted
+  ## residual scores. (Deliberately NOT the responsibility-averaged posterior
+  ## mean sum_k gamma_nk E[b_n | z=k], which shrinks points toward their class
+  ## centroid and would make the clusters look artificially separated.)
+  scores <- solve(crossprod(X), crossprod(X, Y))
   dimnames(scores) <- list(blab, colnames(Y))
 
   ## --- responsibility-averaged reconstruction Yhat = X (C A + mu gamma') ---
@@ -684,8 +688,8 @@ print.summary.nmf.gmm <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' @description
 #' \code{type = "convergence"} (default) plots the EM objective
 #' (\eqn{-\log L}) over iterations. \code{type = "scores"} draws a cluster
-#' scatterplot: the covariate-adjusted posterior-mean scores
-#' (\eqn{\bar{\bm b}_n - C\bm a_n}) projected onto their first two principal
+#' scatterplot: the covariate-adjusted least-squares scores
+#' (\eqn{(X'X)^{-1}X'Y - C A}) projected onto their first two principal
 #' components, coloured by the hard cluster assignment (or by \code{group}).
 #' @param x An object of class \code{"nmf.gmm"}.
 #' @param type \code{"convergence"} or \code{"scores"}.
