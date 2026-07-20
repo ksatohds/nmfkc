@@ -20,16 +20,16 @@ set.seed(1)
 
 ## Introduction
 
-NMF with covariates approximates the data by \eqn{Y\approx X\Theta A = XB}: a
-non-negative basis \eqn{X} and covariate-driven scores \eqn{B=\Theta A}. NMF-RE
-(`\link{nmfre}`) adds a single Gaussian random effect to the scores.
-**NMF-GMM** goes one step further and places a \eqn{K}-component *Gaussian
+NMF with covariates approximates the data by $Y\approx X\Theta A = XB$: a
+non-negative basis $X$ and covariate-driven scores $B=\Theta A$. NMF-RE
+(`nmfre()`) adds a single Gaussian random effect to the scores.
+**NMF-GMM** goes one step further and places a $K$-component *Gaussian
 mixture* on the scores,
-$$\bm b_n\mid(z_n{=}k)\sim N_Q(C\bm a_n+\bm\mu_k,\Sigma_k),\qquad
-  \bm y_n = X\bm b_n+\bm\varepsilon_n,\quad X\ge 0,$$
-so that regression (the covariate term \eqn{C\bm a_n}, with \eqn{C=\Theta}) and
+$$\boldsymbol b_n\mid(z_n{=}k)\sim N_Q(C\boldsymbol a_n+\boldsymbol\mu_k,\Sigma_k),\qquad
+  \boldsymbol y_n = X\boldsymbol b_n+\boldsymbol\varepsilon_n,\quad X\ge 0,$$
+so that regression (the covariate term $C\boldsymbol a_n$, with $C=\Theta$) and
 model-based clustering (the mixture, through the posterior responsibilities) are
-fitted **at once**. \eqn{K=1} is NMF-RE.
+fitted **at once**. $K=1$ is NMF-RE.
 
 Why fit them jointly? Because *adjusting first and clustering afterwards* can
 displace the class means by an omitted-variable bias --- the omitted variable
@@ -39,15 +39,15 @@ shows the effect on the Leptograpsus **crabs** data, where overall size is
 confounded with the four species--sex groups.
 
 As elsewhere in the package, `nmf.gmm()` performs optimization only; use
-`nmf.gmm.inference()` for standard errors of \eqn{C} and `nmf.gmm.select()` to
-choose \eqn{K}.
+`nmf.gmm.inference()` for standard errors of $C$ and `nmf.gmm.select()` to
+choose $K$.
 
 ---
 
 ## 1. Data: Leptograpsus crabs
 
 The `crabs` data (`MASS`) holds five morphological measurements on 200 crabs:
-two species (blue / orange) \eqn{\times} two sexes, 50 each. The rows of \eqn{Y}
+two species (blue / orange) $\times$ two sexes, 50 each. The rows of $Y$
 are the five measurements; the columns are crabs. A natural nuisance covariate
 is overall **size** (the average measurement), which is strongly confounded with
 the four groups.
@@ -86,7 +86,7 @@ the size gradient.
 ## 3. Clustering *while* adjusting for size
 
 Now pass size as a covariate, `A = rbind(1, size)`. The covariate term
-\eqn{C\bm a_n} absorbs the size effect on the scores, and the mixture clusters
+$C\boldsymbol a_n$ absorbs the size effect on the scores, and the mixture clusters
 the **size-adjusted** structure --- recovering the species--sex groups.
 
 ```{r fit-cov}
@@ -112,10 +112,10 @@ fit_b
 
 ## 4. Choosing the number of components: `nmf.gmm.select()`
 
-`nmf.gmm.select()` sweeps \eqn{K} and reports BIC / ICL (and, given known
+`nmf.gmm.select()` sweeps $K$ and reports BIC / ICL (and, given known
 labels, the ARI). On crabs the information criteria mildly **over-select**
-(they prefer \eqn{K=5}), while clustering quality (ARI) peaks at the true
-\eqn{K=4} --- a documented feature of BIC/ICL on real, slightly non-Gaussian
+(they prefer $K=5$), while clustering quality (ARI) peaks at the true
+$K=4$ --- a documented feature of BIC/ICL on real, slightly non-Gaussian
 class structure.
 
 ```{r select}
@@ -129,7 +129,7 @@ sel
 ## 5. Inference on the covariate effect: `nmf.gmm.inference()`
 
 `nmf.gmm.inference()` reports Wald inference for the covariate-coefficient
-matrix \eqn{C} (\eqn{=\Theta}), conditional on the estimated basis and mixture,
+matrix $C$ ($=\Theta$), conditional on the estimated basis and mixture,
 with an outer-product mixture-information standard error and a wild-bootstrap
 standard error / interval. Each `size` row is the effect of size on the score
 of one non-negative part.
@@ -152,20 +152,13 @@ colouring by the true group, makes the mechanism visible: without adjustment
 (left) the groups smear along a size axis; after adjustment (right) they
 separate.
 
+The `plot()` method with `type = "scores"` draws this directly (colouring by
+the true `group` here rather than the fitted cluster):
+
 ```{r scoreplot, fig.width=8, fig.height=4, fig.alt="Two score scatterplots coloured by the four crab groups: without covariate the groups smear along a size gradient; after adjusting for size they separate into four clusters."}
-raw_scores <- function(f) {
-  bls <- solve(crossprod(f$X), crossprod(f$X, Y))     # LS scores
-  if (!is.null(f$C) && ncol(f$C) > 1) bls <- bls - f$C %*% f$A  # size-adjusted
-  prcomp(t(bls))$x[, 1:2]
-}
-gcol <- c("#1b9e77", "#66c2a5", "#d95f02", "#fc8d62")[as.integer(grp)]
-op <- par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
-plot(raw_scores(fit_a), col = gcol, pch = 19, xlab = "score PC1", ylab = "score PC2",
-     main = "(a) no covariate")
-legend("topright", levels(grp), col = c("#1b9e77","#66c2a5","#d95f02","#fc8d62"),
-       pch = 19, bty = "n", cex = 0.8)
-plot(raw_scores(fit_b), col = gcol, pch = 19, xlab = "adj. score PC1", ylab = "adj. score PC2",
-     main = "(b) size-adjusted")
+op <- par(mfrow = c(1, 2))
+plot(fit_a, type = "scores", group = grp, main = "(a) no covariate")
+plot(fit_b, type = "scores", group = grp, main = "(b) size-adjusted")
 par(op)
 ```
 
@@ -176,8 +169,8 @@ par(op)
 | Step | Function | Purpose |
 |:---|:---|:---|
 | 1 | `nmf.gmm()` | Fit the covariate-adjusted score mixture (optimization only) |
-| 2 | `nmf.gmm.inference()` | SEs / tests for the covariate coefficients \eqn{C} |
-| 3 | `nmf.gmm.select()` | Choose \eqn{K} by BIC / ICL (and ARI if labels are known) |
+| 2 | `nmf.gmm.inference()` | SEs / tests for the covariate coefficients $C$ |
+| 3 | `nmf.gmm.select()` | Choose $K$ by BIC / ICL (and ARI if labels are known) |
 | — | `predict()`, `summary()`, `plot()` | Hard classes / responsibilities, report, EM convergence |
 
 **The message:** clustering *while* adjusting for a confounder (here, size)
@@ -185,7 +178,7 @@ recovers the structure of interest (species and sex) that clustering the raw
 scores misses --- the adjusted Rand index rises from about 0.3 to about 0.84.
 NMF-GMM makes this a single model fit rather than a two-stage pipeline.
 The covariance structure is controlled by `cov` (`"tied"`, `"free"`, or the
-isotropic `"scalar"`, which at \eqn{K=1} is the `\link{nmfre}` model).
+isotropic `"scalar"`, which at $K=1$ is the `nmfre()` model).
 
 For methodological details see Satoh, K. (2026), *NMF-GMM: A Gaussian-Mixture
 Latent-Class Extension of Non-negative Matrix Factorization with Covariates*.

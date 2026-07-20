@@ -398,6 +398,12 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   ent <- -sum(ifelse(gamma > 1e-300, gamma * log(gamma), 0))
   icl <- bic + 2 * ent
 
+  ## --- responsibility-averaged posterior-mean scores (Q x N) ---
+  ## bbar_n = sum_k gamma_nk E[b_n | z=k]; used by plot(type = "scores").
+  scores <- matrix(0, Q, N)
+  for (k in seq_len(K)) scores <- scores + sweep(es$bhat[[k]], 2, gamma[, k], "*")
+  dimnames(scores) <- list(blab, colnames(Y))
+
   ## --- responsibility-averaged reconstruction Yhat = X (C A + mu gamma') ---
   Yhat <- X %*% (C %*% A + mu %*% t(gamma))
   dimnames(Yhat) <- dimnames(Y)
@@ -409,7 +415,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
     call = match.call(), dims = dims, runtime = runtime,
     rank = Q, K = K, cov = cov, intercept = intercept,
     X = X, C = C, mu = mu, tau2 = tau2, sigma2 = par$sigma2, xi = par$xi,
-    gamma = gamma, cluster = cluster, Yhat = Yhat,
+    gamma = gamma, cluster = cluster, scores = scores, Yhat = Yhat,
     loglik = fit$loglik, BIC = bic, ICL = icl, entropy = ent, n.params = n.params,
     objfunc = -fit$loglik, objfunc.iter = -fit$hist, iter = fit$iter,
     converged = fit$iter < maxit, A = A
@@ -674,19 +680,60 @@ print.summary.nmf.gmm <- function(x, digits = max(3L, getOption("digits") - 3L),
   invisible(x)
 }
 
-#' @title Plot method for nmf.gmm objects (EM convergence)
+#' @title Plot method for nmf.gmm objects
+#' @description
+#' \code{type = "convergence"} (default) plots the EM objective
+#' (\eqn{-\log L}) over iterations. \code{type = "scores"} draws a cluster
+#' scatterplot: the covariate-adjusted posterior-mean scores
+#' (\eqn{\bar{\bm b}_n - C\bm a_n}) projected onto their first two principal
+#' components, coloured by the hard cluster assignment (or by \code{group}).
 #' @param x An object of class \code{"nmf.gmm"}.
+#' @param type \code{"convergence"} or \code{"scores"}.
+#' @param group Optional length-N factor/vector to colour the score plot by
+#'   (e.g. known labels). Default \code{NULL} colours by \code{x$cluster}.
 #' @param ... Additional graphical parameters passed to \code{plot}.
 #' @return Invisible \code{NULL}.
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y <- matrix(abs(rnorm(20 * 80)) + 1, 20, 80); A <- rbind(1, rnorm(80))
+#' fit <- nmf.gmm(Y, A, rank = 2, K = 3)
+#' plot(fit, type = "scores")
+#' }
 #' @export
-plot.nmf.gmm <- function(x, ...) {
+plot.nmf.gmm <- function(x, type = c("convergence", "scores"), group = NULL, ...) {
+  type <- match.arg(type)
   extra <- list(...)
-  args <- list(x = seq_along(x$objfunc.iter), y = x$objfunc.iter)
-  if (is.null(extra$type)) args$type <- "l"
-  if (is.null(extra$xlab)) args$xlab <- "EM iteration"
-  if (is.null(extra$ylab)) args$ylab <- "-loglik"
-  if (is.null(extra$main)) args$main <- "nmf.gmm convergence"
+  if (type == "convergence") {
+    args <- list(x = seq_along(x$objfunc.iter), y = x$objfunc.iter)
+    if (is.null(extra$type)) args$type <- "l"
+    if (is.null(extra$xlab)) args$xlab <- "EM iteration"
+    if (is.null(extra$ylab)) args$ylab <- "-loglik"
+    if (is.null(extra$main)) args$main <- "nmf.gmm convergence"
+    do.call("plot", c(args, extra))
+    return(invisible(NULL))
+  }
+  ## type == "scores": covariate-adjusted scores, PCA to 2D, coloured by cluster
+  if (is.null(x$scores)) stop("no $scores stored; refit with nmf.gmm().")
+  adj <- x$scores - x$C %*% x$A                      # remove the covariate mean
+  g   <- if (!is.null(group)) as.factor(group) else as.factor(x$cluster)
+  pal <- grDevices::hcl.colors(max(nlevels(g), 2), "Dark 3")
+  col <- pal[as.integer(g)]
+  if (nrow(adj) >= 2) {
+    pc <- stats::prcomp(t(adj))$x[, 1:2, drop = FALSE]
+    xl <- "adjusted score PC1"; yl <- "adjusted score PC2"
+  } else {                                            # rank 1: strip plot
+    pc <- cbind(as.numeric(adj), stats::runif(ncol(adj), -1, 1))
+    xl <- "adjusted score"; yl <- ""
+  }
+  args <- list(x = pc[, 1], y = pc[, 2], col = col)
+  if (is.null(extra$pch))  args$pch  <- 19
+  if (is.null(extra$xlab)) args$xlab <- xl
+  if (is.null(extra$ylab)) args$ylab <- yl
+  if (is.null(extra$main)) args$main <- sprintf("nmf.gmm scores (K=%d)", x$K)
   do.call("plot", c(args, extra))
+  graphics::legend("topright", legend = levels(g), col = pal[seq_len(nlevels(g))],
+                   pch = 19, bty = "n", cex = 0.8)
   invisible(NULL)
 }
 

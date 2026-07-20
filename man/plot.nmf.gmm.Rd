@@ -2,12 +2,17 @@
 % Please edit documentation in R/nmf.gmm.R
 \name{plot.nmf.gmm}
 \alias{plot.nmf.gmm}
-\title{Plot method for nmf.gmm objects (EM convergence)}
+\title{Plot method for nmf.gmm objects}
 \usage{
-\method{plot}{nmf.gmm}(x, ...)
+\method{plot}{nmf.gmm}(x, type = c("convergence", "scores"), group = NULL, ...)
 }
 \arguments{
 \item{x}{An object of class \code{"nmf.gmm"}.}
+
+\item{type}{\code{"convergence"} or \code{"scores"}.}
+
+\item{group}{Optional length-N factor/vector to colour the score plot by
+(e.g. known labels). Default \code{NULL} colours by \code{x$cluster}.}
 
 \item{...}{Additional graphical parameters passed to \code{plot}.}
 }
@@ -15,5 +20,17 @@
 Invisible \code{NULL}.
 }
 \description{
-Plot method for nmf.gmm objects (EM convergence)
+\code{type = "convergence"} (default) plots the EM objective
+(\eqn{-\log L}) over iterations. \code{type = "scores"} draws a cluster
+scatterplot: the covariate-adjusted posterior-mean scores
+(\eqn{\bar{\bm b}_n - C\bm a_n}) projected onto their first two principal
+components, coloured by the hard cluster assignment (or by \code{group}).
+}
+\examples{
+\donttest{
+set.seed(1)
+Y <- matrix(abs(rnorm(20 * 80)) + 1, 20, 80); A <- rbind(1, rnorm(80))
+fit <- nmf.gmm(Y, A, rank = 2, K = 3)
+plot(fit, type = "scores")
+}
 }

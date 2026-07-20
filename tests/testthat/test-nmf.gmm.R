@@ -36,6 +36,13 @@ test_that("nmf.gmm fits, uses house-style returns, and recovers clusters", {
   expect_length(predict(fit), ncol(d$Y))
   expect_equal(dim(predict(fit, type = "responsibility")), dim(fit$gamma))
   expect_s3_class(summary(fit), "summary.nmf.gmm")
+  ## score plot support
+  expect_equal(dim(fit$scores), c(d$Q, ncol(d$Y)))
+  tmp <- tempfile(fileext = ".pdf"); pdf(tmp)
+  expect_null(plot(fit, type = "scores"))
+  expect_null(plot(fit, type = "scores", group = d$z))
+  expect_null(plot(fit, type = "convergence"))
+  dev.off(); unlink(tmp)
 })
 
 test_that("K=1 nmf.gmm degenerates to a single-class (NMF-RE-type) fit", {
