@@ -287,17 +287,17 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
   best.gamma<- gamma; best.C_mat <- NULL; best.X <- X; best.it <- 0L
   stall     <- 0L
   objfunc.iter <- rep(NA_real_, maxit)
+  ## --- invariant design pieces hoisted out of the outer loop; only the X[rj,q]-derived
+  ##     Fmat columns change per iteration (element-for-element identical to rebuilding each iter) ---
+  dat <- data.frame(start = rstart, stop = rstop, ev = rev, id = rid)
+  cn <- character(Q * R)
+  { col <- 1; for (q in 1:Q) for (l in 1:R) { cn[col] <- paste0("th_", q, "_", l); col <- col + 1 } }
+  Arid <- A[, rid, drop = FALSE]                        # R x nrj; Arid[l, ] == A[l, rid]
+  Fmat <- matrix(0, length(rj), Q * R); colnames(Fmat) <- cn
+  des <- cbind(Zexp, Fmat)                              # dimnames captured once; Fmat block refilled below
   for (it in seq_len(maxit)) {
     gamma_old <- gamma
-    Fmat <- matrix(0, length(rj), Q * R)
-    cn <- character(Q * R); col <- 1
-    for (q in 1:Q) for (l in 1:R) {
-      Fmat[, col] <- X[rj, q] * A[l, rid]
-      cn[col] <- paste0("th_", q, "_", l); col <- col + 1
-    }
-    colnames(Fmat) <- cn
-    dat <- data.frame(start = rstart, stop = rstop, ev = rev, id = rid)
-    des <- cbind(Zexp, Fmat)
+    { col <- 1; for (q in 1:Q) for (l in 1:R) { des[, p + col] <- X[rj, q] * Arid[l, ]; col <- col + 1 } }
     ## ---- PENALIZED (gamma,C_mat)-block: maximise loglik - 0.5*lambda_X * sum_l theta_l' M_X theta_l ----
     ##   => both blocks optimise the SAME penalized partial likelihood (genuine block-coordinate ascent on eq:pll;
     ##      objfunc becomes monotone). Penalized Newton reusing coxph's score/information at the current iterate.

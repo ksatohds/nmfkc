@@ -93,11 +93,13 @@
     }
   }
 
-  gamma <- matrix(0, N, K); ll <- 0
-  for (n in 1:N) {
-    lc <- logcomp[n, ]; m <- max(lc); s <- m + log(sum(exp(lc - m)))
-    gamma[n, ] <- exp(lc - s); ll <- ll + s
-  }
+  ## Vectorized softmax over rows of logcomp (bit-identical to the per-row loop:
+  ## m/s broadcast down rows, gamma keeps the exp(lc - s) form, and Reduce("+")
+  ## reproduces the loop's sequential double-precision loglik accumulation).
+  m <- apply(logcomp, 1, max)
+  s <- m + log(rowSums(exp(logcomp - m)))
+  gamma <- exp(logcomp - s)
+  ll <- Reduce("+", s)
   list(gamma = gamma, bhat = bhat, Omega = Omega_out, loglik = ll,
        Nj = colSums(gamma))
 }
@@ -116,9 +118,9 @@
   prev <- c(Theta, mu)
   for (it in 1:inner_max) {
     bbar <- matrix(0, Q, N)
-    for (k in 1:K) bbar <- bbar + sweep(sweep(bhat[[k]], 1, mu[, k], "-"), 2, gamma[, k], "*")
+    for (k in 1:K) bbar <- bbar + (bhat[[k]] - mu[, k]) * rep(gamma[, k], each = Q)
     Theta <- (bbar %*% t(A)) %*% AAt_inv; M <- Theta %*% A
-    for (k in 1:K) mu[, k] <- rowSums(sweep(bhat[[k]] - M, 2, gamma[, k], "*")) / Nj[k]
+    for (k in 1:K) mu[, k] <- rowSums((bhat[[k]] - M) * rep(gamma[, k], each = Q)) / Nj[k]
     mubar <- as.numeric(mu %*% xi); mu <- mu - mubar
     Theta[, intercept] <- Theta[, intercept] + mubar
     cur <- c(Theta, mu)
@@ -148,14 +150,14 @@
   if (cov != "free") {                               # "tied" or "scalar": one shared Omega
     num <- rep(0, Q)
     for (k in 1:K) {
-      resid <- sweep(bhat[[k]] - M, 1, mu[, k], "-")
-      num <- num + rowSums(sweep(resid^2, 2, gamma[, k], "*"))
+      resid <- (bhat[[k]] - M) - mu[, k]
+      num <- num + rowSums(resid^2 * rep(gamma[, k], each = Q))
     }
     tau2 <- pmax((num + N * diag(Omega)) / N, 1e-6)
   } else {
     for (k in 1:K) {
-      resid <- sweep(bhat[[k]] - M, 1, mu[, k], "-")
-      tau2[, k] <- pmax((rowSums(sweep(resid^2, 2, gamma[, k], "*")) +
+      resid <- (bhat[[k]] - M) - mu[, k]
+      tau2[, k] <- pmax((rowSums(resid^2 * rep(gamma[, k], each = Q)) +
                          Nj[k] * diag(Omega[[k]])) / Nj[k], 1e-6)
     }
   }
@@ -163,8 +165,8 @@
   ## --- basis: responsibility-weighted semi-NMF update ---
   Cstat <- matrix(0, P, Q); Gstat <- matrix(0, Q, Q)
   for (k in 1:K) {
-    Cstat <- Cstat + sweep(Y, 2, gamma[, k], "*") %*% t(bhat[[k]])
-    Gstat <- Gstat + sweep(bhat[[k]], 2, gamma[, k], "*") %*% t(bhat[[k]])
+    Cstat <- Cstat + (Y * rep(gamma[, k], each = P)) %*% t(bhat[[k]])
+    Gstat <- Gstat + (bhat[[k]] * rep(gamma[, k], each = Q)) %*% t(bhat[[k]])
     if (cov == "free") Gstat <- Gstat + Nj[k] * Omega[[k]]
   }
   if (cov != "free") Gstat <- Gstat + N * Omega
@@ -181,9 +183,9 @@
   sigma2 <- max((ss + tr) / (P * N), 1e-6)
 
   ## --- column-normalize X and rescale ---
-  D <- colSums(Xn); Xn <- sweep(Xn, 2, D, "/")
-  Theta <- sweep(Theta, 1, D, "*"); mu <- sweep(mu, 1, D, "*")
-  if (cov == "free") tau2 <- sweep(tau2, 1, D^2, "*") else tau2 <- tau2 * D^2
+  D <- colSums(Xn); Xn <- Xn / rep(D, each = P)
+  Theta <- Theta * D; mu <- mu * D
+  tau2 <- tau2 * D^2   # length-Q D^2 recycles down cols of the Q x K free matrix; elementwise for tied/scalar
   if (cov == "scalar") tau2 <- rep(mean(tau2), Q)     # isotropic: pool to one variance
 
   list(X = Xn, Theta = Theta, mu = mu, tau2 = tau2, sigma2 = sigma2, xi = xi)
@@ -371,7 +373,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
     method <- if (is.character(X.init)) X.init else "nndsvd"
     X0 <- .init_X_method(method, Y, Q, seed = seed, nstart = max(nstart, 1L))
   }
-  X0 <- sweep(X0, 2, pmax(colSums(X0), 1e-12), "/")
+  X0 <- X0 / rep(pmax(colSums(X0), 1e-12), each = nrow(X0))
 
   fit <- .nmfgmm.fit(Y, A, X0, K, cov = cov, intercept = intercept,
                      maxit = maxit, tol = tol, nstart = nstart,

@@ -569,10 +569,10 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
       cholM <- tryCatch(chol(M), error = function(e) NULL)
       if (is.null(cholM)) stop("Cholesky failed: XtX + lambda I not SPD. Increase lambda (or decrease tau2).")
       R0 <- Y - X %*% CA
-      for (n in 1:N) {
-        rhs <- crossprod(X, R0[, n, drop = FALSE])
-        U[, n] <- as.numeric(backsolve(cholM, forwardsolve(t(cholM), rhs)))
-      }
+      tcholM <- t(cholM)                          # hoist transpose out of the loop
+      RHS <- matrix(0, Q, N)                      # per-column crossprod keeps the exact FP ops
+      for (n in 1:N) RHS[, n] <- crossprod(X, R0[, n, drop = FALSE])
+      U[] <- backsolve(cholM, forwardsolve(tcholM, RHS))  # batched column-independent triangular solves
       ## NOTE: do NOT row-center U here. The (U, Theta) indeterminacy is
       ## U -> U + Delta A, Theta -> Theta - Delta, so the identification
       ## condition is U A' = 0, not U 1 = 0. The alternating fixed point
