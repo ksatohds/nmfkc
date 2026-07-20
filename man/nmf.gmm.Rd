@@ -21,9 +21,12 @@ the identifiability constraint \eqn{\sum_k \xi_k\bm\mu_k = 0} (see
 
 \item{...}{Additional arguments:
 \itemize{
-\item \code{cov}: covariance tying, \code{"tied"} (default, shared
-diagonal \eqn{\Sigma_k=\mathrm{diag}(\tau^2)}) or \code{"free"}
-(per-class diagonal).
+\item \code{cov}: score-covariance structure. \code{"tied"} (default,
+shared diagonal \eqn{\Sigma_k=\mathrm{diag}(\tau^2_1,\dots,\tau^2_Q)},
+\eqn{Q} variances); \code{"free"} (per-class diagonal, \eqn{Q\times K});
+or \code{"scalar"} (isotropic \eqn{\Sigma_k=\tau^2 I_Q}, a single
+variance --- the most parsimonious variant; at \eqn{K=1} it is the
+\code{\link{nmfre}} model, and \code{tau2} is returned as one number).
 \item \code{X.init}: initial basis. A \eqn{P\times Q} non-negative matrix,
 or an initialization method name passed to the shared initializer
 (\code{"nndsvd"} default, \code{"kmeans++"}, \code{"kmeans"}, ...).

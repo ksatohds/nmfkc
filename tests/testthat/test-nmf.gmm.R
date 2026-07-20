@@ -82,3 +82,19 @@ test_that("cov='free' (per-class variances) also runs", {
   expect_equal(dim(ff$tau2), c(d$Q, 2L))               # per-class diagonal
   expect_true(is.finite(ff$loglik))
 })
+
+test_that("cov='scalar' is the isotropic (single-variance) variant", {
+  d <- make_gmm_data()
+  sc <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 2, cov = "scalar", X.init = d$X, seed = 1)
+  ti <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 2, cov = "tied",   X.init = d$X, seed = 1)
+  expect_length(sc$tau2, 1L)                            # a single isotropic variance
+  expect_length(ti$tau2, d$Q)
+  expect_equal(sc$n.params, ti$n.params - (d$Q - 1))    # Q-1 fewer variance params
+  ## EM stays monotone (valid GEM)
+  ll <- -sc$objfunc.iter
+  expect_true(all(diff(ll) >= -1e-6))
+  ## K=1 scalar: single cluster, one variance (the nmfre model)
+  g1 <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 1, cov = "scalar", X.init = d$X, seed = 1)
+  expect_length(g1$tau2, 1L)
+  expect_true(all(g1$cluster == 1L))
+})

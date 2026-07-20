@@ -7,9 +7,12 @@
   column-normalized basis \eqn{X}. Clustering is model based, through the
   posterior responsibilities. \eqn{C} (\eqn{=\Theta}) is the covariate
   coefficient matrix and `mu` the \eqn{Q\times K} class means. Fitted by a
-  generalized EM (tied or free diagonal covariance; auto Woodbury E-step for
-  large \eqn{P}); returns `X`, `C`, `mu`, `tau2`, `sigma2`, `xi`, `gamma`
-  (responsibilities), `cluster`, `BIC`, `ICL`, and the usual house fields.
+  generalized EM (auto Woodbury E-step for large \eqn{P}); returns `X`, `C`,
+  `mu`, `tau2`, `sigma2`, `xi`, `gamma` (responsibilities), `cluster`, `BIC`,
+  `ICL`, and the usual house fields. The score covariance is set by `cov`:
+  `"tied"` (shared diagonal, \eqn{Q} variances; default), `"free"` (per-class
+  diagonal), or `"scalar"` (isotropic \eqn{\tau^2 I}, a single variance --- the
+  most parsimonious variant, and the `\link{nmfre}` model at \eqn{K=1}).
 - Optimization / inference split: `nmf.gmm.inference()` gives a Basis/Covariate
   coefficients table for `C` with the outer-product mixture-information SE and a
   wild-bootstrap SE / CI (tied covariance); `nmf.gmm.select()` chooses \eqn{K}
@@ -19,11 +22,10 @@
 - Verified numerically identical to the standalone research engine on the
   Leptograpsus crabs data (log-likelihood, `X`, `C` exact; `mu`/`gamma` equal up
   to the mixture's label permutation; ARI 0.86 vs the four species-sex groups).
-  Note: `nmf.gmm(K = 1, cov = "tied")` is the same model *family* as
-  `\link{nmfre}` and yields the identical noise variance, but generalizes it ---
-  it estimates a diagonal (per-basis) score covariance rather than nmfre's
-  single isotropic random-effect variance --- so the two do not coincide
-  numerically in general.
+  Note on the `\link{nmfre}` nesting: `cov = "scalar"` at \eqn{K = 1} gives the
+  same (isotropic) model as `nmfre`; the default `cov = "tied"` generalizes it
+  to a diagonal (per-basis) score covariance. In either case the two use
+  different EM algorithms, so the fitted values need not coincide numerically.
 
 ### **New: NMF-COX family (`nmf.cox*`)**
 - `nmf.cox()` fits a Cox model with a low-rank, non-negative time-varying

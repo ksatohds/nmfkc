@@ -48,8 +48,8 @@
   P <- nrow(Y); N <- ncol(Y); Q <- ncol(X); K <- length(xi)
   XtX <- crossprod(X); M <- Theta %*% A; XtY <- crossprod(X, Y)
 
-  if (cov == "tied") {
-    tau2 <- as.numeric(tau2)                       # length-Q vector
+  if (cov != "free") {                             # "tied" or "scalar": shared diagonal
+    tau2 <- as.numeric(tau2)                       # length-Q vector (all equal if scalar)
     Dinv <- diag(1 / tau2, Q)
     Omega <- solve(Dinv + XtX / sigma2)            # Q x Q, both paths
     use_wood <- (P >= .nmfgmm.WOODBURY_P)
@@ -145,7 +145,7 @@
 
   ## --- variances ---
   M <- Theta %*% A
-  if (cov == "tied") {
+  if (cov != "free") {                               # "tied" or "scalar": one shared Omega
     num <- rep(0, Q)
     for (k in 1:K) {
       resid <- sweep(bhat[[k]] - M, 1, mu[, k], "-")
@@ -167,7 +167,7 @@
     Gstat <- Gstat + sweep(bhat[[k]], 2, gamma[, k], "*") %*% t(bhat[[k]])
     if (cov == "free") Gstat <- Gstat + Nj[k] * Omega[[k]]
   }
-  if (cov == "tied") Gstat <- Gstat + N * Omega
+  if (cov != "free") Gstat <- Gstat + N * Omega
   Xn <- X * sqrt((.nmfgmm.pos(Cstat) + X %*% .nmfgmm.neg(Gstat)) /
                  (.nmfgmm.neg(Cstat) + X %*% .nmfgmm.pos(Gstat) + 1e-12))
 
@@ -177,13 +177,14 @@
     rY <- Y - Xn %*% bhat[[k]]; ss <- ss + sum(colSums(rY^2) * gamma[, k])
     if (cov == "free") tr <- tr + Nj[k] * sum((Xn %*% Omega[[k]]) * Xn)
   }
-  if (cov == "tied") tr <- N * sum((Xn %*% Omega) * Xn)
+  if (cov != "free") tr <- N * sum((Xn %*% Omega) * Xn)
   sigma2 <- max((ss + tr) / (P * N), 1e-6)
 
   ## --- column-normalize X and rescale ---
   D <- colSums(Xn); Xn <- sweep(Xn, 2, D, "/")
   Theta <- sweep(Theta, 1, D, "*"); mu <- sweep(mu, 1, D, "*")
-  if (cov == "tied") tau2 <- tau2 * D^2 else tau2 <- sweep(tau2, 1, D^2, "*")
+  if (cov == "free") tau2 <- sweep(tau2, 1, D^2, "*") else tau2 <- tau2 * D^2
+  if (cov == "scalar") tau2 <- rep(mean(tau2), Q)     # isotropic: pool to one variance
 
   list(X = Xn, Theta = Theta, mu = mu, tau2 = tau2, sigma2 = sigma2, xi = xi)
 }
@@ -198,7 +199,8 @@
   r <- bls - Theta %*% A
   ms <- function(M) pmax(apply(M, 1, function(v) mean(v^2)), 1e-3)
   if (K == 1) {
-    tau2 <- if (cov == "tied") ms(r) else matrix(ms(r), Q, 1)
+    tau2 <- if (cov == "free") matrix(ms(r), Q, 1)
+            else if (cov == "scalar") rep(mean(ms(r)), Q) else ms(r)
     return(list(X = X0, Theta = Theta, mu = matrix(0, Q, 1),
                 tau2 = tau2, sigma2 = sigma2_0, xi = 1))
   }
@@ -206,8 +208,9 @@
   km <- kmeans(rt, centers = .nmfgmm.kmpp(rt, K, seed), iter.max = 50)
   xi <- as.numeric(table(factor(km$cluster, levels = 1:K))) / N
   mu <- matrix(t(km$centers), Q, K)
-  if (cov == "tied") {
+  if (cov != "free") {
     resid <- r - mu[, km$cluster]; tau2 <- pmax(rowMeans(resid^2), 1e-3)
+    if (cov == "scalar") tau2 <- rep(mean(tau2), Q)
   } else {
     tau2 <- sapply(1:K, function(k) { idx <- km$cluster == k
       if (sum(idx) > 1) ms(r[, idx, drop = FALSE] - mu[, k]) else ms(r) })
@@ -257,7 +260,7 @@
 ## ---------------------------------------------------------------------
 ## free (per-class) parameter count uses Q*K variances; tied uses Q.
 .nmfgmm.pcount <- function(Q, P, R, K, cov = "tied") {
-  vars <- if (cov == "tied") Q else Q * K
+  vars <- switch(cov, scalar = 1L, tied = Q, free = Q * K)
   Q * (P - 1) + Q * R + Q * (K - 1) + vars + (K - 1) + 1
 }
 
@@ -302,9 +305,12 @@
 #' @param K Integer number of mixture components. Default 1 (= NMF-RE).
 #' @param ... Additional arguments:
 #'   \itemize{
-#'     \item \code{cov}: covariance tying, \code{"tied"} (default, shared
-#'       diagonal \eqn{\Sigma_k=\mathrm{diag}(\tau^2)}) or \code{"free"}
-#'       (per-class diagonal).
+#'     \item \code{cov}: score-covariance structure. \code{"tied"} (default,
+#'       shared diagonal \eqn{\Sigma_k=\mathrm{diag}(\tau^2_1,\dots,\tau^2_Q)},
+#'       \eqn{Q} variances); \code{"free"} (per-class diagonal, \eqn{Q\times K});
+#'       or \code{"scalar"} (isotropic \eqn{\Sigma_k=\tau^2 I_Q}, a single
+#'       variance --- the most parsimonious variant; at \eqn{K=1} it is the
+#'       \code{\link{nmfre}} model, and \code{tau2} is returned as one number).
 #'     \item \code{X.init}: initial basis. A \eqn{P\times Q} non-negative matrix,
 #'       or an initialization method name passed to the shared initializer
 #'       (\code{"nndsvd"} default, \code{"kmeans++"}, \code{"kmeans"}, ...).
@@ -348,7 +354,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   prefix    <- getopt("prefix", "Basis")
   inner_tol <- getopt("inner_tol", 1e-12)
   inner_max <- getopt("inner_max", 50L)
-  cov <- match.arg(cov, c("tied", "free"))
+  cov <- match.arg(cov, c("tied", "free", "scalar"))
 
   t0 <- proc.time()
   Y <- as.matrix(Y); P <- nrow(Y); N <- ncol(Y); Q <- as.integer(rank)
@@ -381,6 +387,10 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   dimnames(mu) <- list(blab, clab)
   gamma <- es$gamma; colnames(gamma) <- clab
   cluster <- max.col(gamma, ties.method = "first")
+  tau2 <- par$tau2
+  if (cov == "scalar") tau2 <- as.numeric(tau2)[1]   # single isotropic variance
+  else if (cov == "tied") { tau2 <- as.numeric(tau2); names(tau2) <- blab }
+  else dimnames(tau2) <- list(blab, clab)
 
   ## --- BIC / ICL ---
   n.params <- .nmfgmm.pcount(Q, P, R, K, cov = cov)
@@ -398,7 +408,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   structure(list(
     call = match.call(), dims = dims, runtime = runtime,
     rank = Q, K = K, cov = cov, intercept = intercept,
-    X = X, C = C, mu = mu, tau2 = par$tau2, sigma2 = par$sigma2, xi = par$xi,
+    X = X, C = C, mu = mu, tau2 = tau2, sigma2 = par$sigma2, xi = par$xi,
     gamma = gamma, cluster = cluster, Yhat = Yhat,
     loglik = fit$loglik, BIC = bic, ICL = icl, entropy = ent, n.params = n.params,
     objfunc = -fit$loglik, objfunc.iter = -fit$hist, iter = fit$iter,
