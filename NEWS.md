@@ -1,5 +1,30 @@
 # nmfkc 0.8.9 (development)
 
+### **New: NMF-GMM family (`nmf.gmm*`)**
+- `nmf.gmm()` fits NMF-GMM (Satoh 2026): a \eqn{K}-component Gaussian mixture on
+  the latent NMF scores, \eqn{\bm b_n\mid(z_n{=}k)\sim N_Q(C\bm a_n+\bm\mu_k,
+  \Sigma_k)}, \eqn{\bm y_n=X\bm b_n+\bm\varepsilon}, with a shared non-negative,
+  column-normalized basis \eqn{X}. Clustering is model based, through the
+  posterior responsibilities. \eqn{C} (\eqn{=\Theta}) is the covariate
+  coefficient matrix and `mu` the \eqn{Q\times K} class means. Fitted by a
+  generalized EM (tied or free diagonal covariance; auto Woodbury E-step for
+  large \eqn{P}); returns `X`, `C`, `mu`, `tau2`, `sigma2`, `xi`, `gamma`
+  (responsibilities), `cluster`, `BIC`, `ICL`, and the usual house fields.
+- Optimization / inference split: `nmf.gmm.inference()` gives a Basis/Covariate
+  coefficients table for `C` with the outer-product mixture-information SE and a
+  wild-bootstrap SE / CI (tied covariance); `nmf.gmm.select()` chooses \eqn{K}
+  by BIC / ICL (optional adjusted Rand index against known labels).
+- S3: `coef`, `fitted`, `predict` (hard class / responsibilities), `print`,
+  `summary`, `plot`. New dependency: none (base/stats only).
+- Verified numerically identical to the standalone research engine on the
+  Leptograpsus crabs data (log-likelihood, `X`, `C` exact; `mu`/`gamma` equal up
+  to the mixture's label permutation; ARI 0.86 vs the four species-sex groups).
+  Note: `nmf.gmm(K = 1, cov = "tied")` is the same model *family* as
+  `\link{nmfre}` and yields the identical noise variance, but generalizes it ---
+  it estimates a diagonal (per-basis) score covariance rather than nmfre's
+  single isotropic random-effect variance --- so the two do not coincide
+  numerically in general.
+
 ### **New: NMF-COX family (`nmf.cox*`)**
 - `nmf.cox()` fits a Cox model with a low-rank, non-negative time-varying
   offset: \eqn{\lambda_n(t) = h_0(t)\exp(z_n'\gamma + a_n'\beta(t))} with
