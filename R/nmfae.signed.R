@@ -77,6 +77,11 @@
 #'       point (particularly the \eqn{C_{-} = 0} trap from warm-start
 #'       from non-negative tri-NMF-AE).  Use the default 1 for fast
 #'       development and raise for publication-grade runs.}
+#'     \item{\code{cores}}{Run the \code{nstart} restarts in parallel (only
+#'       when \code{nstart > 1}).  Default \code{getOption("mc.cores", 1L)}
+#'       (PSOCK cluster on Windows, forking elsewhere).  Each restart is
+#'       fully self-seeded and the best run is selected by first-minimum
+#'       objective, so the returned fit is identical for any \code{cores}.}
 #'     \item{\code{X1.L2.ortho}, \code{X2.L2.ortho}}{Non-negative L2
 #'       orthogonality penalties (default 0) on the \strong{columns} of
 #'       \eqn{X_1} and the \strong{rows} of \eqn{X_2}, penalizing
@@ -191,6 +196,8 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
   warm.start <- if (!is.null(extra_args$warm.start)) extra_args$warm.start else TRUE
   nstart  <- if (!is.null(extra_args$nstart))  extra_args$nstart  else 1L
+  ## Opt-in parallel restarts (only when nstart > 1); default sequential.
+  cores   <- if (!is.null(extra_args$cores))   extra_args$cores   else getOption("mc.cores", 1L)
   ## Basis-init method forwarded to the nmfae() warm-start step (default
   ## "kmeans"; "kmeans++" etc. accepted). String methods only.
   X.init  <- if (!is.null(extra_args$X.init))  extra_args$X.init  else "kmeans"
@@ -515,9 +522,13 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
          objfunc = obj_prev)
   }  # end run_once
 
-  ## Execute run(s)
-  best <- NULL
-  for (s in seq_len(nstart)) {
+  ## Execute run(s).  Each restart s is fully self-seeded
+  ## (s_seed = seed + 7919*(s-1)) and independent of the others, so the restarts
+  ## may run concurrently.  .nmfkc.parlapply preserves input order, and
+  ## which.min() selects the first restart attaining the minimum objective --
+  ## exactly reproducing the sequential strict-`<` first-min tie-break.
+  ## cores <= 1 (or nstart == 1) is the sequential lapply, bit for bit.
+  run_start <- function(s) {
     ## Wide seed spacing via a large prime (7919) to maximize init diversity
     s_seed <- seed + 7919L * (s - 1L)
     cc <- init_Cp_Cn(s_seed + 2L)
@@ -531,9 +542,11 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       set.seed(s_seed + 1L)
       Xs2 <- matrix(abs(stats::rnorm(R * P2)) * 0.1, R, P2)
     }
-    out <- run_once(Xs1, Xs2, cc$Cp, cc$Cn)
-    if (is.null(best) || out$objfunc < best$objfunc) best <- out
+    run_once(Xs1, Xs2, cc$Cp, cc$Cn)
   }
+  outs <- .nmfkc.parlapply(seq_len(nstart), run_start,
+                           cores = if (nstart > 1L) cores else 1L)
+  best <- outs[[which.min(vapply(outs, function(o) o$objfunc, numeric(1)))]]
   X1 <- best$X1; X2 <- best$X2; Cp <- best$Cp; Cn <- best$Cn
   objfunc.iter <- best$objfunc.iter
   iter <- best$niter
@@ -1128,6 +1141,11 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'   \describe{
 #'     \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
 #'     \item{\code{seed}}{RNG seed for fold assignment.  Default 123.}
+#'     \item{\code{cores}}{Evaluate the \eqn{(Q,R)}-pair \eqn{\times} fold grid
+#'       in parallel.  Default \code{getOption("mc.cores", 1L)} (PSOCK on
+#'       Windows, forking elsewhere).  Each task is an independent self-seeded
+#'       fit and results are aggregated in order, so the returned object is
+#'       identical for any \code{cores}.}
 #'     \item{\code{nstart}}{Number of random restarts per fit.  Default 1.
 #'       Signed models have more local minima (the bottleneck can carry
 #'       both signs), so \code{nstart >= 10} is recommended for
@@ -1160,6 +1178,7 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds
             else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed)) extra_ecv$seed else 123
+  cores  <- if (!is.null(extra_ecv$cores)) extra_ecv$cores else getOption("mc.cores", 1L)
   Q <- rank; R <- rank.encoder
   div <- nfolds
 
@@ -1185,6 +1204,7 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
   fit_args <- extra_ecv
   fit_args$nfolds <- NULL; fit_args$div <- NULL
   fit_args$Q <- NULL; fit_args$R <- NULL
+  fit_args$cores <- NULL   # not an nmf.rrr.signed fit argument
 
   run_one <- function(i, k) {
     test_idx <- folds[[k]]
@@ -1199,7 +1219,24 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
   }
 
-  cv <- .ecv.run(pair_labels, div, run_one,
+  ## Opt-in parallelism over the (pair x fold) grid. Each (i, k) task is an
+  ## independent, self-seeded nmf.rrr.signed() fit (folds precomputed once), so
+  ## results are gathered into res_mat and .ecv.run() performs the identical
+  ## sequential aggregation / progress reporting via a table lookup. cores <= 1
+  ## uses run_one directly, reproducing the sequential loop bit for bit.
+  cores_i <- suppressWarnings(as.integer(cores))
+  if (!is.na(cores_i) && length(cores_i) == 1L && cores_i > 1L) {
+    grid <- expand.grid(i = seq_len(num_pairs), k = seq_len(div))
+    vals <- .nmfkc.parlapply(seq_len(nrow(grid)),
+                             function(t) run_one(grid$i[t], grid$k[t]),
+                             cores = cores_i)
+    res_mat <- matrix(unlist(vals), nrow = num_pairs, ncol = div)
+    run_eval <- function(i, k) res_mat[i, k]
+  } else {
+    run_eval <- run_one
+  }
+
+  cv <- .ecv.run(pair_labels, div, run_eval,
                  progress = function(i, o, s)
                    message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
                                    QR$Q[i], QR$R[i], o, s)))
@@ -1233,7 +1270,11 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
 #'   eff.rank only, and recommends the R-squared elbow).
 #' @param ... Passed on to \code{\link{nmfae.signed}} and
-#'   \code{\link{nmfae.signed.ecv}}.
+#'   \code{\link{nmfae.signed.ecv}}. Also accepts \code{cores} to evaluate the
+#'   rank sweep (and the element-wise CV) in parallel; default
+#'   \code{getOption("mc.cores", 1L)}. Each rank is an independent self-seeded
+#'   fit and results are gathered in order, so the output is identical for any
+#'   \code{cores}.
 #' @return A list with \code{rank.best} and \code{criteria}
 #'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
 #'   \code{r.squared}, \code{sigma.ecv}).
@@ -1253,18 +1294,25 @@ nmf.rrr.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fa
   if (!is.null(rank))    rank1 <- rank
   if (!is.null(extra$Q)) rank1 <- extra$Q
   extra$Q <- NULL; extra$R <- NULL; extra$rank.encoder <- NULL
+  cores <- if (!is.null(extra$cores)) extra$cores else getOption("mc.cores", 1L)
+  extra$cores <- NULL
   detail <- match.arg(detail)
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
-  rs <- numeric(length(rank1)); er <- numeric(length(rank1))
-  for (i in seq_along(rank1)) {
+  ## Each rank is an independent, self-seeded nmf.rrr.signed() fit;
+  ## .nmfkc.parlapply preserves input order so rs / er are identical to the
+  ## sequential loop for any `cores`.
+  fit_one <- function(i) {
     f <- suppressMessages(do.call(nmf.rrr.signed,
            c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
                   print.trace = FALSE), extra)))
-    rs[i] <- f$r.squared
-    er[i] <- .effective.rank(f$H)
+    c(rs = f$r.squared, er = .effective.rank(f$H))
   }
+  fits <- .nmfkc.parlapply(seq_along(rank1), fit_one, cores = cores)
+  rs <- vapply(fits, function(v) v[["rs"]], numeric(1))
+  er <- vapply(fits, function(v) v[["er"]], numeric(1))
   ecv <- if (detail == "full")
-    suppressMessages(do.call(nmf.rrr.signed.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    suppressMessages(do.call(nmf.rrr.signed.ecv,
+                             c(list(Y1, Y2, rank1 = rank1, cores = cores), extra)))$sigma
     else rep(NA_real_, length(rank1))
   criteria <- data.frame(rank = rank1, effective.rank = er,
                          effective.rank.ratio = er / rank1,

@@ -28,6 +28,11 @@ nmf.rrr.signed.ecv(
 \describe{
 \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
 \item{\code{seed}}{RNG seed for fold assignment.  Default 123.}
+\item{\code{cores}}{Evaluate the \eqn{(Q,R)}-pair \eqn{\times} fold grid
+in parallel.  Default \code{getOption("mc.cores", 1L)} (PSOCK on
+Windows, forking elsewhere).  Each task is an independent self-seeded
+fit and results are aggregated in order, so the returned object is
+identical for any \code{cores}.}
 \item{\code{nstart}}{Number of random restarts per fit.  Default 1.
 Signed models have more local minima (the bottleneck can carry
 both signs), so \code{nstart >= 10} is recommended for

@@ -86,6 +86,9 @@
 #'   and \code{nnls.maxit} (\code{100}, multiplicative-update iterations for the
 #'   fold-in non-negative regressions).  Any other arguments are passed to
 #'   \code{\link{nmfkc}} for the per-block fits (e.g.\ \code{maxit}).
+#'   \code{cores} (\code{getOption("mc.cores", 1L)}) evaluates the ranks in
+#'   parallel; results are identical to the sequential loop for any \code{cores}
+#'   (PSOCK cluster on Windows, forking elsewhere).
 #' @return A list (cf.\ \code{\link{nmfkc.ecv}}) with:
 #'   \item{objfunc}{Held-out mean squared error for each rank.}
 #'   \item{sigma}{Its square root (RMSE) for each rank.}
@@ -116,7 +119,8 @@ nmfkc.bicv <- function(Y, rank = 1:3, ...) {
   nfolds     <- if (base::is.null(dots$nfolds))     2   else dots$nfolds
   seed       <- if (base::is.null(dots$seed))       123 else dots$seed
   nnls.maxit <- if (base::is.null(dots$nnls.maxit)) 100 else dots$nnls.maxit
-  dots$nfolds <- NULL; dots$seed <- NULL; dots$nnls.maxit <- NULL
+  cores      <- if (base::is.null(dots$cores)) base::getOption("mc.cores", 1L) else dots$cores
+  dots$nfolds <- NULL; dots$seed <- NULL; dots$nnls.maxit <- NULL; dots$cores <- NULL
   P <- base::nrow(Y); N <- base::ncol(Y)
   if (!base::is.null(seed)) base::set.seed(seed)
   row.fold <- base::sample(base::rep_len(1:nfolds, P))
@@ -154,28 +158,46 @@ nmfkc.bicv <- function(Y, rank = 1:3, ...) {
     "bi-CV: ranks %s, %dx%d fold grid (Owen-Perry 2009)...",
     base::paste(rank, collapse = ","), nfolds, nfolds))
 
-  for (ki in base::seq_along(rank)) {
+  ## The fold-pair blocks (I/J/Ic/Jc and D/Bm/Cm/Am) are rank-invariant, so
+  ## build them once (in the original fi-outer, fj-inner order) rather than
+  ## inside the rank loop.
+  pairs <- base::vector("list", nfolds * nfolds)
+  pi <- 0L
+  for (fi in 1:nfolds) for (fj in 1:nfolds) {
+    pi <- pi + 1L
+    I  <- base::which(row.fold == fi); J  <- base::which(col.fold == fj)
+    Ic <- base::which(row.fold != fi); Jc <- base::which(col.fold != fj)
+    pairs[[pi]] <- base::list(
+      I = I, J = J, Ic = Ic, Jc = Jc,
+      D  = Y[Ic, Jc, drop = FALSE],   # retained block
+      Bm = Y[I,  Jc, drop = FALSE],   # held rows x kept cols
+      Cm = Y[Ic, J,  drop = FALSE],   # kept rows x held cols
+      Am = Y[I,  J,  drop = FALSE])   # held-out block
+  }
+
+  ## Each rank is an independent sweep over the (rank-invariant) fold-pair
+  ## blocks; the inner nmfkc block fits self-seed (default 123), and the sse
+  ## accumulation keeps the original fi/fj order, so .nmfkc.parlapply over the
+  ## ranks is bit-identical to the sequential loop for any `cores`.
+  fit_rank <- function(ki) {
     k <- rank[ki]
     sse <- 0; cnt <- 0L
-    for (fi in 1:nfolds) for (fj in 1:nfolds) {
-      I  <- base::which(row.fold == fi); J  <- base::which(col.fold == fj)
-      Ic <- base::which(row.fold != fi); Jc <- base::which(col.fold != fj)
-      if (base::length(Ic) <= k || base::length(Jc) <= k) next
-      D  <- Y[Ic, Jc, drop = FALSE]
-      Bm <- Y[I,  Jc, drop = FALSE]   # held rows x kept cols
-      Cm <- Y[Ic, J,  drop = FALSE]   # kept rows x held cols
-      Am <- Y[I,  J,  drop = FALSE]   # held-out block
+    for (blk in pairs) {
+      if (base::length(blk$Ic) <= k || base::length(blk$Jc) <= k) next
       fit <- base::suppressMessages(
-        base::do.call("nmfkc", c(base::list(Y = D, rank = k), ea)))
+        base::do.call("nmfkc", c(base::list(Y = blk$D, rank = k), ea)))
       L_D <- fit$X; R_D <- fit$B
-      L_I <- .nnls.mu(Bm, R_D, side = "left",  maxit = nnls.maxit)
-      R_J <- .nnls.mu(Cm, L_D, side = "right", maxit = nnls.maxit)
+      L_I <- .nnls.mu(blk$Bm, R_D, side = "left",  maxit = nnls.maxit)
+      R_J <- .nnls.mu(blk$Cm, L_D, side = "right", maxit = nnls.maxit)
       A_hat <- L_I %*% R_J
-      sse <- sse + base::sum((Am - A_hat)^2)
-      cnt <- cnt + base::length(Am)
+      sse <- sse + base::sum((blk$Am - A_hat)^2)
+      cnt <- cnt + base::length(blk$Am)
     }
-    objfunc[ki] <- if (cnt > 0) sse / cnt else NA_real_
+    if (cnt > 0) sse / cnt else NA_real_
   }
+  objvals <- .nmfkc.parlapply(base::seq_along(rank), fit_rank,
+                              cores = if (base::length(rank) > 1L) cores else 1L)
+  objfunc[] <- base::vapply(objvals, base::identity, base::numeric(1))
 
   out <- base::list(objfunc = objfunc, sigma = base::sqrt(objfunc),
                     rank = rank, nfolds = nfolds)

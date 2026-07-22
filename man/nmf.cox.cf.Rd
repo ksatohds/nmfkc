@@ -28,7 +28,11 @@ nmf.cox.cf(
 
 \item{...}{Additional arguments passed to \code{\link{nmf.cox}}
 (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
-\code{nstart}). Also accepts: \code{seed} (fold assignment, default 123)
+\code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
+\code{mc.cores} (evaluate the per-fold nuisance fits in parallel; default
+\code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+elsewhere; results are identical for any value since each fold is an
+independent self-seeded fit assigned by index),
 and \code{maxit} (outer iterations per nuisance fit, default 30).}
 }
 \value{

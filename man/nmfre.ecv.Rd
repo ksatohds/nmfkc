@@ -22,6 +22,11 @@ non-negative). The basis update rule follows this choice automatically.}
 \item \code{nfolds}: Number of folds (default 5; legacy \code{nfold} also accepted).
 \item \code{rounds}: Iterative-imputation rounds per fold (default 4).
 \item \code{seed}: RNG seed for the fold assignment (default 1).
+\item \code{cores}: Integer; number of parallel workers for the rank
+sweep (default \code{getOption("mc.cores", 1L)}). Because the fold
+matrix is fixed before the sweep and each \code{\link{nmfre}} fit
+self-seeds, results are identical to the sequential run for any
+\code{cores}.
 \item \code{print.trace}: Logical; print per-rank scores (default \code{FALSE}).
 \item Convergence controls forwarded to \code{\link{nmfre}}:
 \code{epsilon} (default \code{1e-5}), \code{epsilon.outer}

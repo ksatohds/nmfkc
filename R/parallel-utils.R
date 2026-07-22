@@ -38,7 +38,14 @@
     ## variables. clusterExport also forces any lazy promises (e.g. the Y/A
     ## function arguments) in `envir`, so the subsequently serialized closure
     ## carries values rather than un-evaluated promises bound to a missing env.
+    ## Skip any binding that errors when forced -- an un-evaluated missing-arg
+    ## promise (e.g. a `data` argument unused in matrix mode) is not needed by
+    ## the task closure (the sequential path never forced it either), and
+    ## clusterExport would otherwise abort on get()-ing it.
     vars <- ls(envir, all.names = TRUE)
+    vars <- vars[vapply(vars, function(v)
+      tryCatch({ force(get(v, envir = envir)); TRUE }, error = function(e) FALSE),
+      logical(1))]
     if (length(vars)) parallel::clusterExport(cl, varlist = vars, envir = envir)
     parallel::parLapply(cl, X, FUN)
   } else {

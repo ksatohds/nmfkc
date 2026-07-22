@@ -48,7 +48,11 @@ If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \co
 \code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).
 Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 \code{seed} (master random seed, default \code{NULL}),
-\code{shuffle} (logical, default \code{TRUE}).}
+\code{shuffle} (logical, default \code{TRUE}),
+\code{cores} (integer; number of parallel workers for the fold loop,
+default \code{getOption("mc.cores", 1L)}). Fold partitions and per-fold
+seeds are drawn before the loop and each \code{nmf.ffb} fit self-seeds,
+so results are identical to the sequential run for any \code{cores}.}
 }
 \value{
 A numeric scalar: mean MAE across CV folds.

@@ -45,7 +45,10 @@
 #'   \code{seed + 1000 * i + r}) and \code{pac.range} (\code{c(0.1, 0.9)}, the
 #'   ambiguous interval \eqn{(u_1, u_2)} for the PAC measure).  Any other
 #'   arguments are passed to \code{\link{nmfkc}} (e.g.\ \code{maxit});
-#'   \code{X.init} is forced to \code{"runif"}.
+#'   \code{X.init} is forced to \code{"runif"}.  \code{cores}
+#'   (\code{getOption("mc.cores", 1L)}) runs the \code{nrun} restarts of each
+#'   rank in parallel; results are identical to the sequential loop for any
+#'   \code{cores} (PSOCK cluster on Windows, forking elsewhere).
 #' @return An object of class \code{"nmfkc.consensus"} (a list) with:
 #'   \item{cophenetic}{Cophenetic correlation coefficient for each rank.}
 #'   \item{dispersion}{Dispersion coefficient (\eqn{[0, 1]}) for each rank.}
@@ -88,7 +91,8 @@ nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30,
   dots      <- base::list(...)
   seed      <- if (base::is.null(dots$seed))      123         else dots$seed
   pac.range <- if (base::is.null(dots$pac.range)) c(0.1, 0.9) else dots$pac.range
-  dots$seed <- NULL; dots$pac.range <- NULL
+  cores     <- if (base::is.null(dots$cores)) base::getOption("mc.cores", 1L) else dots$cores
+  dots$seed <- NULL; dots$pac.range <- NULL; dots$cores <- NULL
 
   ## nmfkc args: random init (required for stability), plain fast fit.
   ea <- dots; ea$Q <- NULL; ea$rank <- NULL; ea$seed <- NULL
@@ -107,15 +111,20 @@ nmfkc.consensus <- function(Y, A = NULL, rank = 2:4, nrun = 30,
 
   for (ki in base::seq_along(rank)) {
     k <- rank[ki]
-    Cmat <- base::matrix(0, N, N)
-    for (r in base::seq_len(nrun)) {
+    ## Each of the nrun restarts is an independent, self-seeded nmfkc fit
+    ## (seed + 1000*ki + r). .nmfkc.parlapply preserves input order, so the
+    ## per-run connectivity matrices are summed in the same r order as the
+    ## sequential loop; the integer-valued sum is bit-identical for any cores.
+    run_one <- function(r) {
       fit <- base::suppressMessages(base::do.call("nmfkc",
         c(base::list(Y = Y, A = A, rank = k,
                      seed = seed + 1000L * ki + r), ea)))
       cl <- base::apply(fit$B, 2, base::which.max)   # hard cluster per sample
-      Cmat <- Cmat + (base::outer(cl, cl, "==") + 0) # connectivity
+      base::outer(cl, cl, "==") + 0                  # connectivity
     }
-    Cmat <- Cmat / nrun                              # consensus in [0, 1]
+    conn <- .nmfkc.parlapply(base::seq_len(nrun), run_one,
+                             cores = if (nrun > 1L) cores else 1L)
+    Cmat <- base::Reduce("+", conn) / nrun           # consensus in [0, 1]
     if (keep.consensus) {
       if (!base::is.null(base::colnames(Y)))
         base::dimnames(Cmat) <- base::list(base::colnames(Y), base::colnames(Y))

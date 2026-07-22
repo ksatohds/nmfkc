@@ -17,7 +17,10 @@ nmfkc.bicv(Y, rank = 1:3, ...)
 & Perry's recommendation); \code{seed} (\code{123}, fold-assignment seed);
 and \code{nnls.maxit} (\code{100}, multiplicative-update iterations for the
 fold-in non-negative regressions).  Any other arguments are passed to
-\code{\link{nmfkc}} for the per-block fits (e.g.\ \code{maxit}).}
+\code{\link{nmfkc}} for the per-block fits (e.g.\ \code{maxit}).
+\code{cores} (\code{getOption("mc.cores", 1L)}) evaluates the ranks in
+parallel; results are identical to the sequential loop for any \code{cores}
+(PSOCK cluster on Windows, forking elsewhere).}
 }
 \value{
 A list (cf.\ \code{\link{nmfkc.ecv}}) with:

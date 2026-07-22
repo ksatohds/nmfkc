@@ -25,7 +25,10 @@ nmfkc.ar.degree.cv(
 
 \item{plot}{Logical. If TRUE (default), a plot of the objective function values is drawn.}
 
-\item{...}{Additional arguments passed to \code{nmfkc.cv}.}
+\item{...}{Additional arguments passed to \code{nmfkc.cv}.  Also accepts
+\code{cores} (\code{getOption("mc.cores", 1L)}) to evaluate the candidate
+degrees in parallel; results are identical to the sequential loop for any
+\code{cores} (PSOCK cluster on Windows, forking elsewhere).}
 }
 \value{
 A list with components:

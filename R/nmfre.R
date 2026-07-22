@@ -1330,6 +1330,11 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #'     \item \code{nfolds}: Number of folds (default 5; legacy \code{nfold} also accepted).
 #'     \item \code{rounds}: Iterative-imputation rounds per fold (default 4).
 #'     \item \code{seed}: RNG seed for the fold assignment (default 1).
+#'     \item \code{cores}: Integer; number of parallel workers for the rank
+#'       sweep (default \code{getOption("mc.cores", 1L)}). Because the fold
+#'       matrix is fixed before the sweep and each \code{\link{nmfre}} fit
+#'       self-seeds, results are identical to the sequential run for any
+#'       \code{cores}.
 #'     \item \code{print.trace}: Logical; print per-rank scores (default \code{FALSE}).
 #'     \item Convergence controls forwarded to \code{\link{nmfre}}:
 #'       \code{epsilon} (default \code{1e-5}), \code{epsilon.outer}
@@ -1367,6 +1372,7 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
             else if (!is.null(extra$nfold)) extra$nfold else 5L
   rounds <- if (!is.null(extra$rounds)) extra$rounds else 4L
   seed   <- if (!is.null(extra$seed))   extra$seed   else 1L
+  cores  <- if (!is.null(extra$cores))  extra$cores  else getOption("mc.cores", 1L)
   print.trace <- isTRUE(extra$print.trace)
   ## loosened CV tolerances (overridable via ...)
   epsilon       <- if (!is.null(extra$epsilon))       extra$epsilon       else 1e-5
@@ -1404,8 +1410,11 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
       })
   }
 
-  sig <- stats::setNames(base::rep(NA_real_, length(rank)), base::as.character(rank))
-  for (Q in rank) {
+  ## Per-rank task. The fold matrix is fixed above and the only RNG consumer
+  ## here is nmfre() (self-seeds), so ranks are independent and deterministic;
+  ## .nmfkc.parlapply returns results in input (rank) order, so cores > 1 is
+  ## bit-identical to the sequential sweep.
+  rank_fun <- function(Q) {
     sse <- 0; nt <- 0
     for (k in 1:nfolds) {
       mask <- (fold == k)
@@ -1423,9 +1432,14 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
         nt  <- nt  + base::sum(mask)
       }
     }
-    sig[base::as.character(Q)] <- if (nt > 0) base::sqrt(sse / nt) else NA_real_
-    if (print.trace) base::cat(sprintf("  Q=%d  sigma=%.4f\n", Q, sig[base::as.character(Q)]))
+    s <- if (nt > 0) base::sqrt(sse / nt) else NA_real_
+    if (print.trace) base::cat(sprintf("  Q=%d  sigma=%.4f\n", Q, s))
+    s
   }
+  sig_list <- .nmfkc.parlapply(base::as.list(rank), rank_fun,
+                               cores = cores, envir = environment())
+  sig <- stats::setNames(base::unlist(sig_list, use.names = FALSE),
+                         base::as.character(rank))
 
   best <- rank[base::which.min(sig)]
   out <- base::list(rank = rank, sigma = sig, best = best,

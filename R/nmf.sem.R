@@ -912,7 +912,11 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #'   \code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 #'   \code{seed} (master random seed, default \code{NULL}),
-#'   \code{shuffle} (logical, default \code{TRUE}).
+#'   \code{shuffle} (logical, default \code{TRUE}),
+#'   \code{cores} (integer; number of parallel workers for the fold loop,
+#'   default \code{getOption("mc.cores", 1L)}). Fold partitions and per-fold
+#'   seeds are drawn before the loop and each \code{nmf.ffb} fit self-seeds,
+#'   so results are identical to the sequential run for any \code{cores}.
 #'
 #' @return A numeric scalar: mean MAE across CV folds.
 #'
@@ -940,6 +944,7 @@ nmf.ffb.cv <- function(
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
   seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else NULL
   shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
+  cores   <- if (!is.null(extra_cv$cores))   extra_cv$cores   else getOption("mc.cores", 1L)
   div <- nfolds
   # ------------------------------------------------------------------
   # 1. Basic input checks
@@ -983,6 +988,7 @@ nmf.ffb.cv <- function(
   extra_args$shuffle <- NULL
   extra_args$rank    <- NULL
   extra_args$seed    <- NULL
+  extra_args$cores   <- NULL
 
   # ------------------------------------------------------------------
   # 3. Set RNG for CV partition and per-fold seeds
@@ -1048,7 +1054,11 @@ nmf.ffb.cv <- function(
   #   - fit nmf.sem on training data,
   #   - compute MAE on test block from equilibrium mapping M.model.
   # ------------------------------------------------------------------
-  for (j in 1:div) {
+  # Per-fold task. The partition 'block' and per-fold seeds 'seeds_fold' are
+  # fixed above, and the only RNG consumer here is nmf.ffb() (self-seeds), so
+  # folds are independent and deterministic; .nmfkc.parlapply returns results
+  # in input (fold) order, so cores > 1 is bit-identical to the sequential run.
+  fold_fun <- function(j) {
     # Train / Test split
     train_idx <- block != j
     test_idx  <- block == j
@@ -1086,16 +1096,18 @@ nmf.ffb.cv <- function(
 
     # If mapping is not usable, penalize this fold (do not crash CV)
     if (is.null(res_j$M.model) || any(!is.finite(res_j$M.model))) {
-      objfunc.block[j] <- Inf
-      next
+      return(Inf)
     }
     Pre_test <- res_j$M.model %*% Y2_test
     if (any(!is.finite(Pre_test))) {
-      objfunc.block[j] <- Inf
-      next
+      return(Inf)
     }
-    objfunc.block[j] <- mean(abs(Y1_test - Pre_test))
+    mean(abs(Y1_test - Pre_test))
   }
+  objfunc.block <- base::unlist(
+    .nmfkc.parlapply(base::as.list(1:div), fold_fun,
+                     cores = cores, envir = environment()),
+    use.names = FALSE)
 
   # ------------------------------------------------------------------
   # 6. Aggregate CV score

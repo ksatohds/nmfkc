@@ -896,7 +896,11 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
 #' @param verbose Logical; report per-fold nuisance convergence.
 #' @param ... Additional arguments passed to \code{\link{nmf.cox}}
 #'   (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
-#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123)
+#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
+#'   \code{mc.cores} (evaluate the per-fold nuisance fits in parallel; default
+#'   \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+#'   elsewhere; results are identical for any value since each fold is an
+#'   independent self-seeded fit assigned by index),
 #'   and \code{maxit} (outer iterations per nuisance fit, default 30).
 #'
 #' @return An object of class \code{"nmf.cox.cf"} with components \code{gamma}
@@ -924,10 +928,11 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
 nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
                         verbose = FALSE, ...) {
   extra_args <- base::list(...)
-  seed  <- if (!is.null(extra_args$seed))  extra_args$seed  else 123
-  maxit <- if (!is.null(extra_args$maxit)) extra_args$maxit else 30
-  ties  <- if (!is.null(extra_args$ties))  extra_args$ties  else "breslow"
-  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit")]
+  seed     <- if (!is.null(extra_args$seed))     extra_args$seed     else 123
+  maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
+  ties     <- if (!is.null(extra_args$ties))     extra_args$ties     else "breslow"
+  mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else getOption("mc.cores", 1L)
+  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores")]
   if (!identical(ties, "breslow")) stop("nmf.cox.cf: only ties='breslow' is supported.")
   mf <- stats::model.frame(formula, data); y <- stats::model.response(mf)
   time <- as.numeric(y[, 1]); status <- as.integer(y[, 2]); N <- length(time)
@@ -947,7 +952,10 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
   set.seed(seed)
   fold <- sample(rep_len(1:nfolds, N))
   Ocross <- matrix(0, N, P); conv <- logical(nfolds)
-  for (k in 1:nfolds) {
+  ## Per-fold nuisance fits are independent: fold assignment is drawn once
+  ## above, each fit is self-seeded (seed = 1), and outputs are index-assigned,
+  ## so evaluating the folds in parallel is result-identical to the loop.
+  fold_fun <- function(k) {
     tr <- which(fold != k); ho <- which(fold == k)
     fit <- tryCatch(do.call(nmf.cox,
                   c(list(formula, data = data[tr, , drop = FALSE],
@@ -957,13 +965,19 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
                   error = function(e) NULL)
     if (is.null(fit))
       stop(sprintf("nmf.cox.cf: nuisance fit (trained without fold %d) failed; refusing zero-offset fold.", k))
-    conv[k] <- isTRUE(fit$converged)
+    convk <- isTRUE(fit$converged)
     Xf  <- sapply(seq_len(ncol(fit$X)),
                   function(q) stats::approx(fit$event.times, fit$X[, q], xout = et, rule = 2)$y)
     Aho <- (Araw[, ho, drop = FALSE] - fit$A.center) / fit$A.scale
     Sho <- fit$C %*% Aho
-    Ocross[ho, ] <- t(Xf %*% Sho)
-    if (verbose) cat(sprintf("  fold %d: nuisance converged=%s\n", k, conv[k]))
+    if (verbose) cat(sprintf("  fold %d: nuisance converged=%s\n", k, convk))
+    list(ho = ho, Ocols = t(Xf %*% Sho), conv = convk)
+  }
+  fold_res <- .nmfkc.parlapply(seq_len(nfolds), fold_fun, cores = mc.cores,
+                               packages = c("nmfkc", "survival"))
+  for (k in seq_len(nfolds)) {
+    Ocross[fold_res[[k]]$ho, ] <- fold_res[[k]]$Ocols
+    conv[k] <- fold_res[[k]]$conv
   }
   o_row <- pmax(pmin(Ocross[cbind(rid, rj)], 30), -30)
   dat <- data.frame(start = rstart, stop = rstop, ev = rev, id = rid, off = o_row, fold = fold[rid])
@@ -1004,7 +1018,11 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
 #' @param verbose Logical; print the Wald table.
 #' @param ... Additional arguments passed to \code{\link{nmf.cox}}
 #'   (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
-#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123)
+#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
+#'   \code{mc.cores} (evaluate the per-fold basis fits in parallel; default
+#'   \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+#'   elsewhere; results are identical for any value since each fold is an
+#'   independent self-seeded fit assigned by index),
 #'   and \code{maxit} (outer iterations per basis fit, default 30).
 #'
 #' @return An object of class \code{"nmf.cox.phtest"} containing the per-covariate
@@ -1027,10 +1045,11 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
 nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
                             nfolds = 5, verbose = FALSE, ...) {
   extra_args <- base::list(...)
-  seed  <- if (!is.null(extra_args$seed))  extra_args$seed  else 123
-  maxit <- if (!is.null(extra_args$maxit)) extra_args$maxit else 30
-  ties  <- if (!is.null(extra_args$ties))  extra_args$ties  else "breslow"
-  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit")]
+  seed     <- if (!is.null(extra_args$seed))     extra_args$seed     else 123
+  maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
+  ties     <- if (!is.null(extra_args$ties))     extra_args$ties     else "breslow"
+  mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else getOption("mc.cores", 1L)
+  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores")]
   if (!identical(ties, "breslow")) stop("nmf.cox.phtest: only ties='breslow' is supported.")
   Q <- rank
   mf <- stats::model.frame(formula, data); y <- stats::model.response(mf)
@@ -1049,7 +1068,10 @@ nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
   fold <- sample(rep_len(1:nfolds, N))
 
   Xcf <- vector("list", nfolds); conv <- logical(nfolds)
-  for (k in 1:nfolds) {
+  ## Per-fold basis fits are independent: fold assignment is drawn once above,
+  ## each fit is self-seeded (seed = 1), and outputs are index-assigned, so
+  ## evaluating the folds in parallel is result-identical to the loop.
+  fold_fun <- function(k) {
     tr <- which(fold != k)
     fit <- tryCatch(do.call(nmf.cox,
                     c(list(formula, data = data[tr, , drop = FALSE],
@@ -1058,8 +1080,14 @@ nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
                            maxit = maxit, seed = 1), fit_args)),
                     error = function(e) NULL)
     if (is.null(fit)) stop(sprintf("nmf.cox.phtest: basis fit (trained without fold %d) failed.", k))
-    conv[k] <- isTRUE(fit$converged)
-    Xcf[[k]] <- sapply(1:ncol(fit$X), function(q) stats::approx(fit$event.times, fit$X[, q], xout = et, rule = 2)$y)
+    list(conv = isTRUE(fit$converged),
+         Xcf = sapply(1:ncol(fit$X), function(q) stats::approx(fit$event.times, fit$X[, q], xout = et, rule = 2)$y))
+  }
+  fold_res <- .nmfkc.parlapply(seq_len(nfolds), fold_fun, cores = mc.cores,
+                               packages = c("nmfkc", "survival"))
+  for (k in seq_len(nfolds)) {
+    conv[k] <- fold_res[[k]]$conv
+    Xcf[[k]] <- fold_res[[k]]$Xcf
   }
 
   rid <- rj <- rstart <- rstop <- rev <- integer(0)

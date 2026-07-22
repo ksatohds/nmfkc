@@ -27,7 +27,11 @@ Default is \code{Y1} (autoencoder).}
 \item{...}{Additional arguments passed to \code{\link{nmfae}}
 (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
 Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
-\code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}).
+\code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}),
+and \code{cores} (fit the folds in parallel; default
+\code{getOption("mc.cores", 1L)}, PSOCK on Windows / forking elsewhere).
+Each fold is an independent self-seeded fit and the per-fold errors are
+summed in order, so the result is identical for any \code{cores}.
 For backward compatibility, \code{Q}, \code{R} are accepted as aliases for
 \code{rank}, \code{rank.encoder}.}
 

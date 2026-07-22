@@ -26,7 +26,11 @@ which sets \code{rank2 = rank1} and evaluates element-wise pairs.}
 
 \item{...}{Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
 Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
-\code{seed} (integer seed, default 123).
+\code{seed} (integer seed, default 123), and \code{cores} (evaluate the
+\eqn{(Q,R)}-pair \eqn{\times} fold grid in parallel; default
+\code{getOption("mc.cores", 1L)}, PSOCK on Windows / forking elsewhere).
+Each task is an independent self-seeded fit and results are aggregated in
+order, so the returned object is identical for any \code{cores}.
 For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
 \code{rank} and \code{rank.encoder}.}
 

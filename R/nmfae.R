@@ -1300,7 +1300,11 @@ plot.predict.nmfae <- function(x, ...) {
 #'   When explicitly specified, all combinations with \code{rank} are evaluated.
 #' @param ... Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
-#'   \code{seed} (integer seed, default 123).
+#'   \code{seed} (integer seed, default 123), and \code{cores} (evaluate the
+#'   \eqn{(Q,R)}-pair \eqn{\times} fold grid in parallel; default
+#'   \code{getOption("mc.cores", 1L)}, PSOCK on Windows / forking elsewhere).
+#'   Each task is an independent self-seeded fit and results are aggregated in
+#'   order, so the returned object is identical for any \code{cores}.
 #'   For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
 #'   \code{rank} and \code{rank.encoder}.
 #'
@@ -1336,6 +1340,7 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
   if (!is.null(extra_ecv$R))  rank.encoder <- extra_ecv$R
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed))   extra_ecv$seed   else 123
+  cores  <- if (!is.null(extra_ecv$cores))  extra_ecv$cores  else getOption("mc.cores", 1L)
   Q <- rank; R <- rank.encoder
   div <- nfolds
 
@@ -1361,6 +1366,7 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
                   num_pairs, div, num_pairs * div))
 
   extra_args <- list(...)
+  extra_args$cores <- NULL   # not an nmf.rrr fit argument
 
   # Model-specific worker: mask fold k, refit at pair i, held-out loss
   run_one <- function(i, k) {
@@ -1375,7 +1381,25 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
   }
 
-  cv <- .ecv.run(pair_labels, div, run_one,
+  ## Opt-in parallelism over the (pair x fold) grid. Each (i, k) task is an
+  ## independent, self-seeded nmf.rrr() fit (folds are precomputed once), so
+  ## evaluating them concurrently changes nothing: results are gathered into
+  ## res_mat and .ecv.run() performs the identical sequential aggregation and
+  ## progress reporting via a table lookup. cores <= 1 uses run_one directly,
+  ## reproducing the sequential loop bit for bit.
+  cores_i <- suppressWarnings(as.integer(cores))
+  if (!is.na(cores_i) && length(cores_i) == 1L && cores_i > 1L) {
+    grid <- expand.grid(i = seq_len(num_pairs), k = seq_len(div))
+    vals <- .nmfkc.parlapply(seq_len(nrow(grid)),
+                             function(t) run_one(grid$i[t], grid$k[t]),
+                             cores = cores_i)
+    res_mat <- matrix(unlist(vals), nrow = num_pairs, ncol = div)
+    run_eval <- function(i, k) res_mat[i, k]
+  } else {
+    run_eval <- run_one
+  }
+
+  cv <- .ecv.run(pair_labels, div, run_eval,
                  progress = function(i, o, s)
                    message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
                                    QR$Q[i], QR$R[i], o, s)))
@@ -1409,7 +1433,11 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #'   eff.rank only, and recommends the R-squared elbow).
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param ... Passed on to \code{\link{nmfae}} and \code{\link{nmfae.ecv}}
-#'   (e.g.\ \code{maxit}, \code{nfolds}, \code{seed}).
+#'   (e.g.\ \code{maxit}, \code{nfolds}, \code{seed}). Also accepts \code{cores}
+#'   to evaluate the rank sweep (and the element-wise CV) in parallel; default
+#'   \code{getOption("mc.cores", 1L)}. Each rank is an independent self-seeded
+#'   fit and results are gathered in order, so the output is identical for any
+#'   \code{cores}.
 #' @return A list with \code{rank.best} and \code{criteria}
 #'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
 #'   \code{r.squared}, \code{sigma.ecv}).
@@ -1430,17 +1458,24 @@ nmf.rrr.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
   if (!is.null(rank))    rank1 <- rank
   if (!is.null(extra$Q)) rank1 <- extra$Q
   extra$Q <- NULL; extra$R <- NULL; extra$rank.encoder <- NULL
+  cores <- if (!is.null(extra$cores)) extra$cores else getOption("mc.cores", 1L)
+  extra$cores <- NULL
   detail <- match.arg(detail)
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
-  rs <- numeric(length(rank1)); er <- numeric(length(rank1))
-  for (i in seq_along(rank1)) {
+  ## Each rank is an independent, self-seeded nmf.rrr() fit; .nmfkc.parlapply
+  ## preserves input order so rs / er are identical to the sequential loop for
+  ## any `cores`.
+  fit_one <- function(i) {
     f <- suppressMessages(do.call(nmf.rrr, c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
                                                 print.trace = FALSE), extra)))
-    rs[i] <- f$r.squared
-    er[i] <- .effective.rank(f$H)
+    c(rs = f$r.squared, er = .effective.rank(f$H))
   }
+  fits <- .nmfkc.parlapply(seq_along(rank1), fit_one, cores = cores)
+  rs <- vapply(fits, function(v) v[["rs"]], numeric(1))
+  er <- vapply(fits, function(v) v[["er"]], numeric(1))
   ecv <- if (detail == "full")
-    suppressMessages(do.call(nmf.rrr.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    suppressMessages(do.call(nmf.rrr.ecv,
+                             c(list(Y1, Y2, rank1 = rank1, cores = cores), extra)))$sigma
     else rep(NA_real_, length(rank1))
   criteria <- data.frame(rank = rank1, effective.rank = er,
                          effective.rank.ratio = er / rank1,
@@ -1559,7 +1594,11 @@ plot.nmfae.ecv <- function(x, ...) {
 #' @param ... Additional arguments passed to \code{\link{nmfae}}
 #'   (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
-#'   \code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}).
+#'   \code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}),
+#'   and \code{cores} (fit the folds in parallel; default
+#'   \code{getOption("mc.cores", 1L)}, PSOCK on Windows / forking elsewhere).
+#'   Each fold is an independent self-seeded fit and the per-fold errors are
+#'   summed in order, so the result is identical for any \code{cores}.
 #'   For backward compatibility, \code{Q}, \code{R} are accepted as aliases for
 #'   \code{rank}, \code{rank.encoder}.
 #'
@@ -1592,10 +1631,12 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
   seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else 123
   shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
+  cores   <- if (!is.null(extra_cv$cores))   extra_cv$cores   else getOption("mc.cores", 1L)
   Q <- rank; R <- rank.encoder
   div <- nfolds
 
   extra_args <- list(...)
+  extra_args$cores <- NULL   # not an nmf.rrr fit argument
 
   Y1 <- as.matrix(Y1); storage.mode(Y1) <- "double"
   Y2 <- as.matrix(Y2); storage.mode(Y2) <- "double"
@@ -1658,10 +1699,12 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
   nmfae_extra$print.trace <- NULL
   nmfae_extra$seed <- NULL
 
-  objfunc.block <- numeric(div)
-  total_valid <- 0
-
-  for (j in 1:div) {
+  ## Each fold is an independent, self-seeded nmf.rrr() fit (the fold shuffle is
+  ## seeded once above; the caller `seed` is stripped so every fit uses the same
+  ## fixed internal seed). .nmfkc.parlapply preserves input order, so summing the
+  ## per-fold (SSE, valid-count) pairs reproduces the sequential loop for any
+  ## `cores`.
+  fold_one <- function(j) {
     train <- (block != j)
     test  <- (block == j)
 
@@ -1692,9 +1735,12 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
     Y1hat_test <- res_j$X1 %*% res_j$C %*% res_j$X2 %*% Y2_test
 
     # Evaluate weighted error (lm-style: sum(W * resid^2))
-    objfunc.block[j] <- sum(W_test * (Y1_test - Y1hat_test)^2)
-    total_valid <- total_valid + sum(W_test > 0)
+    c(sse = sum(W_test * (Y1_test - Y1hat_test)^2), nvalid = sum(W_test > 0))
   }
+
+  folds_res <- .nmfkc.parlapply(1:div, fold_one, cores = cores)
+  objfunc.block <- vapply(folds_res, function(v) v[["sse"]], numeric(1))
+  total_valid   <- sum(vapply(folds_res, function(v) v[["nvalid"]], numeric(1)))
 
   objfunc <- sum(objfunc.block) / max(total_valid, 1)
   sigma <- sqrt(objfunc)
@@ -1756,7 +1802,11 @@ plot.nmfae.cv <- function(x, ...) {
 #' @param ... Additional arguments. Kernel-specific args (\code{kernel}, \code{degree})
 #'   are passed to \code{\link{nmfkc.kernel}}; all others
 #'   (\code{div}, \code{seed}, \code{shuffle}, \code{epsilon}, \code{maxit}, etc.)
-#'   are passed to \code{\link{nmfae.cv}}.
+#'   are passed to \code{\link{nmfae.cv}}. Also accepts \code{cores} to evaluate
+#'   the candidate \code{beta} values in parallel (default
+#'   \code{getOption("mc.cores", 1L)}); each inner CV then runs sequentially, and
+#'   because results are gathered in order the selected \code{beta} is identical
+#'   for any \code{cores}.
 #'   For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
 #'   \code{rank} and \code{rank.encoder}.
 #'
@@ -1786,6 +1836,8 @@ nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
   if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
   if (is.null(rank.encoder))  rank.encoder <- rank
   extra_args <- extra_args[!names(extra_args) %in% c("Q", "R")]
+  cores <- if (!is.null(extra_args$cores)) extra_args$cores else getOption("mc.cores", 1L)
+  extra_args$cores <- NULL
 
   # Separate kernel-specific args from cv/nmfae args
   kernel_only <- c("kernel", "degree")
@@ -1801,18 +1853,20 @@ nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
       stop("Failed to determine beta candidates from nearest-neighbor median.")
   }
 
-  objfuncs <- numeric(length(beta))
-  for (i in seq_along(beta)) {
+  ## Each beta is an independent, self-seeded nmf.rrr.cv() evaluation; the inner
+  ## CV runs sequentially (cores = 1) so the beta-level parallelism does not nest.
+  ## .nmfkc.parlapply preserves input order, so which.min() picks the same beta as
+  ## the sequential loop for any `cores`. Progress messages stay in the closure.
+  beta_one <- function(i) {
     start.time <- Sys.time()
     message(paste0("beta=", beta[i], "..."), appendLF = FALSE)
 
     kernel_call <- c(list(U = U, V = V, beta = beta[i]), kernel_args)
     A <- do.call("nmfkc.kernel", kernel_call)
 
-    cv_call <- c(list(Y1 = Y1, Y2 = A, rank = rank, rank.encoder = rank.encoder), cv_args)
+    cv_call <- c(list(Y1 = Y1, Y2 = A, rank = rank, rank.encoder = rank.encoder,
+                      cores = 1L), cv_args)
     result <- do.call("nmf.rrr.cv", cv_call)
-
-    objfuncs[i] <- result$objfunc
 
     end.time <- Sys.time()
     diff.time <- difftime(end.time, start.time, units = "sec")
@@ -1820,7 +1874,9 @@ nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
                            paste0(round(diff.time, 1), "sec"),
                            paste0(round(diff.time / 60, 1), "min"))
     message(diff.time.st)
+    result$objfunc
   }
+  objfuncs <- unlist(.nmfkc.parlapply(seq_along(beta), beta_one, cores = cores))
 
   i0 <- which.min(objfuncs)
   beta.best <- beta[i0]

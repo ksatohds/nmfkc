@@ -385,7 +385,10 @@ nmfkc.ar.predict <- function(x, Y, degree = NULL, n.ahead = 1){
 #' @param degree A vector of candidate lag orders to be evaluated.
 #' @param intercept Logical. If TRUE (default), an intercept is added to the covariate matrix.
 #' @param plot Logical. If TRUE (default), a plot of the objective function values is drawn.
-#' @param ... Additional arguments passed to \code{nmfkc.cv}.
+#' @param ... Additional arguments passed to \code{nmfkc.cv}.  Also accepts
+#'   \code{cores} (\code{getOption("mc.cores", 1L)}) to evaluate the candidate
+#'   degrees in parallel; results are identical to the sequential loop for any
+#'   \code{cores} (PSOCK cluster on Windows, forking elsewhere).
 #'
 #' @return A list with components:
 #' \item{degree}{The lag order that minimizes the cross-validation objective function.}
@@ -419,11 +422,14 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 
   # --- 2. Main Processing ---
   # Remove backward-compat aliases from extra_args to avoid duplicate argument errors
-  extra_args <- extra_cv[!names(extra_cv) %in% c("Q")]
-  objfuncs <- numeric(length(degree))
-  success_status <- logical(length(degree))
+  cores <- if (!is.null(extra_cv$cores)) extra_cv$cores else getOption("mc.cores", 1L)
+  extra_args <- extra_cv[!names(extra_cv) %in% c("Q", "cores")]
 
-  for(i in seq_along(degree)){
+  # Each degree is an independent nmfkc.ar + (shuffle=FALSE, self-seeded)
+  # nmfkc.cv fit; .nmfkc.parlapply preserves input order so the objfunc vector,
+  # first-min selection and plot are identical to the sequential loop for any
+  # `cores`. Timing / progress messages stay inside the per-degree task.
+  run_degree <- function(i){
     start.time <- Sys.time()
     current_degree <- degree[i]
     message(paste0("degree=", current_degree, "..."), appendLF = FALSE)
@@ -447,15 +453,18 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
       list(ok = FALSE, obj = NA_real_, err = e)
     })
 
-    objfuncs[i] <- res$obj
-    success_status[i] <- res$ok
-
     end.time <- Sys.time()
     diff.time <- difftime(end.time, start.time, units = "sec")
     diff.time.st <- ifelse(diff.time <= 180, paste0(round(diff.time, 1), "sec"),
                            paste0(round(diff.time/60, 1), "min"))
     message(if (res$ok) diff.time.st else "Skipped (Error)")
+    list(obj = res$obj, ok = res$ok)
   }
+
+  results <- .nmfkc.parlapply(seq_along(degree), run_degree,
+                              cores = if (length(degree) > 1L) cores else 1L)
+  objfuncs <- vapply(results, function(z) z$obj, numeric(1))
+  success_status <- vapply(results, function(z) z$ok, logical(1))
 
   valid_indices <- which(success_status)
   if(length(valid_indices) == 0) stop("Cross-validation failed for all candidate degrees.")

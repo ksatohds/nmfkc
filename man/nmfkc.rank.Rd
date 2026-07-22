@@ -27,6 +27,11 @@ R-squared elbow).}
 \itemize{
 \item \code{Q}: (Deprecated) Alias for \code{rank}.
 \item \code{save.time}: (Deprecated) \code{TRUE} maps to \code{detail = "fast"}.
+\item \code{cores}: evaluate the per-rank fits in parallel (default
+\code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+elsewhere). Each rank is a deterministic self-seeded fit and results
+are returned in order, so the criteria table is identical for any
+\code{cores}. (Also forwarded to \code{\link{nmfkc.ecv}}.)
 }}
 }
 \value{

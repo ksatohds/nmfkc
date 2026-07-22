@@ -28,7 +28,10 @@ eff.rank only, and recommends the R-squared elbow).}
 
 \item{...}{Passed on to \code{\link{nmfkc.net}} and
 \code{\link{nmfkc.net.ecv}} (e.g.\ \code{nstart}, \code{maxit},
-\code{nfolds}, \code{seed}).}
+\code{nfolds}, \code{seed}).  Also accepts \code{cores}
+(\code{getOption("mc.cores", 1L)}) to fit the per-rank models (and the
+ECV grid) in parallel; results are identical for any \code{cores}
+(PSOCK cluster on Windows, forking elsewhere).}
 }
 \value{
 A list with \code{rank.best} (ECV minimum, or the R-squared

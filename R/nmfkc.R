@@ -556,7 +556,12 @@ nmfkc.kernel.beta.nearest.med <- function(
 #' @param V Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.
 #' @param beta A numeric vector of candidate kernel parameters to evaluate via cross-validation.
 #' @param plot Logical. If TRUE (default), plots the objective function values for each candidate \code{beta}.
-#' @param ... Additional arguments passed to \code{nmfkc.cv}.
+#' @param ... Additional arguments passed to \code{nmfkc.cv}. Also accepts
+#'   \code{cores} (evaluate the \code{beta} candidates in parallel; default
+#'   \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+#'   elsewhere). Each candidate is a deterministic \code{nmfkc.cv} call (its
+#'   folds are seeded) and results are returned in order, so \code{objfunc}
+#'   and the selected \code{beta} are identical for any \code{cores}.
 #'
 #' @return A list with components:
 #' \item{beta}{The beta value that minimizes the cross-validation objective function.}
@@ -579,6 +584,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   extra_args <- list(...)
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
   Q <- rank
+  cores <- if (!is.null(extra_args$cores)) extra_args$cores else getOption("mc.cores", 1L)
   kernel_arg_names <- names(formals(nmfkc.kernel))
   cv_arg_names <- names(formals(nmfkc.cv))
   kernel_args_for_call <- extra_args[names(extra_args) %in% kernel_arg_names]
@@ -612,8 +618,14 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     }
   }
 
-  objfuncs <- numeric(length(beta))
-  for(i in seq_along(beta)){
+  # Per-candidate worker: exactly the computation the sequential loop
+  # performed for beta[i].  Each candidate is one full nmfkc.cv() call, which
+  # seeds its own folds, so it is deterministic per candidate; .nmfkc.parlapply
+  # preserves input order, so cores = 1 (lapply) is the sequential loop and
+  # objfuncs / which.min are identical for any `cores`.  message() timing stays
+  # inside the closure (printed as before at cores = 1; parallel-worker
+  # messages are simply not shown).
+  run_beta <- function(i){
     start.time <- Sys.time()
     message(paste0("beta=",beta[i],"..."),appendLF=FALSE)
 
@@ -639,13 +651,14 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     )
     result <- do.call("nmfkc.cv", cv_args)
 
-    objfuncs[i] <- result$objfunc
     end.time <- Sys.time()
     diff.time <- difftime(end.time,start.time,units="sec")
     diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                            paste0(round(diff.time/60,1),"min"))
     message(diff.time.st)
+    result$objfunc
   }
+  objfuncs <- unlist(.nmfkc.parlapply(seq_along(beta), run_beta, cores = cores))
   i0 <- which.min(objfuncs)
   beta.best <- beta[i0]
   if(plot){
@@ -1225,17 +1238,49 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   mean loss for config index \code{i} and fold \code{k}.
 #' @param progress Optional \code{function(i, objfunc, sigma)} called
 #'   after each config for progress reporting (default none).
+#' @param cores Optional integer; when \code{> 1}, the flattened
+#'   (config x fold) task grid is evaluated in parallel through
+#'   \code{\link{.nmfkc.parlapply}} (PSOCK on Windows, forking elsewhere).
+#'   Because each \code{run_one(i, k)} is a deterministic self-seeded fit
+#'   and \code{parlapply} preserves input order, the aggregated result is
+#'   identical to the sequential path for any \code{cores}.  Default
+#'   \code{1L} runs the exact sequential nested loop (so every existing
+#'   caller is bitwise unchanged).
 #' @return A list with \code{objfunc} (named numeric), \code{sigma}
 #'   (named numeric), and \code{objfunc.fold} (named list of per-fold
 #'   loss vectors).  Callers using a loss that can be negative (e.g.\ KL)
 #'   may additionally force \code{sigma} to \code{NA}.
 #' @keywords internal
 #' @noRd
-.ecv.run <- function(labels, nfolds, run_one, progress = NULL) {
+.ecv.run <- function(labels, nfolds, run_one, progress = NULL, cores = 1L) {
   n   <- base::length(labels)
   obj <- stats::setNames(base::numeric(n), labels)
   sig <- stats::setNames(base::numeric(n), labels)
   fld <- stats::setNames(base::vector("list", n), labels)
+  cores <- base::suppressWarnings(base::as.integer(cores))
+  if (base::length(cores) == 1L && !base::is.na(cores) && cores > 1L) {
+    ## Flatten the (config i, fold k) grid into a single task list in the
+    ## SAME order as the sequential nested loop below (i outer, k inner),
+    ## evaluate through .nmfkc.parlapply (which returns results in input
+    ## order), then aggregate exactly as the sequential path.  Each
+    ## run_one(i, k) is a deterministic self-seeded fit, so obj/sig/fld are
+    ## identical to the sequential result regardless of `cores`.
+    grid <- base::expand.grid(k = base::seq_len(nfolds), i = base::seq_len(n),
+                              KEEP.OUT.ATTRS = FALSE)
+    vals <- base::unlist(.nmfkc.parlapply(
+      base::seq_len(base::nrow(grid)),
+      function(t) run_one(grid$i[t], grid$k[t]),
+      cores = cores))
+    for (i in base::seq_len(n)) {
+      objs <- vals[((i - 1L) * nfolds + 1L):(i * nfolds)]
+      fld[[i]] <- objs
+      obj[i]   <- base::mean(objs)
+      sig[i]   <- if (base::is.finite(obj[i]) && obj[i] >= 0)
+                    base::sqrt(obj[i]) else NA_real_
+      if (!base::is.null(progress)) progress(i, obj[i], sig[i])
+    }
+    return(base::list(objfunc = obj, sigma = sig, objfunc.fold = fld))
+  }
   for (i in base::seq_len(n)) {
     objs <- base::numeric(nfolds)
     for (k in 1:nfolds) objs[k] <- run_one(i, k)
@@ -3367,7 +3412,11 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} (e.g., \code{method="EU"}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
-#'   \code{seed} (integer seed, default 123).
+#'   \code{seed} (integer seed, default 123), and \code{cores} (evaluate the
+#'   rank x fold task grid in parallel; default \code{getOption("mc.cores", 1L)}).
+#'   Parallelism uses a PSOCK cluster on Windows and forking elsewhere; because
+#'   each task is a deterministic self-seeded fit and results are returned in
+#'   order, \code{objfunc}/\code{sigma} are identical for any \code{cores}.
 #'
 #' @return A list with components:
 #' \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
@@ -3398,6 +3447,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed))   extra_ecv$seed   else 123
+  cores  <- if (!is.null(extra_ecv$cores))  extra_ecv$cores  else getOption("mc.cores", 1L)
   Q <- rank
   div <- nfolds
   # --- Formula Mode ---
@@ -3444,6 +3494,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   nmfkc_clean_args$print.dims <- NULL
   nmfkc_clean_args$save.time <- NULL
   nmfkc_clean_args$save.memory <- NULL
+  nmfkc_clean_args$cores <- NULL
 
   # Model-specific worker: mask fold k, refit at rank Q[i], held-out loss
   run_one <- function(i, k) {
@@ -3467,7 +3518,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 
   # 2. Loop over Q via shared driver
   message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
-  cv <- .ecv.run(paste0("Q=", Q), div, run_one)
+  cv <- .ecv.run(paste0("Q=", Q), div, run_one, cores = cores)
   if (method != "EU") cv$sigma[] <- NA   # sigma = RMSE only for EU loss
 
   out <- list(objfunc = cv$objfunc,
@@ -3677,6 +3728,11 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #'   \itemize{
 #'     \item \code{Q}: (Deprecated) Alias for \code{rank}.
 #'     \item \code{save.time}: (Deprecated) \code{TRUE} maps to \code{detail = "fast"}.
+#'     \item \code{cores}: evaluate the per-rank fits in parallel (default
+#'       \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+#'       elsewhere). Each rank is a deterministic self-seeded fit and results
+#'       are returned in order, so the criteria table is identical for any
+#'       \code{cores}. (Also forwarded to \code{\link{nmfkc.ecv}}.)
 #'   }
 #'
 #' @return A list containing:
@@ -3729,6 +3785,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
   if (!is.null(extra_args$save.time) && extra_args$save.time && detail == "full") detail <- "fast"
   Q <- rank
+  cores <- if (!is.null(extra_args$cores)) extra_args$cores else getOption("mc.cores", 1L)
   # ---------------------------------------------
   num_q <- length(Q)
   results_df <- data.frame(
@@ -3743,7 +3800,11 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   # Fitted with detail = "fast": the (O(N^2)) sample-clustering criteria
   # silhouette / CPCC / dist.cor are no longer part of rank selection.
   # For per-fit clustering quality use nmf.cluster.criteria() instead.
-  for(q_idx in 1:num_q){
+  # Per-rank worker: exactly the fit the sequential loop performed.  Each
+  # nmfkc() self-seeds (default seed = 123) so the fit is deterministic per
+  # rank; .nmfkc.parlapply preserves input order, so cores = 1 (lapply) is
+  # the sequential loop and the criteria table is identical for any `cores`.
+  fit_one_rank <- function(q_idx){
     current_Q <- Q[q_idx]
 
     extra_args_nmfkc <- extra_args
@@ -3751,10 +3812,15 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     extra_args_nmfkc$save.time <- NULL
     extra_args_nmfkc$detail <- "fast"
     extra_args_nmfkc$Q <- NULL
+    extra_args_nmfkc$cores <- NULL
 
     nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
-    result <- do.call("nmfkc", nmfkc_args)
-
+    do.call("nmfkc", nmfkc_args)
+  }
+  fits <- .nmfkc.parlapply(1:num_q, fit_one_rank, cores = cores)
+  for(q_idx in 1:num_q){
+    current_Q <- Q[q_idx]
+    result <- fits[[q_idx]]
     results_df$effective.rank[q_idx] <- result$criterion$effective.rank
     results_df$effective.rank.ratio[q_idx] <-
       result$criterion$effective.rank / current_Q

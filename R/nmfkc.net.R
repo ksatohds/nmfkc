@@ -1195,7 +1195,10 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 #' @param rank Integer vector of ranks to evaluate. Default \code{1:3}.
 #' @param type Model type: \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
 #' @param ... Passed to the underlying fitter; also accepts \code{nfolds}
-#'   (default 5; \code{div} alias), \code{seed} (default 123).
+#'   (default 5; \code{div} alias), \code{seed} (default 123), and \code{cores}
+#'   (\code{getOption("mc.cores", 1L)}) to evaluate the rank x fold grid in
+#'   parallel; results are identical to the sequential run for any \code{cores}
+#'   (PSOCK cluster on Windows, forking elsewhere).
 #'
 #' @return A list with \code{objfunc}, \code{sigma}, \code{objfunc.fold},
 #'   \code{folds}, \code{Q.grid}, \code{type}.
@@ -1212,11 +1215,12 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
   nfolds <- if (!is.null(ex$nfolds)) ex$nfolds
             else if (!is.null(ex$div)) ex$div else 5
   seed <- if (!is.null(ex$seed)) ex$seed else 123
+  cores <- if (!is.null(ex$cores)) ex$cores else getOption("mc.cores", 1L)
   Y <- as.matrix(Y); N <- nrow(Y)
   folds <- .nmfkc.net.make_uppertri_folds(N, div = nfolds, seed = seed)
 
   fit_args <- ex; fit_args$nfolds <- NULL; fit_args$div <- NULL
-  fit_args$rank <- NULL; fit_args$type <- NULL
+  fit_args$rank <- NULL; fit_args$type <- NULL; fit_args$cores <- NULL
 
   run_one <- function(q, k) {
     test_ut <- folds[[k]]
@@ -1231,8 +1235,18 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
 
   message(sprintf("nmfkc.net ECV (type=%s): %d ranks, %d-fold, upper-triangle.",
                   type, length(rank), nfolds))
+  ## Each (rank, fold) cell is an independent, self-seeded fit. Precompute the
+  ## rank x nfolds grid in input order (i outer, k inner -- matching .ecv.run's
+  ## consumption order) so the per-rank aggregation and progress messages below
+  ## are bit-identical to the sequential run for any `cores`.
+  ng <- length(rank)
+  grid <- .nmfkc.parlapply(seq_len(ng * nfolds), function(t) {
+    i <- (t - 1L) %/% nfolds + 1L
+    k <- (t - 1L) %%  nfolds + 1L
+    run_one(rank[i], k)
+  }, cores = if (ng * nfolds > 1L) cores else 1L)
   cv <- .ecv.run(sprintf("Q=%d", rank), nfolds,
-                 run_one = function(i, k) run_one(rank[i], k),
+                 run_one = function(i, k) grid[[(i - 1L) * nfolds + k]],
                  progress = function(i, o, s)
                    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", rank[i], o, s)))
   cls <- if (type == "signed")
@@ -1262,7 +1276,10 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param ... Passed on to \code{\link{nmfkc.net}} and
 #'   \code{\link{nmfkc.net.ecv}} (e.g.\ \code{nstart}, \code{maxit},
-#'   \code{nfolds}, \code{seed}).
+#'   \code{nfolds}, \code{seed}).  Also accepts \code{cores}
+#'   (\code{getOption("mc.cores", 1L)}) to fit the per-rank models (and the
+#'   ECV grid) in parallel; results are identical for any \code{cores}
+#'   (PSOCK cluster on Windows, forking elsewhere).
 #' @return A list with \code{rank.best} (ECV minimum, or the R-squared
 #'   elbow under \code{detail = "fast"}) and \code{criteria} (data
 #'   frame: \code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
@@ -1287,15 +1304,23 @@ nmfkc.net.rank <- function(Y, rank = 1:5, type = c("tri", "bi", "signed"),
                            detail = c("full", "fast"), plot = TRUE, ...) {
   type <- match.arg(type); detail <- match.arg(detail)
   Y <- as.matrix(Y)
-  rs <- numeric(length(rank)); er <- numeric(length(rank))
-  for (i in seq_along(rank)) {
-    f <- suppressMessages(nmfkc.net(Y, rank = rank[i], type = type,
-                                    verbose = FALSE, ...))
-    rs[i] <- f$r.squared
-    er[i] <- .effective.rank(t(f$X))
-  }
+  dots <- list(...)
+  cores <- if (!is.null(dots$cores)) dots$cores else getOption("mc.cores", 1L)
+  net_args <- dots; net_args$cores <- NULL
+  ## Each rank's nmfkc.net fit is independent and self-seeds (default 123);
+  ## .nmfkc.parlapply preserves input order so (rs, er) are identical to the
+  ## sequential loop for any `cores`.
+  per_rank <- .nmfkc.parlapply(seq_along(rank), function(i) {
+    f <- suppressMessages(do.call(nmfkc.net,
+           c(list(Y = Y, rank = rank[i], type = type, verbose = FALSE),
+             net_args)))
+    list(rs = f$r.squared, er = .effective.rank(t(f$X)))
+  }, cores = if (length(rank) > 1L) cores else 1L)
+  rs <- vapply(per_rank, function(z) z$rs, numeric(1))
+  er <- vapply(per_rank, function(z) z$er, numeric(1))
   ecv <- if (detail == "full")
-    suppressMessages(nmfkc.net.ecv(Y, rank = rank, type = type, ...))$sigma
+    suppressMessages(do.call(nmfkc.net.ecv,
+      c(list(Y = Y, rank = rank, type = type, cores = cores), net_args)))$sigma
     else rep(NA_real_, length(rank))
   criteria <- data.frame(rank = rank, effective.rank = er,
                          effective.rank.ratio = er / rank,

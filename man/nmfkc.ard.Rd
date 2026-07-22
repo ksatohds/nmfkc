@@ -28,7 +28,9 @@ random-initialization seed); \code{a} (\code{1}) and
 \code{b} over-prunes, a larger one prunes nothing); \code{maxit}
 (\code{3000}) and \code{epsilon} (\code{1e-6}) for optimisation control;
 \code{tol} (\code{1e-3}), the relevance threshold below which a component is
-counted as pruned.}
+counted as pruned; \code{cores} (\code{getOption("mc.cores", 1L)}) runs the
+\code{nrun} restarts in parallel (results identical to the sequential loop
+for any \code{cores}; PSOCK cluster on Windows, forking elsewhere).}
 }
 \value{
 An object of class \code{"nmfkc.ard"}: a list with

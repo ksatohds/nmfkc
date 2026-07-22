@@ -56,6 +56,11 @@ reduces the chance of being trapped at an inferior stationary
 point (particularly the \eqn{C_{-} = 0} trap from warm-start
 from non-negative tri-NMF-AE).  Use the default 1 for fast
 development and raise for publication-grade runs.}
+\item{\code{cores}}{Run the \code{nstart} restarts in parallel (only
+when \code{nstart > 1}).  Default \code{getOption("mc.cores", 1L)}
+(PSOCK cluster on Windows, forking elsewhere).  Each restart is
+fully self-seeded and the best run is selected by first-minimum
+objective, so the returned fit is identical for any \code{cores}.}
 \item{\code{X1.L2.ortho}, \code{X2.L2.ortho}}{Non-negative L2
 orthogonality penalties (default 0) on the \strong{columns} of
 \eqn{X_1} and the \strong{rows} of \eqn{X_2}, penalizing
