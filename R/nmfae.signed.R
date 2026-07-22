@@ -120,6 +120,17 @@
 #' \item{X2}{Encoder basis (R x P2), row sum 1.}
 #' \item{Y1hat}{Fitted values \eqn{X_1 (C_{+} - C_{-}) X_2 Y_2}.}
 #' \item{H}{Encoding \eqn{(C_{+} - C_{-}) X_2 Y_2} (Q x N, signed).}
+#' \item{B.prob, B.cluster}{Sample-level soft/hard clustering from a
+#'   non-negative clip of the (possibly signed) encoding \eqn{H}; use with
+#'   care since \eqn{C} may be signed.}
+#' \item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
+#'   soft membership over the Q response groups. Well defined
+#'   (\eqn{X_1 \ge 0}).}
+#' \item{X1.cluster}{Hard response-group label per response variable.}
+#' \item{X2.prob}{Column-normalized \eqn{X_2} (R x P2): each COVARIATE
+#'   VARIABLE's soft membership over the R covariate groups. Well defined
+#'   (\eqn{X_2 \ge 0}).}
+#' \item{X2.cluster}{Hard covariate-group label per covariate variable.}
 #' \item{rank}{\code{c(Q = Q, R = R)}.}
 #' \item{dims}{\code{c(P1, P2, N)}.}
 #' \item{objfunc, objfunc.iter}{Final and per-iteration objective values.}
@@ -591,6 +602,17 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   B.cluster <- apply(B.prob, 2, which.max)
   B.cluster[colSums(Hp) == 0] <- NA
 
+  ## X1 / X2 are non-negative even in the signed model (only the bottleneck
+  ## C = Cp - Cn is signed), so per-variable soft co-clustering is well
+  ## defined here just as in nmfae().  (B = C X2 Y2 may be signed, so the
+  ## sample-level B.prob/B.cluster above rely on a non-negative clip of H.)
+  X1.prob <- X1 / (rowSums(X1) + eps_bp)                 # response variable membership
+  X1.cluster <- apply(X1.prob, 1, which.max)
+  X1.cluster[rowSums(X1) == 0] <- NA
+  X2.prob <- t( t(X2) / (colSums(X2) + eps_bp) )         # covariate variable membership
+  X2.cluster <- apply(X2.prob, 2, which.max)
+  X2.cluster[colSums(X2) == 0] <- NA
+
   if (print.trace) {
     message(sprintf("  Done: %d iterations, %.1f sec, R2 = %.4f",
                     niter, diff.time, r.squared))
@@ -607,6 +629,10 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     H = H,
     B.prob = B.prob,
     B.cluster = B.cluster,
+    X1.prob = X1.prob,
+    X1.cluster = X1.cluster,
+    X2.prob = X2.prob,
+    X2.cluster = X2.cluster,
     rank = c(Q = Q, R = R),
     dims = c(P1 = P1, P2 = P2, N = N),
     objfunc = objfunc,
