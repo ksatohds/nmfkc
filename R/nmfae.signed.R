@@ -415,8 +415,10 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       HG_p <- crossprod(Cp, A_p) + crossprod(Cn, A_n)
       HG_n <- crossprod(Cp, A_n) + crossprod(Cn, A_p)
       P1m <- crossprod(X1)
-      HtH_p <- crossprod(Cp, P1m) %*% Cp + crossprod(Cn, P1m) %*% Cn
-      HtH_n <- crossprod(Cp, P1m) %*% Cn + crossprod(Cn, P1m) %*% Cp
+      CptP <- crossprod(Cp, P1m)
+      CntP <- crossprod(Cn, P1m)
+      HtH_p <- CptP %*% Cp + CntP %*% Cn
+      HtH_n <- CptP %*% Cn + CntP %*% Cp
       X2 <- X2 * (HG_p + HtH_n %*% X2 %*% S) /
                  (HG_n + HtH_p %*% X2 %*% S + den_X2_pen(X2) + small)
       ## Normalize X2 rows -> absorb into Cp, Cn cols
@@ -711,17 +713,27 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
     else stop("Information matrix singular; install MASS package.")
   })
 
-  V_sand <- NULL
-  if (isTRUE(sandwich)) {
+  ## Per-observation score matrix (Q*R x N), shared by the sandwich J and
+  ## the wild bootstrap: column n is vec(S_n), S_n = -(X1' r_n) z_n' / sigma2.
+  score_mat <- NULL
+  if (isTRUE(sandwich) || isTRUE(wild.bootstrap)) {
     X1t <- t(X1)
-    J <- matrix(0, Q * R, Q * R)
+    s2 <- max(sigma2.used, 1e-12)
+    score_mat <- matrix(0, Q * R, N)
     for (n in 1:N) {
       z_n <- Z[, n, drop = FALSE]
       r_n <- R_C[, n, drop = FALSE]
       g_n <- X1t %*% r_n
-      S_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
-      s_n <- as.vector(S_n)
-      J <- J + tcrossprod(s_n)
+      S_n <- -(tcrossprod(g_n, z_n)) / s2
+      score_mat[, n] <- as.vector(S_n)
+    }
+  }
+
+  V_sand <- NULL
+  if (isTRUE(sandwich)) {
+    J <- matrix(0, Q * R, Q * R)
+    for (n in 1:N) {
+      J <- J + tcrossprod(score_mat[, n])
     }
     if (N > 1) J <- (N / (N - 1)) * J
     V_sand <- Hinv %*% J %*% Hinv
@@ -734,25 +746,17 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
   C.se.boot <- NULL; C.ci.lower <- NULL; C.ci.upper <- NULL
   if (isTRUE(wild.bootstrap)) {
     set.seed(wild.seed)
-    X1t <- t(X1)
-    score_mat <- matrix(0, Q * R, N)
-    for (n in 1:N) {
-      z_n <- Z[, n, drop = FALSE]
-      r_n <- R_C[, n, drop = FALSE]
-      g_n <- X1t %*% r_n
-      G_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
-      score_mat[, n] <- as.vector(G_n)
-    }
     ## NOTE: project = FALSE -- Theta is signed (no non-negative projection)
     C_boot <- .boot.onestep(as.vector(C), score_mat, Hinv, wild.B,
                             dist = "exp", seed = wild.seed, project = FALSE)
     sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
     C.se.boot <- matrix(sd_vec, nrow = Q, ncol = R, byrow = FALSE)
+    ## Bootstrap CI (one quantile pass; identical type-7 values)
     alpha <- 1 - wild.level
-    lo <- apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
-    hi <- apply(C_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
-    C.ci.lower <- matrix(lo, nrow = Q, ncol = R, byrow = FALSE)
-    C.ci.upper <- matrix(hi, nrow = Q, ncol = R, byrow = FALSE)
+    qs <- apply(C_boot, 1, stats::quantile,
+                probs = c(alpha / 2, 1 - alpha / 2), na.rm = TRUE, names = FALSE)
+    C.ci.lower <- matrix(qs[1, ], nrow = Q, ncol = R, byrow = FALSE)
+    C.ci.upper <- matrix(qs[2, ], nrow = Q, ncol = R, byrow = FALSE)
   }
 
   Estimate <- as.vector(C)

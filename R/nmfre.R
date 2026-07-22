@@ -30,8 +30,8 @@
 #' @keywords internal
 #' @noRd
 .nmfre.seminmf.X <- function(X, Y, B, S = NULL, pen.num = 0, pen.den = 0, eps = 1e-10) {
-  YBt <- Y %*% t(B)
-  G   <- B %*% t(B)
+  YBt <- tcrossprod(Y, B)
+  G   <- B %*% t(B)   # keep the gemm form: one-arg tcrossprod (dsyrk) is not bitwise-identical
   if (!is.null(S)) G <- G + S
   pos <- function(M) pmax(M, 0)
   neg <- function(M) pmax(-M, 0)
@@ -59,17 +59,19 @@
 #' \eqn{R = Y - X\Theta A}, \eqn{\lambda = \sigma^2/\tau^2}.
 #' @keywords internal
 #' @noRd
-.nmfre.marginal.nll <- function(Y, X, C, A, sigma2, tau2, eps = 1e-12) {
+.nmfre.marginal.nll <- function(Y, X, C, A, sigma2, tau2, eps = 1e-12, CA = NULL) {
   P <- nrow(Y); N <- ncol(Y); Q <- ncol(X)
   s2 <- max(sigma2, eps); t2 <- max(tau2, eps)
   lambda <- s2 / t2
-  Rm   <- Y - X %*% (C %*% A)                       # P x N fixed-effects residual
+  if (is.null(CA)) CA <- C %*% A                    # caller may pass C %*% A
+  Rm   <- Y - X %*% CA                              # P x N fixed-effects residual
   XtRm <- crossprod(X, Rm)                          # Q x N
-  Mll  <- crossprod(X) + diag(pmax(lambda, 1e-12), Q)
+  XtX  <- crossprod(X)                              # Q x Q (computed once)
+  Mll  <- XtX + diag(pmax(lambda, 1e-12), Q)
   quad <- tryCatch((sum(Rm^2) - sum(XtRm * solve(Mll, XtRm))) / s2,
                    error = function(e) NA_real_)
   logdetQ <- tryCatch(
-    as.numeric(determinant(diag(Q) + (t2 / s2) * crossprod(X), logarithm = TRUE)$modulus),
+    as.numeric(determinant(diag(Q) + (t2 / s2) * XtX, logarithm = TRUE)$modulus),
     error = function(e) NA_real_)
   if (!is.finite(quad) || !is.finite(logdetQ)) return(NA_real_)
   0.5 * (N * (P * log(2 * pi) + P * log(s2) + logdetQ) + quad)
@@ -546,6 +548,20 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     v
   }
 
+  ## ---- loop-invariant precomputations (A and Y never change in the ECM) ----
+  tA <- t(A)                          # N x K, reused in every C-step
+  if (C.mode == "signed") {
+    if (C.L2 > 0) {
+      ea  <- eigen(tcrossprod(A), symmetric = TRUE)   # eigenbasis of AA' (invariant)
+      tea <- t(ea$vectors)
+    } else {
+      AAt_t <- tcrossprod(A) + diag(1e-10, K)
+    }
+  } else {
+    Y_tilde <- pmax(Y, 0)             # nonneg-path stabilized Y (invariant)
+    AAt_mm  <- A %*% t(A)             # keep the gemm form (one-arg tcrossprod/dsyrk is not bitwise-identical)
+  }
+
   for (outer in 1:outer.maxit) {
 
     tau2   <- clip_val(tau2,   tau2.min,   tau2.max)
@@ -589,8 +605,8 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
         X <- .nmfre.seminmf.X(X, Y, B_sem, S = S_pv,
                               pen.num = xp$num, pen.den = xp$den, eps = .eps)
       } else {
-        Y_tilde <- pmax(Y, 0); B_pos <- pmax(B_sem, 0)
-        numX <- Y_tilde %*% t(B_pos) + xp$num
+        B_pos <- pmax(B_sem, 0)       # Y_tilde hoisted above the outer loop
+        numX <- tcrossprod(Y_tilde, B_pos) + xp$num
         denX <- X %*% (B_pos %*% t(B_pos)) + xp$den
         X <- X * .nmfre.safe.div(numX, denX, eps = .eps)
       }
@@ -608,24 +624,25 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
         ##   (X'X) C (A A') + C.L2 * C = X'(Y - X U) A',
         ## solved in closed form via the eigenbases of X'X and A A'.
         Y_star <- Y - X %*% U
-        rhs    <- crossprod(X, Y_star) %*% t(A)
+        rhs    <- crossprod(X, Y_star) %*% tA
         if (C.L2 > 0) {
+          ## ea / tea (eigen of AA') hoisted above the outer loop (A invariant)
           ex <- eigen(crossprod(X),  symmetric = TRUE)
-          ea <- eigen(tcrossprod(A), symmetric = TRUE)
           Mt <- crossprod(ex$vectors, rhs) %*% ea$vectors
           Z  <- Mt / (outer(ex$values, ea$values) + C.L2)
-          C_mat <- ex$vectors %*% Z %*% t(ea$vectors)
+          C_mat <- ex$vectors %*% Z %*% tea
         } else {
-          XtX_t <- crossprod(X)  + diag(1e-10, Q)
-          AAt_t <- tcrossprod(A) + diag(1e-10, K)
+          ## AAt_t hoisted above the outer loop (A invariant)
+          XtX_t <- crossprod(X) + diag(1e-10, Q)
           C_mat <- solve(XtX_t, rhs)
           C_mat <- t(solve(AAt_t, t(C_mat)))
         }
       } else {
         ## non-negative MU (Ding 2006), positive-part stabilization
-        Y_tilde <- pmax(Y, 0); Y_star <- Y_tilde - X %*% U; Y_star_pos <- pmax(Y_star, 0)
-        numC <- crossprod(X, Y_star_pos) %*% t(A)
-        denC <- (crossprod(X, X) %*% C_mat) %*% (A %*% t(A))
+        ## (Y_tilde, tA, AAt_mm hoisted above the outer loop; Y and A invariant)
+        Y_star <- Y_tilde - X %*% U; Y_star_pos <- pmax(Y_star, 0)
+        numC <- crossprod(X, Y_star_pos) %*% tA
+        denC <- (crossprod(X, X) %*% C_mat) %*% AAt_mm
         if (C.L2 > 0) denC <- denC + C.L2 * C_mat
         C_mat <- C_mat * .nmfre.safe.div(numC, denC, eps = .eps)
         C_mat <- pmax(C_mat, .eps)
@@ -640,7 +657,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
         obj_trace[total_iter] <- obj
         rss_trace[total_iter] <- sum(R^2)
         ## marginal NLL (U integrated out): the ECM-monotone diagnostic
-        nll_trace[total_iter] <- .nmfre.marginal.nll(Y, X, C_mat, A, sigma2, tau2)
+        nll_trace[total_iter] <- .nmfre.marginal.nll(Y, X, C_mat, A, sigma2, tau2, CA = CA)
       }
 
       if (!is.finite(obj)) { stop_reason <- "nonfinite_obj"; converged <- FALSE; break }
@@ -1186,18 +1203,21 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
     else base::stop("Information matrix singular; install MASS package.")
   })
 
-  # Sandwich covariance
+  # Sandwich covariance.  The per-observation scores are also exactly what the
+  # wild bootstrap needs, so compute score_mat once and share it.
   V_sand <- NULL
   Xt <- base::t(X)
-  J <- base::matrix(0, Q * K, Q * K)
+  s2_floor <- base::max(sigma2_used, 1e-12)
+  score_mat <- base::matrix(0, Q * K, N)
   for (n in 1:N) {
     a_n <- A[, n, drop = FALSE]
     r_n <- R_C[, n, drop = FALSE]
     g_n <- Xt %*% r_n
-    S_n <- -(g_n %*% base::t(a_n)) / base::max(sigma2_used, 1e-12)
-    s_n <- base::as.vector(S_n)
-    J <- J + base::tcrossprod(s_n)
+    S_n <- -base::tcrossprod(g_n, a_n) / s2_floor
+    score_mat[, n] <- base::as.vector(S_n)
   }
+  J <- base::matrix(0, Q * K, Q * K)
+  for (n in 1:N) J <- J + base::tcrossprod(score_mat[, n])
   if (N > 1) J <- (N / (N - 1)) * J    # CR1 correction
   V_sand <- Hinv %*% J %*% Hinv
 
@@ -1213,15 +1233,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 
   if (base::isTRUE(wild.bootstrap)) {
     base::set.seed(wild.seed)
-    score_mat <- base::matrix(0, Q * K, N)
-    for (n in 1:N) {
-      a_n <- A[, n, drop = FALSE]
-      r_n <- R_C[, n, drop = FALSE]
-      g_n <- Xt %*% r_n
-      G_n <- -(g_n %*% base::t(a_n)) / base::max(sigma2_used, 1e-12)
-      score_mat[, n] <- base::as.vector(G_n)
-    }
-
+    ## score_mat computed once above (shared with the sandwich-J accumulation)
     ## project to C >= 0 only for the non-negative variant; sign-free C is interior.
     C_boot <- .boot.onestep(base::as.vector(C_mat), score_mat, Hinv, wild.B,
                             dist = "exp", seed = wild.seed,

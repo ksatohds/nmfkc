@@ -238,8 +238,8 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     } else {                                           # KL: ratio Y1/Y1hat
       ratio <- Y1 / (X1 %*% F_mat + eps)
       if (has.weights) ratio <- W * ratio
-      num_X1 <- ratio %*% t(F_mat)
-      den_X1 <- (if (has.weights) W %*% t(F_mat)
+      num_X1 <- tcrossprod(ratio, F_mat)
+      den_X1 <- (if (has.weights) tcrossprod(W, F_mat)
                  else matrix(rowSums(F_mat), P1, Q, byrow = TRUE)) + eps
     }
     if (X1.L2.ortho > 0) {
@@ -260,15 +260,15 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
         num_C <- tcrossprod(crossprod(X1, WY1), G)
         den_C <- tcrossprod(crossprod(X1, W * (X1 %*% C %*% G)), G) + eps
       } else {
-        num_C <- crossprod(X1, Y1) %*% t(G)
+        num_C <- tcrossprod(crossprod(X1, Y1), G)
         den_C <- crossprod(X1) %*% C %*% tcrossprod(G) + eps
       }
       if (C.L1 > 0) den_C <- den_C + (C.L1 / 2)
     } else {                                           # KL
       ratio <- Y1 / (X1 %*% C %*% G + eps)
       if (has.weights) ratio <- W * ratio
-      num_C <- crossprod(X1, ratio) %*% t(G)
-      den_C <- (if (has.weights) crossprod(X1, W) %*% t(G)
+      num_C <- tcrossprod(crossprod(X1, ratio), G)
+      den_C <- (if (has.weights) tcrossprod(crossprod(X1, W), G)
                 else outer(colSums(X1), rowSums(G))) + eps
       if (C.L1 > 0) den_C <- den_C + C.L1
     }
@@ -281,14 +281,14 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
         num_X2 <- tcrossprod(crossprod(H, WY1), Y2)
         den_X2 <- tcrossprod(crossprod(H, W * (H %*% X2 %*% Y2)), Y2) + eps
       } else {
-        num_X2 <- crossprod(H, Y1) %*% t(Y2)
+        num_X2 <- tcrossprod(crossprod(H, Y1), Y2)
         den_X2 <- crossprod(H) %*% X2 %*% Y2Y2t + eps
       }
     } else {                                           # KL
       ratio <- Y1 / (H %*% X2 %*% Y2 + eps)
       if (has.weights) ratio <- W * ratio
-      num_X2 <- crossprod(H, ratio) %*% t(Y2)
-      den_X2 <- (if (has.weights) crossprod(H, W) %*% t(Y2)
+      num_X2 <- tcrossprod(crossprod(H, ratio), Y2)
+      den_X2 <- (if (has.weights) tcrossprod(crossprod(H, W), Y2)
                  else outer(colSums(H), rowSums(Y2))) + eps
     }
     if (X2.L2.ortho > 0) {
@@ -524,18 +524,28 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
     else stop("Information matrix singular; install MASS package.")
   })
 
-  # Sandwich covariance: V = Hinv J Hinv
-  V_sand <- NULL
-  if (isTRUE(sandwich)) {
+  # Per-observation score matrix (Q*R x N), shared by the sandwich J and
+  # the wild bootstrap: column n is vec(S_n), S_n = -(X1' r_n) z_n' / sigma2.
+  score_mat <- NULL
+  if (isTRUE(sandwich) || isTRUE(wild.bootstrap)) {
     X1t <- t(X1)
-    J <- matrix(0, Q * R, Q * R)
+    s2 <- max(sigma2.used, 1e-12)
+    score_mat <- matrix(0, Q * R, N)
     for (n in 1:N) {
       z_n <- Z[, n, drop = FALSE]
       r_n <- R_C[, n, drop = FALSE]
       g_n <- X1t %*% r_n
-      S_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
-      s_n <- as.vector(S_n)
-      J <- J + tcrossprod(s_n)
+      S_n <- -(tcrossprod(g_n, z_n)) / s2
+      score_mat[, n] <- as.vector(S_n)
+    }
+  }
+
+  # Sandwich covariance: V = Hinv J Hinv
+  V_sand <- NULL
+  if (isTRUE(sandwich)) {
+    J <- matrix(0, Q * R, Q * R)
+    for (n in 1:N) {
+      J <- J + tcrossprod(score_mat[, n])
     }
     if (N > 1) J <- (N / (N - 1)) * J     # CR1 correction
     V_sand <- Hinv %*% J %*% Hinv
@@ -554,15 +564,6 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
 
   if (isTRUE(wild.bootstrap)) {
     set.seed(wild.seed)
-    X1t <- t(X1)
-    score_mat <- matrix(0, Q * R, N)
-    for (n in 1:N) {
-      z_n <- Z[, n, drop = FALSE]
-      r_n <- R_C[, n, drop = FALSE]
-      g_n <- X1t %*% r_n
-      G_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
-      score_mat[, n] <- as.vector(G_n)
-    }
 
     C_boot <- .boot.onestep(as.vector(C), score_mat, Hinv, wild.B,
                             dist = "exp", seed = wild.seed, project = TRUE)
@@ -571,12 +572,12 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
     sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
     C.se.boot <- matrix(sd_vec, nrow = Q, ncol = R, byrow = FALSE)
 
-    # Bootstrap CI
+    # Bootstrap CI (one quantile pass; identical type-7 values)
     alpha <- 1 - wild.level
-    lo <- apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
-    hi <- apply(C_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
-    C.ci.lower <- matrix(lo, nrow = Q, ncol = R, byrow = FALSE)
-    C.ci.upper <- matrix(hi, nrow = Q, ncol = R, byrow = FALSE)
+    qs <- apply(C_boot, 1, stats::quantile,
+                probs = c(alpha / 2, 1 - alpha / 2), na.rm = TRUE, names = FALSE)
+    C.ci.lower <- matrix(qs[1, ], nrow = Q, ncol = R, byrow = FALSE)
+    C.ci.upper <- matrix(qs[2, ], nrow = Q, ncol = R, byrow = FALSE)
   }
 
   # ---- Coefficients table ----

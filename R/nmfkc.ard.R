@@ -25,13 +25,14 @@
       (b + 0.5 * (base::colSums(W^2) + base::rowSums(H^2))) / clam
     else
       (b + base::colSums(W) + base::rowSums(H)) / clam
-    num <- Y %*% base::t(H); den <- W %*% (H %*% base::t(H))
-    pen <- if (prior == "L2") base::sweep(W, 2, 1 / lam, "*")
-           else base::matrix(1 / lam, Fr, K, byrow = TRUE)
+    il <- 1 / lam
+    num <- base::tcrossprod(Y, H); den <- W %*% (H %*% base::t(H))
+    pen <- if (prior == "L2") W * base::rep(il, each = Fr)
+           else base::rep(il, each = Fr)
     W <- W * num / (den + pen + eps)
-    num <- base::t(W) %*% Y; den <- (base::t(W) %*% W) %*% H
-    pen <- if (prior == "L2") base::sweep(H, 1, 1 / lam, "*")
-           else base::matrix(1 / lam, K, Nc)
+    num <- base::crossprod(W, Y); den <- (base::t(W) %*% W) %*% H
+    pen <- if (prior == "L2") H * il
+           else il
     H <- H * num / (den + pen + eps)
     objfunc[it] <- 0.5 * base::sum((Y - W %*% H)^2)
     if (it > 1 && base::abs(objfunc[it - 1] - objfunc[it]) <

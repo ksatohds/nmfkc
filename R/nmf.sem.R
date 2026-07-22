@@ -625,10 +625,14 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 
   ## ----------------------------------------------------------------
   ## one_boot: a single bootstrap replicate.
-  ## Closure captures Y1, Y2, X.hat, C1.L1, C2.L1, Q, P1, P2, N,
-  ## epsilon, maxit, seed.  Returns a list with valid flag plus
+  ## Closure captures Y1, Y2, X.hat, Xt, XtX, C1.L1, C2.L1, Q, P1, P2,
+  ## N, epsilon, maxit, seed.  Returns a list with valid flag plus
   ## (C1, C2, rho, AR, iter) when valid, or NA placeholders otherwise.
+  ## X.hat is fixed by design, so Xt / XtX are replicate-invariant and
+  ## computed once here rather than inside every replicate.
   ## ----------------------------------------------------------------
+  Xt  <- t(X.hat)
+  XtX <- Xt %*% X.hat
   one_boot <- function(b) {
     ## Sample column indices with replacement (pair bootstrap)
     set.seed(seed + b)
@@ -646,19 +650,19 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     }
 
     .eps_local <- 1e-10
-    Xt  <- t(X.hat)
-    XtX <- Xt %*% X.hat
-    Y1tY1_b <- tcrossprod(Y1_b)        # P1 x P1
     XtY1_b  <- Xt %*% Y1_b              # Q x N (re-used via crossprods below)
     XtY1Y1t <- tcrossprod(XtY1_b, Y1_b) # Q x P1   = Xt %*% Y1_b %*% t(Y1_b)
     XtY1Y2t <- tcrossprod(XtY1_b, Y2_b) # Q x P2
     prev_loss <- Inf
     iter_used <- 0L
 
-    ## Fixed-X MU loop on (C1, C2)
+    ## Fixed-X MU loop on (C1, C2).  M_b = C1 Y1_b + C2 Y2_b is computed
+    ## before the loop and carried across iterations: the value formed after
+    ## the C2 update (used for the loss) is exactly the loop-top value of the
+    ## next iteration, so each iteration computes it twice instead of three
+    ## times with identical operands.
+    M_b <- C1 %*% Y1_b + C2 %*% Y2_b     # Q x N latent representation
     for (it in seq_len(maxit)) {
-      M_b <- C1 %*% Y1_b + C2 %*% Y2_b   # Q x N latent representation
-
       ## C1 update
       Den_C1 <- tcrossprod(XtX %*% M_b, Y1_b) + C1.L1 + .eps_local
       C1 <- C1 * (XtY1Y1t / Den_C1)
@@ -669,7 +673,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
       C2 <- C2 * (XtY1Y2t / Den_C2)
 
       ## Convergence check (relative change in reconstruction loss)
-      XB <- X.hat %*% (C1 %*% Y1_b + C2 %*% Y2_b)
+      M_b <- C1 %*% Y1_b + C2 %*% Y2_b   # new C1, new C2; carried to next iter
+      XB <- X.hat %*% M_b
       loss <- sum((Y1_b - XB)^2)
       if (it >= 10L) {
         rel <- abs(loss - prev_loss) / max(abs(loss), 1)
@@ -730,7 +735,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
       cl <- parallel::makeCluster(ncores)
       on.exit(parallel::stopCluster(cl), add = TRUE)
       parallel::clusterExport(cl,
-        varlist = c("Y1", "Y2", "X.hat", "C1.L1", "C2.L1",
+        varlist = c("Y1", "Y2", "X.hat", "Xt", "XtX", "C1.L1", "C2.L1",
                     "Q", "P1", "P2", "N", "epsilon", "maxit", "seed"),
         envir = environment())
       res_list <- parallel::parLapply(cl, seq_len(B), one_boot)

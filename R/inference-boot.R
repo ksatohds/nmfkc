@@ -180,10 +180,11 @@
 .boot.summarize <- function(C.boot, level = 0.95) {
   alpha <- 1 - level
   se <- base::apply(C.boot, 1, stats::sd, na.rm = TRUE)
-  lo <- base::apply(C.boot, 1, stats::quantile, probs = alpha / 2,
+  qs <- base::apply(C.boot, 1, stats::quantile,
+                    probs = c(alpha / 2, 1 - alpha / 2),
                     na.rm = TRUE, names = FALSE)
-  hi <- base::apply(C.boot, 1, stats::quantile, probs = 1 - alpha / 2,
-                    na.rm = TRUE, names = FALSE)
+  lo <- qs[1L, ]
+  hi <- qs[2L, ]
   p.boot <- base::apply(C.boot, 1, function(v) {
     v <- v[base::is.finite(v)]
     if (!base::length(v)) return(NA_real_)

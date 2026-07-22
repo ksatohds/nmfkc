@@ -207,7 +207,10 @@ nmfkc.kernel <- function(U, V = NULL,
   if (nrow(U) == 0) stop("'U' must have at least one row (feature).")
   if (nrow(U) != nrow(V)) stop("'U' and 'V' must have the same number of rows (features).")
   kernel <- match.arg(kernel)
-  G <- crossprod(U, V)
+  # The Gram matrix G (and D2 below) are only needed by the non-Gaussian
+  # kernels; the Gaussian branch delegates to nmfkc.kernel.gaussian(),
+  # which computes its own quantities.
+  if (kernel != "Gaussian") G <- crossprod(U, V)
 
   # Determine the specific parameter used for the kernel (e.g., beta or degree)
   # This section extracts the effective parameter value to store in attributes.
@@ -222,7 +225,7 @@ nmfkc.kernel <- function(U, V = NULL,
                             degree = if (!is.null(k_params$degree)) k_params$degree else 2)
   }
 
-  if (kernel %in% c("Gaussian","Exponential","Periodic")) {
+  if (kernel %in% c("Exponential","Periodic")) {
     u2 <- colSums(U * U)
     v2 <- colSums(V * V)
     D2 <- outer(u2, v2, "+") - 2 * G
@@ -431,15 +434,16 @@ nmfkc.kernel.beta.nearest.med <- function(
       Xi <- X[i:i2, , drop = FALSE]
       Xi_norm <- rowSums(Xi * Xi)
 
-      dist2 <- outer(Xi_norm, XX, "+") - 2 * Xi %*% t(X)
+      dist2 <- outer(Xi_norm, XX, "+") - 2 * tcrossprod(Xi, X)
       idx <- i:i2
       dist2[cbind(seq_along(idx), idx)] <- Inf  # exclude self
       dist2[dist2 < 0] <- 0
 
-      nn_local <- apply(dist2, 1, min)
+      # row-wise min via vectorized column reduction (exact, order-free)
+      nn_local <- do.call(pmin, base::unname(base::asplit(dist2, 2)))
       min_d2[idx] <- pmin(min_d2[idx], nn_local)
 
-      rm(Xi, Xi_norm, dist2); gc(FALSE)
+      rm(Xi, Xi_norm, dist2)
     }
 
     d_med <- stats::median(sqrt(min_d2))
@@ -511,13 +515,14 @@ nmfkc.kernel.beta.nearest.med <- function(
         }
       }
 
-      cur_min <- pmin(cur_min, apply(dist2, 1, min))
+      # row-wise min via vectorized column reduction (exact, order-free)
+      cur_min <- pmin(cur_min, do.call(pmin, base::unname(base::asplit(dist2, 2))))
 
-      rm(Ukj, Ukj2, G, dist2); gc(FALSE)
+      rm(Ukj, Ukj2, G, dist2)
     }
 
     min_d2[i:i2] <- pmin(min_d2[i:i2], cur_min)
-    rm(Ui, Ui2, cur_min); gc(FALSE)
+    rm(Ui, Ui2, cur_min)
   }
 
   d_med <- stats::median(sqrt(min_d2))
@@ -586,16 +591,47 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     beta <- result.beta$beta_candidates
     if (is.null(beta) || length(beta) == 0) stop("Failed to determine beta candidates from nearest-neighbor median.")
   }
+  # --- Fast path for the (default) Gaussian kernel without NAs:
+  # the squared-distance matrix D2 is beta-invariant, so compute it once
+  # (with exactly the expressions used by nmfkc.kernel.gaussian) and
+  # evaluate exp(-beta * D2) per candidate.  Falls back to the generic
+  # per-candidate nmfkc.kernel() call otherwise.
+  D2.pre <- NULL
+  kern_name <- kernel_args_for_call$kernel
+  if (is.null(kern_name) || identical(kern_name, "Gaussian")) {
+    Um <- as.matrix(U); storage.mode(Um) <- "double"
+    Vm <- if (is.null(V)) Um else as.matrix(V)
+    storage.mode(Vm) <- "double"
+    if (nrow(Um) > 0 && nrow(Um) == nrow(Vm) && !anyNA(Vm)) {
+      G.pre <- crossprod(Um, Vm)
+      u2.pre <- colSums(Um * Um)
+      v2.pre <- colSums(Vm * Vm)
+      D2.pre <- outer(u2.pre, v2.pre, "+") - 2 * G.pre
+      D2.pre <- pmax(D2.pre, 0)
+      dn.pre <- list(colnames(Um), colnames(Vm))
+    }
+  }
+
   objfuncs <- numeric(length(beta))
   for(i in seq_along(beta)){
     start.time <- Sys.time()
     message(paste0("beta=",beta[i],"..."),appendLF=FALSE)
 
-    kernel_args <- c(
-      list(U = U, V = V, beta = beta[i]),
-      kernel_args_for_call
-    )
-    A <- do.call("nmfkc.kernel", kernel_args)
+    if (!is.null(D2.pre)) {
+      # Same result as nmfkc.kernel(U, V, kernel="Gaussian", beta=beta[i])
+      # on the NA-free path, including dimnames and attributes.
+      A <- exp(-beta[i] * D2.pre)
+      dimnames(A) <- dn.pre
+      attr(A, "params") <- beta[i]
+      attr(A, "kernel") <- "Gaussian"
+      attr(A, "function.name") <- "nmfkc.kernel"
+    } else {
+      kernel_args <- c(
+        list(U = U, V = V, beta = beta[i]),
+        kernel_args_for_call
+      )
+      A <- do.call("nmfkc.kernel", kernel_args)
+    }
 
     cv_args <- c(
       list(Y = Y, A = A, Q = Q),
@@ -903,15 +939,19 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   supplied they are used as-is for the silhouette (e.g.\ the
 #'   \code{B.cluster} already held by a fitted \code{nmfkc} model),
 #'   otherwise they are derived from \eqn{B} when \eqn{B \ge 0}.
+#' @param dY Optional pre-computed \code{stats::dist(t(Y))} object; when
+#'   \code{NULL} (default) it is computed here.  Callers evaluating many
+#'   fits over the same \code{Y} can hoist it (e.g.\
+#'   \code{nmf.cluster.criteria}).
 #' @return A list: \code{silhouette}, \code{CPCC}, \code{dist.cor},
 #'   \code{cluster} (the hard labels, or \code{NULL}), and \code{hard}
 #'   (whether hard clustering was possible).
 #' @keywords internal
 #' @noRd
-.cluster.criteria <- function(Y, B, labels = NULL) {
+.cluster.criteria <- function(Y, B, labels = NULL, dY = NULL) {
   Y <- base::as.matrix(Y); B <- base::as.matrix(B)
   Q <- base::nrow(B)
-  dY <- stats::dist(base::t(Y))
+  if (base::is.null(dY)) dY <- stats::dist(base::t(Y))
   dB <- stats::dist(base::t(B))
   dist.cor <- stats::cor(base::as.vector(dY), base::as.vector(dB))
   CPCC <- if (Q >= 2) {
@@ -1301,10 +1341,14 @@ nmf.cluster.criteria <- function(fits, Y, Y2 = NULL, names = NULL,
                call. = FALSE)
   Y <- base::as.matrix(Y)
 
+  ## Y is fixed across fits, so its sample-distance matrix is hoisted
+  ## out of the loop and passed to .cluster.criteria().
+  dY <- stats::dist(base::t(Y))
+
   ## Results are taken in the given order (NOT sorted).
   rows <- base::lapply(fits, function(f) {
     B  <- .nmf.cluster.criteria.coef(f, Y, Y2)
-    cc <- .cluster.criteria(Y, B)
+    cc <- .cluster.criteria(Y, B, dY = dY)
     rank <- if (!base::is.null(f$rank)) base::as.integer(f$rank)
             else base::nrow(base::as.matrix(B))
     base::data.frame(rank = rank, silhouette = cc$silhouette, CPCC = cc$CPCC,
@@ -3134,16 +3178,25 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
     oldSum <- 0
     epsilon.iter <- Inf
 
+    # Loop-invariant terms hoisted out of the multiplicative updates:
+    # the EU numerator X^T (W * Y) and the KL denominator X^T W do not
+    # depend on the current iterate C.
+    if(method=="EU"){
+      num_fixed <- crossprod(X, W_test * Y_test)
+    }else{
+      den_fixed <- crossprod(X, W_test)
+    }
+
     for(l in 1:maxit){
       B <- C
       XB <- X %*% B
 
       if(method=="EU"){
         # Weighted Update for B (EU)
-        # Num: X^T (W * Y)
-        num <- t(X) %*% (W_test * Y_test)
+        # Num: X^T (W * Y)  (precomputed above)
+        num <- num_fixed
         # Den: X^T (W * XB)
-        den <- t(X) %*% (W_test * XB)
+        den <- crossprod(X, W_test * XB)
 
         C <- C * ( num / (den + .eps) )
 
@@ -3151,9 +3204,9 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
         # Weighted Update for B (KL)
         # Num: X^T (W * (Y/XB))
         ratio <- W_test * (Y_test / (XB + .eps))
-        num <- t(X) %*% ratio
-        # Den: X^T W
-        den <- t(X) %*% W_test
+        num <- crossprod(X, ratio)
+        # Den: X^T W  (precomputed above)
+        den <- den_fixed
 
         C <- C * ( num / (den + .eps) )
       }
@@ -3164,7 +3217,7 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
         epsilon.iter <- abs(newSum-oldSum) / pmax(abs(newSum), 1)
         if(epsilon.iter <= abs(epsilon)) break
       }
-      oldSum <- sum(C)
+      oldSum <- newSum
     }
 
     B <- C
@@ -3510,8 +3563,9 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
       r2 <- r2_all$r.squared
       r2.uncentered <- r2_all$r.squared.uncentered
       r2.centered <- r2_all$r.squared.centered
-      sigma <- stats::sd(Y[valid_idx] - XB[valid_idx])
-      mae <- base::mean(base::abs(Y[valid_idx] - XB[valid_idx]))
+      resid_valid <- Y[valid_idx] - XB[valid_idx]
+      sigma <- stats::sd(resid_valid)
+      mae <- base::mean(base::abs(resid_valid))
     } else {
       r2 <- NA; r2.uncentered <- NA; r2.centered <- NA
       sigma <- NA; mae <- NA
@@ -4155,18 +4209,28 @@ nmfkc.inference <- function(object, Y, A = NULL,
     else stop("Information matrix singular; install MASS package.")
   })
 
-  # Sandwich covariance: V = Hinv J Hinv
-  V_sand <- NULL
-  if (isTRUE(sandwich)) {
+  # Per-column score vectors S_n, shared by the sandwich covariance and
+  # the one-step wild bootstrap (previously computed twice).
+  s2 <- max(sigma2.used, 1e-12)
+  score_mat <- NULL
+  if (isTRUE(sandwich) || (isTRUE(wild.bootstrap) && method == "onestep")) {
     Xt <- t(X)
-    J <- matrix(0, Q * K, Q * K)
+    score_mat <- matrix(0, Q * K, N)
     for (n in 1:N) {
       a_n <- A[, n, drop = FALSE]
       r_n <- R_C[, n, drop = FALSE]
       g_n <- Xt %*% r_n
-      S_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
-      s_n <- as.vector(S_n)
-      J <- J + tcrossprod(s_n)
+      S_n <- -(g_n %*% t(a_n)) / s2
+      score_mat[, n] <- as.vector(S_n)
+    }
+  }
+
+  # Sandwich covariance: V = Hinv J Hinv
+  V_sand <- NULL
+  if (isTRUE(sandwich)) {
+    J <- matrix(0, Q * K, Q * K)
+    for (n in 1:N) {
+      J <- J + tcrossprod(score_mat[, n])
     }
     if (N > 1) J <- (N / (N - 1)) * J   # CR1 correction
     V_sand <- Hinv %*% J %*% Hinv
@@ -4187,15 +4251,7 @@ nmfkc.inference <- function(object, Y, A = NULL,
 
   if (isTRUE(wild.bootstrap)) {
     if (method == "onestep") {
-      Xt <- t(X)
-      score_mat <- matrix(0, Q * K, N)
-      for (n in 1:N) {
-        a_n <- A[, n, drop = FALSE]
-        r_n <- R_C[, n, drop = FALSE]
-        g_n <- Xt %*% r_n
-        G_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
-        score_mat[, n] <- as.vector(G_n)
-      }
+      # score_mat was already built above (shared with the sandwich step)
       C_boot <- .boot.onestep(as.vector(C_mat), score_mat, Hinv, wild.B,
                               dist = wild.dist, seed = wild.seed, project = TRUE)
     } else {                                   # method == "refit"
