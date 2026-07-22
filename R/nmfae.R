@@ -70,6 +70,20 @@
 #' \item{C}{Parameter matrix (Q x R).}
 #' \item{X2}{Encoder basis matrix (R x P2), row sum 1.}
 #' \item{Y1hat}{Fitted values \eqn{X_1 \Theta X_2 Y_2} (P1 x N).}
+#' \item{B}{Response scores \eqn{B = C X_2 Y_2} (Q x N), so that
+#'   \eqn{\widehat Y_1 = X_1 B}. Analogue of \code{B} in \code{\link{nmfkc}}
+#'   (\code{H} is a backward-compatible alias).}
+#' \item{B.prob}{Column-normalized \eqn{B} (Q x N): each SAMPLE's soft
+#'   membership over the Q response groups.}
+#' \item{B.cluster}{Hard label per sample (argmax over \code{B.prob} columns).}
+#' \item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
+#'   soft membership over the Q response groups.}
+#' \item{X1.cluster}{Hard response-group label per response variable
+#'   (argmax over \code{X1.prob} rows).}
+#' \item{X2.prob}{Column-normalized \eqn{X_2} (R x P2): each COVARIATE
+#'   VARIABLE's soft membership over the R covariate groups.}
+#' \item{X2.cluster}{Hard covariate-group label per covariate variable
+#'   (argmax over \code{X2.prob} columns).}
 #' \item{rank}{Named integer vector \code{c(Q, R)}.}
 #' \item{method}{Objective used (\code{"EU"} or \code{"KL"}).}
 #' \item{objfunc}{Final objective value.}
@@ -402,11 +416,29 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   }
 
   # --- Soft/hard clustering (cf. nmfkc B.prob / B.cluster) ---
-  H <- C %*% X2 %*% Y2   # Q x N encoding
   eps_bp <- 1e-16
-  B.prob <- t( t(H) / (colSums(H) + eps_bp) )   # column-normalized
+
+  # B: Q x N response scores  B = C X2 Y2  (nmfkc's B; Y1hat = X1 B).
+  # Column-normalize -> each SAMPLE's soft membership over the Q response
+  # groups; argmax -> its hard response-group label.
+  B <- C %*% X2 %*% Y2
+  H <- B   # backward-compatible alias (nmfae.rank etc. use $H)
+  B.prob <- t( t(B) / (colSums(B) + eps_bp) )   # column-normalized (per sample)
   B.cluster <- apply(B.prob, 2, which.max)
-  B.cluster[colSums(H) == 0] <- NA
+  B.cluster[colSums(B) == 0] <- NA
+
+  # X1: P1 x Q response basis (columns sum to 1). Row-normalize -> each
+  # RESPONSE VARIABLE's soft membership over the Q response groups
+  # (mirrors nmfkc X.prob / X.cluster).
+  X1.prob <- X1 / (rowSums(X1) + eps_bp)
+  X1.cluster <- apply(X1.prob, 1, which.max)
+  X1.cluster[rowSums(X1) == 0] <- NA
+
+  # X2: R x P2 covariate basis (rows sum to 1). Column-normalize -> each
+  # COVARIATE VARIABLE's soft membership over the R covariate groups.
+  X2.prob <- t( t(X2) / (colSums(X2) + eps_bp) )   # column-normalized (per covariate)
+  X2.cluster <- apply(X2.prob, 2, which.max)
+  X2.cluster[colSums(X2) == 0] <- NA
 
   result <- list(
     call = cl,
@@ -414,9 +446,14 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     C = C,
     X2 = X2,
     Y1hat = Y1hat,
+    B = B,
     H = H,
     B.prob = B.prob,
     B.cluster = B.cluster,
+    X1.prob = X1.prob,
+    X1.cluster = X1.cluster,
+    X2.prob = X2.prob,
+    X2.cluster = X2.cluster,
     rank = c(Q = Q, R = R),
     dims = c(P1 = P1, P2 = P2, N = N),
     method = method,

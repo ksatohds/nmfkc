@@ -103,6 +103,17 @@ An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
 \item{X2}{Encoder basis (R x P2), row sum 1.}
 \item{Y1hat}{Fitted values \eqn{X_1 (C_{+} - C_{-}) X_2 Y_2}.}
 \item{H}{Encoding \eqn{(C_{+} - C_{-}) X_2 Y_2} (Q x N, signed).}
+\item{B.prob, B.cluster}{Sample-level soft/hard clustering from a
+non-negative clip of the (possibly signed) encoding \eqn{H}; use with
+care since \eqn{C} may be signed.}
+\item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
+soft membership over the Q response groups. Well defined
+(\eqn{X_1 \ge 0}).}
+\item{X1.cluster}{Hard response-group label per response variable.}
+\item{X2.prob}{Column-normalized \eqn{X_2} (R x P2): each COVARIATE
+VARIABLE's soft membership over the R covariate groups. Well defined
+(\eqn{X_2 \ge 0}).}
+\item{X2.cluster}{Hard covariate-group label per covariate variable.}
 \item{rank}{\code{c(Q = Q, R = R)}.}
 \item{dims}{\code{c(P1, P2, N)}.}
 \item{objfunc, objfunc.iter}{Final and per-iteration objective values.}

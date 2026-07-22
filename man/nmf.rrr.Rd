@@ -80,6 +80,20 @@ An object of class \code{"nmfae"}, a list with components:
 \item{C}{Parameter matrix (Q x R).}
 \item{X2}{Encoder basis matrix (R x P2), row sum 1.}
 \item{Y1hat}{Fitted values \eqn{X_1 \Theta X_2 Y_2} (P1 x N).}
+\item{B}{Response scores \eqn{B = C X_2 Y_2} (Q x N), so that
+\eqn{\widehat Y_1 = X_1 B}. Analogue of \code{B} in \code{\link{nmfkc}}
+(\code{H} is a backward-compatible alias).}
+\item{B.prob}{Column-normalized \eqn{B} (Q x N): each SAMPLE's soft
+membership over the Q response groups.}
+\item{B.cluster}{Hard label per sample (argmax over \code{B.prob} columns).}
+\item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
+soft membership over the Q response groups.}
+\item{X1.cluster}{Hard response-group label per response variable
+(argmax over \code{X1.prob} rows).}
+\item{X2.prob}{Column-normalized \eqn{X_2} (R x P2): each COVARIATE
+VARIABLE's soft membership over the R covariate groups.}
+\item{X2.cluster}{Hard covariate-group label per covariate variable
+(argmax over \code{X2.prob} columns).}
 \item{rank}{Named integer vector \code{c(Q, R)}.}
 \item{method}{Objective used (\code{"EU"} or \code{"KL"}).}
 \item{objfunc}{Final objective value.}
