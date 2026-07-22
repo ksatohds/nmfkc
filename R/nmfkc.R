@@ -1830,8 +1830,9 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' \code{nmfkc.net.rank}, \code{nmfkc.signed.rank}, \code{nmfae.rank},
 #' \code{nmfae.signed.rank}).  From a pre-built \code{criteria} data
 #' frame it determines the recommended rank and draws a concise
-#' three-criterion plot, using only \code{r.squared}, the effective-rank
-#' utilization \code{effective.rank.ratio}, and the cross-validation
+#' three-criterion plot, using only \code{r.squared}, the
+#' broken-stick-corrected \code{effective.rank.index} (derived here from
+#' the \code{effective.rank} column), and the cross-validation
 #' error \code{sigma.ecv}.  Any other columns present (e.g.\ \code{ARI},
 #' \code{silhouette}, \code{CPCC}, \code{dist.cor} from \code{nmfkc.rank})
 #' are kept in the returned table but \strong{not plotted}.  All three
@@ -1852,7 +1853,9 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' not a predictive rank optimum -- the recommended rank is driven by
 #' the cross-validation minimum and the R-squared elbow.
 #' @param criteria Data frame with at least \code{rank}, \code{r.squared},
-#'   \code{effective.rank.ratio}, and (optionally) \code{sigma.ecv}.
+#'   \code{effective.rank} (from which \code{effective.rank.expected} and
+#'   \code{effective.rank.index} are derived here), and (optionally)
+#'   \code{sigma.ecv}.
 #' @param plot Logical; draw the diagnostics plot.
 #' @param main Plot title.
 #' @return A list with \code{rank.best} (ECV minimum if available, else
@@ -1925,8 +1928,10 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' Draws the concise three-criterion rank-selection plot for an object
 #' returned by \code{\link{nmfkc.rank}} (or \code{nmfkc.net.rank},
 #' \code{nmfkc.signed.rank}, \code{nmfae.rank}, \code{nmfae.signed.rank}):
-#' \code{r.squared} (red) and the effective-rank utilization
-#' \code{eff.rank} (green) on the left \eqn{[0, 1]} axis, and the
+#' \code{r.squared} (red) and the broken-stick-corrected effective-rank
+#' index \code{effective.rank.index} (green, legend label
+#' \code{eff.rank}; \strong{not} the raw \code{effective.rank.ratio})
+#' on the left \eqn{[0, 1]} axis, and the
 #' cross-validation error \code{sigma.ecv} (blue) on the right axis, each
 #' with points, rank-number labels and a highlighted best marker.
 #' @param x An object of class \code{"nmf.rank"}.
@@ -3744,11 +3749,19 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #'   in \eqn{[1, Q]}); when it plateaus well below the nominal
 #'   \code{rank}, the extra factors are not carrying additional
 #'   coefficient variance, which suggests an over-specified rank.
-#'   The \code{effective.rank.ratio} column is \code{effective.rank /
-#'   rank} in \eqn{[0, 1]} (the utilization fraction plotted as
-#'   \code{eff.rank} when \code{plot = TRUE}); a peak marks the rank
-#'   at which the latent factors carry the most evenly distributed
-#'   variance.}
+#'   The \code{effective.rank.ratio} column is the raw utilization
+#'   fraction \code{effective.rank / rank} in \eqn{[0, 1]} (kept in the
+#'   table, \strong{not} plotted).  What \code{plot = TRUE} draws as the
+#'   green \code{eff.rank} line is the broken-stick-corrected
+#'   \code{effective.rank.index} column,
+#'   \code{(effective.rank - E) / (rank - E)} clamped to \eqn{[0, 1]}
+#'   with \code{E = exp(H_Q - 1)} the expected effective rank under a
+#'   random (uniform-Dirichlet) variance split (\code{H_Q} the
+#'   \eqn{Q}-th harmonic number, stored as
+#'   \code{effective.rank.expected}); anchoring 0 at this null removes
+#'   the small-rank inflation of the raw ratio, so a peak of the index
+#'   marks the rank at which the latent factors carry the most evenly
+#'   distributed variance relative to chance.}
 #' @export
 #' @references
 #' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
