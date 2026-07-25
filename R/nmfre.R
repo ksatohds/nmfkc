@@ -424,6 +424,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   # optimization extras
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
   seed        <- if (!is.null(extra_args$seed)) extra_args$seed else 1
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
 
   ## NOTE: nmfre() performs optimization only. Hypothesis tests / standard errors
   ## for Theta (= C) are obtained separately via nmfre.inference(), mirroring the

@@ -855,6 +855,9 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 
   nstart        <- if (!is.null(ex$nstart))        ex$nstart        else 1L
   seed          <- if (!is.null(ex$seed))          ex$seed          else 123L
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   X.restriction <- if (!is.null(ex$X.restriction)) ex$X.restriction
                    else if (type == "bi")          "none"
                    else                            "colSums"

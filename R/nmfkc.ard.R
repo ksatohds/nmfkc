@@ -132,6 +132,9 @@ nmfkc.ard <- function(Y, rank = NULL, nrun = 10, plot = FALSE, ...) {
   prior   <- base::match.arg(if (base::is.null(dots$prior)) "L2" else dots$prior,
                              c("L2", "L1"))
   seed    <- if (base::is.null(dots$seed))    123     else dots$seed
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   a       <- if (base::is.null(dots$a))       1       else dots$a
   b       <- if (base::is.null(dots$b))       (Fr + Nc) / K * base::mean(Y) else dots$b
   maxit   <- if (base::is.null(dots$maxit))   3000    else dots$maxit

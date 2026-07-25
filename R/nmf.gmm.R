@@ -365,6 +365,9 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   maxit     <- getopt("maxit", 500L)
   tol       <- getopt("tol", 1e-7)
   seed      <- getopt("seed", 1L)
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   prefix    <- getopt("prefix", "Basis")
   inner_tol <- getopt("inner_tol", 1e-12)
   inner_max <- getopt("inner_max", 50L)

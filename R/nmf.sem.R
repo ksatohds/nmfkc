@@ -201,6 +201,9 @@ nmf.ffb <- function(
   Y2_labels    <- if (!is.null(rownames(Y2))) rownames(Y2) else paste0("Y2_", 1:P2)
   Basis_labels <- paste0("Factor", 1:Q)
 
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   set.seed(seed)
   .eps <- 1e-10
   .xnorm  <- function(X) sweep(X, 2, pmax(colSums(X), .eps), "/")

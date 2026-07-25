@@ -75,6 +75,33 @@ test_that("nmfkc() does not leave the caller's RNG stream at a fixed state", {
   expect_equal(got, want)
 })
 
+test_that("no fitter leaves the caller's RNG stream at a fixed state", {
+  set.seed(11); P <- 8; N <- 40
+  Y  <- matrix(abs(rnorm(P * 2)), P, 2) %*% matrix(abs(rnorm(2 * N)), 2, N) +
+        matrix(abs(rnorm(P * N)) * 0.1, P, N)
+  A  <- rbind(1, runif(N))
+  Ys <- matrix(rnorm(P * N), P, N); As <- matrix(rnorm(3 * N), 3, N)
+  Y1 <- matrix(abs(rnorm(6 * N)), 6, N); Y2 <- matrix(abs(rnorm(5 * N)), 5, N)
+  Yn <- crossprod(matrix(abs(rnorm(4 * 16)), 4, 16)); diag(Yn) <- 0
+  qq <- function(e) suppressWarnings(suppressMessages(e))
+  fitters <- list(
+    nmfkc        = function() qq(nmfkc(Y, rank = 2, verbose = FALSE)),
+    nmfre        = function() qq(nmfre(Y, A = A, rank = 2, verbose = FALSE)),
+    nmf.gmm      = function() qq(nmf.gmm(Y, A, rank = 2, K = 2)),
+    nmf.ffb      = function() qq(nmf.ffb(Y1, Y2, rank = 2, verbose = FALSE)),
+    nmfkc.net    = function() qq(nmfkc.net(Yn, rank = 2, verbose = FALSE)),
+    nmfkc.signed = function() qq(nmfkc.signed(Ys, As, rank = 2, maxit = 50,
+                                              verbose = FALSE)),
+    nmfkc.ard    = function() qq(nmfkc.ard(Y, rank = 3, nrun = 2, plot = FALSE))
+  )
+  for (nm in names(fitters)) {
+    f <- fitters[[nm]]
+    set.seed(42); invisible(f()); after <- runif(1)
+    set.seed(42); clean <- runif(1)
+    expect_equal(after, clean, info = nm)
+  }
+})
+
 test_that("seeding behaviour of the fit itself is unchanged", {
   d <- make_var_fit()
   ## a seeded fit stays reproducible ...

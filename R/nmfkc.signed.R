@@ -227,6 +227,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   C.init     <- if (!is.null(extra_args$C.init))     extra_args$C.init     else NULL
   warm.start <- if (!is.null(extra_args$warm.start)) extra_args$warm.start else TRUE
   seed       <- if (!is.null(extra_args$seed))       extra_args$seed       else 123L
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   prefix     <- if (!is.null(extra_args$prefix))     extra_args$prefix     else "Basis"
   pars_rff   <- extra_args$pars
   Y.weights  <- extra_args$Y.weights

@@ -20,6 +20,54 @@
 #  and a user can enable parallelism everywhere at once with, e.g.,
 #  options(mc.cores = 4).
 # =====================================================================
+#' Protect the caller's random stream from a self-seeding fit (Internal)
+#'
+#' The fitters seed themselves (each has an internal default \code{seed}) so
+#' that a given call is reproducible.  Without protection that leaks: every
+#' call leaves \code{.Random.seed} at the same state, so a user loop drawing
+#' random numbers after a fit silently repeats itself and an outer
+#' \code{set.seed()} has no effect on anything downstream.
+#'
+#' Usage inside a fitter, right after \code{seed} is resolved:
+#' \preformatted{
+#'   .rng <- .nmfkc.rng.save(seed)
+#'   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+#' }
+#' When \code{seed} is \code{NULL} nothing is saved and nothing is restored, so
+#' that path keeps whatever RNG behaviour it had (\code{nmfkc.cv} relies on the
+#' stream advancing through its folds).
+#'
+#' @param seed The seed the fit is about to set, or \code{NULL}.
+#' @return Opaque state for \code{.nmfkc.rng.restore()}: \code{NULL} when there
+#'   is nothing to protect.
+#' @keywords internal
+#' @noRd
+.nmfkc.rng.save <- function(seed) {
+  if (base::is.null(seed)) return(NULL)
+  if (base::exists(".Random.seed", envir = base::globalenv()))
+    base::get(".Random.seed", envir = base::globalenv())
+  else
+    base::structure(base::list(), class = "nmfkc.rng.absent")
+}
+
+#' Restore a random stream saved by .nmfkc.rng.save() (Internal)
+#' @param state Value returned by \code{\link{.nmfkc.rng.save}}.
+#' @return \code{NULL}, invisibly.
+#' @keywords internal
+#' @noRd
+.nmfkc.rng.restore <- function(state) {
+  if (base::is.null(state)) return(base::invisible(NULL))
+  if (base::inherits(state, "nmfkc.rng.absent")) {
+    ## There was no stream before the call; leave the session as we found it.
+    if (base::exists(".Random.seed", envir = base::globalenv()))
+      base::rm(".Random.seed", envir = base::globalenv())
+  } else {
+    base::assign(".Random.seed", state, envir = base::globalenv())
+  }
+  base::invisible(NULL)
+}
+
+
 .nmfkc.parlapply <- function(X, FUN, cores = 1L, envir = parent.frame(),
                              packages = "nmfkc") {
   cores <- suppressWarnings(as.integer(cores))
