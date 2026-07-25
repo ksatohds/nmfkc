@@ -21,7 +21,7 @@ knitr::opts_chunk$set(
 
 This vignette demonstrates how to apply the `nmfkc` package to time series data using the **NMF-VAR (Non-negative Matrix Factorization - Vector Autoregression)** framework. This approach models the coefficient matrix of NMF as a VAR process ($B \approx C A_{lag}$), allowing for both dimensionality reduction and temporal modeling.
 
-Key functions in `nmfkc` such as `nmfkc.ar` and `nmfkc.ar.degree.cv` directly support R's native **`ts` objects**, preserving time series properties automatically.
+Key functions in `nmfkc` such as `nmfkc.ar` and `nmfkc.ar.degree.cv` directly support R's native **`ts` objects**, preserving time series properties automatically. Once a model is fitted, `nmfkc.ar.stationarity()` checks dynamic stability and `nmfkc.ar.latent()` reports the $Q \times Q$ **latent transition matrices** $G_d = \Theta_d X$, which summarise the dynamics in the low-dimensional latent space rather than in the $P \times P$ observed space.
 
 We will cover two scenarios:
 
@@ -83,6 +83,16 @@ res_air$r.squared
 
 # Check for stationarity (spectral radius < 1)
 nmfkc.ar.stationarity(res_air)
+```
+
+With `rank = 1` the latent VAR is one-dimensional, so the latent view is at its
+simplest: the twelve $1\times1$ matrices $G_d$ are just the AR coefficients of
+the single latent series, and `colsum.max` alone certifies stationarity.
+
+```{r air-latent}
+lat_air <- nmfkc.ar.latent(res_air)
+c(rho = lat_air$spectral.radius, colsum.max = lat_air$colsum.max)
+unlist(lat_air$G)[1:3]   # G_1, G_2, G_3 of the latent series
 ```
 
 ### 4\. Forecasting
@@ -160,7 +170,78 @@ res_canada$r.squared
 nmfkc.ar.stationarity(res_canada)
 ```
 
-### 3\. Latent Structure & Causal Graph
+### 3\. Latent Transition Matrices
+
+The fitted VAR acts on the four observed variables through the $P \times P$
+matrices $\Xi_d = X\Theta_d$. Those are awkward to read, and they grow with the
+number of series. But the model implies something much smaller: because
+$\boldsymbol y_t = X\boldsymbol b_t$, the **coefficient** vector follows a
+non-negative VAR of its own,
+
+$$\boldsymbol b_t=\sum_{d=1}^{D}G_d\,\boldsymbol b_{t-d}+\boldsymbol\theta,
+  \qquad G_d=\Theta_d X\ \ (Q\times Q).$$
+
+`nmfkc.ar.latent()` returns these **latent transition matrices**. Here that
+means a single $2\times2$ matrix instead of a $4\times4$ one --- and for a
+larger problem (say 47 regions with 7 lags) it is $4\times4$ blocks instead of
+$47\times47$ ones, which is the difference between something you can read and
+something you cannot.
+
+```{r canada-latent}
+lat_canada <- nmfkc.ar.latent(res_canada)
+lat_canada
+```
+
+The convention is **row = effect at $t$, column = cause at $t-d$**: entry
+$(q,q')$ says how strongly condition $q'$ in the previous quarter feeds
+condition $q$ now. Diagonal entries are persistence, off-diagonal entries are
+spillover between the latent conditions.
+
+```{r canada-latent-parts}
+# Persistence of each condition, and cross-condition spillover
+diag(lat_canada$G$lag1)
+lat_canada$G$lag1[1, 2]   # effect of Condition2 (t-1) on Condition1 (t)
+```
+
+The print-out also gives three stability numbers that say the same thing in
+increasing order of sharpness:
+
+* `colsum.max` --- $\max_j c_j$ of $\sum_d \Theta_d$. If it is below 1 the model
+  is stationary, with no eigenvalue computation at all. It is only a sufficient
+  condition, so a value above 1 (as here) is simply inconclusive.
+* `spectral.radius.sum` --- $\rho(\sum_d G_d)$, which is below 1 exactly when
+  the model is stationary.
+* `spectral.radius` --- the spectral radius of the $DQ \times DQ$ companion
+  matrix, which equals the value `nmfkc.ar.stationarity()` computes from the
+  much larger $PD \times PD$ companion matrix.
+
+```{r canada-latent-stability}
+c(latent = lat_canada$spectral.radius,
+  direct = nmfkc.ar.stationarity(res_canada)$spectral.radius)
+```
+
+When the fit is stationary the process has a well-defined long-run mean, which
+is reported in both the latent and the observed space ($\boldsymbol\mu_b$ and
+$\boldsymbol\mu_y = X\boldsymbol\mu_b$):
+
+```{r canada-latent-mean}
+lat_canada$mu.b
+lat_canada$mu.y
+```
+
+Two further quantities are useful when choosing the rank. `df` is the
+*effective* dimension $Q(P+PD+1-Q)$ --- the right degrees of freedom when
+comparing $R^2$ or information criteria across $Q$, since the naive count
+$Q(P+PD+1)$ ignores the $Q^2$ rotational indeterminacy. `separability` is a
+one-line identifiability check: values near 1 mean each basis owns an
+essentially pure variable, so the factorization is unique up to permutation.
+
+```{r canada-latent-df}
+lat_canada$df
+lat_canada$separability
+```
+
+### 4\. Latent Structure & Causal Graph
 
 We can visualize how the two latent conditions change over time.
 

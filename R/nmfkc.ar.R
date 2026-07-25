@@ -496,6 +496,38 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 
 
 
+#' Split a fitted NMF-VAR object into its VAR parts (Internal)
+#'
+#' Shared parser for \code{\link{nmfkc.ar.stationarity}} and
+#' \code{\link{nmfkc.ar.latent}}.  The covariate matrix built by
+#' \code{\link{nmfkc.ar}} stacks the lag-\eqn{d} block of \eqn{Y} in rows
+#' \eqn{(d-1)P+1,\dots,dP} and (optionally) puts the intercept in the last
+#' row, so the columns of \eqn{\Theta} (\code{x$C}) follow the same layout.
+#'
+#' @param x A fitted \code{"nmfkc"} object from a \code{\link{nmfkc.ar}} design.
+#' @return A list with \code{X} (\eqn{P\times Q}), \code{Theta.lags}
+#'   (\eqn{Q\times PD}), \code{theta0} (\eqn{Q\times 1} intercept or
+#'   \code{NULL}), \code{P}, \code{Q}, \code{D}, \code{intercept}.
+#' @keywords internal
+#' @noRd
+.nmfvar.parts <- function(x) {
+  if (!inherits(x, "nmfkc")) stop("'x' must be an object of class 'nmfkc'.")
+  if (is.null(x$X) || is.null(x$C)) stop("'x' must contain 'X' and 'C' components (from nmfkc.ar).")
+  X <- x$X                                   # P x Q
+  Theta <- x$C                               # Q x (P*D [+1])
+  P <- nrow(X); Q <- ncol(X)
+  if (P == 0 || Q == 0) stop("'X' must have positive dimensions.")
+  total_cols <- ncol(Theta)
+  has_intercept <- (total_cols - 1) %% P == 0
+  D <- if (has_intercept) (total_cols - 1) %/% P else total_cols %/% P
+  if (D <= 0) stop("Cannot determine lag order D from dimensions of 'C'.")
+  list(X = X,
+       Theta.lags = if (has_intercept) Theta[, 1:(total_cols - 1), drop = FALSE] else Theta,
+       theta0 = if (has_intercept) Theta[, total_cols, drop = FALSE] else NULL,
+       P = P, Q = Q, D = D, intercept = has_intercept)
+}
+
+
 #' @title Check stationarity of an NMF-VAR model
 #' @description
 #' \code{nmfkc.ar.stationarity} assesses the dynamic stability of a VAR model
@@ -518,18 +550,9 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 #' @export
 
 nmfkc.ar.stationarity <- function(x){
-  if (!inherits(x, "nmfkc")) stop("'x' must be an object of class 'nmfkc'.")
-  if (is.null(x$X) || is.null(x$C)) stop("'x' must contain 'X' and 'C' components (from nmfkc.ar).")
-  X <- x$X  # P × Q
-  Theta <- x$C  # Q × (P * D [+1] )
-  P <- nrow(X)
-  Q <- ncol(X)
-  if (P == 0 || Q == 0) stop("'X' must have positive dimensions.")
-  total_cols <- ncol(Theta)
-  has_intercept <- (total_cols - 1) %% P == 0
-  D <- if (has_intercept) (total_cols - 1) %/% P else total_cols %/% P
-  if (D <= 0) stop("Cannot determine lag order D from dimensions of 'C'.")
-  Theta_lags <- if (has_intercept) Theta[, 1:(total_cols - 1), drop = FALSE] else Theta
+  prt <- .nmfvar.parts(x)
+  X <- prt$X; Theta_lags <- prt$Theta.lags
+  P <- prt$P; D <- prt$D
   Xi_list <- lapply(1:D, function(d){
     cols <- ((d - 1) * P + 1):(d * P)
     X %*% Theta_lags[, cols]})
@@ -538,6 +561,179 @@ nmfkc.ar.stationarity <- function(x){
   if (D > 1)companion_matrix[(P + 1):(P * D), 1:(P * (D - 1))] <- diag(P * (D - 1))
   rho <- max(Mod(eigen(companion_matrix)$values))
   return(list(spectral.radius = rho, stationary = (rho < 1)))
+}
+
+
+#' @title Latent transition matrices of an NMF-VAR model
+#' @description
+#' \code{nmfkc.ar.latent} reports the \strong{latent transition matrices}
+#' \eqn{G_d = \Theta_d X} (\eqn{Q\times Q}) of a fitted NMF-VAR model, together
+#' with the stability and stationary-mean quantities they imply.
+#'
+#' Writing the fit as \eqn{Y \approx X\Theta A} with \eqn{\Xi_d = X\Theta_d},
+#' the observed series follows \eqn{\bm y_t=\sum_d \Xi_d \bm y_{t-d}+\bm\xi}.
+#' Under the noise-free relation \eqn{\bm y_t = X\bm b_t}, the \emph{coefficient}
+#' vector itself follows a non-negative VAR(\eqn{D}) of dimension \eqn{Q},
+#' \deqn{\bm b_t=\sum_{d=1}^{D}G_d\,\bm b_{t-d}+\bm\theta,\qquad G_d=\Theta_d X\ge 0,}
+#' so the \eqn{Q\times Q} matrices \eqn{G_d} describe how the latent bases drive
+#' one another.  They are far easier to read than the \eqn{P\times P} matrices
+#' \eqn{\Xi_d} (e.g.\ \eqn{4\times4} instead of \eqn{47\times47}) and can be
+#' drawn as a \eqn{Q}-node directed graph.
+#'
+#' \strong{Direction convention}: \eqn{(G_d)_{q q'}} is the effect of
+#' \eqn{b_{q',\,t-d}} on \eqn{b_{q,\,t}} --- \strong{row = effect} (at \eqn{t}),
+#' \strong{column = cause} (at \eqn{t-d}).
+#'
+#' Two stability numbers are returned.  \code{spectral.radius} is the spectral
+#' radius of the \eqn{DQ\times DQ} companion matrix built from the \eqn{G_d};
+#' its non-zero eigenvalues coincide with those of the \eqn{PD\times PD}
+#' companion matrix of the \eqn{\Xi_d}, so it equals the value from
+#' \code{\link{nmfkc.ar.stationarity}} (up to floating-point rounding) while
+#' costing only \eqn{O((DQ)^3)}.  \code{spectral.radius.sum} is
+#' \eqn{\rho(\sum_d G_d)}, which is \emph{not} the same number but satisfies
+#' the equivalence \eqn{\rho(\sum_d G_d)<1 \iff} stationarity when
+#' \eqn{\Xi_d\ge 0}, and is bracketed by the column sums
+#' \eqn{\min_j c_j \le \rho \le \max_j c_j} of \eqn{\sum_d \Theta_d}; hence
+#' \code{colsum.max < 1} is a sufficient (but conservative) certificate of
+#' stationarity that needs no eigenvalue computation.
+#'
+#' @param x A fitted \code{"nmfkc"} object obtained from an
+#'   \code{\link{nmfkc.ar}} design (\code{nmfkc(ar$Y, ar$A, rank = Q)}).
+#' @return An object of class \code{"nmfkc.ar.latent"}: a list with
+#' \item{G}{List of \eqn{D} latent transition matrices \eqn{G_d}
+#'   (\eqn{Q\times Q}), named \code{lag1}, ..., with
+#'   \code{dimnames} = basis labels (row = effect, column = cause).}
+#' \item{G.sum}{\eqn{\sum_d G_d}, the matrix whose spectral radius decides
+#'   stationarity.}
+#' \item{spectral.radius}{\eqn{\rho} of the \eqn{DQ\times DQ} companion matrix
+#'   (equals the \eqn{PD\times PD} value of \code{nmfkc.ar.stationarity}).}
+#' \item{spectral.radius.sum}{\eqn{\rho(\sum_d G_d)}.}
+#' \item{stationary}{Logical; \code{TRUE} when \code{spectral.radius < 1}.}
+#' \item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d \Theta_d} (length \eqn{P}).}
+#' \item{colsum.max}{\eqn{\max_j c_j}; below 1 it certifies stationarity.}
+#' \item{theta0}{Latent intercept \eqn{\bm\theta} (or \code{NULL}).}
+#' \item{mu.b, mu.y}{Stationary means \eqn{(I-\sum_d G_d)^{-1}\bm\theta} and
+#'   \eqn{X\bm\mu_b}; \code{NA} when the fit is not stationary or has no
+#'   intercept.}
+#' \item{df}{Effective dimension \eqn{Q(P+PD+1-Q)} of the fit, the degrees of
+#'   freedom to use when comparing \eqn{R^2} or information criteria across
+#'   \eqn{Q} (the naive count \eqn{Q(P+PD+1)} ignores the \eqn{Q^2}
+#'   rotational indeterminacy).}
+#' \item{separability}{Per-basis maximum of the row-normalised \eqn{X}; values
+#'   near 1 indicate separable (essentially uniquely identified up to
+#'   permutation) bases.}
+#' \item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
+#' @seealso \code{\link{nmfkc.ar}}, \code{\link{nmfkc.ar.stationarity}},
+#'   \code{\link{nmfkc.ar.DOT}}
+#' @references
+#' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+#'   to multivariate time series data as a vector autoregression model.
+#'   \emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
+#'   \doi{10.1007/s42081-025-00314-0}
+#' @examples
+#' d <- AirPassengers
+#' ar_data <- nmfkc.ar(d, degree = 2)
+#' result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
+#' lat <- nmfkc.ar.latent(result)
+#' lat$G$lag1
+#' lat
+#'
+#' @export
+nmfkc.ar.latent <- function(x) {
+  prt <- .nmfvar.parts(x)
+  X <- prt$X; Theta_lags <- prt$Theta.lags
+  P <- prt$P; Q <- prt$Q; D <- prt$D
+
+  labels <- colnames(X)
+  if (is.null(labels)) labels <- paste0("Basis", seq_len(Q))
+
+  ## G_d = Theta_d X : row = effect at t, column = cause at t-d
+  G <- lapply(seq_len(D), function(d) {
+    g <- Theta_lags[, ((d - 1) * P + 1):(d * P), drop = FALSE] %*% X
+    dimnames(g) <- list(labels, labels)
+    g
+  })
+  names(G) <- paste0("lag", seq_len(D))
+
+  Lam <- Theta_lags[, seq_len(P), drop = FALSE]                 # sum_d Theta_d
+  if (D > 1) for (d in 2:D)
+    Lam <- Lam + Theta_lags[, ((d - 1) * P + 1):(d * P), drop = FALSE]
+  G.sum <- Lam %*% X
+  dimnames(G.sum) <- list(labels, labels)
+
+  ## Companion matrix of the latent VAR: DQ x DQ, its non-zero eigenvalues are
+  ## those of the PD x PD companion matrix of the Xi_d.
+  comp <- matrix(0, nrow = D * Q, ncol = D * Q)
+  for (d in seq_len(D)) comp[1:Q, ((d - 1) * Q + 1):(d * Q)] <- G[[d]]
+  if (D > 1) comp[(Q + 1):(D * Q), 1:(Q * (D - 1))] <- diag(Q * (D - 1))
+  rho <- max(Mod(eigen(comp, only.values = TRUE)$values))
+  rho.sum <- max(Mod(eigen(G.sum, only.values = TRUE)$values))
+  stationary <- (rho < 1)
+
+  cs <- colSums(Lam)
+
+  ## Stationary means (Proposition 4): defined only for a stationary fit.
+  theta0 <- prt$theta0
+  mu.b <- NA_real_; mu.y <- NA_real_
+  if (!is.null(theta0)) {
+    if (stationary) {
+      mu.b <- solve(diag(Q) - G.sum, as.numeric(theta0))
+      names(mu.b) <- labels
+      mu.y <- as.numeric(X %*% mu.b)
+      names(mu.y) <- rownames(X)
+    } else {
+      warning("The fit is not stationary (spectral radius >= 1); stationary means are NA.")
+    }
+  }
+
+  ## Separability diagnostic: rows of X normalised to sum 1; a column whose
+  ## maximum is close to 1 owns an (almost) pure observation.
+  rs <- rowSums(X)
+  sep <- if (all(rs > 0)) apply(X / rs, 2, max) else rep(NA_real_, Q)
+  names(sep) <- labels
+
+  structure(list(
+    G = G, G.sum = G.sum,
+    spectral.radius = rho, spectral.radius.sum = rho.sum,
+    stationary = stationary,
+    colsum = cs, colsum.max = max(cs),
+    theta0 = theta0, mu.b = mu.b, mu.y = mu.y,
+    df = Q * (P + P * D + 1 - Q),
+    separability = sep,
+    dims = c(P = P, Q = Q, D = D)),
+    class = "nmfkc.ar.latent")
+}
+
+
+#' @title Print method for nmfkc.ar.latent objects
+#' @param x An object of class \code{"nmfkc.ar.latent"}.
+#' @param digits Number of digits used when printing the matrices.
+#' @param ... Ignored.
+#' @return \code{x}, invisibly.
+#' @export
+print.nmfkc.ar.latent <- function(x, digits = 3, ...) {
+  cat("Latent transition matrices  G_d = Theta_d %*% X",
+      "  (row = effect at t, column = cause at t-d)\n\n")
+  for (nm in names(x$G)) {
+    cat(nm, ":\n", sep = "")
+    print(round(x$G[[nm]], digits))
+    cat("\n")
+  }
+  cat(sprintf("rho(companion, %dx%d) = %.4f  ->  %s\n",
+              x$dims["D"] * x$dims["Q"], x$dims["D"] * x$dims["Q"],
+              x$spectral.radius,
+              if (x$stationary) "stationary" else "NOT stationary"))
+  cat(sprintf("rho(sum_d G_d)        = %.4f   (< 1 iff stationary)\n",
+              x$spectral.radius.sum))
+  cat(sprintf("max_j colsum(sum_d Theta_d) = %.4f%s\n", x$colsum.max,
+              if (x$colsum.max < 1) "   (< 1: certifies stationarity)" else
+                "   (>= 1: inconclusive, use rho)"))
+  if (length(x$mu.y) > 1 || !all(is.na(x$mu.y))) {
+    cat("\nStationary mean of the latent scores (mu.b):\n")
+    print(round(x$mu.b, digits))
+  }
+  cat(sprintf("\nEffective dimension df = Q(P + PD + 1 - Q) = %d\n", x$df))
+  invisible(x)
 }
 
 
