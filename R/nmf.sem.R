@@ -541,9 +541,17 @@ nmf.ffb <- function(
 #' @param ... Hidden options:
 #'   \describe{
 #'     \item{\code{epsilon}}{Convergence tolerance for the inner fixed-X MU
-#'       loop.  Default \code{1e-6}.}
+#'       loop.  Default \code{1e-8} -- deliberately tighter than a plain fit,
+#'       because under multiplicative updates an entry heading for the
+#'       non-negativity boundary approaches 0 slowly, so a loose tolerance
+#'       stops every replicate while such an entry is still above
+#'       \code{threshold}.  The support rate is then inflated and significance
+#'       over-declared: on a pure-noise design the support of null entries
+#'       falls from 0.75 to 0.20 to 0.017 as \code{epsilon} goes 1e-6, 1e-8,
+#'       1e-10, while genuinely supported entries stay at 1.  Tighten further
+#'       when near-threshold entries matter; loosen only for speed.}
 #'     \item{\code{maxit}}{Maximum iterations for the inner MU loop.
-#'       Default \code{5000}.}
+#'       Default \code{100000} (the tighter tolerance needs the headroom).}
 #'     \item{\code{ncores}}{Number of parallel workers.  Default \code{1}
 #'       (serial).  Cross-platform: uses \code{parallel::mclapply} on
 #'       Linux/macOS and \code{parallel::parLapply} (PSOCK cluster) on
@@ -605,8 +613,16 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
 
   extra_args  <- base::list(...)
-  epsilon     <- if (!is.null(extra_args$epsilon))     extra_args$epsilon     else 1e-6
-  maxit       <- if (!is.null(extra_args$maxit))       extra_args$maxit       else 5000L
+  ## Convergence control of the fixed-X re-fits.  Deliberately tighter than a
+  ## plain fit: under multiplicative updates a coefficient heading for the
+  ## non-negativity boundary approaches 0 slowly, so a loose tolerance stops
+  ## every replicate while such an entry is still above the display threshold.
+  ## The support rate is then inflated and significance over-declared -- on a
+  ## pure-noise design the support of null entries falls 0.75 -> 0.20 -> 0.017
+  ## as epsilon goes 1e-6 -> 1e-8 -> 1e-10, while genuinely supported entries
+  ## stay at 1.  Tighten further if near-threshold entries matter.
+  epsilon     <- if (!is.null(extra_args$epsilon))     extra_args$epsilon     else 1e-8
+  maxit       <- if (!is.null(extra_args$maxit))       extra_args$maxit       else 100000L
   ncores      <- if (!is.null(extra_args$ncores))      extra_args$ncores      else 1L
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
 

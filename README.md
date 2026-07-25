@@ -92,6 +92,39 @@ $$Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)$$
 
 S3 methods `coef()`, `fitted()`, `residuals()`, `plot()`, `summary()`, `predict()` are available for all model classes. See `?nmfkc` or `browseVignettes("nmfkc")` for the full function list.
 
+# A note on numerical precision in inference
+
+Under the non-negativity constraint, a coefficient whose true value is zero is
+approached from above, and multiplicative updates approach it **slowly**. How
+far down such a coefficient has travelled therefore depends on the convergence
+tolerance, and any quantity that compares it with zero — a bootstrap standard
+error, a percentile interval, a support rate, a p-value — inherits that
+dependence. A loose tolerance stops while the coefficient is still spuriously
+positive, which **over-declares significance**.
+
+The inference functions that re-fit the model on each bootstrap replicate
+therefore converge much more tightly than an ordinary fit:
+
+| Function | Setting | Default |
+|:---|:---|:---|
+| `nmfkc.inference(method = "refit")` | `refit.epsilon`, `refit.maxit` | `1e-8`, `1e5` |
+| `nmf.ffb.inference()` | `epsilon`, `maxit` | `1e-8`, `1e5` |
+
+Two consequences worth knowing:
+
+- **Fit the model tightly as well.** `nmfkc()` defaults to `epsilon = 1e-4`,
+  which is fine for reconstruction but leaves near-zero coefficients well short
+  of the boundary. For inference, fit with `epsilon = 1e-8` (and a `maxit` to
+  match); a multistart (`nstart`) also helps, since boundary problems have
+  flatter optima.
+- **Near-threshold entries stay tolerance-sensitive even at `1e-8`.** Treat a
+  coefficient sitting near the significance boundary as provisional, and check
+  that the conclusion survives a tighter tolerance before relying on it.
+
+`method = "onestep"` and the other inference functions
+(`nmfre.inference()`, `nmf.rrr.inference()`, `nmf.gmm.inference()`,
+`nmf.cox.inference()`) linearize instead of re-fitting and are not affected.
+
 # References
 
 - Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359. <https://arxiv.org/abs/2403.05359>
