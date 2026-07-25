@@ -13,8 +13,10 @@ nmf.gmm.inference(object, Y, A = object$A, ...)
 
 \item{A}{The covariate matrix used in the fit. Default \code{object$A}.}
 
-\item{...}{Additional arguments: \code{boot} (bootstrap replicates, default
-2000), \code{seed} (default 123), \code{ci.level} (default 0.95).}
+\item{...}{Additional arguments, named as in the other wild-bootstrap
+inference functions of the package: \code{wild.B} (bootstrap replicates,
+default 500), \code{wild.level} (confidence level, default 0.95) and
+\code{seed} (default 123).}
 }
 \value{
 \code{object} with class \code{c("nmf.gmm.inference", "nmf.gmm")}
@@ -39,7 +41,7 @@ Supported for the tied-covariance variant.
 set.seed(1)
 Y <- matrix(abs(rnorm(20 * 60)) + 1, 20, 60); A <- rbind(1, rnorm(60))
 fit <- nmf.gmm(Y, A, rank = 2, K = 2)
-fit <- nmf.gmm.inference(fit, Y, A, boot = 300)
+fit <- nmf.gmm.inference(fit, Y, A, wild.B = 300)
 head(fit$coefficients)
 }
 }

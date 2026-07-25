@@ -142,7 +142,7 @@ standard error / interval. Each `size` row is the effect of size on the score
 of one non-negative part.
 
 ```{r inference}
-fit_b <- nmf.gmm.inference(fit_b, Y, A = rbind(1, size), boot = 500, seed = 1)
+fit_b <- nmf.gmm.inference(fit_b, Y, A = rbind(1, size), wild.B = 500, seed = 1)
 subset(fit_b$coefficients, Covariate == "size")
 ```
 

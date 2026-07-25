@@ -459,8 +459,10 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
 #' @param object A fitted \code{"nmf.gmm"} object (with \code{cov = "tied"}).
 #' @param Y The data matrix used in the fit.
 #' @param A The covariate matrix used in the fit. Default \code{object$A}.
-#' @param ... Additional arguments: \code{boot} (bootstrap replicates, default
-#'   2000), \code{seed} (default 123), \code{ci.level} (default 0.95).
+#' @param ... Additional arguments, named as in the other wild-bootstrap
+#'   inference functions of the package: \code{wild.B} (bootstrap replicates,
+#'   default 500), \code{wild.level} (confidence level, default 0.95) and
+#'   \code{seed} (default 123).
 #'
 #' @return \code{object} with class \code{c("nmf.gmm.inference", "nmf.gmm")}
 #'   and added components: \code{coefficients} (data frame with \code{Basis},
@@ -474,7 +476,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
 #' set.seed(1)
 #' Y <- matrix(abs(rnorm(20 * 60)) + 1, 20, 60); A <- rbind(1, rnorm(60))
 #' fit <- nmf.gmm(Y, A, rank = 2, K = 2)
-#' fit <- nmf.gmm.inference(fit, Y, A, boot = 300)
+#' fit <- nmf.gmm.inference(fit, Y, A, wild.B = 300)
 #' head(fit$coefficients)
 #' }
 #' @export
@@ -483,9 +485,9 @@ nmf.gmm.inference <- function(object, Y, A = object$A, ...) {
   if (!identical(object$cov, "tied"))
     stop("nmf.gmm.inference currently supports cov = 'tied' only.")
   extra <- base::list(...)
-  B     <- if (!is.null(extra$boot))     extra$boot     else 2000L
-  seed  <- if (!is.null(extra$seed))     extra$seed     else 123L
-  level <- if (!is.null(extra$ci.level)) extra$ci.level else 0.95
+  B     <- if (!is.null(extra$wild.B))     extra$wild.B     else 500L
+  seed  <- if (!is.null(extra$seed))       extra$seed       else 123L
+  level <- if (!is.null(extra$wild.level)) extra$wild.level else 0.95
 
   X <- object$X; C <- object$C; mu <- object$mu
   tau2 <- as.numeric(object$tau2); s2 <- object$sigma2; gamma <- object$gamma

@@ -4218,7 +4218,7 @@ nmfkc.residual.plot <- function(Y, result,
 #'       percentile interval can exclude it entirely, and the bootstrap SE is
 #'       understated.  Loosen only if the re-fits are too slow, and check that
 #'       the intervals still contain the estimates.}
-#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
+#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 500.}
 #'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
 #'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
 #'     \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}

@@ -59,7 +59,7 @@ test_that("K=1 nmf.gmm degenerates to a single-class (NMF-RE-type) fit", {
 test_that("nmf.gmm.inference builds the C coefficients table (tied)", {
   d <- make_gmm_data()
   fit <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 2, X.init = d$X, seed = 1)
-  inf <- nmf.gmm.inference(fit, d$Y, d$A, boot = 200, seed = 1)
+  inf <- nmf.gmm.inference(fit, d$Y, d$A, wild.B = 200, seed = 1)
   expect_s3_class(inf, "nmf.gmm.inference")
   expect_true(all(c("Basis", "Covariate", "Estimate", "SE", "BSE", "z_value",
                     "p_value", "CI_low", "CI_high") %in% names(inf$coefficients)))
