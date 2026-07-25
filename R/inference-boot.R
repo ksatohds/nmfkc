@@ -168,16 +168,24 @@
 
 #' @title Summarise bootstrap draws into SE / CI / bootstrap p-values (Internal)
 #' @description From a \eqn{QK \times B} draw matrix, compute the bootstrap
-#'   SE (row sd), percentile CI, and a two-sided bootstrap p-value
-#'   \eqn{2 \min(\widehat P[c_b > 0], \widehat P[c_b < 0])} (useful when the
-#'   analytical z is unavailable, e.g. method = "refit").
+#'   SE (row sd), percentile CI, and a bootstrap p-value for
+#'   \eqn{H_0: c_{qj} = 0} obtained by basic-bootstrap inversion,
+#'   \eqn{\widehat P[c^*_b \ge 2\hat c]} (useful when the analytical z is
+#'   unavailable, e.g. method = "refit").  The replicates are centred at the
+#'   point estimate: comparing the raw replicates with zero is degenerate under
+#'   a non-negativity constraint, where every replicate is \eqn{\ge 0}.
 #' @param C.boot \eqn{QK \times B} draws.
+#' @param est Length-\eqn{QK} vector of point estimates the draws are centred on.
 #' @param level Confidence level for the percentile CI.
+#' @param p.side \code{"one.sided"} (default, natural for a non-negative
+#'   coefficient) or \code{"two.sided"}.
 #' @return List with \code{se} (length \eqn{QK}), \code{ci.lower},
 #'   \code{ci.upper}, and \code{p.boot} vectors.
 #' @keywords internal
 #' @noRd
-.boot.summarize <- function(C.boot, level = 0.95) {
+.boot.summarize <- function(C.boot, est, level = 0.95,
+                            p.side = c("one.sided", "two.sided")) {
+  p.side <- base::match.arg(p.side)
   alpha <- 1 - level
   se <- base::apply(C.boot, 1, stats::sd, na.rm = TRUE)
   qs <- base::apply(C.boot, 1, stats::quantile,
@@ -185,11 +193,19 @@
                     na.rm = TRUE, names = FALSE)
   lo <- qs[1L, ]
   hi <- qs[2L, ]
-  p.boot <- base::apply(C.boot, 1, function(v) {
-    v <- v[base::is.finite(v)]
+  ## Basic-bootstrap inversion of H0: C_qj = 0.  The replicates must be
+  ## CENTRED at the point estimate: (Chat* - Chat) approximates (Chat - C), so
+  ## under H0 the observed value has upper-tail probability
+  ## P*(Chat* - Chat >= Chat) = P*(Chat* >= 2 Chat).
+  ## Testing the raw replicates against zero instead is degenerate here, since
+  ## the non-negativity constraint makes every replicate >= 0 and would return
+  ## p = 0 for every coefficient.
+  p.boot <- base::vapply(base::seq_len(base::nrow(C.boot)), function(i) {
+    v <- C.boot[i, ]; v <- v[base::is.finite(v)]
     if (!base::length(v)) return(NA_real_)
-    pg <- base::mean(v > 0); pl <- base::mean(v < 0)
-    base::min(1, 2 * base::min(pg, pl))
-  })
+    p1 <- base::mean(v >= 2 * est[i])
+    if (p.side == "one.sided") base::min(1, p1)
+    else base::min(1, 2 * base::min(p1, 1 - p1))
+  }, base::numeric(1))
   base::list(se = se, ci.lower = lo, ci.upper = hi, p.boot = p.boot)
 }

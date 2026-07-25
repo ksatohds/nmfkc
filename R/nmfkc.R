@@ -2411,6 +2411,25 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   X.init <- if (!base::is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
   nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
   seed <- if (!base::is.null(extra_args$seed)) extra_args$seed else 123
+  ## The fit seeds itself (default seed = 123) so that a given call is
+  ## reproducible.  That must not leak into the caller's random stream: without
+  ## this, every nmfkc() call would leave .Random.seed at the same state, so a
+  ## user loop drawing random numbers after a fit would silently repeat itself.
+  ## Restore the stream on exit whenever we set it.  With seed = NULL we neither
+  ## set nor restore, so that path behaves exactly as before (whatever RNG the
+  ## chosen initializer consumes propagates to the caller, as nmfkc.cv assumes).
+  if (!base::is.null(seed)) {
+    .nmfkc_rng_state <- if (base::exists(".Random.seed", envir = base::globalenv()))
+      base::get(".Random.seed", envir = base::globalenv()) else NULL
+    base::on.exit({
+      if (base::is.null(.nmfkc_rng_state)) {
+        if (base::exists(".Random.seed", envir = base::globalenv()))
+          base::rm(".Random.seed", envir = base::globalenv())
+      } else {
+        base::assign(".Random.seed", .nmfkc_rng_state, envir = base::globalenv())
+      }
+    }, add = TRUE)
+  }
   C.init <- if (!is.null(extra_args$C.init)) extra_args$C.init else NULL
   ## Symmetric NMF (Y ~ X X^T or X C X^T) has moved out of nmfkc() into
   ## the dedicated nmfkc.net() function (Frobenius bilateral-gradient
@@ -4345,7 +4364,8 @@ nmfkc.inference <- function(object, Y, A = NULL,
                             dist = wild.dist, seed = wild.seed,
                             unit = wild.unit, clipY = TRUE)
     }
-    bs <- .boot.summarize(C_boot, level = wild.level)
+    bs <- .boot.summarize(C_boot, est = as.vector(C_mat),
+                          level = wild.level, p.side = C.p.side)
     C.se.boot  <- matrix(bs$se,       nrow = Q, ncol = K, byrow = FALSE)
     C.ci.lower <- matrix(bs$ci.lower, nrow = Q, ncol = K, byrow = FALSE)
     C.ci.upper <- matrix(bs$ci.upper, nrow = Q, ncol = K, byrow = FALSE)
@@ -4362,7 +4382,9 @@ nmfkc.inference <- function(object, Y, A = NULL,
   z_value <- ifelse(SE > 0, Estimate / SE, NA_real_)
 
   if (method == "refit" && !is.null(p.boot.vec)) {
-    p_value <- p.boot.vec               # bootstrap two-sided p (no analytical z)
+    ## Bootstrap p from the centred replicates (no analytical z); honours
+    ## C.p.side, as the "onestep" branches below do.
+    p_value <- p.boot.vec
   } else if (C.p.side == "one.sided") {
     p_value <- ifelse(is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
   } else {
