@@ -37,10 +37,11 @@ labels (row = effect, column = cause).}
 \item{mu.b, mu.y}{Stationary means \eqn{(I-\sum_d G_d)^{-1}\bm\theta} and
 \eqn{X\bm\mu_b}; \code{NA} when the fit is not stationary or has no
 intercept.}
-\item{df}{Effective dimension \eqn{Q(P+PD+1-Q)} of the fit, the degrees of
-freedom to use when comparing \eqn{R^2} or information criteria across
-\eqn{Q} (the naive count \eqn{Q(P+PD+1)} ignores the \eqn{Q^2}
-rotational indeterminacy).}
+\item{df}{Effective dimension \eqn{Q(P+m-Q)} of the fit, where \eqn{m} is the
+number of columns of \eqn{\Theta} (\eqn{PD+1} with an intercept, \eqn{PD}
+without).  These are the degrees of freedom to use when comparing
+\eqn{R^2} or information criteria across \eqn{Q}: the naive count
+\eqn{Q(P+m)} ignores the \eqn{Q^2} rotational indeterminacy.}
 \item{separability}{Per-basis maximum of the row-normalised \eqn{X}; values
 near 1 indicate separable (essentially uniquely identified up to
 permutation) bases.}

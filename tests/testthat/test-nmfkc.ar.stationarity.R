@@ -89,6 +89,49 @@ test_that("stationary means solve the VAR fixed point and df is the effective di
   expect_equal(st$df, Q * (P + P * D + 1 - Q))
 })
 
+test_that("the lag/intercept split comes from nmfkc.ar metadata, not dimensions", {
+  ## P = 1 is the ambiguous case: P*D and P*D+1 are both multiples of P, so a
+  ## dimension-only rule always reports an intercept.  nmfkc.ar() records the
+  ## truth in attributes of A, which nmfkc() keeps in x$A.attr.
+  d <- log(AirPassengers)
+  for (ic in c(TRUE, FALSE)) {
+    a <- nmfkc.ar(d, degree = 12, intercept = ic)
+    f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 1, seed = 1, verbose = FALSE))
+    st <- suppressWarnings(nmfkc.ar.stationarity(f))
+    expect_length(st$G, 12L)                       # D = 12 either way
+    expect_equal(unname(st$dims["D"]), 12L)
+    expect_identical(is.null(st$theta0), !ic)      # intercept present iff asked for
+  }
+})
+
+test_that("df is the effective dimension with and without an intercept", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
+  for (ic in c(TRUE, FALSE)) {
+    a <- nmfkc.ar(Y, degree = 2, intercept = ic)
+    f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, seed = 1, verbose = FALSE))
+    st <- suppressWarnings(nmfkc.ar.stationarity(f))
+    m <- 4 * 2 + as.integer(ic)                    # columns of Theta
+    expect_equal(st$df, 2 * (4 + m - 2))           # Q(P + m - Q)
+  }
+})
+
+test_that("a fit from a non-AR design is rejected", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
+  U <- matrix(rnorm(3 * 40), 3, 40)
+  fk <- suppressWarnings(nmfkc(Y, nmfkc.kernel(U, beta = 0.5), rank = 2,
+                               seed = 1, verbose = FALSE))
+  expect_error(nmfkc.ar.stationarity(fk), "not fitted on an nmfkc.ar")
+})
+
+test_that("negative coefficients warn that the Perron-Frobenius bounds may fail", {
+  X  <- matrix(c(0.6, 0.4, 0.3, 0.7), 2, 2)
+  Th <- matrix(c(0.3, -0.1, 0.05, 0.2), 2, 2)      # signed Theta
+  fit <- structure(list(X = X, C = Th), class = "nmfkc")
+  expect_warning(nmfkc.ar.stationarity(fit), "negative entries")
+})
+
 test_that("a non-stationary fit warns and returns NA means", {
   X  <- matrix(c(1, 0, 0, 1), 2, 2)
   Th <- matrix(c(1.5, 0, 0, 1.5), 2, 2)          # rho = 1.5

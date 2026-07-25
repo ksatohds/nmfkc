@@ -503,6 +503,14 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 #' \eqn{(d-1)P+1,\dots,dP} and (optionally) puts the intercept in the last
 #' row, so the columns of \eqn{\Theta} (\code{x$C}) follow the same layout.
 #'
+#' \code{nmfkc.ar} records \code{degree}, \code{intercept} and
+#' \code{function.name} as attributes of \eqn{A}, which \code{\link{nmfkc}}
+#' keeps in \code{x$A.attr}.  Those are authoritative and are used whenever
+#' present (the same policy as \code{\link{nmfkc.ar.predict}}); the layout is
+#' only inferred from the dimensions of \eqn{\Theta} as a fallback.  That
+#' fallback is genuinely ambiguous when \eqn{P = 1}, since \eqn{PD} and
+#' \eqn{PD+1} are then both divisible by \eqn{P}, so it warns.
+#'
 #' @param x A fitted \code{"nmfkc"} object from a \code{\link{nmfkc.ar}} design.
 #' @return A list with \code{X} (\eqn{P\times Q}), \code{Theta.lags}
 #'   (\eqn{Q\times PD}), \code{theta0} (\eqn{Q\times 1} intercept or
@@ -517,9 +525,35 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
   P <- nrow(X); Q <- ncol(X)
   if (P == 0 || Q == 0) stop("'X' must have positive dimensions.")
   total_cols <- ncol(Theta)
-  has_intercept <- (total_cols - 1) %% P == 0
-  D <- if (has_intercept) (total_cols - 1) %/% P else total_cols %/% P
+
+  att <- x$A.attr
+  fname <- if (!is.null(att)) att$function.name else NULL
+  if (!is.null(fname) && !identical(as.character(fname), "nmfkc.ar"))
+    stop("'x' was not fitted on an nmfkc.ar() design (A came from ",
+         as.character(fname)[1], "); the VAR interpretation does not apply.")
+
+  if (!is.null(att) && !is.null(att$degree)) {
+    ## Metadata recorded by nmfkc.ar(): authoritative, and unambiguous at P = 1.
+    D <- as.integer(att$degree)
+    has_intercept <- if (!is.null(att$intercept)) as.logical(att$intercept)
+                     else (total_cols == P * D + 1L)
+    if (total_cols != P * D + as.integer(has_intercept))
+      stop("Dimensions of 'C' (", total_cols, " columns) are inconsistent with the ",
+           "recorded design (P = ", P, ", degree = ", D,
+           ", intercept = ", has_intercept, ").")
+  } else {
+    ## Fallback: infer from dimensions.  P * D and P * D + 1 are both multiples
+    ## of P when P = 1, so the split cannot be recovered there -- assume an
+    ## intercept (the nmfkc.ar() default) and say so.
+    has_intercept <- (total_cols - 1) %% P == 0
+    if (P == 1L && has_intercept)
+      warning("P = 1 and no nmfkc.ar() metadata found: cannot tell an intercept ",
+              "column from a further lag; assuming an intercept is present ",
+              "(degree = ", total_cols - 1L, ").")
+    D <- if (has_intercept) (total_cols - 1) %/% P else total_cols %/% P
+  }
   if (D <= 0) stop("Cannot determine lag order D from dimensions of 'C'.")
+
   list(X = X,
        Theta.lags = if (has_intercept) Theta[, 1:(total_cols - 1), drop = FALSE] else Theta,
        theta0 = if (has_intercept) Theta[, total_cols, drop = FALSE] else NULL,
@@ -583,10 +617,11 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 #' \item{mu.b, mu.y}{Stationary means \eqn{(I-\sum_d G_d)^{-1}\bm\theta} and
 #'   \eqn{X\bm\mu_b}; \code{NA} when the fit is not stationary or has no
 #'   intercept.}
-#' \item{df}{Effective dimension \eqn{Q(P+PD+1-Q)} of the fit, the degrees of
-#'   freedom to use when comparing \eqn{R^2} or information criteria across
-#'   \eqn{Q} (the naive count \eqn{Q(P+PD+1)} ignores the \eqn{Q^2}
-#'   rotational indeterminacy).}
+#' \item{df}{Effective dimension \eqn{Q(P+m-Q)} of the fit, where \eqn{m} is the
+#'   number of columns of \eqn{\Theta} (\eqn{PD+1} with an intercept, \eqn{PD}
+#'   without).  These are the degrees of freedom to use when comparing
+#'   \eqn{R^2} or information criteria across \eqn{Q}: the naive count
+#'   \eqn{Q(P+m)} ignores the \eqn{Q^2} rotational indeterminacy.}
 #' \item{separability}{Per-basis maximum of the row-normalised \eqn{X}; values
 #'   near 1 indicate separable (essentially uniquely identified up to
 #'   permutation) bases.}
@@ -618,6 +653,14 @@ nmfkc.ar.stationarity <- function(x, method = c("latent", "companion")) {
   labels <- colnames(X)
   if (is.null(labels)) labels <- paste0("Basis", seq_len(Q))
 
+  ## The rho(sum_d G_d) < 1 equivalence and the column-sum bracket rest on
+  ## Perron-Frobenius, i.e. on Xi_d = X Theta_d >= 0.  That holds for an NMF
+  ## fit, but a signed variant inherits class "nmfkc" too, so check.
+  if (any(X < 0) || any(Theta_lags < 0))
+    warning("X or Theta has negative entries: spectral.radius is still exact, ",
+            "but the rho(sum_d G_d) equivalence and the column-sum bound ",
+            "assume non-negative coefficients and may not hold.")
+
   ## G_d = Theta_d X : row = effect at t, column = cause at t-d
   G <- lapply(seq_len(D), function(d) {
     g <- Theta_lags[, ((d - 1) * P + 1):(d * P), drop = FALSE] %*% X
@@ -647,7 +690,10 @@ nmfkc.ar.stationarity <- function(x, method = c("latent", "companion")) {
     companion_matrix <- matrix(0, nrow = P * D, ncol = P * D)
     for (d in 1:D)companion_matrix[1:P, ((d - 1) * P + 1):(d * P)] <- Xi_list[[d]]
     if (D > 1)companion_matrix[(P + 1):(P * D), 1:(P * (D - 1))] <- diag(P * (D - 1))
-    rho <- max(Mod(eigen(companion_matrix)$values))
+    ## only.values = TRUE skips the eigenvectors, which this branch never used;
+    ## verified bit-identical to eigen(.)$values on the companion matrices, so
+    ## the legacy number is still reproduced exactly.
+    rho <- max(Mod(eigen(companion_matrix, only.values = TRUE)$values))
   }
   rho.sum <- max(Mod(eigen(G.sum, only.values = TRUE)$values))
   stationary <- (rho < 1)
@@ -679,7 +725,9 @@ nmfkc.ar.stationarity <- function(x, method = c("latent", "companion")) {
     G = G, G.sum = G.sum, spectral.radius.sum = rho.sum,
     colsum = cs, colsum.max = max(cs),
     theta0 = theta0, mu.b = mu.b, mu.y = mu.y,
-    df = Q * (P + P * D + 1 - Q),
+    ## PQ (basis) + Q*ncol(Theta) (coefficients) - Q^2 (rotational
+    ## indeterminacy); ncol(Theta) is PD + 1 with an intercept, PD without.
+    df = Q * (P + ncol(Theta_lags) + as.integer(prt$intercept) - Q),
     separability = sep,
     dims = c(P = P, Q = Q, D = D)),
     class = "nmfkc.ar.stationarity")
