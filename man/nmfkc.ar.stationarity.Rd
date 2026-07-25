@@ -2,31 +2,96 @@
 % Please edit documentation in R/nmfkc.ar.R
 \name{nmfkc.ar.stationarity}
 \alias{nmfkc.ar.stationarity}
-\title{Check stationarity of an NMF-VAR model}
+\title{Stationarity and latent transition matrices of an NMF-VAR model}
 \usage{
-nmfkc.ar.stationarity(x)
+nmfkc.ar.stationarity(x, method = c("latent", "companion"))
 }
 \arguments{
-\item{x}{The return value of \code{nmfkc} for a VAR model.}
+\item{x}{A fitted \code{"nmfkc"} object obtained from an
+\code{\link{nmfkc.ar}} design (\code{nmfkc(ar$Y, ar$A, rank = Q)}).}
+
+\item{method}{Route used for \code{spectral.radius}.  \code{"latent"}
+(default) uses the \eqn{DQ\times DQ} companion matrix of the \eqn{G_d};
+\code{"companion"} uses the \eqn{PD\times PD} companion matrix of the
+\eqn{\Xi_d}.  The two companion matrices share the same non-zero
+eigenvalues, so the results agree up to floating-point rounding, but
+\code{"latent"} costs \eqn{O((DQ)^3)} instead of \eqn{O((PD)^3)} --- for a
+47-variable, 7-lag, rank-4 model that is a \eqn{28\times28} eigenproblem
+instead of a \eqn{329\times329} one.  Use \code{"companion"} to reproduce
+the value bit-for-bit as computed by earlier versions of the package.}
 }
 \value{
-A list with components:
-\item{spectral.radius}{Numeric. The spectral radius of the companion matrix. A value less than 1 indicates stationarity.}
-\item{stationary}{Logical. \code{TRUE} if the spectral radius is less than 1 (i.e., the system is stationary), \code{FALSE} otherwise.}
+An object of class \code{"nmfkc.ar.stationarity"}: a list with
+\item{spectral.radius}{Spectral radius of the companion matrix (route
+selected by \code{method}).  A value below 1 indicates stationarity.}
+\item{stationary}{Logical; \code{TRUE} when \code{spectral.radius < 1}.}
+\item{method}{The route actually used.}
+\item{G}{List of \eqn{D} latent transition matrices \eqn{G_d}
+(\eqn{Q\times Q}), named \code{lag1}, ..., with \code{dimnames} = basis
+labels (row = effect, column = cause).}
+\item{G.sum}{\eqn{\sum_d G_d}.}
+\item{spectral.radius.sum}{\eqn{\rho(\sum_d G_d)}; below 1 iff stationary.}
+\item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d \Theta_d} (length \eqn{P}).}
+\item{colsum.max}{\eqn{\max_j c_j}; below 1 it certifies stationarity.}
+\item{theta0}{Latent intercept \eqn{\bm\theta} (or \code{NULL}).}
+\item{mu.b, mu.y}{Stationary means \eqn{(I-\sum_d G_d)^{-1}\bm\theta} and
+\eqn{X\bm\mu_b}; \code{NA} when the fit is not stationary or has no
+intercept.}
+\item{df}{Effective dimension \eqn{Q(P+PD+1-Q)} of the fit, the degrees of
+freedom to use when comparing \eqn{R^2} or information criteria across
+\eqn{Q} (the naive count \eqn{Q(P+PD+1)} ignores the \eqn{Q^2}
+rotational indeterminacy).}
+\item{separability}{Per-basis maximum of the row-normalised \eqn{X}; values
+near 1 indicate separable (essentially uniquely identified up to
+permutation) bases.}
+\item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
 }
 \description{
-\code{nmfkc.ar.stationarity} assesses the dynamic stability of a VAR model
-by computing the spectral radius of its companion matrix.
-It returns both the spectral radius and a logical indicator of stationarity.
+\code{nmfkc.ar.stationarity} assesses the dynamic stability of a fitted
+NMF-VAR model and reports the \strong{latent transition matrices}
+\eqn{G_d = \Theta_d X} (\eqn{Q\times Q}) that drive it.
+
+Writing the fit as \eqn{Y \approx X\Theta A} with \eqn{\Xi_d = X\Theta_d},
+the observed series follows \eqn{\bm y_t=\sum_d \Xi_d \bm y_{t-d}+\bm\xi}.
+Under the noise-free relation \eqn{\bm y_t = X\bm b_t}, the \emph{coefficient}
+vector itself follows a non-negative VAR(\eqn{D}) of dimension \eqn{Q},
+\deqn{\bm b_t=\sum_{d=1}^{D}G_d\,\bm b_{t-d}+\bm\theta,\qquad G_d=\Theta_d X\ge 0,}
+so the \eqn{Q\times Q} matrices \eqn{G_d} describe how the latent bases drive
+one another.  They are far easier to read than the \eqn{P\times P} matrices
+\eqn{\Xi_d} (e.g.\ \eqn{4\times4} instead of \eqn{47\times47}) and can be
+drawn as a \eqn{Q}-node directed graph.
+
+\strong{Direction convention}: \eqn{(G_d)_{q q'}} is the effect of
+\eqn{b_{q',\,t-d}} on \eqn{b_{q,\,t}} --- \strong{row = effect} (at \eqn{t}),
+\strong{column = cause} (at \eqn{t-d}).
+
+Three stability numbers are returned, in increasing order of sharpness:
+\code{colsum.max} \eqn{=\max_j c_j} of \eqn{\sum_d \Theta_d} certifies
+stationarity when below 1 with no eigenvalue computation at all (a
+sufficient condition only, so a value above 1 is merely inconclusive);
+\code{spectral.radius.sum} \eqn{=\rho(\sum_d G_d)} is below 1 exactly when
+the model is stationary (and is bracketed by \eqn{\min_j c_j} and
+\eqn{\max_j c_j}); and \code{spectral.radius} is the spectral radius of the
+companion matrix itself.
 }
 \examples{
 # Check stationarity of fitted AR model
 d <- AirPassengers
 ar_data <- nmfkc.ar(d, degree = 2)
 result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
-nmfkc.ar.stationarity(result)
+st <- nmfkc.ar.stationarity(result)
+st$spectral.radius
+st$stationary
+st$G$lag1          # latent transition matrix of lag 1
+st                 # full report
 
 }
+\references{
+Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+to multivariate time series data as a vector autoregression model.
+\emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
+\doi{10.1007/s42081-025-00314-0}
+}
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+\code{\link{nmfkc}}, \code{\link{nmfkc.ar}}, \code{\link{nmfkc.ar.DOT}}
 }
