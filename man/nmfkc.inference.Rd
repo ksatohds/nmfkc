@@ -37,6 +37,17 @@ compatible), \code{"rademacher"} for \code{"refit"}.}
 \item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
 (default, i.i.d. multiplier per matrix cell) or \code{"column"}
 (one multiplier per sample column, shared over rows).}
+\item{\code{refit.epsilon}, \code{refit.maxit}}{For
+\code{method="refit"}: convergence tolerance and iteration cap of the
+re-fits, defaulting to \code{1e-8} and \code{100000}.  These are
+deliberately far tighter than \code{\link{nmfkc}}'s own \code{1e-4}:
+under multiplicative updates a coefficient heading for the
+non-negativity boundary approaches 0 slowly, so at a loose tolerance
+every replicate stops while that coefficient is still spuriously
+positive.  The replicates then pile up above the point estimate, the
+percentile interval can exclude it entirely, and the bootstrap SE is
+understated.  Loosen only if the re-fits are too slow, and check that
+the intervals still contain the estimates.}
 \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
 \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
 \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}

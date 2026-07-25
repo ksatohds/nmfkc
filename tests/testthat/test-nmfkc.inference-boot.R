@@ -16,6 +16,10 @@
 ## coefficients and near-zero ones -- the mix the p-value must tell apart.  A
 ## fixture whose coefficients are all large would legitimately give p = 0
 ## everywhere and could not detect the defect.
+##
+## The fit uses a tight tolerance on purpose: at nmfkc()'s default 1e-4 the two
+## structural zeros stall around 0.05 instead of descending to ~0.002, i.e. the
+## fixture would not contain a boundary coefficient at all.
 make_var_fit <- function(seed = 11, P = 8, N = 80) {
   set.seed(seed)
   X <- matrix(abs(rnorm(P * 2)) + 0.2, P, 2)
@@ -25,7 +29,8 @@ make_var_fit <- function(seed = 11, P = 8, N = 80) {
   Y <- X %*% C %*% A + matrix(abs(rnorm(P * N)) * 0.05, P, N)
   list(Y = Y, A = A,
        fit = suppressWarnings(nmfkc(Y, A = A, rank = 2, X.init = X,
-                                    X.restriction = "fixed", verbose = FALSE)))
+                                    X.restriction = "fixed", epsilon = 1e-8,
+                                    maxit = 100000, verbose = FALSE)))
 }
 
 test_that("refit bootstrap p-values are not all zero and separate signal from noise", {
@@ -73,6 +78,25 @@ test_that("nmfkc() does not leave the caller's RNG stream at a fixed state", {
   ## and the stream must be exactly the one the caller would have had
   set.seed(99); want <- c(runif(1), runif(1), runif(1))
   expect_equal(got, want)
+})
+
+test_that("the refit bootstrap converges tightly enough for boundary coefficients", {
+  ## Under multiplicative updates a coefficient heading for the non-negativity
+  ## boundary approaches 0 slowly.  At nmfkc()'s own default tolerance (1e-4)
+  ## every replicate stops while it is still spuriously positive, the
+  ## replicates pile up above the point estimate, and the percentile interval
+  ## can exclude the estimate.  The refit now defaults to 1e-8.
+  d <- make_var_fit()
+  tight <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
+                                            wild.unit = "column", wild.B = 60))
+  cf <- tight$coefficients
+  expect_true(all(cf$Estimate >= cf$CI_low - 1e-8))
+  expect_true(all(cf$Estimate <= cf$CI_high + 1e-8))
+  ## the tolerance is reachable from the user side
+  loose <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
+                                            wild.unit = "column", wild.B = 60,
+                                            refit.epsilon = 1e-4))
+  expect_false(isTRUE(all.equal(tight$coefficients$SE, loose$coefficients$SE)))
 })
 
 test_that("no fitter leaves the caller's RNG stream at a fixed state", {

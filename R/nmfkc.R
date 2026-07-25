@@ -4207,6 +4207,17 @@ nmfkc.residual.plot <- function(Y, result,
 #'     \item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
 #'       (default, i.i.d. multiplier per matrix cell) or \code{"column"}
 #'       (one multiplier per sample column, shared over rows).}
+#'     \item{\code{refit.epsilon}, \code{refit.maxit}}{For
+#'       \code{method="refit"}: convergence tolerance and iteration cap of the
+#'       re-fits, defaulting to \code{1e-8} and \code{100000}.  These are
+#'       deliberately far tighter than \code{\link{nmfkc}}'s own \code{1e-4}:
+#'       under multiplicative updates a coefficient heading for the
+#'       non-negativity boundary approaches 0 slowly, so at a loose tolerance
+#'       every replicate stops while that coefficient is still spuriously
+#'       positive.  The replicates then pile up above the point estimate, the
+#'       percentile interval can exclude it entirely, and the bootstrap SE is
+#'       understated.  Loosen only if the re-fits are too slow, and check that
+#'       the intervals still contain the estimates.}
 #'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
 #'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
 #'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
@@ -4260,6 +4271,16 @@ nmfkc.inference <- function(object, Y, A = NULL,
                else if (method == "onestep") "exp" else "rademacher"
   wild.unit <- if (!is.null(extra_args$wild.unit))
                  base::match.arg(extra_args$wild.unit, c("element", "column")) else "element"
+  ## Convergence control for the method = "refit" bootstrap.  This must be much
+  ## tighter than nmfkc()'s own default (1e-4): under multiplicative updates a
+  ## coefficient heading for the non-negativity boundary approaches 0 slowly, so
+  ## at a loose tolerance every replicate stops while that coefficient is still
+  ## spuriously positive.  The replicates then pile up above the point estimate
+  ## and the percentile interval can exclude it entirely (on vars::Canada, 4 of
+  ## 10 coefficients at 1e-4; none at 1e-8), while the bootstrap SE is
+  ## understated roughly twofold.
+  refit.epsilon <- if (!is.null(extra_args$refit.epsilon)) extra_args$refit.epsilon else 1e-8
+  refit.maxit   <- if (!is.null(extra_args$refit.maxit))   extra_args$refit.maxit   else 100000L
 
   X <- object$X   # P x Q
   C_mat <- object$C   # Q x K (or Q x N if A is NULL)
@@ -4343,6 +4364,7 @@ nmfkc.inference <- function(object, Y, A = NULL,
       Qrank <- ncol(X)
       refit.fun <- function(Ys) nmfkc(Ys, A = A, rank = Qrank,
                                       X.init = X, X.restriction = "fixed",
+                                      epsilon = refit.epsilon, maxit = refit.maxit,
                                       verbose = FALSE)$C
       C_boot <- .boot.refit(XB, R_C, refit.fun, wild.B,
                             dist = wild.dist, seed = wild.seed,
