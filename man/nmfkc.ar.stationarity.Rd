@@ -28,26 +28,31 @@ selected by \code{method}).  A value below 1 indicates stationarity.}
 \item{stationary}{Logical; \code{TRUE} when \code{spectral.radius < 1}.}
 \item{method}{The route actually used.}
 \item{spectral.radius.sum}{\eqn{\rho(\sum_d G_d)}; below 1 iff stationary.}
-\item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d \Theta_d} (length \eqn{P}).}
+\item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d\Xi_d}, i.e.
+\code{colSums(X) \%*\% Lambda} (length \eqn{P}).}
 \item{colsum.max}{\eqn{\max_j c_j}; below 1 it certifies stationarity.}
 \item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
 }
 \description{
 Reports whether a fitted NMF-VAR is stationary, and how cheaply that could be
 decided.  Three numbers are returned, in increasing order of sharpness:
-\code{colsum.max} \eqn{=\max_j c_j} of \eqn{\sum_d \Theta_d} certifies
-stationarity when below 1 with no eigenvalue computation at all (a sufficient
-condition only, so a value above 1 is merely inconclusive);
-\code{spectral.radius.sum} \eqn{=\rho(\sum_d G_d)} is below 1 exactly when the
-model is stationary (and is bracketed by \eqn{\min_j c_j} and
-\eqn{\max_j c_j}); and \code{spectral.radius} is the spectral radius of the
-companion matrix itself.
+\code{colsum.max} \eqn{=\max_j c_j}, the largest column sum of
+\eqn{\sum_d\Xi_d = X\sum_d\Theta_d}, certifies stationarity when below 1 with
+no eigenvalue computation at all (a sufficient condition only, so a value
+above 1 is merely inconclusive); \code{spectral.radius.sum}
+\eqn{=\rho(\sum_d G_d)} is below 1 exactly when the model is stationary (and
+is bracketed by \eqn{\min_j c_j} and \eqn{\max_j c_j}); and
+\code{spectral.radius} is the spectral radius of the companion matrix itself.
+
+Note that the \eqn{c_j} are weighted by \eqn{\bm 1'X}, i.e.
+\code{colSums(X) \%*\% Lambda}.  Using the raw column sums of
+\eqn{\sum_d\Theta_d} is correct only when \eqn{\bm 1'X=\bm 1'} and can
+certify stationarity for a non-stationary fit otherwise.
 
 This function answers the yes/no question only.  For the dynamics behind the
 number --- the transition matrices, the roots, the impulse responses, the
 long-run mean --- use \code{\link{nmfkc.ar.latent}}, and for the standard
-error of \eqn{\rho} and a test of \eqn{H_0:\rho\ge 1} use
-\code{\link{nmfkc.ar.latent.inference}}.
+error of \eqn{\rho} use \code{\link{nmfkc.ar.latent.inference}}.
 }
 \examples{
 # Check stationarity of fitted AR model

@@ -187,9 +187,15 @@ test_that("stationarity accepts a fit or an already-computed latent object", {
 })
 
 test_that("column sums bracket rho and can be inconclusive", {
-  st <- nmfkc.ar.stationarity(make_canada_fit())
-  expect_equal(unname(st$colsum), c(1.01, 0.53, 0.54, 0.88), tolerance = 1e-12)
-  expect_equal(st$colsum.max, 1.01, tolerance = 1e-12)
+  st <- nmfkc.ar.stationarity(fit <- make_canada_fit())
+  ## The c_j are the column sums of X Lambda, i.e. colSums(X) %*% Lambda.  The
+  ## paper's printed X is rounded, so colSums(X) = (1.01, 1.00) rather than
+  ## (1, 1) and the weighted values differ slightly from colSums(Lambda) =
+  ## (1.01, 0.53, 0.54, 0.88) -- which is exactly why the weights are needed.
+  expect_equal(colSums(fit$X), c(Condition1 = 1.01, Condition2 = 1.00),
+               tolerance = 1e-12)
+  expect_equal(unname(st$colsum), c(1.0201, 0.5353, 0.54, 0.88), tolerance = 1e-12)
+  expect_equal(st$colsum.max, 1.0201, tolerance = 1e-12)
   ## max_j c_j >= 1 is inconclusive, yet the exact criterion says stationary
   expect_gt(st$colsum.max, 1)
   expect_true(st$stationary)
@@ -302,7 +308,7 @@ test_that("nmfkc.ar.latent.inference bootstraps the latent VAR", {
   ## uncertainty summaries are finite and ordered
   expect_true(is.finite(inf$spectral.radius.se) && inf$spectral.radius.se >= 0)
   expect_lte(inf$spectral.radius.ci.lower, inf$spectral.radius.ci.upper)
-  expect_true(inf$p.nonstationary >= 0 && inf$p.nonstationary <= 1)
+  expect_true(inf$prob.nonstationary >= 0 && inf$prob.nonstationary <= 1)
   expect_true(inf$truncate.rate >= 0 && inf$truncate.rate <= 1)
   expect_equal(inf$wild.B + inf$n.fail, 25L)
   expect_output(print(inf), "Bootstrap inference for the latent VAR")
@@ -333,51 +339,54 @@ test_that("the coefficient table covers every entry of every G_d", {
   expect_true(all(is.finite(ct$BSE) & ct$BSE >= 0))
 })
 
-test_that("entry-level inference warns when the column scale of X is free", {
-  set.seed(3)
-  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
-  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
-  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE,
-                              X.restriction = "none"))
-  lat <- suppressWarnings(nmfkc.ar.latent(f))
-  inf <- quietly(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 10),
-                 "column scale of X free")
-  expect_false(inf$identified)
-  expect_output(print(inf), "descriptive")
+test_that("a separable, column-normalised X does NOT certify uniqueness", {
+  ## The counterexample that demotes `identified`: X = I is perfectly separable
+  ## with unit column sums, yet a non-permutation T keeps both factors
+  ## non-negative and the product unchanged -- so G is not pinned down.
+  X <- diag(2); Th <- matrix(c(2, 1, 3, 1), 2, 2)     # [[2,3],[1,1]]
+  T <- matrix(c(.9, .1, .1, .9), 2, 2)
+  expect_equal(colSums(X), c(1, 1))                   # scale is fixed
+  expect_equal(unname(apply(X / rowSums(X), 2, max)), c(1, 1))  # separable
+  expect_true(all(X %*% T >= 0))
+  expect_equal(colSums(X %*% T), c(1, 1))             # still admissible
+  expect_true(all(solve(T) %*% Th >= -1e-12))
+  expect_equal(X %*% Th, (X %*% T) %*% (solve(T) %*% Th))
+  expect_false(all(T %in% c(0, 1)))                   # not a permutation
+  ## and the latent transition matrix genuinely differs between the two
+  expect_false(isTRUE(all.equal(Th %*% X, (solve(T) %*% Th) %*% (X %*% T))))
 })
 
-test_that("a non-separable basis is not identified even with the scale fixed", {
-  ## every variable loads on both bases equally, so no basis owns a pure one:
-  ## column normalization removes the scale part of T but not the rotation
-  X  <- matrix(c(0.5, 0.5, 0.5, 0.5), 2, 2)
-  Th <- matrix(c(0.4, 0.1, 0.1, 0.4), 2, 2)
-  lat <- nmfkc.ar.latent(structure(list(X = X, C = Th, X.restriction = "colSums"),
-                                   class = "nmfkc"))
-  expect_lt(min(lat$separability), 0.9)
-  inf <- quietly(nmfkc.ar.latent.inference(lat, matrix(1, 2, 8), matrix(1, 2, 8),
-                                           wild.B = 5),
-                 "not separable")
-  expect_false(inf$identified)
-})
-
-test_that("a rank-1 model has no rotation to worry about", {
+test_that("rank 1 has no rotation, and Q > 1 is only ever APPROXIMATE", {
   a <- nmfkc.ar(log(AirPassengers), degree = 2, intercept = TRUE)
   f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 1, seed = 1, verbose = FALSE))
   inf <- suppressWarnings(nmfkc.ar.latent.inference(
     suppressWarnings(nmfkc.ar.latent(f)), a$Y, a$A, wild.B = 5))
-  expect_true(inf$identified)
-})
+  expect_true(inf$identified.approx)                 # no rotation at Q = 1
 
-test_that("identified tracks both conditions, not just the scale", {
+  ## Q = 2: the anchor / pure tests can pass, but only up to the thresholds, so
+  ## the function still warns that this is not a certificate.
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
-  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
-  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))
-  lat <- suppressWarnings(nmfkc.ar.latent(f))
-  inf <- suppressWarnings(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 10))
-  ## the default fixes the scale, so identification now rests on separability
-  expect_identical(f$X.restriction, "colSums")
-  expect_identical(inf$identified, min(lat$separability) >= 0.9)
+  a2 <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f2 <- suppressWarnings(nmfkc(a2$Y, a2$A, rank = 2, verbose = FALSE))
+  lat2 <- suppressWarnings(nmfkc.ar.latent(f2))
+  expect_identical(f2$X.restriction, "colSums")
+  i2 <- quietly(nmfkc.ar.latent.inference(lat2, a2$Y, a2$A, wild.B = 10),
+                "APPROXIMATELY|not even approximately")
+  if (i2$identified.approx) {
+    ## passing means it is approximate, and the print-out says so
+    expect_output(print(i2), "APPROXIMATELY")
+    expect_true(is.finite(i2$identification$anchor.margin))
+  } else {
+    expect_output(print(i2), "DESCRIPTIVE")
+  }
+  ## a scale that is not per-column normalised is called out by name
+  f3 <- suppressWarnings(nmfkc(a2$Y, a2$A, rank = 2, verbose = FALSE,
+                               X.restriction = "none"))
+  i3 <- quietly(nmfkc.ar.latent.inference(
+    suppressWarnings(nmfkc.ar.latent(f3)), a2$Y, a2$A, wild.B = 5),
+    "does not fix the per-column scale")
+  expect_false(i3$identified.approx)
 })
 
 test_that("the KKT diagnostic reports both margins", {
@@ -434,4 +443,213 @@ test_that("the wrong class is rejected by each entry point", {
   expect_error(nmfkc.ar.latent.inference(nmfkc.ar.stationarity(fit),
                                          matrix(1, 4, 4), matrix(1, 4, 4)),
                "nmfkc.ar.latent")
+})
+
+test_that("the colsum bracket is weighted by colSums(X)", {
+  ## Counterexample: the raw column sums of Lambda would certify stationarity
+  ## for a fit whose spectral radius is 1.6.
+  X  <- matrix(c(20, 20), 2, 1)
+  Th <- matrix(c(0.04, 0.04), 1, 2)
+  lat <- suppressWarnings(nmfkc.ar.latent(
+    structure(list(X = X, C = Th), class = "nmfkc")))
+  expect_equal(unname(lat$colsum), c(1.6, 1.6), tolerance = 1e-12)
+  expect_equal(lat$colsum.max, 1.6, tolerance = 1e-12)
+  expect_equal(lat$spectral.radius, 1.6, tolerance = 1e-12)
+  expect_false(lat$stationary)
+  expect_gt(lat$colsum.max, 1)                 # correctly inconclusive
+  expect_lt(max(colSums(Th)), 1)               # the unweighted rule would not be
+  ## the bracket must actually bracket
+  expect_gte(lat$spectral.radius.sum, min(lat$colsum) - 1e-12)
+  expect_lte(lat$spectral.radius.sum, lat$colsum.max + 1e-12)
+})
+
+test_that("the weighted and unweighted rules agree under column normalisation", {
+  set.seed(5)
+  for (i in 1:5) {
+    P <- 5; Q <- 2; D <- 2
+    X <- matrix(runif(P * Q), P, Q); X <- sweep(X, 2, colSums(X), "/")
+    Th <- matrix(runif(Q * P * D) * 0.15, Q, P * D)
+    lat <- nmfkc.ar.latent(structure(list(X = X, C = cbind(Th, runif(Q))),
+                                     class = "nmfkc"))
+    Lam <- Th[, 1:P, drop = FALSE] + Th[, (P + 1):(2 * P), drop = FALSE]
+    expect_equal(unname(lat$colsum), unname(colSums(Lam)), tolerance = 1e-12)
+  }
+})
+
+test_that("the bootstrapped radius is the companion radius, not rho(sum G_d)", {
+  ## For D > 1 the two differ: with G_1 = 0.2, G_2 = 0.1 the companion radius is
+  ## 0.4317 while rho(G_1 + G_2) = 0.3.  The inference must report the former,
+  ## which is what nmfkc.ar.latent() reports.
+  ## P = 2, Q = 1, D = 2 (ncol(Theta) = 4 = P*D, so the split is unambiguous;
+  ## P = 1 would be the ambiguous case documented for .nmfvar.parts)
+  X  <- matrix(c(0.5, 0.5), 2, 1)
+  Th <- matrix(c(0.2, 0.2, 0.1, 0.1), 1, 4)       # G_1 = 0.2, G_2 = 0.1
+  lat <- nmfkc.ar.latent(structure(list(X = X, C = Th), class = "nmfkc"))
+  expect_equal(unname(unlist(lat$G)), c(0.2, 0.1), tolerance = 1e-12)
+  expect_equal(lat$spectral.radius, 0.4316625, tolerance = 1e-6)
+  expect_equal(lat$spectral.radius.sum, 0.3, tolerance = 1e-12)
+  expect_true(lat$alternating)                  # the second root is negative
+  expect_false(lat$non.oscillatory)
+  expect_output(print(lat), "alternating")
+
+  set.seed(3)
+  Y <- matrix(abs(rnorm(3 * 40)) + 1, 3, 40)
+  a <- nmfkc.ar(Y, degree = 3, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, epsilon = 1e-8, verbose = FALSE))
+  l <- suppressWarnings(nmfkc.ar.latent(f))
+  inf <- suppressWarnings(nmfkc.ar.latent.inference(l, a$Y, a$A, wild.B = 8))
+  ## the two must now agree; before the fix inf used rho(sum_d G_d)
+  expect_equal(inf$spectral.radius, l$spectral.radius, tolerance = 1e-10)
+  expect_true(abs(l$spectral.radius - l$spectral.radius.sum) > 1e-6)  # D > 1
+  ## and the stationarity verdict is the same either way under non-negativity
+  expect_identical(l$spectral.radius < 1, l$spectral.radius.sum < 1)
+})
+
+test_that("Q = 2, D = 1 with G >= 0 can never produce a complex pair", {
+  ## discriminant = (a - d)^2 + 4bc >= 0, so the phase portrait cannot spiral;
+  ## the absence of a cycle there is a property of the design, not a finding.
+  set.seed(11)
+  for (i in 1:200) {
+    X <- matrix(runif(4), 2, 2); X <- sweep(X, 2, colSums(X), "/")
+    Th <- matrix(runif(4) * 0.4, 2, 2)
+    lat <- suppressWarnings(nmfkc.ar.latent(
+      structure(list(X = X, C = Th), class = "nmfkc")))
+    expect_true(all(abs(Im(lat$eigenvalues)) < 1e-8))
+    expect_true(is.na(lat$cycle.period))
+  }
+  ## the print-out says so
+  lat <- nmfkc.ar.latent(make_canada_fit())
+  expect_output(print(lat), "not a finding")
+})
+
+test_that("the latent recursion is VARMA: dropping the MA term is not exact", {
+  set.seed(1)
+  P <- 3; Q <- 2; n <- 40
+  X <- matrix(runif(P * Q), P, Q); X <- sweep(X, 2, colSums(X), "/")
+  Th <- matrix(runif(Q * P) * 0.3, Q, P)
+  G <- Th %*% X
+  Y <- matrix(abs(rnorm(P * (n + 1))) + 1, P, n + 1)
+  b <- Th %*% Y[, 1:n]                       # b_t = Theta y_{t-1}
+  e <- Y[, 2:(n + 1)] - X %*% b              # y_t = X b_t + e_t
+  lhs <- b[, 2:n]
+  ## the VAR form is NOT an identity ...
+  expect_gt(max(abs(lhs - G %*% b[, 1:(n - 1)])), 1e-3)
+  ## ... but the VARMA form is, to machine precision
+  expect_equal(lhs, G %*% b[, 1:(n - 1)] + Th %*% e[, 1:(n - 1)],
+               tolerance = 1e-12)
+})
+
+test_that("identification needs BOTH anchor rows in X and pure columns in Theta", {
+  ## X separable but Theta with no pure column -> the counterexample family
+  X  <- diag(2); Th <- matrix(c(2, 1, 3, 1), 2, 2)
+  id <- nmfkc:::.nmfvar.identified(X, Th)
+  expect_true(all(id$anchor))          # X = I has an anchor row per column
+  expect_false(all(id$pure))           # no column of Theta is pure
+  expect_false(id$ok)
+
+  ## Theta with pure columns but X not separable -> T >= 0 not forced
+  X2 <- matrix(c(0.6, 0.4, 0.4, 0.6), 2, 2)
+  Th2 <- matrix(c(0.5, 0, 0, 0.5), 2, 2)
+  id2 <- nmfkc:::.nmfvar.identified(X2, Th2)
+  expect_false(all(id2$anchor))
+  expect_true(all(id2$pure))
+  expect_false(id2$ok)
+
+  ## both sides -> identified (anchor rows for BOTH columns of X this time)
+  X3 <- matrix(c(1, 0.4, 0, 0, 0.6, 1), 3, 2)
+  id3 <- nmfkc:::.nmfvar.identified(X3, Th2)
+  expect_true(all(id3$anchor))
+  expect_true(all(id3$pure))
+  expect_true(id3$ok)
+})
+
+test_that("the monomial step is what makes T a permutation", {
+  ## T >= 0 and T^-1 >= 0 together force T to be a scaled permutation, and the
+  ## column-sum constraint removes the scale.  Positive test:
+  for (p in list(c(1, 2), c(2, 1))) {
+    T <- diag(2)[p, , drop = FALSE]
+    expect_true(all(T >= 0) && all(solve(T) >= 0))
+  }
+  ## and the counterexample's T is non-negative but its inverse is not, which is
+  ## exactly why the anchor condition alone does not suffice
+  T <- matrix(c(.9, .1, .1, .9), 2, 2)
+  expect_true(all(T >= 0))
+  expect_true(any(solve(T) < 0))
+  ## a non-monomial non-negative T can never have a non-negative inverse
+  set.seed(2)
+  for (i in 1:2000) {
+    M <- matrix(runif(4), 2, 2)          # dense, so not monomial
+    expect_true(any(solve(M) < 0))
+  }
+})
+
+test_that("Canada is identified, and the diagnostic says which side would fail", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  ## a fit with a non-separable basis reports the anchor side as the culprit
+  X  <- matrix(c(0.5, 0.5, 0.5, 0.5), 2, 2)
+  Th <- matrix(c(0.4, 0, 0, 0.4), 2, 2)
+  lat <- nmfkc.ar.latent(structure(list(X = X, C = Th, X.restriction = "colSums"),
+                                   class = "nmfkc"))
+  inf <- quietly(nmfkc.ar.latent.inference(lat, matrix(1, 2, 8), matrix(1, 2, 8),
+                                           wild.B = 5),
+                 "no anchor row")
+  expect_false(inf$identified.approx)
+  expect_false(all(inf$identification$anchor))
+  expect_true(all(inf$identification$pure))
+})
+
+test_that("the bootstrap re-fits inherit the original estimator's settings", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE,
+                              method = "KL", X.restriction = "colSqSums"))
+  lat <- suppressWarnings(nmfkc.ar.latent(f))
+  expect_identical(lat$fit.args$method, "KL")
+  expect_identical(lat$fit.args$X.restriction, "colSqSums")
+  inf <- suppressWarnings(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 5))
+  expect_identical(inf$refit.args$method, "KL")
+  expect_identical(inf$refit.args$X.restriction, "colSqSums")
+  ## refit.args= overrides
+  i2 <- suppressWarnings(nmfkc.ar.latent.inference(
+    lat, a$Y, a$A, wild.B = 5, refit.args = list(method = "EU")))
+  expect_identical(i2$refit.args$method, "EU")
+})
+
+test_that("only per-column normalisation fixes the scale, and 'fixed' is special", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  ## totalSum constrains the grand total, so columns can still trade scale
+  ftot <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE,
+                                 X.restriction = "totalSum"))
+  ltot <- suppressWarnings(nmfkc.ar.latent(ftot))
+  itot <- quietly(nmfkc.ar.latent.inference(ltot, a$Y, a$A, wild.B = 5),
+                  "does not fix the per-column scale")
+  expect_false(itot$identified.approx)
+  ## X.restriction = "fixed" does not estimate X at all, so T = I
+  X0 <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))$X
+  ffix <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE,
+                                 X.init = X0, X.restriction = "fixed"))
+  lfix <- suppressWarnings(nmfkc.ar.latent(ffix))
+  ifix <- suppressWarnings(nmfkc.ar.latent.inference(lfix, a$Y, a$A, wild.B = 5,
+                                                     refit.args = list(X.init = X0)))
+  expect_true(ifix$identified.approx)
+})
+
+test_that("the identification diagnostic reports how far it is from exact", {
+  X <- diag(2); Th <- matrix(c(0.5, 0, 0, 0.5), 2, 2)
+  id <- nmfkc:::.nmfvar.identified(X, Th)
+  expect_true(id$ok)
+  expect_equal(id$anchor.margin, 0)          # exact anchors
+  expect_equal(id$pure.margin, 0)            # exact zeros
+  ## leak a little and the margins pick it up
+  X2 <- matrix(c(1, 1e-4, 1e-4, 1), 2, 2)
+  Th2 <- matrix(c(0.5, 1e-5, 1e-5, 0.5), 2, 2)
+  id2 <- nmfkc:::.nmfvar.identified(X2, Th2)
+  expect_true(id2$ok)
+  expect_gt(id2$anchor.margin, 0)
+  expect_gt(id2$pure.margin, 0)
 })

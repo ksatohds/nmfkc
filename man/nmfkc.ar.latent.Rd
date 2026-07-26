@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmfkc.ar.R
 \name{nmfkc.ar.latent}
 \alias{nmfkc.ar.latent}
-\title{Latent VAR representation of an NMF-VAR model}
+\title{Latent transition matrices of an NMF-VAR model}
 \usage{
 nmfkc.ar.latent(x)
 }
@@ -23,24 +23,36 @@ eigenvalues, so these are all of the model's roots.}
 \item{spectral.radius.sum}{\eqn{\rho(\sum_d G_d)}; below 1 iff stationary.}
 \item{stationary}{Logical; \code{TRUE} when \code{spectral.radius < 1}.}
 \item{cycle.period}{Period \eqn{2\pi/|\arg\lambda|} implied by the dominant
-complex root, or \code{NA} when every root is real (no cycle).}
+complex root, or \code{NA} when no root is complex.}
+\item{alternating}{\code{TRUE} when some root is real and negative, i.e. the
+decay alternates in sign (period 2).}
+\item{non.oscillatory}{\code{TRUE} only when every root is real and positive.
+Named after the roots, not the trajectory --- overshoot is still possible.}
 \item{theta0}{Latent intercept \eqn{\bm\theta} (or \code{NULL}).}
 \item{mu.b, mu.y}{Long-run means \eqn{(I-\sum_d G_d)^{-1}\bm\theta} and
 \eqn{X\bm\mu_b}; \code{NA} when the fit is not stationary or has no
 intercept.}
-\item{p.star}{Long-run composition \eqn{\bm\mu_b/(\bm 1'\bm\mu_b)}, the
-fixed point the soft-clustering proportions converge to.}
-\item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d \Theta_d} (length \eqn{P}),
-which bracket \eqn{\rho(\sum_d G_d)}.}
+\item{p.star}{Composition of the long-run mean,
+\eqn{\bm\mu_b/(\bm 1'\bm\mu_b)} --- equivalently the fixed point of the
+\emph{residual-free} composition dynamics.  It is \strong{not} in general
+the limit of \eqn{\bm b_t/(\bm 1'\bm b_t)} for the stochastic process, nor
+its expectation: the ratio of expectations is not the expectation of the
+ratio.}
+\item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d\Xi_d = X\sum_d\Theta_d},
+computed as \code{colSums(X) \%*\% Lambda} (length \eqn{P}).  Being column
+sums of a non-negative matrix whose radius is \eqn{\rho(\sum_d G_d)}, they
+bracket it.  The unweighted \code{colSums(Lambda)} would only be correct
+when \eqn{\bm 1'X=\bm 1'}.}
 \item{colsum.max}{\eqn{\max_j c_j}; below 1 it certifies stationarity.}
 \item{df}{Effective dimension \eqn{Q(P+m-Q)} of the fit, where \eqn{m} is the
 number of columns of \eqn{\Theta} (\eqn{PD+1} with an intercept, \eqn{PD}
 without).  These are the degrees of freedom to use when comparing
 \eqn{R^2} or information criteria across \eqn{Q}: the naive count
 \eqn{Q(P+m)} ignores the \eqn{Q^2} rotational indeterminacy.}
-\item{separability}{Per-basis maximum of the row-normalised \eqn{X}; values
-near 1 indicate separable (essentially uniquely identified up to
-permutation) bases.}
+\item{separability}{Per-basis maximum of the row-normalised \eqn{X}; a value
+near 1 means that basis owns a variable loading almost only on it.  This is
+a \emph{necessary}-looking but not sufficient condition for uniqueness ---
+see the counterexample under Identification.}
 \item{X, Theta}{The basis and the full coefficient matrix the quantities
 above were computed from, carried along so that
 \code{\link{nmfkc.ar.latent.inference}} does not need the fitted object a
@@ -50,15 +62,15 @@ of \eqn{X}, which decides how much of \eqn{T} is pinned down.}
 \item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
 }
 \description{
-Turns a fitted NMF-VAR into the \eqn{Q}-dimensional VAR its coefficients
-actually follow.  Since \eqn{\bm y_t = X\bm b_t}, the fit implies
+Reduces a fitted NMF-VAR to the \eqn{Q\times Q} operators that drive its
+coefficient vector.  Writing \eqn{\bm b_t=\Theta\bm a_t} for the fitted
+scores, the residual-free recursion is
 \deqn{\bm b_t=\sum_{d=1}^{D}G_d\,\bm b_{t-d}+\bm\theta,\qquad G_d=\Theta_d X
   \ \ (Q\times Q),}
-so the \eqn{Q\times Q} matrices \eqn{G_d} say how the latent bases drive one
-another.  Everything about the model's dynamics --- transition structure,
-propagation delay, roots, impulse responses, the long-run mean --- lives in
-them, and they stay readable where the \eqn{P\times P} matrices
-\eqn{\Xi_d = X\Theta_d} do not: \eqn{4\times4} instead of \eqn{47\times47}.
+and the \eqn{G_d} carry the model's whole deterministic structure ---
+transition weights, propagation, roots, the long-run mean.  They stay
+readable where the \eqn{P\times P} matrices \eqn{\Xi_d = X\Theta_d} do not:
+\eqn{4\times4} instead of \eqn{47\times47}.
 
 Use \code{\link{plot.nmfkc.ar.latent}} to draw them,
 \code{\link{nmfkc.ar.latent.inference}} to attach standard errors, and
@@ -66,6 +78,19 @@ Use \code{\link{plot.nmfkc.ar.latent}} to draw them,
 is wanted.
 }
 \details{
+\strong{The latent process is VARMA, not VAR.}  The display above drops the
+observation residual.  With \eqn{\bm y_t = X\bm b_t + \bm e_t} the exact
+identity is
+\deqn{\bm b_t=\sum_{d=1}^{D}G_d\,\bm b_{t-d}+\bm\theta
+  +\sum_{d=1}^{D}\Theta_d\,\bm e_{t-d},}
+i.e. a VARMA\eqn{(D,D)} in general (verified to machine precision; dropping
+the moving-average term leaves an error of order the residuals themselves).
+\eqn{G_d} is therefore the \strong{autoregressive operator of the fitted VAR
+reduced to the latent space}, not the coefficient matrix of a latent VAR that
+the scores obey exactly.  In particular an entry of \eqn{G_d} should not be
+read as Granger causality between latent conditions: the moving-average term
+is common to all coordinates and is not conditioned on.
+
 \strong{Direction convention}: \eqn{(G_d)_{q q'}} is the effect of
 \eqn{b_{q',\,t-d}} on \eqn{b_{q,\,t}} --- \strong{row = effect} (at \eqn{t}),
 \strong{column = cause} (at \eqn{t-d}).
@@ -73,11 +98,26 @@ is wanted.
 \strong{Identification.}  The factorization is unique only up to
 \eqn{(X,\Theta)\to(XT,T^{-1}\Theta)}, under which \eqn{G_d\to T^{-1}G_dT}.
 The eigenvalues, \eqn{\rho}, \eqn{\Xi_d} and \eqn{\bm\mu_y} are therefore
-invariant, while individual entries of \eqn{G_d} are identified only once
-\eqn{T} is pinned down.  The default \code{X.restriction = "colSums"} of
-\code{\link{nmfkc}} fixes the column scale of \eqn{X} and so reduces \eqn{T}
-to a permutation, which is why entry-level inference is possible at all; see
-\code{\link{nmfkc.ar.latent.inference}}.
+invariant, while individual entries of \eqn{G_d} are not.  Column
+normalization removes only the scale part of \eqn{T}, and a separable fitted
+\eqn{X} does not certify the rest: with \eqn{X=I_2},
+\eqn{\Theta=\left(\begin{smallmatrix}2&3\\1&1\end{smallmatrix}\right)} and
+\eqn{T=\left(\begin{smallmatrix}0.9&0.1\\0.1&0.9\end{smallmatrix}\right)} the
+basis is perfectly separable and column-normalized, yet \eqn{XT\ge0},
+\eqn{T^{-1}\Theta\ge0}, the product is unchanged and \eqn{T} is no
+permutation.  Read the entries of \eqn{G_d} as descriptive and the invariants
+as inferential; see \code{\link{nmfkc.ar.latent.inference}}.
+
+\strong{Oscillation.}  A complex pair means a cycle, but a \emph{negative
+real} root also oscillates --- it alternates in sign each period, i.e. with
+period 2.  \code{cycle.period} covers the first case and \code{alternating}
+the second; \code{non.oscillatory} is \code{TRUE} only when neither occurs.
+Positive real roots rule out oscillation but \strong{not overshoot}: a
+non-normal \eqn{G} can send a coordinate up before it comes down, which is
+exactly what the off-diagonal impulse responses of the Canada fit do.  Note
+also that for \eqn{Q=2}, \eqn{D=1} and \eqn{G\ge0} the roots are real by
+construction (the discriminant is \eqn{(a-d)^2+4bc\ge0}), so in that setting
+the absence of a cycle is a property of the design, not a finding.
 }
 \examples{
 d <- AirPassengers

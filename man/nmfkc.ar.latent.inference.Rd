@@ -31,8 +31,16 @@ heading for the non-negativity boundary moves slowly and a loose
 tolerance biases anything that is compared with zero.}
 \item{\code{kkt.tol}, \code{kkt.ratio.min}}{Thresholds of the strict
 complementarity diagnostic (defaults \code{1e-3} and \code{5}).}
-\item{\code{sep.tol}}{Separability a basis must reach before the entries
-of \eqn{G_d} are declared identified.  Default \code{0.9}.}
+\item{\code{sep.tol}}{Row-normalised loading a column of \eqn{X} must
+reach for that basis to count as anchored.  Default \code{0.999}.  The
+zero threshold for the pure-column test on \eqn{\Theta} is
+\code{kkt.tol}.}
+\item{\code{refit.args}}{Named list of extra arguments for the bootstrap
+re-fits.  \code{method} and \code{X.restriction} are taken from the
+original fit automatically, so the replicates use the same estimator;
+anything else the original call set (\code{X.init}, penalties, ...)
+cannot be recovered from the fitted object and must be passed here.
+The function warns when it sees such arguments in the recorded call.}
 \item{\code{cores}}{Number of workers for the re-fits, default
 \code{getOption("mc.cores", 1L)} (sequential).  The bootstrap
 multipliers are drawn before the loop and each re-fit is deterministic
@@ -44,25 +52,43 @@ An object of class \code{"nmfkc.ar.latent.inference"}: a list with
 \item{coefficients}{Data frame of the \eqn{DQ^2} entries of the \eqn{G_d},
 with columns \code{Lag}, \code{Basis} (effect at \eqn{t}),
 \code{Covariate} (cause at \eqn{t-d}), \code{Estimate}, \code{BSE},
-\code{CI_low}, \code{CI_high}, \code{p_value}.}
+\code{CI_low}, \code{CI_high}, \code{p_value}.  Descriptive unless
+\code{identified.approx}.}
 \item{G, G.se, G.ci.lower, G.ci.upper, G.p.value}{The same quantities as
 lists of \eqn{Q\times Q} matrices, one per lag.}
-\item{spectral.radius}{With \code{spectral.radius.se},
-\code{spectral.radius.ci.lower} / \code{.upper} and
-\code{spectral.radius.boot.mean}.}
-\item{p.nonstationary}{One-sided bootstrap p-value for \eqn{H_0:\rho\ge 1};
-small values support stationarity.}
+\item{spectral.radius}{The radius of the \eqn{DQ\times DQ} latent companion
+matrix --- the same quantity \code{\link{nmfkc.ar.latent}} reports, not
+\eqn{\rho(\sum_d G_d)}, which differs when \eqn{D>1}.  With
+\code{spectral.radius.se}, \code{spectral.radius.ci.lower} / \code{.upper}
+and \code{spectral.radius.boot.mean}.}
+\item{prob.nonstationary}{Bootstrap tail probability
+\eqn{P^\ast(\rho^\ast\ge1)}.  \strong{Not} a p-value for
+\eqn{H_0:\rho\ge1} --- see Details.}
 \item{complex, complex.frac}{Whether the point estimate has complex roots,
 and the fraction of replicates that do.}
-\item{mu.y, p.star}{Each with \code{.ci.lower} / \code{.ci.upper}.}
+\item{mu.y}{With \code{.ci.lower} / \code{.ci.upper}; invariant, so
+inferential.}
+\item{p.star}{With \code{.ci.lower} / \code{.ci.upper}; descriptive unless
+\code{identified.approx}.}
 \item{kkt}{Strict-complementarity diagnostic: \code{n.boundary},
 \code{all.positive}, \code{ratio}, and the two margins \code{delta.dual}
 and \code{delta.prim}.}
-\item{identified}{Logical; \code{TRUE} only when the column scale of \eqn{X}
-is fixed \emph{and} the basis is separable, the two conditions that reduce
-\eqn{T} to a permutation.  When \code{FALSE} the entries of \eqn{G_d} are
-descriptive only; \eqn{\rho}, the eigenvalues and \eqn{\bm\mu_y} remain
-valid.}
+\item{identified.approx}{Logical, an \strong{approximate diagnostic}:
+\code{TRUE} for \eqn{Q=1}, for \code{X.restriction = "fixed"} (where
+\eqn{X} is not estimated, so \eqn{T=I}), or when the per-column scale is
+fixed (\code{"colSums"} / \code{"colSqSums"}) and the anchor-row and
+pure-column tests both pass at \code{sep.tol} / \code{kkt.tol}.  It is not a
+certificate --- the uniqueness argument needs \emph{exact} anchors and
+\emph{exact} zeros, and multiplicative updates leak a little.  When
+\code{FALSE} the entry-level summaries and \code{p.star} are descriptive;
+\eqn{\rho}, the eigenvalues and \eqn{\bm\mu_y} remain inferential either
+way.}
+\item{identification}{The two sides separately: \code{anchor} (per column of
+\eqn{X}), \code{pure} (per row of \eqn{\Theta}), \code{ok}, and the margins
+\code{anchor.margin} / \code{pure.margin} saying how far the fit is from an
+exact configuration (0 = exact).}
+\item{refit.args}{The arguments the bootstrap re-fits actually used, so the
+replicates can be checked against the original estimator.}
 Plus the bookkeeping entries \code{wild.B}, \code{wild.B.requested},
 \code{n.fail}, \code{truncate.rate}, \code{wild.unit}, \code{wild.dist},
 \code{wild.level}, \code{dims}.
@@ -70,37 +96,51 @@ Plus the bookkeeping entries \code{wild.B}, \code{wild.B.requested},
 \description{
 \code{nmfkc.ar.latent.inference} attaches a wild bootstrap to the quantities
 reported by \code{\link{nmfkc.ar.latent}}: standard errors and intervals for
-the latent transition matrices \eqn{G_d}, the long-run mean and the long-run
-composition, and a test of \eqn{H_0:\rho\ge 1} that turns the stationarity
-verdict of \code{\link{nmfkc.ar.stationarity}} into a hypothesis test.
+the spectral radius, the long-run mean, the long-run composition and the
+entries of the latent transition matrices \eqn{G_d}.
 }
 \details{
-\strong{What is identified, and why that decides what is bootstrapped.}  The
+\strong{What is identified, and why that decides what can be inferred.}  The
 factorization admits \eqn{(X,\Theta)\to(XT,T^{-1}\Theta)} for invertible
 \eqn{T}, so an entry of \eqn{\Theta} means nothing across replicates;
 \code{\link{nmfkc.inference}} deals with this by conditioning on the
 estimated \eqn{X}.  This function instead re-estimates the basis in every
-replicate --- propagating its uncertainty --- and reports only quantities
-that survive the indeterminacy:
+replicate, propagating its uncertainty.  That splits the output in two:
 \itemize{
-\item \eqn{\rho} and the eigenvalues of \eqn{G=\sum_d G_d} are fully
-invariant, since \eqn{G\to T^{-1}GT}.  The stationarity test therefore
-needs no label alignment at all.
-\item the observed long-run mean \eqn{\bm\mu_y = X\bm\mu_b} is invariant.
-\item the entries \eqn{(G_d)_{qq'}} and the composition
-\eqn{\bm p^\ast=\bm\mu_b/\sum_q \mu_{b,q}} need \eqn{T} to be a
-permutation, and that takes \strong{two} things.  Column normalization
-(\code{X.restriction = "colSums"}, the default of \code{\link{nmfkc}})
-removes only the \emph{scale} part of \eqn{T}; the \emph{rotational} part
-is removed by separability of \eqn{X} --- each basis owning a variable
-that loads on it alone --- or by sufficient scatteredness of the rows of
-\eqn{\Theta}.  Separability is the checkable one, so the function tests
-\code{min(separability) >= sep.tol} and reports \code{identified};
-replicates are permutation-aligned to the original basis before being
-summarised.  When either condition fails the function warns and the
-entries should be read as descriptive --- \eqn{\rho}, the eigenvalues and
-\eqn{\bm\mu_y} are unaffected either way.
+\item \strong{Inferential.}  \eqn{\rho}, the eigenvalues and the observed
+long-run mean \eqn{\bm\mu_y=X\bm\mu_b} are invariant under the whole
+family (\eqn{G_d\to T^{-1}G_dT} leaves the spectrum alone), so their
+replicates need no alignment and their intervals mean what they say.
+\item \strong{Conditional on identification.}  The entries
+\eqn{(G_d)_{qq'}} and the composition \eqn{\bm p^\ast} need \eqn{T} to be
+a permutation, and three conditions together deliver that: the column
+scale fixed (\code{X.restriction = "colSums"}), an \strong{anchor row} for
+every column of \eqn{X}, and a \strong{pure column} for every row of
+\eqn{\Theta}.  The anchor rows force \eqn{T\ge0}, the pure columns force
+\eqn{T^{-1}\ge0}, and a non-negative matrix with a non-negative inverse is
+monomial.  \strong{Either one-sided condition alone is not enough}: with
+\eqn{X=I_2},
+\eqn{\Theta=\left(\begin{smallmatrix}2&3\\1&1\end{smallmatrix}\right)} and
+\eqn{T=\left(\begin{smallmatrix}0.9&0.1\\0.1&0.9\end{smallmatrix}\right)}
+the basis is perfectly separable and column-normalized, yet \eqn{XT\ge0},
+\eqn{T^{-1}\Theta\ge0}, \eqn{X\Theta} is unchanged, \eqn{T} is no
+permutation, and \eqn{G} differs between the two representatives ---
+\eqn{\Theta} has no pure column there.  \code{identified.approx} reports
+the verdict and \code{identification} the two sides plus how far each is
+from exact; the function warns either way, naming the side that fails or
+the margins when it only passes approximately.  \strong{The thresholds
+make this a diagnostic, not a certificate}: the argument needs exact
+anchors and exact zeros, which multiplicative updates do not deliver.
+Replicates are permutation-aligned to the original basis regardless.
+\code{X.restriction = "fixed"} is the one clean case for \eqn{Q>1} --- the
+basis is not estimated, so \eqn{T=I}.
 }
+
+\strong{\code{prob.nonstationary} is not a unit-root test.}  It is the
+bootstrap tail probability \eqn{P^\ast(\rho^\ast\ge1)}, with replicates drawn
+around the \emph{estimated} model.  Nothing imposes \eqn{H_0:\rho=1}, so it
+does not have the interpretation of a p-value for that hypothesis; a proper
+test would have to resample under the null.
 
 \strong{The zeros of \eqn{\Theta} are only meaningful under
 misspecification.}  The strict-complementarity diagnostic reports the dual

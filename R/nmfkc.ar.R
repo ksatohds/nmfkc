@@ -561,17 +561,17 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 }
 
 
-#' @title Latent VAR representation of an NMF-VAR model
+#' @title Latent transition matrices of an NMF-VAR model
 #' @description
-#' Turns a fitted NMF-VAR into the \eqn{Q}-dimensional VAR its coefficients
-#' actually follow.  Since \eqn{\bm y_t = X\bm b_t}, the fit implies
+#' Reduces a fitted NMF-VAR to the \eqn{Q\times Q} operators that drive its
+#' coefficient vector.  Writing \eqn{\bm b_t=\Theta\bm a_t} for the fitted
+#' scores, the residual-free recursion is
 #' \deqn{\bm b_t=\sum_{d=1}^{D}G_d\,\bm b_{t-d}+\bm\theta,\qquad G_d=\Theta_d X
 #'   \ \ (Q\times Q),}
-#' so the \eqn{Q\times Q} matrices \eqn{G_d} say how the latent bases drive one
-#' another.  Everything about the model's dynamics --- transition structure,
-#' propagation delay, roots, impulse responses, the long-run mean --- lives in
-#' them, and they stay readable where the \eqn{P\times P} matrices
-#' \eqn{\Xi_d = X\Theta_d} do not: \eqn{4\times4} instead of \eqn{47\times47}.
+#' and the \eqn{G_d} carry the model's whole deterministic structure ---
+#' transition weights, propagation, roots, the long-run mean.  They stay
+#' readable where the \eqn{P\times P} matrices \eqn{\Xi_d = X\Theta_d} do not:
+#' \eqn{4\times4} instead of \eqn{47\times47}.
 #'
 #' Use \code{\link{plot.nmfkc.ar.latent}} to draw them,
 #' \code{\link{nmfkc.ar.latent.inference}} to attach standard errors, and
@@ -579,6 +579,19 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 #' is wanted.
 #'
 #' @details
+#' \strong{The latent process is VARMA, not VAR.}  The display above drops the
+#' observation residual.  With \eqn{\bm y_t = X\bm b_t + \bm e_t} the exact
+#' identity is
+#' \deqn{\bm b_t=\sum_{d=1}^{D}G_d\,\bm b_{t-d}+\bm\theta
+#'   +\sum_{d=1}^{D}\Theta_d\,\bm e_{t-d},}
+#' i.e. a VARMA\eqn{(D,D)} in general (verified to machine precision; dropping
+#' the moving-average term leaves an error of order the residuals themselves).
+#' \eqn{G_d} is therefore the \strong{autoregressive operator of the fitted VAR
+#' reduced to the latent space}, not the coefficient matrix of a latent VAR that
+#' the scores obey exactly.  In particular an entry of \eqn{G_d} should not be
+#' read as Granger causality between latent conditions: the moving-average term
+#' is common to all coordinates and is not conditioned on.
+#'
 #' \strong{Direction convention}: \eqn{(G_d)_{q q'}} is the effect of
 #' \eqn{b_{q',\,t-d}} on \eqn{b_{q,\,t}} --- \strong{row = effect} (at \eqn{t}),
 #' \strong{column = cause} (at \eqn{t-d}).
@@ -586,11 +599,26 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 #' \strong{Identification.}  The factorization is unique only up to
 #' \eqn{(X,\Theta)\to(XT,T^{-1}\Theta)}, under which \eqn{G_d\to T^{-1}G_dT}.
 #' The eigenvalues, \eqn{\rho}, \eqn{\Xi_d} and \eqn{\bm\mu_y} are therefore
-#' invariant, while individual entries of \eqn{G_d} are identified only once
-#' \eqn{T} is pinned down.  The default \code{X.restriction = "colSums"} of
-#' \code{\link{nmfkc}} fixes the column scale of \eqn{X} and so reduces \eqn{T}
-#' to a permutation, which is why entry-level inference is possible at all; see
-#' \code{\link{nmfkc.ar.latent.inference}}.
+#' invariant, while individual entries of \eqn{G_d} are not.  Column
+#' normalization removes only the scale part of \eqn{T}, and a separable fitted
+#' \eqn{X} does not certify the rest: with \eqn{X=I_2},
+#' \eqn{\Theta=\left(\begin{smallmatrix}2&3\\1&1\end{smallmatrix}\right)} and
+#' \eqn{T=\left(\begin{smallmatrix}0.9&0.1\\0.1&0.9\end{smallmatrix}\right)} the
+#' basis is perfectly separable and column-normalized, yet \eqn{XT\ge0},
+#' \eqn{T^{-1}\Theta\ge0}, the product is unchanged and \eqn{T} is no
+#' permutation.  Read the entries of \eqn{G_d} as descriptive and the invariants
+#' as inferential; see \code{\link{nmfkc.ar.latent.inference}}.
+#'
+#' \strong{Oscillation.}  A complex pair means a cycle, but a \emph{negative
+#' real} root also oscillates --- it alternates in sign each period, i.e. with
+#' period 2.  \code{cycle.period} covers the first case and \code{alternating}
+#' the second; \code{non.oscillatory} is \code{TRUE} only when neither occurs.
+#' Positive real roots rule out oscillation but \strong{not overshoot}: a
+#' non-normal \eqn{G} can send a coordinate up before it comes down, which is
+#' exactly what the off-diagonal impulse responses of the Canada fit do.  Note
+#' also that for \eqn{Q=2}, \eqn{D=1} and \eqn{G\ge0} the roots are real by
+#' construction (the discriminant is \eqn{(a-d)^2+4bc\ge0}), so in that setting
+#' the absence of a cycle is a property of the design, not a finding.
 #'
 #' @param x A fitted \code{"nmfkc"} object obtained from an
 #'   \code{\link{nmfkc.ar}} design (\code{nmfkc(ar$Y, ar$A, rank = Q)}).
@@ -606,24 +634,36 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 #' \item{spectral.radius.sum}{\eqn{\rho(\sum_d G_d)}; below 1 iff stationary.}
 #' \item{stationary}{Logical; \code{TRUE} when \code{spectral.radius < 1}.}
 #' \item{cycle.period}{Period \eqn{2\pi/|\arg\lambda|} implied by the dominant
-#'   complex root, or \code{NA} when every root is real (no cycle).}
+#'   complex root, or \code{NA} when no root is complex.}
+#' \item{alternating}{\code{TRUE} when some root is real and negative, i.e. the
+#'   decay alternates in sign (period 2).}
+#' \item{non.oscillatory}{\code{TRUE} only when every root is real and positive.
+#'   Named after the roots, not the trajectory --- overshoot is still possible.}
 #' \item{theta0}{Latent intercept \eqn{\bm\theta} (or \code{NULL}).}
 #' \item{mu.b, mu.y}{Long-run means \eqn{(I-\sum_d G_d)^{-1}\bm\theta} and
 #'   \eqn{X\bm\mu_b}; \code{NA} when the fit is not stationary or has no
 #'   intercept.}
-#' \item{p.star}{Long-run composition \eqn{\bm\mu_b/(\bm 1'\bm\mu_b)}, the
-#'   fixed point the soft-clustering proportions converge to.}
-#' \item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d \Theta_d} (length \eqn{P}),
-#'   which bracket \eqn{\rho(\sum_d G_d)}.}
+#' \item{p.star}{Composition of the long-run mean,
+#'   \eqn{\bm\mu_b/(\bm 1'\bm\mu_b)} --- equivalently the fixed point of the
+#'   \emph{residual-free} composition dynamics.  It is \strong{not} in general
+#'   the limit of \eqn{\bm b_t/(\bm 1'\bm b_t)} for the stochastic process, nor
+#'   its expectation: the ratio of expectations is not the expectation of the
+#'   ratio.}
+#' \item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d\Xi_d = X\sum_d\Theta_d},
+#'   computed as \code{colSums(X) \%*\% Lambda} (length \eqn{P}).  Being column
+#'   sums of a non-negative matrix whose radius is \eqn{\rho(\sum_d G_d)}, they
+#'   bracket it.  The unweighted \code{colSums(Lambda)} would only be correct
+#'   when \eqn{\bm 1'X=\bm 1'}.}
 #' \item{colsum.max}{\eqn{\max_j c_j}; below 1 it certifies stationarity.}
 #' \item{df}{Effective dimension \eqn{Q(P+m-Q)} of the fit, where \eqn{m} is the
 #'   number of columns of \eqn{\Theta} (\eqn{PD+1} with an intercept, \eqn{PD}
 #'   without).  These are the degrees of freedom to use when comparing
 #'   \eqn{R^2} or information criteria across \eqn{Q}: the naive count
 #'   \eqn{Q(P+m)} ignores the \eqn{Q^2} rotational indeterminacy.}
-#' \item{separability}{Per-basis maximum of the row-normalised \eqn{X}; values
-#'   near 1 indicate separable (essentially uniquely identified up to
-#'   permutation) bases.}
+#' \item{separability}{Per-basis maximum of the row-normalised \eqn{X}; a value
+#'   near 1 means that basis owns a variable loading almost only on it.  This is
+#'   a \emph{necessary}-looking but not sufficient condition for uniqueness ---
+#'   see the counterexample under Identification.}
 #' \item{X, Theta}{The basis and the full coefficient matrix the quantities
 #'   above were computed from, carried along so that
 #'   \code{\link{nmfkc.ar.latent.inference}} does not need the fitted object a
@@ -688,13 +728,30 @@ nmfkc.ar.latent <- function(x) {
   rho.sum <- max(Mod(eigen(G.sum, only.values = TRUE)$values))
   stationary <- (rho < 1)
 
+  ## A cycle needs a complex pair, but oscillation does not: a NEGATIVE real
+  ## root alternates in sign every period, i.e. it oscillates with period 2.
+  ## "all roots real" therefore does not mean monotone decay.
   cplx <- ev[abs(Im(ev)) > 1e-8]
   period <- if (length(cplx)) {
     k <- which.max(Mod(cplx))
     2 * pi / abs(Arg(cplx[k]))
   } else NA_real_
+  alternating <- any(abs(Im(ev)) <= 1e-8 & Re(ev) < -1e-8)
+  ## Positive real roots rule out OSCILLATION, not overshoot: a non-normal G
+  ## can send a component up before it comes down (the off-diagonal IRF of the
+  ## Canada fit peaks at h = 3 with both roots real and positive).  So this is
+  ## deliberately named after the roots, not after the trajectory.
+  non.oscillatory <- !length(cplx) && !alternating
 
-  cs <- colSums(Lam)
+  ## Perron-Frobenius bracket.  The bound applies to the column sums of the
+  ## non-negative matrix whose radius we want, i.e. of sum_d Xi_d = X Lambda:
+  ##   1_P' (X Lambda) = (1_P' X) Lambda = colSums(X) %*% Lambda,
+  ## and rho(X Lambda) = rho(Lambda X) = rho(sum_d G_d).  Using colSums(Lambda)
+  ## on its own is the special case colSums(X) = 1 and is WRONG otherwise:
+  ## with X = (20, 20)' and Lambda = (0.04, 0.04) it reports max_j c_j = 0.04
+  ## and would certify stationarity, while rho = 1.6.
+  cs <- as.numeric(colSums(X) %*% Lam)
+  names(cs) <- colnames(Lam)
 
   ## Long-run means: defined only for a stationary fit with an intercept.
   theta0 <- prt$theta0
@@ -724,7 +781,8 @@ nmfkc.ar.latent <- function(x) {
     G = G, G.sum = G.sum,
     eigenvalues = ev, spectral.radius = rho,
     spectral.radius.sum = rho.sum, stationary = stationary,
-    cycle.period = period,
+    cycle.period = period, alternating = alternating,
+    non.oscillatory = non.oscillatory,
     theta0 = theta0, mu.b = mu.b, mu.y = mu.y, p.star = p.star,
     colsum = cs, colsum.max = max(cs),
     ## PQ (basis) + Q*ncol(Theta) (coefficients) - Q^2 (rotational
@@ -739,8 +797,81 @@ nmfkc.ar.latent <- function(x) {
     ## How much of the rotational freedom nmfkc() pinned down; entry-level
     ## inference on G_d needs the column scale fixed.
     X.restriction = if (is.null(x$X.restriction)) NA_character_ else x$X.restriction,
+    ## Settings a bootstrap re-fit must reproduce, or it would resample a
+    ## DIFFERENT estimator than the one being described.  Only what nmfkc()
+    ## records can be recovered here; anything else the user passed (X.init,
+    ## penalties, ...) has to be supplied through refit.args=.
+    fit.args = list(method = x$method, X.restriction = x$X.restriction),
+    call = x$call,
     dims = c(P = P, Q = Q, D = D)),
     class = "nmfkc.ar.latent")
+}
+
+
+#' @title Is the factorization unique up to a permutation? (Internal)
+#' @description
+#' Two one-sided conditions together force \eqn{T} in
+#' \eqn{(X,\Theta)\to(XT,T^{-1}\Theta)} to be a permutation:
+#' \itemize{
+#'   \item an \strong{anchor row} for every column of \eqn{X} (a variable loading
+#'     on that basis alone) makes \eqn{XT\ge0} imply \eqn{T\ge0}, because the
+#'     anchor row of \eqn{XT} is a row of \eqn{T};
+#'   \item a \strong{pure column} for every row of \eqn{\Theta} (a covariate
+#'     whose coefficient is non-zero for that basis alone) makes
+#'     \eqn{T^{-1}\Theta\ge0} imply \eqn{T^{-1}\ge0}, because that column of
+#'     \eqn{T^{-1}\Theta} is a multiple of a column of \eqn{T^{-1}}.
+#' }
+#' A non-negative matrix whose inverse is also non-negative is monomial, and the
+#' column-sum constraint fixes the remaining scale, so \eqn{T} is a permutation.
+#'
+#' Either side alone is not enough.  With \eqn{X=I_2},
+#' \eqn{\Theta=[2\ 3;\ 1\ 1]} and \eqn{T=[0.9\ 0.1;\ 0.1\ 0.9]} the anchor
+#' condition holds and \eqn{T\ge0}, but \eqn{\Theta} has no pure column,
+#' \eqn{T^{-1}} has negative entries, and both factorizations are admissible.
+#' @param X Basis matrix (\eqn{P\times Q}).
+#' @param Theta Full coefficient matrix (\eqn{Q\times m}).
+#' @param sep.tol A column of \eqn{X} counts as anchored when the largest
+#'   row-normalised loading reaches \code{sep.tol}.
+#' @param zero.tol Entries of \eqn{\Theta} at or below this are treated as zero
+#'   when looking for pure columns.
+#' \strong{This is an approximate diagnostic, not a certificate.}  The argument
+#' above needs an \emph{exact} anchor row (loading exactly 1 after row
+#' normalisation) and an \emph{exact} pure column (the other entries exactly 0).
+#' Multiplicative updates give small positive leakage instead, so a fit that
+#' clears \code{sep.tol} / \code{zero.tol} is merely close to a configuration the
+#' theorem covers.  The returned margins say how close.
+#' @return List with \code{anchor} (logical, per column of \eqn{X}), \code{pure}
+#'   (logical, per row of \eqn{\Theta}), \code{ok}, and the two margins
+#'   \code{anchor.margin} (largest \eqn{1-} loading among the anchors, 0 when
+#'   exact) and \code{pure.margin} (largest leaked entry in the pure columns,
+#'   0 when exact).
+#' @keywords internal
+#' @noRd
+.nmfvar.identified <- function(X, Theta, sep.tol = 0.999, zero.tol = 1e-3) {
+  Q  <- ncol(X)
+  rs <- rowSums(X)
+  Xn <- if (all(rs > 0)) X / rs else X
+  best <- vapply(seq_len(Q), function(q) {
+    v <- Xn[, q]; v <- v[is.finite(v)]
+    if (length(v)) max(v) else NA_real_
+  }, numeric(1))
+  anchor <- !is.na(best) & best >= sep.tol
+  ## How far the best anchor is from an exact one (0 = exact).
+  anchor.margin <- if (any(anchor)) max(1 - best[anchor]) else NA_real_
+
+  nz   <- Theta > zero.tol
+  pcol <- lapply(seq_len(nrow(Theta)), function(q)
+    which(nz[q, ] & colSums(nz) == 1L))
+  pure <- vapply(pcol, function(j) length(j) > 0L, logical(1))
+  ## Largest entry that the pure-column test treated as zero (0 = exact).
+  pure.margin <- if (any(pure)) {
+    j <- unlist(pcol)
+    off <- Theta[, j, drop = FALSE][!nz[, j, drop = FALSE]]
+    if (length(off)) max(off) else 0
+  } else NA_real_
+
+  list(anchor = anchor, pure = pure, ok = all(anchor) && all(pure),
+       anchor.margin = anchor.margin, pure.margin = pure.margin)
 }
 
 
@@ -779,8 +910,14 @@ print.nmfkc.ar.latent <- function(x, digits = 3, ...) {
               if (x$stationary) "stationary" else "NOT stationary"))
   if (is.finite(x$cycle.period))
     cat(sprintf("dominant complex root: period %.1f periods\n", x$cycle.period))
+  else if (isTRUE(x$alternating))
+    cat("all roots real but one is negative: alternating decay (period 2)\n")
   else
-    cat("all roots real: monotone relaxation, no cycle\n")
+    cat("all roots real and positive: non-oscillatory",
+        "(overshoot is still possible)\n")
+  if (Q == 2L && D == 1L)
+    cat("  (note: with Q = 2, D = 1 and G >= 0 the roots are real by",
+        "construction --\n   the absence of a cycle is not a finding)\n")
   if (length(x$mu.b) > 1 || !all(is.na(x$mu.b))) {
     cat("\nLong-run mean of the latent scores (mu.b):\n")
     print(round(x$mu.b, digits))
@@ -800,19 +937,23 @@ print.nmfkc.ar.latent <- function(x, digits = 3, ...) {
 #' @description
 #' Reports whether a fitted NMF-VAR is stationary, and how cheaply that could be
 #' decided.  Three numbers are returned, in increasing order of sharpness:
-#' \code{colsum.max} \eqn{=\max_j c_j} of \eqn{\sum_d \Theta_d} certifies
-#' stationarity when below 1 with no eigenvalue computation at all (a sufficient
-#' condition only, so a value above 1 is merely inconclusive);
-#' \code{spectral.radius.sum} \eqn{=\rho(\sum_d G_d)} is below 1 exactly when the
-#' model is stationary (and is bracketed by \eqn{\min_j c_j} and
-#' \eqn{\max_j c_j}); and \code{spectral.radius} is the spectral radius of the
-#' companion matrix itself.
+#' \code{colsum.max} \eqn{=\max_j c_j}, the largest column sum of
+#' \eqn{\sum_d\Xi_d = X\sum_d\Theta_d}, certifies stationarity when below 1 with
+#' no eigenvalue computation at all (a sufficient condition only, so a value
+#' above 1 is merely inconclusive); \code{spectral.radius.sum}
+#' \eqn{=\rho(\sum_d G_d)} is below 1 exactly when the model is stationary (and
+#' is bracketed by \eqn{\min_j c_j} and \eqn{\max_j c_j}); and
+#' \code{spectral.radius} is the spectral radius of the companion matrix itself.
+#'
+#' Note that the \eqn{c_j} are weighted by \eqn{\bm 1'X}, i.e.
+#' \code{colSums(X) \%*\% Lambda}.  Using the raw column sums of
+#' \eqn{\sum_d\Theta_d} is correct only when \eqn{\bm 1'X=\bm 1'} and can
+#' certify stationarity for a non-stationary fit otherwise.
 #'
 #' This function answers the yes/no question only.  For the dynamics behind the
 #' number --- the transition matrices, the roots, the impulse responses, the
 #' long-run mean --- use \code{\link{nmfkc.ar.latent}}, and for the standard
-#' error of \eqn{\rho} and a test of \eqn{H_0:\rho\ge 1} use
-#' \code{\link{nmfkc.ar.latent.inference}}.
+#' error of \eqn{\rho} use \code{\link{nmfkc.ar.latent.inference}}.
 #'
 #' @param x A fitted \code{"nmfkc"} object obtained from an
 #'   \code{\link{nmfkc.ar}} design, or an object from
@@ -832,7 +973,8 @@ print.nmfkc.ar.latent <- function(x, digits = 3, ...) {
 #' \item{stationary}{Logical; \code{TRUE} when \code{spectral.radius < 1}.}
 #' \item{method}{The route actually used.}
 #' \item{spectral.radius.sum}{\eqn{\rho(\sum_d G_d)}; below 1 iff stationary.}
-#' \item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d \Theta_d} (length \eqn{P}).}
+#' \item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d\Xi_d}, i.e.
+#'   \code{colSums(X) \%*\% Lambda} (length \eqn{P}).}
 #' \item{colsum.max}{\eqn{\max_j c_j}; below 1 it certifies stationarity.}
 #' \item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
 #' @seealso \code{\link{nmfkc.ar.latent}},
@@ -1211,9 +1353,16 @@ plot.nmfkc.ar.latent <- function(x,
     graphics::points(trace[[i]], pch = 16, cex = 0.35, col = cols[i])
   }
   graphics::points(mu[1], mu[2], pch = 8, cex = 2, lwd = 2, col = "firebrick")
-  graphics::title(sub = if (base::any(base::abs(base::Im(ee$values)) > 1e-8))
+  ## Real roots do not imply monotone decay: a negative real root alternates.
+  ## And at Q = 2, D = 1 with G >= 0 the roots CANNOT be complex, so reporting
+  ## "no cycle" as a finding there would overclaim.
+  lam <- ee$values
+  graphics::title(sub = if (base::any(base::abs(base::Im(lam)) > 1e-8))
                     "complex eigenvalues: the fit cycles"
-                  else "real eigenvalues: monotone relaxation, no cycle",
+                  else if (base::any(base::Re(lam) < -1e-8))
+                    "a negative real root: decay alternates in sign (period 2)"
+                  else
+                    "real positive roots: non-oscillatory (forced here by Q = 2, D = 1, G >= 0)",
                   cex.sub = 0.85)
   base::invisible(NULL)
 }
@@ -1223,37 +1372,51 @@ plot.nmfkc.ar.latent <- function(x,
 #' @description
 #' \code{nmfkc.ar.latent.inference} attaches a wild bootstrap to the quantities
 #' reported by \code{\link{nmfkc.ar.latent}}: standard errors and intervals for
-#' the latent transition matrices \eqn{G_d}, the long-run mean and the long-run
-#' composition, and a test of \eqn{H_0:\rho\ge 1} that turns the stationarity
-#' verdict of \code{\link{nmfkc.ar.stationarity}} into a hypothesis test.
+#' the spectral radius, the long-run mean, the long-run composition and the
+#' entries of the latent transition matrices \eqn{G_d}.
 #'
 #' @details
-#' \strong{What is identified, and why that decides what is bootstrapped.}  The
+#' \strong{What is identified, and why that decides what can be inferred.}  The
 #' factorization admits \eqn{(X,\Theta)\to(XT,T^{-1}\Theta)} for invertible
 #' \eqn{T}, so an entry of \eqn{\Theta} means nothing across replicates;
 #' \code{\link{nmfkc.inference}} deals with this by conditioning on the
 #' estimated \eqn{X}.  This function instead re-estimates the basis in every
-#' replicate --- propagating its uncertainty --- and reports only quantities
-#' that survive the indeterminacy:
+#' replicate, propagating its uncertainty.  That splits the output in two:
 #' \itemize{
-#'   \item \eqn{\rho} and the eigenvalues of \eqn{G=\sum_d G_d} are fully
-#'     invariant, since \eqn{G\to T^{-1}GT}.  The stationarity test therefore
-#'     needs no label alignment at all.
-#'   \item the observed long-run mean \eqn{\bm\mu_y = X\bm\mu_b} is invariant.
-#'   \item the entries \eqn{(G_d)_{qq'}} and the composition
-#'     \eqn{\bm p^\ast=\bm\mu_b/\sum_q \mu_{b,q}} need \eqn{T} to be a
-#'     permutation, and that takes \strong{two} things.  Column normalization
-#'     (\code{X.restriction = "colSums"}, the default of \code{\link{nmfkc}})
-#'     removes only the \emph{scale} part of \eqn{T}; the \emph{rotational} part
-#'     is removed by separability of \eqn{X} --- each basis owning a variable
-#'     that loads on it alone --- or by sufficient scatteredness of the rows of
-#'     \eqn{\Theta}.  Separability is the checkable one, so the function tests
-#'     \code{min(separability) >= sep.tol} and reports \code{identified};
-#'     replicates are permutation-aligned to the original basis before being
-#'     summarised.  When either condition fails the function warns and the
-#'     entries should be read as descriptive --- \eqn{\rho}, the eigenvalues and
-#'     \eqn{\bm\mu_y} are unaffected either way.
+#'   \item \strong{Inferential.}  \eqn{\rho}, the eigenvalues and the observed
+#'     long-run mean \eqn{\bm\mu_y=X\bm\mu_b} are invariant under the whole
+#'     family (\eqn{G_d\to T^{-1}G_dT} leaves the spectrum alone), so their
+#'     replicates need no alignment and their intervals mean what they say.
+#'   \item \strong{Conditional on identification.}  The entries
+#'     \eqn{(G_d)_{qq'}} and the composition \eqn{\bm p^\ast} need \eqn{T} to be
+#'     a permutation, and three conditions together deliver that: the column
+#'     scale fixed (\code{X.restriction = "colSums"}), an \strong{anchor row} for
+#'     every column of \eqn{X}, and a \strong{pure column} for every row of
+#'     \eqn{\Theta}.  The anchor rows force \eqn{T\ge0}, the pure columns force
+#'     \eqn{T^{-1}\ge0}, and a non-negative matrix with a non-negative inverse is
+#'     monomial.  \strong{Either one-sided condition alone is not enough}: with
+#'     \eqn{X=I_2},
+#'     \eqn{\Theta=\left(\begin{smallmatrix}2&3\\1&1\end{smallmatrix}\right)} and
+#'     \eqn{T=\left(\begin{smallmatrix}0.9&0.1\\0.1&0.9\end{smallmatrix}\right)}
+#'     the basis is perfectly separable and column-normalized, yet \eqn{XT\ge0},
+#'     \eqn{T^{-1}\Theta\ge0}, \eqn{X\Theta} is unchanged, \eqn{T} is no
+#'     permutation, and \eqn{G} differs between the two representatives ---
+#'     \eqn{\Theta} has no pure column there.  \code{identified.approx} reports
+#'     the verdict and \code{identification} the two sides plus how far each is
+#'     from exact; the function warns either way, naming the side that fails or
+#'     the margins when it only passes approximately.  \strong{The thresholds
+#'     make this a diagnostic, not a certificate}: the argument needs exact
+#'     anchors and exact zeros, which multiplicative updates do not deliver.
+#'     Replicates are permutation-aligned to the original basis regardless.
+#'     \code{X.restriction = "fixed"} is the one clean case for \eqn{Q>1} --- the
+#'     basis is not estimated, so \eqn{T=I}.
 #' }
+#'
+#' \strong{\code{prob.nonstationary} is not a unit-root test.}  It is the
+#' bootstrap tail probability \eqn{P^\ast(\rho^\ast\ge1)}, with replicates drawn
+#' around the \emph{estimated} model.  Nothing imposes \eqn{H_0:\rho=1}, so it
+#' does not have the interpretation of a p-value for that hypothesis; a proper
+#' test would have to resample under the null.
 #'
 #' \strong{The zeros of \eqn{\Theta} are only meaningful under
 #' misspecification.}  The strict-complementarity diagnostic reports the dual
@@ -1321,8 +1484,16 @@ plot.nmfkc.ar.latent <- function(x,
 #'       tolerance biases anything that is compared with zero.}
 #'     \item{\code{kkt.tol}, \code{kkt.ratio.min}}{Thresholds of the strict
 #'       complementarity diagnostic (defaults \code{1e-3} and \code{5}).}
-#'     \item{\code{sep.tol}}{Separability a basis must reach before the entries
-#'       of \eqn{G_d} are declared identified.  Default \code{0.9}.}
+#'     \item{\code{sep.tol}}{Row-normalised loading a column of \eqn{X} must
+#'       reach for that basis to count as anchored.  Default \code{0.999}.  The
+#'       zero threshold for the pure-column test on \eqn{\Theta} is
+#'       \code{kkt.tol}.}
+#'     \item{\code{refit.args}}{Named list of extra arguments for the bootstrap
+#'       re-fits.  \code{method} and \code{X.restriction} are taken from the
+#'       original fit automatically, so the replicates use the same estimator;
+#'       anything else the original call set (\code{X.init}, penalties, ...)
+#'       cannot be recovered from the fitted object and must be passed here.
+#'       The function warns when it sees such arguments in the recorded call.}
 #'     \item{\code{cores}}{Number of workers for the re-fits, default
 #'       \code{getOption("mc.cores", 1L)} (sequential).  The bootstrap
 #'       multipliers are drawn before the loop and each re-fit is deterministic
@@ -1332,25 +1503,43 @@ plot.nmfkc.ar.latent <- function(x,
 #' \item{coefficients}{Data frame of the \eqn{DQ^2} entries of the \eqn{G_d},
 #'   with columns \code{Lag}, \code{Basis} (effect at \eqn{t}),
 #'   \code{Covariate} (cause at \eqn{t-d}), \code{Estimate}, \code{BSE},
-#'   \code{CI_low}, \code{CI_high}, \code{p_value}.}
+#'   \code{CI_low}, \code{CI_high}, \code{p_value}.  Descriptive unless
+#'   \code{identified.approx}.}
 #' \item{G, G.se, G.ci.lower, G.ci.upper, G.p.value}{The same quantities as
 #'   lists of \eqn{Q\times Q} matrices, one per lag.}
-#' \item{spectral.radius}{With \code{spectral.radius.se},
-#'   \code{spectral.radius.ci.lower} / \code{.upper} and
-#'   \code{spectral.radius.boot.mean}.}
-#' \item{p.nonstationary}{One-sided bootstrap p-value for \eqn{H_0:\rho\ge 1};
-#'   small values support stationarity.}
+#' \item{spectral.radius}{The radius of the \eqn{DQ\times DQ} latent companion
+#'   matrix --- the same quantity \code{\link{nmfkc.ar.latent}} reports, not
+#'   \eqn{\rho(\sum_d G_d)}, which differs when \eqn{D>1}.  With
+#'   \code{spectral.radius.se}, \code{spectral.radius.ci.lower} / \code{.upper}
+#'   and \code{spectral.radius.boot.mean}.}
+#' \item{prob.nonstationary}{Bootstrap tail probability
+#'   \eqn{P^\ast(\rho^\ast\ge1)}.  \strong{Not} a p-value for
+#'   \eqn{H_0:\rho\ge1} --- see Details.}
 #' \item{complex, complex.frac}{Whether the point estimate has complex roots,
 #'   and the fraction of replicates that do.}
-#' \item{mu.y, p.star}{Each with \code{.ci.lower} / \code{.ci.upper}.}
+#' \item{mu.y}{With \code{.ci.lower} / \code{.ci.upper}; invariant, so
+#'   inferential.}
+#' \item{p.star}{With \code{.ci.lower} / \code{.ci.upper}; descriptive unless
+#'   \code{identified.approx}.}
 #' \item{kkt}{Strict-complementarity diagnostic: \code{n.boundary},
 #'   \code{all.positive}, \code{ratio}, and the two margins \code{delta.dual}
 #'   and \code{delta.prim}.}
-#' \item{identified}{Logical; \code{TRUE} only when the column scale of \eqn{X}
-#'   is fixed \emph{and} the basis is separable, the two conditions that reduce
-#'   \eqn{T} to a permutation.  When \code{FALSE} the entries of \eqn{G_d} are
-#'   descriptive only; \eqn{\rho}, the eigenvalues and \eqn{\bm\mu_y} remain
-#'   valid.}
+#' \item{identified.approx}{Logical, an \strong{approximate diagnostic}:
+#'   \code{TRUE} for \eqn{Q=1}, for \code{X.restriction = "fixed"} (where
+#'   \eqn{X} is not estimated, so \eqn{T=I}), or when the per-column scale is
+#'   fixed (\code{"colSums"} / \code{"colSqSums"}) and the anchor-row and
+#'   pure-column tests both pass at \code{sep.tol} / \code{kkt.tol}.  It is not a
+#'   certificate --- the uniqueness argument needs \emph{exact} anchors and
+#'   \emph{exact} zeros, and multiplicative updates leak a little.  When
+#'   \code{FALSE} the entry-level summaries and \code{p.star} are descriptive;
+#'   \eqn{\rho}, the eigenvalues and \eqn{\bm\mu_y} remain inferential either
+#'   way.}
+#' \item{identification}{The two sides separately: \code{anchor} (per column of
+#'   \eqn{X}), \code{pure} (per row of \eqn{\Theta}), \code{ok}, and the margins
+#'   \code{anchor.margin} / \code{pure.margin} saying how far the fit is from an
+#'   exact configuration (0 = exact).}
+#' \item{refit.args}{The arguments the bootstrap re-fits actually used, so the
+#'   replicates can be checked against the original estimator.}
 #'   Plus the bookkeeping entries \code{wild.B}, \code{wild.B.requested},
 #'   \code{n.fail}, \code{truncate.rate}, \code{wild.unit}, \code{wild.dist},
 #'   \code{wild.level}, \code{dims}.
@@ -1387,7 +1576,33 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
   maxit      <- if (!is.null(ex$maxit))      ex$maxit      else 20000L
   kkt.tol    <- if (!is.null(ex$kkt.tol))    ex$kkt.tol    else 1e-3
   kkt.ratio.min <- if (!is.null(ex$kkt.ratio.min)) ex$kkt.ratio.min else 5
-  sep.tol    <- if (!is.null(ex$sep.tol))    ex$sep.tol    else 0.9
+  sep.tol    <- if (!is.null(ex$sep.tol))    ex$sep.tol    else 0.999
+  ## The re-fits must use the SAME estimator as the original fit, otherwise the
+  ## bootstrap describes a different one.  What nmfkc() records (method,
+  ## X.restriction) is carried on the object and reused; anything else the
+  ## original call set must be supplied here.
+  refit.args <- object$fit.args
+  refit.args <- refit.args[!vapply(refit.args, is.null, logical(1))]
+  if (!is.null(ex$refit.args)) refit.args[names(ex$refit.args)] <- ex$refit.args
+  ## Warn about non-default settings in the original call that we cannot see.
+  if (!is.null(object$call)) {
+    ## Arguments that cannot change the estimator (labels and reporting) plus the
+    ## ones we set or inherit ourselves.
+    seen <- c("Y", "A", "rank", "data", "epsilon", "maxit", "verbose",
+              "prefix", "print.trace", "detail", "", names(refit.args))
+    cl <- as.list(object$call)
+    ## A literal seed can be inherited outright; anything else has to be passed.
+    if (!is.null(cl$seed) && is.numeric(cl$seed) && is.null(refit.args$seed)) {
+      refit.args$seed <- cl$seed
+      seen <- c(seen, "seed")
+    }
+    unseen <- setdiff(names(cl)[-1], seen)
+    if (length(unseen))
+      warning("The original fit was called with ", paste(unseen, collapse = ", "),
+              ", which the bootstrap re-fits cannot reproduce automatically. ",
+              "Pass them through refit.args= so the replicates use the same ",
+              "estimator.")
+  }
   ## Keep our own seeding out of the caller's random stream.
   .rng <- .nmfkc.rng.save(wild.seed)
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
@@ -1409,43 +1624,61 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
     if (D > 1) for (d in 2:D) L <- L + Cm[, ((d - 1) * P + 1):(d * P), drop = FALSE]
     L %*% Xm
   }
-  ev.of <- function(Xm, Cm) eigen(Gsum(Xm, Cm), only.values = TRUE)$values
+  ## The roots must be the SAME quantity nmfkc.ar.latent() reports, i.e. the
+  ## eigenvalues of the DQ x DQ companion matrix of the G_d -- not those of
+  ## sum_d G_d.  For D > 1 the two differ: with G_1 = 0.2, G_2 = 0.1 the
+  ## companion radius is 0.4317 (roots 0.4317, -0.2317) while
+  ## rho(G_1 + G_2) = 0.3.  They agree on the stationary/non-stationary verdict
+  ## under non-negativity, but the number, its SE and the implied period do not.
+  Gd.list <- function(Xm, Cm) base::lapply(base::seq_len(D), function(d)
+    Cm[, ((d - 1) * P + 1):(d * P), drop = FALSE] %*% Xm)
+  ev.of <- function(Xm, Cm) .nmfvar.roots(Gd.list(Xm, Cm), Q, D)
   ## G_d as one stacked Q x (QD) matrix, which is the convenient shape for
   ## permutation-aligning a replicate: G_d -> P' G_d P acts on both margins.
-  Gd.of <- function(Xm, Cm)
-    do.call(cbind, lapply(seq_len(D), function(d)
-      Cm[, ((d - 1) * P + 1):(d * P), drop = FALSE] %*% Xm))
+  Gd.of <- function(Xm, Cm) do.call(cbind, Gd.list(Xm, Cm))
 
-  ## The entries of G_d are identified only once the column scale of X is
-  ## pinned down; with it free, G_qq' -> (t_q'/t_q) G_qq' leaves the diagonal
-  ## alone but rescales everything else.
-  ## Two separate things have to hold before an ENTRY of G_d means anything
-  ## across replicates.
-  ##
-  ## (1) Scale.  1'X = 1' removes the scale part of T; without it
-  ##     G_qq' -> (t_q'/t_q) G_qq' leaves the diagonal alone but rescales
-  ##     everything else.
-  ## (2) Rotation.  Column normalization does NOT remove the rotational part.
-  ##     That needs separability (each basis owns a pure variable) or sufficient
-  ##     scatteredness of the rows of Theta.  Separability is the checkable one,
-  ##     and nmfkc.ar.latent() already measures it.
-  xr    <- object$X.restriction
-  scale.fixed <- !isTRUE(xr %in% c("none", "fixed"))
-  sep   <- object$separability
-  sep.min <- if (is.null(sep) || !all(is.finite(sep))) NA_real_ else min(sep)
-  separable <- isTRUE(sep.min >= sep.tol)
-  identified <- Q == 1L || (scale.fixed && separable)
-  if (Q > 1L && !scale.fixed)
-    warning("X.restriction = \"", xr, "\" leaves the column scale of X free, so ",
-            "the off-diagonal entries of G_d are not identified across ",
-            "replicates. Read the diagonal (persistence) only, or refit with ",
-            "X.restriction = \"colSums\".")
-  else if (Q > 1L && !separable)
-    warning("The basis is not separable (min separability = ",
-            signif(sep.min, 3), " < ", sep.tol, "), so column normalization ",
-            "alone does not pin down the rotation and the entries of G_d are ",
-            "identified only up to it. rho, the eigenvalues and mu_y are ",
-            "unaffected; read the entries as descriptive.")
+  ## Can an ENTRY of G_d be given a standard error?  Only if the factorization
+  ## is unique up to a permutation, which takes three things: the column scale
+  ## fixed, an anchor row for every column of X (forcing T >= 0) and a pure
+  ## column for every row of Theta (forcing T^-1 >= 0).  See
+  ## .nmfvar.identified() for why either one-sided condition alone is not
+  ## enough -- separability of X on its own admits T = [.9 .1; .1 .9].
+  xr <- object$X.restriction
+  ## Which constraints actually fix the PER-COLUMN scale of X?  Only the two
+  ## that normalise each column: "colSums" and "colSqSums".  "totalSum"
+  ## constrains the grand total, so columns can still trade scale between them,
+  ## and "none" constrains nothing.  "fixed" is the opposite extreme -- X is not
+  ## estimated at all, so T = I and there is no rotational freedom to certify.
+  scale.fixed <- isTRUE(xr %in% c("colSums", "colSqSums"))
+  X.held      <- isTRUE(xr == "fixed")
+  ident <- .nmfvar.identified(X, Theta, sep.tol = sep.tol, zero.tol = kkt.tol)
+  ## APPROXIMATE, not a theorem.  The uniqueness argument needs an EXACT anchor
+  ## row (loading exactly 1 after row normalisation) and an EXACT pure column
+  ## (the other entries exactly 0).  A fit that merely comes within sep.tol and
+  ## kkt.tol is close to such a configuration but does not satisfy its
+  ## hypotheses, so this is evidence about the fit, not a guarantee.
+  identified.approx <- (Q == 1L) || X.held || (scale.fixed && ident$ok)
+  if (Q > 1L && !X.held && !identified.approx) {
+    why <- c(if (!scale.fixed) paste0("X.restriction = \"", xr,
+               "\" does not fix the per-column scale of X"),
+             if (!all(ident$anchor)) paste0("basis ",
+               paste(which(!ident$anchor), collapse = ", "),
+               " has no anchor row in X (so T >= 0 is not forced)"),
+             if (!all(ident$pure)) paste0("basis ",
+               paste(which(!ident$pure), collapse = ", "),
+               " has no pure column in Theta (so T^-1 >= 0 is not forced)"))
+    warning("The factorization is not even approximately unique up to a ",
+            "permutation: ", paste(why, collapse = "; "), ". The entries of ",
+            "G_d and p.star are therefore DESCRIPTIVE; rho, the eigenvalues ",
+            "and mu.y are invariant under the whole family and remain the ",
+            "inferential targets.")
+  } else if (Q > 1L && !X.held) {
+    warning("The anchor-row / pure-column diagnostic passes only APPROXIMATELY ",
+            "(anchor margin ", signif(ident$anchor.margin, 3),
+            ", pure margin ", signif(ident$pure.margin, 3), "). The uniqueness ",
+            "argument needs exact anchors and exact zeros, so treat the ",
+            "entry-level summaries as well-behaved but not certified.")
+  }
 
   ## Strict-complementarity (oracle) diagnostic.  In the population,
   ##   Lambda* = X'(Xi_0 - X Theta) Sigma_A,
@@ -1533,8 +1766,10 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
 
   one_boot <- function(Ys) {
     if (truncate) Ys[Ys < 0] <- 0
-    rr <- base::try(nmfkc(Y = Ys, A = A, rank = Q, epsilon = epsilon,
-                          maxit = maxit, verbose = FALSE), silent = TRUE)
+    rr <- base::try(base::do.call(nmfkc, c(base::list(
+                      Y = Ys, A = A, rank = Q, epsilon = epsilon,
+                      maxit = maxit, verbose = FALSE), refit.args)),
+                    silent = TRUE)
     if (base::inherits(rr, "try-error"))
       return(base::list(rho = 0, cplx = FALSE, muy = NULL, p = NULL, G = NULL,
                         fail = TRUE))
@@ -1625,13 +1860,18 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
     G = spl(g0), G.se = spl(G.se),
     G.ci.lower = spl(G.ci[1L, ]), G.ci.upper = spl(G.ci[2L, ]),
     G.p.value = spl(G.p),
-    identified = identified,
+    identified.approx = identified.approx, identification = ident,
+    refit.args = refit.args,
     spectral.radius           = rho0,
     spectral.radius.se        = stats::sd(rho.b[ok]),
     spectral.radius.ci.lower  = rho.ci[1L],
     spectral.radius.ci.upper  = rho.ci[2L],
     spectral.radius.boot.mean = mean(rho.b[ok]),
-    p.nonstationary = mean(rho.b[ok] >= 1),
+    ## NOT a p-value: the replicates are drawn around the ESTIMATED model, not
+    ## under an imposed H0: rho = 1, so this is the bootstrap tail probability
+    ## P*(rho* >= 1) and nothing stronger.  A real unit-root test would have to
+    ## resample under the null.
+    prob.nonstationary = mean(rho.b[ok] >= 1),
     complex = cplx0, complex.frac = mean(cplx.b[ok]),
     mu.y = as.numeric(X %*% mu.b0),
     mu.y.ci.lower = muy.ci[1L, ], mu.y.ci.upper = muy.ci[2L, ],
@@ -1658,10 +1898,16 @@ print.nmfkc.ar.latent.inference <- function(x, digits = 4, ...) {
               x$wild.B, x$n.fail, x$wild.unit, x$wild.dist, 100 * x$truncate.rate))
   cat("\nLatent transition matrices  G_d = Theta_d %*% X",
       "  (row = effect at t, column = cause at t-d)\n")
-  if (!isTRUE(x$identified))
-    cat("  NOTE: T is not pinned down to a permutation (scale free, or basis",
-        "not separable),\n        so these entries are descriptive;",
-        "rho and mu.y are unaffected.\n")
+  if (!isTRUE(x$identified.approx))
+    cat("  NOTE: the anchor-row / pure-column diagnostic FAILS, so these\n",
+        "       entries (and p.star) are DESCRIPTIVE. rho, the eigenvalues\n",
+        "       and mu.y are invariant and inferential.\n", sep = "")
+  else if (x$dims[["Q"]] > 1L)
+    cat("  NOTE: the diagnostic passes only APPROXIMATELY (anchor margin ",
+        signif(x$identification$anchor.margin, 3), ", pure margin ",
+        signif(x$identification$pure.margin, 3), ");\n",
+        "       the uniqueness argument needs exact anchors and exact zeros.\n",
+        sep = "")
   for (nm in names(x$G)) {
     cat("\n", nm, ":\n", sep = "")
     print(round(x$G[[nm]], 3))
@@ -1675,9 +1921,9 @@ print.nmfkc.ar.latent.inference <- function(x, digits = 4, ...) {
   cat(sprintf("  bootstrap mean = %.*f  (bias %+.*f)\n",
               digits, x$spectral.radius.boot.mean, digits,
               x$spectral.radius.boot.mean - x$spectral.radius))
-  cat(sprintf("  H0: rho >= 1 (non-stationary), one-sided p = %.3f  ->  %s\n",
-              x$p.nonstationary,
-              if (x$p.nonstationary < 0.05) "stationarity supported" else "inconclusive"))
+  cat(sprintf("  bootstrap tail P*(rho* >= 1) = %.3f\n", x$prob.nonstationary))
+  cat("  (a tail probability around the fitted model, NOT a unit-root test:",
+      "the\n   replicates are not drawn under an imposed H0: rho = 1)\n")
   cat(sprintf("\ncomplex eigenvalues: point estimate %s, in %.1f%% of replicates\n",
               if (x$complex) "yes" else "no", 100 * x$complex.frac))
   if (any(is.finite(x$p.star.ci.lower))) {

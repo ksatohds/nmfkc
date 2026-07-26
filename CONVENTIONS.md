@@ -186,19 +186,65 @@ Fit the model tightly too (`epsilon = 1e-8`) when the fit feeds inference.
   `rho(G)`, the eigenvalues of `G`, `Xi_d`, impulse responses and `mu_y` are.
   `nmfkc.ar.latent.inference()` uses this: because `rho` is invariant its
   replicates need no label alignment at all.
-- **Know how much of `T` the fit pinned down before reporting entries.**
-  Reducing `T` to a permutation takes **two** things, not one:
-  - `X.restriction = "colSums"` (the default) removes the **scale** part.
-    Without it `G_qq' -> (t_q'/t_q) G_qq'`, so the diagonal survives but the
-    off-diagonals do not. `nmfkc()` records the constraint in `$X.restriction`.
-  - **separability** (each basis owns a variable loading on it alone) or
-    sufficient scatteredness removes the **rotational** part. Column
-    normalization alone does *not*. `nmfkc.ar.latent()` reports `separability`;
-    `nmfkc.ar.latent.inference()` requires `min(separability) >= sep.tol`
-    (0.9) before setting `identified = TRUE`.
+- **Do not claim an entry of a rotation-covariant matrix is identified.**
+  `X.restriction = "colSums"` removes only the **scale** part of `T` (without it
+  `G_qq' -> (t_q'/t_q) G_qq'`, so only the diagonal survives), and separability
+  of the **fitted** `X` does not remove the rest. The uniqueness theorem assumes
+  the *population* basis is separable and then singles out the separable
+  representative; the estimator has no reason to land on it, because the
+  objective is flat along the family. Counterexample worth remembering:
 
-  Invariant quantities (`rho`, the eigenvalues, `mu_y`) are unaffected by either
-  failure, which is why they are the safe things to report.
+      X = I_2,  Theta = [2 3; 1 1],  T = [.9 .1; .1 .9]
+
+  `X` is perfectly separable with unit column sums, yet `XT >= 0`,
+  `colSums(XT) = 1`, `T^-1 Theta >= 0`, `X Theta` is unchanged, `T` is no
+  permutation, and `G = Theta X` differs between the two representatives. So
+  `nmfkc.ar.latent.inference()` sets `identified = TRUE` only for `Q == 1`; for
+  `Q >= 2` the entry-level output is labelled **descriptive**.
+
+  Report the invariants (`rho`, the eigenvalues, `mu_y`) as the inferential
+  targets. This rule cost two wrong claims before it was written down: first
+  "colSums is enough", then "colSums plus separability is enough".
+- **A bootstrap tail probability is not a p-value.** Replicates drawn around the
+  *estimated* model give `P*(rho* >= 1)`, not a test of `H0: rho = 1` — nothing
+  imposes the null. Name such quantities `prob.*`, never `p.*`, and say in the
+  help and the print-out what they are not.
+- **Perron-Frobenius bounds apply to the matrix whose radius you want.** The
+  stationarity bracket uses the column sums of `sum_d Xi_d = X Lambda`, i.e.
+  `colSums(X) %*% Lambda`. The unweighted `colSums(Lambda)` is the special case
+  `1'X = 1'` and is wrong otherwise: `X = (20, 20)'`, `Lambda = (0.04, 0.04)`
+  gives `max_j c_j = 0.04`, which would certify stationarity for a fit with
+  `rho = 1.6`.
+- **A resampling scheme must re-fit the SAME estimator.** A bootstrap re-fit that
+  falls back on `nmfkc()`'s defaults describes a different estimator than the one
+  whose uncertainty is being reported. Carry the fit's `method` and
+  `X.restriction` (both recorded on the object), inherit a literal `seed` from
+  the recorded call, and warn about anything else the call set that cannot be
+  recovered — with a `refit.args=` escape hatch.
+- **Know which constraint fixes what.** Only `"colSums"` and `"colSqSums"` fix
+  the per-column scale of `X`. `"totalSum"` constrains the grand total, so
+  columns can still trade scale; `"none"` constrains nothing; `"fixed"` is the
+  opposite extreme — `X` is not estimated, so `T = I` and there is no rotational
+  freedom at all. Do not lump `"fixed"` in with `"none"`.
+- **Do not report a threshold-based diagnostic as a theorem.** The
+  anchor-row / pure-column argument needs *exact* anchors and *exact* zeros;
+  multiplicative updates leak. Name such flags `*.approx`, return the margins
+  saying how far from exact the fit is, and say in the help and print-out that
+  this is evidence, not proof.
+- **Real roots do not mean monotone decay.** A negative real root alternates in
+  sign every period (period 2). Report `alternating` alongside `cycle.period`,
+  and note that for `Q = 2, D = 1` with `G >= 0` the discriminant
+  `(a-d)^2 + 4bc` is non-negative, so the roots are real *by construction* — the
+  absence of a cycle there is a property of the design, not a finding. And
+  positive real roots rule out *oscillation*, not *overshoot*: a non-normal `G`
+  can send a coordinate up before it comes down. Name the flag after the roots
+  (`non.oscillatory`), never after the trajectory (`monotone`).
+- **`b_t` follows a VARMA, not a VAR.** With `y_t = X b_t + e_t` the exact
+  identity is `b_t = sum_d G_d b_{t-d} + theta + sum_d Theta_d e_{t-d}`. `G_d`
+  is the AR operator of the fitted VAR reduced to the latent space; it is not a
+  Granger-causality statement between latent coordinates, and `p.star` is the
+  fixed point of the *residual-free* composition dynamics, not the limit or the
+  mean of `b_t / 1'b_t`.
 - **A vanishing KKT dual margin is a statement, not a bug.** Under correct
   specification `Xi_0 = X Theta` makes the population multipliers exactly zero,
   so strict complementarity fails at *every* zero coefficient and
