@@ -341,12 +341,25 @@ unique only up to $(X,\Theta)\to(XT,T^{-1}\Theta)$, so an individual entry of
 $\Theta$ means nothing across replicates --- replicate 7's "Condition 1" need
 not be the original's. Under that same map $G_d \to T^{-1}G_dT$, so the
 *spectrum* is untouched: $\rho$, the eigenvalues and $\boldsymbol\mu_y$ are
-invariant outright. The entries of $G_d$ and the composition
-$\boldsymbol p^\ast$ are invariant only up to the *order* of the bases, and only
-once the column scale of $X$ is pinned down --- which the default
-`X.restriction = "colSums"` does. Each replicate is therefore permutation-aligned
-to the original basis before its quantiles are taken, and the function warns if
-the fit left the scale free.
+invariant outright and need no alignment at all.
+
+The entries of $G_d$ and the composition $\boldsymbol p^\ast$ are a different
+matter: they need $T$ to be a permutation, and that takes **two** conditions.
+Column normalization (`X.restriction = "colSums"`, the default) removes the
+*scale* part of $T$. It does **not** remove the *rotational* part --- that
+requires the basis to be **separable**, meaning each latent condition owns a
+variable that loads on it alone. Here it does:
+
+```{r canada-separability}
+round(lat_canada$X / rowSums(lat_canada$X), 3)   # rows normalized to sum 1
+lat_canada$separability
+```
+
+Employment loads only on Condition 1 and unemployment only on Condition 2, so
+`separability` is 1 for both and `identified` comes back `TRUE`. Replicates are
+then permutation-aligned to the original basis before their quantiles are taken.
+If either condition failed the function would say so and the entries would have
+to be read as descriptive.
 
 The transition matrix now comes with standard errors, and the coefficient table
 gives the same thing in long form:

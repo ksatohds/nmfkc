@@ -31,6 +31,8 @@ heading for the non-negativity boundary moves slowly and a loose
 tolerance biases anything that is compared with zero.}
 \item{\code{kkt.tol}, \code{kkt.ratio.min}}{Thresholds of the strict
 complementarity diagnostic (defaults \code{1e-3} and \code{5}).}
+\item{\code{sep.tol}}{Separability a basis must reach before the entries
+of \eqn{G_d} are declared identified.  Default \code{0.9}.}
 \item{\code{cores}}{Number of workers for the re-fits, default
 \code{getOption("mc.cores", 1L)} (sequential).  The bootstrap
 multipliers are drawn before the loop and each re-fit is deterministic
@@ -54,10 +56,13 @@ small values support stationarity.}
 and the fraction of replicates that do.}
 \item{mu.y, p.star}{Each with \code{.ci.lower} / \code{.ci.upper}.}
 \item{kkt}{Strict-complementarity diagnostic: \code{n.boundary},
-\code{all.positive}, \code{ratio}.}
-\item{identified}{Logical; \code{FALSE} when \code{X.restriction} leaves the
-column scale of \eqn{X} free, in which case the off-diagonal entries of
-\eqn{G_d} are not identified and only the diagonal should be read.}
+\code{all.positive}, \code{ratio}, and the two margins \code{delta.dual}
+and \code{delta.prim}.}
+\item{identified}{Logical; \code{TRUE} only when the column scale of \eqn{X}
+is fixed \emph{and} the basis is separable, the two conditions that reduce
+\eqn{T} to a permutation.  When \code{FALSE} the entries of \eqn{G_d} are
+descriptive only; \eqn{\rho}, the eigenvalues and \eqn{\bm\mu_y} remain
+valid.}
 Plus the bookkeeping entries \code{wild.B}, \code{wild.B.requested},
 \code{n.fail}, \code{truncate.rate}, \code{wild.unit}, \code{wild.dist},
 \code{wild.level}, \code{dims}.
@@ -83,14 +88,42 @@ invariant, since \eqn{G\to T^{-1}GT}.  The stationarity test therefore
 needs no label alignment at all.
 \item the observed long-run mean \eqn{\bm\mu_y = X\bm\mu_b} is invariant.
 \item the entries \eqn{(G_d)_{qq'}} and the composition
-\eqn{\bm p^\ast=\bm\mu_b/\sum_q \mu_{b,q}} are invariant only up to the
-ordering of the bases, \strong{provided the column scale of \eqn{X} is
-fixed}.  The default \code{X.restriction = "colSums"} of
-\code{\link{nmfkc}} does fix it, leaving \eqn{T} a permutation, and each
-replicate is matched to the original basis before being summarised.
-Under \code{X.restriction = "none"} the diagonal of \eqn{G_d} is still
-invariant but the off-diagonal entries are not, and the function warns.
+\eqn{\bm p^\ast=\bm\mu_b/\sum_q \mu_{b,q}} need \eqn{T} to be a
+permutation, and that takes \strong{two} things.  Column normalization
+(\code{X.restriction = "colSums"}, the default of \code{\link{nmfkc}})
+removes only the \emph{scale} part of \eqn{T}; the \emph{rotational} part
+is removed by separability of \eqn{X} --- each basis owning a variable
+that loads on it alone --- or by sufficient scatteredness of the rows of
+\eqn{\Theta}.  Separability is the checkable one, so the function tests
+\code{min(separability) >= sep.tol} and reports \code{identified};
+replicates are permutation-aligned to the original basis before being
+summarised.  When either condition fails the function warns and the
+entries should be read as descriptive --- \eqn{\rho}, the eigenvalues and
+\eqn{\bm\mu_y} are unaffected either way.
 }
+
+\strong{The zeros of \eqn{\Theta} are only meaningful under
+misspecification.}  The strict-complementarity diagnostic reports the dual
+margin \eqn{\delta_{\mathrm{dual}}=\min|\Lambda^\ast|} over the zero
+coefficients and the primal margin
+\eqn{\delta_{\mathrm{prim}}=\min\Theta} over the positive ones.  Both must be
+bounded away from zero for the support to be recovered exactly and for the
+active coefficients to attain the distribution that knowing the support would
+give.  If the model is correctly specified, \eqn{\Xi_0=X\Theta} makes
+\eqn{\Lambda^\ast=0} exactly, so strict complementarity fails at
+\emph{every} zero: \eqn{P(\hat\theta_k=0)} then tends to a constant in
+\eqn{(0,1)} (one half for an isolated zero) instead of to one, and no
+resampling scheme is consistent there.  A small \code{kkt$ratio} is therefore
+not a numerical defect --- it says the zeros are not estimating a sign
+restriction.  What makes them estimate something is misspecification: they
+recover the coordinates whose \emph{unconstrained} population coefficient is
+strictly negative.
+
+\strong{Bootstrap validity at the boundary.}  A naive nonparametric bootstrap
+is inconsistent for a parameter on the boundary.  The scheme used here
+resamples the residuals and re-imposes the non-negativity constraint in every
+re-fit, which is the practical remedy; a moving-block scheme would in
+addition preserve the serial dependence that the fixed design discards.
 
 \strong{Bootstrap p-values invert the centred distribution.}  Every replicate
 of a non-negative coefficient is \eqn{\ge 0}, so comparing the raw replicates

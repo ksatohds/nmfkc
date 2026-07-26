@@ -277,6 +277,17 @@ test_that("the rank-1 panels work (AirPassengers-style Q = 1)", {
 
 # ---- nmfkc.ar.latent.inference ---------------------------------------------
 
+## Assert one warning while letting the unrelated ones (e.g. the KKT diagnostic
+## on these small designs) pass without failing the run.
+quietly <- function(expr, keep) {
+  val <- NULL
+  withCallingHandlers(
+    expect_warning(val <- expr, keep),
+    warning = function(w) if (!grepl(keep, conditionMessage(w)))
+      invokeRestart("muffleWarning"))
+  val
+}
+
 test_that("nmfkc.ar.latent.inference bootstraps the latent VAR", {
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
@@ -329,21 +340,60 @@ test_that("entry-level inference warns when the column scale of X is free", {
   f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE,
                               X.restriction = "none"))
   lat <- suppressWarnings(nmfkc.ar.latent(f))
-  ## the KKT diagnostic may fire too on this small design; only the
-  ## identification warning is under test here
-  inf <- NULL
-  withCallingHandlers(
-    expect_warning(inf <- nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 10),
-                   "not identified"),
-    warning = function(w) if (grepl("complementarity", conditionMessage(w)))
-      invokeRestart("muffleWarning"))
+  inf <- quietly(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 10),
+                 "column scale of X free")
   expect_false(inf$identified)
-  expect_output(print(inf), "only the diagonal")
-  ## the default constraint does pin it down, so no warning there
-  f2 <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))
-  lat2 <- suppressWarnings(nmfkc.ar.latent(f2))
-  i2 <- suppressWarnings(nmfkc.ar.latent.inference(lat2, a$Y, a$A, wild.B = 10))
-  expect_true(i2$identified)
+  expect_output(print(inf), "descriptive")
+})
+
+test_that("a non-separable basis is not identified even with the scale fixed", {
+  ## every variable loads on both bases equally, so no basis owns a pure one:
+  ## column normalization removes the scale part of T but not the rotation
+  X  <- matrix(c(0.5, 0.5, 0.5, 0.5), 2, 2)
+  Th <- matrix(c(0.4, 0.1, 0.1, 0.4), 2, 2)
+  lat <- nmfkc.ar.latent(structure(list(X = X, C = Th, X.restriction = "colSums"),
+                                   class = "nmfkc"))
+  expect_lt(min(lat$separability), 0.9)
+  inf <- quietly(nmfkc.ar.latent.inference(lat, matrix(1, 2, 8), matrix(1, 2, 8),
+                                           wild.B = 5),
+                 "not separable")
+  expect_false(inf$identified)
+})
+
+test_that("a rank-1 model has no rotation to worry about", {
+  a <- nmfkc.ar(log(AirPassengers), degree = 2, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 1, seed = 1, verbose = FALSE))
+  inf <- suppressWarnings(nmfkc.ar.latent.inference(
+    suppressWarnings(nmfkc.ar.latent(f)), a$Y, a$A, wild.B = 5))
+  expect_true(inf$identified)
+})
+
+test_that("identified tracks both conditions, not just the scale", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))
+  lat <- suppressWarnings(nmfkc.ar.latent(f))
+  inf <- suppressWarnings(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 10))
+  ## the default fixes the scale, so identification now rests on separability
+  expect_identical(f$X.restriction, "colSums")
+  expect_identical(inf$identified, min(lat$separability) >= 0.9)
+})
+
+test_that("the KKT diagnostic reports both margins", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, epsilon = 1e-8, verbose = FALSE))
+  lat <- suppressWarnings(nmfkc.ar.latent(f))
+  inf <- suppressWarnings(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 5))
+  expect_named(inf$kkt, c("n.boundary", "all.positive", "ratio",
+                          "delta.dual", "delta.prim"))
+  if (inf$kkt$n.boundary > 0 && inf$kkt$n.boundary < length(lat$Theta)) {
+    ## delta.prim is the smallest surviving coefficient, so it clears kkt.tol
+    expect_gt(inf$kkt$delta.prim, 1e-3)
+    expect_true(is.finite(inf$kkt$delta.dual))
+  }
 })
 
 test_that("the bootstrap is reproducible, parallel-safe and leaves the RNG alone", {

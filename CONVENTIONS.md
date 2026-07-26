@@ -186,14 +186,32 @@ Fit the model tightly too (`epsilon = 1e-8`) when the fit feeds inference.
   `rho(G)`, the eigenvalues of `G`, `Xi_d`, impulse responses and `mu_y` are.
   `nmfkc.ar.latent.inference()` uses this: because `rho` is invariant its
   replicates need no label alignment at all.
-- **Know how much of `T` the fit pinned down before reporting entries.** With
-  `X.restriction = "colSums"` (the default) the column scale of `X` is fixed and
-  `T` reduces to a permutation, so entries of `G_d` and the composition `p*` are
-  identified once replicates are permutation-aligned to the original basis.
-  With `X.restriction = "none"` or `"fixed"` the diagonal of `G_d` survives
-  (`G_qq` is scale-invariant) but the off-diagonals do not — warn rather than
-  report them. `nmfkc()` records the constraint in `$X.restriction` for exactly
-  this check.
+- **Know how much of `T` the fit pinned down before reporting entries.**
+  Reducing `T` to a permutation takes **two** things, not one:
+  - `X.restriction = "colSums"` (the default) removes the **scale** part.
+    Without it `G_qq' -> (t_q'/t_q) G_qq'`, so the diagonal survives but the
+    off-diagonals do not. `nmfkc()` records the constraint in `$X.restriction`.
+  - **separability** (each basis owns a variable loading on it alone) or
+    sufficient scatteredness removes the **rotational** part. Column
+    normalization alone does *not*. `nmfkc.ar.latent()` reports `separability`;
+    `nmfkc.ar.latent.inference()` requires `min(separability) >= sep.tol`
+    (0.9) before setting `identified = TRUE`.
+
+  Invariant quantities (`rho`, the eigenvalues, `mu_y`) are unaffected by either
+  failure, which is why they are the safe things to report.
+- **A vanishing KKT dual margin is a statement, not a bug.** Under correct
+  specification `Xi_0 = X Theta` makes the population multipliers exactly zero,
+  so strict complementarity fails at *every* zero coefficient and
+  `P(theta_k = 0)` tends to a constant in (0, 1) — one half for an isolated zero
+  — rather than to 1. The estimated zeros only estimate something under
+  **misspecification**, where they recover the coordinates whose *unconstrained*
+  population coefficient is strictly negative. Report both margins
+  (`delta.dual` over the zeros, `delta.prim` over the positives) and say which
+  reading applies rather than calling a small ratio "doubtful".
+- **A naive nonparametric bootstrap is inconsistent on the boundary.** Resample
+  in a way that re-imposes the constraint in every re-fit (as the wild-bootstrap
+  re-fits here do). A moving-block scheme would additionally preserve the serial
+  dependence that a fixed design discards.
 
 **Function split for NMF-VAR.** `nmfkc.ar.latent()` computes the latent VAR
 representation; `plot()` on it draws the dynamics; `nmfkc.ar.latent.inference()`
