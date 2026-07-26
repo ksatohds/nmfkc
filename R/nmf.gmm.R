@@ -440,6 +440,9 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
     gamma = gamma, cluster = cluster, scores = scores, Yhat = Yhat,
     loglik = fit$loglik, BIC = bic, ICL = icl, entropy = ent, n.params = n.params,
     objfunc = -fit$loglik, objfunc.iter = -fit$hist, iter = fit$iter,
+    ## Standard convergence names shared with the other fitters; tol is this
+    ## model's epsilon.
+    maxit = maxit, epsilon = tol,
     converged = fit$iter < maxit, A = A
   ), class = "nmf.gmm")
 }
@@ -661,8 +664,15 @@ print.nmf.gmm <- function(x, ...) {
   cat("NMF-GMM: Gaussian-mixture latent-class NMF with covariates\n")
   cat(x$dims, "\n")
   cat(sprintf("K=%d components, rank Q=%d, covariance=%s\n", x$K, x$rank, x$cov))
-  cat(sprintf("logLik=%.2f, BIC=%.2f, ICL=%.2f (params=%d), converged=%s\n",
-              x$loglik, x$BIC, x$ICL, x$n.params, isTRUE(x$converged)))
+  cat(sprintf("logLik=%.2f, BIC=%.2f, ICL=%.2f (params=%d)\n",
+              x$loglik, x$BIC, x$ICL, x$n.params))
+  ## Same convergence line as print.nmf(): the iteration count against the cap,
+  ## so a run that merely ran out of iterations is not mistaken for a fitted one.
+  cat(sprintf("Convergence: #iter = %d %s maxit = %d (tol = %g)%s\n",
+              x$iter, if (isTRUE(x$converged)) "<" else "=",
+              if (!is.null(x$maxit)) x$maxit else NA_integer_,
+              if (!is.null(x$epsilon)) x$epsilon else NA_real_,
+              if (isTRUE(x$converged)) "" else "  -- NOT converged"))
   cat("Mixing proportions (xi):", paste(round(x$xi, 3), collapse = " "), "\n")
   cat("Cluster sizes:\n"); print(table(cluster = x$cluster))
   if (!is.null(x$coefficients))

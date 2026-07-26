@@ -660,6 +660,13 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     mae = mae,
     niter = niter,
     iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
+    ## Convergence bookkeeping, matching the other fitters.  The relative
+    ## change lives inside the per-restart worker and is not visible here, so
+    ## the verdict is the one thing that is: the MU loop breaks as soon as it
+    ## converges, hence reaching maxit means it did not.
+    maxit = maxit,
+    epsilon = epsilon,
+    converged = (niter < maxit),
     runtime = diff.time,
     n.missing = if (has.weights) sum(Wmat == 0) else 0L,
     n.total = P1 * N,
@@ -981,6 +988,11 @@ summary.nmfae.signed <- function(object, ...) {
     n.params    = n_params,
     Y.signed    = isTRUE(object$Y.signed),
     niter       = object$niter,
+    ## Carried through for .print.convergence(); see summary.nmfae.
+    iter        = object$iter,
+    maxit       = object$maxit,
+    epsilon     = object$epsilon,
+    converged   = object$converged,
     runtime     = object$runtime,
     objfunc     = object$objfunc,
     r.squared          = object$r.squared,
@@ -1039,7 +1051,7 @@ print.summary.nmfae.signed <- function(x,
   if (x$Y.signed) cat("  Y1 signed: TRUE\n")
 
   cat("\nConvergence:\n")
-  cat(sprintf("  Iterations:       %d\n", x$niter))
+  .print.convergence(x, label = "  Iterations:       ")
   cat(sprintf("  Runtime (secs):   %.2f\n", x$runtime))
   cat(sprintf("  Final objfunc:    %s\n", format(x$objfunc, digits = digits)))
 

@@ -466,6 +466,13 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     mae = mae,
     niter = niter,
     iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
+    ## Convergence bookkeeping, matching nmfkc / nmfre so print.nmf() and the
+    ## summaries can say whether the run finished or hit the cap -- previously
+    ## the two were indistinguishable from the object.  Same condition the
+    ## warning above uses (rel_change is in scope here).
+    maxit = maxit,
+    epsilon = epsilon,
+    converged = !(niter >= maxit && rel_change >= epsilon),
     runtime = diff.time,
     n.missing = n.missing,
     n.total = P1 * N
@@ -787,6 +794,13 @@ summary.nmfae <- function(object, ...) {
   ans <- list()
   ans$call <- object$call
   ans$dims <- object$dims
+  ## Carried through so .print.convergence() has something to report; without
+  ## these the summary showed a bare iteration count and could not distinguish
+  ## a converged run from one that exhausted maxit.
+  ans$iter <- object$iter
+  ans$maxit <- object$maxit
+  ans$epsilon <- object$epsilon
+  ans$converged <- object$converged
   Q <- object$rank["Q"]
   R <- object$rank["R"]
   ans$Q <- Q
@@ -886,7 +900,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
               P1, Q, Q, R, R, P2, x$n.params), "\n")
 
   cat("\nConvergence:\n")
-  cat("  Iterations:     ", x$niter, "\n")
+  .print.convergence(x, label = "  Iterations:      ")
   cat("  Runtime:        ", sprintf("%.1f secs", x$runtime), "\n")
 
   if (x$n.missing > 0) {

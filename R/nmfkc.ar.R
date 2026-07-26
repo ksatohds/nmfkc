@@ -1771,9 +1771,12 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
 
   one_boot <- function(Ys) {
     if (truncate) Ys[Ys < 0] <- 0
+    ## detail = "fast": only X and C are read from the re-fit, so the O(N^2)
+    ## sample-clustering criteria would be computed and discarded wild.B times.
     rr <- base::try(base::do.call(nmfkc, c(base::list(
                       Y = Ys, A = A, rank = Q, epsilon = epsilon,
-                      maxit = maxit, verbose = FALSE), refit.args)),
+                      maxit = maxit, detail = "fast", verbose = FALSE),
+                      refit.args)),
                     silent = TRUE)
     if (base::inherits(rr, "try-error"))
       return(base::list(rho = 0, cplx = FALSE, muy = NULL, p = NULL, G = NULL,

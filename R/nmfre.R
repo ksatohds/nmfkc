@@ -352,7 +352,7 @@
 #'
 nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
                   epsilon = 1e-5, maxit = 5000, ...) {
-
+  cl <- base::match.call()
   extra_args <- base::list(...)
   # backward compatibility
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
@@ -797,6 +797,16 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     tau2 = tau2,
     lambda = sigma2 / tau2,
 
+    ## Header for print.nmf(), matching the other fitters.
+    call = cl,
+    dims = if (base::is.null(A))
+             base::sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
+                           base::nrow(Y), base::ncol(Y), base::nrow(X), Q,
+                           Q, base::ncol(Y))
+           else base::sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)",
+                              base::nrow(Y), base::ncol(Y), base::nrow(X), Q,
+                              Q, base::nrow(A), base::nrow(A), base::ncol(A)),
+
     # convergence diagnostics
     converged = converged,
     stop.reason = stop_reason,
@@ -891,9 +901,8 @@ summary.nmfre <- function(object, ci.show = FALSE,
               P, N, P, Q, Q, K, Q, N))
 
   # ---- convergence ----
-  conv_str <- if (isTRUE(x$converged)) "converged" else "NOT converged"
-  cat(sprintf("Iterations: %d (%s, epsilon = %s)\n",
-              x$iter, conv_str, format(x$epsilon, digits = 1)))
+  ## Shared formatter, so print() and every summary() word this identically.
+  .print.convergence(x)
 
   # ---- R-squared ----
   if (!is.null(x$r.squared) && is.finite(x$r.squared)) {

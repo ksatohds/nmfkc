@@ -1,5 +1,37 @@
 # nmfkc 0.8.9 (development)
 
+### **Breaking: `nmfkc()` stops computing criteria nothing consumed**
+
+- **`detail` now defaults to `"fast"`.** The only thing `"full"` adds is the
+  sample-clustering criteria `silhouette`, `CPCC` and `dist.cor`, which cost
+  \eqn{O(N^2)} (two distance matrices plus a cophenetic correlation) and had no
+  consumer: they left rank selection, `summary.nmfkc()` never printed them, and
+  `nmf.cluster.criteria()` recomputes them from the fits it is given. At
+  \eqn{N=2000} they were 26x the cost of the rest of the call; over a
+  500-replicate bootstrap, 83s against 9s. They are **absent** from
+  `fit$criterion` unless `detail = "full"` is asked for -- absent rather than
+  `NA`, because `CPCC` is legitimately `NA` at \eqn{Q=1} and the two meanings
+  must not collide.
+- **`criterion$B.prob.max.mean` is removed.** Nothing in the package read it
+  except the summary line that printed it, and that line is now the
+  effective-rank index (below).
+- The bootstrap re-fits in `nmfkc.inference(method = "refit")` and
+  `nmfkc.ar.latent.inference()` pass `detail = "fast"` explicitly, so this
+  holds even if the default moves back.
+
+### **`summary()` reports a \eqn{[0,1]} factor diagnostic**
+
+- `criterion$effective.rank.index` is new on a single fit: the broken-stick
+  correction \eqn{(\hat r_Q-E_Q)/(Q-E_Q)}, \eqn{E_Q=\exp(H_Q-1)}, that
+  `nmfkc.rank()` already plotted. It is verified to agree bit-for-bit with the
+  `nmfkc.rank()` column at matched settings, and both now call one helper.
+- `summary()` prints it as `Factor variance share` in place of the old
+  `Clustering Crispness`. Unlike the crispness (range \eqn{[1/Q,1]}, monotone
+  in \eqn{Q}) this is a genuine \eqn{[0,1]} index. Read it as **how evenly the
+  across-sample coefficient variance is shared**, which is not the same as how
+  useful the factors are: two duplicated factors split the variance evenly and
+  score near 1.
+
 ### **New: NMF-GMM family (`nmf.gmm*`)**
 - `nmf.gmm()` fits NMF-GMM (Satoh 2026): a \eqn{K}-component Gaussian mixture on
   the latent NMF scores, \eqn{\bm b_n\mid(z_n{=}k)\sim N_Q(C\bm a_n+\bm\mu_k,

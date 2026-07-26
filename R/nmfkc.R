@@ -875,6 +875,30 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 
 
+#' @title Broken-stick-corrected effective-rank index (Internal)
+#' @description
+#' Rescales the effective rank onto \eqn{[0,1]}:
+#' \deqn{\mathrm{index}=\frac{\hat r_Q-E_Q}{Q-E_Q},\qquad E_Q=\exp(H_Q-1),}
+#' with \eqn{H_Q} the \eqn{Q}-th harmonic number.  \eqn{E_Q} is the effective
+#' rank a broken-stick (random) split of the variance would give, so 0 is the
+#' random null and 1 is perfect evenness.  The raw \eqn{\hat r_Q/Q} is not a
+#' \eqn{[0,1]} index --- it lives in \eqn{[1/Q,1]} and is inflated at small
+#' \eqn{Q}, which is exactly what the correction removes.
+#' @param eff.rank Effective rank \eqn{\hat r_Q} (may be a vector).
+#' @param Q Rank (same length as \code{eff.rank}, or length 1).
+#' @return The index, clamped to \eqn{[0,1]}; \code{NA_real_} where undefined
+#'   (notably \eqn{Q=1}, where \eqn{E_1=Q=1}).
+#' @keywords internal
+#' @noRd
+.effective.rank.index <- function(eff.rank, Q) {
+  Hq <- base::vapply(Q, function(q) base::sum(1 / base::seq_len(q)), base::numeric(1))
+  e_null <- base::exp(Hq - 1)
+  idx <- (eff.rank - e_null) / (Q - e_null)
+  idx[!base::is.finite(idx)] <- NA_real_
+  base::pmin(base::pmax(idx, 0), 1)
+}
+
+
 #' @title Mean silhouette width from a distance matrix (Internal)
 #' @description
 #' Computes the standard mean silhouette width for a hard clustering,
@@ -1150,7 +1174,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @description
 #' Prints the common structure-diagnostics block shared by the NMF
 #' summary methods: one sparsity line per factor matrix plus an optional
-#' clustering-crispness line.  Sparsities are supplied as a named
+#' factor-variance-share line.  Sparsities are supplied as a named
 #' numeric vector (name = matrix label, value = fraction of near-zero
 #' entries); labels are aligned to the same width as
 #' \code{\link{.print.fit.statistics}}.  Model-specific extras (value
@@ -1158,12 +1182,14 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' block.
 #' @param sparsity Named numeric vector of sparsity fractions in
 #'   \eqn{[0, 1]}; names become the row labels (e.g.\ \code{"Basis (X)"}).
-#' @param crispness Optional clustering crispness in \eqn{[1/Q, 1]}.
+#' @param eff.rank.index Optional broken-stick effective-rank index in
+#'   \eqn{[0, 1]} (see \code{.effective.rank.index}).
 #' @param header Section header (default \code{"Structure Diagnostics:"}).
 #' @return \code{NULL}, invisibly.
 #' @keywords internal
 #' @noRd
-.print.structure.diagnostics <- function(sparsity = NULL, crispness = NULL,
+.print.structure.diagnostics <- function(sparsity = NULL,
+                                         eff.rank.index = NULL,
                                          header = "Structure Diagnostics:") {
   base::cat("\n", header, "\n", sep = "")
   w <- 24L
@@ -1175,10 +1201,15 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
                                 base::paste0(lab, " Sparsity:"), 100 * v))
     }
   }
-  if (!base::is.null(crispness) && base::is.finite(crispness))
-    base::cat(base::sprintf("  %-*s %s (range: 1/Q-1, closer to 1 = more decisive assignment)\n",
-                            w, "Clustering Crispness:",
-                            base::format(crispness, digits = 4)))
+  ## What this is and is NOT: it is the evenness of the across-sample
+  ## coefficient variance, rescaled so 0 is the broken-stick (random) null and
+  ## 1 is a perfectly equal share.  Evenness is not usefulness -- two
+  ## duplicated factors split the variance evenly and score near 1 -- so the
+  ## label says "variance share", not "all factors useful".
+  if (!base::is.null(eff.rank.index) && base::is.finite(eff.rank.index))
+    base::cat(base::sprintf(
+      "  %-*s %s (0 = broken-stick null, 1 = variance shared evenly)\n",
+      w, "Factor variance share:", base::format(eff.rank.index, digits = 4)))
   base::invisible(NULL)
 }
 
@@ -1897,13 +1928,11 @@ print.nmf.cluster.flow <- function(x, ...) {
   ## This removes the small-Q inflation of eff.rank / Q, so its maximum
   ## is a meaningful rank.
   if (!base::is.null(criteria$effective.rank)) {
-    Hq <- base::vapply(rk, function(Q) base::sum(1 / base::seq_len(Q)),
-                       base::numeric(1))
-    e_null <- base::exp(Hq - 1)
-    idx <- (criteria$effective.rank - e_null) / (rk - e_null)
-    idx[!base::is.finite(idx)] <- NA_real_
-    criteria$effective.rank.expected <- e_null
-    criteria$effective.rank.index <- base::pmin(base::pmax(idx, 0), 1)
+    criteria$effective.rank.expected <-
+      base::exp(base::vapply(rk, function(Q) base::sum(1 / base::seq_len(Q)),
+                             base::numeric(1)) - 1)
+    criteria$effective.rank.index <-
+      .effective.rank.index(criteria$effective.rank, rk)
   }
 
   has_idx <- !base::is.null(criteria$effective.rank.index) &&
@@ -2307,10 +2336,17 @@ print.nmf.rank <- function(x, ...) {
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 #'     \item \code{print.dims}: Deprecated. Use \code{verbose} instead.
 #'     \item \code{detail}: Level of post-fit criterion computation.
-#'       \code{"full"} computes all criteria including silhouette, CPCC, dist.cor;
-#'       \code{"fast"} skips expensive distance-based criteria;
-#'       \code{"minimal"} returns only information criteria.
-#'       Default is \code{"full"}. For backward compatibility,
+#'       \code{"fast"} (\strong{default}) computes everything except the
+#'       \eqn{O(N^2)} sample-clustering criteria;
+#'       \code{"full"} adds \code{silhouette}, \code{CPCC} and
+#'       \code{dist.cor}, which need two \eqn{N\times N} distance matrices and
+#'       a cophenetic correlation --- at \eqn{N=2000} that was 26 times the
+#'       cost of the rest of the call;
+#'       \code{"minimal"} returns only information criteria and skips
+#'       \eqn{XB}.
+#'       The default changed from \code{"full"} in 0.8.9: nothing consumed
+#'       those three (see the \code{criterion} entry under Value), so every
+#'       call was paying for them.  For backward compatibility,
 #'       \code{save.time = TRUE} maps to \code{"fast"} and
 #'       \code{save.memory = TRUE} maps to \code{"minimal"}.
 #'   }
@@ -2342,7 +2378,36 @@ print.nmf.rank <- function(x, ...) {
 #' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-#' \item{criterion}{A list of selection criteria: \code{silhouette} (mean silhouette width of the hard clustering, computed in the original data space \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic correlation of a hierarchical clustering of the coefficient distances \code{dist(t(B))}), \code{dist.cor} (correlation between original-data and coefficient distances), \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{effective.rank}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
+#' \item{criterion}{A list with \code{effective.rank} and
+#'   \code{effective.rank.index}.
+#'
+#'   \code{effective.rank.index} is \code{effective.rank} rescaled onto
+#'   \eqn{[0,1]} by the broken-stick correction
+#'   \eqn{(\hat r_Q-E_Q)/(Q-E_Q)} with \eqn{E_Q=\exp(H_Q-1)}, the effective
+#'   rank a random split of the variance would produce; it is the quantity
+#'   \code{\link{nmfkc.rank}} plots, and \code{summary} prints it in place of
+#'   the crispness.  Read it as \strong{how evenly the across-sample
+#'   coefficient variance is shared}, which is not the same as how useful the
+#'   factors are: a factor whose coefficient is large but constant carries no
+#'   variance and pulls the index down (correctly --- the raw value can go
+#'   negative and is clamped at 0, meaning the variance is spread over fewer
+#'   factors than chance would give), while two duplicated factors split the
+#'   variance evenly and score near 1.  \code{NA} at \eqn{Q=1}, where
+#'   \eqn{E_1=Q}.
+#'
+#'   With \code{detail = "full"} the list additionally carries the
+#'   \strong{sample-clustering} criteria \code{silhouette} (mean silhouette
+#'   width of the hard clustering, computed in the original data space
+#'   \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic
+#'   correlation of a hierarchical clustering of the coefficient distances
+#'   \code{dist(t(B))}) and \code{dist.cor} (correlation between original-data
+#'   and coefficient distances).  They are \strong{absent by default} because
+#'   they cost \eqn{O(N^2)} and nothing consumes them: they are no longer part
+#'   of rank selection, \code{\link{summary.nmfkc}} does not print them, and
+#'   \code{\link{nmf.cluster.criteria}} --- the right entry point when several
+#'   ranks are to be compared --- recomputes them from the fits it is given.
+#'
+#'   \code{effective.rank} is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
 #' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
@@ -2447,8 +2512,14 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   if (base::is.null(detail)) {
     # backward compatibility: derive detail from save.time / save.memory
     if (save.memory) detail <- "minimal"
-    else if (save.time) detail <- "fast"
-    else detail <- "full"
+    ## "fast" is the default because the only things "full" adds -- the
+    ## sample-clustering criteria silhouette / CPCC / dist.cor -- are O(N^2)
+    ## (two distance matrices plus a cophenetic correlation) and nothing reads
+    ## them: they left rank selection, summary.nmfkc() never printed them, and
+    ## nmf.cluster.criteria() recomputes them from the fits it is given.  At
+    ## N = 2000 they were 26x the rest of the call; over a 500-replicate
+    ## bootstrap, 83s against 9s.  Ask for detail = "full" to get them.
+    else detail <- "fast"
   }
   detail <- base::match.arg(detail, base::c("full", "fast", "minimal"))
 
@@ -2559,7 +2630,15 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   ## weighted response W*Y is constant.  (Used by the X- and C-steps and the
   ## objective every iteration; computing it once avoids a P x N element-wise
   ## product per iteration.  Numerically identical to the inline form.)
-  WY <- Y.weights * Y
+  ## With no missing data and no user weights, Y.weights is all ones, and
+  ## multiplying by exactly 1.0 is the identity in IEEE arithmetic -- so every
+  ## `Y.weights * <P x N>` below is an allocation and a pass over the matrix
+  ## that produces its own input.  Skipping them is bit-identical, not an
+  ## approximation.  Measured on a 19 MB matrix: 20 iterations of
+  ## `Y.weights * XB` cost 0.20s against 0.00s; at MNIST scale each such
+  ## product is a 125 MB allocation per iteration.
+  unweighted <- base::all(Y.weights == 1)
+  WY <- if (unweighted) Y else Y.weights * Y
 
   # --- 4. Main Loop (Weighted) ---
   for(i in 1:maxit){
@@ -2568,7 +2647,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     if(print.trace && i %% 10==0) message(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
     if(method=="EU"){
-      WXB <- Y.weights * XB                # within-iteration invariant (XB fixed)
+      WXB <- if (unweighted) XB else Y.weights * XB  # invariant given XB
       if(!is.X.scalar && X.restriction!="fixed"){
         num_X <- tcrossprod(WY, B)         # = (Y.weights*Y) %*% t(B)
         den_X <- tcrossprod(WXB, B)        # = (Y.weights*XB) %*% t(B)
@@ -2608,7 +2687,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
       ## loss consistent for any non-negative W.  For binary W in {0,1}
       ## (the standard ECV / CV / NA-mask case) this is identical to
       ## sum((W*(Y-XB))^2) since W = W^2.
-      obj <- sum(Y.weights * (Y - XB)^2)
+      obj <- if (unweighted) sum((Y - XB)^2) else sum(Y.weights * (Y - XB)^2)
 
     }else{ # KL
       Xeps  <- XB + .eps                          # within-iteration invariant
@@ -2682,6 +2761,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     objfunc <- sum(term1 + term2)
   }
 
+  ## The trace is trimmed to [10:end] so the plot is not dominated by the first
+  ## few iterations, which means length(objfunc.iter) is NOT the iteration
+  ## count -- it is short by 9 whenever the fit ran at least 10 iterations.
+  ## Record the real count before trimming.
+  iter.used <- if (!is.null(i_end)) i_end else i
   if(!is.null(i_end)){ objfunc.iter <- objfunc.iter[10:i_end]
   } else if (i >= 10){ objfunc.iter <- objfunc.iter[10:i]
   } else { objfunc.iter <- objfunc.iter[1:i] }
@@ -2749,12 +2833,27 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     rank      = Q,
     objfunc   = objfunc,
     objfunc.iter = objfunc.iter,
+    ## `iter` is the house name (nmfae / nmfre / nmf.sem / nmfkc.net all use
+    ## it); nmfkc simply never recorded it.  It is the actual number of MU
+    ## iterations -- objfunc.iter is trimmed to [10:end] for plotting, so its
+    ## length under-reports by 9.  Whether the run converged or merely hit
+    ## maxit was previously not recoverable from the object at all.
+    iter      = iter.used,
+    maxit     = maxit,
+    epsilon   = epsilon,
+    converged = (epsilon.iter <= base::abs(epsilon)),
     r.squared          = r2,
     r.squared.uncentered     = r2.uncentered,
     r.squared.centered = r2.centered,
     sigma     = sigma,
     mae = mae,
-    criterion = crit_result$criterion
+    ## Drop the sample-clustering criteria unless they were actually computed.
+    ## Leaving NA placeholders would be ambiguous: CPCC is legitimately NA at
+    ## Q = 1 under detail = "full", so NA cannot also mean "not computed".
+    criterion = if (detail == "full") crit_result$criterion
+                else crit_result$criterion[
+                  base::setdiff(base::names(crit_result$criterion),
+                                base::c("silhouette", "CPCC", "dist.cor"))]
   )
   class(result) <- c("nmfkc", "nmf")
   return(result)
@@ -2836,7 +2935,12 @@ summary.nmfkc <- function(object, ...) {
 
   ans$formula.meta <- object$formula.meta
   ans$method <- object$method
-  ans$iter <- length(object$objfunc.iter)
+  ## objfunc.iter is trimmed to [10:end] for plotting, so its length is 9 short
+  ## of the real count whenever the fit ran at least 10 iterations.
+  ans$iter <- if (!is.null(object$iter)) object$iter
+              else length(object$objfunc.iter)
+  ans$maxit <- object$maxit
+  ans$converged <- object$converged
   ans$objfunc <- object$objfunc
   ans$r.squared          <- object$r.squared
   ans$r.squared.uncentered     <- object$r.squared.uncentered
@@ -2862,7 +2966,10 @@ summary.nmfkc <- function(object, ...) {
   if (!is.null(object$B.prob)){
     # Sparsity
     ans$B.prob.sparsity <- mean(object$B.prob < 1e-4)
-    ans$B.prob.max.mean <- object$criterion$B.prob.max.mean
+    ## The one [0, 1] factor diagnostic.  It replaces the old clustering
+    ## crispness (B.prob.max.mean), which lived in [1/Q, 1], was monotone in Q,
+    ## and had no consumer anywhere in the package.
+    ans$effective.rank.index <- object$criterion$effective.rank.index
   }
 
   class(ans) <- "summary.nmfkc"
@@ -2895,7 +3002,7 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("Runtime:    ",
       if (is.numeric(x$runtime)) sprintf("%.1fsec", x$runtime) else x$runtime, "\n")
   if (!is.null(x$method)) cat("Method:     ", x$method, "\n")
-  cat("Iterations: ", x$iter, "\n")
+  .print.convergence(x)
 
   if (!is.null(x$n.missing)) {
     cat("Missing:    ", x$n.missing,
@@ -2906,7 +3013,7 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 
   .print.structure.diagnostics(
     sparsity  = c("Basis (X)" = x$X.sparsity, "Coef (B)" = x$B.prob.sparsity),
-    crispness = x$B.prob.max.mean)
+    eff.rank.index = x$effective.rank.index)
   cat("\n")
   invisible(x)
 }
@@ -3565,9 +3672,9 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 
 #' @title Compute model selection criteria for a fitted nmfkc model
 #' @description
-#' \code{nmfkc.criterion} computes the effective rank, clustering-quality
-#' measures (silhouette, CPCC, dist.cor), and the clustering-crispness
-#' statistic (\code{B.prob.max.mean}) from a fitted \code{nmfkc} model.
+#' \code{nmfkc.criterion} computes the effective rank (raw and as the
+#' \eqn{[0,1]} broken-stick index) and the sample-clustering quality measures
+#' (silhouette, CPCC, dist.cor) from a fitted \code{nmfkc} model.
 #'
 #' This function can be called on a model that was fitted with
 #' \code{detail = "fast"} or \code{detail = "minimal"} to compute the
@@ -3594,7 +3701,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   \item{B.cluster}{Hard clustering labels (argmax of B.prob per column).}
 #'   \item{X.prob}{Row-normalized basis matrix.}
 #'   \item{X.cluster}{Hard clustering labels per row of X.}
-#'   \item{criterion}{Named list: B.prob.max.mean, effective.rank,
+#'   \item{criterion}{Named list: effective.rank, effective.rank.index,
 #'     silhouette, CPCC, dist.cor.}
 #' }
 #'
@@ -3654,16 +3761,6 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     }
 
     B.prob <- base::t(base::t(B) / (base::colSums(B) + .eps))
-    ## Clustering crispness: mean over samples of the dominant-cluster
-    ## membership.  Range [1/Q, 1]; higher = more decisive (hard-like)
-    ## soft assignment.  Meaningful at fixed Q (e.g. as a confidence
-    ## check before treating B.cluster as hard labels); not used for
-    ## rank selection (it is monotone in Q).
-    if (Q > 1) {
-      B.prob.max.mean <- base::mean(base::apply(B.prob, 2, base::max))
-    } else {
-      B.prob.max.mean <- 1
-    }
     B.cluster <- base::apply(B.prob, 2, base::which.max)
     B.cluster[base::colSums(B.prob) == 0] <- NA
     X.prob <- X / (base::rowSums(X) + .eps)
@@ -3700,7 +3797,6 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     r2 <- NA; r2.uncentered <- NA; r2.centered <- NA
     sigma <- NA; mae <- NA
     B.prob <- NA; B.cluster <- NA
-    B.prob.max.mean <- NA
     X.prob <- NA; X.cluster <- NA
     silhouette <- NA; CPCC <- NA; dist.cor <- NA
     effective.rank <- NA_real_
@@ -3717,8 +3813,11 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     X.prob    = X.prob,
     X.cluster = X.cluster,
     criterion = base::list(
-      B.prob.max.mean     = B.prob.max.mean,
       effective.rank      = effective.rank,
+      ## Same broken-stick correction nmfkc.rank() plots, computed here so a
+      ## single fit has it too.  Unlike effective.rank / Q (range [1/Q, 1] and
+      ## inflated at small Q) this is a genuine [0, 1] index.
+      effective.rank.index = .effective.rank.index(effective.rank, Q),
       silhouette = silhouette,
       CPCC       = CPCC,
       dist.cor   = dist.cor
@@ -4399,10 +4498,14 @@ nmfkc.inference <- function(object, Y, A = NULL,
       ## result matches the model's fitting behaviour (faithful even under
       ## singular AA', where the solution is regularisation-dependent).
       Qrank <- ncol(X)
+      ## detail = "fast" explicitly: only $C is read, so the O(N^2) clustering
+      ## criteria would be computed and thrown away wild.B times over.  Stated
+      ## rather than inherited from the default, so this stays true if the
+      ## default ever moves back.
       refit.fun <- function(Ys) nmfkc(Ys, A = A, rank = Qrank,
                                       X.init = X, X.restriction = "fixed",
                                       epsilon = refit.epsilon, maxit = refit.maxit,
-                                      verbose = FALSE)$C
+                                      detail = "fast", verbose = FALSE)$C
       C_boot <- .boot.refit(XB, R_C, refit.fun, wild.B,
                             dist = wild.dist, seed = wild.seed,
                             unit = wild.unit, clipY = TRUE)

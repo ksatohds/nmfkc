@@ -1394,7 +1394,7 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
   cat("Rank (Q):   ", x$rank, "\n")
   cat("Type:       ", x$type, "\n")
   cat("Runtime:    ", x$runtime, "\n")
-  cat("Iterations: ", x$iter, "\n")
+  .print.convergence(x)
 
   .print.fit.statistics(x, digits = digits)
 
@@ -1438,7 +1438,7 @@ print.summary.nmfkc.net.signed <- function(x, digits = max(3L, getOption("digits
   cat("Rank (Q):   ", x$rank, "\n")
   cat("Type:       ", "signed (C = Cp - Cn)\n")
   cat("Runtime:    ", x$runtime, "\n")
-  cat("Iterations: ", x$iter, "\n")
+  .print.convergence(x)
 
   .print.fit.statistics(x, digits = digits)
 

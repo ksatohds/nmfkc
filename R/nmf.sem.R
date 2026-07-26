@@ -177,6 +177,7 @@ nmf.ffb <- function(
     seed  = 123,
     ...
 ) {
+  cl <- match.call()
   # ------------------------------ checks ------------------------------
   if (!is.matrix(Y1)) Y1 <- as.matrix(Y1)
   if (!is.matrix(Y2)) Y2 <- as.matrix(Y2)
@@ -449,6 +450,11 @@ nmf.ffb <- function(
   }
 
   out <- list(
+    ## call / dims match the other fitters so print.nmf() has a header to show.
+    call                = cl,
+    dims                = sprintf("Y1(%d,%d)~X(%d,%d)[C1(%d,%d)Y1+C2(%d,%d)Y2]",
+                                  nrow(Y1), ncol(Y1), nrow(X), ncol(X),
+                                  ncol(X), nrow(Y1), ncol(X), nrow(Y2)),
     X                   = X,
     C1                  = C1,
     C2                  = C2,
@@ -468,7 +474,13 @@ nmf.ffb <- function(
     effective.rank      = .effective.rank(C1 %*% Y1 + C2 %*% Y2),
     objfunc             = objfunc[1:it],
     objfunc.full        = objfunc.full[1:it],
-    iter                = it
+    iter                = it,
+    ## Convergence bookkeeping, matching nmfkc / nmfre / nmfae so print.nmf()
+    ## and the summaries can say whether the run finished or hit the cap.
+    maxit               = maxit,
+    epsilon             = epsilon,
+    converged           = !(it == maxit && exists("epsilon_iter") &&
+                            epsilon_iter > abs(epsilon))
   )
   ## Carry both the canonical NMF-FFB class (paper-aligned, primary) and
   ## the legacy "nmf.sem" class (back-compat).  S3 methods registered on
