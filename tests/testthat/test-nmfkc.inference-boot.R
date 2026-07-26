@@ -99,6 +99,48 @@ test_that("the refit bootstrap converges tightly enough for boundary coefficient
   expect_false(isTRUE(all.equal(tight$coefficients$SE, loose$coefficients$SE)))
 })
 
+test_that("no inference or CV wrapper resets the caller's RNG stream", {
+  ## Consuming randomness is fine; RESETTING the stream to a fixed state is the
+  ## bug -- it makes every call leave .Random.seed in the same place, so a user
+  ## loop repeats itself.  Detect it by checking that what came before the call
+  ## still matters.
+  set.seed(11); P <- 8; N <- 30
+  Y  <- matrix(abs(rnorm(P * 2)), P, 2) %*% matrix(abs(rnorm(2 * N)), 2, N) +
+        matrix(abs(rnorm(P * N)) * 0.1, P, N)
+  A  <- rbind(1, runif(N))
+  Y1 <- matrix(abs(rnorm(6 * N)), 6, N); Y2 <- matrix(abs(rnorm(5 * N)), 5, N)
+  qq <- function(e) suppressWarnings(suppressMessages(e))
+  fk  <- qq(nmfkc(Y, A = A, rank = 2, verbose = FALSE))
+  ff  <- qq(nmf.ffb(Y1, Y2, rank = 2, verbose = FALSE))
+  calls <- list(
+    nmfkc.inference   = function() qq(nmfkc.inference(fk, Y, A, wild.B = 20)),
+    nmf.ffb.inference = function() qq(nmf.ffb.inference(ff, Y1, Y2, B = 10,
+                                                        ncores = 1, print.trace = FALSE)),
+    nmfkc.cv          = function() qq(nmfkc.cv(Y, rank = 2, verbose = FALSE)),
+    nmfkc.ecv         = function() qq(nmfkc.ecv(Y, rank = 2, verbose = FALSE)),
+    nmf.ffb.cv        = function() qq(nmf.ffb.cv(Y1, Y2, rank = 2, seed = 7,
+                                                 verbose = FALSE))
+  )
+  for (nm in names(calls)) {
+    f <- calls[[nm]]
+    set.seed(1); invisible(f()); a <- runif(1)
+    set.seed(2); invisible(f()); b <- runif(1)
+    expect_false(isTRUE(all.equal(a, b)), info = nm)
+  }
+})
+
+test_that("nmf.ffb() with seed = NULL does not re-initialize the generator", {
+  ## set.seed(NULL) re-seeds from the clock rather than doing nothing, which
+  ## would make a seed = NULL fit irreproducible; nmf.ffb.cv() passes NULL to
+  ## mean "use the stream as it is".
+  set.seed(21); N <- 30
+  Y1 <- matrix(abs(rnorm(6 * N)), 6, N); Y2 <- matrix(abs(rnorm(5 * N)), 5, N)
+  qq <- function(e) suppressWarnings(suppressMessages(e))
+  set.seed(5); a <- qq(nmf.ffb(Y1, Y2, rank = 2, seed = NULL, verbose = FALSE))
+  set.seed(5); b <- qq(nmf.ffb(Y1, Y2, rank = 2, seed = NULL, verbose = FALSE))
+  expect_equal(a$X, b$X)          # same ambient stream => same fit
+})
+
 test_that("no fitter leaves the caller's RNG stream at a fixed state", {
   set.seed(11); P <- 8; N <- 40
   Y  <- matrix(abs(rnorm(P * 2)), P, 2) %*% matrix(abs(rnorm(2 * N)), 2, N) +

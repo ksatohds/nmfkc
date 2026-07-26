@@ -487,6 +487,9 @@ nmf.gmm.inference <- function(object, Y, A = object$A, ...) {
   extra <- base::list(...)
   B     <- if (!is.null(extra$wild.B))     extra$wild.B     else 500L
   seed  <- if (!is.null(extra$seed))       extra$seed       else 123L
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   level <- if (!is.null(extra$wild.level)) extra$wild.level else 0.95
 
   X <- object$X; C <- object$C; mu <- object$mu

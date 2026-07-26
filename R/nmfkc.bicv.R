@@ -118,6 +118,9 @@ nmfkc.bicv <- function(Y, rank = 1:3, ...) {
   dots       <- base::list(...)
   nfolds     <- if (base::is.null(dots$nfolds))     2   else dots$nfolds
   seed       <- if (base::is.null(dots$seed))       123 else dots$seed
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   nnls.maxit <- if (base::is.null(dots$nnls.maxit)) 100 else dots$nnls.maxit
   cores      <- if (base::is.null(dots$cores)) base::getOption("mc.cores", 1L) else dots$cores
   dots$nfolds <- NULL; dots$seed <- NULL; dots$nnls.maxit <- NULL; dots$cores <- NULL

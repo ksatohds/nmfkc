@@ -527,6 +527,9 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
   extra_args <- list(...)
   wild.B     <- if (!is.null(extra_args$wild.B))     extra_args$wild.B     else 500
   wild.seed  <- if (!is.null(extra_args$wild.seed))  extra_args$wild.seed  else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(wild.seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   wild.level <- if (!is.null(extra_args$wild.level)) extra_args$wild.level else 0.95
   sandwich   <- if (!is.null(extra_args$sandwich))   extra_args$sandwich   else TRUE
   C.p.side   <- if (!is.null(extra_args$C.p.side))   extra_args$C.p.side   else "one.sided"
@@ -1630,6 +1633,9 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
   if (is.null(rank.encoder))  rank.encoder <- rank
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
   seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
   cores   <- if (!is.null(extra_cv$cores))   extra_cv$cores   else getOption("mc.cores", 1L)
   Q <- rank; R <- rank.encoder

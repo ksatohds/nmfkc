@@ -942,6 +942,9 @@ nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
   nfolds  <- if (!is.null(extra$nfolds)) extra$nfolds
              else if (!is.null(extra$div)) extra$div else 5
   seed    <- if (!is.null(extra$seed))    extra$seed    else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   shuffle <- if (!is.null(extra$shuffle)) extra$shuffle else TRUE
 
   Y <- as.matrix(Y); A <- as.matrix(A)

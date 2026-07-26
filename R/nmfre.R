@@ -1136,6 +1136,9 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   extra_args <- base::list(...)
   wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
   wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(wild.seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
   ## sign convention of C (= Theta) from the fit; resolves the default p-side
   ## (two-sided for sign-free C, one-sided for the non-negative variant) and
@@ -1375,6 +1378,9 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
             else if (!is.null(extra$nfold)) extra$nfold else 5L
   rounds <- if (!is.null(extra$rounds)) extra$rounds else 4L
   seed   <- if (!is.null(extra$seed))   extra$seed   else 1L
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   cores  <- if (!is.null(extra$cores))  extra$cores  else getOption("mc.cores", 1L)
   print.trace <- isTRUE(extra$print.trace)
   ## loosened CV tolerances (overridable via ...)

@@ -756,6 +756,9 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
                         nfolds = 5, verbose = TRUE, ...) {
   extra_args <- base::list(...)
   seed     <- if (!is.null(extra_args$seed))     extra_args$seed     else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else getOption("mc.cores", 1L)
   maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
   ## remaining ... are forwarded to nmf.cox (fitter-level options)
@@ -929,6 +932,9 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
                         verbose = FALSE, ...) {
   extra_args <- base::list(...)
   seed     <- if (!is.null(extra_args$seed))     extra_args$seed     else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
   ties     <- if (!is.null(extra_args$ties))     extra_args$ties     else "breslow"
   mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else getOption("mc.cores", 1L)
@@ -1046,6 +1052,9 @@ nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
                             nfolds = 5, verbose = FALSE, ...) {
   extra_args <- base::list(...)
   seed     <- if (!is.null(extra_args$seed))     extra_args$seed     else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
   ties     <- if (!is.null(extra_args$ties))     extra_args$ties     else "breslow"
   mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else getOption("mc.cores", 1L)

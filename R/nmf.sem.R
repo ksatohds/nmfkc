@@ -202,9 +202,13 @@ nmf.ffb <- function(
   Basis_labels <- paste0("Factor", 1:Q)
 
   ## Keep the self-seeding of this fit out of the caller's random stream.
+  ## The guard matters: set.seed(NULL) does not mean "do nothing", it
+  ## re-initializes the generator from the clock, which would make a
+  ## seed = NULL fit irreproducible -- and nmf.ffb.cv() passes seed = NULL
+  ## precisely to mean "use the stream as it is".
   .rng <- .nmfkc.rng.save(seed)
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
-  set.seed(seed)
+  if (!is.null(seed)) set.seed(seed)
   .eps <- 1e-10
   .xnorm  <- function(X) sweep(X, 2, pmax(colSums(X), .eps), "/")
   mat1norm <- function(A) max(colSums(abs(A)))
@@ -619,6 +623,9 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
 
   extra_args  <- base::list(...)
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   ## Convergence control of the fixed-X re-fits.  Deliberately tighter than a
   ## plain fit: under multiplicative updates a coefficient heading for the
   ## non-negativity boundary approaches 0 slowly, so a loose tolerance stops
@@ -968,6 +975,10 @@ nmf.ffb.cv <- function(
   extra_cv <- base::list(...)
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
   seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else NULL
+  ## Keep our own seeding out of the caller's random stream (no-op when
+  ## seed = NULL, which here means "use the stream as it is").
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
   cores   <- if (!is.null(extra_cv$cores))   extra_cv$cores   else getOption("mc.cores", 1L)
   div <- nfolds

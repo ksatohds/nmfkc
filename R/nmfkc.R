@@ -3184,6 +3184,9 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   div <- if (!is.null(extra_args$nfolds)) extra_args$nfolds
          else if (!is.null(extra_args$div)) extra_args$div else 5
   seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   shuffle <- if (!is.null(extra_args$shuffle)) extra_args$shuffle else TRUE
 
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
@@ -3455,6 +3458,9 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed))   extra_ecv$seed   else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   cores  <- if (!is.null(extra_ecv$cores))  extra_ecv$cores  else getOption("mc.cores", 1L)
   Q <- rank
   div <- nfolds
@@ -4257,6 +4263,9 @@ nmfkc.inference <- function(object, Y, A = NULL,
   extra_args <- base::list(...)
   wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
   wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(wild.seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
   sandwich    <- if (!is.null(extra_args$sandwich))     extra_args$sandwich    else TRUE
   C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"

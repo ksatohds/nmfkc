@@ -209,6 +209,9 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   X1.init    <- extra_args$X1.init
   X2.init    <- extra_args$X2.init
   seed       <- if (!is.null(extra_args$seed))       extra_args$seed       else 123L
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   print.trace <- verbose
   if (!is.null(extra_args$print.trace)) print.trace <- extra_args$print.trace
   prefix.dec <- if (!is.null(extra_args$prefix.dec)) extra_args$prefix.dec else "Resp"
@@ -720,6 +723,9 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
   extra_args <- list(...)
   wild.B     <- if (!is.null(extra_args$wild.B))     extra_args$wild.B     else 500
   wild.seed  <- if (!is.null(extra_args$wild.seed))  extra_args$wild.seed  else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(wild.seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   wild.level <- if (!is.null(extra_args$wild.level)) extra_args$wild.level else 0.95
   sandwich   <- if (!is.null(extra_args$sandwich))   extra_args$sandwich   else TRUE
   C.p.side   <- if (!is.null(extra_args$C.p.side))   extra_args$C.p.side   else "two.sided"
