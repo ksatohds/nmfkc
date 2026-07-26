@@ -4257,7 +4257,15 @@ nmfkc.residual.plot <- function(Y, result,
 #' \item{C.se.boot}{Bootstrap standard errors for \eqn{C} (Q x K matrix).}
 #' \item{C.ci.lower}{Lower CI bounds for \eqn{C} (Q x K matrix).}
 #' \item{C.ci.upper}{Upper CI bounds for \eqn{C} (Q x K matrix).}
-#' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{C}.}
+#' \item{coefficients}{Data frame with one row per element of \eqn{C}.
+#'   \code{SE} is always the sandwich standard error and \code{BSE} always the
+#'   bootstrap one, so the two columns differ; \code{z_value} and \code{p_value}
+#'   use whichever is primary for the chosen \code{method} (bootstrap under
+#'   \code{"refit"}, sandwich under \code{"onestep"}).  \code{on.boundary} flags
+#'   coefficients at or below \code{boundary.tol} (default \code{1e-3}): their
+#'   interval and p-value behave correctly in the "do not reject" direction, but
+#'   the value is not a calibrated p-value --- a one-sided bootstrap p piles up
+#'   near \eqn{1/2} at the boundary.}
 #' \item{C.p.side}{P-value type used.}
 #'
 #' @seealso \code{\link{nmfkc}}, \code{\link{summary.nmfkc.inference}}
@@ -4307,6 +4315,9 @@ nmfkc.inference <- function(object, Y, A = NULL,
   ## understated roughly twofold.
   refit.epsilon <- if (!is.null(extra_args$refit.epsilon)) extra_args$refit.epsilon else 1e-8
   refit.maxit   <- if (!is.null(extra_args$refit.maxit))   extra_args$refit.maxit   else 100000L
+  ## A coefficient at or below this counts as sitting on the boundary, which is
+  ## flagged in the coefficients table (see on.boundary there).
+  boundary.tol  <- if (!is.null(extra_args$boundary.tol))  extra_args$boundary.tol  else 1e-3
 
   X <- object$X   # P x Q
   C_mat <- object$C   # Q x K (or Q x N if A is NULL)
@@ -4408,10 +4419,17 @@ nmfkc.inference <- function(object, Y, A = NULL,
   C.se <- if (method == "refit" && !is.null(C.se.boot)) C.se.boot else C.se.sandwich
 
   # ---- Coefficients table ----
+  ## SE is always the sandwich SE and BSE always the bootstrap one, so the two
+  ## columns carry different information.  Under method = "refit" they used to
+  ## be filled with the same numbers, which made the table look like it reported
+  ## two estimates when it reported one.  z / p keep using the PRIMARY SE
+  ## (C.se: bootstrap under "refit", sandwich under "onestep"), so the reported
+  ## test is unchanged -- only the SE column is now informative.
   Estimate <- as.vector(C_mat)
-  SE <- as.vector(C.se)
+  SE <- as.vector(C.se.sandwich)
   BSE <- if (!is.null(C.se.boot)) as.vector(C.se.boot) else rep(NA_real_, length(Estimate))
-  z_value <- ifelse(SE > 0, Estimate / SE, NA_real_)
+  se_primary <- as.vector(C.se)
+  z_value <- ifelse(se_primary > 0, Estimate / se_primary, NA_real_)
 
   if (method == "refit" && !is.null(p.boot.vec)) {
     ## Bootstrap p from the centred replicates (no analytical z); honours
@@ -4437,6 +4455,10 @@ nmfkc.inference <- function(object, Y, A = NULL,
     p_value  = p_value,
     CI_low   = if (!is.null(C.ci.lower)) as.vector(C.ci.lower) else NA_real_,
     CI_high  = if (!is.null(C.ci.upper)) as.vector(C.ci.upper) else NA_real_,
+    ## Flag the coefficients sitting on the non-negativity boundary.  Their p and
+    ## CI behave correctly in the "do not reject" direction, but the value is not
+    ## a calibrated p-value: a one-sided bootstrap p piles up near 1/2 there.
+    on.boundary = Estimate <= boundary.tol,
     row.names = NULL, stringsAsFactors = FALSE
   )
 

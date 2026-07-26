@@ -65,7 +65,15 @@ components from the input \code{object}, with additional inference components:
 \item{C.se.boot}{Bootstrap standard errors for \eqn{C} (Q x K matrix).}
 \item{C.ci.lower}{Lower CI bounds for \eqn{C} (Q x K matrix).}
 \item{C.ci.upper}{Upper CI bounds for \eqn{C} (Q x K matrix).}
-\item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{C}.}
+\item{coefficients}{Data frame with one row per element of \eqn{C}.
+\code{SE} is always the sandwich standard error and \code{BSE} always the
+bootstrap one, so the two columns differ; \code{z_value} and \code{p_value}
+use whichever is primary for the chosen \code{method} (bootstrap under
+\code{"refit"}, sandwich under \code{"onestep"}).  \code{on.boundary} flags
+coefficients at or below \code{boundary.tol} (default \code{1e-3}): their
+interval and p-value behave correctly in the "do not reject" direction, but
+the value is not a calibrated p-value --- a one-sided bootstrap p piles up
+near \eqn{1/2} at the boundary.}
 \item{C.p.side}{P-value type used.}
 }
 \description{

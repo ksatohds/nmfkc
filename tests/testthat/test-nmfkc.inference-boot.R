@@ -96,7 +96,11 @@ test_that("the refit bootstrap converges tightly enough for boundary coefficient
   loose <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
                                             wild.unit = "column", wild.B = 60,
                                             refit.epsilon = 1e-4))
-  expect_false(isTRUE(all.equal(tight$coefficients$SE, loose$coefficients$SE)))
+  ## Compare BSE, not SE: SE is now the sandwich standard error, which does not
+  ## depend on how tightly the re-fits converged.  BSE is the bootstrap one.
+  expect_false(isTRUE(all.equal(tight$coefficients$BSE, loose$coefficients$BSE)))
+  ## the sandwich SE is indeed unaffected by refit.epsilon
+  expect_equal(tight$coefficients$SE, loose$coefficients$SE, tolerance = 1e-12)
 })
 
 test_that("no inference or CV wrapper resets the caller's RNG stream", {
