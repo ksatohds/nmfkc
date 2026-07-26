@@ -9,7 +9,7 @@
 \arguments{
 \item{x}{An object of class \code{"nmfkc.ar.stationarity"}.}
 
-\item{digits}{Number of digits used when printing the matrices.}
+\item{digits}{Ignored; kept for compatibility with the print generic.}
 
 \item{...}{Ignored.}
 }

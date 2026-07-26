@@ -2,13 +2,14 @@
 % Please edit documentation in R/nmfkc.ar.R
 \name{nmfkc.ar.stationarity}
 \alias{nmfkc.ar.stationarity}
-\title{Stationarity and latent transition matrices of an NMF-VAR model}
+\title{Stationarity of an NMF-VAR model}
 \usage{
 nmfkc.ar.stationarity(x, method = c("latent", "companion"))
 }
 \arguments{
 \item{x}{A fitted \code{"nmfkc"} object obtained from an
-\code{\link{nmfkc.ar}} design (\code{nmfkc(ar$Y, ar$A, rank = Q)}).}
+\code{\link{nmfkc.ar}} design, or an object from
+\code{\link{nmfkc.ar.latent}}.}
 
 \item{method}{Route used for \code{spectral.radius}.  \code{"latent"}
 (default) uses the \eqn{DQ\times DQ} companion matrix of the \eqn{G_d};
@@ -26,58 +27,27 @@ An object of class \code{"nmfkc.ar.stationarity"}: a list with
 selected by \code{method}).  A value below 1 indicates stationarity.}
 \item{stationary}{Logical; \code{TRUE} when \code{spectral.radius < 1}.}
 \item{method}{The route actually used.}
-\item{G}{List of \eqn{D} latent transition matrices \eqn{G_d}
-(\eqn{Q\times Q}), named \code{lag1}, ..., with \code{dimnames} = basis
-labels (row = effect, column = cause).}
-\item{G.sum}{\eqn{\sum_d G_d}.}
 \item{spectral.radius.sum}{\eqn{\rho(\sum_d G_d)}; below 1 iff stationary.}
 \item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d \Theta_d} (length \eqn{P}).}
 \item{colsum.max}{\eqn{\max_j c_j}; below 1 it certifies stationarity.}
-\item{theta0}{Latent intercept \eqn{\bm\theta} (or \code{NULL}).}
-\item{mu.b, mu.y}{Stationary means \eqn{(I-\sum_d G_d)^{-1}\bm\theta} and
-\eqn{X\bm\mu_b}; \code{NA} when the fit is not stationary or has no
-intercept.}
-\item{df}{Effective dimension \eqn{Q(P+m-Q)} of the fit, where \eqn{m} is the
-number of columns of \eqn{\Theta} (\eqn{PD+1} with an intercept, \eqn{PD}
-without).  These are the degrees of freedom to use when comparing
-\eqn{R^2} or information criteria across \eqn{Q}: the naive count
-\eqn{Q(P+m)} ignores the \eqn{Q^2} rotational indeterminacy.}
-\item{separability}{Per-basis maximum of the row-normalised \eqn{X}; values
-near 1 indicate separable (essentially uniquely identified up to
-permutation) bases.}
-\item{X, Theta}{The basis and the full coefficient matrix the quantities
-above were computed from, carried along so that
-\code{\link{nmfkc.ar.stationarity.inference}} does not need the fitted
-object a second time.}
 \item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
 }
 \description{
-\code{nmfkc.ar.stationarity} assesses the dynamic stability of a fitted
-NMF-VAR model and reports the \strong{latent transition matrices}
-\eqn{G_d = \Theta_d X} (\eqn{Q\times Q}) that drive it.
-
-Writing the fit as \eqn{Y \approx X\Theta A} with \eqn{\Xi_d = X\Theta_d},
-the observed series follows \eqn{\bm y_t=\sum_d \Xi_d \bm y_{t-d}+\bm\xi}.
-Under the noise-free relation \eqn{\bm y_t = X\bm b_t}, the \emph{coefficient}
-vector itself follows a non-negative VAR(\eqn{D}) of dimension \eqn{Q},
-\deqn{\bm b_t=\sum_{d=1}^{D}G_d\,\bm b_{t-d}+\bm\theta,\qquad G_d=\Theta_d X\ge 0,}
-so the \eqn{Q\times Q} matrices \eqn{G_d} describe how the latent bases drive
-one another.  They are far easier to read than the \eqn{P\times P} matrices
-\eqn{\Xi_d} (e.g.\ \eqn{4\times4} instead of \eqn{47\times47}) and can be
-drawn as a \eqn{Q}-node directed graph.
-
-\strong{Direction convention}: \eqn{(G_d)_{q q'}} is the effect of
-\eqn{b_{q',\,t-d}} on \eqn{b_{q,\,t}} --- \strong{row = effect} (at \eqn{t}),
-\strong{column = cause} (at \eqn{t-d}).
-
-Three stability numbers are returned, in increasing order of sharpness:
+Reports whether a fitted NMF-VAR is stationary, and how cheaply that could be
+decided.  Three numbers are returned, in increasing order of sharpness:
 \code{colsum.max} \eqn{=\max_j c_j} of \eqn{\sum_d \Theta_d} certifies
-stationarity when below 1 with no eigenvalue computation at all (a
-sufficient condition only, so a value above 1 is merely inconclusive);
-\code{spectral.radius.sum} \eqn{=\rho(\sum_d G_d)} is below 1 exactly when
-the model is stationary (and is bracketed by \eqn{\min_j c_j} and
+stationarity when below 1 with no eigenvalue computation at all (a sufficient
+condition only, so a value above 1 is merely inconclusive);
+\code{spectral.radius.sum} \eqn{=\rho(\sum_d G_d)} is below 1 exactly when the
+model is stationary (and is bracketed by \eqn{\min_j c_j} and
 \eqn{\max_j c_j}); and \code{spectral.radius} is the spectral radius of the
 companion matrix itself.
+
+This function answers the yes/no question only.  For the dynamics behind the
+number --- the transition matrices, the roots, the impulse responses, the
+long-run mean --- use \code{\link{nmfkc.ar.latent}}, and for the standard
+error of \eqn{\rho} and a test of \eqn{H_0:\rho\ge 1} use
+\code{\link{nmfkc.ar.latent.inference}}.
 }
 \examples{
 # Check stationarity of fitted AR model
@@ -87,7 +57,6 @@ result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
 st <- nmfkc.ar.stationarity(result)
 st$spectral.radius
 st$stationary
-st$G$lag1          # latent transition matrix of lag 1
 st                 # full report
 
 }
@@ -98,5 +67,6 @@ to multivariate time series data as a vector autoregression model.
 \doi{10.1007/s42081-025-00314-0}
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.ar}}, \code{\link{nmfkc.ar.DOT}}
+\code{\link{nmfkc.ar.latent}},
+\code{\link{nmfkc.ar.latent.inference}}, \code{\link{nmfkc.ar}}
 }

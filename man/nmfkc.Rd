@@ -108,6 +108,9 @@ A list with components:
 \item{B.cluster}{Hard-clustering labels (argmax over \eqn{B.prob} for each column).}
 \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
 \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
+\item{X.restriction}{The constraint that was applied to the columns of
+\eqn{X}.  It decides how much of the \eqn{(X,C)\to(XT,T^{-1}C)} freedom is
+pinned down, which inference on the latent parameters needs to know.}
 \item{A.attr}{List of attributes of the input covariate matrix \code{A}, containing metadata like lag order and intercept status if created by \code{nmfkc.ar} or \code{nmfkc.kernel}.}
 \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 \item{objfunc}{Final objective value.}

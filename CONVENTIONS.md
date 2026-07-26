@@ -153,7 +153,7 @@ The re-fitting inference functions therefore converge tightly:
 |:---|:---|:---|
 | `nmfkc.inference(method = "refit")` | `refit.epsilon`, `refit.maxit` | `1e-8`, `1e5` |
 | `nmf.ffb.inference()` | `epsilon`, `maxit` | `1e-8`, `1e5` |
-| `nmfkc.ar.stationarity.inference()` | `epsilon`, `maxit` | `1e-8`, `2e4` |
+| `nmfkc.ar.latent.inference()` | `epsilon`, `maxit` | `1e-8`, `2e4` |
 
 Measured consequences of a loose tolerance: on `vars::Canada` the percentile CI
 excluded the point estimate for 4 of 10 coefficients at `1e-4` and 0 of 10 at
@@ -184,9 +184,24 @@ Fit the model tightly too (`epsilon = 1e-8`) when the fit feeds inference.
 - **Prefer invariant targets when the basis is re-estimated.** Entries of
   `Theta` are not identified under `(X, Theta) -> (XT, T^-1 Theta)`;
   `rho(G)`, the eigenvalues of `G`, `Xi_d`, impulse responses and `mu_y` are.
-  `nmfkc.ar.stationarity.inference()` uses this: because `rho` is invariant its
-  replicates need no label alignment, and only the composition `p*` (invariant
-  merely up to basis order) is aligned.
+  `nmfkc.ar.latent.inference()` uses this: because `rho` is invariant its
+  replicates need no label alignment at all.
+- **Know how much of `T` the fit pinned down before reporting entries.** With
+  `X.restriction = "colSums"` (the default) the column scale of `X` is fixed and
+  `T` reduces to a permutation, so entries of `G_d` and the composition `p*` are
+  identified once replicates are permutation-aligned to the original basis.
+  With `X.restriction = "none"` or `"fixed"` the diagonal of `G_d` survives
+  (`G_qq` is scale-invariant) but the off-diagonals do not — warn rather than
+  report them. `nmfkc()` records the constraint in `$X.restriction` for exactly
+  this check.
+
+**Function split for NMF-VAR.** `nmfkc.ar.latent()` computes the latent VAR
+representation; `plot()` on it draws the dynamics; `nmfkc.ar.latent.inference()`
+bootstraps them. `nmfkc.ar.stationarity()` answers the yes/no stationarity
+question and nothing else, and `plot()` on it draws the bracket. There is
+deliberately no `nmfkc.ar.stationarity.inference()`: `rho` is an eigenvalue of
+`sum_d G_d`, so its inference belongs with the other latent quantities, and one
+bootstrap (each replicate a full re-fit) serves all of them.
 
 ---
 
