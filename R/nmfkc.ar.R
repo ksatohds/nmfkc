@@ -801,7 +801,12 @@ nmfkc.ar.latent <- function(x) {
     ## DIFFERENT estimator than the one being described.  Only what nmfkc()
     ## records can be recovered here; anything else the user passed (X.init,
     ## penalties, ...) has to be supplied through refit.args=.
-    fit.args = list(method = x$method, X.restriction = x$X.restriction),
+    ## With X.restriction = "fixed" the basis is held at X.init throughout, so
+    ## the returned X *is* that matrix (verified bit-identical).  Carry it, or a
+    ## re-fit would hold X at whatever nmfkc() initialises to instead -- a
+    ## different matrix entirely, and therefore a different estimator.
+    fit.args = c(list(method = x$method, X.restriction = x$X.restriction),
+                 if (isTRUE(x$X.restriction == "fixed")) list(X.init = x$X)),
     call = x$call,
     dims = c(P = P, Q = Q, D = D)),
     class = "nmfkc.ar.latent")
@@ -1801,7 +1806,8 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
 
   rho.b <- base::vapply(res, function(r) r$rho, base::numeric(1))
   cplx.b <- base::vapply(res, function(r) r$cplx, base::logical(1))
-  nfail <- base::sum(base::vapply(res, function(r) r$fail, base::logical(1)))
+  fail.b <- base::vapply(res, function(r) r$fail, base::logical(1))
+  nfail  <- base::sum(fail.b)
   muy.b <- base::matrix(NA_real_, wild.B, P); p.b <- base::matrix(NA_real_, wild.B, Q)
   G.b   <- base::matrix(NA_real_, wild.B, Q * Q * D)
   for (b in base::seq_len(wild.B)) {
@@ -1810,7 +1816,10 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
     if (!base::is.null(res[[b]]$G))   G.b[b, ]   <- base::as.numeric(res[[b]]$G)
   }
 
-  ok <- rho.b > 0
+  ## Use the failure flag, not rho > 0: a replicate whose Theta collapses to
+  ## zero has rho = 0 legitimately (and is stationary), so the old test threw
+  ## away a valid draw and inflated the failure count.
+  ok <- !fail.b
   a2 <- (1 - wild.level) / 2
   qci <- function(v) {
     v <- v[is.finite(v)]

@@ -322,15 +322,20 @@ plot(lat_canada, type = "irf")
 
 The **phase portrait** shows the pull towards $\boldsymbol\mu_b$. Both
 eigenvalues here are real and positive (0.781 and 0.591), so trajectories decay
-monotonically into the fixed point rather than spiralling.
+into the fixed point rather than spiralling: `lat_canada$non.oscillatory` is
+`TRUE`.
 
-Two things must be said about that, because the panel invites two overclaims.
-First, at $Q = 2$, $D = 1$ with $G\ge0$ the roots **cannot** be complex --- the
-discriminant is $(a-d)^2+4bc\ge0$ --- so the absence of a cycle here is a
-property of the design, not a finding about Canada. A cycle needs $Q\ge3$ or
-$D\ge2$. Second, the two decay rates are close (ratio $0.591/0.781=0.76$), so
-there is no sharp "collapse fast, then slide slow" separation: after eight
-quarters 43% of an initial deviation still sits in the fast direction.
+Three things must be said about that, because the panel invites three
+overclaims. First, at $Q = 2$, $D = 1$ with $G\ge0$ the roots **cannot** be
+complex --- the discriminant is $(a-d)^2+4bc\ge0$ --- so the absence of a cycle
+here is a property of the design, not a finding about Canada. A cycle needs
+$Q\ge3$ or $D\ge2$. Second, non-oscillatory is *not* the same as monotone: a
+non-normal $G$ can send a coordinate up before it comes down, which is exactly
+what the off-diagonal impulse responses above do (they peak at $h=3$). The flag
+is named after the roots for that reason. Third, the two decay rates are close
+(ratio $0.591/0.781=0.76$), so there is no sharp "collapse fast, then slide slow"
+separation: after eight quarters 43% of an initial deviation still sits in the
+fast direction.
 
 What the panel does say is where the pull points and along which combinations.
 Thanks to non-negativity the slow eigenvector has both components positive --- a
@@ -447,27 +452,52 @@ rbind(estimate = inf_canada$mu.y,
       upper    = inf_canada$mu.y.ci.upper)
 ```
 
-Two diagnostics in the print-out deserve a look before the interval is trusted.
-`truncation rate` is the fraction of replicate coefficients that hit the
-non-negativity boundary and were clipped; a large value means the wild bootstrap
-is being distorted by the constraint. `strict complementarity` checks the
-boundary coordinates of the *original* fit: bootstrap consistency under an
-active constraint requires the corresponding KKT multipliers to be strictly
-positive, and a small `ratio` warns that a coefficient is sitting so close to
-the boundary that replicates fall on both sides of it. The function warns when
-either looks doubtful.
+Two diagnostics deserve a look before the intervals are trusted.
+
+`truncate.rate` is the fraction of replicate observations that fell below zero
+and were clipped; a large value means the wild bootstrap is being distorted by
+the non-negativity constraint. At 1.2% here it is not.
+
+`kkt` is the **strict complementarity** diagnostic, and its reading is less
+obvious than it looks. The estimated zeros of $\Theta$ only estimate something
+if two margins stay away from zero: $\delta_\mathrm{dual}$, the smallest KKT
+multiplier over the zero coefficients, and $\delta_\mathrm{prim}$, the smallest
+surviving positive coefficient.
 
 ```{r canada-inference-diag}
 c(truncate.rate = inf_canada$truncate.rate,
   n.boundary    = inf_canada$kkt$n.boundary,
+  delta.dual    = inf_canada$kkt$delta.dual,
+  delta.prim    = inf_canada$kkt$delta.prim,
   kkt.ratio     = inf_canada$kkt$ratio,
   usable.reps   = inf_canada$wild.B,
   failed.reps   = inf_canada$n.fail)
 ```
 
-Each replicate is a full re-fit, so this is the expensive step of the analysis.
-`wild.B = 200` is used here to keep the vignette quick; the default is 500, and
-each re-fit converges to `epsilon = 1e-8` --- a looser tolerance leaves boundary
+A **small** dual margin is not a numerical defect --- it is a statement about the
+model. If the model were correctly specified, $\Xi_0=X\Theta$ would make the
+population multipliers exactly zero, so strict complementarity would fail at
+*every* zero coefficient and $P(\hat\theta_k=0)$ would tend to a constant in
+$(0,1)$ (one half for an isolated zero) instead of to one. What makes the zeros
+estimate anything is **misspecification**: they recover the coordinates whose
+*unconstrained* population coefficient is strictly negative. Canada's ratio of
+112 says those four zeros are well separated, so they are estimating a sign
+restriction rather than a degenerate boundary.
+
+Two practical points. The re-fits reproduce the **same estimator** as the
+original fit: `method` and `X.restriction` are taken from the fitted object, a
+literal `seed` from its recorded call, and with
+`X.restriction = "fixed"` the fixed basis itself. Anything else the original call
+set (`X.init` under other restrictions, penalties) cannot be recovered from the
+fitted object, and the function warns and asks for it through `refit.args=`.
+
+```{r canada-inference-refit}
+unlist(inf_canada$refit.args)
+```
+
+And each replicate is a full re-fit, so this is the expensive step of the
+analysis. `wild.B = 200` keeps the vignette quick; the default is 500, and each
+re-fit converges to `epsilon = 1e-8` --- a looser tolerance leaves boundary
 coefficients spuriously positive and understates the spread. On a multi-core
 machine `cores = 4` divides the wall time without changing the answer.
 

@@ -653,3 +653,45 @@ test_that("the identification diagnostic reports how far it is from exact", {
   expect_gt(id2$anchor.margin, 0)
   expect_gt(id2$pure.margin, 0)
 })
+
+test_that("a fixed basis is carried into the re-fits, not re-initialised", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  X0 <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))$X
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE,
+                              X.init = X0, X.restriction = "fixed"))
+  ## with "fixed" the returned X *is* the matrix that was held
+  expect_equal(f$X, X0, tolerance = 0)
+  lat <- suppressWarnings(nmfkc.ar.latent(f))
+  expect_equal(lat$fit.args$X.init, X0, tolerance = 0)
+  inf <- suppressWarnings(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 5))
+  expect_equal(inf$refit.args$X.init, X0, tolerance = 0)
+  ## without it the re-fits would hold a completely different basis
+  g <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE,
+                              X.restriction = "fixed"))
+  expect_gt(max(abs(g$X - X0)), 1e-3)
+  ## and no warning about an unrecoverable argument, since X.init is inherited
+  expect_silent(suppressWarnings(
+    nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 5)))
+})
+
+test_that("a legitimate rho = 0 replicate is not counted as a failure", {
+  ## rho = 0 is a valid, stationary value: it happens when Theta collapses.
+  Xz  <- matrix(c(0.5, 0.5, 0.5, 0.5), 2, 2)
+  latz <- suppressWarnings(nmfkc.ar.latent(
+    structure(list(X = Xz, C = matrix(0, 2, 2)), class = "nmfkc")))
+  expect_equal(latz$spectral.radius, 0)
+  expect_true(latz$stationary)
+
+  ## every usable replicate must be counted, so B + n.fail = B requested and the
+  ## count comes from the failure flag rather than from rho > 0
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))
+  inf <- suppressWarnings(nmfkc.ar.latent.inference(
+    suppressWarnings(nmfkc.ar.latent(f)), a$Y, a$A, wild.B = 12))
+  expect_equal(inf$wild.B + inf$n.fail, inf$wild.B.requested)
+  expect_equal(inf$wild.B.requested, 12L)
+})
