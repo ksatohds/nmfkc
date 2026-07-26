@@ -164,7 +164,9 @@ We fit a model with `rank = 2` to identify two latent economic conditions drivin
 
 ```{r canada-model-fit}
 # Fit the NMF-VAR model
-res_canada <- nmfkc(Y = a_canada$Y, A = a_canada$A, rank = 2, prefix = "Condition", epsilon = 1e-6)
+# epsilon = 1e-8: this fit feeds the inference in Section 5, where coefficients
+# sitting on the non-negativity boundary must actually have reached it.
+res_canada <- nmfkc(Y = a_canada$Y, A = a_canada$A, rank = 2, prefix = "Condition", epsilon = 1e-8)
 
 # R-squared and Stationarity
 res_canada$r.squared
@@ -249,7 +251,78 @@ lat_canada$df
 lat_canada$separability
 ```
 
-### 4\. Latent Structure & Causal Graph
+### 4\. How Certain Is the Stability Verdict?
+
+The $\rho$ reported above is below 1, so the fit is stationary --- but it is a
+point estimate from 82 quarters, and the question that matters is whether it is
+*reliably* below 1. `nmfkc.ar.stationarity.inference()` answers that by wild
+bootstrap: it resamples the residuals, re-fits the whole NMF-VAR on each
+replicate, and recomputes $\rho$.
+
+```{r canada-inference}
+inf_canada <- nmfkc.ar.stationarity.inference(st_canada, a_canada$Y, a_canada$A,
+                                              wild.B = 200, wild.seed = 2026)
+inf_canada
+```
+
+Two things are worth knowing about why this is bootstrapped rather than
+delta-method'd.
+
+**Only invariant quantities are bootstrapped.** The factorization is unique
+only up to $(X,\Theta)\to(XT,T^{-1}\Theta)$, so an individual entry of $\Theta$
+means nothing across replicates --- replicate 7's "Condition 1" need not be the
+original's. Under that same map $G_d \to T^{-1}G_dT$, so the *spectrum* is
+untouched: $\rho$, the eigenvalues, $\Xi_d$ and $\boldsymbol\mu_y$ are all
+identified, and those are what the function reports. `p.star` (the composition
+$X$ normalized by column) is invariant only up to basis *order*, so replicates
+are permutation-aligned to the original before their quantiles are taken.
+
+**The stationarity test is one-sided against $H_0:\rho\ge1$.** That is the
+conservative direction: a small $p$ means the data rule out the unit root, and
+the burden of proof is on stationarity rather than against it.
+
+```{r canada-inference-parts}
+c(rho = inf_canada$spectral.radius,
+  se  = inf_canada$spectral.radius.se,
+  lo  = inf_canada$spectral.radius.ci.lower,
+  hi  = inf_canada$spectral.radius.ci.upper,
+  p   = inf_canada$p.nonstationary)
+```
+
+The long-run mean gets an interval too, so the level the process reverts to can
+be reported with uncertainty rather than as a bare number:
+
+```{r canada-inference-mean}
+rbind(estimate = inf_canada$mu.y,
+      lower    = inf_canada$mu.y.ci.lower,
+      upper    = inf_canada$mu.y.ci.upper)
+```
+
+Two diagnostics in the print-out deserve a look before the interval is trusted.
+`truncation rate` is the fraction of replicate coefficients that hit the
+non-negativity boundary and were clipped; a large value means the wild bootstrap
+is being distorted by the constraint. `strict complementarity` checks the
+boundary coordinates of the *original* fit: bootstrap consistency under an
+active constraint requires the corresponding KKT multipliers to be strictly
+positive, and a small `ratio` warns that a coefficient is sitting so close to
+the boundary that replicates fall on both sides of it. The function warns when
+either looks doubtful.
+
+```{r canada-inference-diag}
+c(truncate.rate = inf_canada$truncate.rate,
+  n.boundary    = inf_canada$kkt$n.boundary,
+  kkt.ratio     = inf_canada$kkt$ratio,
+  usable.reps   = inf_canada$wild.B,
+  failed.reps   = inf_canada$n.fail)
+```
+
+Each replicate is a full re-fit, so this is the expensive step of the analysis.
+`wild.B = 200` is used here to keep the vignette quick; the default is 500, and
+each re-fit converges to `epsilon = 1e-8` --- a looser tolerance leaves boundary
+coefficients spuriously positive and understates the spread. On a multi-core
+machine `cores = 4` divides the wall time without changing the answer.
+
+### 5\. Latent Structure & Causal Graph
 
 We can visualize how the two latent conditions change over time.
 

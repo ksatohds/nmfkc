@@ -45,6 +45,10 @@ without).  These are the degrees of freedom to use when comparing
 \item{separability}{Per-basis maximum of the row-normalised \eqn{X}; values
 near 1 indicate separable (essentially uniquely identified up to
 permutation) bases.}
+\item{X, Theta}{The basis and the full coefficient matrix the quantities
+above were computed from, carried along so that
+\code{\link{nmfkc.ar.stationarity.inference}} does not need the fitted
+object a second time.}
 \item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
 }
 \description{

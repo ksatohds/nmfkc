@@ -157,3 +157,61 @@ test_that("nmfkc.ar.stationarity works end to end on a real fit and prints", {
   expect_true(all(st$separability >= 0 & st$separability <= 1))
   expect_output(print(st), "Latent transition matrices")
 })
+
+test_that("nmfkc.ar.stationarity carries X and Theta for the inference step", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))
+  st <- suppressWarnings(nmfkc.ar.stationarity(f))
+  expect_identical(st$X, f$X)
+  expect_identical(st$Theta, f$C)          # FULL coefficient matrix, intercept included
+})
+
+test_that("nmfkc.ar.stationarity.inference bootstraps the invariants", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))
+  st <- suppressWarnings(nmfkc.ar.stationarity(f))
+  inf <- suppressWarnings(nmfkc.ar.stationarity.inference(st, a$Y, a$A, wild.B = 25))
+  expect_s3_class(inf, "nmfkc.ar.stationarity.inference")
+  ## the point estimate is the one nmfkc.ar.stationarity already reported
+  expect_equal(inf$spectral.radius, st$spectral.radius, tolerance = 1e-8)
+  ## uncertainty summaries are finite and ordered
+  expect_true(is.finite(inf$spectral.radius.se) && inf$spectral.radius.se >= 0)
+  expect_lte(inf$spectral.radius.ci.lower, inf$spectral.radius.ci.upper)
+  expect_true(inf$p.nonstationary >= 0 && inf$p.nonstationary <= 1)
+  expect_true(inf$truncate.rate >= 0 && inf$truncate.rate <= 1)
+  expect_equal(inf$wild.B + inf$n.fail, 25L)
+  expect_output(print(inf), "Bootstrap inference for NMF-VAR invariants")
+})
+
+test_that("the bootstrap is reproducible and leaves the RNG stream alone", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))
+  st <- suppressWarnings(nmfkc.ar.stationarity(f))
+  run <- function() suppressWarnings(
+    nmfkc.ar.stationarity.inference(st, a$Y, a$A, wild.B = 15, wild.seed = 7))
+  expect_equal(run()$spectral.radius.se, run()$spectral.radius.se)
+  ## resetting the stream would make what came before the call irrelevant
+  set.seed(1); invisible(run()); u1 <- runif(1)
+  set.seed(2); invisible(run()); u2 <- runif(1)
+  expect_false(isTRUE(all.equal(u1, u2)))
+})
+
+test_that("a fit whose object predates X/Theta can still be passed via fit=", {
+  set.seed(3)
+  Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))
+  st <- suppressWarnings(nmfkc.ar.stationarity(f))
+  st$X <- NULL; st$Theta <- NULL                     # emulate an older object
+  expect_error(nmfkc.ar.stationarity.inference(st, a$Y, a$A, wild.B = 5),
+               "pass the fitted nmfkc object")
+  inf <- suppressWarnings(nmfkc.ar.stationarity.inference(st, a$Y, a$A,
+                                                          wild.B = 10, fit = f))
+  expect_s3_class(inf, "nmfkc.ar.stationarity.inference")
+})

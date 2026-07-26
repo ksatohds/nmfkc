@@ -625,6 +625,10 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 #' \item{separability}{Per-basis maximum of the row-normalised \eqn{X}; values
 #'   near 1 indicate separable (essentially uniquely identified up to
 #'   permutation) bases.}
+#' \item{X, Theta}{The basis and the full coefficient matrix the quantities
+#'   above were computed from, carried along so that
+#'   \code{\link{nmfkc.ar.stationarity.inference}} does not need the fitted
+#'   object a second time.}
 #' \item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.ar}}, \code{\link{nmfkc.ar.DOT}}
 #' @references
@@ -725,6 +729,11 @@ nmfkc.ar.stationarity <- function(x, method = c("latent", "companion")) {
     G = G, G.sum = G.sum, spectral.radius.sum = rho.sum,
     colsum = cs, colsum.max = max(cs),
     theta0 = theta0, mu.b = mu.b, mu.y = mu.y,
+    ## The pieces the fit was read from, so downstream callers (notably
+    ## nmfkc.ar.stationarity.inference()) do not need the fitted object again.
+    ## Theta is the FULL coefficient matrix (lags and, when present, the
+    ## intercept column), i.e. the x$C that was parsed.
+    X = X, Theta = x$C,
     ## PQ (basis) + Q*ncol(Theta) (coefficients) - Q^2 (rotational
     ## indeterminacy); ncol(Theta) is PD + 1 with an intercept, PD without.
     df = Q * (P + ncol(Theta_lags) + as.integer(prt$intercept) - Q),
@@ -762,6 +771,320 @@ print.nmfkc.ar.stationarity <- function(x, digits = 3, ...) {
     print(round(x$mu.b, digits))
   }
   cat(sprintf("\nEffective dimension df = Q(P + PD + 1 - Q) = %d\n", x$df))
+  invisible(x)
+}
+
+
+#' @title Permutation number \code{i} of \code{seq_len(Q)} (Internal)
+#' @param Q Size of the permuted set.
+#' @param i Index in lexicographic order, \code{1 .. factorial(Q)}.
+#' @return An integer permutation vector of length \code{Q}.
+#' @keywords internal
+#' @noRd
+.nmfvar.perm <- function(Q, i) {
+  el <- seq_len(Q); out <- integer(Q); i <- i - 1L
+  for (k in seq_len(Q)) {
+    f <- factorial(Q - k); j <- i %/% f + 1L; i <- i %% f
+    out[k] <- el[j]; el <- el[-j]
+  }
+  out
+}
+
+
+#' @title Bootstrap inference for the invariants of an NMF-VAR model
+#' @description
+#' \code{nmfkc.ar.stationarity.inference} attaches a wild bootstrap to the
+#' quantities reported by \code{\link{nmfkc.ar.stationarity}}, turning the
+#' stationarity verdict into a hypothesis test and giving the long-run
+#' quantities confidence intervals.
+#'
+#' The individual entries of \eqn{\Theta} are not identified: the factorization
+#' admits \eqn{(X,\Theta)\to(XT,T^{-1}\Theta)} for invertible \eqn{T}, and
+#' \code{\link{nmfkc.inference}} deals with this by conditioning on the
+#' estimated \eqn{X}.  This function takes the other route and targets the
+#' quantities that are \strong{invariant} under that indeterminacy, so the
+#' basis can be re-estimated in every replicate and its uncertainty propagated:
+#' \itemize{
+#'   \item \eqn{\rho(G)} and whether the eigenvalues of \eqn{G=\sum_d G_d} are
+#'     complex --- under \eqn{G\to T^{-1}GT} the spectrum is unchanged;
+#'   \item the observed stationary mean \eqn{\bm\mu_y = X\bm\mu_b};
+#'   \item the long-run composition \eqn{\bm p^\ast=\bm\mu_b/\sum_q \mu_{b,q}},
+#'     which is invariant only up to the ordering of the bases, so replicates
+#'     are matched to the original basis before it is summarised.
+#' }
+#' Because \eqn{\rho} is invariant, the stationarity test itself needs no label
+#' alignment across replicates.
+#'
+#' \strong{Resampling scheme.}  With \eqn{\hat Y = X\Theta A} and residuals
+#' \eqn{E=Y-\hat Y}, each replicate forms \eqn{Y^\ast=\hat Y+E\odot W} and
+#' re-fits \code{\link{nmfkc}} at the same rank.  \eqn{W} carries one multiplier
+#' per time point (\code{wild.unit = "column"}, the default, which preserves the
+#' contemporaneous covariance between series) or one per cell.  Negative entries
+#' of \eqn{Y^\ast} are truncated at 0 to keep the response non-negative; the
+#' truncation rate is reported, and a large one is a warning sign for the whole
+#' procedure.
+#'
+#' \strong{This is a fixed-design bootstrap}: the covariate matrix \eqn{A} is
+#' held at the observed lags rather than rebuilt from \eqn{Y^\ast}, so the
+#' intervals are conditional on the observed past and do not propagate the
+#' randomness of the lagged design itself.  They may therefore be somewhat
+#' optimistic.
+#'
+#' @param object An object from \code{\link{nmfkc.ar.stationarity}}.
+#' @param Y,A The observation and covariate matrices the model was fitted on,
+#'   i.e. the \code{Y} and \code{A} returned by \code{\link{nmfkc.ar}}.
+#' @param ... Additional arguments:
+#'   \describe{
+#'     \item{\code{wild.B}}{Number of bootstrap replicates.  Default 500.}
+#'     \item{\code{wild.dist}}{Multiplier distribution, \code{"rademacher"}
+#'       (default) or \code{"exp"} (mean-centred).}
+#'     \item{\code{wild.unit}}{\code{"column"} (default, one multiplier per time
+#'       point) or \code{"element"} (one per cell).}
+#'     \item{\code{wild.level}}{Confidence level.  Default 0.95.}
+#'     \item{\code{wild.seed}}{Seed for the bootstrap.  Default 123.}
+#'     \item{\code{fit}}{The fitted \code{"nmfkc"} object.  Only needed for
+#'       objects created before \code{\link{nmfkc.ar.stationarity}} began
+#'       carrying \code{X} / \code{Theta}.}
+#'     \item{\code{truncate}}{Logical; clip \eqn{Y^\ast} at 0 (default
+#'       \code{TRUE}).}
+#'     \item{\code{epsilon}, \code{maxit}}{Convergence control of the re-fits,
+#'       default \code{1e-8} and \code{20000} --- tight, because a coefficient
+#'       heading for the non-negativity boundary moves slowly and a loose
+#'       tolerance biases anything that is compared with zero.}
+#'     \item{\code{kkt.tol}, \code{kkt.ratio.min}}{Thresholds of the strict
+#'       complementarity diagnostic (defaults \code{1e-3} and \code{5}).}
+#'     \item{\code{cores}}{Number of workers for the re-fits, default
+#'       \code{getOption("mc.cores", 1L)} (sequential).  The bootstrap
+#'       multipliers are drawn before the loop and each re-fit is deterministic
+#'       given its data, so the result does not depend on \code{cores}.}
+#'   }
+#' @return An object of class \code{"nmfkc.ar.stationarity.inference"}: a list
+#'   with \code{spectral.radius} and its \code{spectral.radius.se},
+#'   \code{spectral.radius.ci.lower} / \code{.upper} and
+#'   \code{spectral.radius.boot.mean}; \code{p.nonstationary}, the one-sided
+#'   bootstrap p-value for \eqn{H_0:\rho\ge 1} (small values support
+#'   stationarity); \code{complex} and \code{complex.frac}; \code{mu.y} with
+#'   \code{mu.y.ci.lower} / \code{mu.y.ci.upper}; \code{p.star} with
+#'   \code{p.star.ci.lower} / \code{p.star.ci.upper}; the \code{kkt}
+#'   diagnostic; and the bookkeeping entries \code{wild.B},
+#'   \code{wild.B.requested}, \code{n.fail}, \code{truncate.rate},
+#'   \code{wild.unit}, \code{wild.dist}, \code{wild.level}, \code{dims}.
+#' @seealso \code{\link{nmfkc.ar.stationarity}}, \code{\link{nmfkc.ar}},
+#'   \code{\link{nmfkc.inference}}
+#' @references
+#' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+#'   to multivariate time series data as a vector autoregression model.
+#'   \emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
+#'   \doi{10.1007/s42081-025-00314-0}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y   <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
+#' ar  <- nmfkc.ar(Y, degree = 1)
+#' fit <- nmfkc(ar$Y, ar$A, rank = 2, verbose = FALSE)
+#' st  <- nmfkc.ar.stationarity(fit)
+#' nmfkc.ar.stationarity.inference(st, ar$Y, ar$A, wild.B = 50)
+#' }
+#' @export
+nmfkc.ar.stationarity.inference <- function(object, Y, A, ...) {
+  if (!inherits(object, "nmfkc.ar.stationarity"))
+    stop("'object' must come from nmfkc.ar.stationarity().")
+  ex <- base::list(...)
+  wild.B     <- if (!is.null(ex$wild.B))     ex$wild.B     else 500L
+  wild.dist  <- if (!is.null(ex$wild.dist))
+                  match.arg(ex$wild.dist, c("rademacher", "exp")) else "rademacher"
+  wild.unit  <- if (!is.null(ex$wild.unit))
+                  match.arg(ex$wild.unit, c("column", "element")) else "column"
+  wild.level <- if (!is.null(ex$wild.level)) ex$wild.level else 0.95
+  wild.seed  <- if (!is.null(ex$wild.seed))  ex$wild.seed  else 123
+  truncate   <- if (!is.null(ex$truncate))   ex$truncate   else TRUE
+  epsilon    <- if (!is.null(ex$epsilon))    ex$epsilon    else 1e-8
+  maxit      <- if (!is.null(ex$maxit))      ex$maxit      else 20000L
+  kkt.tol    <- if (!is.null(ex$kkt.tol))    ex$kkt.tol    else 1e-3
+  kkt.ratio.min <- if (!is.null(ex$kkt.ratio.min)) ex$kkt.ratio.min else 5
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(wild.seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  if (!is.null(wild.seed)) set.seed(wild.seed)
+
+  X <- object$X; Theta <- object$Theta
+  if (is.null(X) || is.null(Theta)) {
+    if (is.null(ex$fit))
+      stop("'object' does not carry X/Theta; pass the fitted nmfkc object via fit=.")
+    X <- ex$fit$X; Theta <- ex$fit$C
+  }
+  Y <- as.matrix(Y); A <- as.matrix(A)
+  P <- object$dims[["P"]]; Q <- object$dims[["Q"]]; D <- object$dims[["D"]]
+  n <- ncol(Y)
+  intercept <- (ncol(Theta) == P * D + 1L)
+
+  Gsum <- function(Xm, Cm) {
+    L <- Cm[, seq_len(P), drop = FALSE]
+    if (D > 1) for (d in 2:D) L <- L + Cm[, ((d - 1) * P + 1):(d * P), drop = FALSE]
+    L %*% Xm
+  }
+  ev.of <- function(Xm, Cm) eigen(Gsum(Xm, Cm), only.values = TRUE)$values
+
+  ## Strict-complementarity (oracle) diagnostic: at a zero coefficient the KKT
+  ## multiplier should be strictly positive, otherwise the boundary is
+  ## degenerate and no resampling scheme is consistent there.
+  Lam <- t(X) %*% (X %*% Theta %*% A - Y) %*% t(A) / n
+  S   <- Theta > kkt.tol
+  kkt <- list(n.boundary = sum(!S), all.positive = NA, ratio = NA_real_)
+  if (any(!S) && any(S)) {
+    kkt$all.positive <- all(Lam[!S] > 0)
+    kkt$ratio        <- min(Lam[!S]) / max(abs(Lam[S]))
+    if (!isTRUE(kkt$all.positive) || kkt$ratio < kkt.ratio.min)
+      warning("Strict complementarity looks doubtful (KKT ratio = ",
+              signif(kkt$ratio, 3), "). The bootstrap may be inconsistent at ",
+              "degenerate boundary coordinates; interpret with care.")
+  }
+
+  ## Point estimates
+  ev0   <- ev.of(X, Theta)
+  rho0  <- max(Mod(ev0))
+  cplx0 <- any(abs(Im(ev0)) > 1e-8)
+  th0   <- if (intercept) Theta[, P * D + 1L] else rep(0, Q)
+  mu.b0 <- if (rho0 < 1) solve(diag(Q) - Gsum(X, Theta), th0) else rep(NA_real_, Q)
+  p0    <- if (all(is.finite(mu.b0)) && sum(mu.b0) > 0) mu.b0 / sum(mu.b0)
+           else rep(NA_real_, Q)
+
+  ## p* is invariant only up to the ordering of the bases, so each replicate is
+  ## matched to the original X first (rho and mu.y need no such alignment).
+  perms <- if (Q <= 6)
+    do.call(rbind, lapply(seq_len(factorial(Q)), function(i) .nmfvar.perm(Q, i)))
+  else NULL
+  align <- function(Xs) {
+    if (!is.null(perms)) {
+      d <- apply(perms, 1, function(p) sum((Xs[, p, drop = FALSE] - X)^2))
+      perms[which.min(d), ]
+    } else {
+      p <- integer(Q); avail <- seq_len(Q)
+      for (q in seq_len(Q)) {
+        d <- vapply(avail, function(j) sum((Xs[, j] - X[, q])^2), numeric(1))
+        p[q] <- avail[which.min(d)]; avail <- setdiff(avail, p[q])
+      }
+      p
+    }
+  }
+
+  Yhat <- X %*% Theta %*% A
+  E    <- Y - Yhat
+
+  ## The multipliers are drawn up front, in the order the sequential loop drew
+  ## them, so that the replicate datasets do not depend on `cores`.  What is
+  ## left per replicate is a re-fit that is deterministic given its data (nmfkc
+  ## seeds itself), which is what makes the parallel run result-identical.
+  m  <- if (wild.unit == "column") n else P * n
+  Ys.all <- base::lapply(base::seq_len(wild.B), function(b) {
+    w <- base::switch(wild.dist,
+                      rademacher = base::sample(c(-1, 1), m, TRUE),
+                      exp        = stats::rexp(m) - 1)
+    Ws <- if (wild.unit == "column") base::matrix(w, P, n, byrow = TRUE)
+          else base::matrix(w, P, n)
+    Yhat + E * Ws
+  })
+  trunc <- base::sum(base::vapply(Ys.all, function(Ys) base::mean(Ys < 0),
+                                  base::numeric(1)))
+
+  one_boot <- function(Ys) {
+    if (truncate) Ys[Ys < 0] <- 0
+    rr <- base::try(nmfkc(Y = Ys, A = A, rank = Q, epsilon = epsilon,
+                          maxit = maxit, verbose = FALSE), silent = TRUE)
+    if (base::inherits(rr, "try-error"))
+      return(base::list(rho = 0, cplx = FALSE, muy = NULL, p = NULL, fail = TRUE))
+
+    Xs <- rr$X; Cs <- rr$C
+    ev <- ev.of(Xs, Cs)
+    out <- base::list(rho = base::max(Mod(ev)),
+                      cplx = base::any(base::abs(Im(ev)) > 1e-8),
+                      muy = NULL, p = NULL, fail = FALSE)
+    if (out$rho < 1) {
+      ths <- if (intercept) Cs[, P * D + 1L] else base::rep(0, Q)
+      mb  <- base::try(base::solve(base::diag(Q) - Gsum(Xs, Cs), ths), silent = TRUE)
+      if (!base::inherits(mb, "try-error")) {
+        out$muy <- base::as.numeric(Xs %*% mb)
+        if (base::sum(mb) > 0) out$p <- (mb / base::sum(mb))[align(Xs)]
+      }
+    }
+    out
+  }
+
+  cores <- if (!base::is.null(ex$cores)) ex$cores else base::getOption("mc.cores", 1L)
+  res <- .nmfkc.parlapply(Ys.all, one_boot, cores = cores,
+                          envir = base::environment())
+
+  rho.b <- base::vapply(res, function(r) r$rho, base::numeric(1))
+  cplx.b <- base::vapply(res, function(r) r$cplx, base::logical(1))
+  nfail <- base::sum(base::vapply(res, function(r) r$fail, base::logical(1)))
+  muy.b <- base::matrix(NA_real_, wild.B, P); p.b <- base::matrix(NA_real_, wild.B, Q)
+  for (b in base::seq_len(wild.B)) {
+    if (!base::is.null(res[[b]]$muy)) muy.b[b, ] <- res[[b]]$muy
+    if (!base::is.null(res[[b]]$p))   p.b[b, ]   <- res[[b]]$p
+  }
+
+  ok <- rho.b > 0
+  a2 <- (1 - wild.level) / 2
+  qci <- function(v) {
+    v <- v[is.finite(v)]
+    if (!length(v)) c(NA_real_, NA_real_)
+    else stats::quantile(v, c(a2, 1 - a2), names = FALSE)
+  }
+  rho.ci <- qci(rho.b[ok])
+  muy.ci <- apply(muy.b, 2, qci)
+  pst.ci <- apply(p.b,   2, qci)
+
+  structure(list(
+    spectral.radius           = rho0,
+    spectral.radius.se        = stats::sd(rho.b[ok]),
+    spectral.radius.ci.lower  = rho.ci[1L],
+    spectral.radius.ci.upper  = rho.ci[2L],
+    spectral.radius.boot.mean = mean(rho.b[ok]),
+    p.nonstationary = mean(rho.b[ok] >= 1),
+    complex = cplx0, complex.frac = mean(cplx.b[ok]),
+    mu.y = as.numeric(X %*% mu.b0),
+    mu.y.ci.lower = muy.ci[1L, ], mu.y.ci.upper = muy.ci[2L, ],
+    p.star = p0,
+    p.star.ci.lower = pst.ci[1L, ], p.star.ci.upper = pst.ci[2L, ],
+    kkt = kkt,
+    wild.B = sum(ok), wild.B.requested = wild.B, n.fail = nfail,
+    truncate.rate = trunc / wild.B,
+    wild.unit = wild.unit, wild.dist = wild.dist, wild.level = wild.level,
+    dims = object$dims),
+    class = "nmfkc.ar.stationarity.inference")
+}
+
+
+#' @title Print method for nmfkc.ar.stationarity.inference objects
+#' @param x An object of class \code{"nmfkc.ar.stationarity.inference"}.
+#' @param digits Number of digits used when printing.
+#' @param ... Ignored.
+#' @return \code{x}, invisibly.
+#' @export
+print.nmfkc.ar.stationarity.inference <- function(x, digits = 4, ...) {
+  cat("Bootstrap inference for NMF-VAR invariants\n")
+  cat(sprintf("  B = %d (%d failed), unit = \"%s\", dist = \"%s\", truncation rate = %.2f%%\n",
+              x$wild.B, x$n.fail, x$wild.unit, x$wild.dist, 100 * x$truncate.rate))
+  cat(sprintf("\nrho(G) = %.*f   SE = %.*f   %g%% CI = [%.*f, %.*f]\n",
+              digits, x$spectral.radius, digits, x$spectral.radius.se,
+              100 * x$wild.level, digits, x$spectral.radius.ci.lower,
+              digits, x$spectral.radius.ci.upper))
+  cat(sprintf("  bootstrap mean = %.*f  (bias %+.*f)\n",
+              digits, x$spectral.radius.boot.mean, digits,
+              x$spectral.radius.boot.mean - x$spectral.radius))
+  cat(sprintf("  H0: rho >= 1 (non-stationary), one-sided p = %.3f  ->  %s\n",
+              x$p.nonstationary,
+              if (x$p.nonstationary < 0.05) "stationarity supported" else "inconclusive"))
+  cat(sprintf("\ncomplex eigenvalues: point estimate %s, in %.1f%% of replicates\n",
+              if (x$complex) "yes" else "no", 100 * x$complex.frac))
+  if (any(is.finite(x$p.star.ci.lower))) {
+    cat("\nlong-run composition p*:\n")
+    print(round(cbind(estimate = x$p.star,
+                      lower = x$p.star.ci.lower, upper = x$p.star.ci.upper), digits))
+  }
+  if (is.finite(x$kkt$ratio))
+    cat(sprintf("\nstrict complementarity: %d boundary coords, all multipliers positive = %s, ratio = %.1f\n",
+                x$kkt$n.boundary, x$kkt$all.positive, x$kkt$ratio))
   invisible(x)
 }
 #------------------------------------------------------------------------------
