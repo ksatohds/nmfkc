@@ -105,3 +105,65 @@ test_that("cov='scalar' is the isotropic (single-variance) variant", {
   expect_length(g1$tau2, 1L)
   expect_true(all(g1$cluster == 1L))
 })
+
+test_that("the scatterplot draws the ADJUSTED scores, and says so", {
+  set.seed(1)
+  Y <- matrix(abs(rnorm(6 * 60)) + 1, 6, 60)
+  A <- rbind(1, rnorm(60))
+  f <- nmf.gmm(Y, A, rank = 3, K = 2, seed = 1, verbose = FALSE)
+  pdf(NULL); on.exit(dev.off(), add = TRUE)
+  ## "scores" is kept as an alias for the same panel
+  expect_silent(plot(f, type = "adjusted.scores"))
+  expect_silent(plot(f, type = "scores"))
+  ## the alias really lands on the same panel
+  plot(f, type = "scores");          u1 <- par("usr")
+  plot(f, type = "adjusted.scores"); u2 <- par("usr")
+  expect_identical(u1, u2)
+  ## and that panel plots b - C a, not b
+  adj <- f$scores - f$C %*% f$A
+  expect_false(isTRUE(all.equal(as.numeric(adj), as.numeric(f$scores))))
+  ## the drawn x range covers the ADJUSTED first PC, not the raw one
+  pc.adj <- prcomp(t(adj))$x[, 1]
+  expect_lte(u2[1], min(pc.adj))
+  expect_gte(u2[2], max(pc.adj))
+})
+
+test_that("plotting never advances the caller's random stream", {
+  set.seed(1)
+  Y <- matrix(abs(rnorm(6 * 40)) + 1, 6, 40)
+  A <- rbind(1, rnorm(40))
+  pdf(NULL); on.exit(dev.off(), add = TRUE)
+  for (rk in 1:3) {                      # rank 1 used to call runif()
+    f <- nmf.gmm(Y, A, rank = rk, K = 2, seed = 1, verbose = FALSE)
+    for (ty in c("convergence", "adjusted.scores")) {
+      set.seed(99); before <- runif(3)
+      set.seed(99); plot(f, type = ty); after <- runif(3)
+      expect_identical(before, after)
+    }
+  }
+})
+
+test_that("the rank-1 strip plot is deterministic", {
+  set.seed(1)
+  Y <- matrix(abs(rnorm(6 * 40)) + 1, 6, 40)
+  A <- rbind(1, rnorm(40))
+  f <- nmf.gmm(Y, A, rank = 1, K = 2, seed = 1, verbose = FALSE)
+  pdf(NULL); on.exit(dev.off(), add = TRUE)
+  ## two draws must land the points in exactly the same places
+  grab <- function() { plot(f, type = "adjusted.scores"); par("usr") }
+  expect_identical(grab(), grab())
+})
+
+test_that("a rank-2 fit is drawn in its own coordinates, not rotated", {
+  set.seed(1)
+  Y <- matrix(abs(rnorm(6 * 40)) + 1, 6, 40)
+  A <- rbind(1, rnorm(40))
+  f <- nmf.gmm(Y, A, rank = 2, K = 2, seed = 1, verbose = FALSE)
+  pdf(NULL); on.exit(dev.off(), add = TRUE)
+  plot(f, type = "adjusted.scores")
+  adj <- f$scores - f$C %*% f$A
+  ## the x range is that of adjusted basis 1 itself; a PCA rotation would
+  ## generally give a different one
+  expect_equal(par("usr")[1] <= min(adj[1, ]), TRUE)
+  expect_equal(par("usr")[2] >= max(adj[1, ]), TRUE)
+})

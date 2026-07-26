@@ -154,18 +154,48 @@ term is meant to remove before clustering.
 
 ## 6. Visualizing the effect of adjustment
 
-Projecting the estimated scores onto their first two principal components, and
-colouring by the true group, makes the mechanism visible: without adjustment
-(left) the groups smear along a size axis; after adjustment (right) they
-separate.
+Projecting the **covariate-adjusted** scores $\boldsymbol b_n - C\boldsymbol a_n$
+onto their first two principal components, and colouring by the true group,
+makes the mechanism visible: without adjustment (left) the groups smear along a
+size axis; after adjustment (right) they separate.
 
-The `plot()` method with `type = "scores"` draws this directly (colouring by
-the true `group` here rather than the fitted cluster):
+Read the right-hand panel carefully, because the axes are not the scores
+themselves. The model puts the covariate effect in the component means, so the
+space the mixture acts in is the score with $C\boldsymbol a_n$ removed --- and
+that is what `plot()` draws (its axis labels say `adjusted`). The distinction is
+not cosmetic here:
 
-```{r scoreplot, fig.width=8, fig.height=4, fig.alt="Two score scatterplots coloured by the four crab groups: without covariate the groups smear along a size gradient; after adjusting for size they separate into four clusters."}
+```{r scoreplot-sep}
+sep2 <- function(M, g) {                     # between/within on the first 2 PCs
+  pc <- prcomp(t(M))$x[, 1:2, drop = FALSE]
+  gm <- do.call(rbind, lapply(split(as.data.frame(pc), g), colMeans))
+  B  <- sum(table(g) * rowSums((gm - rep(colMeans(pc), each = nrow(gm)))^2))
+  W  <- sum(vapply(split(as.data.frame(pc), g), function(d)
+         sum((as.matrix(d) - rep(colMeans(d), each = nrow(d)))^2), numeric(1)))
+  B / W
+}
+rbind(raw      = c(a = sep2(fit_a$scores, grp), b = sep2(fit_b$scores, grp)),
+      adjusted = c(a = sep2(fit_a$scores - fit_a$C %*% fit_a$A, grp),
+                   b = sep2(fit_b$scores - fit_b$C %*% fit_b$A, grp)))
+```
+
+The **raw** scores of the size-adjusted fit separate the four groups no better
+than those of the plain fit (0.64 either way). The vivid separation in the
+right-hand panel --- 4.63 --- is produced by the adjustment. In (a) the two rows
+agree exactly, because with no covariate $C\boldsymbol a_n$ is a constant and
+subtracting it only shifts the cloud.
+
+So the figure shows *where the mixture is working*, not that the scores
+themselves pull apart. The clustering gain is real and is measured by the ARI in
+Section 5; the figure explains the mechanism behind it.
+
+The `plot()` method with `type = "adjusted.scores"` draws this directly
+(colouring by the true `group` here rather than the fitted cluster):
+
+```{r scoreplot, fig.width=8, fig.height=4, fig.alt="Two adjusted-score scatterplots coloured by the four crab groups: without covariate the groups smear along a size gradient; after adjusting for size they separate into four clusters."}
 op <- par(mfrow = c(1, 2))
-plot(fit_a, type = "scores", group = grp, main = "(a) no covariate")
-plot(fit_b, type = "scores", group = grp, main = "(b) size-adjusted")
+plot(fit_a, type = "adjusted.scores", group = grp, main = "(a) no covariate")
+plot(fit_b, type = "adjusted.scores", group = grp, main = "(b) size-adjusted")
 par(op)
 ```
 

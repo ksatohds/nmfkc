@@ -721,13 +721,32 @@ print.summary.nmf.gmm <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' @title Plot method for nmf.gmm objects
 #' @description
 #' \code{type = "convergence"} (default) plots the EM objective
-#' (\eqn{-\log L}) over iterations. \code{type = "scores"} draws a cluster
-#' scatterplot: the covariate-adjusted least-squares scores
-#' (\eqn{(X'X)^{-1}X'Y - C A}) projected onto their first two principal
-#' components, coloured by the hard cluster assignment (or by \code{group}).
+#' (\eqn{-\log L}) over iterations.  \code{type = "adjusted.scores"} draws the
+#' cluster scatterplot, coloured by the hard cluster assignment (or by
+#' \code{group}).
+#'
+#' @details
+#' \strong{The scatterplot shows the adjusted scores, not the scores.}  What is
+#' drawn is \eqn{\bm b_n - C\bm a_n}, the least-squares scores with the
+#' covariate effect removed --- which is the space the mixture actually acts in,
+#' since the model puts the covariate effect in the component means.  The
+#' distinction matters: on the \code{crabs} example the \emph{raw} scores
+#' separate the four true groups no better with a size covariate than without
+#' (0.635 versus 0.648, between/within on the first two principal components),
+#' while the adjusted space separates them at 4.628.  The visible separation is
+#' produced by the adjustment, so a panel labelled "scores" would claim
+#' something the picture does not show.  \code{type = "scores"} is accepted as
+#' an alias.
+#'
+#' The projection depends on the rank: a rank-2 fit is drawn in its own two
+#' coordinates (rotating it through \code{prcomp} would trade two interpretable
+#' part axes for arbitrary ones), a higher rank is projected onto its first two
+#' principal components, and a rank-1 fit becomes a strip plot with
+#' deterministic stacking.
 #' @param x An object of class \code{"nmf.gmm"}.
-#' @param type \code{"convergence"} or \code{"scores"}.
-#' @param group Optional length-N factor/vector to colour the score plot by
+#' @param type \code{"convergence"} or \code{"adjusted.scores"}
+#'   (\code{"scores"} is an alias for the latter).
+#' @param group Optional length-N factor/vector to colour the scatterplot by
 #'   (e.g. known labels). Default \code{NULL} colours by \code{x$cluster}.
 #' @param ... Additional graphical parameters passed to \code{plot}.
 #' @return Invisible \code{NULL}.
@@ -736,11 +755,13 @@ print.summary.nmf.gmm <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' set.seed(1)
 #' Y <- matrix(abs(rnorm(20 * 80)) + 1, 20, 80); A <- rbind(1, rnorm(80))
 #' fit <- nmf.gmm(Y, A, rank = 2, K = 3)
-#' plot(fit, type = "scores")
+#' plot(fit, type = "adjusted.scores")
 #' }
 #' @export
-plot.nmf.gmm <- function(x, type = c("convergence", "scores"), group = NULL, ...) {
+plot.nmf.gmm <- function(x, type = c("convergence", "adjusted.scores", "scores"),
+                         group = NULL, ...) {
   type <- match.arg(type)
+  if (type == "scores") type <- "adjusted.scores"   # kept as an alias
   extra <- list(...)
   if (type == "convergence") {
     args <- list(x = seq_along(x$objfunc.iter), y = x$objfunc.iter)
@@ -751,24 +772,44 @@ plot.nmf.gmm <- function(x, type = c("convergence", "scores"), group = NULL, ...
     do.call("plot", c(args, extra))
     return(invisible(NULL))
   }
-  ## type == "scores": covariate-adjusted scores, PCA to 2D, coloured by cluster
+  ## type == "adjusted.scores".  What is drawn is NOT b_n but b_n - C a_n, the
+  ## space the mixture actually acts in: the model puts the covariate effect in
+  ## the component means, so the clusters live in the residual after that effect
+  ## is removed.  On the crabs example the raw scores separate the four groups
+  ## no better with a size covariate than without (0.635 vs 0.648 by
+  ## between/within on the first two PCs), while the adjusted space separates
+  ## them at 4.628 -- the separation is created by the adjustment, and calling
+  ## the panel "scores" would claim otherwise.
   if (is.null(x$scores)) stop("no $scores stored; refit with nmf.gmm().")
   adj <- x$scores - x$C %*% x$A                      # remove the covariate mean
   g   <- if (!is.null(group)) as.factor(group) else as.factor(x$cluster)
   pal <- grDevices::hcl.colors(max(nlevels(g), 2), "Dark 3")
   col <- pal[as.integer(g)]
-  if (nrow(adj) >= 2) {
+  lab <- rownames(adj)
+  if (is.null(lab)) lab <- paste0("basis", seq_len(nrow(adj)))
+  if (nrow(adj) == 2L) {
+    ## A rank-2 fit is already 2-D.  Rotating it through prcomp would replace
+    ## two interpretable part axes with arbitrary ones for no gain.
+    pc <- t(adj)
+    xl <- paste("adjusted", lab[1]); yl <- paste("adjusted", lab[2])
+  } else if (nrow(adj) > 2L) {
     pc <- stats::prcomp(t(adj))$x[, 1:2, drop = FALSE]
     xl <- "adjusted score PC1"; yl <- "adjusted score PC2"
   } else {                                            # rank 1: strip plot
-    pc <- cbind(as.numeric(adj), stats::runif(ncol(adj), -1, 1))
+    ## Deterministic stacking rather than runif(): a plot method must not
+    ## advance the caller's random stream.
+    v   <- as.numeric(adj)
+    nb  <- max(2L, min(50L, ncol(adj) %/% 2L))
+    off <- stats::ave(seq_along(v), cut(v, breaks = nb, labels = FALSE),
+                      FUN = function(i) seq_along(i) - (length(i) + 1) / 2)
+    pc <- cbind(v, off)
     xl <- "adjusted score"; yl <- ""
   }
   args <- list(x = pc[, 1], y = pc[, 2], col = col)
   if (is.null(extra$pch))  args$pch  <- 19
   if (is.null(extra$xlab)) args$xlab <- xl
   if (is.null(extra$ylab)) args$ylab <- yl
-  if (is.null(extra$main)) args$main <- sprintf("nmf.gmm scores (K=%d)", x$K)
+  if (is.null(extra$main)) args$main <- sprintf("nmf.gmm adjusted scores (K=%d)", x$K)
   do.call("plot", c(args, extra))
   graphics::legend("topright", legend = levels(g), col = pal[seq_len(nlevels(g))],
                    pch = 19, bty = "n", cex = 0.8)

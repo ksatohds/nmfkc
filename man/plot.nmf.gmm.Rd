@@ -4,14 +4,20 @@
 \alias{plot.nmf.gmm}
 \title{Plot method for nmf.gmm objects}
 \usage{
-\method{plot}{nmf.gmm}(x, type = c("convergence", "scores"), group = NULL, ...)
+\method{plot}{nmf.gmm}(
+  x,
+  type = c("convergence", "adjusted.scores", "scores"),
+  group = NULL,
+  ...
+)
 }
 \arguments{
 \item{x}{An object of class \code{"nmf.gmm"}.}
 
-\item{type}{\code{"convergence"} or \code{"scores"}.}
+\item{type}{\code{"convergence"} or \code{"adjusted.scores"}
+(\code{"scores"} is an alias for the latter).}
 
-\item{group}{Optional length-N factor/vector to colour the score plot by
+\item{group}{Optional length-N factor/vector to colour the scatterplot by
 (e.g. known labels). Default \code{NULL} colours by \code{x$cluster}.}
 
 \item{...}{Additional graphical parameters passed to \code{plot}.}
@@ -21,16 +27,34 @@ Invisible \code{NULL}.
 }
 \description{
 \code{type = "convergence"} (default) plots the EM objective
-(\eqn{-\log L}) over iterations. \code{type = "scores"} draws a cluster
-scatterplot: the covariate-adjusted least-squares scores
-(\eqn{(X'X)^{-1}X'Y - C A}) projected onto their first two principal
-components, coloured by the hard cluster assignment (or by \code{group}).
+(\eqn{-\log L}) over iterations.  \code{type = "adjusted.scores"} draws the
+cluster scatterplot, coloured by the hard cluster assignment (or by
+\code{group}).
+}
+\details{
+\strong{The scatterplot shows the adjusted scores, not the scores.}  What is
+drawn is \eqn{\bm b_n - C\bm a_n}, the least-squares scores with the
+covariate effect removed --- which is the space the mixture actually acts in,
+since the model puts the covariate effect in the component means.  The
+distinction matters: on the \code{crabs} example the \emph{raw} scores
+separate the four true groups no better with a size covariate than without
+(0.635 versus 0.648, between/within on the first two principal components),
+while the adjusted space separates them at 4.628.  The visible separation is
+produced by the adjustment, so a panel labelled "scores" would claim
+something the picture does not show.  \code{type = "scores"} is accepted as
+an alias.
+
+The projection depends on the rank: a rank-2 fit is drawn in its own two
+coordinates (rotating it through \code{prcomp} would trade two interpretable
+part axes for arbitrary ones), a higher rank is projected onto its first two
+principal components, and a rank-1 fit becomes a strip plot with
+deterministic stacking.
 }
 \examples{
 \donttest{
 set.seed(1)
 Y <- matrix(abs(rnorm(20 * 80)) + 1, 20, 80); A <- rbind(1, rnorm(80))
 fit <- nmf.gmm(Y, A, rank = 2, K = 3)
-plot(fit, type = "scores")
+plot(fit, type = "adjusted.scores")
 }
 }
