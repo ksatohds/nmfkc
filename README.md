@@ -110,6 +110,11 @@ therefore converge much more tightly than an ordinary fit:
 | `nmfkc.inference(method = "refit")` | `refit.epsilon`, `refit.maxit` | `1e-8`, `1e5` |
 | `nmf.ffb.inference()` | `epsilon`, `maxit` | `1e-8`, `1e5` |
 
+The number of bootstrap replicates is `wild.B = 500` throughout, except
+`nmf.ffb.inference()`, whose `B` stays at `1000` — the value its published
+analysis used, so those results reproduce out of the box. Since that function
+re-fits on every replicate, its cost is linear in `B`.
+
 Two consequences worth knowing:
 
 - **Fit the model tightly as well.** `nmfkc()` defaults to `epsilon = 1e-4`,

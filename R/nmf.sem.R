@@ -521,14 +521,15 @@ nmf.ffb <- function(
 #' @param Y1 Endogenous variable matrix (P1 x N).  Must match the data
 #'   used in \code{nmf.sem()}.
 #' @param Y2 Exogenous variable matrix (P2 x N).  Same.
-#' @param B Number of bootstrap replicates.  Default \code{500}, matching the
-#'   \code{wild.B} of the other inference functions.  Note that \code{***}
-#'   (sup > 0.999) is only reachable when \emph{every} replicate clears
-#'   \code{threshold}, at any \code{B}; raising \code{B} to 1000 therefore does
-#'   not add a finer grade, it makes the same grade stronger evidence (all 1000
-#'   rather than all 500).  Raise it when the \code{***} distinction carries
-#'   weight, and note that each replicate is a re-fit, so the cost is linear
-#'   in \code{B}.
+#' @param B Number of bootstrap replicates.  Default \code{1000}, the value the
+#'   published analysis used; the other inference functions in the package
+#'   default their \code{wild.B} to 500, and this one is deliberately left at
+#'   1000 so the manuscript results reproduce out of the box.  Note that
+#'   \code{***} (sup > 0.999) is only reachable when \emph{every} replicate
+#'   clears \code{threshold}, at any \code{B}: raising \code{B} does not add a
+#'   finer grade, it makes the same grade stronger evidence (all 1000 rather
+#'   than all 500).  Lowering it to 500 roughly halves the running time, since
+#'   each replicate is a re-fit.
 #' @param threshold Display threshold \eqn{\delta} for the support rate
 #'   \eqn{\Pr_{\mathrm{boot}}(\hat c^{(b)} > \delta)}.  Default
 #'   \code{0.01}; entries below this magnitude are treated as effectively
@@ -607,7 +608,7 @@ nmf.ffb <- function(
 #' head(res2$coefficients)
 #' }
 nmf.ffb.inference <- function(object, Y1, Y2,
-                               B = 500L,
+                               B = 1000L,
                                threshold = 0.01,
                                ci.level = 0.95,
                                C1.L1 = 1.0,
