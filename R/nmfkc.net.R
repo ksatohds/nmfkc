@@ -1218,6 +1218,9 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
   nfolds <- if (!is.null(ex$nfolds)) ex$nfolds
             else if (!is.null(ex$div)) ex$div else 5
   seed <- if (!is.null(ex$seed)) ex$seed else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   cores <- if (!is.null(ex$cores)) ex$cores else getOption("mc.cores", 1L)
   Y <- as.matrix(Y); N <- nrow(Y)
   folds <- .nmfkc.net.make_uppertri_folds(N, div = nfolds, seed = seed)

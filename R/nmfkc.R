@@ -3347,10 +3347,21 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
     }
 
     # Run NMF on Training set (passing W_train)
+    ## NOTE on `seed`: nmfkc() resolves it as
+    ##   if (!is.null(extra_args$seed)) extra_args$seed else 123,
+    ## which cannot tell "seed = NULL was passed" from "seed was not passed".
+    ## Passing seed = NULL here would therefore NOT give the folds a free-
+    ## running stream -- it would silently yield nmfkc()'s default 123 -- so it
+    ## is not passed at all and the folds share one RNG seed.  They still start
+    ## from different initializations, because the k-means initializer is built
+    ## from each fold's own training data (measured: the initializations differ
+    ## more across folds than they do between two different seeds on the same
+    ## data).  If a fold-specific stream is ever wanted, derive the seeds
+    ## explicitly (as nmf.cox.cv does) rather than relying on NULL.
     nmfkc_args <- c(
       list(...),
       list(Y = Y_train, A = A_train, Q = Q, Y.weights = W_train, # Pass weights!
-           seed=NULL, print.trace = FALSE, print.dims = FALSE,
+           print.trace = FALSE, print.dims = FALSE,
            save.time = TRUE, save.memory = TRUE)
     )
     nmfkc_args$shuffle <- NULL

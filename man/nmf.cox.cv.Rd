@@ -31,7 +31,10 @@ nmf.cox.cv(
 
 \item{...}{Additional arguments passed to \code{\link{nmf.cox}}
 (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
-\code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
+\code{nstart}). Also accepts: \code{seed} (fold assignment, default 123;
+the per-fold fits themselves are seeded identically, which still leaves
+their initializations different because the initializer is built from each
+fold's own training data),
 \code{mc.cores} (evaluate the rank x smooth (x fold) grid in parallel;
 default \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
 elsewhere; results are identical for any value since each grid cell is an

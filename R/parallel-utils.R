@@ -34,8 +34,14 @@
 #'   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
 #' }
 #' When \code{seed} is \code{NULL} nothing is saved and nothing is restored, so
-#' that path keeps whatever RNG behaviour it had (\code{nmfkc.cv} relies on the
-#' stream advancing through its folds).
+#' that path keeps whatever RNG behaviour it had.  Note that most fitters take
+#' \code{seed} through \code{\dots} and resolve it with
+#' \code{if (!is.null(extra$seed)) extra$seed else <default>}, which cannot
+#' distinguish "\code{seed = NULL} was passed" from "\code{seed} was not
+#' passed" -- so for those an explicit \code{NULL} yields the default, not a
+#' free-running stream.  Only where \code{seed} is a real formal (e.g.
+#' \code{nmf.ffb}, \code{nmfkc.signed.rff}) does \code{NULL} mean "do not
+#' seed".
 #'
 #' @param seed The seed the fit is about to set, or \code{NULL}.
 #' @return Opaque state for \code{.nmfkc.rng.restore()}: \code{NULL} when there

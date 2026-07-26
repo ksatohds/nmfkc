@@ -1184,6 +1184,9 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds
             else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed)) extra_ecv$seed else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   cores  <- if (!is.null(extra_ecv$cores)) extra_ecv$cores else getOption("mc.cores", 1L)
   Q <- rank; R <- rank.encoder
   div <- nfolds

@@ -203,9 +203,9 @@ nmf.ffb <- function(
 
   ## Keep the self-seeding of this fit out of the caller's random stream.
   ## The guard matters: set.seed(NULL) does not mean "do nothing", it
-  ## re-initializes the generator from the clock, which would make a
-  ## seed = NULL fit irreproducible -- and nmf.ffb.cv() passes seed = NULL
-  ## precisely to mean "use the stream as it is".
+  ## re-initializes the generator from the clock, so an explicit seed = NULL
+  ## fit was irreproducible.  With the guard, seed = NULL means "leave the
+  ## stream alone" and the fit follows whatever state the caller is in.
   .rng <- .nmfkc.rng.save(seed)
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   if (!is.null(seed)) set.seed(seed)

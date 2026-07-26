@@ -718,7 +718,10 @@ nmf.cox.inference <- function(object, formula, data, A, ...) {
 #' @param verbose Logical; print the criterion grid.
 #' @param ... Additional arguments passed to \code{\link{nmf.cox}}
 #'   (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
-#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
+#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123;
+#'   the per-fold fits themselves are seeded identically, which still leaves
+#'   their initializations different because the initializer is built from each
+#'   fold's own training data),
 #'   \code{mc.cores} (evaluate the rank x smooth (x fold) grid in parallel;
 #'   default \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
 #'   elsewhere; results are identical for any value since each grid cell is an
@@ -808,6 +811,11 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
   set.seed(seed)
   fold <- sample(rep_len(1:nfolds, N))
 
+  ## Every fold is fitted from the same seed, as elsewhere in the package.
+  ## That does not make the folds start from a common initialization: the
+  ## k-means initializer is built from each fold's own training data, so the
+  ## initializations differ by fold anyway (measured on a plain design, they
+  ## differ more across folds than two different seeds do on the same data).
   one <- function(qi, si, k) {
     Q <- rank.grid[qi]; sm <- X.L2.smooth.grid[si]; tr <- which(fold != k)
     fit <- tryCatch(do.call(nmf.cox,
