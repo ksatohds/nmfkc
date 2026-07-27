@@ -99,3 +99,31 @@ test_that("deprecated nmfae() alias still works and warns", {
   g <- nmf.rrr(Y1, Y2 = Y2, rank1 = Q, rank2 = R, maxit = 800)
   expect_equal(f$objfunc, g$objfunc)
 })
+
+test_that("the KL convergence test survives a negative objective", {
+  ## KL objective sum(-Y log Yhat + Yhat) goes negative once Y exceeds e over
+  ## most cells.  Without abs() on the denominator the relative change came out
+  ## NEGATIVE, which is < any epsilon, so the fit "converged" after two
+  ## iterations no matter how tight the tolerance was.
+  set.seed(2)
+  Y1 <- matrix(abs(rnorm(4 * 30)) * 50 + 50, 4, 30)
+  Y2 <- matrix(abs(rnorm(4 * 30)) * 50 + 50, 4, 30)
+  f <- suppressWarnings(nmf.rrr(Y1, Y2, rank1 = 2, rank2 = 2, method = "KL",
+                                epsilon = 1e-4, maxit = 2000, print.trace = FALSE))
+  expect_true(any(f$objfunc.iter < 0))       # the trace really is negative
+  ## tightening epsilon must now change the run; before the fix it could not
+  g <- suppressWarnings(nmf.rrr(Y1, Y2, rank1 = 2, rank2 = 2, method = "KL",
+                                epsilon = 1e-9, maxit = 2000, print.trace = FALSE))
+  expect_gt(g$iter, f$iter)
+})
+
+test_that("nmf.rrr(maxit = 1) does not error", {
+  ## rel_change is only bound from the second iteration, and `&&` does not
+  ## short-circuit past an unbound name.
+  set.seed(3)
+  Y <- matrix(abs(rnorm(6 * 20)) + 1, 6, 20)
+  f <- suppressWarnings(nmf.rrr(Y[1:3, ], Y[4:6, ], rank1 = 2, rank2 = 2,
+                                maxit = 1, print.trace = FALSE))
+  expect_false(f$converged)
+  expect_equal(f$iter, 1)
+})

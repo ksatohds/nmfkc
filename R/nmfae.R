@@ -350,8 +350,14 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
     # Convergence check
     if (iter > 1) {
+      ## abs() on the denominator: the KL objective sum(-Y log Yhat + Yhat) is
+      ## NOT sign-constrained -- it goes negative once Y exceeds e over most
+      ## cells -- and a negative denominator makes rel_change negative, which is
+      ## always < epsilon.  Measured: with Y ~ 50 the fit "converged" after 2
+      ## iterations at R^2 = 0.007.  Every sibling optimizer already takes the
+      ## absolute value here.
       rel_change <- abs(objfunc.iter[iter] - objfunc.iter[iter-1]) /
-                       (objfunc.iter[iter-1] + eps)
+                       (abs(objfunc.iter[iter-1]) + eps)
       if (rel_change < epsilon) {
         if (print.trace) message(sprintf("  Converged at iter %d", iter))
         break
@@ -468,11 +474,16 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
     ## Convergence bookkeeping, matching nmfkc / nmfre so print.nmf() and the
     ## summaries can say whether the run finished or hit the cap -- previously
-    ## the two were indistinguishable from the object.  Same condition the
-    ## warning above uses (rel_change is in scope here).
+    ## the two were indistinguishable from the object.
+    ##
+    ## `rel_change` is only assigned from the second iteration onward, so at
+    ## maxit = 1 it is unbound.  `&&` does not short-circuit past an unbound
+    ## name, so dropping the exists() guard the warning above uses turned
+    ## nmf.rrr(..., maxit = 1) into a hard error.  The MU loop breaks as soon as
+    ## it converges, so `niter < maxit` says the same thing without the hazard.
     maxit = maxit,
     epsilon = epsilon,
-    converged = !(niter >= maxit && rel_change >= epsilon),
+    converged = (niter < maxit),
     runtime = diff.time,
     n.missing = n.missing,
     n.total = P1 * N

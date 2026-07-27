@@ -283,7 +283,35 @@ bootstrap (each replicate a full re-fit) serves all of them.
 
 ---
 
-## 8. Housekeeping
+## 8. Known divergences, deliberately not fixed
+
+Two places differ from the rest of the package in ways that are *wrong by the
+package's own conventions* but were left alone because correcting them would
+move published numbers. Both are stated in the affected help pages; do not
+"tidy" them without deciding to accept the change.
+
+- **`nmf.ffb` L1 is twice as strong.** It adds `C1.L1` to the multiplicative
+  denominator where `nmfkc` / `nmfae` / `nmfkc.net` add `C.L1 / 2`. The same
+  nominal penalty therefore shrinks twice as hard in `nmf.ffb`.
+- **`nmf.ffb` and `nmfkc.net` converge on the unpenalized objective.** The
+  break test reads the reconstruction loss, not the penalized objective the
+  updates minimize; every other optimizer tests the penalized value. With a
+  strong penalty they can stop while the optimized quantity is still moving.
+  `nmf.ffb` returns both traces (`objfunc`, `objfunc.full`) so the gap is at
+  least visible.
+
+By contrast these *were* fixed, because the results they produced were not
+merely different but wrong: a KL fit whose relative-change denominator lacked
+`abs()` and so "converged" in two iterations at any tolerance
+(`nmf.rrr`); `X.restriction = "fixed"` that did not hold `X` fixed and
+`X.L2.ortho` that was never forwarded (`nmfkc.net`); and a signed
+initialisation that drew every entry of `C0` from `U(-1, 1)`, so with
+probability `(1/2)^3` at `Q = 2` the whole matrix came out negative, `Cp` was
+identically zero and `X` collapsed to zeros on the first iteration.
+
+---
+
+## 9. Housekeeping
 
 - Commit messages are date-prefixed, e.g. `20260726 <what changed>`.
 - Version = total commits / 1000, last digit dropped (883 commits → 0.8.8).

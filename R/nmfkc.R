@@ -2940,6 +2940,7 @@ summary.nmfkc <- function(object, ...) {
   ans$iter <- if (!is.null(object$iter)) object$iter
               else length(object$objfunc.iter)
   ans$maxit <- object$maxit
+  ans$epsilon <- object$epsilon
   ans$converged <- object$converged
   ans$objfunc <- object$objfunc
   ans$r.squared          <- object$r.squared
@@ -3152,7 +3153,11 @@ nmfkc.class <- function(x){
 #'
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
 #' @export
-predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response", ...) {
+predict.nmfkc <- function(object, newA = NULL, newdata = NULL,
+                          type = c("response", "prob", "class"), ...) {
+  ## Without match.arg a typo fell through the if/else chain and returned the
+  ## class labels -- or, for an unmatched value, NULL -- instead of erroring.
+  type <- match.arg(type)
   x <- object
   .eps <- 1e-10
 
@@ -3411,6 +3416,13 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   }
 
   # Create Folds
+  ## The loop below runs `1:(div - 1)`, and `1:0` is c(1, 0) -- so nfolds = 1
+  ## did not error, it ran a nonsense extra pass and died inside nmfkc() with
+  ## "missing value where TRUE/FALSE needed".  nmf.ffb.cv already stops here.
+  if (!is.numeric(div) || length(div) != 1L || div < 2)
+    stop("'nfolds' must be an integer >= 2 (got ", div, ").")
+  if (div > N)
+    stop("'nfolds' (", div, ") cannot exceed the number of samples (", N, ").")
   remainder <- N %% div
   division <- N %/% div
   block <- 0*(1:N)
@@ -3471,13 +3483,23 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
     ## more across folds than they do between two different seeds on the same
     ## data).  If a fold-specific stream is ever wanted, derive the seeds
     ## explicitly (as nmf.cox.cv does) rather than relying on NULL.
+    ## The fold's own arguments must come FIRST: nmfkc() reads its options with
+    ## `extra_args$name`, and `$` returns the first match, so splicing `...`
+    ## ahead of them let a caller's argument win.  In particular
+    ## nmfkc.cv(Y, rank = 2, Y.weights = W) passed the user's full-width W in
+    ## place of this fold's W_train and died with "Dimension mismatch between Y
+    ## and Y.weights" -- the only member of the CV family that documents
+    ## Y.weights and could not accept it.  Same hazard for print.dims / Q /
+    ## save.time.  nmfkc.ecv already does it in this order.
+    dots <- list(...)
+    dots[c("Y", "A", "Q", "rank", "Y.weights", "print.trace", "print.dims",
+           "save.time", "save.memory", "shuffle")] <- NULL
     nmfkc_args <- c(
-      list(...),
       list(Y = Y_train, A = A_train, Q = Q, Y.weights = W_train, # Pass weights!
            print.trace = FALSE, print.dims = FALSE,
-           save.time = TRUE, save.memory = TRUE)
+           save.time = TRUE, save.memory = TRUE),
+      dots
     )
-    nmfkc_args$shuffle <- NULL
 
     # Suppress messages from inner nmfkc calls
     res_j <- suppressMessages(do.call("nmfkc", nmfkc_args))

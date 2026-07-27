@@ -673,6 +673,13 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     sigma         = sigma,
     mae           = mae,
     iter          = iter,
+    ## Convergence bookkeeping, matching the other fitters.  The MU loop breaks
+    ## as soon as the relative change falls below epsilon, so reaching maxit
+    ## means it did not converge.  Without these .print.convergence() could only
+    ## show a bare iteration count, which is exactly the case it exists to fix.
+    maxit         = maxit,
+    epsilon       = epsilon,
+    converged     = (iter < maxit),
     runtime       = runtime,
     rank          = Q,
     D             = D,
@@ -867,7 +874,7 @@ print.summary.nmfkc.signed <- function(x,
   }
 
   cat("\nConvergence:\n")
-  cat(sprintf("  Iterations:        %d\n", x$iter))
+  .print.convergence(x, label = "  Iterations:        ")
   cat(sprintf("  Runtime (secs):    %.2f\n", x$runtime))
   cat(sprintf("  Final objfunc:     %s\n", format(x$objfunc, digits = digits)))
 

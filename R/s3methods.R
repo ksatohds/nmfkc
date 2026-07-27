@@ -53,6 +53,11 @@
   if (!is.null(x$stop.reason) && is.character(x$stop.reason) &&
       !isTRUE(x$converged))
     line <- sprintf("%s  [%s]", line, x$stop.reason)
+  ## A nested optimizer (nmfre's ECM) stops on whichever cap it reaches first,
+  ## so reporting only the inner count leaves the stop reason unexplainable.
+  if (!is.null(x$outer.iter) && !is.null(x$outer.maxit))
+    line <- sprintf("%s  outer %d / %d", line, as.integer(x$outer.iter),
+                    as.integer(x$outer.maxit))
   cat(label, line, "\n", sep = "")
   invisible(NULL)
 }
@@ -93,27 +98,9 @@
     if (!is.null(d)) cat("Model:       ", d, "\n", sep = "")
   }
 
-  ## `iter` is the house name for the count; length(objfunc.iter) is only a
-  ## fallback, and an unreliable one -- several fitters trim that trace.
-  iter <- if (!is.null(x$iter) && is.numeric(x$iter)) x$iter
-          else if (!is.null(x$objfunc.iter)) length(x$objfunc.iter)
-          else NULL
-  if (!is.null(iter) && length(iter) == 1L && is.finite(iter)) {
-    line <- sprintf("#iter = %d", as.integer(iter))
-    if (!is.null(x$maxit) && is.numeric(x$maxit))
-      line <- sprintf("%s %s maxit = %d", line,
-                      if (iter < x$maxit) "<" else "=", as.integer(x$maxit))
-    if (!is.null(x$epsilon) && is.numeric(x$epsilon))
-      line <- sprintf("%s (epsilon = %g)", line, x$epsilon)
-    if (!is.null(x$converged) && !isTRUE(x$converged)) {
-      line <- paste0(line, "  -- NOT converged")
-      ## A run that stopped short of maxit stopped for some other reason;
-      ## nmfre records it, and without this the line reads as a contradiction.
-      if (!is.null(x$stop.reason) && is.character(x$stop.reason))
-        line <- paste0(line, " (", x$stop.reason, ")")
-    }
-    cat("Convergence: ", line, "\n", sep = "")
-  }
+  ## Delegate, so print() and every summary() render the same fact identically
+  ## rather than in two hand-rolled formats.
+  .print.convergence(x, label = "Convergence: ")
 
   ## One headline fit statistic, whichever the model reports.
   if (!is.null(x$r.squared) && is.finite(x$r.squared))
@@ -600,7 +587,11 @@ NULL
 #' @rdname residuals.nmf
 #' @export
 residuals.nmf <- function(object, Y, ...) {
-  Y - object$XB
+  ## Go through fitted() rather than reading $XB directly: XB is NA under
+  ## detail = "minimal", and fitted.nmf recomputes X %*% B in that case.  Reading
+  ## the field here made residuals() return all-NA for a fit whose fitted()
+  ## worked perfectly well.
+  Y - stats::fitted(object)
 }
 
 #' @rdname residuals.nmf

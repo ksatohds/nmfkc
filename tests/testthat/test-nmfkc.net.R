@@ -150,3 +150,47 @@ test_that("nmfkc.ecv(Y.symmetric = ...) stops and redirects to nmfkc.net.ecv()",
     "nmfkc.net.ecv"
   )
 })
+
+test_that("type='signed' does not collapse X to zero", {
+  ## The default init drew every entry of C0 from U(-1, 1) and symmetrised it,
+  ## so with probability (1/2)^3 at Q = 2 the whole matrix came out negative:
+  ## Cp was identically 0, C = Cp - Cn wholly negative against a non-negative
+  ## Y, the X-step numerator vanished and X collapsed on the first iteration
+  ## (X == 0, r.squared = NA, iter = 2).
+  set.seed(1)
+  Y <- matrix(abs(rnorm(8 * 40)) + 1, 8, 40)
+  S <- Y %*% t(Y)
+  for (sd in 1:6) for (q in 2:3) {
+    f <- suppressWarnings(nmfkc.net(S, rank = q, verbose = FALSE,
+                                    type = "signed", seed = sd))
+    expect_false(all(f$X == 0))
+    expect_true(all(is.finite(f$X)))
+    expect_true(is.finite(f$r.squared))
+  }
+  ## and it fits about as well as the non-negative variant
+  a <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE, type = "tri"))
+  b <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE, type = "signed"))
+  expect_gt(b$r.squared, 0.5 * a$r.squared)
+})
+
+test_that("X.restriction='fixed' actually holds X fixed in every type", {
+  set.seed(1)
+  Y <- matrix(abs(rnorm(8 * 40)) + 1, 8, 40); S <- Y %*% t(Y)
+  for (ty in c("tri", "bi", "signed")) {
+    X0 <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE, type = ty))$X
+    g  <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE, type = ty,
+                                     X.init = X0, X.restriction = "fixed"))
+    expect_equal(g$X, X0, tolerance = 0, info = ty)
+  }
+})
+
+test_that("X.L2.ortho reaches the signed path", {
+  set.seed(1)
+  Y <- matrix(abs(rnorm(8 * 40)) + 1, 8, 40); S <- Y %*% t(Y)
+  a <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE,
+                                  type = "signed", X.L2.ortho = 0))
+  b <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE,
+                                  type = "signed", X.L2.ortho = 1e4))
+  ## it was simply not forwarded, so the option was a silent no-op
+  expect_false(isTRUE(all.equal(a$X, b$X, tolerance = 1e-10)))
+})

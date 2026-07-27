@@ -674,7 +674,8 @@ nmfkc.net.DOT <- function(
       XtX <- crossprod(X); diag(XtX) <- 0
       den_X <- den_X + X.L2.ortho * (X %*% XtX)
     }
-    X <- X * (num_X / (den_X + small))
+    ## Honour X.restriction = "fixed" as every other optimizer does.
+    if (X.restriction != "fixed") X <- X * (num_X / (den_X + small))
 
     cc <- norm_XC(X, C); X <- cc$X; C <- cc$C
 
@@ -726,8 +727,11 @@ nmfkc.net.DOT <- function(
       XtX <- crossprod(X); diag(XtX) <- 0
       den_X <- den_X + X.L2.ortho * (X %*% XtX)
     }
-    update_ratio <- num_X / (den_X + small)
-    X <- X * update_ratio^(1/3)
+    ## Honour X.restriction = "fixed" as every other optimizer does.
+    if (X.restriction != "fixed") {
+      update_ratio <- num_X / (den_X + small)
+      X <- X * update_ratio^(1/3)
+    }
 
     if (X.restriction == "colSums") {
       cs <- colSums(X) + small
@@ -785,7 +789,12 @@ nmfkc.net.DOT <- function(
 #'   see the note on \code{Y.weights} below.
 #' @param rank Integer Q.
 #' @param type \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
-#' @param epsilon,maxit,verbose Standard.
+#' @param epsilon,maxit,verbose Standard.  \strong{Note}: the convergence test
+#'   uses the \emph{unpenalized} squared error, not the penalized objective the
+#'   updates minimize, so with a large \code{C.L1} or \code{X.L2.ortho} the
+#'   iteration can stop while the optimized quantity is still moving.  The
+#'   other fitters test the penalized value; this is kept as-is so existing
+#'   fits reproduce.
 #' @param ... Hidden options: \code{nstart} (default 1; see note below),
 #'   \code{seed} (default 123), \code{X.restriction}, \code{X.init},
 #'   \code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
@@ -929,8 +938,11 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
       .nmfkc.net.run_once_bi(Y, X, maxit, epsilon,
                               X.restriction, X.L2.ortho, Wmat, has.weights)
     } else if (type == "signed") {
+      ## X.L2.ortho was simply not forwarded here, so nmfkc.net(type="signed",
+      ## X.L2.ortho = ...) was silently a no-op while the tri and bi paths
+      ## applied it; the documentation presents the option as general.
       .nmfkc.net.signed.run_once(Y, X, C_or_Cp, Cn, maxit, epsilon,
-                                  X.restriction, Wmat, has.weights)
+                                  X.restriction, X.L2.ortho, Wmat, has.weights)
     } else {
       .nmfkc.net.run_once(Y, X, C_or_Cp, maxit, epsilon,
                           X.restriction, C.L1, X.L2.ortho, Wmat, has.weights)
@@ -980,6 +992,16 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
         set.seed(s_seed + 1L)
         C0 <- matrix(stats::runif(Q * Q, min = -1, max = 1), Q, Q)
         C0 <- (C0 + t(C0)) / 2       # symmetrize before sign split
+        ## The diagonal is within-cluster affinity and is non-negative for any
+        ## sensible similarity matrix, so force it positive.  Drawing it from
+        ## U(-1, 1) let every entry of the symmetrized C0 come out negative --
+        ## probability (1/2)^3 = 1/8 at Q = 2 -- which makes Cp0 identically 0.
+        ## C = Cp - Cn is then wholly negative while Y >= 0, the numerator of
+        ## the X-step vanishes, and X collapses to all zeros in one iteration
+        ## (observed: X == 0, r.squared = NA, iter = 2).  Only the OFF-diagonal
+        ## keeps its free sign, which is what "signed" is for: inter-cluster
+        ## repulsion.
+        diag(C0) <- abs(diag(C0)) + 1e-3
         Cp0 <- pmax(C0, 0); Cn0 <- pmax(-C0, 0)
       }
       out <- run_once(X0, Cp0, Cn0)
@@ -1064,6 +1086,11 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     mae = mae,
     sigma = sigma,
     iter = iter,
+    ## Convergence bookkeeping, matching the other fitters; the MU loop breaks
+    ## on convergence, so reaching maxit means it did not.
+    maxit = maxit,
+    epsilon = epsilon,
+    converged = (iter < maxit),
     runtime = as.numeric((proc.time() - t0)[3]),
     X.restriction = X.restriction
   )
@@ -1078,7 +1105,8 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 ## ==============================================================
 
 .nmfkc.net.signed.run_once <- function(Y, X, Cp, Cn, maxit, epsilon,
-                                       X.restriction, Wmat, has.weights) {
+                                       X.restriction, X.L2.ortho,
+                                       Wmat, has.weights) {
   N <- nrow(Y); Q <- ncol(X)
   small <- 1e-16
   norm_XC <- function(X, Cp, Cn) {
@@ -1137,9 +1165,18 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     } else {
       WY <- Y; WYhp <- Yh_p; WYhn <- Yh_n
     }
-    num_X <- WY %*% X %*% Sp + WYhp %*% X %*% Sn + WYhn %*% X %*% Sp
-    den_X <- WY %*% X %*% Sn + WYhp %*% X %*% Sp + WYhn %*% X %*% Sn
-    X <- X * (num_X / (den_X + small))
+    ## X.restriction = "fixed" means the basis is supplied and held; every other
+    ## optimizer in the package skips its X-step then.  This one updated X
+    ## unconditionally, so "fixed" did not fix anything (measured drift 1.3e-4).
+    if (X.restriction != "fixed") {
+      num_X <- WY %*% X %*% Sp + WYhp %*% X %*% Sn + WYhn %*% X %*% Sp
+      den_X <- WY %*% X %*% Sn + WYhp %*% X %*% Sp + WYhn %*% X %*% Sn
+      if (X.L2.ortho > 0) {
+        XtX <- crossprod(X); diag(XtX) <- 0
+        den_X <- den_X + X.L2.ortho * (X %*% XtX)
+      }
+      X <- X * (num_X / (den_X + small))
+    }
 
     cc <- norm_XC(X, Cp, Cn); X <- cc$X; Cp <- cc$Cp; Cn <- cc$Cn
 

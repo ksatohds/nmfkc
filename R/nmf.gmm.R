@@ -363,7 +363,13 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   X.init    <- extra$X.init
   intercept <- getopt("intercept", 1L)
   maxit     <- getopt("maxit", 500L)
-  tol       <- getopt("tol", 1e-7)
+  ## `epsilon` is the house name for the convergence tolerance in every other
+  ## fitter, and this function already RETURNS it as `epsilon`.  Accepting only
+  ## `tol` meant nmf.gmm(..., epsilon = 1e-9) was silently a no-op.  `tol` stays
+  ## as the legacy alias.
+  tol       <- getopt("epsilon", getopt("tol", 1e-7))
+  ## Likewise `wild.seed` is the convention for the bootstrap; here `seed` is
+  ## the fit seed, so it keeps its name.
   seed      <- getopt("seed", 1L)
   ## Keep the self-seeding of this fit out of the caller's random stream.
   .rng <- .nmfkc.rng.save(seed)

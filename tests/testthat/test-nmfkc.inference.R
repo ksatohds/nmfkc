@@ -47,13 +47,18 @@ test_that("print.nmfkc says whether the fit converged", {
   Y <- matrix(abs(rnorm(5 * 60)) + 1, 5, 60); A <- rbind(1, abs(rnorm(60)))
   ok <- suppressWarnings(nmfkc(Y, A, rank = 2, verbose = FALSE))
   expect_true(ok$converged)
-  expect_true(any(grepl("#iter = .* < ", capture.output(print(ok)))))
+  ## print() and summary() go through the same .print.convergence() helper, so
+  ## they must render the fact identically -- "<iter> / <maxit> (verdict)".
+  pr <- grep("^Convergence:", capture.output(print(ok)), value = TRUE)
+  sm <- grep("^Iterations:", capture.output(print(summary(ok))), value = TRUE)
+  expect_match(pr, "68 / 5000 \\(converged\\)", fixed = FALSE)
+  expect_identical(sub("^Convergence: ", "", pr), sub("^Iterations: ", "", sm))
   expect_false(any(grepl("NOT converged", capture.output(print(ok)))))
   ## a run capped by maxit used to be indistinguishable from a converged one
   cap <- suppressWarnings(nmfkc(Y, A, rank = 2, maxit = 3, verbose = FALSE))
   expect_false(cap$converged)
   expect_equal(cap$maxit, 3)
-  expect_true(any(grepl("NOT converged", capture.output(print(cap)))))
+  expect_true(any(grepl("3 / 3 \\(NOT converged\\)", capture.output(print(cap)))))
 })
 
 test_that("fitted() works even when XB was not stored", {

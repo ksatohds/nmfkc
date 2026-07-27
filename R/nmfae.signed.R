@@ -817,7 +817,12 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
   z_value <- ifelse(SE > 0, Estimate / SE, NA_real_)
 
   if (C.p.side == "one.sided") {
-    p_value <- ifelse(is.finite(z_value), stats::pnorm(abs(z_value), lower.tail = FALSE), NA_real_)
+    ## The column is labelled Pr(>z), i.e. the upper tail, and every sibling
+    ## (nmfkc.R, nmfae.R, nmfre.R) computes it that way.  Taking abs() first
+    ## folded the lower tail onto the upper one, so a coefficient with z = -5 --
+    ## routine here, because this model's Theta is SIGNED -- was reported as
+    ## p = 2.9e-07 with three stars instead of p = 1.
+    p_value <- ifelse(is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
   } else {
     p_value <- ifelse(is.finite(z_value), 2 * stats::pnorm(abs(z_value), lower.tail = FALSE), NA_real_)
   }

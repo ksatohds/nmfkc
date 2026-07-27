@@ -565,7 +565,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     AAt_mm  <- A %*% t(A)             # keep the gemm form (one-arg tcrossprod/dsyrk is not bitwise-identical)
   }
 
+  outer_done <- 0L
   for (outer in 1:outer.maxit) {
+    outer_done <- outer
 
     tau2   <- clip_val(tau2,   tau2.min,   tau2.max)
     sigma2 <- clip_val(sigma2, sigma2.min, sigma2.max)
@@ -709,7 +711,18 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   obj_final <- obj
   rel_change_final <- rel_change
 
-  if (iter_done < maxit && identical(stop_reason, "maxit")) {
+  ## The outer ECM loop running to its own cap is a real stopping reason, not an
+  ## unknown one.  stop_reason starts at "maxit", and if the outer loop finishes
+  ## without any break firing it is still "maxit" while total_iter < maxit --
+  ## which is what used to be relabelled "unknown_break".  Name it: this is the
+  ## only path that reached that branch (verified -- the reported iteration
+  ## count tracks outer.maxit exactly: 50 -> 793, 200 -> 1093, 1000 -> 2693).
+  if (identical(stop_reason, "maxit") && outer_done >= outer.maxit &&
+      iter_done < maxit) {
+    stop_reason <- "outer_maxit"
+    converged <- FALSE
+  } else if (iter_done < maxit && identical(stop_reason, "maxit")) {
+    ## Kept as a genuine catch-all; no known path leads here.
     stop_reason <- "unknown_break"
     converged <- FALSE
   }
@@ -811,6 +824,12 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     converged = converged,
     stop.reason = stop_reason,
     iter = iter_done,
+    ## The outer ECM loop has its own cap, and hitting it is the commonest
+    ## reason a run stops short of `maxit`.  Without these two the stop reason
+    ## could not be told apart from the inner loop's, which is how the
+    ## "unknown_break" label came about.
+    outer.iter = outer_done,
+    outer.maxit = outer.maxit,
     maxit = maxit,
     epsilon = epsilon,
     objfunc = obj_final,
