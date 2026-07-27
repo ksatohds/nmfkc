@@ -35,9 +35,8 @@ parameter matrix \eqn{C}, pointwise standard errors of
 \eqn{H_0: \beta_r(t) = 0} \strong{conditional on the estimated basis}
 \eqn{\hat X}.
 
-For inference that accounts for basis selection, use the cross-fitted
-\code{\link{nmf.cox.phtest}} (time-varying effects) and
-\code{\link{nmf.cox.cf}} (proportional effect \eqn{\gamma}).
+For inference on \eqn{\gamma} that accounts for basis selection, use the
+cross-fitted \code{\link{nmf.cox.cf}}.
 }
 \examples{
 library(survival)
@@ -50,6 +49,5 @@ fit$coefficients
 fit$wald
 }
 \seealso{
-\code{\link{nmf.cox}}, \code{\link{nmf.cox.phtest}},
-\code{\link{nmf.cox.cf}}
+\code{\link{nmf.cox}}, \code{\link{nmf.cox.cf}}
 }

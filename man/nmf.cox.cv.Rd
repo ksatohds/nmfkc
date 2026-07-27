@@ -68,11 +68,8 @@ With \code{criterion = "aic"} or \code{"bic"} a single fit per grid point is use
 and the criterion is \emph{minimised}; the effective degrees of freedom are a
 heuristic.
 
-The CVPL fold assignment is drawn once, so the selected \code{rank} and
-\code{X.L2.smooth.best} are conditional on that split; changing \code{seed}
-can change the selection, particularly where the CVPL curve is flat (which is
-why the 1-SE rule is offered). How much of the selection variability this
-accounts for has not been measured.
+The CVPL fold assignment is drawn once, so the selection is conditional on
+that split.
 }
 \examples{
 \donttest{

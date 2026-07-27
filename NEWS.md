@@ -76,10 +76,9 @@
   pointwise SEs of \eqn{\beta(t)} and given-basis Wald tests;
   `nmf.cox.cv()` sweeps `rank` / `X.L2.smooth` vectors (CVPL / AIC / BIC;
   returns `rank.best`, `X.L2.smooth.best`, 1-SE variants);
-  `nmf.cox.cf()` is the two-stage cross-fit estimator of \eqn{\gamma};
-  `nmf.cox.phtest()` the cross-fitted Wald test of \eqn{H_0: \beta_r(t)=0}.
+  `nmf.cox.cf()` is the two-stage cross-fit estimator of \eqn{\gamma}.
 - S3: `coef`, `fitted`, `print`, `summary`, `plot` for `nmf.cox`; `print`
-  methods for the cf / phtest objects. New dependency: `survival` (Imports).
+  for the cf object. New dependency: `survival` (Imports).
 - Verified numerically identical to the standalone research implementation on
   the veteran data (gamma, beta.t, objfunc, C, se.beta.t, Wald, CV grids,
   cross-fit estimates all equal).

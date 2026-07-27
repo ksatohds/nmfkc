@@ -59,7 +59,7 @@ test_that("nmf.cox.cv sweeps rank/X.L2.smooth vectors (house style)", {
   expect_equal(dim(cv$aic), c(1L, 2L))
 })
 
-test_that("nmf.cox.cf and nmf.cox.phtest run with reproducible folds", {
+test_that("nmf.cox.cf runs with reproducible folds", {
   skip_if_not_installed("survival")
   d <- survival::veteran
   d$y <- survival::Surv(d$time, d$status)
@@ -70,13 +70,6 @@ test_that("nmf.cox.cf and nmf.cox.phtest run with reproducible folds", {
   expect_named(cf$gamma)
   expect_true(all(is.finite(cf$se)))
   expect_null(cf$alpha)
-
-  ph <- nmf.cox.phtest(y ~ trt + age, data = d, A = ~ karno + celltype,
-                       rank = 2, X.L2.smooth = 1000, nfolds = 3, seed = 123, maxit = 15)
-  expect_s3_class(ph, "nmf.cox.phtest")
-  expect_true(all(is.finite(ph$wald$chisq)))
-  expect_equal(dim(ph$C), c(2L, ncol(ph$beta.t)))  # parameter matrix is C (Q x R)
-  expect_null(ph$Theta)
 })
 
 test_that("nmf.cox.cf aggregates over splits and leaves nsplits = 1 untouched", {

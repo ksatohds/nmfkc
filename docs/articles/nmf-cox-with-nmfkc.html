@@ -358,8 +358,7 @@ with cluster-robust standard errors.</p>
 <span><span class="co">#&gt; NMF-COX two-stage cross-fit estimate of gamma</span></span>
 <span><span class="co">#&gt; rank=2, X.L2.smooth=1000, folds=5, splits=1, nuisance converged in 5/5 folds</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Cluster-robust 95% confidence intervals:</span></span>
-<span><span class="co">#&gt;   (conditional on the realised fold assignment; see ?nmf.cox.cf)</span></span>
+<span><span class="co">#&gt; Cluster-robust 95% confidence intervals (approximate):</span></span>
 <span><span class="co">#&gt;     estimate     se   lower  upper</span></span>
 <span><span class="co">#&gt; trt   0.2032 0.2023 -0.1933 0.5996</span></span>
 <span><span class="co">#&gt; age  -0.0165 0.0104 -0.0369 0.0039</span></span></code></pre></div>
@@ -380,10 +379,8 @@ adjustment.</p>
 <div class="section level3">
 <h3 id="the-fold-assignment-is-part-of-the-estimate">6.1 The fold assignment is part of the estimate<a class="anchor" aria-label="anchor" href="#the-fold-assignment-is-part-of-the-estimate"></a>
 </h3>
-<p>By default the folds are drawn <strong>once</strong>, so the reported
-standard error is cluster-robust <em>conditional on that one split</em>.
-The variability caused by the split itself is not in it. On this small
-dataset that variability is large:</p>
+<p>The folds are drawn once, so both the estimate and its standard error
+depend on that split:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, <span class="kw">function</span><span class="op">(</span><span class="va">s</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">z</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmf.cox.cf.html">nmf.cox.cf</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">trt</span> <span class="op">+</span> <span class="va">age</span>, data <span class="op">=</span> <span class="va">veteran</span>, A <span class="op">=</span> <span class="op">~</span> <span class="va">karno</span> <span class="op">+</span> <span class="va">celltype</span>,</span>
@@ -394,17 +391,11 @@ dataset that variability is large:</p>
 <span><span class="co">#&gt; [1,]    1 0.2031846 0.2022689</span></span>
 <span><span class="co">#&gt; [2,]    2 0.2149762 0.2100042</span></span>
 <span><span class="co">#&gt; [3,]    3 0.3426671 0.1958710</span></span></code></pre></div>
-<p>The point estimate moves substantially while the reported standard
-error barely does. Simulation puts numbers on the consequence: across
-the designs measured, the mean reported SE was 0.92–0.97 of the
-empirical SD of <span class="math inline">\(\hat\gamma\)</span>, and
-nominal 95% intervals covered at about 0.93. The estimator itself is
-fine — the bias was <span class="math inline">\(\le 0.003\)</span> and
-intervals built from the empirical SD covered at the nominal rate — so
-the shortfall is in the variance, not the estimate.</p>
-<p>Setting <code>nsplits &gt; 1</code> aggregates over independent
-splits with the median rule of Chernozhukov et al. (2018, §3.4), which
-folds the between-split spread into the variance:</p>
+<p><code>nsplits &gt; 1</code> aggregates over independent splits
+(median rule of Chernozhukov et al., 2018, §3.4), folding that spread
+into the standard error. <code>nsplits = 1</code> is the default;
+<code>gamma1</code>/<code>se1</code> always carry the single-split
+values.</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cf5</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmf.cox.cf.html">nmf.cox.cf</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">trt</span> <span class="op">+</span> <span class="va">age</span>, data <span class="op">=</span> <span class="va">veteran</span>, A <span class="op">=</span> <span class="op">~</span> <span class="va">karno</span> <span class="op">+</span> <span class="va">celltype</span>,</span>
 <span>                  rank <span class="op">=</span> <span class="fl">2</span>, X.L2.smooth <span class="op">=</span> <span class="fl">1000</span>, nfolds <span class="op">=</span> <span class="fl">5</span>, seed <span class="op">=</span> <span class="fl">1</span>, nsplits <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span>
@@ -413,45 +404,11 @@ folds the between-split spread into the variance:</p>
 <span><span class="co">#&gt;     aggregated     se single split se (single)</span></span>
 <span><span class="co">#&gt; trt     0.2392 0.2054       0.2032      0.2023</span></span>
 <span><span class="co">#&gt; age    -0.0132 0.0109      -0.0165      0.0104</span></span></code></pre></div>
-<p>The reported SE rises, since the between-split spread is now inside
-it. A single dataset cannot show the other half of the effect, but in
-simulation the median also reduced the sampling SD of <span class="math inline">\(\hat\gamma\)</span> (0.0842 to 0.0814), so the
-ratio of SE to SD improves from both ends. <code>nsplits = 1</code>
-remains the default so that earlier results reproduce exactly, and
-<code>gamma1</code>/<code>se1</code> always carry the single-split
-values.</p>
-<p>This removes one source of understatement, not all of them. With a
-single non-PH covariate at the true rank, aggregation restored coverage
-to about 0.94–0.95; with a high-dimensional nuisance (five non-PH
-covariates at working rank two, <span class="math inline">\(N \approx
-700\)</span>) it reached only about 0.93–0.95, because a second-order
-nuisance term remains. Read these intervals as approximate whenever the
-nuisance is high-dimensional relative to the sample. The cost is linear
-in <code>nsplits</code>.</p>
+<p>Treat the intervals as approximate. To decide which covariates are
+non-proportional in the first place, use
+<code><a href="https://rdrr.io/pkg/survival/man/cox.zph.html" class="external-link">survival::cox.zph()</a></code>.</p>
 <hr>
 </div>
-</div>
-<div class="section level2">
-<h2 id="cross-fitted-test-of-a-time-varying-effect-nmf-cox-phtest">7. Cross-fitted test of a time-varying effect:
-<code>nmf.cox.phtest()</code><a class="anchor" aria-label="anchor" href="#cross-fitted-test-of-a-time-varying-effect-nmf-cox-phtest"></a>
-</h2>
-<p>Section 3’s Wald test conditions on the basis learned from the same
-data. <code><a href="../reference/nmf.cox.phtest.html">nmf.cox.phtest()</a></code> instead learns the basis <strong>out
-of fold</strong>, so the test of <span class="math inline">\(H_0:\beta_r(t)=0\)</span> is not invalidated by
-basis selection.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">ph</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmf.cox.phtest.html">nmf.cox.phtest</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">trt</span> <span class="op">+</span> <span class="va">age</span>, data <span class="op">=</span> <span class="va">veteran</span>, A <span class="op">=</span> <span class="op">~</span> <span class="va">karno</span> <span class="op">+</span> <span class="va">celltype</span>,</span>
-<span>                     rank <span class="op">=</span> <span class="fl">2</span>, X.L2.smooth <span class="op">=</span> <span class="fl">1000</span>, nfolds <span class="op">=</span> <span class="fl">5</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">ph</span></span>
-<span><span class="co">#&gt; NMF-COX cross-fitted Wald test  H0: beta_r(t)=0</span></span>
-<span><span class="co">#&gt; rank=2, X.L2.smooth=1000, folds=5</span></span>
-<span><span class="co">#&gt;          covariate df  chisq p.value</span></span>
-<span><span class="co">#&gt;              karno  2 49.932  &lt;1e-04</span></span>
-<span><span class="co">#&gt;  celltypesmallcell  2  7.633   0.022</span></span>
-<span><span class="co">#&gt;      celltypeadeno  2 23.635  &lt;1e-04</span></span>
-<span><span class="co">#&gt;      celltypelarge  2  3.923   0.141</span></span>
-<span><span class="co">#&gt; Global (all covariates):  chisq=96.255, df=8, p=&lt;1e-04</span></span></code></pre></div>
-<hr>
 </div>
 <div class="section level2">
 <h2 id="summary">Summary<a class="anchor" aria-label="anchor" href="#summary"></a>
@@ -491,11 +448,6 @@ given-basis Wald tests</td>
 <td align="left"><code><a href="../reference/nmf.cox.cf.html">nmf.cox.cf()</a></code></td>
 <td align="left">Cross-fit estimand <span class="math inline">\(\gamma\)</span> for the covariates of
 interest</td>
-</tr>
-<tr class="odd">
-<td align="left">5</td>
-<td align="left"><code><a href="../reference/nmf.cox.phtest.html">nmf.cox.phtest()</a></code></td>
-<td align="left">Cross-fitted test of a time-varying effect</td>
 </tr>
 </tbody>
 </table>

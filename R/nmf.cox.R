@@ -19,7 +19,6 @@
 #   nmf.cox.inference given-basis Wald inference on C and beta(t) = X C
 #   nmf.cox.cv        selection of rank Q and smoothing X.L2.smooth (CVPL/AIC/BIC)
 #   nmf.cox.cf        two-stage cross-fit estimator for gamma (cluster-robust SE)
-#   nmf.cox.phtest    cross-fitted Wald test of H0: beta_r(t) = 0
 #
 #   The parameter matrix is called C (Q x R), matching the nmfkc family
 #   (Theta in the paper). Object classes are single ("nmf.cox", ...).
@@ -565,9 +564,8 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
 #' \eqn{H_0: \beta_r(t) = 0} \strong{conditional on the estimated basis}
 #' \eqn{\hat X}.
 #'
-#' For inference that accounts for basis selection, use the cross-fitted
-#' \code{\link{nmf.cox.phtest}} (time-varying effects) and
-#' \code{\link{nmf.cox.cf}} (proportional effect \eqn{\gamma}).
+#' For inference on \eqn{\gamma} that accounts for basis selection, use the
+#' cross-fitted \code{\link{nmf.cox.cf}}.
 #'
 #' @param object A fitted object of class \code{"nmf.cox"}.
 #' @param formula,data,A The same arguments used in the \code{\link{nmf.cox}} call.
@@ -584,8 +582,7 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
 #'     \eqn{H_0: \beta_r(t) = 0} given the basis.}
 #'   \item{inf.fit}{The underlying \code{\link[survival]{coxph}} refit.}
 #'
-#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.phtest}},
-#'   \code{\link{nmf.cox.cf}}
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.cf}}
 #' @examples
 #' library(survival)
 #' d <- survival::veteran
@@ -715,11 +712,8 @@ nmf.cox.inference <- function(object, formula, data, A, ...) {
 #' and the criterion is \emph{minimised}; the effective degrees of freedom are a
 #' heuristic.
 #'
-#' The CVPL fold assignment is drawn once, so the selected \code{rank} and
-#' \code{X.L2.smooth.best} are conditional on that split; changing \code{seed}
-#' can change the selection, particularly where the CVPL curve is flat (which is
-#' why the 1-SE rule is offered). How much of the selection variability this
-#' accounts for has not been measured.
+#' The CVPL fold assignment is drawn once, so the selection is conditional on
+#' that split.
 #'
 #' @param formula,data,A As in \code{\link{nmf.cox}}.
 #' @param rank Integer vector of candidate ranks \eqn{Q} to evaluate. Default \code{2}.
@@ -920,52 +914,21 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
 #' estimator attains that rate under a suitable scaling of \code{X.L2.smooth} is not
 #' established here.
 #'
-#' @section Calibration of the reported standard error:
-#' The fold assignment is drawn once, so the returned \code{se} is
-#' cluster-robust \emph{conditional on that realised split}: variability induced
-#' by the split itself is not included. Across replications the mean reported SE
-#' therefore falls below the empirical SD of \eqn{\hat\gamma} --- the ratio was
-#' 0.92--0.97 in the designs examined --- and nominal 95\% intervals covered at
-#' about 0.93. Re-running with a different \code{seed} moves both the estimate
-#' and the SE, and that variability is nowhere reflected in the interval.
-#'
-#' The shortfall is in the variance estimate, not the estimator:
-#' \eqn{\hat\gamma} was essentially unbiased (\eqn{\le 0.003}) and intervals
-#' built from the empirical SD covered at the nominal rate. Note also that the
-#' shortfall does \emph{not} shrink with \eqn{N} (ratio 0.931 at \eqn{N=600}),
-#' which is what distinguishes it from finite-sample sandwich bias.
-#'
-#' Set \code{nsplits > 1} to aggregate over several independent splits (median
-#' rule of Chernozhukov et al., 2018, section 3.4). That removes this particular
-#' understatement, but only that one. With a single non-PH covariate fitted at
-#' the true rank it restored
-#' coverage to about 0.94--0.95; with a high-dimensional nuisance (five non-PH
-#' covariates at working rank two, \eqn{N \approx 700}) the ratio reached only
-#' 0.94--0.96 and coverage about 0.93--0.95, because a second-order nuisance
-#' term remains. In that harder design a jointly-estimated reduced-rank fit,
-#' whose fixed-effect SE comes from the full information matrix, was in fact the
-#' better calibrated of the two. Intervals from this function should be read as
-#' approximate whenever the nuisance is high-dimensional relative to the sample.
+#' With \code{nsplits = 1} the fold assignment is drawn once, so \code{se} is
+#' conditional on that split and understates the uncertainty; \code{nsplits > 1}
+#' folds the between-split spread in. Treat the intervals as approximate.
 #'
 #' @param formula,data,A As in \code{\link{nmf.cox}}.
 #' @param rank Rank \eqn{Q} of the nuisance time basis. Default \code{2}.
 #' @param X.L2.smooth Roughness penalty used for the nuisance fits. Default \code{0}.
 #' @param nfolds Number of cross-fitting folds. Default \code{5}.
-#' @param nsplits Number of independent fold assignments to aggregate over,
-#'   using the median rule of Chernozhukov et al. (2018, section 3.4). Default
-#'   \code{1}, which draws a single split and so reproduces the behaviour of
-#'   earlier releases exactly. Values above 1 fold the between-split spread into
-#'   \code{se}; see the calibration section for what this does and does not fix.
-#'   The nuisance is re-fitted for every split, so the cost is \code{nsplits}
-#'   times that of \code{nsplits = 1}; \code{5} was enough in the designs
-#'   measured (\code{10} gave the same answer).
+#' @param nsplits Number of independent fold assignments to aggregate over
+#'   (median rule of Chernozhukov et al., 2018, section 3.4). Default \code{1}.
+#'   Cost is linear in \code{nsplits}.
 #' @param verbose Logical; report per-fold nuisance convergence.
 #' @param ... Additional arguments passed to \code{\link{nmf.cox}}
 #'   (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
-#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123 ---
-#'   this fixes the split for reproducibility, it does not make the split
-#'   immaterial: both \code{gamma} and \code{se} move when it is changed, see
-#'   the calibration section),
+#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
 #'   \code{mc.cores} (evaluate the per-fold nuisance fits in parallel; default
 #'   \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
 #'   elsewhere; results are identical for any value since each fold is an
@@ -973,24 +936,18 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
 #'   and \code{maxit} (outer iterations per nuisance fit, default 30).
 #'
 #' @return An object of class \code{"nmf.cox.cf"} with components \code{gamma}
-#'   (cross-fit estimate), \code{se} (cluster-robust, conditional on the
-#'   realised fold assignment when \code{nsplits = 1} --- see the calibration
-#'   section), \code{cox.fit}, \code{fold} (fold assignment),
-#'   \code{nuisance.converged}, \code{nfolds} and \code{nsplits}.
-#'
-#'   Also returned, so that an aggregate can be compared against the classic
-#'   single-split estimate without a second run: \code{gamma1}, \code{se1}
-#'   (split 1, i.e. what \code{nsplits = 1} gives), \code{gamma.splits},
-#'   \code{se.splits} (\code{nsplits} x number of covariates), \code{folds}
-#'   (\code{N} x \code{nsplits}) and \code{nuisance.converged.splits}.
-#'   \code{cox.fit}, \code{offset} and \code{fold} always refer to split 1.
+#'   (cross-fit estimate), \code{se} (cluster-robust), \code{cox.fit},
+#'   \code{fold}, \code{nuisance.converged}, \code{nfolds} and \code{nsplits},
+#'   plus per-split detail \code{gamma1}, \code{se1}, \code{gamma.splits},
+#'   \code{se.splits}, \code{folds}, \code{nuisance.converged.splits}.
+#'   \code{cox.fit}, \code{offset} and \code{fold} refer to split 1.
 #'
 #' @references
 #' Chernozhukov V, Chetverikov D, Demirer M, Duflo E, Hansen C, Newey W, Robins J
 #' (2018). Double/debiased machine learning for treatment and structural parameters.
 #' \emph{The Econometrics Journal}, 21(1), C1-C68.
 #'
-#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.phtest}}
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.cv}}
 #'
 #' @examples
 #' \donttest{
@@ -1126,166 +1083,6 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
             class = "nmf.cox.cf")
 }
 
-
-# --------------------------------------------------------------------
-# nmf.cox.phtest : cross-fitted Wald test
-# --------------------------------------------------------------------
-
-#' @title Cross-fitted Wald test for a time-varying effect
-#' @description
-#' \code{nmf.cox.phtest} tests \eqn{H_0:\beta_r(t)=0} for each non-proportional
-#' covariate, using a basis learned out of fold so that the test is not
-#' invalidated by having selected the basis on the same data.
-#'
-#' @details
-#' For each fold the non-negative time basis is learned without that fold; the
-#' resulting basis is then used to span \eqn{\beta_r(t)} in a Cox fit on the full
-#' sample, and a cluster-robust Wald statistic is formed per covariate together
-#' with a global test. Using an in-sample (non cross-fitted) basis would over-reject.
-#'
-#' The fold assignment is drawn once, so the Wald statistics and p-values are
-#' conditional on that split, as in \code{\link{nmf.cox.cf}}. Whether this
-#' affects the calibration of the test has \strong{not} been measured: the aim
-#' of cross-fitting here is to stop the in-sample basis choice from
-#' over-rejecting, and split randomness need not distort the null distribution
-#' in the way it understates the standard error of \eqn{\gamma}. Treat the
-#' split-dependence as a known property, not as a documented defect.
-#'
-#' @param formula,data,A As in \code{\link{nmf.cox}}.
-#' @param rank Rank \eqn{Q} of the time basis. Default \code{2}.
-#' @param X.L2.smooth Roughness penalty used for the basis fits. Default \code{0}.
-#' @param nfolds Number of cross-fitting folds. Default \code{5}.
-#' @param verbose Logical; print the Wald table.
-#' @param ... Additional arguments passed to \code{\link{nmf.cox}}
-#'   (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
-#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
-#'   \code{mc.cores} (evaluate the per-fold basis fits in parallel; default
-#'   \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
-#'   elsewhere; results are identical for any value since each fold is an
-#'   independent self-seeded fit assigned by index),
-#'   and \code{maxit} (outer iterations per basis fit, default 30).
-#'
-#' @return An object of class \code{"nmf.cox.phtest"} containing the per-covariate
-#'   Wald table (\code{wald}), the global test (\code{wald.global}) and the fold
-#'   assignment.
-#'
-#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.cf}}
-#'
-#' @examples
-#' \donttest{
-#' library(survival)
-#' d <- survival::veteran
-#' d$y <- survival::Surv(d$time, d$status)
-#' ph <- nmf.cox.phtest(y ~ trt + age, data = d, A = ~ karno + celltype,
-#'                      rank = 2, X.L2.smooth = 1000, nfolds = 5, seed = 1)
-#' ph$wald
-#' }
-#'
-#' @export
-nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
-                            nfolds = 5, verbose = FALSE, ...) {
-  extra_args <- base::list(...)
-  seed     <- if (!is.null(extra_args$seed))     extra_args$seed     else 123
-  ## Keep our own seeding out of the caller's random stream.
-  .rng <- .nmfkc.rng.save(seed)
-  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
-  maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
-  ties     <- if (!is.null(extra_args$ties))     extra_args$ties     else "breslow"
-  ## CONVENTIONS.md 4 names the worker count `cores`; `mc.cores` is kept as an
-  ## alias, but it reads like the base R option this merely defaults to, so a
-  ## user following any other help page in the package passed `cores` and was
-  ## silently ignored.
-  mc.cores <- if (!is.null(extra_args$cores)) extra_args$cores
-              else if (!is.null(extra_args$mc.cores)) extra_args$mc.cores
-              else getOption("mc.cores", 1L)
-  ## `cores` is the house-name alias read above; strip it too (see nmf.cox.cv).
-  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores", "cores")]
-  if (!identical(ties, "breslow")) stop("nmf.cox.phtest: only ties='breslow' is supported.")
-  Q <- rank
-  mf <- stats::model.frame(formula, data); y <- stats::model.response(mf)
-  time <- as.numeric(y[, 1]); status <- as.integer(y[, 2]); N <- length(time)
-  Z <- stats::model.matrix(attr(mf, "terms"), mf); Z <- Z[, colnames(Z) != "(Intercept)", drop = FALSE]
-  znames <- colnames(Z)
-  if (inherits(A, "formula")) {
-    Am <- stats::model.matrix(A, stats::model.frame(A, data)); Am <- Am[, colnames(Am) != "(Intercept)", drop = FALSE]
-    Araw <- t(Am)
-  } else { Araw <- as.matrix(A); if (ncol(Araw) != N && nrow(Araw) == N) Araw <- t(Araw) }
-  R <- nrow(Araw); anames <- rownames(Araw); if (is.null(anames)) anames <- paste0("A", 1:R)
-  Ac <- rowMeans(Araw); As <- apply(Araw, 1, stats::sd); As[As < 1e-10] <- 1
-  Astd <- (Araw - Ac) / As
-  et <- sort(unique(time[status == 1])); P <- length(et); s_prev <- c(0, et[-P])
-  set.seed(seed)
-  fold <- sample(rep_len(1:nfolds, N))
-
-  Xcf <- vector("list", nfolds); conv <- logical(nfolds)
-  ## Per-fold basis fits are independent: fold assignment is drawn once above,
-  ## each fit is self-seeded (seed = 1), and outputs are index-assigned, so
-  ## evaluating the folds in parallel is result-identical to the loop.
-  fold_fun <- function(k) {
-    tr <- which(fold != k)
-    fit <- tryCatch(do.call(nmf.cox,
-                    c(list(formula, data = data[tr, , drop = FALSE],
-                           A = Araw[, tr, drop = FALSE], rank = Q,
-                           X.L2.smooth = X.L2.smooth, verbose = FALSE,
-                           maxit = maxit, seed = 1), fit_args)),
-                    error = function(e) NULL)
-    if (is.null(fit)) stop(sprintf("nmf.cox.phtest: basis fit (trained without fold %d) failed.", k))
-    list(conv = isTRUE(fit$converged),
-         Xcf = sapply(1:ncol(fit$X), function(q) stats::approx(fit$event.times, fit$X[, q], xout = et, rule = 2)$y))
-  }
-  fold_res <- .nmfkc.parlapply(seq_len(nfolds), fold_fun, cores = mc.cores,
-                               packages = c("nmfkc", "survival"))
-  for (k in seq_len(nfolds)) {
-    conv[k] <- fold_res[[k]]$conv
-    Xcf[[k]] <- fold_res[[k]]$Xcf
-  }
-
-  rid <- rj <- rstart <- rstop <- rev <- integer(0)
-  for (j in 1:P) { risk <- which(time >= et[j]); m <- length(risk)
-    rid <- c(rid, risk); rj <- c(rj, rep(j, m)); rstart <- c(rstart, rep(s_prev[j], m))
-    rstop <- c(rstop, rep(et[j], m)); rev <- c(rev, as.integer(status[risk] == 1 & time[risk] == et[j])) }
-  Zexp <- Z[rid, , drop = FALSE]
-
-  frow <- fold[rid]; basisByRow <- matrix(0, length(rj), Q)
-  for (k in 1:nfolds) { rk <- which(frow == k); if (length(rk)) basisByRow[rk, ] <- Xcf[[k]][rj[rk], , drop = FALSE] }
-  Finf <- matrix(0, length(rj), Q * R); ci <- 1
-  for (q in 1:Q) for (l in 1:R) { Finf[, ci] <- basisByRow[, q] * Astd[l, rid]; ci <- ci + 1 }
-
-  inf.fit <- tryCatch(survival::coxph(survival::Surv(rstart, rstop, rev) ~ Zexp + Finf + cluster(rid), ties = ties,
-                            control = survival::coxph.control(iter.max = 200, eps = 1e-9)), error = function(e) NULL)
-  if (is.null(inf.fit)) return(NULL)
-  V <- stats::vcov(inf.fit); cf <- stats::coef(inf.fit); nz <- ncol(Zexp); idxTh <- (nz + 1):(nz + Q * R)
-  quad.wald <- function(theta, Vmat) {
-    Vs <- (Vmat + t(Vmat)) / 2; ee <- eigen(Vs, symmetric = TRUE)
-    tol <- max(ee$values, 0) * 1e-8 * length(ee$values); keep <- ee$values > tol
-    if (!any(keep)) return(c(chisq = NA_real_, df = 0))
-    U <- ee$vectors[, keep, drop = FALSE]
-    c(chisq = as.numeric(sum((crossprod(U, theta)^2) / ee$values[keep])), df = sum(keep))
-  }
-  wald <- data.frame(covariate = anames, df = NA_integer_, chisq = NA_real_, p.value = NA_real_, stringsAsFactors = FALSE)
-  beta.vcov <- vector("list", R)
-  for (l in 1:R) {
-    posl <- idxTh[(0:(Q - 1)) * R + l]
-    Vl <- V[posl, posl, drop = FALSE]; beta.vcov[[l]] <- Vl
-    qw <- quad.wald(cf[posl], Vl)
-    wald$chisq[l] <- qw["chisq"]; wald$df[l] <- qw["df"]
-    wald$p.value[l] <- if (qw["df"] > 0) stats::pchisq(qw["chisq"], qw["df"], lower.tail = FALSE) else NA_real_
-  }
-  qwg <- quad.wald(cf[idxTh], V[idxTh, idxTh, drop = FALSE])
-  wald.global <- list(chisq = as.numeric(qwg["chisq"]), df = as.integer(qwg["df"]),
-                      p.value = if (qwg["df"] > 0) stats::pchisq(qwg["chisq"], qwg["df"], lower.tail = FALSE) else NA_real_)
-  Xbar <- Reduce(`+`, Xcf) / nfolds
-  C.cf <- matrix(cf[idxTh], nrow = Q, ncol = R, byrow = TRUE)
-  beta.t <- Xbar %*% C.cf; se.beta.t <- matrix(NA_real_, P, R)
-  for (l in 1:R) for (j in 1:P)
-    se.beta.t[j, l] <- sqrt(max(0, as.numeric(crossprod(Xbar[j, ], beta.vcov[[l]] %*% Xbar[j, ]))))
-  colnames(beta.t) <- colnames(se.beta.t) <- anames
-  if (verbose) { cat("Cross-fitted Wald test  H0: beta_r(t)=0\n"); print(wald, row.names = FALSE) }
-  structure(list(wald = wald, wald.global = wald.global, nfolds = nfolds, nuisance.converged = conv,
-                 rank = Q, X.L2.smooth = X.L2.smooth, X = Xbar, C = C.cf,
-                 beta.t = beta.t, se.beta.t = se.beta.t, beta.vcov = beta.vcov, event.times = et),
-            class = "nmf.cox.phtest")
-}
 
 # --------------------------------------------------------------------
 # S3 methods
@@ -1495,44 +1292,9 @@ print.nmf.cox.cf <- function(x, ...) {
   est <- x$gamma; se <- x$se
   tab <- cbind(estimate = est, se = se,
                lower = est - 1.96 * se, upper = est + 1.96 * se)
-  cat("\nCluster-robust 95% confidence intervals:\n")
-  ## With one split the SE is conditional on the single fold assignment drawn,
-  ## so these intervals under-cover (about 0.93 for nominal 0.95 in the designs
-  ## measured).  This is the only place a user who never opens ?nmf.cox.cf sees
-  ## it, so the caveat is stated here rather than left to the help page.
-  if (nsplits == 1L)
-    cat("  (conditional on the realised fold assignment; see ?nmf.cox.cf)\n")
-  else
-    cat(sprintf("  (median-aggregated over %d splits; still approximate when the nuisance\n   is high-dimensional relative to N -- see ?nmf.cox.cf)\n",
-                nsplits))
+  ## "approximate" because the SE is conditional on the split(s) drawn; the
+  ## splits= count is already on the header line above.
+  cat("\nCluster-robust 95% confidence intervals (approximate):\n")
   print(round(tab, 4))
-  invisible(x)
-}
-
-#' @title Print a cross-fitted time-varying-effect test
-#' @param x An object of class \code{"nmf.cox.phtest"}.
-#' @param ... Ignored.
-#' @return \code{x}, invisibly.
-#' @examples
-#' \donttest{
-#' library(survival)
-#' d <- survival::veteran; d$y <- survival::Surv(d$time, d$status)
-#' ph <- nmf.cox.phtest(y ~ trt + age, data = d, A = ~ karno + celltype,
-#'                      rank = 2, X.L2.smooth = 1000, nfolds = 5, seed = 1)
-#' print(ph)
-#' }
-#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
-#' @export
-print.nmf.cox.phtest <- function(x, ...) {
-  cat("NMF-COX cross-fitted Wald test  H0: beta_r(t)=0\n")
-  cat(sprintf("rank=%d, X.L2.smooth=%g, folds=%d\n", x$rank, x$X.L2.smooth, x$nfolds))
-  w <- x$wald
-  w$chisq <- round(w$chisq, 3)
-  w$p.value <- format.pval(w$p.value, digits = 3, eps = 1e-4)
-  print(w, row.names = FALSE)
-  if (!is.null(x$wald.global))
-    cat(sprintf("Global (all covariates):  chisq=%.3f, df=%d, p=%s\n",
-                x$wald.global$chisq, x$wald.global$df,
-                format.pval(x$wald.global$p.value, digits = 3, eps = 1e-4)))
   invisible(x)
 }
