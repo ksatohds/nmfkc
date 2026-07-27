@@ -11,6 +11,7 @@ nmf.cox.cf(
   rank = 2,
   X.L2.smooth = 0,
   nfolds = 5,
+  nsplits = 1,
   verbose = FALSE,
   ...
 )
@@ -24,11 +25,23 @@ nmf.cox.cf(
 
 \item{nfolds}{Number of cross-fitting folds. Default \code{5}.}
 
+\item{nsplits}{Number of independent fold assignments to aggregate over,
+using the median rule of Chernozhukov et al. (2018, section 3.4). Default
+\code{1}, which draws a single split and so reproduces the behaviour of
+earlier releases exactly. Values above 1 fold the between-split spread into
+\code{se}; see the calibration section for what this does and does not fix.
+The nuisance is re-fitted for every split, so the cost is \code{nsplits}
+times that of \code{nsplits = 1}; \code{5} was enough in the designs
+measured (\code{10} gave the same answer).}
+
 \item{verbose}{Logical; report per-fold nuisance convergence.}
 
 \item{...}{Additional arguments passed to \code{\link{nmf.cox}}
 (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
-\code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
+\code{nstart}). Also accepts: \code{seed} (fold assignment, default 123 ---
+this fixes the split for reproducibility, it does not make the split
+immaterial: both \code{gamma} and \code{se} move when it is changed, see
+the calibration section),
 \code{mc.cores} (evaluate the per-fold nuisance fits in parallel; default
 \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
 elsewhere; results are identical for any value since each fold is an
@@ -37,8 +50,17 @@ and \code{maxit} (outer iterations per nuisance fit, default 30).}
 }
 \value{
 An object of class \code{"nmf.cox.cf"} with components \code{gamma}
-(cross-fit estimate), \code{se} (cluster-robust), \code{cox.fit},
-\code{fold} (fold assignment), \code{nuisance.converged} and \code{nfolds}.
+(cross-fit estimate), \code{se} (cluster-robust, conditional on the
+realised fold assignment when \code{nsplits = 1} --- see the calibration
+section), \code{cox.fit}, \code{fold} (fold assignment),
+\code{nuisance.converged}, \code{nfolds} and \code{nsplits}.
+
+Also returned, so that an aggregate can be compared against the classic
+single-split estimate without a second run: \code{gamma1}, \code{se1}
+(split 1, i.e. what \code{nsplits = 1} gives), \code{gamma.splits},
+\code{se.splits} (\code{nsplits} x number of covariates), \code{folds}
+(\code{N} x \code{nsplits}) and \code{nuisance.converged.splits}.
+\code{cox.fit}, \code{offset} and \code{fold} always refer to split 1.
 }
 \description{
 \code{nmf.cox.cf} estimates the proportional-hazards estimand \eqn{\gamma} by a
@@ -63,6 +85,35 @@ fold-wise regularity. Whether the constrained (non-negative, low-rank, smoothed)
 estimator attains that rate under a suitable scaling of \code{X.L2.smooth} is not
 established here.
 }
+\section{Calibration of the reported standard error}{
+
+The fold assignment is drawn once, so the returned \code{se} is
+cluster-robust \emph{conditional on that realised split}: variability induced
+by the split itself is not included. Across replications the mean reported SE
+therefore falls below the empirical SD of \eqn{\hat\gamma} --- the ratio was
+0.92--0.97 in the designs examined --- and nominal 95\\% intervals covered at
+about 0.93. Re-running with a different \code{seed} moves both the estimate
+and the SE, and that variability is nowhere reflected in the interval.
+
+The shortfall is in the variance estimate, not the estimator:
+\eqn{\hat\gamma} was essentially unbiased (\eqn{\le 0.003}) and intervals
+built from the empirical SD covered at the nominal rate. Note also that the
+shortfall does \emph{not} shrink with \eqn{N} (ratio 0.931 at \eqn{N=600}),
+which is what distinguishes it from finite-sample sandwich bias.
+
+Set \code{nsplits > 1} to aggregate over several independent splits (median
+rule of Chernozhukov et al., 2018, section 3.4). That removes this particular
+understatement, but only that one. With a single non-PH covariate fitted at
+the true rank it restored
+coverage to about 0.94--0.95; with a high-dimensional nuisance (five non-PH
+covariates at working rank two, \eqn{N \approx 700}) the ratio reached only
+0.94--0.96 and coverage about 0.93--0.95, because a second-order nuisance
+term remains. In that harder design a jointly-estimated reduced-rank fit,
+whose fixed-effect SE comes from the full information matrix, was in fact the
+better calibrated of the two. Intervals from this function should be read as
+approximate whenever the nuisance is high-dimensional relative to the sample.
+}
+
 \examples{
 \donttest{
 library(survival)

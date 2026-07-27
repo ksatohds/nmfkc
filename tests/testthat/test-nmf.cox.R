@@ -78,3 +78,42 @@ test_that("nmf.cox.cf and nmf.cox.phtest run with reproducible folds", {
   expect_equal(dim(ph$C), c(2L, ncol(ph$beta.t)))  # parameter matrix is C (Q x R)
   expect_null(ph$Theta)
 })
+
+test_that("nmf.cox.cf aggregates over splits and leaves nsplits = 1 untouched", {
+  skip_if_not_installed("survival")
+  d <- survival::veteran
+  d$y <- survival::Surv(d$time, d$status)
+  cf_args <- list(y ~ trt + age, data = d, A = ~ karno + celltype,
+                  rank = 2, X.L2.smooth = 1000, nfolds = 3, seed = 123, maxit = 15)
+
+  ## The default must remain a single split, so that results published before
+  ## nsplits existed still reproduce exactly.
+  cf1 <- do.call(nmf.cox.cf, cf_args)
+  cf1e <- do.call(nmf.cox.cf, c(cf_args, list(nsplits = 1)))
+  expect_identical(cf1$gamma, cf1e$gamma)
+  expect_identical(cf1$se, cf1e$se)
+  expect_identical(cf1$nsplits, 1L)
+  expect_identical(cf1$gamma1, cf1$gamma)
+  expect_identical(cf1$se1, cf1$se)
+
+  cf3 <- do.call(nmf.cox.cf, c(cf_args, list(nsplits = 3)))
+  expect_identical(cf3$nsplits, 3L)
+  expect_equal(dim(cf3$gamma.splits), c(3L, length(cf3$gamma)))
+  expect_equal(dim(cf3$folds), c(nrow(d), 3L))
+  expect_true(all(is.finite(cf3$se)))
+
+  ## Split seeds are nested: split 1 always uses `seed` itself, so the classic
+  ## single-split estimate is recoverable from an aggregated run.
+  expect_identical(cf3$gamma1, cf1$gamma)
+  expect_identical(cf3$se1, cf1$se)
+  expect_identical(cf3$fold, cf1$fold)
+
+  ## Median rule: the between-split term can only add to the variance, so the
+  ## aggregated SE is never below the median of the per-split SEs.
+  expect_true(all(cf3$se >= apply(cf3$se.splits, 2, stats::median) - 1e-12))
+  ## ... and the splits really are different draws.
+  expect_false(identical(cf3$folds[, 1], cf3$folds[, 2]))
+
+  expect_error(do.call(nmf.cox.cf, c(cf_args, list(nsplits = 0))),
+               "nsplits must be a single integer")
+})

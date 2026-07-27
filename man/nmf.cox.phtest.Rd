@@ -50,6 +50,14 @@ For each fold the non-negative time basis is learned without that fold; the
 resulting basis is then used to span \eqn{\beta_r(t)} in a Cox fit on the full
 sample, and a cluster-robust Wald statistic is formed per covariate together
 with a global test. Using an in-sample (non cross-fitted) basis would over-reject.
+
+The fold assignment is drawn once, so the Wald statistics and p-values are
+conditional on that split, as in \code{\link{nmf.cox.cf}}. Whether this
+affects the calibration of the test has \strong{not} been measured: the aim
+of cross-fitting here is to stop the in-sample basis choice from
+over-rejecting, and split randomness need not distort the null distribution
+in the way it understates the standard error of \eqn{\gamma}. Treat the
+split-dependence as a known property, not as a documented defect.
 }
 \examples{
 \donttest{

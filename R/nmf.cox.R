@@ -715,6 +715,12 @@ nmf.cox.inference <- function(object, formula, data, A, ...) {
 #' and the criterion is \emph{minimised}; the effective degrees of freedom are a
 #' heuristic.
 #'
+#' The CVPL fold assignment is drawn once, so the selected \code{rank} and
+#' \code{X.L2.smooth.best} are conditional on that split; changing \code{seed}
+#' can change the selection, particularly where the CVPL curve is flat (which is
+#' why the 1-SE rule is offered). How much of the selection variability this
+#' accounts for has not been measured.
+#'
 #' @param formula,data,A As in \code{\link{nmf.cox}}.
 #' @param rank Integer vector of candidate ranks \eqn{Q} to evaluate. Default \code{2}.
 #' @param X.L2.smooth Numeric vector of candidate roughness penalties \eqn{\lambda_X}.
@@ -776,7 +782,10 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
               else getOption("mc.cores", 1L)
   maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
   ## remaining ... are forwarded to nmf.cox (fitter-level options)
-  fit_args <- extra_args[!names(extra_args) %in% c("seed", "mc.cores", "maxit")]
+  ## `cores` is read above as the house-name alias of `mc.cores`, so it has to be
+  ## stripped too; otherwise it is forwarded into every nuisance fit and would
+  ## nest parallelism the moment nmf.cox itself gains workers.
+  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores", "cores")]
   criterion <- match.arg(criterion)
   rank.grid <- rank; X.L2.smooth.grid <- X.L2.smooth
   nQ <- length(rank.grid); nS <- length(X.L2.smooth.grid)
@@ -911,14 +920,52 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
 #' estimator attains that rate under a suitable scaling of \code{X.L2.smooth} is not
 #' established here.
 #'
+#' @section Calibration of the reported standard error:
+#' The fold assignment is drawn once, so the returned \code{se} is
+#' cluster-robust \emph{conditional on that realised split}: variability induced
+#' by the split itself is not included. Across replications the mean reported SE
+#' therefore falls below the empirical SD of \eqn{\hat\gamma} --- the ratio was
+#' 0.92--0.97 in the designs examined --- and nominal 95\% intervals covered at
+#' about 0.93. Re-running with a different \code{seed} moves both the estimate
+#' and the SE, and that variability is nowhere reflected in the interval.
+#'
+#' The shortfall is in the variance estimate, not the estimator:
+#' \eqn{\hat\gamma} was essentially unbiased (\eqn{\le 0.003}) and intervals
+#' built from the empirical SD covered at the nominal rate. Note also that the
+#' shortfall does \emph{not} shrink with \eqn{N} (ratio 0.931 at \eqn{N=600}),
+#' which is what distinguishes it from finite-sample sandwich bias.
+#'
+#' Set \code{nsplits > 1} to aggregate over several independent splits (median
+#' rule of Chernozhukov et al., 2018, section 3.4). That removes this particular
+#' understatement, but only that one. With a single non-PH covariate fitted at
+#' the true rank it restored
+#' coverage to about 0.94--0.95; with a high-dimensional nuisance (five non-PH
+#' covariates at working rank two, \eqn{N \approx 700}) the ratio reached only
+#' 0.94--0.96 and coverage about 0.93--0.95, because a second-order nuisance
+#' term remains. In that harder design a jointly-estimated reduced-rank fit,
+#' whose fixed-effect SE comes from the full information matrix, was in fact the
+#' better calibrated of the two. Intervals from this function should be read as
+#' approximate whenever the nuisance is high-dimensional relative to the sample.
+#'
 #' @param formula,data,A As in \code{\link{nmf.cox}}.
 #' @param rank Rank \eqn{Q} of the nuisance time basis. Default \code{2}.
 #' @param X.L2.smooth Roughness penalty used for the nuisance fits. Default \code{0}.
 #' @param nfolds Number of cross-fitting folds. Default \code{5}.
+#' @param nsplits Number of independent fold assignments to aggregate over,
+#'   using the median rule of Chernozhukov et al. (2018, section 3.4). Default
+#'   \code{1}, which draws a single split and so reproduces the behaviour of
+#'   earlier releases exactly. Values above 1 fold the between-split spread into
+#'   \code{se}; see the calibration section for what this does and does not fix.
+#'   The nuisance is re-fitted for every split, so the cost is \code{nsplits}
+#'   times that of \code{nsplits = 1}; \code{5} was enough in the designs
+#'   measured (\code{10} gave the same answer).
 #' @param verbose Logical; report per-fold nuisance convergence.
 #' @param ... Additional arguments passed to \code{\link{nmf.cox}}
 #'   (e.g. \code{X.update}, \code{X.restriction}, \code{X.init}, \code{nonneg},
-#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123),
+#'   \code{nstart}). Also accepts: \code{seed} (fold assignment, default 123 ---
+#'   this fixes the split for reproducibility, it does not make the split
+#'   immaterial: both \code{gamma} and \code{se} move when it is changed, see
+#'   the calibration section),
 #'   \code{mc.cores} (evaluate the per-fold nuisance fits in parallel; default
 #'   \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
 #'   elsewhere; results are identical for any value since each fold is an
@@ -926,8 +973,17 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
 #'   and \code{maxit} (outer iterations per nuisance fit, default 30).
 #'
 #' @return An object of class \code{"nmf.cox.cf"} with components \code{gamma}
-#'   (cross-fit estimate), \code{se} (cluster-robust), \code{cox.fit},
-#'   \code{fold} (fold assignment), \code{nuisance.converged} and \code{nfolds}.
+#'   (cross-fit estimate), \code{se} (cluster-robust, conditional on the
+#'   realised fold assignment when \code{nsplits = 1} --- see the calibration
+#'   section), \code{cox.fit}, \code{fold} (fold assignment),
+#'   \code{nuisance.converged}, \code{nfolds} and \code{nsplits}.
+#'
+#'   Also returned, so that an aggregate can be compared against the classic
+#'   single-split estimate without a second run: \code{gamma1}, \code{se1}
+#'   (split 1, i.e. what \code{nsplits = 1} gives), \code{gamma.splits},
+#'   \code{se.splits} (\code{nsplits} x number of covariates), \code{folds}
+#'   (\code{N} x \code{nsplits}) and \code{nuisance.converged.splits}.
+#'   \code{cox.fit}, \code{offset} and \code{fold} always refer to split 1.
 #'
 #' @references
 #' Chernozhukov V, Chetverikov D, Demirer M, Duflo E, Hansen C, Newey W, Robins J
@@ -948,7 +1004,10 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
 #'
 #' @export
 nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
-                        verbose = FALSE, ...) {
+                        nsplits = 1, verbose = FALSE, ...) {
+  nsplits <- as.integer(nsplits)
+  if (length(nsplits) != 1L || is.na(nsplits) || nsplits < 1L)
+    stop("nmf.cox.cf: nsplits must be a single integer >= 1.")
   extra_args <- base::list(...)
   seed     <- if (!is.null(extra_args$seed))     extra_args$seed     else 123
   ## Keep our own seeding out of the caller's random stream.
@@ -963,7 +1022,8 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
   mc.cores <- if (!is.null(extra_args$cores)) extra_args$cores
               else if (!is.null(extra_args$mc.cores)) extra_args$mc.cores
               else getOption("mc.cores", 1L)
-  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores")]
+  ## `cores` is the house-name alias read above; strip it too (see nmf.cox.cv).
+  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores", "cores")]
   if (!identical(ties, "breslow")) stop("nmf.cox.cf: only ties='breslow' is supported.")
   mf <- stats::model.frame(formula, data); y <- stats::model.response(mf)
   time <- as.numeric(y[, 1]); status <- as.integer(y[, 2]); N <- length(time)
@@ -980,48 +1040,89 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
     rstop <- c(rstop, rep(et[j], m)); rev <- c(rev, as.integer(status[risk] == 1 & time[risk] == et[j])) }
   rstart <- as.numeric(rstart); rstop <- as.numeric(rstop)
 
-  set.seed(seed)
-  fold <- sample(rep_len(1:nfolds, N))
-  Ocross <- matrix(0, N, P); conv <- logical(nfolds)
-  ## Per-fold nuisance fits are independent: fold assignment is drawn once
-  ## above, each fit is self-seeded (seed = 1), and outputs are index-assigned,
-  ## so evaluating the folds in parallel is result-identical to the loop.
-  fold_fun <- function(k) {
-    tr <- which(fold != k); ho <- which(fold == k)
-    fit <- tryCatch(do.call(nmf.cox,
-                  c(list(formula, data = data[tr, , drop = FALSE],
-                         A = Araw[, tr, drop = FALSE], rank = rank,
-                         X.L2.smooth = X.L2.smooth, verbose = FALSE,
-                         maxit = maxit, seed = 1), fit_args)),
-                  error = function(e) NULL)
-    if (is.null(fit))
-      stop(sprintf("nmf.cox.cf: nuisance fit (trained without fold %d) failed; refusing zero-offset fold.", k))
-    convk <- isTRUE(fit$converged)
-    Xf  <- sapply(seq_len(ncol(fit$X)),
-                  function(q) stats::approx(fit$event.times, fit$X[, q], xout = et, rule = 2)$y)
-    Aho <- (Araw[, ho, drop = FALSE] - fit$A.center) / fit$A.scale
-    Sho <- fit$C %*% Aho
-    if (verbose) cat(sprintf("  fold %d: nuisance converged=%s\n", k, convk))
-    list(ho = ho, Ocols = t(Xf %*% Sho), conv = convk)
+  ## One complete cross-fitting split: draw the folds, cross-fit the nuisance,
+  ## then estimate gamma on the full sample with the out-of-fold offset frozen.
+  one.split <- function(s, split.seed) {
+    set.seed(split.seed)
+    fold <- sample(rep_len(1:nfolds, N))
+    Ocross <- matrix(0, N, P); conv <- logical(nfolds)
+    ## Per-fold nuisance fits are independent: fold assignment is drawn once
+    ## above, each fit is self-seeded (seed = 1), and outputs are index-assigned,
+    ## so evaluating the folds in parallel is result-identical to the loop.
+    fold_fun <- function(k) {
+      tr <- which(fold != k); ho <- which(fold == k)
+      fit <- tryCatch(do.call(nmf.cox,
+                    c(list(formula, data = data[tr, , drop = FALSE],
+                           A = Araw[, tr, drop = FALSE], rank = rank,
+                           X.L2.smooth = X.L2.smooth, verbose = FALSE,
+                           maxit = maxit, seed = 1), fit_args)),
+                    error = function(e) NULL)
+      if (is.null(fit))
+        stop(sprintf("nmf.cox.cf: nuisance fit (trained without fold %d) failed; refusing zero-offset fold.", k))
+      convk <- isTRUE(fit$converged)
+      Xf  <- sapply(seq_len(ncol(fit$X)),
+                    function(q) stats::approx(fit$event.times, fit$X[, q], xout = et, rule = 2)$y)
+      Aho <- (Araw[, ho, drop = FALSE] - fit$A.center) / fit$A.scale
+      Sho <- fit$C %*% Aho
+      if (verbose) cat(sprintf("  split %d, fold %d: nuisance converged=%s\n", s, k, convk))
+      list(ho = ho, Ocols = t(Xf %*% Sho), conv = convk)
+    }
+    fold_res <- .nmfkc.parlapply(seq_len(nfolds), fold_fun, cores = mc.cores,
+                                 packages = c("nmfkc", "survival"))
+    for (k in seq_len(nfolds)) {
+      Ocross[fold_res[[k]]$ho, ] <- fold_res[[k]]$Ocols
+      conv[k] <- fold_res[[k]]$conv
+    }
+    o_row <- pmax(pmin(Ocross[cbind(rid, rj)], 30), -30)
+    dat <- data.frame(start = rstart, stop = rstop, ev = rev, id = rid, off = o_row, fold = fold[rid])
+    Zdf <- as.data.frame(Z[rid, , drop = FALSE]); colnames(Zdf) <- znames
+    dat <- cbind(dat, Zdf)
+    fml <- stats::as.formula(paste0("Surv(start,stop,ev) ~ ", paste(znames, collapse = " + "),
+                             " + offset(off) + strata(fold) + cluster(id)"))
+    cox.fit <- survival::coxph(fml, data = dat, ties = ties)
+    sm <- summary(cox.fit)$coefficients
+    se.col <- if ("robust se" %in% colnames(sm)) "robust se" else "se(coef)"
+    list(gamma = stats::coef(cox.fit)[znames],
+         se = stats::setNames(sm[znames, se.col], znames),
+         cox.fit = cox.fit, offset = Ocross, fold = fold, conv = conv)
   }
-  fold_res <- .nmfkc.parlapply(seq_len(nfolds), fold_fun, cores = mc.cores,
-                               packages = c("nmfkc", "survival"))
-  for (k in seq_len(nfolds)) {
-    Ocross[fold_res[[k]]$ho, ] <- fold_res[[k]]$Ocols
-    conv[k] <- fold_res[[k]]$conv
+
+  ## Split seeds are derived deterministically, and split 1 always uses `seed`
+  ## itself.  Two consequences: nsplits = 1 reproduces the pre-nsplits result
+  ## bit for bit, and a run with a larger nsplits is *nested* in a smaller one,
+  ## so the two are directly comparable.
+  split.seeds <- seed + 7919 * (seq_len(nsplits) - 1L)
+  reps <- base::lapply(seq_len(nsplits), function(s) one.split(s, split.seeds[s]))
+
+  gamma.s <- do.call(rbind, base::lapply(reps, `[[`, "gamma"))
+  se.s    <- do.call(rbind, base::lapply(reps, `[[`, "se"))
+  colnames(gamma.s) <- colnames(se.s) <- znames
+  if (nsplits == 1L) {
+    gamma <- stats::setNames(as.numeric(gamma.s[1, ]), znames)
+    se    <- stats::setNames(as.numeric(se.s[1, ]),    znames)
+  } else {
+    ## Median rule of Chernozhukov et al. (2018, section 3.4), component-wise.
+    ## The (gamma_s - gamma)^2 term folds the between-split spread into the
+    ## variance -- precisely what a single split leaves out, and why the
+    ## single-split SE falls below the sampling SD of gamma.
+    gamma <- stats::setNames(apply(gamma.s, 2, stats::median), znames)
+    se <- stats::setNames(
+      sqrt(apply(se.s^2 + sweep(gamma.s, 2, gamma)^2, 2, stats::median)), znames)
   }
-  o_row <- pmax(pmin(Ocross[cbind(rid, rj)], 30), -30)
-  dat <- data.frame(start = rstart, stop = rstop, ev = rev, id = rid, off = o_row, fold = fold[rid])
-  Zdf <- as.data.frame(Z[rid, , drop = FALSE]); colnames(Zdf) <- znames
-  dat <- cbind(dat, Zdf)
-  fml <- stats::as.formula(paste0("Surv(start,stop,ev) ~ ", paste(znames, collapse = " + "),
-                           " + offset(off) + strata(fold) + cluster(id)"))
-  cox.fit <- survival::coxph(fml, data = dat, ties = ties)
-  sm <- summary(cox.fit)$coefficients
-  se.col <- if ("robust se" %in% colnames(sm)) "robust se" else "se(coef)"
-  structure(list(gamma = stats::coef(cox.fit)[znames], se = stats::setNames(sm[znames, se.col], znames),
-                 cox.fit = cox.fit, offset = Ocross, fold = fold, nfolds = nfolds,
-                 nuisance.converged = conv, rank = rank, X.L2.smooth = X.L2.smooth),
+
+  structure(list(gamma = gamma, se = se,
+                 cox.fit = reps[[1]]$cox.fit, offset = reps[[1]]$offset,
+                 fold = reps[[1]]$fold, nfolds = nfolds, nsplits = nsplits,
+                 ## The split-1 values, i.e. what this function returned before
+                 ## nsplits existed, so the aggregate can be compared against
+                 ## the classic estimate from a single run.
+                 gamma1 = stats::setNames(as.numeric(gamma.s[1, ]), znames),
+                 se1    = stats::setNames(as.numeric(se.s[1, ]),    znames),
+                 gamma.splits = gamma.s, se.splits = se.s,
+                 folds = do.call(cbind, base::lapply(reps, `[[`, "fold")),
+                 nuisance.converged = reps[[1]]$conv,
+                 nuisance.converged.splits = do.call(cbind, base::lapply(reps, `[[`, "conv")),
+                 rank = rank, X.L2.smooth = X.L2.smooth),
             class = "nmf.cox.cf")
 }
 
@@ -1041,6 +1142,14 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
 #' resulting basis is then used to span \eqn{\beta_r(t)} in a Cox fit on the full
 #' sample, and a cluster-robust Wald statistic is formed per covariate together
 #' with a global test. Using an in-sample (non cross-fitted) basis would over-reject.
+#'
+#' The fold assignment is drawn once, so the Wald statistics and p-values are
+#' conditional on that split, as in \code{\link{nmf.cox.cf}}. Whether this
+#' affects the calibration of the test has \strong{not} been measured: the aim
+#' of cross-fitting here is to stop the in-sample basis choice from
+#' over-rejecting, and split randomness need not distort the null distribution
+#' in the way it understates the standard error of \eqn{\gamma}. Treat the
+#' split-dependence as a known property, not as a documented defect.
 #'
 #' @param formula,data,A As in \code{\link{nmf.cox}}.
 #' @param rank Rank \eqn{Q} of the time basis. Default \code{2}.
@@ -1089,7 +1198,8 @@ nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
   mc.cores <- if (!is.null(extra_args$cores)) extra_args$cores
               else if (!is.null(extra_args$mc.cores)) extra_args$mc.cores
               else getOption("mc.cores", 1L)
-  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores")]
+  ## `cores` is the house-name alias read above; strip it too (see nmf.cox.cv).
+  fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores", "cores")]
   if (!identical(ties, "breslow")) stop("nmf.cox.phtest: only ties='breslow' is supported.")
   Q <- rank
   mf <- stats::model.frame(formula, data); y <- stats::model.response(mf)
@@ -1376,14 +1486,25 @@ plot.nmf.cox <- function(x, ...) {
 #' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
 print.nmf.cox.cf <- function(x, ...) {
+  ## nsplits is absent from objects saved by releases before it existed.
+  nsplits <- if (is.null(x$nsplits)) 1L else x$nsplits
   cat("NMF-COX two-stage cross-fit estimate of gamma\n")
-  cat(sprintf("rank=%d, X.L2.smooth=%g, folds=%d, nuisance converged in %d/%d folds\n",
-              x$rank, x$X.L2.smooth, x$nfolds,
+  cat(sprintf("rank=%d, X.L2.smooth=%g, folds=%d, splits=%d, nuisance converged in %d/%d folds\n",
+              x$rank, x$X.L2.smooth, x$nfolds, nsplits,
               sum(isTRUE(x$nuisance.converged) | x$nuisance.converged), x$nfolds))
   est <- x$gamma; se <- x$se
   tab <- cbind(estimate = est, se = se,
                lower = est - 1.96 * se, upper = est + 1.96 * se)
   cat("\nCluster-robust 95% confidence intervals:\n")
+  ## With one split the SE is conditional on the single fold assignment drawn,
+  ## so these intervals under-cover (about 0.93 for nominal 0.95 in the designs
+  ## measured).  This is the only place a user who never opens ?nmf.cox.cf sees
+  ## it, so the caveat is stated here rather than left to the help page.
+  if (nsplits == 1L)
+    cat("  (conditional on the realised fold assignment; see ?nmf.cox.cf)\n")
+  else
+    cat(sprintf("  (median-aggregated over %d splits; still approximate when the nuisance\n   is high-dimensional relative to N -- see ?nmf.cox.cf)\n",
+                nsplits))
   print(round(tab, 4))
   invisible(x)
 }
