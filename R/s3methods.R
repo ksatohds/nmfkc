@@ -160,7 +160,7 @@ print.nmf <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
 #' @param x A fitted model object.
 #' @param ... Additional graphical arguments passed to \code{\link{plot}}.
 #' @return Invisible \code{NULL}.
-#' @seealso \code{\link{nmfre}}, \code{\link{nmf.sem}}
+#' @seealso \code{\link{nmfre}}, \code{\link{nmf.ffb}}
 #' @name plot.nmfre
 #' @examples
 #' \donttest{
@@ -419,8 +419,8 @@ print.summary.nmf.sem <- function(x, ...) {
 #' @param ... Not used.
 #' @return A data frame of coefficients (if inference was performed),
 #'   or the parameter matrix \eqn{C}.
-#' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}},
-#'   \code{\link{nmfre.inference}}, \code{\link{nmf.sem.inference}}
+#' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmf.rrr.inference}},
+#'   \code{\link{nmfre.inference}}, \code{\link{nmf.ffb.inference}}
 #' @name coef.nmf
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
@@ -499,8 +499,8 @@ coef.nmf.sem <- function(object, ...) {
 #'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.
 #' @param ... For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.
 #' @return The fitted matrix \eqn{X B}.
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfae}}, \code{\link{nmfre}},
-#'   \code{\link{nmf.sem}}, \code{\link{residuals.nmf}}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmf.rrr}}, \code{\link{nmfre}},
+#'   \code{\link{nmf.ffb}}, \code{\link{residuals.nmf}}
 #' @name fitted.nmf
 #' @examples
 #' result <- nmfkc(matrix(runif(50), 5, 10), rank = 2)
@@ -574,8 +574,8 @@ fitted.nmf.sem <- function(object, ...) {
 #'   \code{"fixed"}.
 #' @param ... Not used.
 #' @return The residual matrix.
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfae}}, \code{\link{nmfre}},
-#'   \code{\link{nmf.sem}}, \code{\link{fitted.nmf}}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmf.rrr}}, \code{\link{nmfre}},
+#'   \code{\link{nmf.ffb}}, \code{\link{fitted.nmf}}
 #' @name residuals.nmf
 #' @examples
 #' Y <- matrix(runif(50), 5, 10)
@@ -632,7 +632,7 @@ residuals.nmf.sem <- function(object, Y, ...) {
 #' @param ... Additional arguments passed to the corresponding
 #'   \code{print.summary.*} method.
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
-#' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}}
+#' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmf.rrr.inference}}
 #' @export
 print.nmf.inference <- function(x, ...) {
   print(summary(x), ...)

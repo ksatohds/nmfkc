@@ -620,7 +620,7 @@ nmf.ffb <- function(
 #' \code{sigma2.used}, \code{C2.se}, \code{C2.se.boot}, \code{C2.p.side}
 #' that the previous implementation produced are no longer present.
 #'
-#' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.DOT}}
+#' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.DOT}}
 #' @references
 #' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
 #'   to structural equation modeling for blind input-output analysis.
@@ -659,7 +659,9 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## stay at 1.  Tighten further if near-threshold entries matter.
   epsilon     <- if (!is.null(extra_args$epsilon))     extra_args$epsilon     else 1e-8
   maxit       <- if (!is.null(extra_args$maxit))       extra_args$maxit       else 100000L
-  ncores      <- if (!is.null(extra_args$ncores))      extra_args$ncores      else 1L
+  ## `cores` is the house name (CONVENTIONS.md 4); `ncores` stays as the alias.
+  ncores      <- if (!is.null(extra_args$cores))       extra_args$cores
+                 else if (!is.null(extra_args$ncores)) extra_args$ncores else 1L
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
 
   Y1 <- base::as.matrix(Y1)
@@ -926,7 +928,10 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   if (!inherits(object, "nmf.sem.inference"))
     class(object) <- c("nmf.sem.inference", class(object))
   if (!inherits(object, "nmf.ffb.inference"))
-    class(object) <- c("nmf.ffb.inference", class(object))
+    ## "nmf.inference" too, so print() reaches print.nmf.inference -> the
+    ## coefficient table.  Without it the class chain ended at "nmf" and
+    ## printing an inference result showed only the fit header.
+    class(object) <- c("nmf.ffb.inference", "nmf.inference", class(object))
   object
 }
 
@@ -982,7 +987,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #' mae <- nmf.ffb.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 #' mae
 #'
-#' @seealso \code{\link{nmf.sem}}
+#' @seealso \code{\link{nmf.ffb}}
 #' @export
 nmf.ffb.cv <- function(
     Y1, Y2,
@@ -997,7 +1002,11 @@ nmf.ffb.cv <- function(
 ){
   extra_cv <- base::list(...)
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
-  seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else NULL
+  ## CONVENTIONS.md 2: default seeds are concrete (123), so an analysis is
+  ## reproducible without the user having to think about it.  This was the one
+  ## CV in the package defaulting to NULL, i.e. the one whose fold assignment
+  ## changed between runs.  Pass seed = NULL explicitly for the old behaviour.
+  seed    <- if ("seed" %in% names(extra_cv)) extra_cv$seed else 123L
   ## Keep our own seeding out of the caller's random stream (no-op when
   ## seed = NULL, which here means "use the stream as it is").
   .rng <- .nmfkc.rng.save(seed)
@@ -1238,7 +1247,7 @@ nmf.ffb.cv <- function(
 #' sp$endogenous.variables
 #' sp$exogenous.variables
 #'
-#' @seealso \code{\link{nmf.sem}}
+#' @seealso \code{\link{nmf.ffb}}
 #' @export
 nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
                           auto.flipped = TRUE, verbose = FALSE, ...) {
@@ -1919,7 +1928,7 @@ nmf.ffb.DOT <- function(result,
 #'
 #' @return A character string representing a Graphviz DOT script.
 #'
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.sem.DOT}},
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmf.rrr.DOT}}, \code{\link{nmf.ffb.DOT}},
 #'   \code{\link{nmfkc.ar.DOT}}, \code{\link{plot.nmfkc.DOT}}
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
@@ -2300,8 +2309,9 @@ nmfkc.DOT <- function(
 #' @param x An object of class \code{"nmfkc.DOT"} (or a subclass thereof).
 #' @param ... Not used.
 #' @return Called for its side effect (rendering). Returns \code{x} invisibly.
-#' @seealso \code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}},
-#'   \code{\link{nmf.sem.DOT}}, \code{\link{nmfkc.ar.DOT}}
+#' @seealso \code{\link{nmfkc.DOT}}, \code{\link{nmf.rrr.DOT}},
+#'   \code{\link{nmf.ffb.DOT}}, \code{\link{nmfkc.ar.DOT}},
+#'   \code{\link{print.nmfkc.DOT}}
 #' @export
 plot.nmfkc.DOT <- function(x, ...) {
   if (requireNamespace("DiagrammeR", quietly = TRUE)) {
@@ -2310,5 +2320,24 @@ plot.nmfkc.DOT <- function(x, ...) {
     message("DiagrammeR package not installed. Printing DOT source:")
     cat(as.character(x))
   }
+  invisible(x)
+}
+
+
+#' @title Print method for nmfkc.DOT objects
+#' @description
+#' Writes the Graphviz source out as text.  Without it, printing a DOT object
+#' fell to \code{print.default}, which showed the whole graph as one escaped
+#' string (\code{[1] "digraph NMF \{\\n ..."}) --- unreadable.  Shared by every
+#' \code{*.DOT} function through the common \code{"nmfkc.DOT"} class.
+#' @param x An object of class \code{"nmfkc.DOT"} (or a subclass).
+#' @param ... Not used.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{plot.nmfkc.DOT}}, \code{\link{nmfkc.DOT}}
+#' @export
+print.nmfkc.DOT <- function(x, ...) {
+  cat(as.character(x))
+  cat("# Use plot() to render (requires DiagrammeR),",
+      "or write this text to a .dot file.\n")
   invisible(x)
 }

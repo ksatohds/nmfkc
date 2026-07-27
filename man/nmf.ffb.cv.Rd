@@ -80,5 +80,5 @@ mae
 
 }
 \seealso{
-\code{\link{nmf.sem}}
+\code{\link{nmf.ffb}}
 }

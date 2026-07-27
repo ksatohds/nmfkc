@@ -38,5 +38,5 @@ summary(res)
 }
 }
 \seealso{
-\code{\link{nmfae}}
+\code{\link{nmf.rrr}}
 }

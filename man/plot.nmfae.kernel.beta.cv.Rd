@@ -20,6 +20,6 @@ Displays the cross-validation objective function across candidate
 \code{beta} values (log scale). The optimal beta is highlighted in red.
 }
 \seealso{
-\code{\link{nmfae.kernel.beta.cv}}
+\code{\link{nmf.rrr.kernel.beta.cv}}
 }
 \keyword{internal}

@@ -150,8 +150,8 @@
 #' @section Lifecycle:
 #' This function is \strong{experimental}; interface may change.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{predict.nmfae.signed}},
-#'   \code{\link{summary.nmfae.signed}}, \code{\link{nmfae.signed.rename}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{predict.nmfae.signed}},
+#'   \code{\link{summary.nmfae.signed}}, \code{\link{nmf.rrr.signed.rename}}
 #'
 #' @references
 #' Ding, C.H.Q., Li, T., and Jordan, M.I. (2010).  Convex and
@@ -711,7 +711,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value, CI.}
 #' \item{C.p.side}{P-value side used.}
 #'
-#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.inference}}
+#' @seealso \code{\link{nmf.rrr.signed}}, \code{\link{nmf.rrr.inference}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -877,7 +877,7 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
 #' @param type Output: \code{"response"} (raw signed) or \code{"class"}.
 #' @param ... Unused.
 #' @return A numeric matrix (\code{"response"}) or factor (\code{"class"}).
-#' @seealso \code{\link{nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -929,7 +929,7 @@ predict.nmfae.signed <- function(object, newY2 = NULL, Y1 = NULL,
 #' @param x An \code{nmfae.signed} object.
 #' @param ... Additional graphical parameters.
 #' @return Invisible \code{NULL}.
-#' @seealso \code{\link{nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -962,7 +962,7 @@ plot.nmfae.signed <- function(x, ...) {
 #' @param object An \code{nmfae.signed} object.
 #' @param ... Unused.
 #' @return An object of class \code{"summary.nmfae.signed"}.
-#' @seealso \code{\link{nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -1103,7 +1103,7 @@ print.summary.nmfae.signed <- function(x,
 #' @param X1.colnames Character vector of length Q for decoder labels.
 #' @param X2.rownames Character vector of length R for encoder labels.
 #' @return The renamed object (same class).
-#' @seealso \code{\link{nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -1179,7 +1179,7 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' @return An object of class \code{c("nmfae.signed.ecv", "nmfae.ecv")} with
 #'   \code{objfunc} (MSE per pair), \code{sigma} (RMSE), \code{objfunc.fold}
 #'   (per-fold MSE), \code{folds}, \code{QR}, \code{paired}.
-#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.ecv}}
+#' @seealso \code{\link{nmf.rrr.signed}}, \code{\link{nmf.rrr.ecv}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -1304,7 +1304,7 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #' @return A list with \code{rank.best} and \code{criteria}
 #'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
 #'   \code{r.squared}, \code{sigma.ecv}).
-#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.signed.ecv}},
+#' @seealso \code{\link{nmf.rrr.signed}}, \code{\link{nmf.rrr.signed.ecv}},
 #'   \code{\link{nmfkc.rank}}
 #' @references
 #' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
@@ -1360,7 +1360,7 @@ nmf.rrr.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fa
 #' @param object An object of class \code{"nmfae.signed.inference"}.
 #' @param ... Additional arguments (currently unused).
 #' @return An object of class \code{"summary.nmfae.signed.inference"}.
-#' @seealso \code{\link{nmfae.signed.inference}}, \code{\link{summary.nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed.inference}}, \code{\link{summary.nmfae.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -1484,7 +1484,7 @@ print.summary.nmfae.signed.inference <- function(x,
 #' @param ... Not used.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
-#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.heatmap}}
+#' @seealso \code{\link{nmf.rrr.signed}}, \code{\link{nmf.rrr.heatmap}}
 #' @examples
 #' \donttest{
 #' set.seed(1)

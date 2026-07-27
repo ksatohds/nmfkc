@@ -76,5 +76,5 @@ res2$sigma
 
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{nmfkc.ecv}}
+\code{\link{nmf.rrr}}, \code{\link{nmfkc.ecv}}
 }

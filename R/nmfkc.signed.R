@@ -997,7 +997,11 @@ nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
     objfunc = mean(objfunc.block),
     sigma = sqrt(mean(objfunc.block)),
     objfunc.block = objfunc.block,
-    block = block
+    block = block,
+    ## The inherited print.nmfkc.cv reads these two for its header; without
+    ## them it printed "nmfkc sample-wise CV (rank Q=, ?-fold)".
+    rank = rank,
+    nfolds = nfolds
   ), class = c("nmfkc.signed.cv", "nmfkc.cv"))
 }
 

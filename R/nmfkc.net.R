@@ -1076,6 +1076,10 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     call = cl,
     X = X, C = C, Cp = Cp, Cn = Cn,
     XB = Y1hat, Y1hat = Y1hat,          # XB alias for fitted.nmf compatibility
+    ## Y ~ X C X', so the "scores" are C X' -- the analogue of B in the other
+    ## models.  Without it the inherited predict.nmfkc did x$X %*% x$B on a
+    ## NULL and errored with "requires numeric/complex matrix/vector arguments".
+    B = C %*% t(X),
     X.prob = X.prob, X.cluster = X.cluster,
     rank = Q, dims = c(N = N),
     type = type,

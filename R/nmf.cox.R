@@ -762,7 +762,13 @@ nmf.cox.cv <- function(formula, data, A, rank = 2,
   ## Keep our own seeding out of the caller's random stream.
   .rng <- .nmfkc.rng.save(seed)
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
-  mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else getOption("mc.cores", 1L)
+  ## CONVENTIONS.md 4 names the worker count `cores`; `mc.cores` is kept as an
+  ## alias, but it reads like the base R option this merely defaults to, so a
+  ## user following any other help page in the package passed `cores` and was
+  ## silently ignored.
+  mc.cores <- if (!is.null(extra_args$cores)) extra_args$cores
+              else if (!is.null(extra_args$mc.cores)) extra_args$mc.cores
+              else getOption("mc.cores", 1L)
   maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
   ## remaining ... are forwarded to nmf.cox (fitter-level options)
   fit_args <- extra_args[!names(extra_args) %in% c("seed", "mc.cores", "maxit")]
@@ -945,7 +951,13 @@ nmf.cox.cf <- function(formula, data, A, rank = 2, X.L2.smooth = 0, nfolds = 5,
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
   ties     <- if (!is.null(extra_args$ties))     extra_args$ties     else "breslow"
-  mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else getOption("mc.cores", 1L)
+  ## CONVENTIONS.md 4 names the worker count `cores`; `mc.cores` is kept as an
+  ## alias, but it reads like the base R option this merely defaults to, so a
+  ## user following any other help page in the package passed `cores` and was
+  ## silently ignored.
+  mc.cores <- if (!is.null(extra_args$cores)) extra_args$cores
+              else if (!is.null(extra_args$mc.cores)) extra_args$mc.cores
+              else getOption("mc.cores", 1L)
   fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores")]
   if (!identical(ties, "breslow")) stop("nmf.cox.cf: only ties='breslow' is supported.")
   mf <- stats::model.frame(formula, data); y <- stats::model.response(mf)
@@ -1065,7 +1077,13 @@ nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   maxit    <- if (!is.null(extra_args$maxit))    extra_args$maxit    else 30
   ties     <- if (!is.null(extra_args$ties))     extra_args$ties     else "breslow"
-  mc.cores <- if (!is.null(extra_args$mc.cores)) extra_args$mc.cores else getOption("mc.cores", 1L)
+  ## CONVENTIONS.md 4 names the worker count `cores`; `mc.cores` is kept as an
+  ## alias, but it reads like the base R option this merely defaults to, so a
+  ## user following any other help page in the package passed `cores` and was
+  ## silently ignored.
+  mc.cores <- if (!is.null(extra_args$cores)) extra_args$cores
+              else if (!is.null(extra_args$mc.cores)) extra_args$mc.cores
+              else getOption("mc.cores", 1L)
   fit_args <- extra_args[!names(extra_args) %in% c("seed", "maxit", "mc.cores")]
   if (!identical(ties, "breslow")) stop("nmf.cox.phtest: only ties='breslow' is supported.")
   Q <- rank

@@ -97,5 +97,5 @@ dot <- nmf.rrr.DOT(res)
 }
 }
 \seealso{
-\code{\link{nmfae}}
+\code{\link{nmf.rrr}}
 }

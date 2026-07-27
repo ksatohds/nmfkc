@@ -162,5 +162,5 @@ to structural equation modeling for blind input-output analysis.
 arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 }
 \seealso{
-\code{\link{nmf.sem}}, \code{\link{nmf.sem.DOT}}
+\code{\link{nmf.ffb}}, \code{\link{nmf.ffb.DOT}}
 }

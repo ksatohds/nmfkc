@@ -33,7 +33,13 @@
   ce[1, ] <- Xr[sample(n, 1), ]
   d2 <- colSums((t(Xr) - ce[1, ])^2)
   for (k in 2:K) {
-    i <- sample(n, 1, prob = d2 / sum(d2)); ce[k, ] <- Xr[i, ]
+    ## Guard the degenerate case the shared .kmeanspp.seed() already handles:
+    ## when every remaining point coincides with a chosen centre, sum(d2) is 0
+    ## and d2/sum(d2) is all NaN, which makes sample() error.  Reachable here,
+    ## since the input is residual scores that collapse when the covariate
+    ## design saturates.
+    i <- if (sum(d2) > 0) sample(n, 1, prob = d2) else sample(n, 1)
+    ce[k, ] <- Xr[i, ]
     d2 <- pmin(d2, colSums((t(Xr) - ce[k, ])^2))
   }
   ce
@@ -280,7 +286,6 @@
   if (mi - ei == 0) return(0); (idx - ei) / (mi - ei)
 }
 
-.nmfgmm.hardclass <- function(f) max.col(f$es$gamma, ties.method = "first")
 
 # =====================================================================
 #  Public API
@@ -495,7 +500,12 @@ nmf.gmm.inference <- function(object, Y, A = object$A, ...) {
     stop("nmf.gmm.inference currently supports cov = 'tied' only.")
   extra <- base::list(...)
   B     <- if (!is.null(extra$wild.B))     extra$wild.B     else 500L
-  seed  <- if (!is.null(extra$seed))       extra$seed       else 123L
+  ## CONVENTIONS.md 1: the bootstrap controls carry the wild. prefix, and every
+  ## sibling .inference honours wild.seed.  Reading only `seed` made
+  ## nmf.gmm.inference(..., wild.seed = 7) a silent no-op.  `seed` stays as the
+  ## alias so existing calls keep working.
+  seed  <- if (!is.null(extra$wild.seed)) extra$wild.seed
+           else if (!is.null(extra$seed)) extra$seed else 123L
   ## Keep our own seeding out of the caller's random stream.
   .rng <- .nmfkc.rng.save(seed)
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
@@ -648,6 +658,20 @@ coef.nmf.gmm <- function(object, ...) object$C
 #' @return The \eqn{P\times N} fitted matrix \eqn{\hat Y = X(CA + \mu\gamma^\top)}.
 #' @export
 fitted.nmf.gmm <- function(object, ...) object$Yhat
+
+
+#' @title Residuals from an NMF-GMM fit
+#' @description
+#' \eqn{Y - \hat Y}, matching \code{\link{residuals.nmf}}.  Without this method
+#' \code{residuals()} fell through to \code{stats::residuals.default} and
+#' returned \code{NULL}, even though \code{fitted()} worked.
+#' @param object An object of class \code{"nmf.gmm"}.
+#' @param Y The observation matrix the model was fitted on.
+#' @param ... Ignored.
+#' @return The residual matrix.
+#' @seealso \code{\link{nmf.gmm}}, \code{\link{fitted.nmf.gmm}}
+#' @export
+residuals.nmf.gmm <- function(object, Y, ...) Y - stats::fitted(object)
 
 #' @title Class assignments / responsibilities from an NMF-GMM fit
 #' @param object An object of class \code{"nmf.gmm"}.
@@ -843,5 +867,44 @@ print.nmf.gmm.select <- function(x, ...) {
   if (all(is.na(tab$ARI))) tab$ARI <- NULL
   print(tab, row.names = FALSE)
   cat(sprintf("BIC selects K=%d; ICL selects K=%d\n", x$K.best, x$K.best.icl))
+  invisible(x)
+}
+
+
+#' @title Plot method for nmf.gmm.select objects
+#' @description
+#' Draws BIC and ICL against \eqn{K}, with the selected \eqn{K} marked.  Every
+#' other selector in the package (\code{\link{nmfkc.rank}},
+#' \code{\link{nmfkc.ard}}, \code{\link{nmfkc.consensus}},
+#' \code{\link{nmfkc.bicv}}) has a plot method; without this one
+#' \code{plot(nmf.gmm.select(...))} fell through to \code{plot.default} and
+#' errored with "'x' is a list, but does not have components 'x' and 'y'".
+#' @param x An object of class \code{"nmf.gmm.select"}.
+#' @param ... Passed to the underlying plot call.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.gmm.select}}, \code{\link{nmf.gmm}}
+#' @export
+plot.nmf.gmm.select <- function(x, ...) {
+  tab <- x$table
+  extra <- list(...)
+  dflt <- function(...) {
+    d <- list(...)
+    c(d[setdiff(names(d), names(extra))], extra)
+  }
+  ylim <- range(c(tab$BIC, tab$ICL), finite = TRUE)
+  do.call("plot", dflt(x = tab$K, y = tab$BIC, type = "b", pch = 19,
+                       col = "steelblue4", ylim = ylim, xlab = "K",
+                       ylab = "information criterion",
+                       main = "nmf.gmm.select: BIC / ICL"))
+  graphics::lines(tab$K, tab$ICL, type = "b", pch = 17, lty = 2,
+                  col = "firebrick")
+  graphics::abline(v = x$K.best, col = "steelblue4", lty = 3)
+  if (!identical(x$K.best, x$K.best.icl))
+    graphics::abline(v = x$K.best.icl, col = "firebrick", lty = 3)
+  graphics::legend("topright",
+                   legend = c(sprintf("BIC (best K = %d)", x$K.best),
+                              sprintf("ICL (best K = %d)", x$K.best.icl)),
+                   col = c("steelblue4", "firebrick"), pch = c(19, 17),
+                   lty = c(1, 2), bty = "n", cex = 0.85)
   invisible(x)
 }

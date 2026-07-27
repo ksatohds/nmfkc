@@ -77,5 +77,5 @@ sp$exogenous.variables
 
 }
 \seealso{
-\code{\link{nmf.sem}}
+\code{\link{nmf.ffb}}
 }

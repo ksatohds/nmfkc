@@ -99,7 +99,7 @@
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in future versions.
 #'
-#' @seealso \code{\link{nmfae.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.DOT}}, \code{\link{nmfkc}}
+#' @seealso \code{\link{nmf.rrr.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmf.rrr.ecv}}, \code{\link{nmf.rrr.DOT}}, \code{\link{nmfkc}}
 #' @export
 #' @source Satoh, K. (2025). Applying Non-negative Matrix Factorization with Covariates
 #'   to Multivariate Time Series. \emph{Japanese Journal of Statistics and Data Science}.
@@ -530,7 +530,7 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{summary.nmfae.inference}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{summary.nmfae.inference}}
 #' @export
 #' @examples
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
@@ -713,7 +713,7 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
 #'   X2.rownames = c("Cov1", "Cov2"))
 #' summary(res)
 #' }
-#' @seealso \code{\link{nmfae}}
+#' @seealso \code{\link{nmf.rrr}}
 #' @export
 nmf.rrr.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
   if (!is.null(X1.colnames)) {
@@ -748,7 +748,7 @@ nmf.rrr.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' @param ... Additional graphical parameters passed to \code{plot}.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
-#' @seealso \code{\link{nmfae}}, \code{\link{nmfae.heatmap}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{nmf.rrr.heatmap}}
 #' @examples
 #' \donttest{
 #' set.seed(1)
@@ -799,7 +799,7 @@ plot.nmfae <- function(x, ...) {
 #' \item{C.sparsity}{Proportion of near-zero elements in C.}
 #' \item{X2.sparsity}{Proportion of near-zero elements in X2.}
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{print.summary.nmfae}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{print.summary.nmfae}}
 #' @export
 summary.nmfae <- function(object, ...) {
   ans <- list()
@@ -1013,7 +1013,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' @param object An object of class \code{"nmfae.inference"}.
 #' @param ... Additional arguments (currently unused).
 #' @return An object of class \code{"summary.nmfae.inference"}.
-#' @seealso \code{\link{nmfae.inference}}, \code{\link{summary.nmfae}}
+#' @seealso \code{\link{nmf.rrr.inference}}, \code{\link{summary.nmfae}}
 #' @export
 summary.nmfae.inference <- function(object, ...) {
   ans <- summary.nmfae(object, ...)
@@ -1064,7 +1064,7 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{plot.nmfae}}, \code{\link{nmfae.DOT}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{plot.nmfae}}, \code{\link{nmf.rrr.DOT}}
 #' @examples
 #' \donttest{
 #' set.seed(1)
@@ -1162,7 +1162,7 @@ nmf.rrr.heatmap <- function(x,
 #'   For \code{type = "class"}: a factor of class \code{"predict.nmfae"} with
 #'   predicted class labels. If \code{Y1} was provided, actual classes are stored
 #'   in \code{attr(result, "actual")}.
-#' @seealso \code{\link{nmfae}}, \code{\link{plot.predict.nmfae}},
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{plot.predict.nmfae}},
 #'   \code{\link{nmfkc.class}}
 #' @examples
 #' \donttest{
@@ -1347,7 +1347,7 @@ plot.predict.nmfae <- function(x, ...) {
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{nmfkc.ecv}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
@@ -1446,6 +1446,27 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 }
 
 
+#' @title Print method for nmf.rrr element-wise CV results
+#' @description
+#' A two-line summary, matching \code{print.nmfkc.ecv}.  Without it the object
+#' printed as a raw list (33 lines of \code{$objfunc} / \code{$folds}).
+#' @param x An object of class \code{"nmfae.ecv"} (or
+#'   \code{"nmfae.signed.ecv"}).
+#' @param ... Ignored.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.rrr.ecv}}, \code{\link{plot.nmfae.ecv}}
+#' @export
+print.nmfae.ecv <- function(x, ...) {
+  cat(sprintf("nmf.rrr element-wise CV (%s)\n",
+              if (isTRUE(x$paired)) "paired ranks" else "rank grid"))
+  cat(sprintf("  objfunc (mean held-out loss): %.6g\n", min(x$objfunc)))
+  cat(sprintf("  sigma   (held-out RMSE):      %.6g\n", min(x$sigma)))
+  if (!is.null(x$QR) && is.data.frame(x$QR))
+    cat(sprintf("  grid: %d combination(s) of (Q, R)\n", nrow(x$QR)))
+  invisible(x)
+}
+
+
 #' @title Rank selection for nmfae (paired rank, concise diagnostics)
 #' @description
 #' Fits \code{\link{nmfae}} with a \strong{paired} decoder/encoder rank
@@ -1472,7 +1493,7 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #' @return A list with \code{rank.best} and \code{criteria}
 #'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
 #'   \code{r.squared}, \code{sigma.ecv}).
-#' @seealso \code{\link{nmfae}}, \code{\link{nmfae.ecv}},
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{nmf.rrr.ecv}},
 #'   \code{\link{nmfkc.rank}}
 #' @references
 #' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
@@ -1525,7 +1546,7 @@ nmf.rrr.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
 #' @param ... Additional graphical parameters (currently unused).
 #'
 #' @return Invisible \code{NULL}. Called for its side effect of producing a plot.
-#' @seealso \code{\link{nmfae.ecv}}
+#' @seealso \code{\link{nmf.rrr.ecv}}
 #' @export
 plot.nmfae.ecv <- function(x, ...) {
   Qs <- sort(unique(x$QR$Q))
@@ -1643,7 +1664,7 @@ plot.nmfae.ecv <- function(x, ...) {
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.kernel.beta.cv}},
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{nmf.rrr.ecv}}, \code{\link{nmf.rrr.kernel.beta.cv}},
 #'   \code{\link{nmfkc.cv}}
 #' @export
 #' @examples
@@ -1780,8 +1801,13 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
   sigma <- sqrt(objfunc)
 
   result <- list(objfunc = objfunc, sigma = sigma,
-                 objfunc.block = objfunc.block, block = block)
-  class(result) <- "nmfae.cv"
+                 objfunc.block = objfunc.block, block = block,
+                 ## for print.nmfkc.cv's header, which this class inherits
+                 rank = c(Q = rank, R = rank.encoder), nfolds = nfolds)
+  ## Inherit the compact CV print instead of dumping the raw list: the nmfkc
+  ## and nmfre CV classes all print a two-line summary, this one printed 15
+  ## lines of $objfunc / $block.
+  class(result) <- c("nmfae.cv", "nmfkc.cv")
   result
 }
 
@@ -1795,7 +1821,7 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
 #' @param ... Additional graphical parameters passed to \code{barplot}.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
-#' @seealso \code{\link{nmfae.cv}}
+#' @seealso \code{\link{nmf.rrr.cv}}
 #' @export
 plot.nmfae.cv <- function(x, ...) {
   extra_args <- list(...)
@@ -1848,7 +1874,7 @@ plot.nmfae.cv <- function(x, ...) {
 #' \item{beta}{The beta value that minimizes the cross-validation objective.}
 #' \item{objfunc}{Named numeric vector of objective function values for each candidate beta.}
 #'
-#' @seealso \code{\link{nmfae.cv}}, \code{\link{nmfkc.kernel}},
+#' @seealso \code{\link{nmf.rrr.cv}}, \code{\link{nmfkc.kernel}},
 #'   \code{\link{nmfkc.kernel.beta.cv}}
 #' @export
 #' @examples
@@ -1933,7 +1959,7 @@ nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
 #' @param ... Additional graphical parameters passed to \code{plot}.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
-#' @seealso \code{\link{nmfae.kernel.beta.cv}}
+#' @seealso \code{\link{nmf.rrr.kernel.beta.cv}}
 #' @export
 plot.nmfae.kernel.beta.cv <- function(x, ...) {
   beta <- as.numeric(names(x$objfunc))
@@ -1995,7 +2021,7 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}
+#' @seealso \code{\link{nmf.rrr}}
 #' @examples
 #' \donttest{
 #' set.seed(1)

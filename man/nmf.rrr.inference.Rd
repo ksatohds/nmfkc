@@ -59,5 +59,5 @@ summary(res2)
 
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{summary.nmfae.inference}}
+\code{\link{nmf.rrr}}, \code{\link{summary.nmfae.inference}}
 }

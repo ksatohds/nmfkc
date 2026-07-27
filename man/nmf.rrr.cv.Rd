@@ -67,6 +67,6 @@ res$sigma
 
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.kernel.beta.cv}},
+\code{\link{nmf.rrr}}, \code{\link{nmf.rrr.ecv}}, \code{\link{nmf.rrr.kernel.beta.cv}},
 \code{\link{nmfkc.cv}}
 }

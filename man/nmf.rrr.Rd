@@ -146,5 +146,5 @@ An Artificial Intelligence (AI) Framework for Computational Science and Engineer
 \emph{Computer Methods in Applied Mechanics and Engineering}, 399.
 }
 \seealso{
-\code{\link{nmfae.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.DOT}}, \code{\link{nmfkc}}
+\code{\link{nmf.rrr.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmf.rrr.ecv}}, \code{\link{nmf.rrr.DOT}}, \code{\link{nmfkc}}
 }

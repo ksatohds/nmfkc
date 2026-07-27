@@ -19,6 +19,6 @@ Displays a bar chart of per-fold cross-validation errors from
 \code{\link{nmfae.cv}}. The overall RMSE (sigma) is shown in the title.
 }
 \seealso{
-\code{\link{nmfae.cv}}
+\code{\link{nmf.rrr.cv}}
 }
 \keyword{internal}

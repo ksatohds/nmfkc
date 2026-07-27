@@ -59,6 +59,6 @@ components in factor and principal components models.
 \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{nmfae.ecv}},
+\code{\link{nmf.rrr}}, \code{\link{nmf.rrr.ecv}},
 \code{\link{nmfkc.rank}}
 }

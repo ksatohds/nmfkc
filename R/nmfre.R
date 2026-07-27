@@ -1328,6 +1328,12 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
+  ## Tag it as an inference result, as nmfkc.inference / nmf.rrr.inference do.
+  ## Without this the class stayed c("nmfre", "nmf") and print() fell to
+  ## print.nmf, showing the ten-line fit header instead of the coefficient
+  ## table that print.nmf.inference draws.
+  if (!inherits(object, "nmf.inference"))
+    class(object) <- c("nmf.inference", class(object))
   return(object)
 }
 

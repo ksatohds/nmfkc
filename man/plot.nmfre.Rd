@@ -43,5 +43,5 @@ plot(res)
 
 }
 \seealso{
-\code{\link{nmfre}}, \code{\link{nmf.sem}}
+\code{\link{nmfre}}, \code{\link{nmf.ffb}}
 }

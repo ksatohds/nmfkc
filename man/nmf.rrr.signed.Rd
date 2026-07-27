@@ -180,6 +180,6 @@ semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{predict.nmfae.signed}},
-\code{\link{summary.nmfae.signed}}, \code{\link{nmfae.signed.rename}}
+\code{\link{nmf.rrr}}, \code{\link{predict.nmfae.signed}},
+\code{\link{summary.nmfae.signed}}, \code{\link{nmf.rrr.signed.rename}}
 }

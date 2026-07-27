@@ -586,9 +586,14 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   Q <- rank
   cores <- if (!is.null(extra_args$cores)) extra_args$cores else getOption("mc.cores", 1L)
   kernel_arg_names <- names(formals(nmfkc.kernel))
-  cv_arg_names <- names(formals(nmfkc.cv))
   kernel_args_for_call <- extra_args[names(extra_args) %in% kernel_arg_names]
-  cv_args_for_call <- extra_args[names(extra_args) %in% cv_arg_names]
+  ## nmfkc.cv takes everything except Y/A/rank through `...`, so selecting by
+  ## names(formals(nmfkc.cv)) kept almost nothing -- nfolds, seed, method,
+  ## maxit and the rest were all dropped, contradicting this function's own
+  ## @param block.  Pass through whatever is not a kernel argument instead,
+  ## which is what nmf.rrr.kernel.beta.cv already does.
+  cv_args_for_call <- extra_args[!names(extra_args) %in%
+                                 c(kernel_arg_names, "Q", "cores")]
 
   if(is.null(beta)){
     if(is.null(V)) V <- U

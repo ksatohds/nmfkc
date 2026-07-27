@@ -75,48 +75,6 @@
 }
 
 
-#' @title X-fixed re-estimation of C for the working model (Internal)
-#' @description Solve \eqn{\min_{C \ge 0} \lVert Y_p - X C A \rVert_F^2} with
-#'   the basis \eqn{X} (and design \eqn{A}) held FIXED, by multiplicative
-#'   updates.  With \eqn{X} fixed the problem is convex in \eqn{C}; the
-#'   sign-split numerator/denominator keep \eqn{C \ge 0} even when \eqn{A}
-#'   has negative entries.  Warm-started from \code{C.init} it converges in
-#'   a few iterations.
-#' @param Yp \eqn{P \times N} (perturbed) response.
-#' @param X \eqn{P \times Q} fixed basis.
-#' @param A \eqn{K \times N} fixed design.
-#' @param C.init \eqn{Q \times K} warm start.
-#' @param maxit,eps Iteration cap and relative-objective tolerance.
-#' @return \eqn{Q \times K} re-estimated \eqn{C}.
-#' @keywords internal
-#' @noRd
-.refit.C.MU <- function(Yp, X, A, C.init, maxit = 300, eps = 1e-8) {
-  Xt  <- base::t(X)
-  XtX <- Xt %*% X                       # Q x Q (>= 0 since X >= 0)
-  XtY <- Xt %*% Yp %*% base::t(A)        # Q x K
-  AAt <- A %*% base::t(A)                # K x K
-  Gp  <- base::pmax(XtY, 0); Gn <- base::pmax(-XtY, 0)
-  Mp  <- base::pmax(AAt, 0); Mn <- base::pmax(-AAt, 0)
-  small <- 1e-12
-  C <- base::pmax(C.init, small)
-  obj_prev <- Inf
-  for (it in base::seq_len(maxit)) {
-    XtXC <- XtX %*% C                    # Q x K
-    num  <- Gp + XtXC %*% Mn
-    den  <- Gn + XtXC %*% Mp + small
-    C <- C * num / den
-    if (it %% 10 == 0 || it == maxit) {
-      resid <- Yp - X %*% C %*% A
-      obj   <- base::sum(resid * resid)
-      if (base::is.finite(obj_prev) &&
-          base::abs(obj_prev - obj) < eps * base::max(obj_prev, small)) break
-      obj_prev <- obj
-    }
-  }
-  C
-}
-
-
 #' @title Re-fit wild bootstrap draws (Internal)
 #' @description Residual wild bootstrap that RE-FITS the coefficient on each
 #'   replicate.  The response is perturbed as
