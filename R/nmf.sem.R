@@ -866,9 +866,15 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 
   ## ----------------------------------------------------------------
   ## Build coefficients table (rows for both C1 and C2)
-  ## p_value = 1 - support_rate is provided so that downstream
-  ## consumers (e.g., nmf.sem.DOT) that filter / star by p_value
-  ## continue to work without modification.
+  ##
+  ## `1 - support_rate` is the fraction of bootstrap replicates in which the
+  ## coefficient was NOT supported.  That is a tail proportion, not a p-value,
+  ## and CONVENTIONS.md section 6 forbids naming such a quantity `p.*` for
+  ## exactly this reason -- calling it p_value invites reading 0.03 as
+  ## significance at the 5% level, which it is not.  The column is therefore
+  ## now `prob.unsupported`, with `p_value` kept alongside it as a
+  ## back-compatible duplicate: nmf.ffb.DOT and any user script that filters or
+  ## stars on p_value keep working unchanged.
   ## ----------------------------------------------------------------
   Q_lab  <- if (!is.null(rownames(C1.hat))) rownames(C1.hat) else paste0("Factor", 1:Q)
   Y1_lab <- if (!is.null(colnames(C1.hat))) colnames(C1.hat) else paste0("Y1_", 1:P1)
@@ -885,6 +891,9 @@ nmf.ffb.inference <- function(object, Y1, Y2,
       CI_low       = as.vector(lo),
       CI_high      = as.vector(hi),
       support_rate = s_vec,
+      ## the convention-compliant name ...
+      prob.unsupported = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
+      ## ... and the historical one, same numbers, kept for back-compatibility
       p_value      = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
       sig          = sig.from.support(s_vec),
       stringsAsFactors = FALSE

@@ -117,7 +117,8 @@
 #'   time basis), \code{X.prob} (columns summing to one), \code{X.cluster},
 #'   \code{beta.t} (\eqn{\beta(t)=XC}, per-SD log hazard ratio),
 #'   \code{cox.fit}, \code{event.times}, \code{objfunc}, \code{objfunc.iter},
-#'   \code{iter}, \code{converged}, \code{stop.reason} and \code{runtime}.
+#'   \code{iter}, \code{maxit}, \code{epsilon}, \code{converged},
+#'   \code{stop.reason} and \code{runtime}.
 #'
 #' @seealso \code{\link{nmf.cox.inference}} for given-basis Wald inference,
 #'   \code{\link{nmf.cox.cv}} for selecting \code{rank} and \code{X.L2.smooth},
@@ -539,6 +540,10 @@ nmf.cox <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
     cox.fit = cox.fit, offset = o_final, gamma.history = gamma.history,
     X.L2.smooth = X.L2.smooth, iter = it, best.iter = best.iter, best.obj = best.obj,
     loglik = loglik, df.eff = df.eff, aic = aic.value, df.parts = df.parts,
+    ## Standard convergence names shared with the other fitters, so that
+    ## .print.convergence() can report the iteration count against the cap
+    ## instead of the bare count (which reads as if the run had converged).
+    maxit = maxit, epsilon = epsilon,
     converged = converged, stop.reason = conv.msg, opt.convergence = opt.conv,
     ties = ties, Z = Z, A = A, A.center = A.center, A.scale = A.scale
   ), class = "nmf.cox")
@@ -1186,10 +1191,18 @@ nmf.cox.phtest <- function(formula, data, A, rank = 2, X.L2.smooth = 0,
 #' fit <- nmf.cox(y ~ trt + age, data = d, A = ~ karno + celltype,
 #'                rank = 2, X.L2.smooth = 1000, verbose = FALSE)
 #' coef(fit)
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
-coef.nmf.cox <- function(object, ...) object$gamma
+coef.nmf.cox <- function(object, ...) {
+  ## Same precedence as coef.nmf: the Basis/Covariate table once
+  ## nmf.cox.inference() has built one, the proportional-hazards vector
+  ## otherwise.  Note this model's `gamma` is a different parameter block from
+  ## Theta -- see the Details of ?coef.nmf.
+  if (!is.null(object$coefficients)) object$coefficients else object$gamma
+}
 
 #' @rdname coef.nmf.cox
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
 coef.nmf.cox.cf <- function(object, ...) object$gamma
 
@@ -1206,6 +1219,7 @@ coef.nmf.cox.cf <- function(object, ...) object$gamma
 #' fit <- nmf.cox(y ~ trt + age, data = d, A = ~ karno + celltype,
 #'                rank = 2, X.L2.smooth = 1000, verbose = FALSE)
 #' head(fitted(fit))
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
 fitted.nmf.cox <- function(object, ...) object$beta.t
 
@@ -1219,16 +1233,16 @@ fitted.nmf.cox <- function(object, ...) object$beta.t
 #' fit <- nmf.cox(y ~ trt + age, data = d, A = ~ karno + celltype,
 #'                rank = 2, X.L2.smooth = 1000, verbose = FALSE)
 #' print(fit)
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
 print.nmf.cox <- function(x, ...) {
   cat("NMF-COX: Cox model with a low-rank non-negative time-varying offset\n")
   cat(x$dims, "\n")
   cat(sprintf("rank=%d, X.L2.smooth=%g, X.restriction=%s, solver=%s\n",
               x$rank, x$X.L2.smooth, x$X.restriction, x$method))
-  cat(sprintf("iterations=%d, converged=%s\n",
-              x$iter, ifelse(isTRUE(x$converged), "TRUE", "FALSE")))
-  if (!isTRUE(x$converged) && !is.null(x$stop.reason))
-    cat("  ** ", x$stop.reason, " **\n", sep = "")
+  ## Delegate so this reads exactly like every other fitter's convergence line
+  ## (it already appends stop.reason when the run did not converge).
+  .print.convergence(x, label = "Convergence: ")
   cat("\nProportional-hazards coefficients (gamma), net of the time-varying effect of a:\n")
   if (!is.null(x$cox.fit)) print(round(stats::coef(summary(x$cox.fit)), 4)) else print(round(x$gamma, 4))
   if (!is.null(x$wald)) {
@@ -1261,11 +1275,13 @@ print.nmf.cox <- function(x, ...) {
 #' fit <- nmf.cox(y ~ trt + age, data = d, A = ~ karno + celltype,
 #'                rank = 2, X.L2.smooth = 1000, verbose = FALSE)
 #' summary(fit)
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
 summary.nmf.cox <- function(object, ...) {
   ans <- list(call = object$call, dims = object$dims, rank = object$rank,
               X.L2.smooth = object$X.L2.smooth, X.restriction = object$X.restriction,
               method = object$method, iter = object$iter,
+              maxit = object$maxit, epsilon = object$epsilon,
               converged = object$converged, stop.reason = object$stop.reason,
               runtime = object$runtime, objfunc = object$objfunc,
               cox.fit = object$cox.fit, gamma = object$gamma,
@@ -1280,15 +1296,17 @@ summary.nmf.cox <- function(object, ...) {
 #' @param digits Minimum number of significant digits.
 #' @param ... Not used.
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
 print.summary.nmf.cox <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
   cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"), "\n\n", sep = "")
-  cat("Dimensions:", x$dims, "\n")
-  cat(sprintf("Settings:   rank=%d, X.L2.smooth=%g, X.restriction=%s, solver=%s\n",
+  ## Labels padded to 13 so they line up with .print.convergence()'s, which is
+  ## the same column .print.nmf.fit() uses for every other model.
+  cat("Dimensions:  ", x$dims, "\n", sep = "")
+  cat(sprintf("Settings:    rank=%d, X.L2.smooth=%g, X.restriction=%s, solver=%s\n",
               x$rank, x$X.L2.smooth, x$X.restriction, x$method))
-  cat(sprintf("Convergence: %s (iter=%d), objfunc=%.4f, runtime=%.1f sec\n",
-              ifelse(isTRUE(x$converged), "converged", "NOT converged"),
-              x$iter, x$objfunc, x$runtime))
+  .print.convergence(x, label = "Convergence: ")
+  cat(sprintf("Objective:   %.4f, runtime=%.1f sec\n", x$objfunc, x$runtime))
   cat("\nProportional-hazards coefficients (gamma):\n")
   if (!is.null(x$cox.fit)) print(round(stats::coef(summary(x$cox.fit)), 4)) else print(round(x$gamma, 4))
   if (!is.null(x$coefficients)) {
@@ -1330,6 +1348,7 @@ print.summary.nmf.cox <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' fit <- nmf.cox(y ~ trt + age, data = d, A = ~ karno + celltype,
 #'                rank = 2, X.L2.smooth = 1000, verbose = FALSE)
 #' plot(fit)
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
 plot.nmf.cox <- function(x, ...) {
   extra_args <- list(...)
@@ -1354,6 +1373,7 @@ plot.nmf.cox <- function(x, ...) {
 #'                  rank = 2, X.L2.smooth = 1000, nfolds = 5, seed = 1)
 #' print(cf)
 #' }
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
 print.nmf.cox.cf <- function(x, ...) {
   cat("NMF-COX two-stage cross-fit estimate of gamma\n")
@@ -1380,6 +1400,7 @@ print.nmf.cox.cf <- function(x, ...) {
 #'                      rank = 2, X.L2.smooth = 1000, nfolds = 5, seed = 1)
 #' print(ph)
 #' }
+#' @seealso \code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
 #' @export
 print.nmf.cox.phtest <- function(x, ...) {
   cat("NMF-COX cross-fitted Wald test  H0: beta_r(t)=0\n")

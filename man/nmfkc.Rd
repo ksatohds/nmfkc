@@ -221,5 +221,9 @@ effective dimensionality. In \emph{15th European Signal Processing
 Conference (EUSIPCO)} (pp. 606--610).
 }
 \seealso{
-\code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
+\code{\link{nmfkc.inference}} (standard errors and p-values for
+\eqn{C}), \code{\link{summary.nmfkc}}, \code{\link{plot.nmfkc}},
+\code{\link{nmfkc.cv}}, \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.rank}},
+\code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}},
+\code{\link{nmfkc.DOT}}, \code{\link{predict.nmfkc}}
 }

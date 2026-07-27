@@ -1407,13 +1407,22 @@ summary.nmfae.signed.inference <- function(object, ...) {
 #' @export
 print.summary.nmfae.signed.inference <- function(x,
     digits = max(3L, getOption("digits") - 3L),
-    by = c("covariate", "basis"), ...) {
+    max.coef = 20, by = c("covariate", "basis"), ...) {
   by <- match.arg(by)
   print.summary.nmfae.signed(x, digits = digits, ...)
 
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
     cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
+    ## The table is Q x K rows.  This printer was copied from the nmfae one
+    ## before the cap existed, so it printed every row; on a realistic design
+    ## that floods the console.
+    .n.all <- nrow(cf)
+    .sh <- .coef.show.idx(cf, max.coef)
+    cf <- cf[.sh$idx, , drop = FALSE]
+    if (.sh$truncated || nrow(cf) < .n.all)
+      cat(sprintf("\n(showing %d of %d coefficients; use x$coefficients for all)\n",
+                  nrow(cf), .n.all))
     p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "two.sided"
     p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
 

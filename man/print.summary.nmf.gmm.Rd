@@ -19,3 +19,6 @@
 \description{
 Print method for summary.nmf.gmm objects
 }
+\seealso{
+\code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
+}

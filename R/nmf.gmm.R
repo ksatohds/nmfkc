@@ -649,13 +649,21 @@ nmf.gmm.select <- function(Y, A = NULL, rank, K = 1:5, ...) {
 #' @param object An object of class \code{"nmf.gmm"}.
 #' @param ... Ignored.
 #' @return The \eqn{Q\times R} coefficient matrix \eqn{C} (\eqn{=\Theta}).
+#' @seealso \code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
 #' @export
-coef.nmf.gmm <- function(object, ...) object$C
+coef.nmf.gmm <- function(object, ...) {
+  ## Follow coef.nmf's precedence: the coefficients table once inference has
+  ## been run, the raw matrix otherwise.  Returning object$C unconditionally
+  ## meant coef() gave the same matrix before and after nmf.gmm.inference(),
+  ## so the table it builds was unreachable through the generic.
+  if (!is.null(object$coefficients)) object$coefficients else object$C
+}
 
 #' @title Fitted (responsibility-averaged) reconstruction of an NMF-GMM fit
 #' @param object An object of class \code{"nmf.gmm"}.
 #' @param ... Ignored.
 #' @return The \eqn{P\times N} fitted matrix \eqn{\hat Y = X(CA + \mu\gamma^\top)}.
+#' @seealso \code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
 #' @export
 fitted.nmf.gmm <- function(object, ...) object$Yhat
 
@@ -679,6 +687,7 @@ residuals.nmf.gmm <- function(object, Y, ...) Y - stats::fitted(object)
 #'   \code{"responsibility"} returns the N x K posterior-probability matrix.
 #' @param ... Ignored.
 #' @return A vector of labels or the responsibility matrix.
+#' @seealso \code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
 #' @export
 predict.nmf.gmm <- function(object, type = c("class", "responsibility"), ...) {
   type <- match.arg(type)
@@ -689,6 +698,7 @@ predict.nmf.gmm <- function(object, type = c("class", "responsibility"), ...) {
 #' @param x An object of class \code{"nmf.gmm"}.
 #' @param ... Ignored.
 #' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
 #' @export
 print.nmf.gmm <- function(x, ...) {
   cat("NMF-GMM: Gaussian-mixture latent-class NMF with covariates\n")
@@ -696,13 +706,10 @@ print.nmf.gmm <- function(x, ...) {
   cat(sprintf("K=%d components, rank Q=%d, covariance=%s\n", x$K, x$rank, x$cov))
   cat(sprintf("logLik=%.2f, BIC=%.2f, ICL=%.2f (params=%d)\n",
               x$loglik, x$BIC, x$ICL, x$n.params))
-  ## Same convergence line as print.nmf(): the iteration count against the cap,
-  ## so a run that merely ran out of iterations is not mistaken for a fitted one.
-  cat(sprintf("Convergence: #iter = %d %s maxit = %d (tol = %g)%s\n",
-              x$iter, if (isTRUE(x$converged)) "<" else "=",
-              if (!is.null(x$maxit)) x$maxit else NA_integer_,
-              if (!is.null(x$epsilon)) x$epsilon else NA_real_,
-              if (isTRUE(x$converged)) "" else "  -- NOT converged"))
+  ## Delegate so this reads exactly like every other fitter's convergence line:
+  ## the iteration count against the cap, so a run that merely ran out of
+  ## iterations is not mistaken for a fitted one.
+  .print.convergence(x, label = "Convergence: ")
   cat("Mixing proportions (xi):", paste(round(x$xi, 3), collapse = " "), "\n")
   cat("Cluster sizes:\n"); print(table(cluster = x$cluster))
   if (!is.null(x$coefficients))
@@ -714,12 +721,15 @@ print.nmf.gmm <- function(x, ...) {
 #' @param object An object of class \code{"nmf.gmm"}.
 #' @param ... Ignored.
 #' @return An object of class \code{"summary.nmf.gmm"}.
+#' @seealso \code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
 #' @export
 summary.nmf.gmm <- function(object, ...) {
   ans <- list(dims = object$dims, K = object$K, rank = object$rank,
               cov = object$cov, loglik = object$loglik, BIC = object$BIC,
               ICL = object$ICL, n.params = object$n.params, xi = object$xi,
-              sizes = table(object$cluster), converged = object$converged,
+              sizes = table(object$cluster), iter = object$iter,
+              maxit = object$maxit, epsilon = object$epsilon,
+              converged = object$converged,
               runtime = object$runtime, coefficients = object$coefficients,
               C.p.side = object$C.p.side)
   class(ans) <- "summary.nmf.gmm"
@@ -731,11 +741,13 @@ summary.nmf.gmm <- function(object, ...) {
 #' @param digits Minimum significant digits.
 #' @param ... Ignored.
 #' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
 #' @export
 print.summary.nmf.gmm <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
   cat("NMF-GMM fit\n"); cat(x$dims, "\n")
   cat(sprintf("K=%d, rank=%d, cov=%s | logLik=%.2f, BIC=%.2f, ICL=%.2f, params=%d\n",
               x$K, x$rank, x$cov, x$loglik, x$BIC, x$ICL, x$n.params))
+  .print.convergence(x, label = "Convergence: ")
   cat("Mixing proportions:", paste(round(x$xi, 3), collapse = " "), "\n")
   cat("Cluster sizes:\n"); print(x$sizes)
   if (!is.null(x$coefficients)) {
@@ -797,6 +809,7 @@ print.summary.nmf.gmm <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' fit <- nmf.gmm(Y, A, rank = 2, K = 3)
 #' plot(fit, type = "adjusted.scores")
 #' }
+#' @seealso \code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
 #' @export
 plot.nmf.gmm <- function(x, type = c("convergence", "adjusted.scores", "scores"),
                          group = NULL, ...) {
@@ -860,6 +873,7 @@ plot.nmf.gmm <- function(x, type = c("convergence", "adjusted.scores", "scores")
 #' @param x An object of class \code{"nmf.gmm.select"}.
 #' @param ... Ignored.
 #' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
 #' @export
 print.nmf.gmm.select <- function(x, ...) {
   tab <- x$table; tab$logLik <- round(tab$logLik, 1)

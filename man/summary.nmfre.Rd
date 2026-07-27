@@ -2,9 +2,18 @@
 % Please edit documentation in R/nmfre.R
 \name{summary.nmfre}
 \alias{summary.nmfre}
+\alias{print.summary.nmfre}
 \title{Summary method for objects of class \code{nmfre}}
 \usage{
-\method{summary}{nmfre}(object, ci.show = FALSE, by = c("covariate", "basis"), ...)
+\method{summary}{nmfre}(
+  object,
+  ci.show = FALSE,
+  max.coef = 20,
+  by = c("covariate", "basis"),
+  ...
+)
+
+\method{print}{summary.nmfre}(x, ...)
 }
 \arguments{
 \item{object}{An object of class \code{nmfre}, returned by \code{\link{nmfre}}.}
@@ -14,11 +23,18 @@
 (\code{C.signed}, \code{X.init}, ...). Legacy \code{show_ci} is accepted
 via \code{...}.}
 
+\item{max.coef}{Largest number of coefficient rows to print (default 20).
+The table has one row per (basis, covariate) pair, so it grows as
+\eqn{Q\times K}; beyond the cap the significant rows are preferred and the
+omission is reported.}
+
 \item{by}{Grouping order of the coefficient rows: \code{"covariate"}
 (default; list all bases for each covariate) or \code{"basis"} (list all
 covariates for each basis).}
 
 \item{...}{Additional arguments (currently unused).}
+
+\item{x}{An object of class \code{"summary.nmfre"}.}
 }
 \value{
 The input object, invisibly.

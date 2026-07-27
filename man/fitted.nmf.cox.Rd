@@ -26,3 +26,6 @@ fit <- nmf.cox(y ~ trt + age, data = d, A = ~ karno + celltype,
                rank = 2, X.L2.smooth = 1000, verbose = FALSE)
 head(fitted(fit))
 }
+\seealso{
+\code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
+}

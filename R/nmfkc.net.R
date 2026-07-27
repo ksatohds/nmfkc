@@ -127,6 +127,9 @@ summary.nmfkc.net.inference <- function(object, ...) {
 #'
 #' @param x An object of class \code{"summary.nmfkc.net.inference"}.
 #' @param digits Minimum number of significant digits.
+#' @param max.coef Largest number of coefficient rows to print (default 20).
+#'   The table has one row per basis pair, so it grows as \eqn{Q^2}; beyond the
+#'   cap the significant rows are preferred and the omission is reported.
 #' @param by Character; grouping order of the coefficients table. Because the
 #'   symmetric model sets \eqn{A = X^\top}, the column factor \code{Basis.col}
 #'   plays the covariate role: \code{"covariate"} (default) lists all
@@ -139,7 +142,7 @@ summary.nmfkc.net.inference <- function(object, ...) {
 #' @export
 print.summary.nmfkc.net.inference <- function(x,
     digits = max(3L, getOption("digits") - 3L),
-    by = c("covariate", "basis"), ...) {
+    max.coef = 20, by = c("covariate", "basis"), ...) {
   by <- match.arg(by)
 
   # Print base summary
@@ -168,6 +171,13 @@ print.summary.nmfkc.net.inference <- function(x,
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
     cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
+    ## Q x Q rows here, so the same cap the nmfkc printer applies.
+    .n.all <- nrow(cf)
+    .sh <- .coef.show.idx(cf, max.coef)
+    cf <- cf[.sh$idx, , drop = FALSE]
+    if (.sh$truncated || nrow(cf) < .n.all)
+      cat(sprintf("\n(showing %d of %d coefficients; use x$coefficients for all)\n",
+                  nrow(cf), .n.all))
 
     p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "one.sided"
     p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"

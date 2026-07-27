@@ -725,6 +725,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 #' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}
 #' @export
 predict.nmfkc.signed <- function(object, newA = NULL,
                                   type = c("response", "prob", "class"),
@@ -762,6 +763,7 @@ predict.nmfkc.signed <- function(object, newA = NULL,
 #' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}
 #' @export
 plot.nmfkc.signed <- function(x, ...) {
   extra_args <- list(...)
@@ -789,6 +791,7 @@ plot.nmfkc.signed <- function(x, ...) {
 #' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}
 #' @export
 summary.nmfkc.signed <- function(object, ...) {
   .negfrac <- function(M) {
@@ -846,6 +849,7 @@ summary.nmfkc.signed <- function(object, ...) {
 #' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}
 #' @export
 print.summary.nmfkc.signed <- function(x,
                                         digits = max(3L, getOption("digits") - 3L),

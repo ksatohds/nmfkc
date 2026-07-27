@@ -19,3 +19,6 @@ Called for its side effect (printing). Returns \code{x} invisibly.
 \description{
 Print method for summary.nmf.cox objects
 }
+\seealso{
+\code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
+}

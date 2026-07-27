@@ -17,3 +17,6 @@ An object of class \code{"summary.nmf.gmm"}.
 \description{
 Summary of an NMF-GMM fit
 }
+\seealso{
+\code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
+}

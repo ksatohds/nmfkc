@@ -20,3 +20,6 @@ A vector of labels or the responsibility matrix.
 \description{
 Class assignments / responsibilities from an NMF-GMM fit
 }
+\seealso{
+\code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
+}

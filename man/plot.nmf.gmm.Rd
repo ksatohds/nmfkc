@@ -58,3 +58,6 @@ fit <- nmf.gmm(Y, A, rank = 2, K = 3)
 plot(fit, type = "adjusted.scores")
 }
 }
+\seealso{
+\code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
+}

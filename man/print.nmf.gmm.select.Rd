@@ -17,3 +17,6 @@
 \description{
 Print method for nmf.gmm.select objects
 }
+\seealso{
+\code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
+}

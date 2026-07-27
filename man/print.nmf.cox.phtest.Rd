@@ -26,3 +26,6 @@ ph <- nmf.cox.phtest(y ~ trt + age, data = d, A = ~ karno + celltype,
 print(ph)
 }
 }
+\seealso{
+\code{\link{nmf.cox}}, \code{\link{nmf.cox.inference}}, \code{\link{nmf.cox.cv}}
+}

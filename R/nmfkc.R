@@ -2413,7 +2413,11 @@ print.nmf.rank <- function(x, ...) {
 #'   ranks are to be compared --- recomputes them from the fits it is given.
 #'
 #'   \code{effective.rank} is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
-#' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
+#' @seealso \code{\link{nmfkc.inference}} (standard errors and p-values for
+#'   \eqn{C}), \code{\link{summary.nmfkc}}, \code{\link{plot.nmfkc}},
+#'   \code{\link{nmfkc.cv}}, \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.rank}},
+#'   \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}},
+#'   \code{\link{nmfkc.DOT}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
 #' Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates

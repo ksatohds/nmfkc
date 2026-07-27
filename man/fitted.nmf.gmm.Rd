@@ -17,3 +17,6 @@ The \eqn{P\times N} fitted matrix \eqn{\hat Y = X(CA + \mu\gamma^\top)}.
 \description{
 Fitted (responsibility-averaged) reconstruction of an NMF-GMM fit
 }
+\seealso{
+\code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
+}

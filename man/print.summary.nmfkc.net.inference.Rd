@@ -7,6 +7,7 @@
 \method{print}{summary.nmfkc.net.inference}(
   x,
   digits = max(3L, getOption("digits") - 3L),
+  max.coef = 20,
   by = c("covariate", "basis"),
   ...
 )
@@ -15,6 +16,10 @@
 \item{x}{An object of class \code{"summary.nmfkc.net.inference"}.}
 
 \item{digits}{Minimum number of significant digits.}
+
+\item{max.coef}{Largest number of coefficient rows to print (default 20).
+The table has one row per basis pair, so it grows as \eqn{Q^2}; beyond the
+cap the significant rows are preferred and the omission is reported.}
 
 \item{by}{Character; grouping order of the coefficients table. Because the
 symmetric model sets \eqn{A = X^\top}, the column factor \code{Basis.col}

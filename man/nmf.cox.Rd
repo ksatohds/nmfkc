@@ -71,7 +71,8 @@ parameter matrix \eqn{\Theta} of the paper, Q x R), \code{X} (non-negative
 time basis), \code{X.prob} (columns summing to one), \code{X.cluster},
 \code{beta.t} (\eqn{\beta(t)=XC}, per-SD log hazard ratio),
 \code{cox.fit}, \code{event.times}, \code{objfunc}, \code{objfunc.iter},
-\code{iter}, \code{converged}, \code{stop.reason} and \code{runtime}.
+\code{iter}, \code{maxit}, \code{epsilon}, \code{converged},
+\code{stop.reason} and \code{runtime}.
 }
 \description{
 \code{nmf.cox} fits the model

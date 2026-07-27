@@ -21,6 +21,34 @@
   if (by == "covariate") order(cv, b) else order(b, cv)
 }
 
+#' @title Which coefficient rows to show, and whether that truncates (Internal)
+#' @description
+#' A coefficient table has one row per (basis, covariate) pair, so it grows as
+#' \eqn{Q \times K} and floods the console for any realistic design.  The
+#' printers in \code{nmfkc.R} and \code{nmfae.R} cap it at \code{max.coef},
+#' preferring the significant rows; three further printers were copied from
+#' them before that cap existed and print the whole table.  Shared here so the
+#' rule has one definition.
+#' @param cf A coefficients data frame with a \code{p_value} column.
+#' @param max.coef Largest number of rows to print.
+#' @return List with \code{idx} (rows to show) and \code{truncated}.
+#' @keywords internal
+#' @noRd
+.coef.show.idx <- function(cf, max.coef = 20) {
+  n_total <- nrow(cf)
+  if (is.null(max.coef) || !is.finite(max.coef) || n_total <= max.coef)
+    return(list(idx = seq_len(n_total), truncated = FALSE))
+  p <- if (!is.null(cf$p_value)) cf$p_value else rep(NA_real_, n_total)
+  sig_idx <- which(p < 0.05)
+  if (length(sig_idx) == 0L)
+    list(idx = seq_len(min(max.coef, n_total)), truncated = TRUE)
+  else if (length(sig_idx) <= max.coef)
+    list(idx = sig_idx, truncated = FALSE)
+  else
+    list(idx = sig_idx[seq_len(max.coef)], truncated = TRUE)
+}
+
+
 # --- convergence line, shared by every print / summary method ---
 
 #' @title One-line convergence report (Internal)

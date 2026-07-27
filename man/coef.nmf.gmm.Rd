@@ -17,3 +17,6 @@ The \eqn{Q\times R} coefficient matrix \eqn{C} (\eqn{=\Theta}).
 \description{
 Extract the covariate-coefficient matrix from an NMF-GMM fit
 }
+\seealso{
+\code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
+}

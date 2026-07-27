@@ -890,6 +890,10 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #'   (default \code{FALSE}). Named object-first to match the package style
 #'   (\code{C.signed}, \code{X.init}, ...). Legacy \code{show_ci} is accepted
 #'   via \code{...}.
+#' @param max.coef Largest number of coefficient rows to print (default 20).
+#'   The table has one row per (basis, covariate) pair, so it grows as
+#'   \eqn{Q\times K}; beyond the cap the significant rows are preferred and the
+#'   omission is reported.
 #' @param by Grouping order of the coefficient rows: \code{"covariate"}
 #'   (default; list all bases for each covariate) or \code{"basis"} (list all
 #'   covariates for each basis).
@@ -903,9 +907,39 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #' res <- nmfre(Y, A, rank = 1, maxit = 5000)
 #' summary(res)
 #'
-summary.nmfre <- function(object, ci.show = FALSE,
+summary.nmfre <- function(object, ci.show = FALSE, max.coef = 20,
                           by = c("covariate", "basis"), ...) {
+  ## Every other summary.* in the package builds a summary.* object that a
+  ## paired print method renders.  This one printed as a side effect and
+  ## returned the fit itself, so `s <- summary(fit)` printed unexpectedly and
+  ## `print(s)` showed the fit header instead of the summary.  Worse, once
+  ## nmfre.inference() started tagging its result "nmf.inference",
+  ## print.nmf.inference's `print(summary(x))` re-entered this function
+  ## forever.  Tagging the returned object breaks the cycle and gives the
+  ## class the same shape as its siblings.
+  .summary.nmfre.body(object, ci.show = ci.show, max.coef = max.coef,
+                      by = match.arg(by), print = FALSE)
+}
+
+#' @rdname summary.nmfre
+#' @param x An object of class \code{"summary.nmfre"}.
+#' @export
+print.summary.nmfre <- function(x, ...) {
+  .summary.nmfre.body(x$object, ci.show = x$ci.show, max.coef = x$max.coef,
+                      by = x$by, print = TRUE)
+  invisible(x)
+}
+
+## Shared body: prints when `print = TRUE`, otherwise just packages the
+## arguments so print.summary.nmfre can render later.
+.summary.nmfre.body <- function(object, ci.show = FALSE, max.coef = 20,
+                                by = c("covariate", "basis"), print = TRUE,
+                                ...) {
   by <- match.arg(by)
+  if (!isTRUE(print))
+    return(structure(list(object = object, ci.show = ci.show,
+                          max.coef = max.coef, by = by),
+                     class = "summary.nmfre"))
 
   ## legacy alias (original snake_case name)
   .extra <- list(...)
@@ -968,6 +1002,13 @@ summary.nmfre <- function(object, ci.show = FALSE,
 
     cf <- x$coefficients
     cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
+    ## Same Q x K cap the nmfkc / nmfae printers apply; this copy predates it.
+    .n.all <- nrow(cf)
+    .sh <- .coef.show.idx(cf, max.coef)
+    cf <- cf[.sh$idx, , drop = FALSE]
+    if (.sh$truncated || nrow(cf) < .n.all)
+      cat(sprintf("(showing %d of %d coefficients; use x$coefficients for all)\n",
+                  nrow(cf), .n.all))
 
     # row names: Covariate:Basis
     rnames <- paste0(cf$Covariate, ":", cf$Basis)
