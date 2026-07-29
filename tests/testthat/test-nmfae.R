@@ -143,3 +143,46 @@ test_that("nmf.rrr(maxit = 1) does not error", {
   expect_false(f$converged)
   expect_equal(f$iter, 1)
 })
+
+test_that("nmf.rrr.signed returns B1/B2 but no memberships for them", {
+  set.seed(11)
+  P1 <- 5; P2 <- 4; N <- 12; Q <- 2; R <- 3
+  Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)
+  Y1 <- matrix(runif(P1 * N) + 1, P1, N)
+  g <- suppressWarnings(nmf.rrr.signed(Y1, Y2 = Y2, rank1 = Q, rank2 = R, maxit = 100))
+
+  expect_equal(dim(g$B1), c(Q, N))
+  expect_equal(dim(g$B2), c(R, N))
+  expect_equal(g$B1, g$C %*% g$B2, tolerance = 1e-12)
+  expect_equal(g$Y1hat, g$X1 %*% g$B1, tolerance = 1e-12)
+  expect_identical(g$H, g$B1)             # deprecated alias
+  expect_true(all(g$B2 >= 0))             # X2, Y2 both non-negative
+
+  ## No .prob / .cluster for B1 or B2: C is signed, so a column-normalized
+  ## membership would not be a distribution.  The clipped B.prob stays.
+  expect_null(g$B1.prob); expect_null(g$B1.cluster)
+  expect_null(g$B2.prob); expect_null(g$B2.cluster)
+  expect_false(is.null(g$B.prob))
+})
+
+test_that("sample names survive when only Y1 is labelled", {
+  set.seed(12)
+  P1 <- 5; P2 <- 4; N <- 9; Q <- 2; R <- 3
+  Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)   # deliberately unlabelled
+  Y1 <- matrix(runif(P1 * N) + 1, P1, N)
+  rownames(Y1) <- paste0("resp", 1:P1); colnames(Y1) <- paste0("s", 1:N)
+
+  ## Everything downstream of Y2 used to inherit its names from Y2 alone, so
+  ## labelling only Y1 left B1/B2/Y1hat unnamed even though the columns are
+  ## the same N samples.
+  for (f in list(suppressWarnings(nmf.rrr(Y1, Y2 = Y2, rank1 = Q, rank2 = R, maxit = 100)),
+                 suppressWarnings(nmf.rrr.signed(Y1, Y2 = Y2, rank1 = Q, rank2 = R,
+                                                 maxit = 100)))) {
+    expect_identical(colnames(f$B1), colnames(Y1))
+    expect_identical(colnames(f$B2), colnames(Y1))
+    expect_identical(colnames(f$Y1hat), colnames(Y1))
+    expect_identical(rownames(f$Y1hat), rownames(Y1))
+    expect_identical(rownames(f$B1), colnames(f$X1))   # Resp1..Q
+    expect_identical(rownames(f$B2), rownames(f$X2))   # Cov1..R
+  }
+})

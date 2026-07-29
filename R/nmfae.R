@@ -420,7 +420,15 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   colnames(C)  <- paste0("Cov", 1:R)
   rownames(X2) <- paste0("Cov", 1:R)
 
+  ## Sample names. Everything downstream of Y2 (Y1hat, B1, B2 and the cluster
+  ## vectors) would otherwise inherit its column names from Y2 alone, so
+  ## labelling Y1 but not Y2 silently produced unnamed output even though the
+  ## columns are the same N samples. Prefer Y1, which is what Y1hat is compared
+  ## against; fall back to Y2.
+  snames <- if (!is.null(colnames(Y1))) colnames(Y1) else colnames(Y2)
+
   Y1hat <- X1 %*% C %*% X2 %*% Y2
+  colnames(Y1hat) <- snames
   objfunc <- utils::tail(objfunc.iter, 1)
 
   # R-squared, sigma, mae, and missing count
@@ -465,6 +473,7 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   # -> each SAMPLE's soft membership over the Q RESPONSE groups; argmax -> its
   # hard response-group label.
   B1 <- C %*% X2 %*% Y2
+  colnames(B1) <- snames
   ## Deprecated alias, kept because $H shipped in 0.8.8 (CRAN).  Internal code
   ## must go through .nmfae.B1() rather than read either name directly.
   H <- B1
@@ -475,6 +484,7 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   # groups -- the encoder-side counterpart of B1, which lives on the decoder
   # side.  Distinct from X2.prob below, which is per covariate VARIABLE.
   B2 <- X2 %*% Y2
+  colnames(B2) <- snames
   b2 <- soft_hard(B2)
 
   # X1: P1 x Q response basis (columns sum to 1). Row-normalize -> each

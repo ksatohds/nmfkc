@@ -124,10 +124,17 @@
 #' \item{C}{Signed bottleneck \eqn{\Theta = C_{+} - C_{-}} (Q x R).}
 #' \item{X2}{Encoder basis (R x P2), row sum 1.}
 #' \item{Y1hat}{Fitted values \eqn{X_1 (C_{+} - C_{-}) X_2 Y_2}.}
-#' \item{H}{Encoding \eqn{(C_{+} - C_{-}) X_2 Y_2} (Q x N, signed).}
+#' \item{B1}{Decoder-side scores \eqn{B_1 = (C_{+} - C_{-}) X_2 Y_2} (Q x N),
+#'   so that \eqn{\widehat Y_1 = X_1 B_1}. \strong{Signed}, since \eqn{C} is.}
+#' \item{B2}{Encoder-side scores \eqn{B_2 = X_2 Y_2} (R x N), i.e. \eqn{B_1}
+#'   before the \eqn{C} map. Non-negative.}
+#' \item{H}{\strong{Deprecated}; identical to \code{B1}. Kept so that code
+#'   written against earlier releases keeps working. Use \code{B1}.}
 #' \item{B.prob, B.cluster}{Sample-level soft/hard clustering from a
-#'   non-negative clip of the (possibly signed) encoding \eqn{H}; use with
-#'   care since \eqn{C} may be signed.}
+#'   non-negative clip of the (possibly signed) \eqn{B_1}; use with
+#'   care since \eqn{C} may be signed. There are deliberately no
+#'   \code{B1.prob} / \code{B2.prob} counterparts: a column-normalized
+#'   membership is not a distribution when the scores can be negative.}
 #' \item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
 #'   soft membership over the Q response groups. Well defined
 #'   (\eqn{X_1 \ge 0}).}
@@ -583,8 +590,20 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   rownames(X2) <- paste0(prefix.enc, seq_len(R))
 
   C <- Cp - Cn                                  # Q x R, signed
-  H <- C %*% X2 %*% Y2                          # Q x N, signed encoding
-  Y1hat <- X1 %*% H
+  ## Sample names: see the same note in nmf.rrr().  Prefer Y1, fall back to Y2.
+  snames <- if (!is.null(colnames(Y1))) colnames(Y1) else colnames(Y2)
+
+  ## Two-stage scores, matching nmf.rrr(): B1 is the decoder-side encoding
+  ## (Y1hat = X1 B1), B2 the encoder-side one (B1 before the C map).  Unlike
+  ## nmf.rrr() these carry NO .prob / .cluster: C is signed, so B1 (and hence
+  ## B2 %*% C) can be negative and a column-normalized membership would not be
+  ## a distribution.  B.prob below is a separate, explicitly clipped quantity.
+  B2 <- X2 %*% Y2                               # R x N, non-negative
+  B1 <- C %*% B2                                # Q x N, signed encoding
+  colnames(B1) <- colnames(B2) <- snames
+  H <- B1                                       # deprecated alias (see ?nmf.rrr.signed)
+  Y1hat <- X1 %*% B1
+  colnames(Y1hat) <- snames
   resid <- Y1 - Y1hat
 
   ## Goodness-of-fit statistics.  lm()-style weighted least squares:
@@ -642,6 +661,8 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     C  = C,
     X2 = X2,
     Y1hat = Y1hat,
+    B1 = B1,
+    B2 = B2,
     H = H,
     B.prob = B.prob,
     B.cluster = B.cluster,

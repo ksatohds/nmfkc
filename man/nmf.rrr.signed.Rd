@@ -107,10 +107,17 @@ An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
 \item{C}{Signed bottleneck \eqn{\Theta = C_{+} - C_{-}} (Q x R).}
 \item{X2}{Encoder basis (R x P2), row sum 1.}
 \item{Y1hat}{Fitted values \eqn{X_1 (C_{+} - C_{-}) X_2 Y_2}.}
-\item{H}{Encoding \eqn{(C_{+} - C_{-}) X_2 Y_2} (Q x N, signed).}
+\item{B1}{Decoder-side scores \eqn{B_1 = (C_{+} - C_{-}) X_2 Y_2} (Q x N),
+so that \eqn{\widehat Y_1 = X_1 B_1}. \strong{Signed}, since \eqn{C} is.}
+\item{B2}{Encoder-side scores \eqn{B_2 = X_2 Y_2} (R x N), i.e. \eqn{B_1}
+before the \eqn{C} map. Non-negative.}
+\item{H}{\strong{Deprecated}; identical to \code{B1}. Kept so that code
+written against earlier releases keeps working. Use \code{B1}.}
 \item{B.prob, B.cluster}{Sample-level soft/hard clustering from a
-non-negative clip of the (possibly signed) encoding \eqn{H}; use with
-care since \eqn{C} may be signed.}
+non-negative clip of the (possibly signed) \eqn{B_1}; use with
+care since \eqn{C} may be signed. There are deliberately no
+\code{B1.prob} / \code{B2.prob} counterparts: a column-normalized
+membership is not a distribution when the scores can be negative.}
 \item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
 soft membership over the Q response groups. Well defined
 (\eqn{X_1 \ge 0}).}
