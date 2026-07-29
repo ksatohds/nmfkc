@@ -1016,7 +1016,7 @@ summary.nmfae.signed <- function(object, ...) {
     C.range     = .range(object$C),
     X2.range    = .range(object$X2),
     C.negfrac   = .negfrac(object$C),
-    H.negfrac   = .negfrac(object$H)
+    H.negfrac   = .negfrac(.nmfae.B1(object))
   )
   class(ans) <- "summary.nmfae.signed"
   ans
@@ -1331,7 +1331,7 @@ nmf.rrr.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fa
     f <- suppressMessages(do.call(nmf.rrr.signed,
            c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
                   print.trace = FALSE), extra)))
-    c(rs = f$r.squared, er = .effective.rank(f$H))
+    c(rs = f$r.squared, er = .effective.rank(.nmfae.B1(f)))
   }
   fits <- .nmfkc.parlapply(seq_along(rank1), fit_one, cores = cores)
   rs <- vapply(fits, function(v) v[["rs"]], numeric(1))

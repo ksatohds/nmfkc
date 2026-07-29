@@ -1348,7 +1348,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @noRd
 .nmf.cluster.criteria.coef <- function(object, Y, Y2 = NULL) {
   if (base::inherits(object, "nmfkc.net")) return(base::t(object$X))
-  if (base::inherits(object, "nmfae"))     return(object$H)
+  if (base::inherits(object, "nmfae"))     return(.nmfae.B1(object))
   if (base::inherits(object, c("nmf.ffb", "nmf.sem"))) {
     if (base::is.null(Y2))
       base::stop("For nmf.ffb / nmf.sem, also pass the exogenous block via Y2=.",
@@ -1523,7 +1523,7 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #' @noRd
 .nmf.hard.labels <- function(object) {
   B <- if (base::inherits(object, "nmfkc.net")) base::t(object$X)
-       else if (base::inherits(object, "nmfae")) object$H
+       else if (base::inherits(object, "nmfae")) .nmfae.B1(object)
        else if (base::inherits(object, "nmfre")) object$B.blup
        else if (base::inherits(object, "nmfkc")) object$B
        else base::stop("nmf.cluster.flow(): unsupported model class '",

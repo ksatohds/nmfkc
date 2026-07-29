@@ -17,12 +17,28 @@ test_that("nmf.rrr() fits with EU and KL objectives", {
   expect_equal(dim(fe$Y1hat), c(P1, N))
   expect_true(all(fe$Y1hat >= 0))
 
+  ## B1 is the decoder-side score (Q x N), B2 the encoder-side one (R x N);
+  ## the old single `B` and its .prob/.cluster are gone.
+  expect_equal(dim(fe$B1), c(Q, N))
+  expect_equal(dim(fe$B2), c(R, N))
+  expect_identical(fe$H, fe$B1)                      # $H is a deprecated alias
+  expect_equal(fe$B1, fe$C %*% fe$B2, tolerance = 1e-12)
+  expect_null(fe$B); expect_null(fe$B.prob); expect_null(fe$B.cluster)
+  ## Columns of each .prob are memberships: non-negative and summing to one.
+  expect_equal(unname(colSums(fe$B1.prob)), rep(1, N), tolerance = 1e-10)
+  expect_equal(unname(colSums(fe$B2.prob)), rep(1, N), tolerance = 1e-10)
+  expect_true(all(fe$B1.prob >= 0) && all(fe$B2.prob >= 0))
+  expect_identical(fe$B1.cluster, apply(fe$B1.prob, 2, which.max))
+  expect_identical(fe$B2.cluster, apply(fe$B2.prob, 2, which.max))
+  expect_true(all(fe$B2.cluster %in% seq_len(R)))
+
   ## --- KL ---
   fk <- nmf.rrr(Y1, Y2 = Y2, rank1 = Q, rank2 = R, method = "KL", maxit = 2000)
   expect_identical(fk$method, "KL")
   expect_true(is.na(fk$sigma))                       # RMSE not defined for KL
   expect_true(all(fk$Y1hat >= 0))
-  expect_true(all(is.finite(fk$B.cluster)))
+  expect_true(all(is.finite(fk$B1.cluster)))
+  expect_true(all(is.finite(fk$B2.cluster)))
   ## objective is monotone non-increasing (MU descent property)
   oi <- fk$objfunc.iter
   if (length(oi) > 1) {

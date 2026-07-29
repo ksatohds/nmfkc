@@ -1,5 +1,22 @@
 # nmfkc 0.8.9 (development)
 
+### **Breaking: `nmf.rrr()` renames `B.prob` / `B.cluster` to `B1.prob` / `B1.cluster`**
+
+- `nmf.rrr()` now returns **two** score matrices instead of one. `B1 = C X2 Y2`
+  (Q x N) is the decoder-side score, with \eqn{\widehat Y_1 = X_1 B_1}; the new
+  `B2 = X2 Y2` (R x N) is the encoder-side score, i.e. `B1` before the `C` map.
+  Each gets column-normalized memberships and hard labels: **`B1.prob`,
+  `B1.cluster`, `B2.prob`, `B2.cluster`**.
+- **`B.prob` and `B.cluster` are gone**; they shipped in 0.8.8, so code reading
+  them must be updated to `B1.prob` / `B1.cluster`. The name `B` alone became
+  ambiguous once both scores were exposed, and keeping it as an alias would
+  reintroduce exactly the one-object-two-names problem this release removes
+  elsewhere. The undocumented `B` component added during development is also
+  removed.
+- **`H` is retained but deprecated.** It is identical to `B1`. Package-internal
+  code now reads `B1` (through an accessor that still falls back to `H`, so
+  objects saved by earlier releases keep working). Use `B1` in new code.
+
 ### **Breaking: `nmfkc()` stops computing criteria nothing consumed**
 
 - **`detail` now defaults to `"fast"`.** The only thing `"full"` adds is the

@@ -6,6 +6,28 @@
 # Depends: nmfkc
 # Suggests: DiagrammeR, DiagrammeRsvg, rsvg (for DOT graph rendering)
 
+#' @title Decoder-side scores of an nmfae-family fit (Internal)
+#' @description
+#' Returns \eqn{B_1 = C X_2 Y_2}, the Q x N scores with
+#' \eqn{\widehat Y_1 = X_1 B_1}.
+#'
+#' \code{nmf.rrr()} returns these as \code{B1}; \code{H} is retained only as a
+#' deprecated alias of the same matrix. Two other cases still need the fallback:
+#' objects saved by a release before \code{B1} existed, and
+#' \code{nmf.rrr.signed}, which inherits class \code{"nmfae"} but has not been
+#' renamed. Reading \code{$H} directly would therefore be wrong for new code and
+#' unsafe for old objects; call this instead.
+#'
+#' Note this is \emph{not} what \code{coef()} returns: \code{coef.nmf} gives the
+#' parameter matrix \eqn{C} (or the coefficients table after inference).
+#' @param object An object inheriting from class \code{"nmfae"}.
+#' @return The Q x N score matrix, or \code{NULL} if the object carries neither.
+#' @keywords internal
+#' @noRd
+.nmfae.B1 <- function(object) {
+  if (!base::is.null(object$B1)) object$B1 else object$H
+}
+
 #' @title Three-Layer Non-negative Matrix Factorization (NMF-AE)
 #' @description
 #' \code{nmfae} fits a three-layer nonnegative matrix factorization model
@@ -70,12 +92,17 @@
 #' \item{C}{Parameter matrix (Q x R).}
 #' \item{X2}{Encoder basis matrix (R x P2), row sum 1.}
 #' \item{Y1hat}{Fitted values \eqn{X_1 \Theta X_2 Y_2} (P1 x N).}
-#' \item{B}{Response scores \eqn{B = C X_2 Y_2} (Q x N), so that
-#'   \eqn{\widehat Y_1 = X_1 B}. Analogue of \code{B} in \code{\link{nmfkc}}
-#'   (\code{H} is a backward-compatible alias).}
-#' \item{B.prob}{Column-normalized \eqn{B} (Q x N): each SAMPLE's soft
-#'   membership over the Q response groups.}
-#' \item{B.cluster}{Hard label per sample (argmax over \code{B.prob} columns).}
+#' \item{B1}{Decoder-side scores \eqn{B_1 = C X_2 Y_2} (Q x N), so that
+#'   \eqn{\widehat Y_1 = X_1 B_1}. Analogue of \code{B} in \code{\link{nmfkc}}.}
+#' \item{H}{\strong{Deprecated}; identical to \code{B1}. Kept so that code
+#'   written against earlier releases keeps working. Use \code{B1}.}
+#' \item{B2}{Encoder-side scores \eqn{B_2 = X_2 Y_2} (R x N), i.e. \eqn{B_1}
+#'   before the \eqn{C} map.}
+#' \item{B1.prob, B2.prob}{Column-normalized \eqn{B_1} / \eqn{B_2}: each
+#'   SAMPLE's soft membership over the Q response groups and over the R
+#'   covariate groups respectively.}
+#' \item{B1.cluster, B2.cluster}{Hard label per sample (argmax over the columns
+#'   of the corresponding \code{.prob}).}
 #' \item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
 #'   soft membership over the Q response groups.}
 #' \item{X1.cluster}{Hard response-group label per response variable
@@ -424,14 +451,31 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   # --- Soft/hard clustering (cf. nmfkc B.prob / B.cluster) ---
   eps_bp <- 1e-16
 
-  # B: Q x N response scores  B = C X2 Y2  (nmfkc's B; Y1hat = X1 B).
-  # Column-normalize -> each SAMPLE's soft membership over the Q response
-  # groups; argmax -> its hard response-group label.
-  B <- C %*% X2 %*% Y2
-  H <- B   # backward-compatible alias (nmfae.rank etc. use $H)
-  B.prob <- t( t(B) / (colSums(B) + eps_bp) )   # column-normalized (per sample)
-  B.cluster <- apply(B.prob, 2, which.max)
-  B.cluster[colSums(B) == 0] <- NA
+  ## Column-normalize a score matrix into per-sample memberships and take the
+  ## argmax as the hard label.  Shared by B1 and B2 so the two cannot drift.
+  soft_hard <- function(M) {
+    cs <- base::colSums(M)
+    prob <- base::t( base::t(M) / (cs + eps_bp) )
+    cl <- base::apply(prob, 2, base::which.max)
+    cl[cs == 0] <- NA
+    base::list(prob = prob, cluster = cl)
+  }
+
+  # B1: Q x N response scores  B1 = C X2 Y2  (Y1hat = X1 B1).  Column-normalized
+  # -> each SAMPLE's soft membership over the Q RESPONSE groups; argmax -> its
+  # hard response-group label.
+  B1 <- C %*% X2 %*% Y2
+  ## Deprecated alias, kept because $H shipped in 0.8.8 (CRAN).  Internal code
+  ## must go through .nmfae.B1() rather than read either name directly.
+  H <- B1
+  b1 <- soft_hard(B1)
+
+  # B2: R x N covariate scores  B2 = X2 Y2, i.e. B1 before the C map.  Same
+  # normalization gives each SAMPLE's soft membership over the R COVARIATE
+  # groups -- the encoder-side counterpart of B1, which lives on the decoder
+  # side.  Distinct from X2.prob below, which is per covariate VARIABLE.
+  B2 <- X2 %*% Y2
+  b2 <- soft_hard(B2)
 
   # X1: P1 x Q response basis (columns sum to 1). Row-normalize -> each
   # RESPONSE VARIABLE's soft membership over the Q response groups
@@ -452,10 +496,13 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     C = C,
     X2 = X2,
     Y1hat = Y1hat,
-    B = B,
+    B1 = B1,
+    B2 = B2,
     H = H,
-    B.prob = B.prob,
-    B.cluster = B.cluster,
+    B1.prob = b1$prob,
+    B1.cluster = b1$cluster,
+    B2.prob = b2$prob,
+    B2.cluster = b2$cluster,
     X1.prob = X1.prob,
     X1.cluster = X1.cluster,
     X2.prob = X2.prob,
@@ -841,10 +888,11 @@ summary.nmfae <- function(object, ...) {
   ans$r.squared.centered <- object$r.squared.centered
   ans$sigma <- object$sigma
   ans$mae <- object$mae
-  ## Effective rank of the latent encoding H (Q x N).
-  ans$effective.rank <- if (!is.null(object$H)) .effective.rank(object$H) else NA_real_
+  ## Effective rank of the decoder-side scores B1 (Q x N).
+  B1 <- .nmfae.B1(object)
+  ans$effective.rank <- if (!is.null(B1)) .effective.rank(B1) else NA_real_
   ans$rank <- if (!is.null(object$rank)) object$rank[1] else
-              if (!is.null(object$H)) nrow(object$H) else NA
+              if (!is.null(B1)) nrow(B1) else NA
 
   # Missing values
   ans$n.missing <- object$n.missing
@@ -1520,7 +1568,7 @@ nmf.rrr.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
   fit_one <- function(i) {
     f <- suppressMessages(do.call(nmf.rrr, c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
                                                 print.trace = FALSE), extra)))
-    c(rs = f$r.squared, er = .effective.rank(f$H))
+    c(rs = f$r.squared, er = .effective.rank(.nmfae.B1(f)))
   }
   fits <- .nmfkc.parlapply(seq_along(rank1), fit_one, cores = cores)
   rs <- vapply(fits, function(v) v[["rs"]], numeric(1))
