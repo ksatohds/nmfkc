@@ -147,7 +147,7 @@
 #' shared \code{"nmf"} class, so it covers every optimizer that returns one
 #' (\code{\link{nmfkc}}, \code{\link{nmfae}} / \code{nmf.rrr},
 #' \code{\link{nmfre}}, \code{\link{nmf.ffb}} and the signed variants);
-#' \code{nmf.gmm} and \code{nmf.cox} have their own methods.
+#' \code{nmf.gmm} has its own methods.
 #'
 #' Without it, printing a fit dumps the whole list --- over 350 lines for a
 #' \eqn{4\times82} problem, and unusable for a large one.

@@ -3491,7 +3491,7 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
     ## from each fold's own training data (measured: the initializations differ
     ## more across folds than they do between two different seeds on the same
     ## data).  If a fold-specific stream is ever wanted, derive the seeds
-    ## explicitly (as nmf.cox.cv does) rather than relying on NULL.
+    ## explicitly rather than relying on NULL.
     ## The fold's own arguments must come FIRST: nmfkc() reads its options with
     ## `extra_args$name`, and `$` returns the first match, so splicing `...`
     ## ahead of them let a caller's argument win.  In particular

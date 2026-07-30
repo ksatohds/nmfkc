@@ -130,9 +130,9 @@ res   <- .nmfkc.parlapply(tasks, run_one, cores = cores)
 
 PSOCK gotchas that cost time here: worker closures need the caller's frame
 `clusterExport`ed (lazy promises are forced that way), workers do not inherit
-the attached search path (pass `packages = c("nmfkc", "survival")` when a
-formula needs `Surv()`), and a binding that errors when forced must be skipped
-rather than exported.
+the attached search path (pass every package whose exported symbols a worker
+closure or its formulas reference, via `packages =`), and a binding that errors
+when forced must be skipped rather than exported.
 
 `nmfkc.cv`'s fold loop is *not* currently parallelized, but not for RNG reasons
 — see §2; it simply has not been done.

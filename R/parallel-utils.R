@@ -1,9 +1,8 @@
 # =====================================================================
 #  Internal cross-platform parallel lapply
 #
-#  Used by the multi-fit wrappers (nmf.gmm.select K-sweep,
-#  nmf.cox.cv / nmf.cox.cf fold x grid, ...) to evaluate independent,
-#  self-seeded fits concurrently.
+#  Used by the multi-fit wrappers (nmf.gmm.select K-sweep, nmfkc.cv folds,
+#  rank sweeps, ...) to evaluate independent, self-seeded fits concurrently.
 #
 #  Results are IDENTICAL to lapply(): parLapply() and mclapply() both
 #  return their results in INPUT order (not completion order), and each
@@ -83,9 +82,9 @@
     on.exit(parallel::stopCluster(cl), add = TRUE)
     ## Attach the required packages in each PSOCK worker. A forked worker
     ## (non-Windows) inherits the parent's attached search path, but a fresh
-    ## PSOCK worker does not, so e.g. formula terms like survival::Surv() would
-    ## otherwise be unresolvable. Callers pass every package whose exported
-    ## symbols the worker closures (or their formulas) reference.
+    ## PSOCK worker does not, so a symbol reached only through a formula term
+    ## would otherwise be unresolvable. Callers pass every package whose
+    ## exported symbols the worker closures (or their formulas) reference.
     parallel::clusterCall(cl, function(pkgs)
       for (p in pkgs) suppressMessages(library(p, character.only = TRUE)), packages)
     ## Export the caller's locals so the worker closures resolve their free

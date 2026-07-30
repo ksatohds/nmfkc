@@ -31,8 +31,7 @@ Imports:
     stats,
     graphics,
     utils,
-    grDevices,
-    survival
+    grDevices
 Encoding: UTF-8
 Language: en-US
 Roxygen: list(markdown = TRUE)
