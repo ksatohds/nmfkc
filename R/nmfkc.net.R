@@ -269,9 +269,10 @@ print.summary.nmfkc.net.inference <- function(x,
 #'       data-dependent and can be well above \eqn{1/Q}.  Inspect
 #'       \code{apply(fit$X.prob, 1, max)} to see where that is.
 #'   }
-#'   The default \code{0.01} therefore draws every node and most edges.  For a
-#'   readable community graph, 0.2--0.4 usually thins the edges enough while
-#'   keeping all nodes.
+#'   The default \code{0.01} therefore draws every node --- guaranteed for any
+#'   \eqn{Q \le 100}, since only then is \eqn{0.01 \le 1/Q} --- and most edges.
+#'   For a readable community graph, 0.2--0.4 usually thins the edges enough
+#'   while keeping all nodes.
 #' @param sig.level Significance level for filtering C edges (if inference
 #'   results are present). Set to \code{NULL} to show all edges above threshold.
 #' @param weight_scale Base scaling factor for edge widths.
@@ -283,8 +284,8 @@ print.summary.nmfkc.net.inference <- function(x,
 #'   above \code{threshold}.  The test is on the membership scale
 #'   (\code{X.prob}), the same quantity the X edges are drawn from, so it does
 #'   not shift with \code{type} or \code{X.restriction}.  See \code{threshold}
-#'   for when this actually removes anything --- with the default it never
-#'   does, which is correct rather than a limitation.
+#'   for when this actually removes anything --- at the default it never does
+#'   for any \eqn{Q \le 100}, which is correct rather than a limitation.
 #' @param Y.label Character vector of labels for outer nodes.
 #' @param X.label Character vector of labels for basis nodes.
 #' @param Y.title Cluster title for outer nodes.
