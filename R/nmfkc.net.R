@@ -112,6 +112,12 @@ summary.nmfkc.net.inference <- function(object, ...) {
   ans$coefficients <- object$coefficients
   ans$C.p.side     <- object$C.p.side
   ans$C            <- object$C
+  ## nmfkc.net() records the variant in $type.  Legacy objects came from
+  ## nmfkc(Y.symmetric = "bi"/"tri"), where it survives only in the call --
+  ## and `Y.symmetric` was removed from nmfkc() in 0.9.x, so nothing produces
+  ## it any more.  Carry $type first and keep the call lookup as the fallback,
+  ## or the printer has nothing to report and says "unknown".
+  ans$type         <- object$type
   ans$Y.symmetric  <- tryCatch(eval(object$call$Y.symmetric),
                                error = function(e) NULL)
   class(ans) <- "summary.nmfkc.net.inference"
@@ -148,8 +154,10 @@ print.summary.nmfkc.net.inference <- function(x,
   # Print base summary
   print.summary.nmfkc(x, digits = digits, ...)
 
-  # Model type
-  sym_type <- if (!is.null(x$Y.symmetric)) x$Y.symmetric else "unknown"
+  # Model type: $type for nmfkc.net objects, the old call argument for legacy ones
+  sym_type <- if (!is.null(x$type)) x$type
+              else if (!is.null(x$Y.symmetric)) x$Y.symmetric
+              else "unknown"
   cat(sprintf("Symmetric NMF type: %s\n", sym_type))
 
   # Inference section

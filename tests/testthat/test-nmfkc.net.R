@@ -227,3 +227,18 @@ test_that("nmfkc.net.DOT hides nodes on the membership scale, not the raw X scal
     expect_identical(length(kept), nrow(fit$X.prob))
   }
 })
+
+test_that("summary of nmfkc.net.inference reports the model type, not 'unknown'", {
+  Y <- make_test_network()
+  ## $Y.symmetric is the pre-0.9.x name and was removed from nmfkc(); the
+  ## variant now lives in $type.  The summary has to carry it across, or the
+  ## printer falls through to "unknown" for every nmfkc.net object.
+  for (ty in c("tri", "bi", "signed")) {
+    fit <- nmfkc.net(Y, rank = 2, type = ty, nstart = 3, maxit = 100)
+    inf <- nmfkc.net.inference(fit, Y)
+    expect_identical(summary(inf)$type, ty)
+    out <- capture.output(print(inf))
+    expect_true(any(out == paste0("Symmetric NMF type: ", ty)))
+    expect_false(any(grepl("Symmetric NMF type: unknown", out, fixed = TRUE)))
+  }
+})
