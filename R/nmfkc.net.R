@@ -255,7 +255,23 @@ print.summary.nmfkc.net.inference <- function(x,
 #'   \code{\link{nmfkc.net}} with \code{type = "bi"} or \code{"tri"}.
 #'   If inference results are present (from \code{\link{nmfkc.net.inference}}),
 #'   C edges are decorated with significance stars.
-#' @param threshold Minimum coefficient value to display an edge.
+#' @param threshold Minimum coefficient value to display an edge.  It is read
+#'   on the membership scale for X edges (\code{X.prob}, rows summing to one)
+#'   and on \eqn{C} for the basis-to-basis edges, and it does two jobs at once,
+#'   switching over at \eqn{1/Q}:
+#'   \itemize{
+#'     \item \strong{At or below \eqn{1/Q}} it only thins edges.  No node can
+#'       be hidden, because a row of \code{X.prob} sums to one and so has a
+#'       maximum of at least \eqn{1/Q}; every node genuinely keeps an edge.
+#'     \item \strong{Above \eqn{1/Q}} it may also start hiding nodes (when
+#'       \code{hide.isolated = TRUE}).  Not immediately: nodes go only once the
+#'       threshold passes the smallest row maximum of \code{X.prob}, which is
+#'       data-dependent and can be well above \eqn{1/Q}.  Inspect
+#'       \code{apply(fit$X.prob, 1, max)} to see where that is.
+#'   }
+#'   The default \code{0.01} therefore draws every node and most edges.  For a
+#'   readable community graph, 0.2--0.4 usually thins the edges enough while
+#'   keeping all nodes.
 #' @param sig.level Significance level for filtering C edges (if inference
 #'   results are present). Set to \code{NULL} to show all edges above threshold.
 #' @param weight_scale Base scaling factor for edge widths.
@@ -264,14 +280,11 @@ print.summary.nmfkc.net.inference <- function(x,
 #' @param rankdir Graphviz rank direction (\code{"TB"} or \code{"LR"}).
 #' @param fill Logical; whether nodes are filled with color.
 #' @param hide.isolated Logical; if TRUE, omit outer nodes with no X edge
-#'   above \code{threshold}.  The test is on the membership scale (each row of
-#'   \code{X.prob} sums to one), the same quantity the X edges are drawn from,
-#'   so it does not shift with \code{type} or \code{X.restriction}.  One
-#'   consequence: a row maximum is always at least \eqn{1/Q}, so nothing is
-#'   hidden unless \code{threshold} exceeds \eqn{1/Q} --- which is the intended
-#'   reading, since below that every node genuinely has an edge.  To thin a
-#'   crowded graph, raise \code{threshold} past \eqn{1/Q} and only nodes with no
-#'   clear community remain hidden.
+#'   above \code{threshold}.  The test is on the membership scale
+#'   (\code{X.prob}), the same quantity the X edges are drawn from, so it does
+#'   not shift with \code{type} or \code{X.restriction}.  See \code{threshold}
+#'   for when this actually removes anything --- with the default it never
+#'   does, which is correct rather than a limitation.
 #' @param Y.label Character vector of labels for outer nodes.
 #' @param X.label Character vector of labels for basis nodes.
 #' @param Y.title Cluster title for outer nodes.
