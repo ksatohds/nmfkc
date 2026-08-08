@@ -49,7 +49,14 @@ results are present). Set to \code{NULL} to show all edges above threshold.}
 \item{fill}{Logical; whether nodes are filled with color.}
 
 \item{hide.isolated}{Logical; if TRUE, omit outer nodes with no X edge
-above threshold.}
+above \code{threshold}.  The test is on the membership scale (each row of
+\code{X.prob} sums to one), the same quantity the X edges are drawn from,
+so it does not shift with \code{type} or \code{X.restriction}.  One
+consequence: a row maximum is always at least \eqn{1/Q}, so nothing is
+hidden unless \code{threshold} exceeds \eqn{1/Q} --- which is the intended
+reading, since below that every node genuinely has an edge.  To thin a
+crowded graph, raise \code{threshold} past \eqn{1/Q} and only nodes with no
+clear community remain hidden.}
 
 \item{Y.label}{Character vector of labels for outer nodes.}
 

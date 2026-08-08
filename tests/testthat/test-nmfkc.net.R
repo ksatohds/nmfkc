@@ -194,3 +194,36 @@ test_that("X.L2.ortho reaches the signed path", {
   ## it was simply not forwarded, so the option was a silent no-op
   expect_false(isTRUE(all.equal(a$X, b$X, tolerance = 1e-10)))
 })
+
+test_that("nmfkc.net.DOT hides nodes on the membership scale, not the raw X scale", {
+  Y <- make_test_network()
+  Q <- 2
+  count_nodes <- function(dot)
+    sum(grepl("^[[:space:]]+Y_[0-9]+ [[]",
+              strsplit(as.character(dot), "\n", fixed = TRUE)[[1]]))
+
+  ## The raw basis X carries the scale of X.restriction, which differs by type
+  ## ("none" for bi, "colSums" for tri), so a threshold applied to it meant
+  ## different things per type -- for tri it could hide every node at once.
+  ## The filter is documented as "no X edge above threshold", and the X edges
+  ## are drawn from X.prob, so X.prob is what must be tested.
+  for (ty in c("tri", "bi")) {
+    fit <- nmfkc.net(Y, rank = Q, type = ty, nstart = 3, maxit = 100)
+
+    ## Row sums of X.prob are one, so a row maximum is at least 1/Q and
+    ## nothing can be hidden below that -- correctly, since every node then
+    ## does have an edge.
+    expect_equal(unname(rowSums(fit$X.prob)), rep(1, nrow(fit$X.prob)),
+                 tolerance = 1e-8)
+    th <- 1 / Q - 1e-6
+    expect_identical(count_nodes(nmfkc.net.DOT(fit, threshold = th,
+                                               hide.isolated = TRUE)),
+                     count_nodes(nmfkc.net.DOT(fit, threshold = th,
+                                               hide.isolated = FALSE)))
+
+    ## Every displayed node has at least one X edge: the filter and the edge
+    ## loop now read the same matrix.
+    kept <- which(apply(fit$X.prob, 1L, function(r) any(r >= th)))
+    expect_identical(length(kept), nrow(fit$X.prob))
+  }
+})

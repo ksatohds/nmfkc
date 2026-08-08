@@ -264,7 +264,14 @@ print.summary.nmfkc.net.inference <- function(x,
 #' @param rankdir Graphviz rank direction (\code{"TB"} or \code{"LR"}).
 #' @param fill Logical; whether nodes are filled with color.
 #' @param hide.isolated Logical; if TRUE, omit outer nodes with no X edge
-#'   above threshold.
+#'   above \code{threshold}.  The test is on the membership scale (each row of
+#'   \code{X.prob} sums to one), the same quantity the X edges are drawn from,
+#'   so it does not shift with \code{type} or \code{X.restriction}.  One
+#'   consequence: a row maximum is always at least \eqn{1/Q}, so nothing is
+#'   hidden unless \code{threshold} exceeds \eqn{1/Q} --- which is the intended
+#'   reading, since below that every node genuinely has an edge.  To thin a
+#'   crowded graph, raise \code{threshold} past \eqn{1/Q} and only nodes with no
+#'   clear community remain hidden.
 #' @param Y.label Character vector of labels for outer nodes.
 #' @param X.label Character vector of labels for basis nodes.
 #' @param Y.title Cluster title for outer nodes.
@@ -406,15 +413,6 @@ nmfkc.net.DOT <- function(
   X_ids <- .nmfkc_dot_sanitize_id(paste0("X_", seq_len(Q)))
 
   ## ---------------------------------------------------------
-  ## Filter isolated outer nodes
-  ## ---------------------------------------------------------
-  idx_N <- seq_len(P)
-  if (isTRUE(hide.isolated)) {
-    used <- apply(X, 1L, function(row) any(row >= threshold, na.rm = TRUE))
-    idx_N <- which(used)
-  }
-
-  ## ---------------------------------------------------------
   ## Membership probability: H (P x Q, each row sums to 1)
   ## New nmfkc.net objects carry $X.prob; legacy nmfkc(Y.symmetric=...)
   ## objects carry $B.prob (Q x P) which we transpose.
@@ -429,6 +427,25 @@ nmfkc.net.DOT <- function(
     H <- t(sweep(B_raw, 2, cs, "/"))
   } else {
     stop("result must contain X.prob, B.prob, or B.")
+  }
+
+  ## ---------------------------------------------------------
+  ## Filter isolated outer nodes.
+  ##
+  ## Judged on H, the same matrix the X edges below are drawn from, so that a
+  ## displayed node always has at least one edge and vice versa.  Judging on
+  ## the raw X instead -- as this did until 2026-08-02 -- made `threshold` mean
+  ## different things for different `type`s, because X's scale follows
+  ## X.restriction: "none" for type="bi" leaves row maxima near 1, while
+  ## "colSums" for type="tri" puts them near 1/P.  At P = 60 every node then
+  ## fell below a threshold of 0.25 and the whole outer layer vanished, leaving
+  ## only the basis-to-basis C edges.  H is row-normalised, hence comparable
+  ## across types, and matches what @param hide.isolated has always promised.
+  ## ---------------------------------------------------------
+  idx_N <- seq_len(P)
+  if (isTRUE(hide.isolated)) {
+    used <- apply(H, 1L, function(row) any(row >= threshold, na.rm = TRUE))
+    idx_N <- which(used)
   }
 
   ## ---------------------------------------------------------
