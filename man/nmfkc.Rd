@@ -87,10 +87,17 @@ to \code{nmfkc()} now stops with a message pointing to
 \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 \item \code{print.dims}: Deprecated. Use \code{verbose} instead.
 \item \code{detail}: Level of post-fit criterion computation.
-\code{"full"} computes all criteria including silhouette, CPCC, dist.cor;
-\code{"fast"} skips expensive distance-based criteria;
-\code{"minimal"} returns only information criteria.
-Default is \code{"full"}. For backward compatibility,
+\code{"fast"} (\strong{default}) computes everything except the
+\eqn{O(N^2)} sample-clustering criteria;
+\code{"full"} adds \code{silhouette}, \code{CPCC} and
+\code{dist.cor}, which need two \eqn{N\times N} distance matrices and
+a cophenetic correlation --- at \eqn{N=2000} that was 26 times the
+cost of the rest of the call;
+\code{"minimal"} returns only information criteria and skips
+\eqn{XB}.
+The default changed from \code{"full"} in 0.8.9: nothing consumed
+those three (see the \code{criterion} entry under Value), so every
+call was paying for them.  For backward compatibility,
 \code{save.time = TRUE} maps to \code{"fast"} and
 \code{save.memory = TRUE} maps to \code{"minimal"}.
 }}
@@ -108,6 +115,9 @@ A list with components:
 \item{B.cluster}{Hard-clustering labels (argmax over \eqn{B.prob} for each column).}
 \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
 \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
+\item{X.restriction}{The constraint that was applied to the columns of
+\eqn{X}.  It decides how much of the \eqn{(X,C)\to(XT,T^{-1}C)} freedom is
+pinned down, which inference on the latent parameters needs to know.}
 \item{A.attr}{List of attributes of the input covariate matrix \code{A}, containing metadata like lag order and intercept status if created by \code{nmfkc.ar} or \code{nmfkc.kernel}.}
 \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 \item{objfunc}{Final objective value.}
@@ -121,7 +131,36 @@ A list with components:
 \item{rank}{The rank \eqn{Q} used in the factorization.}
 \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-\item{criterion}{A list of selection criteria: \code{silhouette} (mean silhouette width of the hard clustering, computed in the original data space \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic correlation of a hierarchical clustering of the coefficient distances \code{dist(t(B))}), \code{dist.cor} (correlation between original-data and coefficient distances), \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{effective.rank}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
+\item{criterion}{A list with \code{effective.rank} and
+\code{effective.rank.index}.
+
+\code{effective.rank.index} is \code{effective.rank} rescaled onto
+\eqn{[0,1]} by the broken-stick correction
+\eqn{(\hat r_Q-E_Q)/(Q-E_Q)} with \eqn{E_Q=\exp(H_Q-1)}, the effective
+rank a random split of the variance would produce; it is the quantity
+\code{\link{nmfkc.rank}} plots, and \code{summary} prints it in place of
+the crispness.  Read it as \strong{how evenly the across-sample
+coefficient variance is shared}, which is not the same as how useful the
+factors are: a factor whose coefficient is large but constant carries no
+variance and pulls the index down (correctly --- the raw value can go
+negative and is clamped at 0, meaning the variance is spread over fewer
+factors than chance would give), while two duplicated factors split the
+variance evenly and score near 1.  \code{NA} at \eqn{Q=1}, where
+\eqn{E_1=Q}.
+
+With \code{detail = "full"} the list additionally carries the
+\strong{sample-clustering} criteria \code{silhouette} (mean silhouette
+width of the hard clustering, computed in the original data space
+\code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic
+correlation of a hierarchical clustering of the coefficient distances
+\code{dist(t(B))}) and \code{dist.cor} (correlation between original-data
+and coefficient distances).  They are \strong{absent by default} because
+they cost \eqn{O(N^2)} and nothing consumes them: they are no longer part
+of rank selection, \code{\link{summary.nmfkc}} does not print them, and
+\code{\link{nmf.cluster.criteria}} --- the right entry point when several
+ranks are to be compared --- recomputes them from the fits it is given.
+
+\code{effective.rank} is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
 }
 \description{
 \code{nmfkc} fits a nonnegative matrix factorization with kernel covariates
@@ -182,5 +221,9 @@ effective dimensionality. In \emph{15th European Signal Processing
 Conference (EUSIPCO)} (pp. 606--610).
 }
 \seealso{
-\code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
+\code{\link{nmfkc.inference}} (standard errors and p-values for
+\eqn{C}), \code{\link{summary.nmfkc}}, \code{\link{plot.nmfkc}},
+\code{\link{nmfkc.cv}}, \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.rank}},
+\code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}},
+\code{\link{nmfkc.DOT}}, \code{\link{predict.nmfkc}}
 }

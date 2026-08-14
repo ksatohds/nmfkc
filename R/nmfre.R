@@ -30,8 +30,8 @@
 #' @keywords internal
 #' @noRd
 .nmfre.seminmf.X <- function(X, Y, B, S = NULL, pen.num = 0, pen.den = 0, eps = 1e-10) {
-  YBt <- Y %*% t(B)
-  G   <- B %*% t(B)
+  YBt <- tcrossprod(Y, B)
+  G   <- B %*% t(B)   # keep the gemm form: one-arg tcrossprod (dsyrk) is not bitwise-identical
   if (!is.null(S)) G <- G + S
   pos <- function(M) pmax(M, 0)
   neg <- function(M) pmax(-M, 0)
@@ -59,17 +59,19 @@
 #' \eqn{R = Y - X\Theta A}, \eqn{\lambda = \sigma^2/\tau^2}.
 #' @keywords internal
 #' @noRd
-.nmfre.marginal.nll <- function(Y, X, C, A, sigma2, tau2, eps = 1e-12) {
+.nmfre.marginal.nll <- function(Y, X, C, A, sigma2, tau2, eps = 1e-12, CA = NULL) {
   P <- nrow(Y); N <- ncol(Y); Q <- ncol(X)
   s2 <- max(sigma2, eps); t2 <- max(tau2, eps)
   lambda <- s2 / t2
-  Rm   <- Y - X %*% (C %*% A)                       # P x N fixed-effects residual
+  if (is.null(CA)) CA <- C %*% A                    # caller may pass C %*% A
+  Rm   <- Y - X %*% CA                              # P x N fixed-effects residual
   XtRm <- crossprod(X, Rm)                          # Q x N
-  Mll  <- crossprod(X) + diag(pmax(lambda, 1e-12), Q)
+  XtX  <- crossprod(X)                              # Q x Q (computed once)
+  Mll  <- XtX + diag(pmax(lambda, 1e-12), Q)
   quad <- tryCatch((sum(Rm^2) - sum(XtRm * solve(Mll, XtRm))) / s2,
                    error = function(e) NA_real_)
   logdetQ <- tryCatch(
-    as.numeric(determinant(diag(Q) + (t2 / s2) * crossprod(X), logarithm = TRUE)$modulus),
+    as.numeric(determinant(diag(Q) + (t2 / s2) * XtX, logarithm = TRUE)$modulus),
     error = function(e) NA_real_)
   if (!is.finite(quad) || !is.finite(logdetQ)) return(NA_real_)
   0.5 * (N * (P * log(2 * pi) + P * log(s2) + logdetQ) + quad)
@@ -350,7 +352,7 @@
 #'
 nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
                   epsilon = 1e-5, maxit = 5000, ...) {
-
+  cl <- base::match.call()
   extra_args <- base::list(...)
   # backward compatibility
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
@@ -422,6 +424,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   # optimization extras
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
   seed        <- if (!is.null(extra_args$seed)) extra_args$seed else 1
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
 
   ## NOTE: nmfre() performs optimization only. Hypothesis tests / standard errors
   ## for Theta (= C) are obtained separately via nmfre.inference(), mirroring the
@@ -481,7 +486,12 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   epsilon.outer <- if (!is.null(extra_args$epsilon.outer)) extra_args$epsilon.outer else 1e-6
 
   # ---- normalize X columns to sum 1 (rescale C AND U) ----
-  normed <- .nmfre.normalize.X(pmax(X, .eps), pmax(C_mat, .eps), U)
+  ## Clip C to +eps only in nonneg mode: under C.signed = TRUE a warm-start
+  ## C.init may legitimately carry negative entries (e.g. full-refit
+  ## bootstrap), and clipping here would destroy their sign at every refit.
+  ## This mirrors the in-loop rule `if (C.mode == "nonneg") pmax(...)`.
+  C0 <- if (C.mode == "nonneg") pmax(C_mat, .eps) else C_mat
+  normed <- .nmfre.normalize.X(pmax(X, .eps), C0, U)
   X <- normed$X
   C_mat <- normed$C
   U <- normed$U
@@ -541,7 +551,23 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     v
   }
 
+  ## ---- loop-invariant precomputations (A and Y never change in the ECM) ----
+  tA <- t(A)                          # N x K, reused in every C-step
+  if (C.mode == "signed") {
+    if (C.L2 > 0) {
+      ea  <- eigen(tcrossprod(A), symmetric = TRUE)   # eigenbasis of AA' (invariant)
+      tea <- t(ea$vectors)
+    } else {
+      AAt_t <- tcrossprod(A) + diag(1e-10, K)
+    }
+  } else {
+    Y_tilde <- pmax(Y, 0)             # nonneg-path stabilized Y (invariant)
+    AAt_mm  <- A %*% t(A)             # keep the gemm form (one-arg tcrossprod/dsyrk is not bitwise-identical)
+  }
+
+  outer_done <- 0L
   for (outer in 1:outer.maxit) {
+    outer_done <- outer
 
     tau2   <- clip_val(tau2,   tau2.min,   tau2.max)
     sigma2 <- clip_val(sigma2, sigma2.min, sigma2.max)
@@ -564,11 +590,15 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
       cholM <- tryCatch(chol(M), error = function(e) NULL)
       if (is.null(cholM)) stop("Cholesky failed: XtX + lambda I not SPD. Increase lambda (or decrease tau2).")
       R0 <- Y - X %*% CA
-      for (n in 1:N) {
-        rhs <- crossprod(X, R0[, n, drop = FALSE])
-        U[, n] <- as.numeric(backsolve(cholM, forwardsolve(t(cholM), rhs)))
-      }
-      U <- sweep(U, 1, rowMeans(U), "-")          # center for identifiability
+      tcholM <- t(cholM)                          # hoist transpose out of the loop
+      RHS <- matrix(0, Q, N)                      # per-column crossprod keeps the exact FP ops
+      for (n in 1:N) RHS[, n] <- crossprod(X, R0[, n, drop = FALSE])
+      U[] <- backsolve(cholM, forwardsolve(tcholM, RHS))  # batched column-independent triangular solves
+      ## NOTE: do NOT row-center U here. The (U, Theta) indeterminacy is
+      ## U -> U + Delta A, Theta -> Theta - Delta, so the identification
+      ## condition is U A' = 0, not U 1 = 0. The alternating fixed point
+      ## satisfies U A' = 0 automatically; imposing row-centering on top
+      ## breaks it whenever 1' is not in rowspace(A).
 
       # (2) X-step: X >= 0 with sign-free score matrix B = CA + U
       B_sem <- CA + U
@@ -580,8 +610,8 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
         X <- .nmfre.seminmf.X(X, Y, B_sem, S = S_pv,
                               pen.num = xp$num, pen.den = xp$den, eps = .eps)
       } else {
-        Y_tilde <- pmax(Y, 0); B_pos <- pmax(B_sem, 0)
-        numX <- Y_tilde %*% t(B_pos) + xp$num
+        B_pos <- pmax(B_sem, 0)       # Y_tilde hoisted above the outer loop
+        numX <- tcrossprod(Y_tilde, B_pos) + xp$num
         denX <- X %*% (B_pos %*% t(B_pos)) + xp$den
         X <- X * .nmfre.safe.div(numX, denX, eps = .eps)
       }
@@ -599,24 +629,25 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
         ##   (X'X) C (A A') + C.L2 * C = X'(Y - X U) A',
         ## solved in closed form via the eigenbases of X'X and A A'.
         Y_star <- Y - X %*% U
-        rhs    <- crossprod(X, Y_star) %*% t(A)
+        rhs    <- crossprod(X, Y_star) %*% tA
         if (C.L2 > 0) {
+          ## ea / tea (eigen of AA') hoisted above the outer loop (A invariant)
           ex <- eigen(crossprod(X),  symmetric = TRUE)
-          ea <- eigen(tcrossprod(A), symmetric = TRUE)
           Mt <- crossprod(ex$vectors, rhs) %*% ea$vectors
           Z  <- Mt / (outer(ex$values, ea$values) + C.L2)
-          C_mat <- ex$vectors %*% Z %*% t(ea$vectors)
+          C_mat <- ex$vectors %*% Z %*% tea
         } else {
-          XtX_t <- crossprod(X)  + diag(1e-10, Q)
-          AAt_t <- tcrossprod(A) + diag(1e-10, K)
+          ## AAt_t hoisted above the outer loop (A invariant)
+          XtX_t <- crossprod(X) + diag(1e-10, Q)
           C_mat <- solve(XtX_t, rhs)
           C_mat <- t(solve(AAt_t, t(C_mat)))
         }
       } else {
         ## non-negative MU (Ding 2006), positive-part stabilization
-        Y_tilde <- pmax(Y, 0); Y_star <- Y_tilde - X %*% U; Y_star_pos <- pmax(Y_star, 0)
-        numC <- crossprod(X, Y_star_pos) %*% t(A)
-        denC <- (crossprod(X, X) %*% C_mat) %*% (A %*% t(A))
+        ## (Y_tilde, tA, AAt_mm hoisted above the outer loop; Y and A invariant)
+        Y_star <- Y_tilde - X %*% U; Y_star_pos <- pmax(Y_star, 0)
+        numC <- crossprod(X, Y_star_pos) %*% tA
+        denC <- (crossprod(X, X) %*% C_mat) %*% AAt_mm
         if (C.L2 > 0) denC <- denC + C.L2 * C_mat
         C_mat <- C_mat * .nmfre.safe.div(numC, denC, eps = .eps)
         C_mat <- pmax(C_mat, .eps)
@@ -631,7 +662,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
         obj_trace[total_iter] <- obj
         rss_trace[total_iter] <- sum(R^2)
         ## marginal NLL (U integrated out): the ECM-monotone diagnostic
-        nll_trace[total_iter] <- .nmfre.marginal.nll(Y, X, C_mat, A, sigma2, tau2)
+        nll_trace[total_iter] <- .nmfre.marginal.nll(Y, X, C_mat, A, sigma2, tau2, CA = CA)
       }
 
       if (!is.finite(obj)) { stop_reason <- "nonfinite_obj"; converged <- FALSE; break }
@@ -680,7 +711,18 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   obj_final <- obj
   rel_change_final <- rel_change
 
-  if (iter_done < maxit && identical(stop_reason, "maxit")) {
+  ## The outer ECM loop running to its own cap is a real stopping reason, not an
+  ## unknown one.  stop_reason starts at "maxit", and if the outer loop finishes
+  ## without any break firing it is still "maxit" while total_iter < maxit --
+  ## which is what used to be relabelled "unknown_break".  Name it: this is the
+  ## only path that reached that branch (verified -- the reported iteration
+  ## count tracks outer.maxit exactly: 50 -> 793, 200 -> 1093, 1000 -> 2693).
+  if (identical(stop_reason, "maxit") && outer_done >= outer.maxit &&
+      iter_done < maxit) {
+    stop_reason <- "outer_maxit"
+    converged <- FALSE
+  } else if (iter_done < maxit && identical(stop_reason, "maxit")) {
+    ## Kept as a genuine catch-all; no known path leads here.
     stop_reason <- "unknown_break"
     converged <- FALSE
   }
@@ -768,10 +810,26 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     tau2 = tau2,
     lambda = sigma2 / tau2,
 
+    ## Header for print.nmf(), matching the other fitters.
+    call = cl,
+    dims = if (base::is.null(A))
+             base::sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
+                           base::nrow(Y), base::ncol(Y), base::nrow(X), Q,
+                           Q, base::ncol(Y))
+           else base::sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)",
+                              base::nrow(Y), base::ncol(Y), base::nrow(X), Q,
+                              Q, base::nrow(A), base::nrow(A), base::ncol(A)),
+
     # convergence diagnostics
     converged = converged,
     stop.reason = stop_reason,
     iter = iter_done,
+    ## The outer ECM loop has its own cap, and hitting it is the commonest
+    ## reason a run stops short of `maxit`.  Without these two the stop reason
+    ## could not be told apart from the inner loop's, which is how the
+    ## "unknown_break" label came about.
+    outer.iter = outer_done,
+    outer.maxit = outer.maxit,
     maxit = maxit,
     epsilon = epsilon,
     objfunc = obj_final,
@@ -832,6 +890,10 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #'   (default \code{FALSE}). Named object-first to match the package style
 #'   (\code{C.signed}, \code{X.init}, ...). Legacy \code{show_ci} is accepted
 #'   via \code{...}.
+#' @param max.coef Largest number of coefficient rows to print (default 20).
+#'   The table has one row per (basis, covariate) pair, so it grows as
+#'   \eqn{Q\times K}; beyond the cap the significant rows are preferred and the
+#'   omission is reported.
 #' @param by Grouping order of the coefficient rows: \code{"covariate"}
 #'   (default; list all bases for each covariate) or \code{"basis"} (list all
 #'   covariates for each basis).
@@ -845,9 +907,39 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 #' res <- nmfre(Y, A, rank = 1, maxit = 5000)
 #' summary(res)
 #'
-summary.nmfre <- function(object, ci.show = FALSE,
+summary.nmfre <- function(object, ci.show = FALSE, max.coef = 20,
                           by = c("covariate", "basis"), ...) {
+  ## Every other summary.* in the package builds a summary.* object that a
+  ## paired print method renders.  This one printed as a side effect and
+  ## returned the fit itself, so `s <- summary(fit)` printed unexpectedly and
+  ## `print(s)` showed the fit header instead of the summary.  Worse, once
+  ## nmfre.inference() started tagging its result "nmf.inference",
+  ## print.nmf.inference's `print(summary(x))` re-entered this function
+  ## forever.  Tagging the returned object breaks the cycle and gives the
+  ## class the same shape as its siblings.
+  .summary.nmfre.body(object, ci.show = ci.show, max.coef = max.coef,
+                      by = match.arg(by), print = FALSE)
+}
+
+#' @rdname summary.nmfre
+#' @param x An object of class \code{"summary.nmfre"}.
+#' @export
+print.summary.nmfre <- function(x, ...) {
+  .summary.nmfre.body(x$object, ci.show = x$ci.show, max.coef = x$max.coef,
+                      by = x$by, print = TRUE)
+  invisible(x)
+}
+
+## Shared body: prints when `print = TRUE`, otherwise just packages the
+## arguments so print.summary.nmfre can render later.
+.summary.nmfre.body <- function(object, ci.show = FALSE, max.coef = 20,
+                                by = c("covariate", "basis"), print = TRUE,
+                                ...) {
   by <- match.arg(by)
+  if (!isTRUE(print))
+    return(structure(list(object = object, ci.show = ci.show,
+                          max.coef = max.coef, by = by),
+                     class = "summary.nmfre"))
 
   ## legacy alias (original snake_case name)
   .extra <- list(...)
@@ -862,9 +954,8 @@ summary.nmfre <- function(object, ci.show = FALSE,
               P, N, P, Q, Q, K, Q, N))
 
   # ---- convergence ----
-  conv_str <- if (isTRUE(x$converged)) "converged" else "NOT converged"
-  cat(sprintf("Iterations: %d (%s, epsilon = %s)\n",
-              x$iter, conv_str, format(x$epsilon, digits = 1)))
+  ## Shared formatter, so print() and every summary() word this identically.
+  .print.convergence(x)
 
   # ---- R-squared ----
   if (!is.null(x$r.squared) && is.finite(x$r.squared)) {
@@ -911,6 +1002,13 @@ summary.nmfre <- function(object, ci.show = FALSE,
 
     cf <- x$coefficients
     cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
+    ## Same Q x K cap the nmfkc / nmfae printers apply; this copy predates it.
+    .n.all <- nrow(cf)
+    .sh <- .coef.show.idx(cf, max.coef)
+    cf <- cf[.sh$idx, , drop = FALSE]
+    if (.sh$truncated || nrow(cf) < .n.all)
+      cat(sprintf("(showing %d of %d coefficients; use x$coefficients for all)\n",
+                  nrow(cf), .n.all))
 
     # row names: Covariate:Basis
     rnames <- paste0(cf$Covariate, ":", cf$Basis)
@@ -1107,6 +1205,9 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   extra_args <- base::list(...)
   wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
   wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(wild.seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
   ## sign convention of C (= Theta) from the fit; resolves the default p-side
   ## (two-sided for sign-free C, one-sided for the non-negative variant) and
@@ -1177,18 +1278,21 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
     else base::stop("Information matrix singular; install MASS package.")
   })
 
-  # Sandwich covariance
+  # Sandwich covariance.  The per-observation scores are also exactly what the
+  # wild bootstrap needs, so compute score_mat once and share it.
   V_sand <- NULL
   Xt <- base::t(X)
-  J <- base::matrix(0, Q * K, Q * K)
+  s2_floor <- base::max(sigma2_used, 1e-12)
+  score_mat <- base::matrix(0, Q * K, N)
   for (n in 1:N) {
     a_n <- A[, n, drop = FALSE]
     r_n <- R_C[, n, drop = FALSE]
     g_n <- Xt %*% r_n
-    S_n <- -(g_n %*% base::t(a_n)) / base::max(sigma2_used, 1e-12)
-    s_n <- base::as.vector(S_n)
-    J <- J + base::tcrossprod(s_n)
+    S_n <- -base::tcrossprod(g_n, a_n) / s2_floor
+    score_mat[, n] <- base::as.vector(S_n)
   }
+  J <- base::matrix(0, Q * K, Q * K)
+  for (n in 1:N) J <- J + base::tcrossprod(score_mat[, n])
   if (N > 1) J <- (N / (N - 1)) * J    # CR1 correction
   V_sand <- Hinv %*% J %*% Hinv
 
@@ -1204,15 +1308,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 
   if (base::isTRUE(wild.bootstrap)) {
     base::set.seed(wild.seed)
-    score_mat <- base::matrix(0, Q * K, N)
-    for (n in 1:N) {
-      a_n <- A[, n, drop = FALSE]
-      r_n <- R_C[, n, drop = FALSE]
-      g_n <- Xt %*% r_n
-      G_n <- -(g_n %*% base::t(a_n)) / base::max(sigma2_used, 1e-12)
-      score_mat[, n] <- base::as.vector(G_n)
-    }
-
+    ## score_mat computed once above (shared with the sandwich-J accumulation)
     ## project to C >= 0 only for the non-negative variant; sign-free C is interior.
     C_boot <- .boot.onestep(base::as.vector(C_mat), score_mat, Hinv, wild.B,
                             dist = "exp", seed = wild.seed,
@@ -1273,6 +1369,12 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
+  ## Tag it as an inference result, as nmfkc.inference / nmf.rrr.inference do.
+  ## Without this the class stayed c("nmfre", "nmf") and print() fell to
+  ## print.nmf, showing the ten-line fit header instead of the coefficient
+  ## table that print.nmf.inference draws.
+  if (!inherits(object, "nmf.inference"))
+    class(object) <- c("nmf.inference", class(object))
   return(object)
 }
 
@@ -1309,6 +1411,11 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
 #'     \item \code{nfolds}: Number of folds (default 5; legacy \code{nfold} also accepted).
 #'     \item \code{rounds}: Iterative-imputation rounds per fold (default 4).
 #'     \item \code{seed}: RNG seed for the fold assignment (default 1).
+#'     \item \code{cores}: Integer; number of parallel workers for the rank
+#'       sweep (default \code{getOption("mc.cores", 1L)}). Because the fold
+#'       matrix is fixed before the sweep and each \code{\link{nmfre}} fit
+#'       self-seeds, results are identical to the sequential run for any
+#'       \code{cores}.
 #'     \item \code{print.trace}: Logical; print per-rank scores (default \code{FALSE}).
 #'     \item Convergence controls forwarded to \code{\link{nmfre}}:
 #'       \code{epsilon} (default \code{1e-5}), \code{epsilon.outer}
@@ -1346,6 +1453,10 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
             else if (!is.null(extra$nfold)) extra$nfold else 5L
   rounds <- if (!is.null(extra$rounds)) extra$rounds else 4L
   seed   <- if (!is.null(extra$seed))   extra$seed   else 1L
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  cores  <- if (!is.null(extra$cores))  extra$cores  else getOption("mc.cores", 1L)
   print.trace <- isTRUE(extra$print.trace)
   ## loosened CV tolerances (overridable via ...)
   epsilon       <- if (!is.null(extra$epsilon))       extra$epsilon       else 1e-5
@@ -1383,8 +1494,11 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
       })
   }
 
-  sig <- stats::setNames(base::rep(NA_real_, length(rank)), base::as.character(rank))
-  for (Q in rank) {
+  ## Per-rank task. The fold matrix is fixed above and the only RNG consumer
+  ## here is nmfre() (self-seeds), so ranks are independent and deterministic;
+  ## .nmfkc.parlapply returns results in input (rank) order, so cores > 1 is
+  ## bit-identical to the sequential sweep.
+  rank_fun <- function(Q) {
     sse <- 0; nt <- 0
     for (k in 1:nfolds) {
       mask <- (fold == k)
@@ -1402,9 +1516,14 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
         nt  <- nt  + base::sum(mask)
       }
     }
-    sig[base::as.character(Q)] <- if (nt > 0) base::sqrt(sse / nt) else NA_real_
-    if (print.trace) base::cat(sprintf("  Q=%d  sigma=%.4f\n", Q, sig[base::as.character(Q)]))
+    s <- if (nt > 0) base::sqrt(sse / nt) else NA_real_
+    if (print.trace) base::cat(sprintf("  Q=%d  sigma=%.4f\n", Q, s))
+    s
   }
+  sig_list <- .nmfkc.parlapply(base::as.list(rank), rank_fun,
+                               cores = cores, envir = environment())
+  sig <- stats::setNames(base::unlist(sig_list, use.names = FALSE),
+                         base::as.character(rank))
 
   best <- rank[base::which.min(sig)]
   out <- base::list(rank = rank, sigma = sig, best = best,

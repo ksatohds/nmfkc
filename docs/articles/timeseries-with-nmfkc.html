@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -87,7 +87,13 @@ dimensionality reduction and temporal modeling.</p>
 <p>Key functions in <code>nmfkc</code> such as <code>nmfkc.ar</code> and
 <code>nmfkc.ar.degree.cv</code> directly support R’s native
 <strong><code>ts</code> objects</strong>, preserving time series
-properties automatically.</p>
+properties automatically. Once a model is fitted,
+<code><a href="../reference/nmfkc.ar.stationarity.html">nmfkc.ar.stationarity()</a></code> checks dynamic stability,
+<code><a href="../reference/nmfkc.ar.latent.html">nmfkc.ar.latent()</a></code> returns the <span class="math inline">\(Q
+\times Q\)</span> <strong>latent transition matrices</strong> <span class="math inline">\(G_d = \Theta_d X\)</span> — which summarise the
+dynamics in the low-dimensional latent space rather than in the <span class="math inline">\(P \times P\)</span> observed space, and can be
+plotted directly — and <code><a href="../reference/nmfkc.ar.latent.inference.html">nmfkc.ar.latent.inference()</a></code> attaches
+standard errors to them.</p>
 <p>We will cover two scenarios:</p>
 <ol style="list-style-type: decimal">
 <li>
@@ -151,19 +157,19 @@ dimension.</p>
 <span><span class="co"># Note: ts objects are automatically transposed to (Variables x Time) internally</span></span>
 <span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv</a></span><span class="op">(</span><span class="va">d_air_log</span>, rank <span class="op">=</span> <span class="fl">1</span>, degree <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">14</span>, epsilon<span class="op">=</span><span class="fl">1e-6</span>, maxit<span class="op">=</span><span class="fl">500000</span><span class="op">)</span></span>
 <span><span class="co">#&gt; degree=1...0.2sec</span></span>
-<span><span class="co">#&gt; degree=2...0.8sec</span></span>
-<span><span class="co">#&gt; degree=3...0.8sec</span></span>
-<span><span class="co">#&gt; degree=4...0.8sec</span></span>
-<span><span class="co">#&gt; degree=5...0.8sec</span></span>
+<span><span class="co">#&gt; degree=2...0.7sec</span></span>
+<span><span class="co">#&gt; degree=3...0.7sec</span></span>
+<span><span class="co">#&gt; degree=4...0.7sec</span></span>
+<span><span class="co">#&gt; degree=5...0.7sec</span></span>
 <span><span class="co">#&gt; degree=6...0.8sec</span></span>
-<span><span class="co">#&gt; degree=7...0.8sec</span></span>
+<span><span class="co">#&gt; degree=7...0.7sec</span></span>
 <span><span class="co">#&gt; degree=8...0.8sec</span></span>
-<span><span class="co">#&gt; degree=9...1sec</span></span>
+<span><span class="co">#&gt; degree=9...0.9sec</span></span>
 <span><span class="co">#&gt; degree=10...0.9sec</span></span>
-<span><span class="co">#&gt; degree=11...1sec</span></span>
-<span><span class="co">#&gt; degree=12...1sec</span></span>
-<span><span class="co">#&gt; degree=13...1.1sec</span></span>
-<span><span class="co">#&gt; degree=14...1.2sec</span></span></code></pre></div>
+<span><span class="co">#&gt; degree=11...0.9sec</span></span>
+<span><span class="co">#&gt; degree=12...0.8sec</span></span>
+<span><span class="co">#&gt; degree=13...0.9sec</span></span>
+<span><span class="co">#&gt; degree=14...1sec</span></span></code></pre></div>
 <p><img src="timeseries-with-nmfkc_files/figure-html/air-degree-cv-1.png" width="672"></p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
@@ -194,12 +200,35 @@ column names derived from the <code>ts</code> object.</p>
 <span><span class="co">#&gt; [1] 0.9798257</span></span>
 <span></span>
 <span><span class="co"># Check for stationarity (spectral radius &lt; 1)</span></span>
-<span><span class="fu"><a href="../reference/nmfkc.ar.stationarity.html">nmfkc.ar.stationarity</a></span><span class="op">(</span><span class="va">res_air</span><span class="op">)</span></span>
-<span><span class="co">#&gt; $spectral.radius</span></span>
-<span><span class="co">#&gt; [1] 0.9983758</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $stationary</span></span>
-<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<span><span class="va">st_air</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.stationarity.html">nmfkc.ar.stationarity</a></span><span class="op">(</span><span class="va">res_air</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>rho <span class="op">=</span> <span class="va">st_air</span><span class="op">$</span><span class="va">spectral.radius</span>, stationary <span class="op">=</span> <span class="va">st_air</span><span class="op">$</span><span class="va">stationary</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        rho stationary </span></span>
+<span><span class="co">#&gt;  0.9983758  1.0000000</span></span></code></pre></div>
+<p>With <code>rank = 1</code> the latent VAR is one-dimensional, so the
+latent view is at its simplest: the twelve <span class="math inline">\(1\times1\)</span> matrices <span class="math inline">\(G_d\)</span> are just the AR coefficients of the
+single latent series, and <code>colsum.max</code> alone certifies
+stationarity.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lat_air</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.latent.html">nmfkc.ar.latent</a></span><span class="op">(</span><span class="va">res_air</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>rho <span class="op">=</span> <span class="va">lat_air</span><span class="op">$</span><span class="va">spectral.radius</span>, colsum.max <span class="op">=</span> <span class="va">lat_air</span><span class="op">$</span><span class="va">colsum.max</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        rho colsum.max </span></span>
+<span><span class="co">#&gt;  0.9983758  0.9856695</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">lat_air</span><span class="op">$</span><span class="va">G</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span>   <span class="co"># G_1, G_2, G_3 of the latent series</span></span>
+<span><span class="co">#&gt;        lag1        lag2        lag3 </span></span>
+<span><span class="co">#&gt; 0.222304511 0.028654098 0.008072265</span></span></code></pre></div>
+<p><span class="math inline">\(\rho = 0.999\)</span> is only just below
+1, and the roots say why. All twelve sit close to the unit circle at
+roughly equal angles: this is a seasonal root, not a slow cycle. A
+single number cannot distinguish the two.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">lat_air</span>, type <span class="op">=</span> <span class="st">"roots"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="timeseries-with-nmfkc_files/figure-html/air-roots-1.png" width="672"></p>
+<p>The lag profile shows the same structure in the coefficients
+themselves — month 12 dominates, month 1 carries the short-run
+inertia.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">lat_air</span>, type <span class="op">=</span> <span class="st">"lag"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="timeseries-with-nmfkc_files/figure-html/air-lag-1.png" width="672"></p>
 </div>
 <div class="section level3">
 <h3 id="forecasting">4. Forecasting<a class="anchor" aria-label="anchor" href="#forecasting"></a>
@@ -207,7 +236,7 @@ column names derived from the <code>ts</code> object.</p>
 <p>We can forecast future values using the fitted model.
 <code>nmfkc.ar.predict</code> uses the time properties stored in the
 model to generate the correct future time sequence.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Forecast next 2 years (24 months)</span></span>
 <span><span class="va">h</span> <span class="op">&lt;-</span> <span class="fl">24</span></span>
 <span><span class="va">pred_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.predict.html">nmfkc.ar.predict</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">res_air</span>, Y <span class="op">=</span> <span class="va">a_air</span><span class="op">$</span><span class="va">Y</span>, n.ahead <span class="op">=</span> <span class="va">h</span><span class="op">)</span></span>
@@ -256,7 +285,7 @@ relationship between these variables.</p>
 <p>We take the first difference to achieve stationarity, normalize the
 data to <span class="math inline">\([0, 1]\)</span>, and transpose it to
 the <code>Variables x Time</code> format required by NMF.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load, difference, and normalize</span></span>
 <span><span class="va">d0_canada</span> <span class="op">&lt;-</span> <span class="va">Canada</span></span>
 <span><span class="va">dd_canada</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">d0_canada</span>, <span class="fl">2</span>, <span class="va">diff</span><span class="op">)</span> <span class="co"># Returns a matrix (Time x Vars)</span></span>
@@ -273,26 +302,424 @@ the <code>Variables x Time</code> format required by NMF.</p>
 </h3>
 <p>We fit a model with <code>rank = 2</code> to identify two latent
 economic conditions driving the four variables.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit the NMF-VAR model</span></span>
-<span><span class="va">res_canada</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span>Y <span class="op">=</span> <span class="va">a_canada</span><span class="op">$</span><span class="va">Y</span>, A <span class="op">=</span> <span class="va">a_canada</span><span class="op">$</span><span class="va">A</span>, rank <span class="op">=</span> <span class="fl">2</span>, prefix <span class="op">=</span> <span class="st">"Condition"</span>, epsilon <span class="op">=</span> <span class="fl">1e-6</span><span class="op">)</span></span>
+<span><span class="co"># epsilon = 1e-8: this fit feeds the inference in Section 5, where coefficients</span></span>
+<span><span class="co"># sitting on the non-negativity boundary must actually have reached it.</span></span>
+<span><span class="va">res_canada</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span>Y <span class="op">=</span> <span class="va">a_canada</span><span class="op">$</span><span class="va">Y</span>, A <span class="op">=</span> <span class="va">a_canada</span><span class="op">$</span><span class="va">A</span>, rank <span class="op">=</span> <span class="fl">2</span>, prefix <span class="op">=</span> <span class="st">"Condition"</span>, epsilon <span class="op">=</span> <span class="fl">1e-8</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Y(4,82)~X(4,2)C(2,5)A(5,82)=XB(2,82)...0sec</span></span>
 <span></span>
 <span><span class="co"># R-squared and Stationarity</span></span>
 <span><span class="va">res_canada</span><span class="op">$</span><span class="va">r.squared</span></span>
-<span><span class="co">#&gt; [1] 0.5994663</span></span>
-<span><span class="fu"><a href="../reference/nmfkc.ar.stationarity.html">nmfkc.ar.stationarity</a></span><span class="op">(</span><span class="va">res_canada</span><span class="op">)</span></span>
-<span><span class="co">#&gt; $spectral.radius</span></span>
-<span><span class="co">#&gt; [1] 0.7781102</span></span>
+<span><span class="co">#&gt; [1] 0.5994866</span></span>
+<span><span class="va">st_canada</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.stationarity.html">nmfkc.ar.stationarity</a></span><span class="op">(</span><span class="va">res_canada</span><span class="op">)</span></span>
+<span><span class="va">st_canada</span></span>
+<span><span class="co">#&gt; rho(companion, 2x2, method="latent") = 0.7809  -&gt;  stationary</span></span>
+<span><span class="co">#&gt; rho(sum_d G_d)        = 0.7809   (&lt; 1 iff stationary)</span></span>
+<span><span class="co">#&gt; bracket: min_j c_j = 0.5360  &lt;=  rho(sum_d G_d)  &lt;=  max_j c_j = 1.0150</span></span>
+<span><span class="co">#&gt;    max_j c_j &gt;= 1: the cheap bound is inconclusive, rho decides</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $stationary</span></span>
-<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<span><span class="co">#&gt; For the dynamics behind this number see nmfkc.ar.latent(), for a test of H0: rho &gt;= 1 see nmfkc.ar.latent.inference().</span></span></code></pre></div>
+<p>The bracket says the cheap sufficient condition is inconclusive here,
+so the eigenvalue is what decides.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">st_canada</span><span class="op">)</span></span></code></pre></div>
+<p><img src="timeseries-with-nmfkc_files/figure-html/canada-bracket-1.png" width="672"></p>
 </div>
 <div class="section level3">
-<h3 id="latent-structure-causal-graph">3. Latent Structure &amp; Causal Graph<a class="anchor" aria-label="anchor" href="#latent-structure-causal-graph"></a>
+<h3 id="latent-transition-matrices">3. Latent Transition Matrices<a class="anchor" aria-label="anchor" href="#latent-transition-matrices"></a>
+</h3>
+<p>The fitted VAR acts on the four observed variables through the <span class="math inline">\(P \times P\)</span> matrices <span class="math inline">\(\Xi_d = X\Theta_d\)</span>. Those are awkward to
+read, and they grow with the number of series. But the same dynamics can
+be written in the latent space: the residual-free recursion for the
+<strong>coefficient</strong> vector is</p>
+<p><span class="math display">\[\boldsymbol
+b_t=\sum_{d=1}^{D}G_d\,\boldsymbol b_{t-d}+\boldsymbol\theta,
+  \qquad G_d=\Theta_d X\ \ (Q\times Q).\]</span></p>
+<p>One caveat before reading anything into the <span class="math inline">\(G_d\)</span>. This display drops the observation
+residual. With <span class="math inline">\(\boldsymbol y_t =
+X\boldsymbol b_t+\boldsymbol e_t\)</span> the exact identity is</p>
+<p><span class="math display">\[\boldsymbol b_t=\sum_{d}G_d\,\boldsymbol
+b_{t-d}+\boldsymbol\theta
+  +\sum_{d}\Theta_d\,\boldsymbol e_{t-d},\]</span></p>
+<p>a VARMA<span class="math inline">\((D,D)\)</span>, not a VAR<span class="math inline">\((D)\)</span>. So <span class="math inline">\(G_d\)</span> is the <strong>autoregressive
+operator of the fitted VAR reduced to the latent space</strong> — which
+is what every panel below uses — and not the coefficient matrix of a
+latent VAR that the scores obey exactly. In particular an entry of <span class="math inline">\(G_d\)</span> is not a Granger-causality statement
+between latent conditions: the moving-average term is common to all
+coordinates and is not conditioned on.</p>
+<p><code><a href="../reference/nmfkc.ar.latent.html">nmfkc.ar.latent()</a></code> returns these <strong>latent
+transition matrices</strong>. Here that means a single <span class="math inline">\(2\times2\)</span> matrix instead of a <span class="math inline">\(4\times4\)</span> one — and for a larger problem
+(say 47 regions with 7 lags) it is <span class="math inline">\(4\times4\)</span> blocks instead of <span class="math inline">\(47\times47\)</span> ones, which is the difference
+between something you can read and something you cannot.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lat_canada</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.latent.html">nmfkc.ar.latent</a></span><span class="op">(</span><span class="va">res_canada</span><span class="op">)</span></span>
+<span><span class="va">lat_canada</span></span>
+<span><span class="co">#&gt; Latent transition matrices  G_d = Theta_d %*% X   (row = effect at t, column = cause at t-d)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; lag1:</span></span>
+<span><span class="co">#&gt;            Condition1 Condition2</span></span>
+<span><span class="co">#&gt; Condition1      0.766      0.082</span></span>
+<span><span class="co">#&gt; Condition2      0.031      0.606</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; roots: 2 (companion 2x2)   rho = 0.7809  -&gt;  stationary</span></span>
+<span><span class="co">#&gt; all roots real and positive: non-oscillatory (overshoot is still possible)</span></span>
+<span><span class="co">#&gt;   (note: with Q = 2, D = 1 and G &gt;= 0 the roots are real by construction --</span></span>
+<span><span class="co">#&gt;    the absence of a cycle is not a finding)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Long-run mean of the latent scores (mu.b):</span></span>
+<span><span class="co">#&gt; Condition1 Condition2 </span></span>
+<span><span class="co">#&gt;      1.219      0.608 </span></span>
+<span><span class="co">#&gt; Long-run composition (p*):</span></span>
+<span><span class="co">#&gt; Condition1 Condition2 </span></span>
+<span><span class="co">#&gt;      0.667      0.333 </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Effective dimension df = Q(P + PD + 1 - Q) = 14</span></span>
+<span><span class="co">#&gt; For the stationarity verdict see nmfkc.ar.stationarity(), for standard errors nmfkc.ar.latent.inference().</span></span></code></pre></div>
+<p>The convention is <strong>row = effect at <span class="math inline">\(t\)</span>, column = cause at <span class="math inline">\(t-d\)</span></strong>: entry <span class="math inline">\((q,q')\)</span> says how strongly condition
+<span class="math inline">\(q'\)</span> in the previous quarter
+feeds condition <span class="math inline">\(q\)</span> now. Diagonal
+entries are persistence, off-diagonal entries are spillover between the
+latent conditions.</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Persistence of each condition, and cross-condition spillover</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">lat_canada</span><span class="op">$</span><span class="va">G</span><span class="op">$</span><span class="va">lag1</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Condition1 Condition2 </span></span>
+<span><span class="co">#&gt;  0.7663220  0.6057199</span></span>
+<span><span class="va">lat_canada</span><span class="op">$</span><span class="va">G</span><span class="op">$</span><span class="va">lag1</span><span class="op">[</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">]</span>   <span class="co"># effect of Condition2 (t-1) on Condition1 (t)</span></span>
+<span><span class="co">#&gt; [1] 0.08193278</span></span></code></pre></div>
+<p><code><a href="../reference/nmfkc.ar.stationarity.html">nmfkc.ar.stationarity()</a></code> above reported three stability
+numbers that say the same thing in increasing order of sharpness:</p>
+<ul>
+<li>
+<code>colsum.max</code> — <span class="math inline">\(\max_j
+c_j\)</span> of <span class="math inline">\(\sum_d \Theta_d\)</span>. If
+it is below 1 the model is stationary, with no eigenvalue computation at
+all. It is only a sufficient condition, so a value above 1 (as here) is
+simply inconclusive.</li>
+<li>
+<code>spectral.radius.sum</code> — <span class="math inline">\(\rho(\sum_d G_d)\)</span>, which is below 1
+exactly when the model is stationary.</li>
+<li>
+<code>spectral.radius</code> — the spectral radius of the companion
+matrix itself.</li>
+</ul>
+<p>The last one can be computed by either of two routes, selected with
+<code>method</code>. The default <code>"latent"</code> uses the <span class="math inline">\(DQ \times DQ\)</span> companion matrix of the
+<span class="math inline">\(G_d\)</span>; <code>"companion"</code> uses
+the <span class="math inline">\(PD \times PD\)</span> companion matrix
+of the <span class="math inline">\(\Xi_d\)</span>, as earlier versions
+of the package always did. The two companion matrices share their
+non-zero eigenvalues, so the answers agree — but the latent route is a
+<span class="math inline">\(2\times2\)</span> eigenproblem here instead
+of <span class="math inline">\(4\times4\)</span>, and would be <span class="math inline">\(28\times28\)</span> instead of <span class="math inline">\(329\times329\)</span> for a 47-variable, 7-lag,
+rank-4 model.</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>latent    <span class="op">=</span> <span class="va">lat_canada</span><span class="op">$</span><span class="va">spectral.radius</span>,</span>
+<span>  companion <span class="op">=</span> <span class="fu"><a href="../reference/nmfkc.ar.stationarity.html">nmfkc.ar.stationarity</a></span><span class="op">(</span><span class="va">res_canada</span>, method <span class="op">=</span> <span class="st">"companion"</span><span class="op">)</span><span class="op">$</span><span class="va">spectral.radius</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    latent companion </span></span>
+<span><span class="co">#&gt; 0.7808507 0.7808507</span></span></code></pre></div>
+<p>When the fit is stationary the process has a well-defined long-run
+mean, which is reported in both the latent and the observed space (<span class="math inline">\(\boldsymbol\mu_b\)</span> and <span class="math inline">\(\boldsymbol\mu_y =
+X\boldsymbol\mu_b\)</span>):</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lat_canada</span><span class="op">$</span><span class="va">mu.b</span></span>
+<span><span class="co">#&gt; Condition1 Condition2 </span></span>
+<span><span class="co">#&gt;  1.2188754  0.6076773</span></span>
+<span><span class="va">lat_canada</span><span class="op">$</span><span class="va">mu.y</span></span>
+<span><span class="co">#&gt;         e      prod        rw         U </span></span>
+<span><span class="co">#&gt; 0.6648544 0.5764437 0.3167251 0.2685294</span></span></code></pre></div>
+<p>Two further quantities are useful when choosing the rank.
+<code>df</code> is the <em>effective</em> dimension <span class="math inline">\(Q(P+PD+1-Q)\)</span> — the right degrees of
+freedom when comparing <span class="math inline">\(R^2\)</span> or
+information criteria across <span class="math inline">\(Q\)</span>,
+since the naive count <span class="math inline">\(Q(P+PD+1)\)</span>
+ignores the <span class="math inline">\(Q^2\)</span> rotational
+indeterminacy. <code>separability</code> is a one-line identifiability
+check: values near 1 mean each basis owns an essentially pure variable,
+so the factorization is unique up to permutation.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lat_canada</span><span class="op">$</span><span class="va">df</span></span>
+<span><span class="co">#&gt; [1] 14</span></span>
+<span><span class="va">lat_canada</span><span class="op">$</span><span class="va">separability</span></span>
+<span><span class="co">#&gt; Condition1 Condition2 </span></span>
+<span><span class="co">#&gt;  0.9999984  1.0000000</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="plotting-the-latent-dynamics">4. Plotting the Latent Dynamics<a class="anchor" aria-label="anchor" href="#plotting-the-latent-dynamics"></a>
+</h3>
+<p>Section 3 read the <span class="math inline">\(G_d\)</span> as
+numbers. <code><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot()</a></code> draws them. The point of every panel below
+is that it stays readable at a size the observed space does not: this
+fit has <span class="math inline">\(Q^2 = 4\)</span> latent impulse
+responses instead of <span class="math inline">\(P^2 = 16\)</span>, and
+a 47-region, 7-lag, rank-4 fit would have 16 instead of 2209.</p>
+<p>The <strong>transition graph</strong> shows the feedback structure.
+Self-loops are persistence, arrows are spillover; a <span class="math inline">\(\boldsymbol y\to\boldsymbol b\to
+\boldsymbol y\)</span> bipartite picture splits each round trip in half
+and so cannot show that the loop is asymmetric.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">lat_canada</span>, type <span class="op">=</span> <span class="st">"graph"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="timeseries-with-nmfkc_files/figure-html/canada-plot-graph-1.png" width="672"></p>
+<p>The <strong>roots on the unit circle</strong> say <em>why</em> <span class="math inline">\(\rho\)</span> is where it is. Because the <span class="math inline">\(PD\times PD\)</span> companion matrix has at most
+<span class="math inline">\(DQ\)</span> non-zero eigenvalues, all of
+them fit on one plot. Complex roots are drawn separately and their
+period is reported — a fit can sit near the boundary because it cycles
+or because it is seasonal, and a single number cannot tell those
+apart.</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">lat_canada</span>, type <span class="op">=</span> <span class="st">"roots"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="timeseries-with-nmfkc_files/figure-html/canada-plot-roots-1.png" width="672"></p>
+<p>The <strong>impulse responses</strong> are non-negative for every
+horizon, since <span class="math inline">\(G_d\ge0\)</span>. The shape
+is therefore a decay (own effect) or a hump (cross effect, zero at <span class="math inline">\(h = 0\)</span>), and the half-life can be read
+straight off.</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">lat_canada</span>, type <span class="op">=</span> <span class="st">"irf"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="timeseries-with-nmfkc_files/figure-html/canada-plot-irf-1.png" width="672"></p>
+<p>The <strong>phase portrait</strong> shows the pull towards <span class="math inline">\(\boldsymbol\mu_b\)</span>. Both eigenvalues here
+are real and positive (0.781 and 0.591), so trajectories decay into the
+fixed point rather than spiralling:
+<code>lat_canada$non.oscillatory</code> is <code>TRUE</code>.</p>
+<p>Three things must be said about that, because the panel invites three
+overclaims. First, at <span class="math inline">\(Q = 2\)</span>, <span class="math inline">\(D = 1\)</span> with <span class="math inline">\(G\ge0\)</span> the roots <strong>cannot</strong>
+be complex — the discriminant is <span class="math inline">\((a-d)^2+4bc\ge0\)</span> — so the absence of a
+cycle here is a property of the design, not a finding about Canada. A
+cycle needs <span class="math inline">\(Q\ge3\)</span> or <span class="math inline">\(D\ge2\)</span>. Second, non-oscillatory is
+<em>not</em> the same as monotone: a non-normal <span class="math inline">\(G\)</span> can send a coordinate up before it
+comes down, which is exactly what the off-diagonal impulse responses
+above do (they peak at <span class="math inline">\(h=3\)</span>). The
+flag is named after the roots for that reason. Third, the two decay
+rates are close (ratio <span class="math inline">\(0.591/0.781=0.76\)</span>), so there is no sharp
+“collapse fast, then slide slow” separation: after eight quarters 43% of
+an initial deviation still sits in the fast direction.</p>
+<p>What the panel does say is where the pull points and along which
+combinations. Thanks to non-negativity the slow eigenvector has both
+components positive — a common level of the two conditions, weighted
+0.85 : 0.15 towards Condition 1 — while the fast one has opposite signs,
+i.e. an imbalance between them. The imbalance corrects relative to the
+level with a half-life of about 2.5 quarters.</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">lat_canada</span>, type <span class="op">=</span> <span class="st">"phase"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="timeseries-with-nmfkc_files/figure-html/canada-plot-phase-1.png" width="672"></p>
+<p>One more panel is available: <code>type = "lag"</code> plots <span class="math inline">\((G_d)_{qq'}\)</span> against <span class="math inline">\(d\)</span> — with <span class="math inline">\(D =
+1\)</span> there is nothing to see, but for a multi-lag fit it answers
+“how many periods does a shock take to arrive”, inside the model rather
+than from cross-correlations computed outside it. (The stationarity
+bracket is drawn by <code><a href="https://rdrr.io/r/base/plot.html" class="external-link">plot()</a></code> on the
+<code>nmfkc.ar.stationarity</code> object, as in Section 2.)</p>
+</div>
+<div class="section level3">
+<h3 id="standard-errors-for-the-latent-var">5. Standard Errors for the Latent VAR<a class="anchor" aria-label="anchor" href="#standard-errors-for-the-latent-var"></a>
+</h3>
+<p>Every number in Sections 3 and 4 is a point estimate from 82
+quarters. <code><a href="../reference/nmfkc.ar.latent.inference.html">nmfkc.ar.latent.inference()</a></code> attaches a wild
+bootstrap to all of them: it resamples the residuals, re-fits the whole
+NMF-VAR on each replicate, and recomputes the latent quantities.</p>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">inf_canada</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.latent.inference.html">nmfkc.ar.latent.inference</a></span><span class="op">(</span><span class="va">lat_canada</span>, <span class="va">a_canada</span><span class="op">$</span><span class="va">Y</span>, <span class="va">a_canada</span><span class="op">$</span><span class="va">A</span>,</span>
+<span>                                        wild.B <span class="op">=</span> <span class="fl">200</span>, wild.seed <span class="op">=</span> <span class="fl">2026</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning in nmfkc.ar.latent.inference(lat_canada, a_canada$Y, a_canada$A, : The</span></span>
+<span><span class="co">#&gt; anchor-row / pure-column diagnostic passes only APPROXIMATELY (anchor margin</span></span>
+<span><span class="co">#&gt; 1.58e-06, pure margin 1.52e-06). The uniqueness argument needs exact anchors</span></span>
+<span><span class="co">#&gt; and exact zeros, so treat the entry-level summaries as well-behaved but not</span></span>
+<span><span class="co">#&gt; certified.</span></span>
+<span><span class="va">inf_canada</span></span>
+<span><span class="co">#&gt; Bootstrap inference for the latent VAR</span></span>
+<span><span class="co">#&gt;   B = 200 (0 failed), unit = "column", dist = "rademacher", truncation rate = 1.20%</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Latent transition matrices  G_d = Theta_d %*% X   (row = effect at t, column = cause at t-d)</span></span>
+<span><span class="co">#&gt;   NOTE: the diagnostic passes only APPROXIMATELY (anchor margin 1.58e-06, pure margin 1.52e-06);</span></span>
+<span><span class="co">#&gt;        the uniqueness argument needs exact anchors and exact zeros.</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; lag1:</span></span>
+<span><span class="co">#&gt;            Condition1 Condition2</span></span>
+<span><span class="co">#&gt; Condition1      0.766      0.082</span></span>
+<span><span class="co">#&gt; Condition2      0.031      0.606</span></span>
+<span><span class="co">#&gt; SE:</span></span>
+<span><span class="co">#&gt;            Condition1 Condition2</span></span>
+<span><span class="co">#&gt; Condition1      0.117      0.067</span></span>
+<span><span class="co">#&gt; Condition2      0.071      0.098</span></span>
+<span><span class="co">#&gt; p-value:</span></span>
+<span><span class="co">#&gt;            Condition1 Condition2</span></span>
+<span><span class="co">#&gt; Condition1       0.00        0.6</span></span>
+<span><span class="co">#&gt; Condition2       0.83        0.0</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; rho(G) = 0.7809   SE = 0.1017   95% CI = [0.6316, 1.0052]</span></span>
+<span><span class="co">#&gt;   bootstrap mean = 0.8593  (bias +0.0784)</span></span>
+<span><span class="co">#&gt;   bootstrap tail P*(rho* &gt;= 1) = 0.030</span></span>
+<span><span class="co">#&gt;   (a tail probability around the fitted model, NOT a unit-root test: the</span></span>
+<span><span class="co">#&gt;    replicates are not drawn under an imposed H0: rho = 1)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; complex eigenvalues: point estimate no, in 0.0% of replicates</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; long-run composition p*:</span></span>
+<span><span class="co">#&gt;            estimate  lower  upper</span></span>
+<span><span class="co">#&gt; Condition1   0.6673 0.5332 0.7305</span></span>
+<span><span class="co">#&gt; Condition2   0.3327 0.2695 0.4668</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; strict complementarity: 4 boundary coords, all multipliers positive = TRUE, ratio = 112.5</span></span></code></pre></div>
+<p><strong>What is identified decides what can be bootstrapped.</strong>
+The factorization is unique only up to <span class="math inline">\((X,\Theta)\to(XT,T^{-1}\Theta)\)</span>, so an
+individual entry of <span class="math inline">\(\Theta\)</span> means
+nothing across replicates — replicate 7’s “Condition 1” need not be the
+original’s. Under that same map <span class="math inline">\(G_d \to
+T^{-1}G_dT\)</span>, so the <em>spectrum</em> is untouched: <span class="math inline">\(\rho\)</span>, the eigenvalues and <span class="math inline">\(\boldsymbol\mu_y\)</span> are invariant outright
+and need no alignment at all.</p>
+<p>The entries of <span class="math inline">\(G_d\)</span> and the
+composition <span class="math inline">\(\boldsymbol p^\ast\)</span> are
+a different matter: they would need <span class="math inline">\(T\)</span> to be a permutation, and for <span class="math inline">\(Q\ge2\)</span> that cannot be certified. Column
+normalization removes only the <em>scale</em> part of <span class="math inline">\(T\)</span>, and a separable basis — each condition
+owning a variable that loads on it alone, which this fit does have —</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">lat_canada</span><span class="op">$</span><span class="va">X</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">lat_canada</span><span class="op">$</span><span class="va">X</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>   <span class="co"># rows normalized to sum 1</span></span>
+<span><span class="co">#&gt;      Condition1 Condition2</span></span>
+<span><span class="co">#&gt; e         1.000      0.000</span></span>
+<span><span class="co">#&gt; prod      0.722      0.278</span></span>
+<span><span class="co">#&gt; rw        0.125      0.875</span></span>
+<span><span class="co">#&gt; U         0.000      1.000</span></span>
+<span><span class="va">lat_canada</span><span class="op">$</span><span class="va">separability</span></span>
+<span><span class="co">#&gt; Condition1 Condition2 </span></span>
+<span><span class="co">#&gt;  0.9999984  1.0000000</span></span></code></pre></div>
+<p>is not enough either. The uniqueness theorem assumes the
+<em>population</em> basis is separable and then singles out the
+separable representative; it does not say the estimator lands on it,
+because the objective is flat along the family. A two-line
+counterexample makes the point:</p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>; <span class="va">Theta</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>   <span class="co"># X is perfectly separable</span></span>
+<span><span class="cn">T</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">.9</span>, <span class="fl">.1</span>, <span class="fl">.1</span>, <span class="fl">.9</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>                 <span class="co"># and column-normalized</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>XT.nonneg <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="cn">T</span> <span class="op">&gt;=</span> <span class="fl">0</span><span class="op">)</span>, colsums <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">colSums</a></span><span class="op">(</span><span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="cn">T</span><span class="op">)</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  TinvTheta.nonneg <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/solve.html" class="external-link">solve</a></span><span class="op">(</span><span class="cn">T</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">Theta</span> <span class="op">&gt;=</span> <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  same.product <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/all.equal.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">Theta</span>, <span class="op">(</span><span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="cn">T</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/solve.html" class="external-link">solve</a></span><span class="op">(</span><span class="cn">T</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">Theta</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        XT.nonneg          colsums TinvTheta.nonneg     same.product </span></span>
+<span><span class="co">#&gt;             TRUE             TRUE             TRUE             TRUE</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>G <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">Theta</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">X</span><span class="op">)</span>,                       <span class="co"># the two representatives</span></span>
+<span>      G.alt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/solve.html" class="external-link">solve</a></span><span class="op">(</span><span class="cn">T</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">Theta</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="op">(</span><span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="cn">T</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;         [,1]   [,2]   [,3]   [,4]</span></span>
+<span><span class="co">#&gt; G     2.0000 1.0000 3.0000 1.0000</span></span>
+<span><span class="co">#&gt; G.alt 2.2375 0.8625 3.1375 0.7625</span></span></code></pre></div>
+<p>Both factorizations are admissible, <span class="math inline">\(T\)</span> is no permutation, and <span class="math inline">\(G\)</span> differs — <span class="math inline">\(\Theta\)</span> has no pure column there, which is
+the side the counterexample breaks.</p>
+<p>What <em>does</em> pin <span class="math inline">\(T\)</span> down is
+the pair of one-sided conditions: an <strong>anchor row</strong> for
+every column of <span class="math inline">\(X\)</span> forces <span class="math inline">\(T\ge0\)</span>, a <strong>pure column</strong> for
+every row of <span class="math inline">\(\Theta\)</span> forces <span class="math inline">\(T^{-1}\ge0\)</span>, and a non-negative matrix
+with a non-negative inverse is monomial. This fit satisfies both — but
+only to within the thresholds, since multiplicative updates leak a
+little rather than producing exact zeros:</p>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">inf_canada</span><span class="op">$</span><span class="va">identified.approx</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">inf_canada</span><span class="op">$</span><span class="va">identification</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"anchor.margin"</span>, <span class="st">"pure.margin"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt; anchor.margin   pure.margin </span></span>
+<span><span class="co">#&gt;  1.584670e-06  1.524384e-06</span></span></code></pre></div>
+<p>Both margins are around <span class="math inline">\(10^{-6}\)</span>,
+i.e. the fit is very close to a configuration the uniqueness theorem
+covers, but it does not literally satisfy its hypotheses. So
+<code>identified.approx</code> is a <strong>diagnostic, not a
+certificate</strong>, and the entry-level columns below should be read
+as well-behaved rather than certified. <span class="math inline">\(\rho\)</span>, the eigenvalues and <span class="math inline">\(\boldsymbol\mu_y\)</span> are invariant under the
+whole family and need none of this.</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">inf_canada</span><span class="op">$</span><span class="va">coefficients</span></span>
+<span><span class="co">#&gt;   Lag      Basis  Covariate   Estimate        BSE       CI_low   CI_high</span></span>
+<span><span class="co">#&gt; 1   1 Condition1 Condition1 0.76632196 0.11668139 0.5628885464 0.9462658</span></span>
+<span><span class="co">#&gt; 2   1 Condition2 Condition1 0.03105503 0.07063638 0.0000256766 0.2581664</span></span>
+<span><span class="co">#&gt; 3   1 Condition1 Condition2 0.08193278 0.06696417 0.0152680967 0.2789300</span></span>
+<span><span class="co">#&gt; 4   1 Condition2 Condition2 0.60571985 0.09829586 0.4295495664 0.8291294</span></span>
+<span><span class="co">#&gt;   p_value</span></span>
+<span><span class="co">#&gt; 1    0.00</span></span>
+<span><span class="co">#&gt; 2    0.83</span></span>
+<span><span class="co">#&gt; 3    0.60</span></span>
+<span><span class="co">#&gt; 4    0.00</span></span></code></pre></div>
+<p>With that caveat: the diagonal entries have <span class="math inline">\(p\)</span>-values near 0 while the off-diagonal
+ones do not (0.61 and 0.87). Even taken descriptively, the asymmetric
+spillover visible in the transition graph is not supported by 82
+quarters of data.</p>
+<p><strong><code>prob.nonstationary</code> is a tail probability, not a
+unit-root test.</strong> It reports <span class="math inline">\(P^\ast(\rho^\ast\ge1)\)</span> with replicates
+drawn around the <em>estimated</em> model. Nothing imposes <span class="math inline">\(H_0:\rho=1\)</span>, so it is not a p-value for
+that hypothesis; a proper test would have to resample under the
+null.</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>rho  <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">spectral.radius</span>,</span>
+<span>  se   <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">spectral.radius.se</span>,</span>
+<span>  lo   <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">spectral.radius.ci.lower</span>,</span>
+<span>  hi   <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">spectral.radius.ci.upper</span>,</span>
+<span>  tail <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">prob.nonstationary</span><span class="op">)</span></span>
+<span><span class="co">#&gt;       rho        se        lo        hi      tail </span></span>
+<span><span class="co">#&gt; 0.7808507 0.1017442 0.6316020 1.0052234 0.0300000</span></span></code></pre></div>
+<p>The long-run mean gets an interval too, so the level the process
+reverts to can be reported with uncertainty rather than as a bare
+number:</p>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>estimate <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">mu.y</span>,</span>
+<span>      lower    <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">mu.y.ci.lower</span>,</span>
+<span>      upper    <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">mu.y.ci.upper</span><span class="op">)</span></span>
+<span><span class="co">#&gt;               [,1]      [,2]      [,3]      [,4]</span></span>
+<span><span class="co">#&gt; estimate 0.6648544 0.5764437 0.3167251 0.2685294</span></span>
+<span><span class="co">#&gt; lower    0.4011656 0.3553783 0.2409933 0.2031827</span></span>
+<span><span class="co">#&gt; upper    1.3754326 1.2485637 0.6573849 0.5474548</span></span></code></pre></div>
+<p>Two diagnostics deserve a look before the intervals are trusted.</p>
+<p><code>truncate.rate</code> is the fraction of replicate observations
+that fell below zero and were clipped; a large value means the wild
+bootstrap is being distorted by the non-negativity constraint. At 1.2%
+here it is not.</p>
+<p><code>kkt</code> is the <strong>strict complementarity</strong>
+diagnostic, and its reading is less obvious than it looks. The estimated
+zeros of <span class="math inline">\(\Theta\)</span> only estimate
+something if two margins stay away from zero: <span class="math inline">\(\delta_\mathrm{dual}\)</span>, the smallest KKT
+multiplier over the zero coefficients, and <span class="math inline">\(\delta_\mathrm{prim}\)</span>, the smallest
+surviving positive coefficient.</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>truncate.rate <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">truncate.rate</span>,</span>
+<span>  n.boundary    <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">kkt</span><span class="op">$</span><span class="va">n.boundary</span>,</span>
+<span>  delta.dual    <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">kkt</span><span class="op">$</span><span class="va">delta.dual</span>,</span>
+<span>  delta.prim    <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">kkt</span><span class="op">$</span><span class="va">delta.prim</span>,</span>
+<span>  kkt.ratio     <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">kkt</span><span class="op">$</span><span class="va">ratio</span>,</span>
+<span>  usable.reps   <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">wild.B</span>,</span>
+<span>  failed.reps   <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">n.fail</span><span class="op">)</span></span>
+<span><span class="co">#&gt; truncate.rate    n.boundary    delta.dual    delta.prim     kkt.ratio </span></span>
+<span><span class="co">#&gt;  1.202744e-02  4.000000e+00  2.144266e-03  2.017429e-01  1.124564e+02 </span></span>
+<span><span class="co">#&gt;   usable.reps   failed.reps </span></span>
+<span><span class="co">#&gt;  2.000000e+02  0.000000e+00</span></span></code></pre></div>
+<p>A <strong>small</strong> dual margin is not a numerical defect — it
+is a statement about the model. If the model were correctly specified,
+<span class="math inline">\(\Xi_0=X\Theta\)</span> would make the
+population multipliers exactly zero, so strict complementarity would
+fail at <em>every</em> zero coefficient and <span class="math inline">\(P(\hat\theta_k=0)\)</span> would tend to a
+constant in <span class="math inline">\((0,1)\)</span> (one half for an
+isolated zero) instead of to one. What makes the zeros estimate anything
+is <strong>misspecification</strong>: they recover the coordinates whose
+<em>unconstrained</em> population coefficient is strictly negative.
+Canada’s ratio of 112 says those four zeros are well separated, so they
+are estimating a sign restriction rather than a degenerate boundary.</p>
+<p>Two practical points. The re-fits reproduce the <strong>same
+estimator</strong> as the original fit: <code>method</code> and
+<code>X.restriction</code> are taken from the fitted object, a literal
+<code>seed</code> from its recorded call, and with
+<code>X.restriction = "fixed"</code> the fixed basis itself. Anything
+else the original call set (<code>X.init</code> under other
+restrictions, penalties) cannot be recovered from the fitted object, and
+the function warns and asks for it through <code>refit.args=</code>.</p>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">inf_canada</span><span class="op">$</span><span class="va">refit.args</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        method X.restriction </span></span>
+<span><span class="co">#&gt;          "EU"     "colSums"</span></span></code></pre></div>
+<p>And each replicate is a full re-fit, so this is the expensive step of
+the analysis. <code>wild.B = 200</code> keeps the vignette quick; the
+default is 500, and each re-fit converges to <code>epsilon = 1e-8</code>
+— a looser tolerance leaves boundary coefficients spuriously positive
+and understates the spread. On a multi-core machine
+<code>cores = 4</code> divides the wall time without changing the
+answer.</p>
+</div>
+<div class="section level3">
+<h3 id="latent-structure-causal-graph">6. Latent Structure &amp; Causal Graph<a class="anchor" aria-label="anchor" href="#latent-structure-causal-graph"></a>
 </h3>
 <p>We can visualize how the two latent conditions change over time.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Visualize soft clustering of time trends</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/barplot.html" class="external-link">barplot</a></span><span class="op">(</span><span class="va">res_canada</span><span class="op">$</span><span class="va">B.prob</span>, col <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span>, border <span class="op">=</span> <span class="cn">NA</span>,</span>
 <span>        main <span class="op">=</span> <span class="st">"Soft Clustering of Economic Conditions"</span>,</span>
@@ -303,7 +730,7 @@ economic conditions driving the four variables.</p>
 <p>Finally, we can generate a <strong>DOT script</strong> to visualize
 the Granger causality (relationships) between variables inferred by the
 model.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Generate DOT script for graph visualization</span></span>
 <span><span class="va">dot_script</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.DOT.html">nmfkc.ar.DOT</a></span><span class="op">(</span><span class="va">res_canada</span>, intercept <span class="op">=</span> <span class="cn">TRUE</span>, threshold<span class="op">=</span><span class="fl">0.01</span><span class="op">)</span></span>
 <span></span>

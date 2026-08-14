@@ -19,7 +19,7 @@ Y2[train, train] for training and Y2[train, test] for prediction."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -105,7 +105,11 @@ Default is <code>Y1</code> (autoencoder).</p></dd>
 <dd><p>Additional arguments passed to <code><a href="nmfae-deprecated.html">nmfae</a></code>
 (e.g., <code>epsilon</code>, <code>maxit</code>, <code>Y1.weights</code>).
 Also accepts: <code>nfolds</code> (number of folds, default 5; <code>div</code> also accepted),
-<code>seed</code> (integer seed, default 123), <code>shuffle</code> (logical, default <code>TRUE</code>).
+<code>seed</code> (integer seed, default 123), <code>shuffle</code> (logical, default <code>TRUE</code>),
+and <code>cores</code> (fit the folds in parallel; default
+<code>getOption("mc.cores", 1L)</code>, PSOCK on Windows / forking elsewhere).
+Each fold is an independent self-seeded fit and the per-fold errors are
+summed in order, so the result is identical for any <code>cores</code>.
 For backward compatibility, <code>Q</code>, <code>R</code> are accepted as aliases for
 <code>rank</code>, <code>rank.encoder</code>.</p></dd>
 
@@ -139,7 +143,7 @@ future versions; details are to be described in an upcoming paper.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfae-deprecated.html">nmfae</a></code>, <code><a href="nmfae-deprecated.html">nmfae.ecv</a></code>, <code><a href="nmfae-deprecated.html">nmfae.kernel.beta.cv</a></code>,
+    <div class="dont-index"><p><code><a href="nmf.rrr.html">nmf.rrr</a></code>, <code><a href="nmf.rrr.ecv.html">nmf.rrr.ecv</a></code>, <code><a href="nmf.rrr.kernel.beta.cv.html">nmf.rrr.kernel.beta.cv</a></code>,
 <code><a href="nmfkc.cv.html">nmfkc.cv</a></code></p></div>
     </div>
 

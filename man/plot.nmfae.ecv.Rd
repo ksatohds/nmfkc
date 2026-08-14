@@ -20,6 +20,6 @@ When \code{rank.encoder} was \code{NULL} (paired), a line plot of sigma vs rank 
 When \code{rank.encoder} was explicitly specified (grid), a heatmap of sigma over the (rank, rank.encoder) grid is drawn.
 }
 \seealso{
-\code{\link{nmfae.ecv}}
+\code{\link{nmf.rrr.ecv}}
 }
 \keyword{internal}

@@ -2,31 +2,76 @@
 % Please edit documentation in R/nmfkc.ar.R
 \name{nmfkc.ar.stationarity}
 \alias{nmfkc.ar.stationarity}
-\title{Check stationarity of an NMF-VAR model}
+\title{Stationarity of an NMF-VAR model}
 \usage{
-nmfkc.ar.stationarity(x)
+nmfkc.ar.stationarity(x, method = c("latent", "companion"))
 }
 \arguments{
-\item{x}{The return value of \code{nmfkc} for a VAR model.}
+\item{x}{A fitted \code{"nmfkc"} object obtained from an
+\code{\link{nmfkc.ar}} design, or an object from
+\code{\link{nmfkc.ar.latent}}.}
+
+\item{method}{Route used for \code{spectral.radius}.  \code{"latent"}
+(default) uses the \eqn{DQ\times DQ} companion matrix of the \eqn{G_d};
+\code{"companion"} uses the \eqn{PD\times PD} companion matrix of the
+\eqn{\Xi_d}.  The two companion matrices share the same non-zero
+eigenvalues, so the results agree up to floating-point rounding, but
+\code{"latent"} costs \eqn{O((DQ)^3)} instead of \eqn{O((PD)^3)} --- for a
+47-variable, 7-lag, rank-4 model that is a \eqn{28\times28} eigenproblem
+instead of a \eqn{329\times329} one.  Use \code{"companion"} to reproduce
+the value bit-for-bit as computed by earlier versions of the package.}
 }
 \value{
-A list with components:
-\item{spectral.radius}{Numeric. The spectral radius of the companion matrix. A value less than 1 indicates stationarity.}
-\item{stationary}{Logical. \code{TRUE} if the spectral radius is less than 1 (i.e., the system is stationary), \code{FALSE} otherwise.}
+An object of class \code{"nmfkc.ar.stationarity"}: a list with
+\item{spectral.radius}{Spectral radius of the companion matrix (route
+selected by \code{method}).  A value below 1 indicates stationarity.}
+\item{stationary}{Logical; \code{TRUE} when \code{spectral.radius < 1}.}
+\item{method}{The route actually used.}
+\item{spectral.radius.sum}{\eqn{\rho(\sum_d G_d)}; below 1 iff stationary.}
+\item{colsum}{Column sums \eqn{c_j} of \eqn{\sum_d\Xi_d}, i.e.
+\code{colSums(X) \%*\% Lambda} (length \eqn{P}).}
+\item{colsum.max}{\eqn{\max_j c_j}; below 1 it certifies stationarity.}
+\item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
 }
 \description{
-\code{nmfkc.ar.stationarity} assesses the dynamic stability of a VAR model
-by computing the spectral radius of its companion matrix.
-It returns both the spectral radius and a logical indicator of stationarity.
+Reports whether a fitted NMF-VAR is stationary, and how cheaply that could be
+decided.  Three numbers are returned, in increasing order of sharpness:
+\code{colsum.max} \eqn{=\max_j c_j}, the largest column sum of
+\eqn{\sum_d\Xi_d = X\sum_d\Theta_d}, certifies stationarity when below 1 with
+no eigenvalue computation at all (a sufficient condition only, so a value
+above 1 is merely inconclusive); \code{spectral.radius.sum}
+\eqn{=\rho(\sum_d G_d)} is below 1 exactly when the model is stationary (and
+is bracketed by \eqn{\min_j c_j} and \eqn{\max_j c_j}); and
+\code{spectral.radius} is the spectral radius of the companion matrix itself.
+
+Note that the \eqn{c_j} are weighted by \eqn{\bm 1'X}, i.e.
+\code{colSums(X) \%*\% Lambda}.  Using the raw column sums of
+\eqn{\sum_d\Theta_d} is correct only when \eqn{\bm 1'X=\bm 1'} and can
+certify stationarity for a non-stationary fit otherwise.
+
+This function answers the yes/no question only.  For the dynamics behind the
+number --- the transition matrices, the roots, the impulse responses, the
+long-run mean --- use \code{\link{nmfkc.ar.latent}}, and for the standard
+error of \eqn{\rho} use \code{\link{nmfkc.ar.latent.inference}}.
 }
 \examples{
 # Check stationarity of fitted AR model
 d <- AirPassengers
 ar_data <- nmfkc.ar(d, degree = 2)
 result <- nmfkc(ar_data$Y, ar_data$A, rank = 1)
-nmfkc.ar.stationarity(result)
+st <- nmfkc.ar.stationarity(result)
+st$spectral.radius
+st$stationary
+st                 # full report
 
 }
+\references{
+Satoh, K. (2025). Applying non-negative matrix factorization with covariates
+to multivariate time series data as a vector autoregression model.
+\emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
+\doi{10.1007/s42081-025-00314-0}
+}
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfkc.ar}}
+\code{\link{nmfkc.ar.latent}},
+\code{\link{nmfkc.ar.latent.inference}}, \code{\link{nmfkc.ar}}
 }

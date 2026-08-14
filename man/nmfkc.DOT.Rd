@@ -108,6 +108,6 @@ cat(dot)
 
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.sem.DOT}},
+\code{\link{nmfkc}}, \code{\link{nmf.rrr.DOT}}, \code{\link{nmf.ffb.DOT}},
 \code{\link{nmfkc.ar.DOT}}, \code{\link{plot.nmfkc.DOT}}
 }

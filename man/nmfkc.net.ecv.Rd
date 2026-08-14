@@ -14,7 +14,10 @@ nmfkc.net.ecv(Y, rank = 1:3, type = c("tri", "bi", "signed"), ...)
 \item{type}{Model type: \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.}
 
 \item{...}{Passed to the underlying fitter; also accepts \code{nfolds}
-(default 5; \code{div} alias), \code{seed} (default 123).}
+(default 5; \code{div} alias), \code{seed} (default 123), and \code{cores}
+(\code{getOption("mc.cores", 1L)}) to evaluate the rank x fold grid in
+parallel; results are identical to the sequential run for any \code{cores}
+(PSOCK cluster on Windows, forking elsewhere).}
 }
 \value{
 A list with \code{objfunc}, \code{sigma}, \code{objfunc.fold},

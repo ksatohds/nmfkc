@@ -80,6 +80,25 @@ An object of class \code{"nmfae"}, a list with components:
 \item{C}{Parameter matrix (Q x R).}
 \item{X2}{Encoder basis matrix (R x P2), row sum 1.}
 \item{Y1hat}{Fitted values \eqn{X_1 \Theta X_2 Y_2} (P1 x N).}
+\item{B1}{Decoder-side scores \eqn{B_1 = C X_2 Y_2} (Q x N), so that
+\eqn{\widehat Y_1 = X_1 B_1}. Analogue of \code{B} in \code{\link{nmfkc}}.}
+\item{H}{\strong{Deprecated}; identical to \code{B1}. Kept so that code
+written against earlier releases keeps working. Use \code{B1}.}
+\item{B2}{Encoder-side scores \eqn{B_2 = X_2 Y_2} (R x N), i.e. \eqn{B_1}
+before the \eqn{C} map.}
+\item{B1.prob, B2.prob}{Column-normalized \eqn{B_1} / \eqn{B_2}: each
+SAMPLE's soft membership over the Q response groups and over the R
+covariate groups respectively.}
+\item{B1.cluster, B2.cluster}{Hard label per sample (argmax over the columns
+of the corresponding \code{.prob}).}
+\item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
+soft membership over the Q response groups.}
+\item{X1.cluster}{Hard response-group label per response variable
+(argmax over \code{X1.prob} rows).}
+\item{X2.prob}{Column-normalized \eqn{X_2} (R x P2): each COVARIATE
+VARIABLE's soft membership over the R covariate groups.}
+\item{X2.cluster}{Hard covariate-group label per covariate variable
+(argmax over \code{X2.prob} columns).}
 \item{rank}{Named integer vector \code{c(Q, R)}.}
 \item{method}{Objective used (\code{"EU"} or \code{"KL"}).}
 \item{objfunc}{Final objective value.}
@@ -124,6 +143,11 @@ res2 <- nmf.rrr(Y1, Y2, rank1=2, rank2=2)
 
 }
 \references{
+Satoh, K. and Tokuda, Y. (2026). Co-clustering of Response and Covariate
+Variables by Tri-Factorizing Their Non-negative Regression Coefficient
+Matrix. \emph{arXiv preprint} arXiv:2607.27474.
+\doi{10.48550/arXiv.2607.27474}
+
 Lee, D. D. and Seung, H. S. (2001). Algorithms for Non-negative Matrix Factorization.
 \emph{Advances in Neural Information Processing Systems}, 13.
 
@@ -132,5 +156,5 @@ An Artificial Intelligence (AI) Framework for Computational Science and Engineer
 \emph{Computer Methods in Applied Mechanics and Engineering}, 399.
 }
 \seealso{
-\code{\link{nmfae.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.DOT}}, \code{\link{nmfkc}}
+\code{\link{nmf.rrr.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmf.rrr.ecv}}, \code{\link{nmf.rrr.DOT}}, \code{\link{nmfkc}}
 }

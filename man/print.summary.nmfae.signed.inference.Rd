@@ -7,6 +7,7 @@
 \method{print}{summary.nmfae.signed.inference}(
   x,
   digits = max(3L, getOption("digits") - 3L),
+  max.coef = 20,
   by = c("covariate", "basis"),
   ...
 )

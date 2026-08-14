@@ -25,13 +25,14 @@
       (b + 0.5 * (base::colSums(W^2) + base::rowSums(H^2))) / clam
     else
       (b + base::colSums(W) + base::rowSums(H)) / clam
-    num <- Y %*% base::t(H); den <- W %*% (H %*% base::t(H))
-    pen <- if (prior == "L2") base::sweep(W, 2, 1 / lam, "*")
-           else base::matrix(1 / lam, Fr, K, byrow = TRUE)
+    il <- 1 / lam
+    num <- base::tcrossprod(Y, H); den <- W %*% (H %*% base::t(H))
+    pen <- if (prior == "L2") W * base::rep(il, each = Fr)
+           else base::rep(il, each = Fr)
     W <- W * num / (den + pen + eps)
-    num <- base::t(W) %*% Y; den <- (base::t(W) %*% W) %*% H
-    pen <- if (prior == "L2") base::sweep(H, 1, 1 / lam, "*")
-           else base::matrix(1 / lam, K, Nc)
+    num <- base::crossprod(W, Y); den <- (base::t(W) %*% W) %*% H
+    pen <- if (prior == "L2") H * il
+           else il
     H <- H * num / (den + pen + eps)
     objfunc[it] <- 0.5 * base::sum((Y - W %*% H)^2)
     if (it > 1 && base::abs(objfunc[it - 1] - objfunc[it]) <
@@ -93,7 +94,9 @@
 #'   \code{b} over-prunes, a larger one prunes nothing); \code{maxit}
 #'   (\code{3000}) and \code{epsilon} (\code{1e-6}) for optimisation control;
 #'   \code{tol} (\code{1e-3}), the relevance threshold below which a component is
-#'   counted as pruned.
+#'   counted as pruned; \code{cores} (\code{getOption("mc.cores", 1L)}) runs the
+#'   \code{nrun} restarts in parallel (results identical to the sequential loop
+#'   for any \code{cores}; PSOCK cluster on Windows, forking elsewhere).
 #' @return An object of class \code{"nmfkc.ard"}: a list with
 #'   \code{rank} (estimated = mode over restarts), \code{rank.runs} (the
 #'   per-run estimates), \code{relevance} (representative run, descending),
@@ -129,17 +132,25 @@ nmfkc.ard <- function(Y, rank = NULL, nrun = 10, plot = FALSE, ...) {
   prior   <- base::match.arg(if (base::is.null(dots$prior)) "L2" else dots$prior,
                              c("L2", "L1"))
   seed    <- if (base::is.null(dots$seed))    123     else dots$seed
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   a       <- if (base::is.null(dots$a))       1       else dots$a
   b       <- if (base::is.null(dots$b))       (Fr + Nc) / K * base::mean(Y) else dots$b
   maxit   <- if (base::is.null(dots$maxit))   3000    else dots$maxit
   epsilon <- if (base::is.null(dots$epsilon)) 1e-6    else dots$epsilon
   tol     <- if (base::is.null(dots$tol))     1e-3    else dots$tol
+  cores   <- if (base::is.null(dots$cores)) base::getOption("mc.cores", 1L) else dots$cores
 
   ## nrun random-initialization restarts (ARD is a sensitive point
-  ## estimate); aggregate the integer rank by its MODE.
-  fits <- base::lapply(base::seq_len(nrun), function(r)
+  ## estimate); aggregate the integer rank by its MODE.  Each restart is an
+  ## independent, self-seeded .ard.fit (seed + r); .nmfkc.parlapply preserves
+  ## input order so the mode / representative selection is identical to the
+  ## sequential loop for any `cores`.
+  fits <- .nmfkc.parlapply(base::seq_len(nrun), function(r)
     .ard.fit(Y, K, prior, a, b, maxit, epsilon, tol,
-             seed = if (base::is.null(seed)) NULL else seed + r))
+             seed = if (base::is.null(seed)) NULL else seed + r),
+    cores = if (nrun > 1L) cores else 1L)
   rank.runs <- base::vapply(fits, function(f) f$rank, base::integer(1))
   tab <- base::sort(base::table(rank.runs), decreasing = TRUE)
   rank.mode <- base::as.integer(base::names(tab)[1])

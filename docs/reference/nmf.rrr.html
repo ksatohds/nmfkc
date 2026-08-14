@@ -25,7 +25,7 @@ Initialization uses a three-step NMF procedure via nmfkc:
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -201,6 +201,43 @@ kept for backward compatibility (<code>Q</code> / <code>R</code> are also accept
 <dt>Y1hat</dt>
 <dd><p>Fitted values \(X_1 \Theta X_2 Y_2\) (P1 x N).</p></dd>
 
+<dt>B1</dt>
+<dd><p>Decoder-side scores \(B_1 = C X_2 Y_2\) (Q x N), so that
+\(\widehat Y_1 = X_1 B_1\). Analogue of <code>B</code> in <code><a href="nmfkc.html">nmfkc</a></code>.</p></dd>
+
+<dt>H</dt>
+<dd><p><strong>Deprecated</strong>; identical to <code>B1</code>. Kept so that code
+written against earlier releases keeps working. Use <code>B1</code>.</p></dd>
+
+<dt>B2</dt>
+<dd><p>Encoder-side scores \(B_2 = X_2 Y_2\) (R x N), i.e. \(B_1\)
+before the \(C\) map.</p></dd>
+
+<dt>B1.prob, B2.prob</dt>
+<dd><p>Column-normalized \(B_1\) / \(B_2\): each
+SAMPLE's soft membership over the Q response groups and over the R
+covariate groups respectively.</p></dd>
+
+<dt>B1.cluster, B2.cluster</dt>
+<dd><p>Hard label per sample (argmax over the columns
+of the corresponding <code>.prob</code>).</p></dd>
+
+<dt>X1.prob</dt>
+<dd><p>Row-normalized \(X_1\) (P1 x Q): each RESPONSE VARIABLE's
+soft membership over the Q response groups.</p></dd>
+
+<dt>X1.cluster</dt>
+<dd><p>Hard response-group label per response variable
+(argmax over <code>X1.prob</code> rows).</p></dd>
+
+<dt>X2.prob</dt>
+<dd><p>Column-normalized \(X_2\) (R x P2): each COVARIATE
+VARIABLE's soft membership over the R covariate groups.</p></dd>
+
+<dt>X2.cluster</dt>
+<dd><p>Hard covariate-group label per covariate variable
+(argmax over <code>X2.prob</code> columns).</p></dd>
+
 <dt>rank</dt>
 <dd><p>Named integer vector <code>c(Q, R)</code>.</p></dd>
 
@@ -243,7 +280,11 @@ kept for backward compatibility (<code>Q</code> / <code>R</code> are also accept
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-    <p>Lee, D. D. and Seung, H. S. (2001). Algorithms for Non-negative Matrix Factorization.
+    <p>Satoh, K. and Tokuda, Y. (2026). Co-clustering of Response and Covariate
+Variables by Tri-Factorizing Their Non-negative Regression Coefficient
+Matrix. <em>arXiv preprint</em> arXiv:2607.27474.
+<a href="https://doi.org/10.48550/arXiv.2607.27474" class="external-link">doi:10.48550/arXiv.2607.27474</a></p>
+<p>Lee, D. D. and Seung, H. S. (2001). Algorithms for Non-negative Matrix Factorization.
 <em>Advances in Neural Information Processing Systems</em>, 13.</p>
 <p>Saha, S. et al. (2022). Hierarchical Deep Learning Neural Network (HiDeNN):
 An Artificial Intelligence (AI) Framework for Computational Science and Engineering.
@@ -251,7 +292,7 @@ An Artificial Intelligence (AI) Framework for Computational Science and Engineer
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfae-deprecated.html">nmfae.inference</a></code>, <code><a href="predict.nmfae.html">predict.nmfae</a></code>, <code><a href="nmfae-deprecated.html">nmfae.ecv</a></code>, <code><a href="nmfae-deprecated.html">nmfae.DOT</a></code>, <code><a href="nmfkc.html">nmfkc</a></code></p></div>
+    <div class="dont-index"><p><code><a href="nmf.rrr.inference.html">nmf.rrr.inference</a></code>, <code><a href="predict.nmfae.html">predict.nmfae</a></code>, <code><a href="nmf.rrr.ecv.html">nmf.rrr.ecv</a></code>, <code><a href="nmf.rrr.DOT.html">nmf.rrr.DOT</a></code>, <code><a href="nmfkc.html">nmfkc</a></code></p></div>
     </div>
 
     <div class="section level2">

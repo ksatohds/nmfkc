@@ -62,14 +62,25 @@ the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
   \rVert_F^2}. Default: \code{100}.}
 
 \item{C1.L1}{L1 sparsity penalty for \code{C1} (i.e., \eqn{\Theta_1}).
-Default: \code{1.0}.}
+Default: \code{1.0}.  \strong{Scale note}: this function adds
+\code{C1.L1} to the multiplicative denominator, whereas
+\code{\link{nmfkc}}, \code{\link{nmfae}} and \code{\link{nmfkc.net}} add
+\code{C.L1 / 2}.  The same nominal value is therefore twice as strong
+here.  The difference is retained so that published \code{nmf.ffb} fits
+reproduce; halve the value to match the other models.}
 
 \item{C2.L1}{L1 sparsity penalty for \code{C2} (i.e., \eqn{\Theta_2}).
-Default: \code{0.1}.}
+Default: \code{0.1}.  Same scale note as \code{C1.L1}.}
 
 \item{epsilon}{Relative convergence threshold for the objective function.
-Iterations stop when the relative change in reconstruction loss falls
-below this value. Default: \code{1e-6}.}
+Iterations stop when the relative change in \strong{reconstruction loss}
+falls below this value. Default: \code{1e-6}.
+\strong{Note}: the test is on the unpenalized loss (\code{objfunc}), not
+on the penalized objective the updates actually minimize
+(\code{objfunc.full}).  Every other optimizer in the package tests the
+penalized value, so with a large \code{X.L2.ortho} or \code{C*.L1} this
+function can stop while the quantity being optimized is still moving.
+Both traces are returned; compare them if the penalties are strong.}
 
 \item{maxit}{Maximum number of iterations for the multiplicative updates.
 Default: \code{5000} (matches \code{\link{nmfkc}} and other MU

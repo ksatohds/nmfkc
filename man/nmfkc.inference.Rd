@@ -37,7 +37,18 @@ compatible), \code{"rademacher"} for \code{"refit"}.}
 \item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
 (default, i.i.d. multiplier per matrix cell) or \code{"column"}
 (one multiplier per sample column, shared over rows).}
-\item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
+\item{\code{refit.epsilon}, \code{refit.maxit}}{For
+\code{method="refit"}: convergence tolerance and iteration cap of the
+re-fits, defaulting to \code{1e-8} and \code{100000}.  These are
+deliberately far tighter than \code{\link{nmfkc}}'s own \code{1e-4}:
+under multiplicative updates a coefficient heading for the
+non-negativity boundary approaches 0 slowly, so at a loose tolerance
+every replicate stops while that coefficient is still spuriously
+positive.  The replicates then pile up above the point estimate, the
+percentile interval can exclude it entirely, and the bootstrap SE is
+understated.  Loosen only if the re-fits are too slow, and check that
+the intervals still contain the estimates.}
+\item{\code{wild.B}}{Number of bootstrap replicates. Default is 500.}
 \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
 \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
 \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
@@ -54,7 +65,15 @@ components from the input \code{object}, with additional inference components:
 \item{C.se.boot}{Bootstrap standard errors for \eqn{C} (Q x K matrix).}
 \item{C.ci.lower}{Lower CI bounds for \eqn{C} (Q x K matrix).}
 \item{C.ci.upper}{Upper CI bounds for \eqn{C} (Q x K matrix).}
-\item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{C}.}
+\item{coefficients}{Data frame with one row per element of \eqn{C}.
+\code{SE} is always the sandwich standard error and \code{BSE} always the
+bootstrap one, so the two columns differ; \code{z_value} and \code{p_value}
+use whichever is primary for the chosen \code{method} (bootstrap under
+\code{"refit"}, sandwich under \code{"onestep"}).  \code{on.boundary} flags
+coefficients at or below \code{boundary.tol} (default \code{1e-3}): their
+interval and p-value behave correctly in the "do not reject" direction, but
+the value is not a calibrated p-value --- a one-sided bootstrap p piles up
+near \eqn{1/2} at the boundary.}
 \item{C.p.side}{P-value type used.}
 }
 \description{

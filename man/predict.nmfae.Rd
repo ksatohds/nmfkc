@@ -48,7 +48,7 @@ pred <- predict(res)
 }
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{plot.predict.nmfae}},
+\code{\link{nmf.rrr}}, \code{\link{plot.predict.nmfae}},
 \code{\link{nmfkc.class}}
 }
 \keyword{internal}

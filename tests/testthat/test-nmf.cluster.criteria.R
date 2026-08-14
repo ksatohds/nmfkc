@@ -40,9 +40,13 @@ test_that("nmf.cluster.criteria sets silhouette NA when the coefficient is signe
 
 test_that("nmf.cluster.criteria matches nmfkc.criterion's values (shared helper)", {
   Y <- t(as.matrix(iris[, 1:4]))
-  fit <- nmfkc(Y, Q = 3, print.dims = FALSE)
+  ## detail = "full" is now needed: nmfkc() defaults to "fast" and no longer
+  ## carries the O(N^2) sample-clustering criteria, which is exactly why
+  ## nmf.cluster.criteria() recomputes them.
+  fit <- nmfkc(Y, Q = 3, print.dims = FALSE, detail = "full")
   cc  <- nmf.cluster.criteria(fit, Y, plot = FALSE)
   crit <- fit$criterion
+  expect_false(is.null(crit$silhouette))
   expect_equal(cc$criteria$CPCC,       crit$CPCC,       tolerance = 1e-8)
   expect_equal(cc$criteria$dist.cor,   crit$dist.cor,   tolerance = 1e-8)
   expect_equal(cc$criteria$silhouette, crit$silhouette, tolerance = 1e-8)

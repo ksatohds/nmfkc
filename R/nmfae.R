@@ -6,6 +6,28 @@
 # Depends: nmfkc
 # Suggests: DiagrammeR, DiagrammeRsvg, rsvg (for DOT graph rendering)
 
+#' @title Decoder-side scores of an nmfae-family fit (Internal)
+#' @description
+#' Returns \eqn{B_1 = C X_2 Y_2}, the Q x N scores with
+#' \eqn{\widehat Y_1 = X_1 B_1}.
+#'
+#' \code{nmf.rrr()} returns these as \code{B1}; \code{H} is retained only as a
+#' deprecated alias of the same matrix. Two other cases still need the fallback:
+#' objects saved by a release before \code{B1} existed, and
+#' \code{nmf.rrr.signed}, which inherits class \code{"nmfae"} but has not been
+#' renamed. Reading \code{$H} directly would therefore be wrong for new code and
+#' unsafe for old objects; call this instead.
+#'
+#' Note this is \emph{not} what \code{coef()} returns: \code{coef.nmf} gives the
+#' parameter matrix \eqn{C} (or the coefficients table after inference).
+#' @param object An object inheriting from class \code{"nmfae"}.
+#' @return The Q x N score matrix, or \code{NULL} if the object carries neither.
+#' @keywords internal
+#' @noRd
+.nmfae.B1 <- function(object) {
+  if (!base::is.null(object$B1)) object$B1 else object$H
+}
+
 #' @title Three-Layer Non-negative Matrix Factorization (NMF-AE)
 #' @description
 #' \code{nmfae} fits a three-layer nonnegative matrix factorization model
@@ -70,6 +92,25 @@
 #' \item{C}{Parameter matrix (Q x R).}
 #' \item{X2}{Encoder basis matrix (R x P2), row sum 1.}
 #' \item{Y1hat}{Fitted values \eqn{X_1 \Theta X_2 Y_2} (P1 x N).}
+#' \item{B1}{Decoder-side scores \eqn{B_1 = C X_2 Y_2} (Q x N), so that
+#'   \eqn{\widehat Y_1 = X_1 B_1}. Analogue of \code{B} in \code{\link{nmfkc}}.}
+#' \item{H}{\strong{Deprecated}; identical to \code{B1}. Kept so that code
+#'   written against earlier releases keeps working. Use \code{B1}.}
+#' \item{B2}{Encoder-side scores \eqn{B_2 = X_2 Y_2} (R x N), i.e. \eqn{B_1}
+#'   before the \eqn{C} map.}
+#' \item{B1.prob, B2.prob}{Column-normalized \eqn{B_1} / \eqn{B_2}: each
+#'   SAMPLE's soft membership over the Q response groups and over the R
+#'   covariate groups respectively.}
+#' \item{B1.cluster, B2.cluster}{Hard label per sample (argmax over the columns
+#'   of the corresponding \code{.prob}).}
+#' \item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
+#'   soft membership over the Q response groups.}
+#' \item{X1.cluster}{Hard response-group label per response variable
+#'   (argmax over \code{X1.prob} rows).}
+#' \item{X2.prob}{Column-normalized \eqn{X_2} (R x P2): each COVARIATE
+#'   VARIABLE's soft membership over the R covariate groups.}
+#' \item{X2.cluster}{Hard covariate-group label per covariate variable
+#'   (argmax over \code{X2.prob} columns).}
 #' \item{rank}{Named integer vector \code{c(Q, R)}.}
 #' \item{method}{Objective used (\code{"EU"} or \code{"KL"}).}
 #' \item{objfunc}{Final objective value.}
@@ -85,11 +126,16 @@
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in future versions.
 #'
-#' @seealso \code{\link{nmfae.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.DOT}}, \code{\link{nmfkc}}
+#' @seealso \code{\link{nmf.rrr.inference}}, \code{\link{predict.nmfae}}, \code{\link{nmf.rrr.ecv}}, \code{\link{nmf.rrr.DOT}}, \code{\link{nmfkc}}
 #' @export
 #' @source Satoh, K. (2025). Applying Non-negative Matrix Factorization with Covariates
 #'   to Multivariate Time Series. \emph{Japanese Journal of Statistics and Data Science}.
 #' @references
+#' Satoh, K. and Tokuda, Y. (2026). Co-clustering of Response and Covariate
+#'   Variables by Tri-Factorizing Their Non-negative Regression Coefficient
+#'   Matrix. \emph{arXiv preprint} arXiv:2607.27474.
+#'   \doi{10.48550/arXiv.2607.27474}
+#'
 #' Lee, D. D. and Seung, H. S. (2001). Algorithms for Non-negative Matrix Factorization.
 #'   \emph{Advances in Neural Information Processing Systems}, 13.
 #'
@@ -220,13 +266,17 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
   W <- Y1.weights  # alias for readability (NULL when unweighted)
 
+  ## Loop-invariant: the weighted response W*Y1 is constant (W, Y1 fixed); it is
+  ## used by the X1-, C- and X2-steps every iteration.  Compute it once.
+  if (has.weights) WY1 <- W * Y1
+
   for (iter in 1:maxit) {
     # 1. Update X1: Y1 ≈ X1 F, F = C X2 Y2
     F_mat <- C %*% X2 %*% Y2                           # Q x N
     if (method == "EU") {
       if (has.weights) {
-        num_X1 <- (W * Y1) %*% t(F_mat)
-        den_X1 <- (W * (X1 %*% F_mat)) %*% t(F_mat) + eps
+        num_X1 <- tcrossprod(WY1, F_mat)               # = (W*Y1) %*% t(F_mat)
+        den_X1 <- tcrossprod(W * (X1 %*% F_mat), F_mat) + eps
       } else {
         num_X1 <- tcrossprod(Y1, F_mat)
         den_X1 <- X1 %*% tcrossprod(F_mat) + eps
@@ -234,8 +284,8 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     } else {                                           # KL: ratio Y1/Y1hat
       ratio <- Y1 / (X1 %*% F_mat + eps)
       if (has.weights) ratio <- W * ratio
-      num_X1 <- ratio %*% t(F_mat)
-      den_X1 <- (if (has.weights) W %*% t(F_mat)
+      num_X1 <- tcrossprod(ratio, F_mat)
+      den_X1 <- (if (has.weights) tcrossprod(W, F_mat)
                  else matrix(rowSums(F_mat), P1, Q, byrow = TRUE)) + eps
     }
     if (X1.L2.ortho > 0) {
@@ -253,18 +303,18 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     G <- X2 %*% Y2                                     # R x N
     if (method == "EU") {
       if (has.weights) {
-        num_C <- crossprod(X1, W * Y1) %*% t(G)
-        den_C <- crossprod(X1, W * (X1 %*% C %*% G)) %*% t(G) + eps
+        num_C <- tcrossprod(crossprod(X1, WY1), G)
+        den_C <- tcrossprod(crossprod(X1, W * (X1 %*% C %*% G)), G) + eps
       } else {
-        num_C <- crossprod(X1, Y1) %*% t(G)
+        num_C <- tcrossprod(crossprod(X1, Y1), G)
         den_C <- crossprod(X1) %*% C %*% tcrossprod(G) + eps
       }
       if (C.L1 > 0) den_C <- den_C + (C.L1 / 2)
     } else {                                           # KL
       ratio <- Y1 / (X1 %*% C %*% G + eps)
       if (has.weights) ratio <- W * ratio
-      num_C <- crossprod(X1, ratio) %*% t(G)
-      den_C <- (if (has.weights) crossprod(X1, W) %*% t(G)
+      num_C <- tcrossprod(crossprod(X1, ratio), G)
+      den_C <- (if (has.weights) tcrossprod(crossprod(X1, W), G)
                 else outer(colSums(X1), rowSums(G))) + eps
       if (C.L1 > 0) den_C <- den_C + C.L1
     }
@@ -274,17 +324,17 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     H <- X1 %*% C                                      # P1 x R
     if (method == "EU") {
       if (has.weights) {
-        num_X2 <- crossprod(H, W * Y1) %*% t(Y2)
-        den_X2 <- crossprod(H, W * (H %*% X2 %*% Y2)) %*% t(Y2) + eps
+        num_X2 <- tcrossprod(crossprod(H, WY1), Y2)
+        den_X2 <- tcrossprod(crossprod(H, W * (H %*% X2 %*% Y2)), Y2) + eps
       } else {
-        num_X2 <- crossprod(H, Y1) %*% t(Y2)
+        num_X2 <- tcrossprod(crossprod(H, Y1), Y2)
         den_X2 <- crossprod(H) %*% X2 %*% Y2Y2t + eps
       }
     } else {                                           # KL
       ratio <- Y1 / (H %*% X2 %*% Y2 + eps)
       if (has.weights) ratio <- W * ratio
-      num_X2 <- crossprod(H, ratio) %*% t(Y2)
-      den_X2 <- (if (has.weights) crossprod(H, W) %*% t(Y2)
+      num_X2 <- tcrossprod(crossprod(H, ratio), Y2)
+      den_X2 <- (if (has.weights) tcrossprod(crossprod(H, W), Y2)
                  else outer(colSums(H), rowSums(Y2))) + eps
     }
     if (X2.L2.ortho > 0) {
@@ -332,8 +382,14 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
     # Convergence check
     if (iter > 1) {
+      ## abs() on the denominator: the KL objective sum(-Y log Yhat + Yhat) is
+      ## NOT sign-constrained -- it goes negative once Y exceeds e over most
+      ## cells -- and a negative denominator makes rel_change negative, which is
+      ## always < epsilon.  Measured: with Y ~ 50 the fit "converged" after 2
+      ## iterations at R^2 = 0.007.  Every sibling optimizer already takes the
+      ## absolute value here.
       rel_change <- abs(objfunc.iter[iter] - objfunc.iter[iter-1]) /
-                       (objfunc.iter[iter-1] + eps)
+                       (abs(objfunc.iter[iter-1]) + eps)
       if (rel_change < epsilon) {
         if (print.trace) message(sprintf("  Converged at iter %d", iter))
         break
@@ -369,7 +425,15 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   colnames(C)  <- paste0("Cov", 1:R)
   rownames(X2) <- paste0("Cov", 1:R)
 
+  ## Sample names. Everything downstream of Y2 (Y1hat, B1, B2 and the cluster
+  ## vectors) would otherwise inherit its column names from Y2 alone, so
+  ## labelling Y1 but not Y2 silently produced unnamed output even though the
+  ## columns are the same N samples. Prefer Y1, which is what Y1hat is compared
+  ## against; fall back to Y2.
+  snames <- if (!is.null(colnames(Y1))) colnames(Y1) else colnames(Y2)
+
   Y1hat <- X1 %*% C %*% X2 %*% Y2
+  colnames(Y1hat) <- snames
   objfunc <- utils::tail(objfunc.iter, 1)
 
   # R-squared, sigma, mae, and missing count
@@ -398,11 +462,48 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   }
 
   # --- Soft/hard clustering (cf. nmfkc B.prob / B.cluster) ---
-  H <- C %*% X2 %*% Y2   # Q x N encoding
   eps_bp <- 1e-16
-  B.prob <- t( t(H) / (colSums(H) + eps_bp) )   # column-normalized
-  B.cluster <- apply(B.prob, 2, which.max)
-  B.cluster[colSums(H) == 0] <- NA
+
+  ## Column-normalize a score matrix into per-sample memberships and take the
+  ## argmax as the hard label.  Shared by B1 and B2 so the two cannot drift.
+  soft_hard <- function(M) {
+    cs <- base::colSums(M)
+    prob <- base::t( base::t(M) / (cs + eps_bp) )
+    cl <- base::apply(prob, 2, base::which.max)
+    cl[cs == 0] <- NA
+    base::list(prob = prob, cluster = cl)
+  }
+
+  # B1: Q x N response scores  B1 = C X2 Y2  (Y1hat = X1 B1).  Column-normalized
+  # -> each SAMPLE's soft membership over the Q RESPONSE groups; argmax -> its
+  # hard response-group label.
+  B1 <- C %*% X2 %*% Y2
+  colnames(B1) <- snames
+  ## Deprecated alias, kept because $H shipped in 0.8.8 (CRAN).  Internal code
+  ## must go through .nmfae.B1() rather than read either name directly.
+  H <- B1
+  b1 <- soft_hard(B1)
+
+  # B2: R x N covariate scores  B2 = X2 Y2, i.e. B1 before the C map.  Same
+  # normalization gives each SAMPLE's soft membership over the R COVARIATE
+  # groups -- the encoder-side counterpart of B1, which lives on the decoder
+  # side.  Distinct from X2.prob below, which is per covariate VARIABLE.
+  B2 <- X2 %*% Y2
+  colnames(B2) <- snames
+  b2 <- soft_hard(B2)
+
+  # X1: P1 x Q response basis (columns sum to 1). Row-normalize -> each
+  # RESPONSE VARIABLE's soft membership over the Q response groups
+  # (mirrors nmfkc X.prob / X.cluster).
+  X1.prob <- X1 / (rowSums(X1) + eps_bp)
+  X1.cluster <- apply(X1.prob, 1, which.max)
+  X1.cluster[rowSums(X1) == 0] <- NA
+
+  # X2: R x P2 covariate basis (rows sum to 1). Column-normalize -> each
+  # COVARIATE VARIABLE's soft membership over the R covariate groups.
+  X2.prob <- t( t(X2) / (colSums(X2) + eps_bp) )   # column-normalized (per covariate)
+  X2.cluster <- apply(X2.prob, 2, which.max)
+  X2.cluster[colSums(X2) == 0] <- NA
 
   result <- list(
     call = cl,
@@ -410,9 +511,17 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     C = C,
     X2 = X2,
     Y1hat = Y1hat,
+    B1 = B1,
+    B2 = B2,
     H = H,
-    B.prob = B.prob,
-    B.cluster = B.cluster,
+    B1.prob = b1$prob,
+    B1.cluster = b1$cluster,
+    B2.prob = b2$prob,
+    B2.cluster = b2$cluster,
+    X1.prob = X1.prob,
+    X1.cluster = X1.cluster,
+    X2.prob = X2.prob,
+    X2.cluster = X2.cluster,
     rank = c(Q = Q, R = R),
     dims = c(P1 = P1, P2 = P2, N = N),
     method = method,
@@ -425,6 +534,18 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     mae = mae,
     niter = niter,
     iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
+    ## Convergence bookkeeping, matching nmfkc / nmfre so print.nmf() and the
+    ## summaries can say whether the run finished or hit the cap -- previously
+    ## the two were indistinguishable from the object.
+    ##
+    ## `rel_change` is only assigned from the second iteration onward, so at
+    ## maxit = 1 it is unbound.  `&&` does not short-circuit past an unbound
+    ## name, so dropping the exists() guard the warning above uses turned
+    ## nmf.rrr(..., maxit = 1) into a hard error.  The MU loop breaks as soon as
+    ## it converges, so `niter < maxit` says the same thing without the hazard.
+    maxit = maxit,
+    epsilon = epsilon,
+    converged = (niter < maxit),
     runtime = diff.time,
     n.missing = n.missing,
     n.total = P1 * N
@@ -471,7 +592,7 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{summary.nmfae.inference}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{summary.nmfae.inference}}
 #' @export
 #' @examples
 #' Y <- matrix(c(1,0,1,0, 0,1,0,1, 1,1,0,0), nrow=3, byrow=TRUE)
@@ -486,6 +607,9 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
   extra_args <- list(...)
   wild.B     <- if (!is.null(extra_args$wild.B))     extra_args$wild.B     else 500
   wild.seed  <- if (!is.null(extra_args$wild.seed))  extra_args$wild.seed  else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(wild.seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   wild.level <- if (!is.null(extra_args$wild.level)) extra_args$wild.level else 0.95
   sandwich   <- if (!is.null(extra_args$sandwich))   extra_args$sandwich   else TRUE
   C.p.side   <- if (!is.null(extra_args$C.p.side))   extra_args$C.p.side   else "one.sided"
@@ -520,18 +644,28 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
     else stop("Information matrix singular; install MASS package.")
   })
 
-  # Sandwich covariance: V = Hinv J Hinv
-  V_sand <- NULL
-  if (isTRUE(sandwich)) {
+  # Per-observation score matrix (Q*R x N), shared by the sandwich J and
+  # the wild bootstrap: column n is vec(S_n), S_n = -(X1' r_n) z_n' / sigma2.
+  score_mat <- NULL
+  if (isTRUE(sandwich) || isTRUE(wild.bootstrap)) {
     X1t <- t(X1)
-    J <- matrix(0, Q * R, Q * R)
+    s2 <- max(sigma2.used, 1e-12)
+    score_mat <- matrix(0, Q * R, N)
     for (n in 1:N) {
       z_n <- Z[, n, drop = FALSE]
       r_n <- R_C[, n, drop = FALSE]
       g_n <- X1t %*% r_n
-      S_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
-      s_n <- as.vector(S_n)
-      J <- J + tcrossprod(s_n)
+      S_n <- -(tcrossprod(g_n, z_n)) / s2
+      score_mat[, n] <- as.vector(S_n)
+    }
+  }
+
+  # Sandwich covariance: V = Hinv J Hinv
+  V_sand <- NULL
+  if (isTRUE(sandwich)) {
+    J <- matrix(0, Q * R, Q * R)
+    for (n in 1:N) {
+      J <- J + tcrossprod(score_mat[, n])
     }
     if (N > 1) J <- (N / (N - 1)) * J     # CR1 correction
     V_sand <- Hinv %*% J %*% Hinv
@@ -550,15 +684,6 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
 
   if (isTRUE(wild.bootstrap)) {
     set.seed(wild.seed)
-    X1t <- t(X1)
-    score_mat <- matrix(0, Q * R, N)
-    for (n in 1:N) {
-      z_n <- Z[, n, drop = FALSE]
-      r_n <- R_C[, n, drop = FALSE]
-      g_n <- X1t %*% r_n
-      G_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
-      score_mat[, n] <- as.vector(G_n)
-    }
 
     C_boot <- .boot.onestep(as.vector(C), score_mat, Hinv, wild.B,
                             dist = "exp", seed = wild.seed, project = TRUE)
@@ -567,12 +692,12 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
     sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
     C.se.boot <- matrix(sd_vec, nrow = Q, ncol = R, byrow = FALSE)
 
-    # Bootstrap CI
+    # Bootstrap CI (one quantile pass; identical type-7 values)
     alpha <- 1 - wild.level
-    lo <- apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
-    hi <- apply(C_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
-    C.ci.lower <- matrix(lo, nrow = Q, ncol = R, byrow = FALSE)
-    C.ci.upper <- matrix(hi, nrow = Q, ncol = R, byrow = FALSE)
+    qs <- apply(C_boot, 1, stats::quantile,
+                probs = c(alpha / 2, 1 - alpha / 2), na.rm = TRUE, names = FALSE)
+    C.ci.lower <- matrix(qs[1, ], nrow = Q, ncol = R, byrow = FALSE)
+    C.ci.upper <- matrix(qs[2, ], nrow = Q, ncol = R, byrow = FALSE)
   }
 
   # ---- Coefficients table ----
@@ -650,7 +775,7 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
 #'   X2.rownames = c("Cov1", "Cov2"))
 #' summary(res)
 #' }
-#' @seealso \code{\link{nmfae}}
+#' @seealso \code{\link{nmf.rrr}}
 #' @export
 nmf.rrr.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
   if (!is.null(X1.colnames)) {
@@ -685,7 +810,7 @@ nmf.rrr.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' @param ... Additional graphical parameters passed to \code{plot}.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
-#' @seealso \code{\link{nmfae}}, \code{\link{nmfae.heatmap}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{nmf.rrr.heatmap}}
 #' @examples
 #' \donttest{
 #' set.seed(1)
@@ -736,12 +861,19 @@ plot.nmfae <- function(x, ...) {
 #' \item{C.sparsity}{Proportion of near-zero elements in C.}
 #' \item{X2.sparsity}{Proportion of near-zero elements in X2.}
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{print.summary.nmfae}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{print.summary.nmfae}}
 #' @export
 summary.nmfae <- function(object, ...) {
   ans <- list()
   ans$call <- object$call
   ans$dims <- object$dims
+  ## Carried through so .print.convergence() has something to report; without
+  ## these the summary showed a bare iteration count and could not distinguish
+  ## a converged run from one that exhausted maxit.
+  ans$iter <- object$iter
+  ans$maxit <- object$maxit
+  ans$epsilon <- object$epsilon
+  ans$converged <- object$converged
   Q <- object$rank["Q"]
   R <- object$rank["R"]
   ans$Q <- Q
@@ -771,10 +903,11 @@ summary.nmfae <- function(object, ...) {
   ans$r.squared.centered <- object$r.squared.centered
   ans$sigma <- object$sigma
   ans$mae <- object$mae
-  ## Effective rank of the latent encoding H (Q x N).
-  ans$effective.rank <- if (!is.null(object$H)) .effective.rank(object$H) else NA_real_
+  ## Effective rank of the decoder-side scores B1 (Q x N).
+  B1 <- .nmfae.B1(object)
+  ans$effective.rank <- if (!is.null(B1)) .effective.rank(B1) else NA_real_
   ans$rank <- if (!is.null(object$rank)) object$rank[1] else
-              if (!is.null(object$H)) nrow(object$H) else NA
+              if (!is.null(B1)) nrow(B1) else NA
 
   # Missing values
   ans$n.missing <- object$n.missing
@@ -841,7 +974,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
               P1, Q, Q, R, R, P2, x$n.params), "\n")
 
   cat("\nConvergence:\n")
-  cat("  Iterations:     ", x$niter, "\n")
+  .print.convergence(x, label = "  Iterations:      ")
   cat("  Runtime:        ", sprintf("%.1f secs", x$runtime), "\n")
 
   if (x$n.missing > 0) {
@@ -943,7 +1076,7 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' @param object An object of class \code{"nmfae.inference"}.
 #' @param ... Additional arguments (currently unused).
 #' @return An object of class \code{"summary.nmfae.inference"}.
-#' @seealso \code{\link{nmfae.inference}}, \code{\link{summary.nmfae}}
+#' @seealso \code{\link{nmf.rrr.inference}}, \code{\link{summary.nmfae}}
 #' @export
 summary.nmfae.inference <- function(object, ...) {
   ans <- summary.nmfae(object, ...)
@@ -994,7 +1127,7 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{plot.nmfae}}, \code{\link{nmfae.DOT}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{plot.nmfae}}, \code{\link{nmf.rrr.DOT}}
 #' @examples
 #' \donttest{
 #' set.seed(1)
@@ -1092,7 +1225,7 @@ nmf.rrr.heatmap <- function(x,
 #'   For \code{type = "class"}: a factor of class \code{"predict.nmfae"} with
 #'   predicted class labels. If \code{Y1} was provided, actual classes are stored
 #'   in \code{attr(result, "actual")}.
-#' @seealso \code{\link{nmfae}}, \code{\link{plot.predict.nmfae}},
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{plot.predict.nmfae}},
 #'   \code{\link{nmfkc.class}}
 #' @examples
 #' \donttest{
@@ -1258,7 +1391,11 @@ plot.predict.nmfae <- function(x, ...) {
 #'   When explicitly specified, all combinations with \code{rank} are evaluated.
 #' @param ... Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
-#'   \code{seed} (integer seed, default 123).
+#'   \code{seed} (integer seed, default 123), and \code{cores} (evaluate the
+#'   \eqn{(Q,R)}-pair \eqn{\times} fold grid in parallel; default
+#'   \code{getOption("mc.cores", 1L)}, PSOCK on Windows / forking elsewhere).
+#'   Each task is an independent self-seeded fit and results are aggregated in
+#'   order, so the returned object is identical for any \code{cores}.
 #'   For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
 #'   \code{rank} and \code{rank.encoder}.
 #'
@@ -1273,7 +1410,7 @@ plot.predict.nmfae <- function(x, ...) {
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{nmfkc.ecv}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{nmfkc.ecv}}
 #' @export
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
@@ -1294,6 +1431,10 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
   if (!is.null(extra_ecv$R))  rank.encoder <- extra_ecv$R
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed))   extra_ecv$seed   else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  cores  <- if (!is.null(extra_ecv$cores))  extra_ecv$cores  else getOption("mc.cores", 1L)
   Q <- rank; R <- rank.encoder
   div <- nfolds
 
@@ -1319,6 +1460,7 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
                   num_pairs, div, num_pairs * div))
 
   extra_args <- list(...)
+  extra_args$cores <- NULL   # not an nmf.rrr fit argument
 
   # Model-specific worker: mask fold k, refit at pair i, held-out loss
   run_one <- function(i, k) {
@@ -1333,7 +1475,25 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
   }
 
-  cv <- .ecv.run(pair_labels, div, run_one,
+  ## Opt-in parallelism over the (pair x fold) grid. Each (i, k) task is an
+  ## independent, self-seeded nmf.rrr() fit (folds are precomputed once), so
+  ## evaluating them concurrently changes nothing: results are gathered into
+  ## res_mat and .ecv.run() performs the identical sequential aggregation and
+  ## progress reporting via a table lookup. cores <= 1 uses run_one directly,
+  ## reproducing the sequential loop bit for bit.
+  cores_i <- suppressWarnings(as.integer(cores))
+  if (!is.na(cores_i) && length(cores_i) == 1L && cores_i > 1L) {
+    grid <- expand.grid(i = seq_len(num_pairs), k = seq_len(div))
+    vals <- .nmfkc.parlapply(seq_len(nrow(grid)),
+                             function(t) run_one(grid$i[t], grid$k[t]),
+                             cores = cores_i)
+    res_mat <- matrix(unlist(vals), nrow = num_pairs, ncol = div)
+    run_eval <- function(i, k) res_mat[i, k]
+  } else {
+    run_eval <- run_one
+  }
+
+  cv <- .ecv.run(pair_labels, div, run_eval,
                  progress = function(i, o, s)
                    message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
                                    QR$Q[i], QR$R[i], o, s)))
@@ -1346,6 +1506,27 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
                  paired = is.null(R))
   class(result) <- "nmfae.ecv"
   return(result)
+}
+
+
+#' @title Print method for nmf.rrr element-wise CV results
+#' @description
+#' A two-line summary, matching \code{print.nmfkc.ecv}.  Without it the object
+#' printed as a raw list (33 lines of \code{$objfunc} / \code{$folds}).
+#' @param x An object of class \code{"nmfae.ecv"} (or
+#'   \code{"nmfae.signed.ecv"}).
+#' @param ... Ignored.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.rrr.ecv}}, \code{\link{plot.nmfae.ecv}}
+#' @export
+print.nmfae.ecv <- function(x, ...) {
+  cat(sprintf("nmf.rrr element-wise CV (%s)\n",
+              if (isTRUE(x$paired)) "paired ranks" else "rank grid"))
+  cat(sprintf("  objfunc (mean held-out loss): %.6g\n", min(x$objfunc)))
+  cat(sprintf("  sigma   (held-out RMSE):      %.6g\n", min(x$sigma)))
+  if (!is.null(x$QR) && is.data.frame(x$QR))
+    cat(sprintf("  grid: %d combination(s) of (Q, R)\n", nrow(x$QR)))
+  invisible(x)
 }
 
 
@@ -1367,11 +1548,15 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #'   eff.rank only, and recommends the R-squared elbow).
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param ... Passed on to \code{\link{nmfae}} and \code{\link{nmfae.ecv}}
-#'   (e.g.\ \code{maxit}, \code{nfolds}, \code{seed}).
+#'   (e.g.\ \code{maxit}, \code{nfolds}, \code{seed}). Also accepts \code{cores}
+#'   to evaluate the rank sweep (and the element-wise CV) in parallel; default
+#'   \code{getOption("mc.cores", 1L)}. Each rank is an independent self-seeded
+#'   fit and results are gathered in order, so the output is identical for any
+#'   \code{cores}.
 #' @return A list with \code{rank.best} and \code{criteria}
 #'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
 #'   \code{r.squared}, \code{sigma.ecv}).
-#' @seealso \code{\link{nmfae}}, \code{\link{nmfae.ecv}},
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{nmf.rrr.ecv}},
 #'   \code{\link{nmfkc.rank}}
 #' @references
 #' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
@@ -1388,17 +1573,24 @@ nmf.rrr.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
   if (!is.null(rank))    rank1 <- rank
   if (!is.null(extra$Q)) rank1 <- extra$Q
   extra$Q <- NULL; extra$R <- NULL; extra$rank.encoder <- NULL
+  cores <- if (!is.null(extra$cores)) extra$cores else getOption("mc.cores", 1L)
+  extra$cores <- NULL
   detail <- match.arg(detail)
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
-  rs <- numeric(length(rank1)); er <- numeric(length(rank1))
-  for (i in seq_along(rank1)) {
+  ## Each rank is an independent, self-seeded nmf.rrr() fit; .nmfkc.parlapply
+  ## preserves input order so rs / er are identical to the sequential loop for
+  ## any `cores`.
+  fit_one <- function(i) {
     f <- suppressMessages(do.call(nmf.rrr, c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
                                                 print.trace = FALSE), extra)))
-    rs[i] <- f$r.squared
-    er[i] <- .effective.rank(f$H)
+    c(rs = f$r.squared, er = .effective.rank(.nmfae.B1(f)))
   }
+  fits <- .nmfkc.parlapply(seq_along(rank1), fit_one, cores = cores)
+  rs <- vapply(fits, function(v) v[["rs"]], numeric(1))
+  er <- vapply(fits, function(v) v[["er"]], numeric(1))
   ecv <- if (detail == "full")
-    suppressMessages(do.call(nmf.rrr.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    suppressMessages(do.call(nmf.rrr.ecv,
+                             c(list(Y1, Y2, rank1 = rank1, cores = cores), extra)))$sigma
     else rep(NA_real_, length(rank1))
   criteria <- data.frame(rank = rank1, effective.rank = er,
                          effective.rank.ratio = er / rank1,
@@ -1417,7 +1609,7 @@ nmf.rrr.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
 #' @param ... Additional graphical parameters (currently unused).
 #'
 #' @return Invisible \code{NULL}. Called for its side effect of producing a plot.
-#' @seealso \code{\link{nmfae.ecv}}
+#' @seealso \code{\link{nmf.rrr.ecv}}
 #' @export
 plot.nmfae.ecv <- function(x, ...) {
   Qs <- sort(unique(x$QR$Q))
@@ -1517,7 +1709,11 @@ plot.nmfae.ecv <- function(x, ...) {
 #' @param ... Additional arguments passed to \code{\link{nmfae}}
 #'   (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
-#'   \code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}).
+#'   \code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}),
+#'   and \code{cores} (fit the folds in parallel; default
+#'   \code{getOption("mc.cores", 1L)}, PSOCK on Windows / forking elsewhere).
+#'   Each fold is an independent self-seeded fit and the per-fold errors are
+#'   summed in order, so the result is identical for any \code{cores}.
 #'   For backward compatibility, \code{Q}, \code{R} are accepted as aliases for
 #'   \code{rank}, \code{rank.encoder}.
 #'
@@ -1531,7 +1727,7 @@ plot.nmfae.ecv <- function(x, ...) {
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{nmfae.ecv}}, \code{\link{nmfae.kernel.beta.cv}},
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{nmf.rrr.ecv}}, \code{\link{nmf.rrr.kernel.beta.cv}},
 #'   \code{\link{nmfkc.cv}}
 #' @export
 #' @examples
@@ -1549,11 +1745,16 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
   if (is.null(rank.encoder))  rank.encoder <- rank
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
   seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
+  cores   <- if (!is.null(extra_cv$cores))   extra_cv$cores   else getOption("mc.cores", 1L)
   Q <- rank; R <- rank.encoder
   div <- nfolds
 
   extra_args <- list(...)
+  extra_args$cores <- NULL   # not an nmf.rrr fit argument
 
   Y1 <- as.matrix(Y1); storage.mode(Y1) <- "double"
   Y2 <- as.matrix(Y2); storage.mode(Y2) <- "double"
@@ -1616,10 +1817,12 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
   nmfae_extra$print.trace <- NULL
   nmfae_extra$seed <- NULL
 
-  objfunc.block <- numeric(div)
-  total_valid <- 0
-
-  for (j in 1:div) {
+  ## Each fold is an independent, self-seeded nmf.rrr() fit (the fold shuffle is
+  ## seeded once above; the caller `seed` is stripped so every fit uses the same
+  ## fixed internal seed). .nmfkc.parlapply preserves input order, so summing the
+  ## per-fold (SSE, valid-count) pairs reproduces the sequential loop for any
+  ## `cores`.
+  fold_one <- function(j) {
     train <- (block != j)
     test  <- (block == j)
 
@@ -1650,16 +1853,24 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
     Y1hat_test <- res_j$X1 %*% res_j$C %*% res_j$X2 %*% Y2_test
 
     # Evaluate weighted error (lm-style: sum(W * resid^2))
-    objfunc.block[j] <- sum(W_test * (Y1_test - Y1hat_test)^2)
-    total_valid <- total_valid + sum(W_test > 0)
+    c(sse = sum(W_test * (Y1_test - Y1hat_test)^2), nvalid = sum(W_test > 0))
   }
+
+  folds_res <- .nmfkc.parlapply(1:div, fold_one, cores = cores)
+  objfunc.block <- vapply(folds_res, function(v) v[["sse"]], numeric(1))
+  total_valid   <- sum(vapply(folds_res, function(v) v[["nvalid"]], numeric(1)))
 
   objfunc <- sum(objfunc.block) / max(total_valid, 1)
   sigma <- sqrt(objfunc)
 
   result <- list(objfunc = objfunc, sigma = sigma,
-                 objfunc.block = objfunc.block, block = block)
-  class(result) <- "nmfae.cv"
+                 objfunc.block = objfunc.block, block = block,
+                 ## for print.nmfkc.cv's header, which this class inherits
+                 rank = c(Q = rank, R = rank.encoder), nfolds = nfolds)
+  ## Inherit the compact CV print instead of dumping the raw list: the nmfkc
+  ## and nmfre CV classes all print a two-line summary, this one printed 15
+  ## lines of $objfunc / $block.
+  class(result) <- c("nmfae.cv", "nmfkc.cv")
   result
 }
 
@@ -1673,7 +1884,7 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...,
 #' @param ... Additional graphical parameters passed to \code{barplot}.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
-#' @seealso \code{\link{nmfae.cv}}
+#' @seealso \code{\link{nmf.rrr.cv}}
 #' @export
 plot.nmfae.cv <- function(x, ...) {
   extra_args <- list(...)
@@ -1714,7 +1925,11 @@ plot.nmfae.cv <- function(x, ...) {
 #' @param ... Additional arguments. Kernel-specific args (\code{kernel}, \code{degree})
 #'   are passed to \code{\link{nmfkc.kernel}}; all others
 #'   (\code{div}, \code{seed}, \code{shuffle}, \code{epsilon}, \code{maxit}, etc.)
-#'   are passed to \code{\link{nmfae.cv}}.
+#'   are passed to \code{\link{nmfae.cv}}. Also accepts \code{cores} to evaluate
+#'   the candidate \code{beta} values in parallel (default
+#'   \code{getOption("mc.cores", 1L)}); each inner CV then runs sequentially, and
+#'   because results are gathered in order the selected \code{beta} is identical
+#'   for any \code{cores}.
 #'   For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
 #'   \code{rank} and \code{rank.encoder}.
 #'
@@ -1722,7 +1937,7 @@ plot.nmfae.cv <- function(x, ...) {
 #' \item{beta}{The beta value that minimizes the cross-validation objective.}
 #' \item{objfunc}{Named numeric vector of objective function values for each candidate beta.}
 #'
-#' @seealso \code{\link{nmfae.cv}}, \code{\link{nmfkc.kernel}},
+#' @seealso \code{\link{nmf.rrr.cv}}, \code{\link{nmfkc.kernel}},
 #'   \code{\link{nmfkc.kernel.beta.cv}}
 #' @export
 #' @examples
@@ -1744,6 +1959,8 @@ nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
   if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
   if (is.null(rank.encoder))  rank.encoder <- rank
   extra_args <- extra_args[!names(extra_args) %in% c("Q", "R")]
+  cores <- if (!is.null(extra_args$cores)) extra_args$cores else getOption("mc.cores", 1L)
+  extra_args$cores <- NULL
 
   # Separate kernel-specific args from cv/nmfae args
   kernel_only <- c("kernel", "degree")
@@ -1759,18 +1976,20 @@ nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
       stop("Failed to determine beta candidates from nearest-neighbor median.")
   }
 
-  objfuncs <- numeric(length(beta))
-  for (i in seq_along(beta)) {
+  ## Each beta is an independent, self-seeded nmf.rrr.cv() evaluation; the inner
+  ## CV runs sequentially (cores = 1) so the beta-level parallelism does not nest.
+  ## .nmfkc.parlapply preserves input order, so which.min() picks the same beta as
+  ## the sequential loop for any `cores`. Progress messages stay in the closure.
+  beta_one <- function(i) {
     start.time <- Sys.time()
     message(paste0("beta=", beta[i], "..."), appendLF = FALSE)
 
     kernel_call <- c(list(U = U, V = V, beta = beta[i]), kernel_args)
     A <- do.call("nmfkc.kernel", kernel_call)
 
-    cv_call <- c(list(Y1 = Y1, Y2 = A, rank = rank, rank.encoder = rank.encoder), cv_args)
+    cv_call <- c(list(Y1 = Y1, Y2 = A, rank = rank, rank.encoder = rank.encoder,
+                      cores = 1L), cv_args)
     result <- do.call("nmf.rrr.cv", cv_call)
-
-    objfuncs[i] <- result$objfunc
 
     end.time <- Sys.time()
     diff.time <- difftime(end.time, start.time, units = "sec")
@@ -1778,7 +1997,9 @@ nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
                            paste0(round(diff.time, 1), "sec"),
                            paste0(round(diff.time / 60, 1), "min"))
     message(diff.time.st)
+    result$objfunc
   }
+  objfuncs <- unlist(.nmfkc.parlapply(seq_along(beta), beta_one, cores = cores))
 
   i0 <- which.min(objfuncs)
   beta.best <- beta[i0]
@@ -1801,7 +2022,7 @@ nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
 #' @param ... Additional graphical parameters passed to \code{plot}.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
-#' @seealso \code{\link{nmfae.kernel.beta.cv}}
+#' @seealso \code{\link{nmf.rrr.kernel.beta.cv}}
 #' @export
 plot.nmfae.kernel.beta.cv <- function(x, ...) {
   beta <- as.numeric(names(x$objfunc))
@@ -1863,7 +2084,7 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' This function is \strong{experimental}. The interface may change in
 #' future versions; details are to be described in an upcoming paper.
 #'
-#' @seealso \code{\link{nmfae}}
+#' @seealso \code{\link{nmf.rrr}}
 #' @examples
 #' \donttest{
 #' set.seed(1)

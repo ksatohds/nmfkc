@@ -20,5 +20,5 @@ Prints a summary of any NMF inference result object
 (\code{"nmfkc.inference"} or \code{"nmfae.inference"}).
 }
 \seealso{
-\code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}}
+\code{\link{nmfkc.inference}}, \code{\link{nmf.rrr.inference}}
 }

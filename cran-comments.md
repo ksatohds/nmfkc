@@ -4,7 +4,8 @@
 
 ## Test environments
 
-* Windows 11 (local), R 4.4.1
+* Windows 11 (local), R 4.4.1, `--as-cran`
+* Ubuntu Linux (local server), R 4.5.3
 * win-builder (R-devel, R-release)
 * R-hub v2 (Linux, macOS, Windows)
 
@@ -16,31 +17,45 @@
 
 ## This is an update
 
-This is a feature/maintenance update from v0.8.2 (currently on CRAN,
-published 2026-06-14) to v0.8.8.  All changes since v0.8.2 are listed in
-NEWS.md; the major items are:
+This is a maintenance update from v0.8.8 (currently on CRAN, published
+2026-07-14) to v0.9.4.  All changes are listed in NEWS.md.  The update is
+mostly corrections; the items a user could notice are:
 
-* New `nmfre()` family: non-negative matrix factorization as a linear
-  mixed model (random-effect basis coefficients), estimated by an
-  outer-inner ECM with automatic ridge selection from the variance
-  components, plus `nmfre.inference()` / `nmfre.ecv()` and S3 methods.
-* Optional MAP penalties rolled out consistently across the multiplicative-
-  update fitters: `X.L2.ortho` (basis orthogonality), `X.L2.smooth`
-  (row smoothness), `C.L1` (sparsity of the parameter matrix), and `C.L2`
-  (ridge on the signed coefficient matrix).  All default to 0 (off).
-* New `by` argument on the coefficient-table `print` methods to choose the
-  grouping order (by covariate or by basis).
-* Canonical names `nmf.rrr*` (three-layer NMF as reduced-rank regression)
-  and `nmf.ffb*` (feed-forward + feedback) are now the primary interface;
-  the previous `nmfae*` and `nmf.sem*` names are retained as deprecated
-  aliases that forward with a `.Deprecated()` note, so existing code and
-  saved objects continue to work unchanged.
-* Removed the `B.L1` penalty (an L1 on the fitted field `C A` that acted as a
-  degenerate global shrinkage); use `C.L1` for sparsity / variable selection.
+* Correctness fixes in the inference and RNG paths: the refit bootstrap
+  returned p-values that were always 0; several inference and
+  cross-validation wrappers reset the caller's random stream, so a user loop
+  drawing random numbers after a fit silently repeated itself; the weighted
+  path of `nmfkc.signed()` could diverge to `Inf`/`NaN`.
+* `nmfkc.net.DOT()` judged which nodes to draw on the raw basis rather than
+  on the membership scale the edges come from, so with `type = "tri"` the
+  whole outer layer could vanish from the graph.
+* Uniform `print()` / `summary()` across the fitters, including a single
+  convergence line, so a run that merely exhausted `maxit` is no longer
+  displayed as if it had converged.
+* `nmf.rrr()` now returns the two score matrices `B1` (decoder side) and `B2`
+  (encoder side) with their memberships, replacing the single `B.prob` /
+  `B.cluster`.  `H` is retained as a deprecated alias of `B1`.  This family
+  is documented as experimental, and the rename is announced in NEWS.md.
+* Speed: multiplicative-update loops hoist loop invariants, and the
+  cross-validation / restart wrappers take an opt-in `cores` argument.  Both
+  were verified to leave results unchanged.
+
+The `nmf.gmm*` family is present in the sources but is **not exported**: the
+accompanying paper is still in preparation, so it is kept out of the public
+interface (no exported functions, no vignette, help pages marked internal)
+until the method is settled.
 
 ## Additional checks
 
 * All tests pass (testthat).
-* All examples run without errors (including --run-donttest).
+* All examples run without errors, including `--run-donttest`.
 * All vignettes build without errors.
 * No reverse dependencies on CRAN.
+
+## On the submission interval
+
+v0.8.8 was published on 2026-07-14, one month ago.  The update is offered now
+because it is largely bug fixes — in particular the always-zero bootstrap
+p-values and the RNG-stream pollution, both of which can silently affect a
+user's results — rather than new features.  We are happy to hold the
+submission if a longer interval is preferred.

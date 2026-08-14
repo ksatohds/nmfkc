@@ -112,6 +112,12 @@ summary.nmfkc.net.inference <- function(object, ...) {
   ans$coefficients <- object$coefficients
   ans$C.p.side     <- object$C.p.side
   ans$C            <- object$C
+  ## nmfkc.net() records the variant in $type.  Legacy objects came from
+  ## nmfkc(Y.symmetric = "bi"/"tri"), where it survives only in the call --
+  ## and `Y.symmetric` was removed from nmfkc() in 0.9.x, so nothing produces
+  ## it any more.  Carry $type first and keep the call lookup as the fallback,
+  ## or the printer has nothing to report and says "unknown".
+  ans$type         <- object$type
   ans$Y.symmetric  <- tryCatch(eval(object$call$Y.symmetric),
                                error = function(e) NULL)
   class(ans) <- "summary.nmfkc.net.inference"
@@ -127,6 +133,9 @@ summary.nmfkc.net.inference <- function(object, ...) {
 #'
 #' @param x An object of class \code{"summary.nmfkc.net.inference"}.
 #' @param digits Minimum number of significant digits.
+#' @param max.coef Largest number of coefficient rows to print (default 20).
+#'   The table has one row per basis pair, so it grows as \eqn{Q^2}; beyond the
+#'   cap the significant rows are preferred and the omission is reported.
 #' @param by Character; grouping order of the coefficients table. Because the
 #'   symmetric model sets \eqn{A = X^\top}, the column factor \code{Basis.col}
 #'   plays the covariate role: \code{"covariate"} (default) lists all
@@ -139,14 +148,16 @@ summary.nmfkc.net.inference <- function(object, ...) {
 #' @export
 print.summary.nmfkc.net.inference <- function(x,
     digits = max(3L, getOption("digits") - 3L),
-    by = c("covariate", "basis"), ...) {
+    max.coef = 20, by = c("covariate", "basis"), ...) {
   by <- match.arg(by)
 
   # Print base summary
   print.summary.nmfkc(x, digits = digits, ...)
 
-  # Model type
-  sym_type <- if (!is.null(x$Y.symmetric)) x$Y.symmetric else "unknown"
+  # Model type: $type for nmfkc.net objects, the old call argument for legacy ones
+  sym_type <- if (!is.null(x$type)) x$type
+              else if (!is.null(x$Y.symmetric)) x$Y.symmetric
+              else "unknown"
   cat(sprintf("Symmetric NMF type: %s\n", sym_type))
 
   # Inference section
@@ -168,6 +179,13 @@ print.summary.nmfkc.net.inference <- function(x,
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
     cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
+    ## Q x Q rows here, so the same cap the nmfkc printer applies.
+    .n.all <- nrow(cf)
+    .sh <- .coef.show.idx(cf, max.coef)
+    cf <- cf[.sh$idx, , drop = FALSE]
+    if (.sh$truncated || nrow(cf) < .n.all)
+      cat(sprintf("\n(showing %d of %d coefficients; use x$coefficients for all)\n",
+                  nrow(cf), .n.all))
 
     p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "one.sided"
     p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
@@ -245,7 +263,24 @@ print.summary.nmfkc.net.inference <- function(x,
 #'   \code{\link{nmfkc.net}} with \code{type = "bi"} or \code{"tri"}.
 #'   If inference results are present (from \code{\link{nmfkc.net.inference}}),
 #'   C edges are decorated with significance stars.
-#' @param threshold Minimum coefficient value to display an edge.
+#' @param threshold Minimum coefficient value to display an edge.  It is read
+#'   on the membership scale for X edges (\code{X.prob}, rows summing to one)
+#'   and on \eqn{C} for the basis-to-basis edges, and it does two jobs at once,
+#'   switching over at \eqn{1/Q}:
+#'   \itemize{
+#'     \item \strong{At or below \eqn{1/Q}} it only thins edges.  No node can
+#'       be hidden, because a row of \code{X.prob} sums to one and so has a
+#'       maximum of at least \eqn{1/Q}; every node genuinely keeps an edge.
+#'     \item \strong{Above \eqn{1/Q}} it may also start hiding nodes (when
+#'       \code{hide.isolated = TRUE}).  Not immediately: nodes go only once the
+#'       threshold passes the smallest row maximum of \code{X.prob}, which is
+#'       data-dependent and can be well above \eqn{1/Q}.  Inspect
+#'       \code{apply(fit$X.prob, 1, max)} to see where that is.
+#'   }
+#'   The default \code{0.01} therefore draws every node --- guaranteed for any
+#'   \eqn{Q \le 100}, since only then is \eqn{0.01 \le 1/Q} --- and most edges.
+#'   For a readable community graph, 0.2--0.4 usually thins the edges enough
+#'   while keeping all nodes.
 #' @param sig.level Significance level for filtering C edges (if inference
 #'   results are present). Set to \code{NULL} to show all edges above threshold.
 #' @param weight_scale Base scaling factor for edge widths.
@@ -254,7 +289,11 @@ print.summary.nmfkc.net.inference <- function(x,
 #' @param rankdir Graphviz rank direction (\code{"TB"} or \code{"LR"}).
 #' @param fill Logical; whether nodes are filled with color.
 #' @param hide.isolated Logical; if TRUE, omit outer nodes with no X edge
-#'   above threshold.
+#'   above \code{threshold}.  The test is on the membership scale
+#'   (\code{X.prob}), the same quantity the X edges are drawn from, so it does
+#'   not shift with \code{type} or \code{X.restriction}.  See \code{threshold}
+#'   for when this actually removes anything --- at the default it never does
+#'   for any \eqn{Q \le 100}, which is correct rather than a limitation.
 #' @param Y.label Character vector of labels for outer nodes.
 #' @param X.label Character vector of labels for basis nodes.
 #' @param Y.title Cluster title for outer nodes.
@@ -396,15 +435,6 @@ nmfkc.net.DOT <- function(
   X_ids <- .nmfkc_dot_sanitize_id(paste0("X_", seq_len(Q)))
 
   ## ---------------------------------------------------------
-  ## Filter isolated outer nodes
-  ## ---------------------------------------------------------
-  idx_N <- seq_len(P)
-  if (isTRUE(hide.isolated)) {
-    used <- apply(X, 1L, function(row) any(row >= threshold, na.rm = TRUE))
-    idx_N <- which(used)
-  }
-
-  ## ---------------------------------------------------------
   ## Membership probability: H (P x Q, each row sums to 1)
   ## New nmfkc.net objects carry $X.prob; legacy nmfkc(Y.symmetric=...)
   ## objects carry $B.prob (Q x P) which we transpose.
@@ -419,6 +449,25 @@ nmfkc.net.DOT <- function(
     H <- t(sweep(B_raw, 2, cs, "/"))
   } else {
     stop("result must contain X.prob, B.prob, or B.")
+  }
+
+  ## ---------------------------------------------------------
+  ## Filter isolated outer nodes.
+  ##
+  ## Judged on H, the same matrix the X edges below are drawn from, so that a
+  ## displayed node always has at least one edge and vice versa.  Judging on
+  ## the raw X instead -- as this did until 2026-08-02 -- made `threshold` mean
+  ## different things for different `type`s, because X's scale follows
+  ## X.restriction: "none" for type="bi" leaves row maxima near 1, while
+  ## "colSums" for type="tri" puts them near 1/P.  At P = 60 every node then
+  ## fell below a threshold of 0.25 and the whole outer layer vanished, leaving
+  ## only the basis-to-basis C edges.  H is row-normalised, hence comparable
+  ## across types, and matches what @param hide.isolated has always promised.
+  ## ---------------------------------------------------------
+  idx_N <- seq_len(P)
+  if (isTRUE(hide.isolated)) {
+    used <- apply(H, 1L, function(row) any(row >= threshold, na.rm = TRUE))
+    idx_N <- which(used)
   }
 
   ## ---------------------------------------------------------
@@ -641,13 +690,14 @@ nmfkc.net.DOT <- function(
   obj_prev <- compute_obj(X, C)
   objfunc.iter <- numeric(maxit)
   iter <- 0L
+  if (has.weights) WmatY <- Wmat * Y
   for (iter in seq_len(maxit)) {
     tX <- t(X)
 
     ## ---- C update (symmetric tri) ----
     if (has.weights) {
       Yhat <- X %*% C %*% tX
-      num_C <- tX %*% (Wmat * Y) %*% X
+      num_C <- tX %*% WmatY %*% X
       den_C <- tX %*% (Wmat * Yhat) %*% X
     } else {
       num_C <- tX %*% Y %*% X
@@ -660,11 +710,10 @@ nmfkc.net.DOT <- function(
     ## ---- X update (bilateral gradient for Y = X C X^T, symmetric C) ----
     ##   num = (W*Y) X (C + C^T)
     ##   den = (W*Yhat) X (C + C^T)
-    tX <- t(X)
     Yhat <- X %*% C %*% tX
     Ssym <- C + t(C)
     if (has.weights) {
-      WY <- Wmat * Y; WYhat <- Wmat * Yhat
+      WY <- WmatY; WYhat <- Wmat * Yhat
     } else {
       WY <- Y; WYhat <- Yhat
     }
@@ -674,7 +723,8 @@ nmfkc.net.DOT <- function(
       XtX <- crossprod(X); diag(XtX) <- 0
       den_X <- den_X + X.L2.ortho * (X %*% XtX)
     }
-    X <- X * (num_X / (den_X + small))
+    ## Honour X.restriction = "fixed" as every other optimizer does.
+    if (X.restriction != "fixed") X <- X * (num_X / (den_X + small))
 
     cc <- norm_XC(X, C); X <- cc$X; C <- cc$C
 
@@ -712,10 +762,11 @@ nmfkc.net.DOT <- function(
   obj_prev <- compute_obj(X)
   objfunc.iter <- numeric(maxit)
   iter <- 0L
+  if (has.weights) WmatY <- Wmat * Y
   for (iter in seq_len(maxit)) {
     Yhat <- tcrossprod(X)
     if (has.weights) {
-      num_X <- (Wmat * Y)    %*% X
+      num_X <- WmatY    %*% X
       den_X <- (Wmat * Yhat) %*% X
     } else {
       num_X <- Y %*% X
@@ -725,8 +776,11 @@ nmfkc.net.DOT <- function(
       XtX <- crossprod(X); diag(XtX) <- 0
       den_X <- den_X + X.L2.ortho * (X %*% XtX)
     }
-    update_ratio <- num_X / (den_X + small)
-    X <- X * update_ratio^(1/3)
+    ## Honour X.restriction = "fixed" as every other optimizer does.
+    if (X.restriction != "fixed") {
+      update_ratio <- num_X / (den_X + small)
+      X <- X * update_ratio^(1/3)
+    }
 
     if (X.restriction == "colSums") {
       cs <- colSums(X) + small
@@ -784,7 +838,12 @@ nmfkc.net.DOT <- function(
 #'   see the note on \code{Y.weights} below.
 #' @param rank Integer Q.
 #' @param type \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
-#' @param epsilon,maxit,verbose Standard.
+#' @param epsilon,maxit,verbose Standard.  \strong{Note}: the convergence test
+#'   uses the \emph{unpenalized} squared error, not the penalized objective the
+#'   updates minimize, so with a large \code{C.L1} or \code{X.L2.ortho} the
+#'   iteration can stop while the optimized quantity is still moving.  The
+#'   other fitters test the penalized value; this is kept as-is so existing
+#'   fits reproduce.
 #' @param ... Hidden options: \code{nstart} (default 1; see note below),
 #'   \code{seed} (default 123), \code{X.restriction}, \code{X.init},
 #'   \code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
@@ -854,6 +913,9 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 
   nstart        <- if (!is.null(ex$nstart))        ex$nstart        else 1L
   seed          <- if (!is.null(ex$seed))          ex$seed          else 123L
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   X.restriction <- if (!is.null(ex$X.restriction)) ex$X.restriction
                    else if (type == "bi")          "none"
                    else                            "colSums"
@@ -925,8 +987,11 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
       .nmfkc.net.run_once_bi(Y, X, maxit, epsilon,
                               X.restriction, X.L2.ortho, Wmat, has.weights)
     } else if (type == "signed") {
+      ## X.L2.ortho was simply not forwarded here, so nmfkc.net(type="signed",
+      ## X.L2.ortho = ...) was silently a no-op while the tri and bi paths
+      ## applied it; the documentation presents the option as general.
       .nmfkc.net.signed.run_once(Y, X, C_or_Cp, Cn, maxit, epsilon,
-                                  X.restriction, Wmat, has.weights)
+                                  X.restriction, X.L2.ortho, Wmat, has.weights)
     } else {
       .nmfkc.net.run_once(Y, X, C_or_Cp, maxit, epsilon,
                           X.restriction, C.L1, X.L2.ortho, Wmat, has.weights)
@@ -976,6 +1041,16 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
         set.seed(s_seed + 1L)
         C0 <- matrix(stats::runif(Q * Q, min = -1, max = 1), Q, Q)
         C0 <- (C0 + t(C0)) / 2       # symmetrize before sign split
+        ## The diagonal is within-cluster affinity and is non-negative for any
+        ## sensible similarity matrix, so force it positive.  Drawing it from
+        ## U(-1, 1) let every entry of the symmetrized C0 come out negative --
+        ## probability (1/2)^3 = 1/8 at Q = 2 -- which makes Cp0 identically 0.
+        ## C = Cp - Cn is then wholly negative while Y >= 0, the numerator of
+        ## the X-step vanishes, and X collapses to all zeros in one iteration
+        ## (observed: X == 0, r.squared = NA, iter = 2).  Only the OFF-diagonal
+        ## keeps its free sign, which is what "signed" is for: inter-cluster
+        ## repulsion.
+        diag(C0) <- abs(diag(C0)) + 1e-3
         Cp0 <- pmax(C0, 0); Cn0 <- pmax(-C0, 0)
       }
       out <- run_once(X0, Cp0, Cn0)
@@ -1050,6 +1125,10 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     call = cl,
     X = X, C = C, Cp = Cp, Cn = Cn,
     XB = Y1hat, Y1hat = Y1hat,          # XB alias for fitted.nmf compatibility
+    ## Y ~ X C X', so the "scores" are C X' -- the analogue of B in the other
+    ## models.  Without it the inherited predict.nmfkc did x$X %*% x$B on a
+    ## NULL and errored with "requires numeric/complex matrix/vector arguments".
+    B = C %*% t(X),
     X.prob = X.prob, X.cluster = X.cluster,
     rank = Q, dims = c(N = N),
     type = type,
@@ -1060,6 +1139,11 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     mae = mae,
     sigma = sigma,
     iter = iter,
+    ## Convergence bookkeeping, matching the other fitters; the MU loop breaks
+    ## on convergence, so reaching maxit means it did not.
+    maxit = maxit,
+    epsilon = epsilon,
+    converged = (iter < maxit),
     runtime = as.numeric((proc.time() - t0)[3]),
     X.restriction = X.restriction
   )
@@ -1074,7 +1158,8 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 ## ==============================================================
 
 .nmfkc.net.signed.run_once <- function(Y, X, Cp, Cn, maxit, epsilon,
-                                       X.restriction, Wmat, has.weights) {
+                                       X.restriction, X.L2.ortho,
+                                       Wmat, has.weights) {
   N <- nrow(Y); Q <- ncol(X)
   small <- 1e-16
   norm_XC <- function(X, Cp, Cn) {
@@ -1099,6 +1184,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   obj_prev <- compute_obj(X, Cp, Cn)
   objfunc.iter <- numeric(maxit)
   iter <- 0L
+  if (has.weights) WmatY <- Wmat * Y
 
   for (iter in seq_len(maxit)) {
     tX <- t(X)
@@ -1108,7 +1194,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     if (has.weights) {
       Yh_p <- X %*% Cp %*% tX
       Yh_n <- X %*% Cn %*% tX
-      G    <- tX %*% (Wmat * Y) %*% X
+      G    <- tX %*% WmatY %*% X
       Hp   <- tX %*% (Wmat * Yh_p) %*% X
       Hn   <- tX %*% (Wmat * Yh_n) %*% X
     } else {
@@ -1124,18 +1210,26 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     Cn <- Cn * (Hp) / (G + Hn + small)
 
     ## ---- X update (bilateral + Ding split, exact for symmetric Cp, Cn) ----
-    tX <- t(X)
     Sp <- Cp + t(Cp); Sn <- Cn + t(Cn)
     Yh_p <- X %*% Cp %*% tX
     Yh_n <- X %*% Cn %*% tX
     if (has.weights) {
-      WY   <- Wmat * Y;    WYhp <- Wmat * Yh_p;    WYhn <- Wmat * Yh_n
+      WY   <- WmatY;    WYhp <- Wmat * Yh_p;    WYhn <- Wmat * Yh_n
     } else {
       WY <- Y; WYhp <- Yh_p; WYhn <- Yh_n
     }
-    num_X <- WY %*% X %*% Sp + WYhp %*% X %*% Sn + WYhn %*% X %*% Sp
-    den_X <- WY %*% X %*% Sn + WYhp %*% X %*% Sp + WYhn %*% X %*% Sn
-    X <- X * (num_X / (den_X + small))
+    ## X.restriction = "fixed" means the basis is supplied and held; every other
+    ## optimizer in the package skips its X-step then.  This one updated X
+    ## unconditionally, so "fixed" did not fix anything (measured drift 1.3e-4).
+    if (X.restriction != "fixed") {
+      num_X <- WY %*% X %*% Sp + WYhp %*% X %*% Sn + WYhn %*% X %*% Sp
+      den_X <- WY %*% X %*% Sn + WYhp %*% X %*% Sp + WYhn %*% X %*% Sn
+      if (X.L2.ortho > 0) {
+        XtX <- crossprod(X); diag(XtX) <- 0
+        den_X <- den_X + X.L2.ortho * (X %*% XtX)
+      }
+      X <- X * (num_X / (den_X + small))
+    }
 
     cc <- norm_XC(X, Cp, Cn); X <- cc$X; Cp <- cc$Cp; Cn <- cc$Cn
 
@@ -1194,7 +1288,10 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 #' @param rank Integer vector of ranks to evaluate. Default \code{1:3}.
 #' @param type Model type: \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
 #' @param ... Passed to the underlying fitter; also accepts \code{nfolds}
-#'   (default 5; \code{div} alias), \code{seed} (default 123).
+#'   (default 5; \code{div} alias), \code{seed} (default 123), and \code{cores}
+#'   (\code{getOption("mc.cores", 1L)}) to evaluate the rank x fold grid in
+#'   parallel; results are identical to the sequential run for any \code{cores}
+#'   (PSOCK cluster on Windows, forking elsewhere).
 #'
 #' @return A list with \code{objfunc}, \code{sigma}, \code{objfunc.fold},
 #'   \code{folds}, \code{Q.grid}, \code{type}.
@@ -1211,11 +1308,15 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
   nfolds <- if (!is.null(ex$nfolds)) ex$nfolds
             else if (!is.null(ex$div)) ex$div else 5
   seed <- if (!is.null(ex$seed)) ex$seed else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  cores <- if (!is.null(ex$cores)) ex$cores else getOption("mc.cores", 1L)
   Y <- as.matrix(Y); N <- nrow(Y)
   folds <- .nmfkc.net.make_uppertri_folds(N, div = nfolds, seed = seed)
 
   fit_args <- ex; fit_args$nfolds <- NULL; fit_args$div <- NULL
-  fit_args$rank <- NULL; fit_args$type <- NULL
+  fit_args$rank <- NULL; fit_args$type <- NULL; fit_args$cores <- NULL
 
   run_one <- function(q, k) {
     test_ut <- folds[[k]]
@@ -1230,8 +1331,18 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
 
   message(sprintf("nmfkc.net ECV (type=%s): %d ranks, %d-fold, upper-triangle.",
                   type, length(rank), nfolds))
+  ## Each (rank, fold) cell is an independent, self-seeded fit. Precompute the
+  ## rank x nfolds grid in input order (i outer, k inner -- matching .ecv.run's
+  ## consumption order) so the per-rank aggregation and progress messages below
+  ## are bit-identical to the sequential run for any `cores`.
+  ng <- length(rank)
+  grid <- .nmfkc.parlapply(seq_len(ng * nfolds), function(t) {
+    i <- (t - 1L) %/% nfolds + 1L
+    k <- (t - 1L) %%  nfolds + 1L
+    run_one(rank[i], k)
+  }, cores = if (ng * nfolds > 1L) cores else 1L)
   cv <- .ecv.run(sprintf("Q=%d", rank), nfolds,
-                 run_one = function(i, k) run_one(rank[i], k),
+                 run_one = function(i, k) grid[[(i - 1L) * nfolds + k]],
                  progress = function(i, o, s)
                    message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", rank[i], o, s)))
   cls <- if (type == "signed")
@@ -1261,7 +1372,10 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param ... Passed on to \code{\link{nmfkc.net}} and
 #'   \code{\link{nmfkc.net.ecv}} (e.g.\ \code{nstart}, \code{maxit},
-#'   \code{nfolds}, \code{seed}).
+#'   \code{nfolds}, \code{seed}).  Also accepts \code{cores}
+#'   (\code{getOption("mc.cores", 1L)}) to fit the per-rank models (and the
+#'   ECV grid) in parallel; results are identical for any \code{cores}
+#'   (PSOCK cluster on Windows, forking elsewhere).
 #' @return A list with \code{rank.best} (ECV minimum, or the R-squared
 #'   elbow under \code{detail = "fast"}) and \code{criteria} (data
 #'   frame: \code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
@@ -1286,15 +1400,23 @@ nmfkc.net.rank <- function(Y, rank = 1:5, type = c("tri", "bi", "signed"),
                            detail = c("full", "fast"), plot = TRUE, ...) {
   type <- match.arg(type); detail <- match.arg(detail)
   Y <- as.matrix(Y)
-  rs <- numeric(length(rank)); er <- numeric(length(rank))
-  for (i in seq_along(rank)) {
-    f <- suppressMessages(nmfkc.net(Y, rank = rank[i], type = type,
-                                    verbose = FALSE, ...))
-    rs[i] <- f$r.squared
-    er[i] <- .effective.rank(t(f$X))
-  }
+  dots <- list(...)
+  cores <- if (!is.null(dots$cores)) dots$cores else getOption("mc.cores", 1L)
+  net_args <- dots; net_args$cores <- NULL
+  ## Each rank's nmfkc.net fit is independent and self-seeds (default 123);
+  ## .nmfkc.parlapply preserves input order so (rs, er) are identical to the
+  ## sequential loop for any `cores`.
+  per_rank <- .nmfkc.parlapply(seq_along(rank), function(i) {
+    f <- suppressMessages(do.call(nmfkc.net,
+           c(list(Y = Y, rank = rank[i], type = type, verbose = FALSE),
+             net_args)))
+    list(rs = f$r.squared, er = .effective.rank(t(f$X)))
+  }, cores = if (length(rank) > 1L) cores else 1L)
+  rs <- vapply(per_rank, function(z) z$rs, numeric(1))
+  er <- vapply(per_rank, function(z) z$er, numeric(1))
   ecv <- if (detail == "full")
-    suppressMessages(nmfkc.net.ecv(Y, rank = rank, type = type, ...))$sigma
+    suppressMessages(do.call(nmfkc.net.ecv,
+      c(list(Y = Y, rank = rank, type = type, cores = cores), net_args)))$sigma
     else rep(NA_real_, length(rank))
   criteria <- data.frame(rank = rank, effective.rank = er,
                          effective.rank.ratio = er / rank,
@@ -1362,7 +1484,7 @@ print.summary.nmfkc.net <- function(x, digits = max(3L, getOption("digits") - 3L
   cat("Rank (Q):   ", x$rank, "\n")
   cat("Type:       ", x$type, "\n")
   cat("Runtime:    ", x$runtime, "\n")
-  cat("Iterations: ", x$iter, "\n")
+  .print.convergence(x)
 
   .print.fit.statistics(x, digits = digits)
 
@@ -1406,7 +1528,7 @@ print.summary.nmfkc.net.signed <- function(x, digits = max(3L, getOption("digits
   cat("Rank (Q):   ", x$rank, "\n")
   cat("Type:       ", "signed (C = Cp - Cn)\n")
   cat("Runtime:    ", x$runtime, "\n")
-  cat("Iterations: ", x$iter, "\n")
+  .print.convergence(x)
 
   .print.fit.statistics(x, digits = digits)
 

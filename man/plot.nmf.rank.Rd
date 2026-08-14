@@ -32,8 +32,10 @@
 Draws the concise three-criterion rank-selection plot for an object
 returned by \code{\link{nmfkc.rank}} (or \code{nmfkc.net.rank},
 \code{nmfkc.signed.rank}, \code{nmfae.rank}, \code{nmfae.signed.rank}):
-\code{r.squared} (red) and the effective-rank utilization
-\code{eff.rank} (green) on the left \eqn{[0, 1]} axis, and the
+\code{r.squared} (red) and the broken-stick-corrected effective-rank
+index \code{effective.rank.index} (green, legend label
+\code{eff.rank}; \strong{not} the raw \code{effective.rank.ratio})
+on the left \eqn{[0, 1]} axis, and the
 cross-validation error \code{sigma.ecv} (blue) on the right axis, each
 with points, rank-number labels and a highlighted best marker.
 }

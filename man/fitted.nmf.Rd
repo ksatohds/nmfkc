@@ -44,6 +44,6 @@ fitted(result)
 
 }
 \seealso{
-\code{\link{nmfkc}}, \code{\link{nmfae}}, \code{\link{nmfre}},
-\code{\link{nmf.sem}}, \code{\link{residuals.nmf}}
+\code{\link{nmfkc}}, \code{\link{nmf.rrr}}, \code{\link{nmfre}},
+\code{\link{nmf.ffb}}, \code{\link{residuals.nmf}}
 }

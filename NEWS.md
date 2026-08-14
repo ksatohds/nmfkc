@@ -1,3 +1,94 @@
+# nmfkc 0.9.4
+
+### **Breaking: `nmf.rrr()` renames `B.prob` / `B.cluster` to `B1.prob` / `B1.cluster`**
+
+- `nmf.rrr()` now returns **two** score matrices instead of one. `B1 = C X2 Y2`
+  (Q x N) is the decoder-side score, with \eqn{\widehat Y_1 = X_1 B_1}; the new
+  `B2 = X2 Y2` (R x N) is the encoder-side score, i.e. `B1` before the `C` map.
+  Each gets column-normalized memberships and hard labels: **`B1.prob`,
+  `B1.cluster`, `B2.prob`, `B2.cluster`**.
+- **`B.prob` and `B.cluster` are gone**; they shipped in 0.8.8, so code reading
+  them must be updated to `B1.prob` / `B1.cluster`. The name `B` alone became
+  ambiguous once both scores were exposed, and keeping it as an alias would
+  reintroduce exactly the one-object-two-names problem this release removes
+  elsewhere. The undocumented `B` component added during development is also
+  removed.
+- **`H` is retained but deprecated.** It is identical to `B1`. Package-internal
+  code now reads `B1` (through an accessor that still falls back to `H`, so
+  objects saved by earlier releases keep working). Use `B1` in new code.
+
+### **Breaking: `nmfkc()` stops computing criteria nothing consumed**
+
+- **`detail` now defaults to `"fast"`.** The only thing `"full"` adds is the
+  sample-clustering criteria `silhouette`, `CPCC` and `dist.cor`, which cost
+  \eqn{O(N^2)} (two distance matrices plus a cophenetic correlation) and had no
+  consumer: they left rank selection, `summary.nmfkc()` never printed them, and
+  `nmf.cluster.criteria()` recomputes them from the fits it is given. At
+  \eqn{N=2000} they were 26x the cost of the rest of the call; over a
+  500-replicate bootstrap, 83s against 9s. They are **absent** from
+  `fit$criterion` unless `detail = "full"` is asked for -- absent rather than
+  `NA`, because `CPCC` is legitimately `NA` at \eqn{Q=1} and the two meanings
+  must not collide.
+- **`criterion$B.prob.max.mean` is removed.** Nothing in the package read it
+  except the summary line that printed it, and that line is now the
+  effective-rank index (below).
+- The bootstrap re-fits in `nmfkc.inference(method = "refit")` and
+  `nmfkc.ar.latent.inference()` pass `detail = "fast"` explicitly, so this
+  holds even if the default moves back.
+
+### **`summary()` reports a \eqn{[0,1]} factor diagnostic**
+
+- `criterion$effective.rank.index` is new on a single fit: the broken-stick
+  correction \eqn{(\hat r_Q-E_Q)/(Q-E_Q)}, \eqn{E_Q=\exp(H_Q-1)}, that
+  `nmfkc.rank()` already plotted. It is verified to agree bit-for-bit with the
+  `nmfkc.rank()` column at matched settings, and both now call one helper.
+- `summary()` prints it as `Factor variance share` in place of the old
+  `Clustering Crispness`. Unlike the crispness (range \eqn{[1/Q,1]}, monotone
+  in \eqn{Q}) this is a genuine \eqn{[0,1]} index. Read it as **how evenly the
+  across-sample coefficient variance is shared**, which is not the same as how
+  useful the factors are: two duplicated factors split the variance evenly and
+  score near 1.
+
+### **New: NMF-GMM family (`nmf.gmm*`)**
+- `nmf.gmm()` fits NMF-GMM (Satoh 2026): a \eqn{K}-component Gaussian mixture on
+  the latent NMF scores, \eqn{\bm b_n\mid(z_n{=}k)\sim N_Q(C\bm a_n+\bm\mu_k,
+  \Sigma_k)}, \eqn{\bm y_n=X\bm b_n+\bm\varepsilon}, with a shared non-negative,
+  column-normalized basis \eqn{X}. Clustering is model based, through the
+  posterior responsibilities. \eqn{C} (\eqn{=\Theta}) is the covariate
+  coefficient matrix and `mu` the \eqn{Q\times K} class means. Fitted by a
+  generalized EM (auto Woodbury E-step for large \eqn{P}); returns `X`, `C`,
+  `mu`, `tau2`, `sigma2`, `xi`, `gamma` (responsibilities), `cluster`, `BIC`,
+  `ICL`, and the usual house fields. The score covariance is set by `cov`:
+  `"tied"` (shared diagonal, \eqn{Q} variances; default), `"free"` (per-class
+  diagonal), or `"scalar"` (isotropic \eqn{\tau^2 I}, a single variance --- the
+  most parsimonious variant, and the `\link{nmfre}` model at \eqn{K=1}).
+- Optimization / inference split: `nmf.gmm.inference()` gives a Basis/Covariate
+  coefficients table for `C` with the outer-product mixture-information SE and a
+  wild-bootstrap SE / CI (tied covariance); `nmf.gmm.select()` chooses \eqn{K}
+  by BIC / ICL (optional adjusted Rand index against known labels).
+- S3: `coef`, `fitted`, `predict` (hard class / responsibilities), `print`,
+  `summary`, `plot`. New dependency: none (base/stats only).
+- Verified numerically identical to the standalone research engine on the
+  Leptograpsus crabs data (log-likelihood, `X`, `C` exact; `mu`/`gamma` equal up
+  to the mixture's label permutation; ARI 0.86 vs the four species-sex groups).
+  Note on the `\link{nmfre}` nesting: `cov = "scalar"` at \eqn{K = 1} gives the
+  same (isotropic) model as `nmfre`; the default `cov = "tied"` generalizes it
+  to a diagonal (per-basis) score covariance. In either case the two use
+  different EM algorithms, so the fitted values need not coincide numerically.
+
+### **`nmfre()` correctness fixes (identification + signed warm start)**
+- Removed the row-centering of the random-effect matrix `U` inside the U-step.
+  The (U, Theta) indeterminacy is `U -> U + Delta A`, `Theta -> Theta - Delta`,
+  so the identification condition is `U A' = 0`, not `U 1 = 0`; the alternating
+  fixed point satisfies `U A' = 0` automatically, and imposing row-centering on
+  top broke it whenever `1'` is not in the row space of `A`. (Verified: after
+  the fix `||U A'||` is ~1e-6 at convergence.)
+- The initialization no longer clips `C.init` to `+eps` when
+  `C.signed = TRUE`: a warm-start `C.init` may legitimately carry negative
+  entries (e.g. a full-refit bootstrap restarting from the previous estimate),
+  and the unconditional `pmax()` destroyed their sign at every refit. Clipping
+  now applies only in the non-negative mode, mirroring the in-loop update rule.
+
 # nmfkc 0.8.8
 
 ### **Removed the `B.L1` penalty (and its `gamma` alias)**

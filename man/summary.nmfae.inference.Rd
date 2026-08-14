@@ -19,6 +19,6 @@ Produces a summary of a fitted NMF-AE model with inference results,
 including the coefficients table for \eqn{\Theta}.
 }
 \seealso{
-\code{\link{nmfae.inference}}, \code{\link{summary.nmfae}}
+\code{\link{nmf.rrr.inference}}, \code{\link{summary.nmfae}}
 }
 \keyword{internal}

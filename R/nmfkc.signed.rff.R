@@ -142,6 +142,13 @@ nmfkc.signed.rff <- function(U, beta = NULL,
   if (is.null(pars)) {
     if (is.null(beta))
       stop("'beta' must be specified (or supply 'pars' via ...).")
+    ## CONVENTIONS.md 2: a function that seeds must put the caller's stream
+    ## back.  This was the one set.seed() in the package left unbracketed --
+    ## ironic, since parallel-utils.R names this function as an example of the
+    ## rule.  Without it every call left .Random.seed at a fixed state, so a
+    ## user loop drawing random numbers afterwards silently repeated itself.
+    .rng <- .nmfkc.rng.save(seed)
+    on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
     if (!is.null(seed)) set.seed(seed)
     p <- nrow(U)
     pars <- list(

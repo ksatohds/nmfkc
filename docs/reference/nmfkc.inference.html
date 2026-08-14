@@ -19,7 +19,7 @@ one-step wild bootstrap with non-negative projection."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -119,8 +119,21 @@ compatible), <code>"rademacher"</code> for <code>"refit"</code>.</p></dd>
 (default, i.i.d. multiplier per matrix cell) or <code>"column"</code>
 (one multiplier per sample column, shared over rows).</p></dd>
 
+<dt><code>refit.epsilon</code>, <code>refit.maxit</code></dt>
+<dd><p>For
+<code>method="refit"</code>: convergence tolerance and iteration cap of the
+re-fits, defaulting to <code>1e-8</code> and <code>100000</code>.  These are
+deliberately far tighter than <code><a href="nmfkc.html">nmfkc</a></code>'s own <code>1e-4</code>:
+under multiplicative updates a coefficient heading for the
+non-negativity boundary approaches 0 slowly, so at a loose tolerance
+every replicate stops while that coefficient is still spuriously
+positive.  The replicates then pile up above the point estimate, the
+percentile interval can exclude it entirely, and the bootstrap SE is
+understated.  Loosen only if the re-fits are too slow, and check that
+the intervals still contain the estimates.</p></dd>
+
 <dt><code>wild.B</code></dt>
-<dd><p>Number of bootstrap replicates. Default is 1000.</p></dd>
+<dd><p>Number of bootstrap replicates. Default is 500.</p></dd>
 
 <dt><code>wild.seed</code></dt>
 <dd><p>Seed for bootstrap. Default is 42.</p></dd>
@@ -164,7 +177,15 @@ components from the input <code>object</code>, with additional inference compone
 <dd><p>Upper CI bounds for \(C\) (Q x K matrix).</p></dd>
 
 <dt>coefficients</dt>
-<dd><p>Data frame with Estimate, SE, BSE, z, p-value for each element of \(C\).</p></dd>
+<dd><p>Data frame with one row per element of \(C\).
+<code>SE</code> is always the sandwich standard error and <code>BSE</code> always the
+bootstrap one, so the two columns differ; <code>z_value</code> and <code>p_value</code>
+use whichever is primary for the chosen <code>method</code> (bootstrap under
+<code>"refit"</code>, sandwich under <code>"onestep"</code>).  <code>on.boundary</code> flags
+coefficients at or below <code>boundary.tol</code> (default <code>1e-3</code>): their
+interval and p-value behave correctly in the "do not reject" direction, but
+the value is not a calibrated p-value — a one-sided bootstrap p piles up
+near \(1/2\) at the boundary.</p></dd>
 
 <dt>C.p.side</dt>
 <dd><p>P-value type used.</p></dd>
@@ -198,7 +219,7 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-out co"><span class="r-pr">#&gt;</span> Rank (Q):    1 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Runtime:     0.0sec </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Method:      EU </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Iterations:  58 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Iterations: 67 / 5000 (converged)  epsilon = 0.0001</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Missing:     0 (0.0%) </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Statistics:</span>
@@ -212,7 +233,6 @@ Factorization with Random Effects. arXiv:2603.01468.
 <span class="r-out co"><span class="r-pr">#&gt;</span> Structure Diagnostics:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Basis (X) Sparsity:      0.0% (&lt; 1e-4)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Coef (B) Sparsity:       0.0% (&lt; 1e-4)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Clustering Crispness:    1 (range: 1/Q-1, closer to 1 = more decisive assignment)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Inference (conditional on X):</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   sigma^2:   270.5 </span>

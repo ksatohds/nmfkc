@@ -24,6 +24,7 @@ This method handles all DOT objects produced by the nmfkc package:
 and \code{\link{nmfkc.ar.DOT}}.
 }
 \seealso{
-\code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}},
-\code{\link{nmf.sem.DOT}}, \code{\link{nmfkc.ar.DOT}}
+\code{\link{nmfkc.DOT}}, \code{\link{nmf.rrr.DOT}},
+\code{\link{nmf.ffb.DOT}}, \code{\link{nmfkc.ar.DOT}},
+\code{\link{print.nmfkc.DOT}}
 }

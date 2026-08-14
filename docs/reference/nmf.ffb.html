@@ -39,7 +39,7 @@ respectively."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -169,18 +169,29 @@ the penalty term \(\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
 
 <dt id="arg-c-l-">C1.L1<a class="anchor" aria-label="anchor" href="#arg-c-l-"></a></dt>
 <dd><p>L1 sparsity penalty for <code>C1</code> (i.e., \(\Theta_1\)).
-Default: <code>1.0</code>.</p></dd>
+Default: <code>1.0</code>.  <strong>Scale note</strong>: this function adds
+<code>C1.L1</code> to the multiplicative denominator, whereas
+<code><a href="nmfkc.html">nmfkc</a></code>, <code><a href="nmfae-deprecated.html">nmfae</a></code> and <code><a href="nmfkc.net.html">nmfkc.net</a></code> add
+<code>C.L1 / 2</code>.  The same nominal value is therefore twice as strong
+here.  The difference is retained so that published <code>nmf.ffb</code> fits
+reproduce; halve the value to match the other models.</p></dd>
 
 
 <dt id="arg-c-l-">C2.L1<a class="anchor" aria-label="anchor" href="#arg-c-l-"></a></dt>
 <dd><p>L1 sparsity penalty for <code>C2</code> (i.e., \(\Theta_2\)).
-Default: <code>0.1</code>.</p></dd>
+Default: <code>0.1</code>.  Same scale note as <code>C1.L1</code>.</p></dd>
 
 
 <dt id="arg-epsilon">epsilon<a class="anchor" aria-label="anchor" href="#arg-epsilon"></a></dt>
 <dd><p>Relative convergence threshold for the objective function.
-Iterations stop when the relative change in reconstruction loss falls
-below this value. Default: <code>1e-6</code>.</p></dd>
+Iterations stop when the relative change in <strong>reconstruction loss</strong>
+falls below this value. Default: <code>1e-6</code>.
+<strong>Note</strong>: the test is on the unpenalized loss (<code>objfunc</code>), not
+on the penalized objective the updates actually minimize
+(<code>objfunc.full</code>).  Every other optimizer in the package tests the
+penalized value, so with a large <code>X.L2.ortho</code> or <code>C*.L1</code> this
+function can stop while the quantity being optimized is still moving.
+Both traces are returned; compare them if the penalties are strong.</p></dd>
 
 
 <dt id="arg-maxit">maxit<a class="anchor" aria-label="anchor" href="#arg-maxit"></a></dt>
@@ -327,7 +338,7 @@ arXiv:2512.18250. <a href="https://arxiv.org/abs/2512.18250" class="external-lin
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">nmf.ffb</span><span class="op">(</span><span class="va">Y1</span>, <span class="va">Y2</span>, rank <span class="op">=</span> <span class="fl">2</span>, maxit <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span></span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>maximum iterations (500) reached...</span>
 <span class="r-in"><span><span class="va">result</span><span class="op">$</span><span class="va">MAE</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.691285</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.692159</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

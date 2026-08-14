@@ -33,7 +33,7 @@ out roughly half the rows and half the columns (nfolds = 2)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -112,7 +112,10 @@ out roughly half the rows and half the columns (<code>nfolds = 2</code>).</p>
 &amp; Perry's recommendation); <code>seed</code> (<code>123</code>, fold-assignment seed);
 and <code>nnls.maxit</code> (<code>100</code>, multiplicative-update iterations for the
 fold-in non-negative regressions).  Any other arguments are passed to
-<code><a href="nmfkc.html">nmfkc</a></code> for the per-block fits (e.g.\ <code>maxit</code>).</p></dd>
+<code><a href="nmfkc.html">nmfkc</a></code> for the per-block fits (e.g.\ <code>maxit</code>).
+<code>cores</code> (<code>getOption("mc.cores", 1L)</code>) evaluates the ranks in
+parallel; results are identical to the sequential loop for any <code>cores</code>
+(PSOCK cluster on Windows, forking elsewhere).</p></dd>
 
 </dl></div>
     <div class="section level2">

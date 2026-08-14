@@ -52,5 +52,5 @@ nmf.rrr.heatmap(res)
 }
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{plot.nmfae}}, \code{\link{nmfae.DOT}}
+\code{\link{nmf.rrr}}, \code{\link{plot.nmfae}}, \code{\link{nmf.rrr.DOT}}
 }

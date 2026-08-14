@@ -21,3 +21,7 @@
 ^vignettes/\.gitignore$
 ^nmfkc-manual\.pdf$
 ^CRAN-SUBMISSION$
+^CONVENTIONS\.md$
+^Rplots\.pdf$
+^vignettes/.*\.html$
+^vignettes/.*_files$

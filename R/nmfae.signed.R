@@ -77,6 +77,11 @@
 #'       point (particularly the \eqn{C_{-} = 0} trap from warm-start
 #'       from non-negative tri-NMF-AE).  Use the default 1 for fast
 #'       development and raise for publication-grade runs.}
+#'     \item{\code{cores}}{Run the \code{nstart} restarts in parallel (only
+#'       when \code{nstart > 1}).  Default \code{getOption("mc.cores", 1L)}
+#'       (PSOCK cluster on Windows, forking elsewhere).  Each restart is
+#'       fully self-seeded and the best run is selected by first-minimum
+#'       objective, so the returned fit is identical for any \code{cores}.}
 #'     \item{\code{X1.L2.ortho}, \code{X2.L2.ortho}}{Non-negative L2
 #'       orthogonality penalties (default 0) on the \strong{columns} of
 #'       \eqn{X_1} and the \strong{rows} of \eqn{X_2}, penalizing
@@ -119,7 +124,25 @@
 #' \item{C}{Signed bottleneck \eqn{\Theta = C_{+} - C_{-}} (Q x R).}
 #' \item{X2}{Encoder basis (R x P2), row sum 1.}
 #' \item{Y1hat}{Fitted values \eqn{X_1 (C_{+} - C_{-}) X_2 Y_2}.}
-#' \item{H}{Encoding \eqn{(C_{+} - C_{-}) X_2 Y_2} (Q x N, signed).}
+#' \item{B1}{Decoder-side scores \eqn{B_1 = (C_{+} - C_{-}) X_2 Y_2} (Q x N),
+#'   so that \eqn{\widehat Y_1 = X_1 B_1}. \strong{Signed}, since \eqn{C} is.}
+#' \item{B2}{Encoder-side scores \eqn{B_2 = X_2 Y_2} (R x N), i.e. \eqn{B_1}
+#'   before the \eqn{C} map. Non-negative.}
+#' \item{H}{\strong{Deprecated}; identical to \code{B1}. Kept so that code
+#'   written against earlier releases keeps working. Use \code{B1}.}
+#' \item{B.prob, B.cluster}{Sample-level soft/hard clustering from a
+#'   non-negative clip of the (possibly signed) \eqn{B_1}; use with
+#'   care since \eqn{C} may be signed. There are deliberately no
+#'   \code{B1.prob} / \code{B2.prob} counterparts: a column-normalized
+#'   membership is not a distribution when the scores can be negative.}
+#' \item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
+#'   soft membership over the Q response groups. Well defined
+#'   (\eqn{X_1 \ge 0}).}
+#' \item{X1.cluster}{Hard response-group label per response variable.}
+#' \item{X2.prob}{Column-normalized \eqn{X_2} (R x P2): each COVARIATE
+#'   VARIABLE's soft membership over the R covariate groups. Well defined
+#'   (\eqn{X_2 \ge 0}).}
+#' \item{X2.cluster}{Hard covariate-group label per covariate variable.}
 #' \item{rank}{\code{c(Q = Q, R = R)}.}
 #' \item{dims}{\code{c(P1, P2, N)}.}
 #' \item{objfunc, objfunc.iter}{Final and per-iteration objective values.}
@@ -134,10 +157,15 @@
 #' @section Lifecycle:
 #' This function is \strong{experimental}; interface may change.
 #'
-#' @seealso \code{\link{nmfae}}, \code{\link{predict.nmfae.signed}},
-#'   \code{\link{summary.nmfae.signed}}, \code{\link{nmfae.signed.rename}}
+#' @seealso \code{\link{nmf.rrr}}, \code{\link{predict.nmfae.signed}},
+#'   \code{\link{summary.nmfae.signed}}, \code{\link{nmf.rrr.signed.rename}}
 #'
 #' @references
+#' Satoh, K. and Tokuda, Y. (2026). Co-clustering of Response and Covariate
+#' Variables by Tri-Factorizing Their Non-negative Regression Coefficient
+#' Matrix.  \emph{arXiv preprint} arXiv:2607.27474.
+#' \doi{10.48550/arXiv.2607.27474}
+#'
 #' Ding, C.H.Q., Li, T., and Jordan, M.I. (2010).  Convex and
 #' Semi-Nonnegative Matrix Factorizations.
 #' \emph{IEEE TPAMI}, 32(1), 45-55.
@@ -180,6 +208,8 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
   warm.start <- if (!is.null(extra_args$warm.start)) extra_args$warm.start else TRUE
   nstart  <- if (!is.null(extra_args$nstart))  extra_args$nstart  else 1L
+  ## Opt-in parallel restarts (only when nstart > 1); default sequential.
+  cores   <- if (!is.null(extra_args$cores))   extra_args$cores   else getOption("mc.cores", 1L)
   ## Basis-init method forwarded to the nmfae() warm-start step (default
   ## "kmeans"; "kmeans++" etc. accepted). String methods only.
   X.init  <- if (!is.null(extra_args$X.init))  extra_args$X.init  else "kmeans"
@@ -191,6 +221,9 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   X1.init    <- extra_args$X1.init
   X2.init    <- extra_args$X2.init
   seed       <- if (!is.null(extra_args$seed))       extra_args$seed       else 123L
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   print.trace <- verbose
   if (!is.null(extra_args$print.trace)) print.trace <- extra_args$print.trace
   prefix.dec <- if (!is.null(extra_args$prefix.dec)) extra_args$prefix.dec else "Resp"
@@ -376,27 +409,35 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     obj_prev <- compute_obj(X1, Cp, Cn, X2) + pen_X12(X1, X2) + pen_C(Cp, Cn)
     objfunc.iter <- numeric(maxit)
     iter <- 0L
+    ## Hoist loop-invariant element-wise product (Wmat, Y1 both fixed): used
+    ## by the Cp/Cn/X1/X2 weighted updates below, recomputed identically each
+    ## iteration otherwise.
+    if (has.weights) WY1 <- Wmat * Y1
     for (iter in seq_len(maxit)) {
 
     if (!has.weights) {
       ## ---- Fast unweighted path (uses precomputed S, G0) ----
       P1m <- crossprod(X1)
-      SX  <- X2 %*% S %*% t(X2)
-      GX  <- crossprod(X1, G0) %*% t(X2)
+      SX  <- tcrossprod(X2 %*% S, X2)
+      GX  <- tcrossprod(crossprod(X1, G0), X2)
       GX_p <- pmax(GX,  0); GX_n <- pmax(-GX, 0)
-      ## Cp update
-      Cp <- Cp * (GX_p + P1m %*% Cn %*% SX + C.L2 * Cn) /
+      ## Cp update.  P1m %*% Cn %*% SX (Cn unchanged between the Cp and Cn
+      ## updates) is loop-invariant across the two Gauss-Seidel steps below,
+      ## so compute it once and reuse.
+      PCnSX <- P1m %*% Cn %*% SX
+      Cp <- Cp * (GX_p + PCnSX + C.L2 * Cn) /
                  (GX_n + P1m %*% Cp %*% SX + C.L2 * Cp + small)
       ## Cn update (Gauss-Seidel)
       Cn <- Cn * (GX_n + P1m %*% Cp %*% SX + C.L2 * Cp) /
-                 (GX_p + P1m %*% Cn %*% SX + C.L2 * Cn + small)
+                 (GX_p + PCnSX + C.L2 * Cn + small)
       ## X1 update
-      G0X <- G0 %*% t(X2)
+      G0X <- tcrossprod(G0, X2)
       G0X_p <- pmax(G0X, 0); G0X_n <- pmax(-G0X, 0)
-      MMt_p <- Cp %*% SX %*% t(Cp) + Cn %*% SX %*% t(Cn)
-      MMt_n <- Cp %*% SX %*% t(Cn) + Cn %*% SX %*% t(Cp)
-      X1 <- X1 * (G0X_p %*% t(Cp) + G0X_n %*% t(Cn) + X1 %*% MMt_n) /
-                 (G0X_n %*% t(Cp) + G0X_p %*% t(Cn) + X1 %*% MMt_p + den_X1_pen(X1) + small)
+      CpSX <- Cp %*% SX; CnSX <- Cn %*% SX
+      MMt_p <- tcrossprod(CpSX, Cp) + tcrossprod(CnSX, Cn)
+      MMt_n <- tcrossprod(CpSX, Cn) + tcrossprod(CnSX, Cp)
+      X1 <- X1 * (tcrossprod(G0X_p, Cp) + tcrossprod(G0X_n, Cn) + X1 %*% MMt_n) /
+                 (tcrossprod(G0X_n, Cp) + tcrossprod(G0X_p, Cn) + X1 %*% MMt_p + den_X1_pen(X1) + small)
       ## Normalize X1 cols -> absorb into Cp, Cn rows
       cs <- colSums(X1) + small
       X1 <- sweep(X1, 2, cs, "/")
@@ -407,8 +448,10 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       HG_p <- crossprod(Cp, A_p) + crossprod(Cn, A_n)
       HG_n <- crossprod(Cp, A_n) + crossprod(Cn, A_p)
       P1m <- crossprod(X1)
-      HtH_p <- crossprod(Cp, P1m) %*% Cp + crossprod(Cn, P1m) %*% Cn
-      HtH_n <- crossprod(Cp, P1m) %*% Cn + crossprod(Cn, P1m) %*% Cp
+      CptP <- crossprod(Cp, P1m)
+      CntP <- crossprod(Cn, P1m)
+      HtH_p <- CptP %*% Cp + CntP %*% Cn
+      HtH_n <- CptP %*% Cn + CntP %*% Cp
       X2 <- X2 * (HG_p + HtH_n %*% X2 %*% S) /
                  (HG_n + HtH_p %*% X2 %*% S + den_X2_pen(X2) + small)
       ## Normalize X2 rows -> absorb into Cp, Cn cols
@@ -422,29 +465,27 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       ## Cp update
       XCpF <- X1 %*% Cp %*% F_mat                        # P1 x N, >= 0
       XCnF <- X1 %*% Cn %*% F_mat                        # P1 x N, >= 0
-      WY1  <- Wmat * Y1
       WXCpF <- Wmat * XCpF
       WXCnF <- Wmat * XCnF
-      G_w  <- crossprod(X1, WY1) %*% t(F_mat)            # Q x R, signed iff Y1 signed
-      Hp_w <- crossprod(X1, WXCpF) %*% t(F_mat)          # Q x R, >= 0
-      Hn_w <- crossprod(X1, WXCnF) %*% t(F_mat)          # Q x R, >= 0
+      G_w  <- tcrossprod(crossprod(X1, WY1), F_mat)      # Q x R, signed iff Y1 signed
+      Hp_w <- tcrossprod(crossprod(X1, WXCpF), F_mat)    # Q x R, >= 0
+      Hn_w <- tcrossprod(crossprod(X1, WXCnF), F_mat)    # Q x R, >= 0
       Gp <- pmax(G_w, 0); Gn <- pmax(-G_w, 0)
       Cp <- Cp * (Gp + Hn_w + C.L2 * Cn) / (Gn + Hp_w + C.L2 * Cp + small)
       ## Cn update (recompute Hp_w with new Cp)
       XCpF  <- X1 %*% Cp %*% F_mat
       WXCpF <- Wmat * XCpF
-      Hp_w  <- crossprod(X1, WXCpF) %*% t(F_mat)
+      Hp_w  <- tcrossprod(crossprod(X1, WXCpF), F_mat)
       Cn <- Cn * (Gn + Hp_w + C.L2 * Cp) / (Gp + Hn_w + C.L2 * Cn + small)
       ## X1 update
       Mp <- Cp %*% F_mat; Mn <- Cn %*% F_mat
       XMp <- X1 %*% Mp; XMn <- X1 %*% Mn
-      WY1  <- Wmat * Y1
       WXMp <- Wmat * XMp; WXMn <- Wmat * XMn
-      W1Mp <- WY1 %*% t(Mp); W1Mn <- WY1 %*% t(Mn)
+      W1Mp <- tcrossprod(WY1, Mp); W1Mn <- tcrossprod(WY1, Mn)
       W1Mp_p <- pmax(W1Mp, 0); W1Mp_n <- pmax(-W1Mp, 0)
       W1Mn_p <- pmax(W1Mn, 0); W1Mn_n <- pmax(-W1Mn, 0)
-      P_pp <- WXMp %*% t(Mp); P_pn <- WXMp %*% t(Mn)
-      P_np <- WXMn %*% t(Mp); P_nn <- WXMn %*% t(Mn)
+      P_pp <- tcrossprod(WXMp, Mp); P_pn <- tcrossprod(WXMp, Mn)
+      P_np <- tcrossprod(WXMn, Mp); P_nn <- tcrossprod(WXMn, Mn)
       X1 <- X1 * (W1Mp_p + W1Mn_n + P_pn + P_np) /
                  (W1Mp_n + W1Mn_p + P_pp + P_nn + den_X1_pen(X1) + small)
       cs <- colSums(X1) + small
@@ -454,15 +495,14 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       Hp <- X1 %*% Cp; Hn <- X1 %*% Cn  # both >= 0
       HpF <- Hp %*% X2 %*% Y2; HnF <- Hn %*% X2 %*% Y2   # >= 0
       WHpF <- Wmat * HpF; WHnF <- Wmat * HnF
-      WY1 <- Wmat * Y1
-      Hp_tW1 <- crossprod(Hp, WY1) %*% t(Y2)              # R x P2, signed iff Y1 signed
-      Hn_tW1 <- crossprod(Hn, WY1) %*% t(Y2)
+      Hp_tW1 <- tcrossprod(crossprod(Hp, WY1), Y2)        # R x P2, signed iff Y1 signed
+      Hn_tW1 <- tcrossprod(crossprod(Hn, WY1), Y2)
       Hp_tW1_p <- pmax(Hp_tW1, 0); Hp_tW1_n <- pmax(-Hp_tW1, 0)
       Hn_tW1_p <- pmax(Hn_tW1, 0); Hn_tW1_n <- pmax(-Hn_tW1, 0)
-      Q_pp <- crossprod(Hp, WHpF) %*% t(Y2)
-      Q_pn <- crossprod(Hp, WHnF) %*% t(Y2)
-      Q_np <- crossprod(Hn, WHpF) %*% t(Y2)
-      Q_nn <- crossprod(Hn, WHnF) %*% t(Y2)
+      Q_pp <- tcrossprod(crossprod(Hp, WHpF), Y2)
+      Q_pn <- tcrossprod(crossprod(Hp, WHnF), Y2)
+      Q_np <- tcrossprod(crossprod(Hn, WHpF), Y2)
+      Q_nn <- tcrossprod(crossprod(Hn, WHnF), Y2)
       X2 <- X2 * (Hp_tW1_p + Hn_tW1_n + Q_pn + Q_np) /
                  (Hp_tW1_n + Hn_tW1_p + Q_pp + Q_nn + den_X2_pen(X2) + small)
       rs <- rowSums(X2) + small
@@ -497,9 +537,13 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
          objfunc = obj_prev)
   }  # end run_once
 
-  ## Execute run(s)
-  best <- NULL
-  for (s in seq_len(nstart)) {
+  ## Execute run(s).  Each restart s is fully self-seeded
+  ## (s_seed = seed + 7919*(s-1)) and independent of the others, so the restarts
+  ## may run concurrently.  .nmfkc.parlapply preserves input order, and
+  ## which.min() selects the first restart attaining the minimum objective --
+  ## exactly reproducing the sequential strict-`<` first-min tie-break.
+  ## cores <= 1 (or nstart == 1) is the sequential lapply, bit for bit.
+  run_start <- function(s) {
     ## Wide seed spacing via a large prime (7919) to maximize init diversity
     s_seed <- seed + 7919L * (s - 1L)
     cc <- init_Cp_Cn(s_seed + 2L)
@@ -513,9 +557,11 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
       set.seed(s_seed + 1L)
       Xs2 <- matrix(abs(stats::rnorm(R * P2)) * 0.1, R, P2)
     }
-    out <- run_once(Xs1, Xs2, cc$Cp, cc$Cn)
-    if (is.null(best) || out$objfunc < best$objfunc) best <- out
+    run_once(Xs1, Xs2, cc$Cp, cc$Cn)
   }
+  outs <- .nmfkc.parlapply(seq_len(nstart), run_start,
+                           cores = if (nstart > 1L) cores else 1L)
+  best <- outs[[which.min(vapply(outs, function(o) o$objfunc, numeric(1)))]]
   X1 <- best$X1; X2 <- best$X2; Cp <- best$Cp; Cn <- best$Cn
   objfunc.iter <- best$objfunc.iter
   iter <- best$niter
@@ -549,8 +595,20 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   rownames(X2) <- paste0(prefix.enc, seq_len(R))
 
   C <- Cp - Cn                                  # Q x R, signed
-  H <- C %*% X2 %*% Y2                          # Q x N, signed encoding
-  Y1hat <- X1 %*% H
+  ## Sample names: see the same note in nmf.rrr().  Prefer Y1, fall back to Y2.
+  snames <- if (!is.null(colnames(Y1))) colnames(Y1) else colnames(Y2)
+
+  ## Two-stage scores, matching nmf.rrr(): B1 is the decoder-side encoding
+  ## (Y1hat = X1 B1), B2 the encoder-side one (B1 before the C map).  Unlike
+  ## nmf.rrr() these carry NO .prob / .cluster: C is signed, so B1 (and hence
+  ## B2 %*% C) can be negative and a column-normalized membership would not be
+  ## a distribution.  B.prob below is a separate, explicitly clipped quantity.
+  B2 <- X2 %*% Y2                               # R x N, non-negative
+  B1 <- C %*% B2                                # Q x N, signed encoding
+  colnames(B1) <- colnames(B2) <- snames
+  H <- B1                                       # deprecated alias (see ?nmf.rrr.signed)
+  Y1hat <- X1 %*% B1
+  colnames(Y1hat) <- snames
   resid <- Y1 - Y1hat
 
   ## Goodness-of-fit statistics.  lm()-style weighted least squares:
@@ -584,6 +642,17 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   B.cluster <- apply(B.prob, 2, which.max)
   B.cluster[colSums(Hp) == 0] <- NA
 
+  ## X1 / X2 are non-negative even in the signed model (only the bottleneck
+  ## C = Cp - Cn is signed), so per-variable soft co-clustering is well
+  ## defined here just as in nmfae().  (B = C X2 Y2 may be signed, so the
+  ## sample-level B.prob/B.cluster above rely on a non-negative clip of H.)
+  X1.prob <- X1 / (rowSums(X1) + eps_bp)                 # response variable membership
+  X1.cluster <- apply(X1.prob, 1, which.max)
+  X1.cluster[rowSums(X1) == 0] <- NA
+  X2.prob <- t( t(X2) / (colSums(X2) + eps_bp) )         # covariate variable membership
+  X2.cluster <- apply(X2.prob, 2, which.max)
+  X2.cluster[colSums(X2) == 0] <- NA
+
   if (print.trace) {
     message(sprintf("  Done: %d iterations, %.1f sec, R2 = %.4f",
                     niter, diff.time, r.squared))
@@ -597,9 +666,15 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     C  = C,
     X2 = X2,
     Y1hat = Y1hat,
+    B1 = B1,
+    B2 = B2,
     H = H,
     B.prob = B.prob,
     B.cluster = B.cluster,
+    X1.prob = X1.prob,
+    X1.cluster = X1.cluster,
+    X2.prob = X2.prob,
+    X2.cluster = X2.cluster,
     rank = c(Q = Q, R = R),
     dims = c(P1 = P1, P2 = P2, N = N),
     objfunc = objfunc,
@@ -611,6 +686,13 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     mae = mae,
     niter = niter,
     iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
+    ## Convergence bookkeeping, matching the other fitters.  The relative
+    ## change lives inside the per-restart worker and is not visible here, so
+    ## the verdict is the one thing that is: the MU loop breaks as soon as it
+    ## converges, hence reaching maxit means it did not.
+    maxit = maxit,
+    epsilon = epsilon,
+    converged = (niter < maxit),
     runtime = diff.time,
     n.missing = if (has.weights) sum(Wmat == 0) else 0L,
     n.total = P1 * N,
@@ -655,7 +737,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value, CI.}
 #' \item{C.p.side}{P-value side used.}
 #'
-#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.inference}}
+#' @seealso \code{\link{nmf.rrr.signed}}, \code{\link{nmf.rrr.inference}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -674,6 +756,9 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
   extra_args <- list(...)
   wild.B     <- if (!is.null(extra_args$wild.B))     extra_args$wild.B     else 500
   wild.seed  <- if (!is.null(extra_args$wild.seed))  extra_args$wild.seed  else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(wild.seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   wild.level <- if (!is.null(extra_args$wild.level)) extra_args$wild.level else 0.95
   sandwich   <- if (!is.null(extra_args$sandwich))   extra_args$sandwich   else TRUE
   C.p.side   <- if (!is.null(extra_args$C.p.side))   extra_args$C.p.side   else "two.sided"
@@ -706,17 +791,27 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
     else stop("Information matrix singular; install MASS package.")
   })
 
-  V_sand <- NULL
-  if (isTRUE(sandwich)) {
+  ## Per-observation score matrix (Q*R x N), shared by the sandwich J and
+  ## the wild bootstrap: column n is vec(S_n), S_n = -(X1' r_n) z_n' / sigma2.
+  score_mat <- NULL
+  if (isTRUE(sandwich) || isTRUE(wild.bootstrap)) {
     X1t <- t(X1)
-    J <- matrix(0, Q * R, Q * R)
+    s2 <- max(sigma2.used, 1e-12)
+    score_mat <- matrix(0, Q * R, N)
     for (n in 1:N) {
       z_n <- Z[, n, drop = FALSE]
       r_n <- R_C[, n, drop = FALSE]
       g_n <- X1t %*% r_n
-      S_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
-      s_n <- as.vector(S_n)
-      J <- J + tcrossprod(s_n)
+      S_n <- -(tcrossprod(g_n, z_n)) / s2
+      score_mat[, n] <- as.vector(S_n)
+    }
+  }
+
+  V_sand <- NULL
+  if (isTRUE(sandwich)) {
+    J <- matrix(0, Q * R, Q * R)
+    for (n in 1:N) {
+      J <- J + tcrossprod(score_mat[, n])
     }
     if (N > 1) J <- (N / (N - 1)) * J
     V_sand <- Hinv %*% J %*% Hinv
@@ -729,25 +824,17 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
   C.se.boot <- NULL; C.ci.lower <- NULL; C.ci.upper <- NULL
   if (isTRUE(wild.bootstrap)) {
     set.seed(wild.seed)
-    X1t <- t(X1)
-    score_mat <- matrix(0, Q * R, N)
-    for (n in 1:N) {
-      z_n <- Z[, n, drop = FALSE]
-      r_n <- R_C[, n, drop = FALSE]
-      g_n <- X1t %*% r_n
-      G_n <- -(g_n %*% t(z_n)) / max(sigma2.used, 1e-12)
-      score_mat[, n] <- as.vector(G_n)
-    }
     ## NOTE: project = FALSE -- Theta is signed (no non-negative projection)
     C_boot <- .boot.onestep(as.vector(C), score_mat, Hinv, wild.B,
                             dist = "exp", seed = wild.seed, project = FALSE)
     sd_vec <- apply(C_boot, 1, stats::sd, na.rm = TRUE)
     C.se.boot <- matrix(sd_vec, nrow = Q, ncol = R, byrow = FALSE)
+    ## Bootstrap CI (one quantile pass; identical type-7 values)
     alpha <- 1 - wild.level
-    lo <- apply(C_boot, 1, stats::quantile, probs = alpha / 2, na.rm = TRUE, names = FALSE)
-    hi <- apply(C_boot, 1, stats::quantile, probs = 1 - alpha / 2, na.rm = TRUE, names = FALSE)
-    C.ci.lower <- matrix(lo, nrow = Q, ncol = R, byrow = FALSE)
-    C.ci.upper <- matrix(hi, nrow = Q, ncol = R, byrow = FALSE)
+    qs <- apply(C_boot, 1, stats::quantile,
+                probs = c(alpha / 2, 1 - alpha / 2), na.rm = TRUE, names = FALSE)
+    C.ci.lower <- matrix(qs[1, ], nrow = Q, ncol = R, byrow = FALSE)
+    C.ci.upper <- matrix(qs[2, ], nrow = Q, ncol = R, byrow = FALSE)
   }
 
   Estimate <- as.vector(C)
@@ -756,7 +843,12 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
   z_value <- ifelse(SE > 0, Estimate / SE, NA_real_)
 
   if (C.p.side == "one.sided") {
-    p_value <- ifelse(is.finite(z_value), stats::pnorm(abs(z_value), lower.tail = FALSE), NA_real_)
+    ## The column is labelled Pr(>z), i.e. the upper tail, and every sibling
+    ## (nmfkc.R, nmfae.R, nmfre.R) computes it that way.  Taking abs() first
+    ## folded the lower tail onto the upper one, so a coefficient with z = -5 --
+    ## routine here, because this model's Theta is SIGNED -- was reported as
+    ## p = 2.9e-07 with three stars instead of p = 1.
+    p_value <- ifelse(is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
   } else {
     p_value <- ifelse(is.finite(z_value), 2 * stats::pnorm(abs(z_value), lower.tail = FALSE), NA_real_)
   }
@@ -811,7 +903,7 @@ nmf.rrr.signed.inference <- function(object, Y1, Y2 = Y1,
 #' @param type Output: \code{"response"} (raw signed) or \code{"class"}.
 #' @param ... Unused.
 #' @return A numeric matrix (\code{"response"}) or factor (\code{"class"}).
-#' @seealso \code{\link{nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -863,7 +955,7 @@ predict.nmfae.signed <- function(object, newY2 = NULL, Y1 = NULL,
 #' @param x An \code{nmfae.signed} object.
 #' @param ... Additional graphical parameters.
 #' @return Invisible \code{NULL}.
-#' @seealso \code{\link{nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -896,7 +988,7 @@ plot.nmfae.signed <- function(x, ...) {
 #' @param object An \code{nmfae.signed} object.
 #' @param ... Unused.
 #' @return An object of class \code{"summary.nmfae.signed"}.
-#' @seealso \code{\link{nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -927,6 +1019,11 @@ summary.nmfae.signed <- function(object, ...) {
     n.params    = n_params,
     Y.signed    = isTRUE(object$Y.signed),
     niter       = object$niter,
+    ## Carried through for .print.convergence(); see summary.nmfae.
+    iter        = object$iter,
+    maxit       = object$maxit,
+    epsilon     = object$epsilon,
+    converged   = object$converged,
     runtime     = object$runtime,
     objfunc     = object$objfunc,
     r.squared          = object$r.squared,
@@ -945,7 +1042,7 @@ summary.nmfae.signed <- function(object, ...) {
     C.range     = .range(object$C),
     X2.range    = .range(object$X2),
     C.negfrac   = .negfrac(object$C),
-    H.negfrac   = .negfrac(object$H)
+    H.negfrac   = .negfrac(.nmfae.B1(object))
   )
   class(ans) <- "summary.nmfae.signed"
   ans
@@ -985,7 +1082,7 @@ print.summary.nmfae.signed <- function(x,
   if (x$Y.signed) cat("  Y1 signed: TRUE\n")
 
   cat("\nConvergence:\n")
-  cat(sprintf("  Iterations:       %d\n", x$niter))
+  .print.convergence(x, label = "  Iterations:       ")
   cat(sprintf("  Runtime (secs):   %.2f\n", x$runtime))
   cat(sprintf("  Final objfunc:    %s\n", format(x$objfunc, digits = digits)))
 
@@ -1032,7 +1129,7 @@ print.summary.nmfae.signed <- function(x,
 #' @param X1.colnames Character vector of length Q for decoder labels.
 #' @param X2.rownames Character vector of length R for encoder labels.
 #' @return The renamed object (same class).
-#' @seealso \code{\link{nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -1093,6 +1190,11 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'   \describe{
 #'     \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
 #'     \item{\code{seed}}{RNG seed for fold assignment.  Default 123.}
+#'     \item{\code{cores}}{Evaluate the \eqn{(Q,R)}-pair \eqn{\times} fold grid
+#'       in parallel.  Default \code{getOption("mc.cores", 1L)} (PSOCK on
+#'       Windows, forking elsewhere).  Each task is an independent self-seeded
+#'       fit and results are aggregated in order, so the returned object is
+#'       identical for any \code{cores}.}
 #'     \item{\code{nstart}}{Number of random restarts per fit.  Default 1.
 #'       Signed models have more local minima (the bottleneck can carry
 #'       both signs), so \code{nstart >= 10} is recommended for
@@ -1103,7 +1205,7 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' @return An object of class \code{c("nmfae.signed.ecv", "nmfae.ecv")} with
 #'   \code{objfunc} (MSE per pair), \code{sigma} (RMSE), \code{objfunc.fold}
 #'   (per-fold MSE), \code{folds}, \code{QR}, \code{paired}.
-#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.ecv}}
+#' @seealso \code{\link{nmf.rrr.signed}}, \code{\link{nmf.rrr.ecv}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -1125,6 +1227,10 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds
             else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed)) extra_ecv$seed else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  cores  <- if (!is.null(extra_ecv$cores)) extra_ecv$cores else getOption("mc.cores", 1L)
   Q <- rank; R <- rank.encoder
   div <- nfolds
 
@@ -1150,6 +1256,7 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
   fit_args <- extra_ecv
   fit_args$nfolds <- NULL; fit_args$div <- NULL
   fit_args$Q <- NULL; fit_args$R <- NULL
+  fit_args$cores <- NULL   # not an nmf.rrr.signed fit argument
 
   run_one <- function(i, k) {
     test_idx <- folds[[k]]
@@ -1164,7 +1271,24 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
   }
 
-  cv <- .ecv.run(pair_labels, div, run_one,
+  ## Opt-in parallelism over the (pair x fold) grid. Each (i, k) task is an
+  ## independent, self-seeded nmf.rrr.signed() fit (folds precomputed once), so
+  ## results are gathered into res_mat and .ecv.run() performs the identical
+  ## sequential aggregation / progress reporting via a table lookup. cores <= 1
+  ## uses run_one directly, reproducing the sequential loop bit for bit.
+  cores_i <- suppressWarnings(as.integer(cores))
+  if (!is.na(cores_i) && length(cores_i) == 1L && cores_i > 1L) {
+    grid <- expand.grid(i = seq_len(num_pairs), k = seq_len(div))
+    vals <- .nmfkc.parlapply(seq_len(nrow(grid)),
+                             function(t) run_one(grid$i[t], grid$k[t]),
+                             cores = cores_i)
+    res_mat <- matrix(unlist(vals), nrow = num_pairs, ncol = div)
+    run_eval <- function(i, k) res_mat[i, k]
+  } else {
+    run_eval <- run_one
+  }
+
+  cv <- .ecv.run(pair_labels, div, run_eval,
                  progress = function(i, o, s)
                    message(sprintf("  Q=%d, R=%d: MSE=%.6f, sigma=%.4f",
                                    QR$Q[i], QR$R[i], o, s)))
@@ -1198,11 +1322,15 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
 #'   eff.rank only, and recommends the R-squared elbow).
 #' @param ... Passed on to \code{\link{nmfae.signed}} and
-#'   \code{\link{nmfae.signed.ecv}}.
+#'   \code{\link{nmfae.signed.ecv}}. Also accepts \code{cores} to evaluate the
+#'   rank sweep (and the element-wise CV) in parallel; default
+#'   \code{getOption("mc.cores", 1L)}. Each rank is an independent self-seeded
+#'   fit and results are gathered in order, so the output is identical for any
+#'   \code{cores}.
 #' @return A list with \code{rank.best} and \code{criteria}
 #'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
 #'   \code{r.squared}, \code{sigma.ecv}).
-#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.signed.ecv}},
+#' @seealso \code{\link{nmf.rrr.signed}}, \code{\link{nmf.rrr.signed.ecv}},
 #'   \code{\link{nmfkc.rank}}
 #' @references
 #' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
@@ -1218,18 +1346,25 @@ nmf.rrr.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fa
   if (!is.null(rank))    rank1 <- rank
   if (!is.null(extra$Q)) rank1 <- extra$Q
   extra$Q <- NULL; extra$R <- NULL; extra$rank.encoder <- NULL
+  cores <- if (!is.null(extra$cores)) extra$cores else getOption("mc.cores", 1L)
+  extra$cores <- NULL
   detail <- match.arg(detail)
   Y1 <- as.matrix(Y1); Y2 <- as.matrix(Y2)
-  rs <- numeric(length(rank1)); er <- numeric(length(rank1))
-  for (i in seq_along(rank1)) {
+  ## Each rank is an independent, self-seeded nmf.rrr.signed() fit;
+  ## .nmfkc.parlapply preserves input order so rs / er are identical to the
+  ## sequential loop for any `cores`.
+  fit_one <- function(i) {
     f <- suppressMessages(do.call(nmf.rrr.signed,
            c(list(Y1, Y2, rank1 = rank1[i], rank2 = rank1[i],
                   print.trace = FALSE), extra)))
-    rs[i] <- f$r.squared
-    er[i] <- .effective.rank(f$H)
+    c(rs = f$r.squared, er = .effective.rank(.nmfae.B1(f)))
   }
+  fits <- .nmfkc.parlapply(seq_along(rank1), fit_one, cores = cores)
+  rs <- vapply(fits, function(v) v[["rs"]], numeric(1))
+  er <- vapply(fits, function(v) v[["er"]], numeric(1))
   ecv <- if (detail == "full")
-    suppressMessages(do.call(nmf.rrr.signed.ecv, c(list(Y1, Y2, rank1 = rank1), extra)))$sigma
+    suppressMessages(do.call(nmf.rrr.signed.ecv,
+                             c(list(Y1, Y2, rank1 = rank1, cores = cores), extra)))$sigma
     else rep(NA_real_, length(rank1))
   criteria <- data.frame(rank = rank1, effective.rank = er,
                          effective.rank.ratio = er / rank1,
@@ -1251,7 +1386,7 @@ nmf.rrr.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fa
 #' @param object An object of class \code{"nmfae.signed.inference"}.
 #' @param ... Additional arguments (currently unused).
 #' @return An object of class \code{"summary.nmfae.signed.inference"}.
-#' @seealso \code{\link{nmfae.signed.inference}}, \code{\link{summary.nmfae.signed}}
+#' @seealso \code{\link{nmf.rrr.signed.inference}}, \code{\link{summary.nmfae.signed}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
 #' future versions.
@@ -1298,13 +1433,22 @@ summary.nmfae.signed.inference <- function(object, ...) {
 #' @export
 print.summary.nmfae.signed.inference <- function(x,
     digits = max(3L, getOption("digits") - 3L),
-    by = c("covariate", "basis"), ...) {
+    max.coef = 20, by = c("covariate", "basis"), ...) {
   by <- match.arg(by)
   print.summary.nmfae.signed(x, digits = digits, ...)
 
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cf <- x$coefficients
     cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
+    ## The table is Q x K rows.  This printer was copied from the nmfae one
+    ## before the cap existed, so it printed every row; on a realistic design
+    ## that floods the console.
+    .n.all <- nrow(cf)
+    .sh <- .coef.show.idx(cf, max.coef)
+    cf <- cf[.sh$idx, , drop = FALSE]
+    if (.sh$truncated || nrow(cf) < .n.all)
+      cat(sprintf("\n(showing %d of %d coefficients; use x$coefficients for all)\n",
+                  nrow(cf), .n.all))
     p_side <- if (!is.null(x$C.p.side)) x$C.p.side else "two.sided"
     p_header <- if (p_side == "one.sided") "Pr(>z)" else "Pr(>|z|)"
 
@@ -1375,7 +1519,7 @@ print.summary.nmfae.signed.inference <- function(x,
 #' @param ... Not used.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
-#' @seealso \code{\link{nmfae.signed}}, \code{\link{nmfae.heatmap}}
+#' @seealso \code{\link{nmf.rrr.signed}}, \code{\link{nmf.rrr.heatmap}}
 #' @examples
 #' \donttest{
 #' set.seed(1)

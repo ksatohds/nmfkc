@@ -13,7 +13,7 @@ the same concise diagnostics plot as nmfkc.rank."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -99,7 +99,10 @@ eff.rank only, and recommends the R-squared elbow).</p></dd>
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Passed on to <code><a href="nmfkc.net.html">nmfkc.net</a></code> and
 <code><a href="nmfkc.net.ecv.html">nmfkc.net.ecv</a></code> (e.g.\ <code>nstart</code>, <code>maxit</code>,
-<code>nfolds</code>, <code>seed</code>).</p></dd>
+<code>nfolds</code>, <code>seed</code>).  Also accepts <code>cores</code>
+(<code>getOption("mc.cores", 1L)</code>) to fit the per-rank models (and the
+ECV grid) in parallel; results are identical for any <code>cores</code>
+(PSOCK cluster on Windows, forking elsewhere).</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -212,6 +212,18 @@
         <dd>Generate a Graphviz DOT Diagram for NMF-AR / NMF-VAR Models</dd>
       </dl><dl><dt>
 
+          <code><a href="nmfkc.ar.latent.inference.html">nmfkc.ar.latent.inference()</a></code>
+
+        </dt>
+        <dd>Bootstrap inference for the latent VAR of an NMF-VAR model</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.ar.latent.html">nmfkc.ar.latent()</a></code>
+
+        </dt>
+        <dd>Latent transition matrices of an NMF-VAR model</dd>
+      </dl><dl><dt>
+
           <code><a href="nmfkc.ar.predict.html">nmfkc.ar.predict()</a></code>
 
         </dt>
@@ -227,7 +239,7 @@
           <code><a href="nmfkc.ar.stationarity.html">nmfkc.ar.stationarity()</a></code>
 
         </dt>
-        <dd>Check stationarity of an NMF-VAR model</dd>
+        <dd>Stationarity of an NMF-VAR model</dd>
       </dl><dl><dt>
 
           <code><a href="nmfkc.ard.html">nmfkc.ard()</a></code>
@@ -446,6 +458,18 @@
         <dd><code>plot.nmfae</code> displays the convergence trajectory of the objective function across iterations. The title shows the achieved \(R^2\).</dd>
       </dl><dl><dt>
 
+          <code><a href="plot.nmfkc.ar.latent.html">plot(<i>&lt;nmfkc.ar.latent&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot the latent dynamics of an NMF-VAR model</dd>
+      </dl><dl><dt>
+
+          <code><a href="plot.nmfkc.ar.stationarity.html">plot(<i>&lt;nmfkc.ar.stationarity&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot the stationarity bracket of an NMF-VAR model</dd>
+      </dl><dl><dt>
+
           <code><a href="plot.nmfkc.ard.html">plot(<i>&lt;nmfkc.ard&gt;</i>)</a></code>
 
         </dt>
@@ -530,6 +554,36 @@
         <dd>Print method for rank-selection (nmf.rank) objects</dd>
       </dl><dl><dt>
 
+          <code><a href="print.nmf.html">print(<i>&lt;nmf&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for fitted NMF models</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmfae.ecv.html">print(<i>&lt;nmfae.ecv&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmf.rrr element-wise CV results</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmfkc.ar.latent.inference.html">print(<i>&lt;nmfkc.ar.latent.inference&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmfkc.ar.latent.inference objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmfkc.ar.latent.html">print(<i>&lt;nmfkc.ar.latent&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmfkc.ar.latent objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmfkc.ar.stationarity.html">print(<i>&lt;nmfkc.ar.stationarity&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmfkc.ar.stationarity objects</dd>
+      </dl><dl><dt>
+
           <code><a href="print.nmfkc.ard.html">print(<i>&lt;nmfkc.ard&gt;</i>)</a></code>
 
         </dt>
@@ -540,6 +594,12 @@
 
         </dt>
         <dd>Print method for nmfkc.consensus objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmfkc.DOT.html">print(<i>&lt;nmfkc.DOT&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmfkc.DOT objects</dd>
       </dl><dl><dt>
 
           <code><a href="print.nmfre.ecv.html">print(<i>&lt;nmfre.ecv&gt;</i>)</a></code>
@@ -638,7 +698,7 @@
         <dd>Summary method for nmfkc.signed</dd>
       </dl><dl><dt>
 
-          <code><a href="summary.nmfre.html">summary(<i>&lt;nmfre&gt;</i>)</a></code>
+          <code><a href="summary.nmfre.html">summary(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="summary.nmfre.html">print(<i>&lt;summary.nmfre&gt;</i>)</a></code>
 
         </dt>
         <dd>Summary method for objects of class <code>nmfre</code></dd>

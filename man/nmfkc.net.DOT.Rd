@@ -33,7 +33,24 @@ nmfkc.net.DOT(
 If inference results are present (from \code{\link{nmfkc.net.inference}}),
 C edges are decorated with significance stars.}
 
-\item{threshold}{Minimum coefficient value to display an edge.}
+\item{threshold}{Minimum coefficient value to display an edge.  It is read
+on the membership scale for X edges (\code{X.prob}, rows summing to one)
+and on \eqn{C} for the basis-to-basis edges, and it does two jobs at once,
+switching over at \eqn{1/Q}:
+\itemize{
+\item \strong{At or below \eqn{1/Q}} it only thins edges.  No node can
+be hidden, because a row of \code{X.prob} sums to one and so has a
+maximum of at least \eqn{1/Q}; every node genuinely keeps an edge.
+\item \strong{Above \eqn{1/Q}} it may also start hiding nodes (when
+\code{hide.isolated = TRUE}).  Not immediately: nodes go only once the
+threshold passes the smallest row maximum of \code{X.prob}, which is
+data-dependent and can be well above \eqn{1/Q}.  Inspect
+\code{apply(fit$X.prob, 1, max)} to see where that is.
+}
+The default \code{0.01} therefore draws every node --- guaranteed for any
+\eqn{Q \le 100}, since only then is \eqn{0.01 \le 1/Q} --- and most edges.
+For a readable community graph, 0.2--0.4 usually thins the edges enough
+while keeping all nodes.}
 
 \item{sig.level}{Significance level for filtering C edges (if inference
 results are present). Set to \code{NULL} to show all edges above threshold.}
@@ -49,7 +66,11 @@ results are present). Set to \code{NULL} to show all edges above threshold.}
 \item{fill}{Logical; whether nodes are filled with color.}
 
 \item{hide.isolated}{Logical; if TRUE, omit outer nodes with no X edge
-above threshold.}
+above \code{threshold}.  The test is on the membership scale
+(\code{X.prob}), the same quantity the X edges are drawn from, so it does
+not shift with \code{type} or \code{X.restriction}.  See \code{threshold}
+for when this actually removes anything --- at the default it never does
+for any \eqn{Q \le 100}, which is correct rather than a limitation.}
 
 \item{Y.label}{Character vector of labels for outer nodes.}
 

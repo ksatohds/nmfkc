@@ -23,7 +23,7 @@ NMF variants; type selects the fitting function:
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -93,7 +93,10 @@ NMF variants; <code>type</code> selects the fitting function:</p><ul><li><p><cod
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Passed to the underlying fitter; also accepts <code>nfolds</code>
-(default 5; <code>div</code> alias), <code>seed</code> (default 123).</p></dd>
+(default 5; <code>div</code> alias), <code>seed</code> (default 123), and <code>cores</code>
+(<code>getOption("mc.cores", 1L)</code>) to evaluate the rank x fold grid in
+parallel; results are identical to the sequential run for any <code>cores</code>
+(PSOCK cluster on Windows, forking elsewhere).</p></dd>
 
 </dl></div>
     <div class="section level2">

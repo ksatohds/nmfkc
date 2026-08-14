@@ -75,48 +75,6 @@
 }
 
 
-#' @title X-fixed re-estimation of C for the working model (Internal)
-#' @description Solve \eqn{\min_{C \ge 0} \lVert Y_p - X C A \rVert_F^2} with
-#'   the basis \eqn{X} (and design \eqn{A}) held FIXED, by multiplicative
-#'   updates.  With \eqn{X} fixed the problem is convex in \eqn{C}; the
-#'   sign-split numerator/denominator keep \eqn{C \ge 0} even when \eqn{A}
-#'   has negative entries.  Warm-started from \code{C.init} it converges in
-#'   a few iterations.
-#' @param Yp \eqn{P \times N} (perturbed) response.
-#' @param X \eqn{P \times Q} fixed basis.
-#' @param A \eqn{K \times N} fixed design.
-#' @param C.init \eqn{Q \times K} warm start.
-#' @param maxit,eps Iteration cap and relative-objective tolerance.
-#' @return \eqn{Q \times K} re-estimated \eqn{C}.
-#' @keywords internal
-#' @noRd
-.refit.C.MU <- function(Yp, X, A, C.init, maxit = 300, eps = 1e-8) {
-  Xt  <- base::t(X)
-  XtX <- Xt %*% X                       # Q x Q (>= 0 since X >= 0)
-  XtY <- Xt %*% Yp %*% base::t(A)        # Q x K
-  AAt <- A %*% base::t(A)                # K x K
-  Gp  <- base::pmax(XtY, 0); Gn <- base::pmax(-XtY, 0)
-  Mp  <- base::pmax(AAt, 0); Mn <- base::pmax(-AAt, 0)
-  small <- 1e-12
-  C <- base::pmax(C.init, small)
-  obj_prev <- Inf
-  for (it in base::seq_len(maxit)) {
-    XtXC <- XtX %*% C                    # Q x K
-    num  <- Gp + XtXC %*% Mn
-    den  <- Gn + XtXC %*% Mp + small
-    C <- C * num / den
-    if (it %% 10 == 0 || it == maxit) {
-      resid <- Yp - X %*% C %*% A
-      obj   <- base::sum(resid * resid)
-      if (base::is.finite(obj_prev) &&
-          base::abs(obj_prev - obj) < eps * base::max(obj_prev, small)) break
-      obj_prev <- obj
-    }
-  }
-  C
-}
-
-
 #' @title Re-fit wild bootstrap draws (Internal)
 #' @description Residual wild bootstrap that RE-FITS the coefficient on each
 #'   replicate.  The response is perturbed as
@@ -168,27 +126,44 @@
 
 #' @title Summarise bootstrap draws into SE / CI / bootstrap p-values (Internal)
 #' @description From a \eqn{QK \times B} draw matrix, compute the bootstrap
-#'   SE (row sd), percentile CI, and a two-sided bootstrap p-value
-#'   \eqn{2 \min(\widehat P[c_b > 0], \widehat P[c_b < 0])} (useful when the
-#'   analytical z is unavailable, e.g. method = "refit").
+#'   SE (row sd), percentile CI, and a bootstrap p-value for
+#'   \eqn{H_0: c_{qj} = 0} obtained by basic-bootstrap inversion,
+#'   \eqn{\widehat P[c^*_b \ge 2\hat c]} (useful when the analytical z is
+#'   unavailable, e.g. method = "refit").  The replicates are centred at the
+#'   point estimate: comparing the raw replicates with zero is degenerate under
+#'   a non-negativity constraint, where every replicate is \eqn{\ge 0}.
 #' @param C.boot \eqn{QK \times B} draws.
+#' @param est Length-\eqn{QK} vector of point estimates the draws are centred on.
 #' @param level Confidence level for the percentile CI.
+#' @param p.side \code{"one.sided"} (default, natural for a non-negative
+#'   coefficient) or \code{"two.sided"}.
 #' @return List with \code{se} (length \eqn{QK}), \code{ci.lower},
 #'   \code{ci.upper}, and \code{p.boot} vectors.
 #' @keywords internal
 #' @noRd
-.boot.summarize <- function(C.boot, level = 0.95) {
+.boot.summarize <- function(C.boot, est, level = 0.95,
+                            p.side = c("one.sided", "two.sided")) {
+  p.side <- base::match.arg(p.side)
   alpha <- 1 - level
   se <- base::apply(C.boot, 1, stats::sd, na.rm = TRUE)
-  lo <- base::apply(C.boot, 1, stats::quantile, probs = alpha / 2,
+  qs <- base::apply(C.boot, 1, stats::quantile,
+                    probs = c(alpha / 2, 1 - alpha / 2),
                     na.rm = TRUE, names = FALSE)
-  hi <- base::apply(C.boot, 1, stats::quantile, probs = 1 - alpha / 2,
-                    na.rm = TRUE, names = FALSE)
-  p.boot <- base::apply(C.boot, 1, function(v) {
-    v <- v[base::is.finite(v)]
+  lo <- qs[1L, ]
+  hi <- qs[2L, ]
+  ## Basic-bootstrap inversion of H0: C_qj = 0.  The replicates must be
+  ## CENTRED at the point estimate: (Chat* - Chat) approximates (Chat - C), so
+  ## under H0 the observed value has upper-tail probability
+  ## P*(Chat* - Chat >= Chat) = P*(Chat* >= 2 Chat).
+  ## Testing the raw replicates against zero instead is degenerate here, since
+  ## the non-negativity constraint makes every replicate >= 0 and would return
+  ## p = 0 for every coefficient.
+  p.boot <- base::vapply(base::seq_len(base::nrow(C.boot)), function(i) {
+    v <- C.boot[i, ]; v <- v[base::is.finite(v)]
     if (!base::length(v)) return(NA_real_)
-    pg <- base::mean(v > 0); pl <- base::mean(v < 0)
-    base::min(1, 2 * base::min(pg, pl))
-  })
+    p1 <- base::mean(v >= 2 * est[i])
+    if (p.side == "one.sided") base::min(1, p1)
+    else base::min(1, 2 * base::min(p1, 1 - p1))
+  }, base::numeric(1))
   base::list(se = se, ci.lower = lo, ci.upper = hi, p.boot = p.boot)
 }

@@ -27,6 +27,11 @@ R-squared elbow).}
 \itemize{
 \item \code{Q}: (Deprecated) Alias for \code{rank}.
 \item \code{save.time}: (Deprecated) \code{TRUE} maps to \code{detail = "fast"}.
+\item \code{cores}: evaluate the per-rank fits in parallel (default
+\code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+elsewhere). Each rank is a deterministic self-seeded fit and results
+are returned in order, so the criteria table is identical for any
+\code{cores}. (Also forwarded to \code{\link{nmfkc.ecv}}.)
 }}
 }
 \value{
@@ -39,11 +44,19 @@ distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot
 in \eqn{[1, Q]}); when it plateaus well below the nominal
 \code{rank}, the extra factors are not carrying additional
 coefficient variance, which suggests an over-specified rank.
-The \code{effective.rank.ratio} column is \code{effective.rank /
-  rank} in \eqn{[0, 1]} (the utilization fraction plotted as
-\code{eff.rank} when \code{plot = TRUE}); a peak marks the rank
-at which the latent factors carry the most evenly distributed
-variance.}
+The \code{effective.rank.ratio} column is the raw utilization
+fraction \code{effective.rank / rank} in \eqn{[0, 1]} (kept in the
+table, \strong{not} plotted).  What \code{plot = TRUE} draws as the
+green \code{eff.rank} line is the broken-stick-corrected
+\code{effective.rank.index} column,
+\code{(effective.rank - E) / (rank - E)} clamped to \eqn{[0, 1]}
+with \code{E = exp(H_Q - 1)} the expected effective rank under a
+random (uniform-Dirichlet) variance split (\code{H_Q} the
+\eqn{Q}-th harmonic number, stored as
+\code{effective.rank.expected}); anchoring 0 at this null removes
+the small-rank inflation of the raw ratio, so a peak of the index
+marks the rank at which the latent factors carry the most evenly
+distributed variance relative to chance.}
 }
 \description{
 \code{nmfkc.rank} provides diagnostic criteria for selecting the rank (\eqn{Q})

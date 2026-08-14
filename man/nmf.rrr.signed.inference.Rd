@@ -56,5 +56,5 @@ semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 }
 \seealso{
-\code{\link{nmfae.signed}}, \code{\link{nmfae.inference}}
+\code{\link{nmf.rrr.signed}}, \code{\link{nmf.rrr.inference}}
 }

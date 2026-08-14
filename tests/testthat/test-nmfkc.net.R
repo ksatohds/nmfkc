@@ -150,3 +150,95 @@ test_that("nmfkc.ecv(Y.symmetric = ...) stops and redirects to nmfkc.net.ecv()",
     "nmfkc.net.ecv"
   )
 })
+
+test_that("type='signed' does not collapse X to zero", {
+  ## The default init drew every entry of C0 from U(-1, 1) and symmetrised it,
+  ## so with probability (1/2)^3 at Q = 2 the whole matrix came out negative:
+  ## Cp was identically 0, C = Cp - Cn wholly negative against a non-negative
+  ## Y, the X-step numerator vanished and X collapsed on the first iteration
+  ## (X == 0, r.squared = NA, iter = 2).
+  set.seed(1)
+  Y <- matrix(abs(rnorm(8 * 40)) + 1, 8, 40)
+  S <- Y %*% t(Y)
+  for (sd in 1:6) for (q in 2:3) {
+    f <- suppressWarnings(nmfkc.net(S, rank = q, verbose = FALSE,
+                                    type = "signed", seed = sd))
+    expect_false(all(f$X == 0))
+    expect_true(all(is.finite(f$X)))
+    expect_true(is.finite(f$r.squared))
+  }
+  ## and it fits about as well as the non-negative variant
+  a <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE, type = "tri"))
+  b <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE, type = "signed"))
+  expect_gt(b$r.squared, 0.5 * a$r.squared)
+})
+
+test_that("X.restriction='fixed' actually holds X fixed in every type", {
+  set.seed(1)
+  Y <- matrix(abs(rnorm(8 * 40)) + 1, 8, 40); S <- Y %*% t(Y)
+  for (ty in c("tri", "bi", "signed")) {
+    X0 <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE, type = ty))$X
+    g  <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE, type = ty,
+                                     X.init = X0, X.restriction = "fixed"))
+    expect_equal(g$X, X0, tolerance = 0, info = ty)
+  }
+})
+
+test_that("X.L2.ortho reaches the signed path", {
+  set.seed(1)
+  Y <- matrix(abs(rnorm(8 * 40)) + 1, 8, 40); S <- Y %*% t(Y)
+  a <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE,
+                                  type = "signed", X.L2.ortho = 0))
+  b <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE,
+                                  type = "signed", X.L2.ortho = 1e4))
+  ## it was simply not forwarded, so the option was a silent no-op
+  expect_false(isTRUE(all.equal(a$X, b$X, tolerance = 1e-10)))
+})
+
+test_that("nmfkc.net.DOT hides nodes on the membership scale, not the raw X scale", {
+  Y <- make_test_network()
+  Q <- 2
+  count_nodes <- function(dot)
+    sum(grepl("^[[:space:]]+Y_[0-9]+ [[]",
+              strsplit(as.character(dot), "\n", fixed = TRUE)[[1]]))
+
+  ## The raw basis X carries the scale of X.restriction, which differs by type
+  ## ("none" for bi, "colSums" for tri), so a threshold applied to it meant
+  ## different things per type -- for tri it could hide every node at once.
+  ## The filter is documented as "no X edge above threshold", and the X edges
+  ## are drawn from X.prob, so X.prob is what must be tested.
+  for (ty in c("tri", "bi")) {
+    fit <- nmfkc.net(Y, rank = Q, type = ty, nstart = 3, maxit = 100)
+
+    ## Row sums of X.prob are one, so a row maximum is at least 1/Q and
+    ## nothing can be hidden below that -- correctly, since every node then
+    ## does have an edge.
+    expect_equal(unname(rowSums(fit$X.prob)), rep(1, nrow(fit$X.prob)),
+                 tolerance = 1e-8)
+    th <- 1 / Q - 1e-6
+    expect_identical(count_nodes(nmfkc.net.DOT(fit, threshold = th,
+                                               hide.isolated = TRUE)),
+                     count_nodes(nmfkc.net.DOT(fit, threshold = th,
+                                               hide.isolated = FALSE)))
+
+    ## Every displayed node has at least one X edge: the filter and the edge
+    ## loop now read the same matrix.
+    kept <- which(apply(fit$X.prob, 1L, function(r) any(r >= th)))
+    expect_identical(length(kept), nrow(fit$X.prob))
+  }
+})
+
+test_that("summary of nmfkc.net.inference reports the model type, not 'unknown'", {
+  Y <- make_test_network()
+  ## $Y.symmetric is the pre-0.9.x name and was removed from nmfkc(); the
+  ## variant now lives in $type.  The summary has to carry it across, or the
+  ## printer falls through to "unknown" for every nmfkc.net object.
+  for (ty in c("tri", "bi", "signed")) {
+    fit <- nmfkc.net(Y, rank = 2, type = ty, nstart = 3, maxit = 100)
+    inf <- nmfkc.net.inference(fit, Y)
+    expect_identical(summary(inf)$type, ty)
+    out <- capture.output(print(inf))
+    expect_true(any(out == paste0("Symmetric NMF type: ", ty)))
+    expect_false(any(grepl("Symmetric NMF type: unknown", out, fixed = TRUE)))
+  }
+})

@@ -30,7 +30,10 @@ consensus matrices (one \eqn{N \times N} matrix per rank).}
 \code{seed + 1000 * i + r}) and \code{pac.range} (\code{c(0.1, 0.9)}, the
 ambiguous interval \eqn{(u_1, u_2)} for the PAC measure).  Any other
 arguments are passed to \code{\link{nmfkc}} (e.g.\ \code{maxit});
-\code{X.init} is forced to \code{"runif"}.}
+\code{X.init} is forced to \code{"runif"}.  \code{cores}
+(\code{getOption("mc.cores", 1L)}) runs the \code{nrun} restarts of each
+rank in parallel; results are identical to the sequential loop for any
+\code{cores} (PSOCK cluster on Windows, forking elsewhere).}
 }
 \value{
 An object of class \code{"nmfkc.consensus"} (a list) with:

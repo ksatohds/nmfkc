@@ -26,9 +26,15 @@ used in \code{nmf.sem()}.}
 
 \item{Y2}{Exogenous variable matrix (P2 x N).  Same.}
 
-\item{B}{Number of bootstrap replicates.  Default \code{1000}; required
-for the \code{***} threshold (sup > 0.999).  Reduce to 500 for
-exploratory speed (only \code{*} / \code{**} stay reliable).}
+\item{B}{Number of bootstrap replicates.  Default \code{1000}, the value the
+published analysis used; the other inference functions in the package
+default their \code{wild.B} to 500, and this one is deliberately left at
+1000 so the manuscript results reproduce out of the box.  Note that
+\code{***} (sup > 0.999) is only reachable when \emph{every} replicate
+clears \code{threshold}, at any \code{B}: raising \code{B} does not add a
+finer grade, it makes the same grade stronger evidence (all 1000 rather
+than all 500).  Lowering it to 500 roughly halves the running time, since
+each replicate is a re-fit.}
 
 \item{threshold}{Display threshold \eqn{\delta} for the support rate
 \eqn{\Pr_{\mathrm{boot}}(\hat c^{(b)} > \delta)}.  Default
@@ -51,9 +57,17 @@ should pass the actual values used.}
 \item{...}{Hidden options:
 \describe{
 \item{\code{epsilon}}{Convergence tolerance for the inner fixed-X MU
-loop.  Default \code{1e-6}.}
+loop.  Default \code{1e-8} -- deliberately tighter than a plain fit,
+because under multiplicative updates an entry heading for the
+non-negativity boundary approaches 0 slowly, so a loose tolerance
+stops every replicate while such an entry is still above
+\code{threshold}.  The support rate is then inflated and significance
+over-declared: on a pure-noise design the support of null entries
+falls from 0.75 to 0.20 to 0.017 as \code{epsilon} goes 1e-6, 1e-8,
+1e-10, while genuinely supported entries stay at 1.  Tighten further
+when near-threshold entries matter; loosen only for speed.}
 \item{\code{maxit}}{Maximum iterations for the inner MU loop.
-Default \code{5000}.}
+Default \code{100000} (the tighter tolerance needs the headroom).}
 \item{\code{ncores}}{Number of parallel workers.  Default \code{1}
 (serial).  Cross-platform: uses \code{parallel::mclapply} on
 Linux/macOS and \code{parallel::parLapply} (PSOCK cluster) on
@@ -148,5 +162,5 @@ to structural equation modeling for blind input-output analysis.
 arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 }
 \seealso{
-\code{\link{nmf.sem}}, \code{\link{nmf.sem.DOT}}
+\code{\link{nmf.ffb}}, \code{\link{nmf.ffb.DOT}}
 }

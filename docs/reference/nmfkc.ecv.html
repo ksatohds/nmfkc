@@ -29,7 +29,7 @@ with a redirect message."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -111,7 +111,11 @@ with a redirect message.</p>
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code><a href="nmfkc.html">nmfkc</a></code> (e.g., <code>method="EU"</code>).
 Also accepts: <code>nfolds</code> (number of folds, default 5; <code>div</code> also accepted),
-<code>seed</code> (integer seed, default 123).</p></dd>
+<code>seed</code> (integer seed, default 123), and <code>cores</code> (evaluate the
+rank x fold task grid in parallel; default <code>getOption("mc.cores", 1L)</code>).
+Parallelism uses a PSOCK cluster on Windows and forking elsewhere; because
+each task is a deterministic self-seeded fit and results are returned in
+order, <code>objfunc</code>/<code>sigma</code> are identical for any <code>cores</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

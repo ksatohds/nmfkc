@@ -207,7 +207,10 @@ nmfkc.kernel <- function(U, V = NULL,
   if (nrow(U) == 0) stop("'U' must have at least one row (feature).")
   if (nrow(U) != nrow(V)) stop("'U' and 'V' must have the same number of rows (features).")
   kernel <- match.arg(kernel)
-  G <- crossprod(U, V)
+  # The Gram matrix G (and D2 below) are only needed by the non-Gaussian
+  # kernels; the Gaussian branch delegates to nmfkc.kernel.gaussian(),
+  # which computes its own quantities.
+  if (kernel != "Gaussian") G <- crossprod(U, V)
 
   # Determine the specific parameter used for the kernel (e.g., beta or degree)
   # This section extracts the effective parameter value to store in attributes.
@@ -222,7 +225,7 @@ nmfkc.kernel <- function(U, V = NULL,
                             degree = if (!is.null(k_params$degree)) k_params$degree else 2)
   }
 
-  if (kernel %in% c("Gaussian","Exponential","Periodic")) {
+  if (kernel %in% c("Exponential","Periodic")) {
     u2 <- colSums(U * U)
     v2 <- colSums(V * V)
     D2 <- outer(u2, v2, "+") - 2 * G
@@ -431,15 +434,16 @@ nmfkc.kernel.beta.nearest.med <- function(
       Xi <- X[i:i2, , drop = FALSE]
       Xi_norm <- rowSums(Xi * Xi)
 
-      dist2 <- outer(Xi_norm, XX, "+") - 2 * Xi %*% t(X)
+      dist2 <- outer(Xi_norm, XX, "+") - 2 * tcrossprod(Xi, X)
       idx <- i:i2
       dist2[cbind(seq_along(idx), idx)] <- Inf  # exclude self
       dist2[dist2 < 0] <- 0
 
-      nn_local <- apply(dist2, 1, min)
+      # row-wise min via vectorized column reduction (exact, order-free)
+      nn_local <- do.call(pmin, base::unname(base::asplit(dist2, 2)))
       min_d2[idx] <- pmin(min_d2[idx], nn_local)
 
-      rm(Xi, Xi_norm, dist2); gc(FALSE)
+      rm(Xi, Xi_norm, dist2)
     }
 
     d_med <- stats::median(sqrt(min_d2))
@@ -511,13 +515,14 @@ nmfkc.kernel.beta.nearest.med <- function(
         }
       }
 
-      cur_min <- pmin(cur_min, apply(dist2, 1, min))
+      # row-wise min via vectorized column reduction (exact, order-free)
+      cur_min <- pmin(cur_min, do.call(pmin, base::unname(base::asplit(dist2, 2))))
 
-      rm(Ukj, Ukj2, G, dist2); gc(FALSE)
+      rm(Ukj, Ukj2, G, dist2)
     }
 
     min_d2[i:i2] <- pmin(min_d2[i:i2], cur_min)
-    rm(Ui, Ui2, cur_min); gc(FALSE)
+    rm(Ui, Ui2, cur_min)
   }
 
   d_med <- stats::median(sqrt(min_d2))
@@ -551,7 +556,12 @@ nmfkc.kernel.beta.nearest.med <- function(
 #' @param V Covariate matrix \eqn{V(K,M) = (v_1, \dots, v_M)}, typically used for prediction. If \code{NULL}, the default is \code{U}.
 #' @param beta A numeric vector of candidate kernel parameters to evaluate via cross-validation.
 #' @param plot Logical. If TRUE (default), plots the objective function values for each candidate \code{beta}.
-#' @param ... Additional arguments passed to \code{nmfkc.cv}.
+#' @param ... Additional arguments passed to \code{nmfkc.cv}. Also accepts
+#'   \code{cores} (evaluate the \code{beta} candidates in parallel; default
+#'   \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+#'   elsewhere). Each candidate is a deterministic \code{nmfkc.cv} call (its
+#'   folds are seeded) and results are returned in order, so \code{objfunc}
+#'   and the selected \code{beta} are identical for any \code{cores}.
 #'
 #' @return A list with components:
 #' \item{beta}{The beta value that minimizes the cross-validation objective function.}
@@ -574,10 +584,16 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   extra_args <- list(...)
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
   Q <- rank
+  cores <- if (!is.null(extra_args$cores)) extra_args$cores else getOption("mc.cores", 1L)
   kernel_arg_names <- names(formals(nmfkc.kernel))
-  cv_arg_names <- names(formals(nmfkc.cv))
   kernel_args_for_call <- extra_args[names(extra_args) %in% kernel_arg_names]
-  cv_args_for_call <- extra_args[names(extra_args) %in% cv_arg_names]
+  ## nmfkc.cv takes everything except Y/A/rank through `...`, so selecting by
+  ## names(formals(nmfkc.cv)) kept almost nothing -- nfolds, seed, method,
+  ## maxit and the rest were all dropped, contradicting this function's own
+  ## @param block.  Pass through whatever is not a kernel argument instead,
+  ## which is what nmf.rrr.kernel.beta.cv already does.
+  cv_args_for_call <- extra_args[!names(extra_args) %in%
+                                 c(kernel_arg_names, "Q", "cores")]
 
   if(is.null(beta)){
     if(is.null(V)) V <- U
@@ -586,16 +602,53 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     beta <- result.beta$beta_candidates
     if (is.null(beta) || length(beta) == 0) stop("Failed to determine beta candidates from nearest-neighbor median.")
   }
-  objfuncs <- numeric(length(beta))
-  for(i in seq_along(beta)){
+  # --- Fast path for the (default) Gaussian kernel without NAs:
+  # the squared-distance matrix D2 is beta-invariant, so compute it once
+  # (with exactly the expressions used by nmfkc.kernel.gaussian) and
+  # evaluate exp(-beta * D2) per candidate.  Falls back to the generic
+  # per-candidate nmfkc.kernel() call otherwise.
+  D2.pre <- NULL
+  kern_name <- kernel_args_for_call$kernel
+  if (is.null(kern_name) || identical(kern_name, "Gaussian")) {
+    Um <- as.matrix(U); storage.mode(Um) <- "double"
+    Vm <- if (is.null(V)) Um else as.matrix(V)
+    storage.mode(Vm) <- "double"
+    if (nrow(Um) > 0 && nrow(Um) == nrow(Vm) && !anyNA(Vm)) {
+      G.pre <- crossprod(Um, Vm)
+      u2.pre <- colSums(Um * Um)
+      v2.pre <- colSums(Vm * Vm)
+      D2.pre <- outer(u2.pre, v2.pre, "+") - 2 * G.pre
+      D2.pre <- pmax(D2.pre, 0)
+      dn.pre <- list(colnames(Um), colnames(Vm))
+    }
+  }
+
+  # Per-candidate worker: exactly the computation the sequential loop
+  # performed for beta[i].  Each candidate is one full nmfkc.cv() call, which
+  # seeds its own folds, so it is deterministic per candidate; .nmfkc.parlapply
+  # preserves input order, so cores = 1 (lapply) is the sequential loop and
+  # objfuncs / which.min are identical for any `cores`.  message() timing stays
+  # inside the closure (printed as before at cores = 1; parallel-worker
+  # messages are simply not shown).
+  run_beta <- function(i){
     start.time <- Sys.time()
     message(paste0("beta=",beta[i],"..."),appendLF=FALSE)
 
-    kernel_args <- c(
-      list(U = U, V = V, beta = beta[i]),
-      kernel_args_for_call
-    )
-    A <- do.call("nmfkc.kernel", kernel_args)
+    if (!is.null(D2.pre)) {
+      # Same result as nmfkc.kernel(U, V, kernel="Gaussian", beta=beta[i])
+      # on the NA-free path, including dimnames and attributes.
+      A <- exp(-beta[i] * D2.pre)
+      dimnames(A) <- dn.pre
+      attr(A, "params") <- beta[i]
+      attr(A, "kernel") <- "Gaussian"
+      attr(A, "function.name") <- "nmfkc.kernel"
+    } else {
+      kernel_args <- c(
+        list(U = U, V = V, beta = beta[i]),
+        kernel_args_for_call
+      )
+      A <- do.call("nmfkc.kernel", kernel_args)
+    }
 
     cv_args <- c(
       list(Y = Y, A = A, Q = Q),
@@ -603,13 +656,14 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     )
     result <- do.call("nmfkc.cv", cv_args)
 
-    objfuncs[i] <- result$objfunc
     end.time <- Sys.time()
     diff.time <- difftime(end.time,start.time,units="sec")
     diff.time.st <- ifelse(diff.time<=180,paste0(round(diff.time,1),"sec"),
                            paste0(round(diff.time/60,1),"min"))
     message(diff.time.st)
+    result$objfunc
   }
+  objfuncs <- unlist(.nmfkc.parlapply(seq_along(beta), run_beta, cores = cores))
   i0 <- which.min(objfuncs)
   beta.best <- beta[i0]
   if(plot){
@@ -826,6 +880,30 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 
 
+#' @title Broken-stick-corrected effective-rank index (Internal)
+#' @description
+#' Rescales the effective rank onto \eqn{[0,1]}:
+#' \deqn{\mathrm{index}=\frac{\hat r_Q-E_Q}{Q-E_Q},\qquad E_Q=\exp(H_Q-1),}
+#' with \eqn{H_Q} the \eqn{Q}-th harmonic number.  \eqn{E_Q} is the effective
+#' rank a broken-stick (random) split of the variance would give, so 0 is the
+#' random null and 1 is perfect evenness.  The raw \eqn{\hat r_Q/Q} is not a
+#' \eqn{[0,1]} index --- it lives in \eqn{[1/Q,1]} and is inflated at small
+#' \eqn{Q}, which is exactly what the correction removes.
+#' @param eff.rank Effective rank \eqn{\hat r_Q} (may be a vector).
+#' @param Q Rank (same length as \code{eff.rank}, or length 1).
+#' @return The index, clamped to \eqn{[0,1]}; \code{NA_real_} where undefined
+#'   (notably \eqn{Q=1}, where \eqn{E_1=Q=1}).
+#' @keywords internal
+#' @noRd
+.effective.rank.index <- function(eff.rank, Q) {
+  Hq <- base::vapply(Q, function(q) base::sum(1 / base::seq_len(q)), base::numeric(1))
+  e_null <- base::exp(Hq - 1)
+  idx <- (eff.rank - e_null) / (Q - e_null)
+  idx[!base::is.finite(idx)] <- NA_real_
+  base::pmin(base::pmax(idx, 0), 1)
+}
+
+
 #' @title Mean silhouette width from a distance matrix (Internal)
 #' @description
 #' Computes the standard mean silhouette width for a hard clustering,
@@ -903,15 +981,19 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   supplied they are used as-is for the silhouette (e.g.\ the
 #'   \code{B.cluster} already held by a fitted \code{nmfkc} model),
 #'   otherwise they are derived from \eqn{B} when \eqn{B \ge 0}.
+#' @param dY Optional pre-computed \code{stats::dist(t(Y))} object; when
+#'   \code{NULL} (default) it is computed here.  Callers evaluating many
+#'   fits over the same \code{Y} can hoist it (e.g.\
+#'   \code{nmf.cluster.criteria}).
 #' @return A list: \code{silhouette}, \code{CPCC}, \code{dist.cor},
 #'   \code{cluster} (the hard labels, or \code{NULL}), and \code{hard}
 #'   (whether hard clustering was possible).
 #' @keywords internal
 #' @noRd
-.cluster.criteria <- function(Y, B, labels = NULL) {
+.cluster.criteria <- function(Y, B, labels = NULL, dY = NULL) {
   Y <- base::as.matrix(Y); B <- base::as.matrix(B)
   Q <- base::nrow(B)
-  dY <- stats::dist(base::t(Y))
+  if (base::is.null(dY)) dY <- stats::dist(base::t(Y))
   dB <- stats::dist(base::t(B))
   dist.cor <- stats::cor(base::as.vector(dY), base::as.vector(dB))
   CPCC <- if (Q >= 2) {
@@ -1097,7 +1179,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @description
 #' Prints the common structure-diagnostics block shared by the NMF
 #' summary methods: one sparsity line per factor matrix plus an optional
-#' clustering-crispness line.  Sparsities are supplied as a named
+#' factor-variance-share line.  Sparsities are supplied as a named
 #' numeric vector (name = matrix label, value = fraction of near-zero
 #' entries); labels are aligned to the same width as
 #' \code{\link{.print.fit.statistics}}.  Model-specific extras (value
@@ -1105,12 +1187,14 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' block.
 #' @param sparsity Named numeric vector of sparsity fractions in
 #'   \eqn{[0, 1]}; names become the row labels (e.g.\ \code{"Basis (X)"}).
-#' @param crispness Optional clustering crispness in \eqn{[1/Q, 1]}.
+#' @param eff.rank.index Optional broken-stick effective-rank index in
+#'   \eqn{[0, 1]} (see \code{.effective.rank.index}).
 #' @param header Section header (default \code{"Structure Diagnostics:"}).
 #' @return \code{NULL}, invisibly.
 #' @keywords internal
 #' @noRd
-.print.structure.diagnostics <- function(sparsity = NULL, crispness = NULL,
+.print.structure.diagnostics <- function(sparsity = NULL,
+                                         eff.rank.index = NULL,
                                          header = "Structure Diagnostics:") {
   base::cat("\n", header, "\n", sep = "")
   w <- 24L
@@ -1122,10 +1206,15 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
                                 base::paste0(lab, " Sparsity:"), 100 * v))
     }
   }
-  if (!base::is.null(crispness) && base::is.finite(crispness))
-    base::cat(base::sprintf("  %-*s %s (range: 1/Q-1, closer to 1 = more decisive assignment)\n",
-                            w, "Clustering Crispness:",
-                            base::format(crispness, digits = 4)))
+  ## What this is and is NOT: it is the evenness of the across-sample
+  ## coefficient variance, rescaled so 0 is the broken-stick (random) null and
+  ## 1 is a perfectly equal share.  Evenness is not usefulness -- two
+  ## duplicated factors split the variance evenly and score near 1 -- so the
+  ## label says "variance share", not "all factors useful".
+  if (!base::is.null(eff.rank.index) && base::is.finite(eff.rank.index))
+    base::cat(base::sprintf(
+      "  %-*s %s (0 = broken-stick null, 1 = variance shared evenly)\n",
+      w, "Factor variance share:", base::format(eff.rank.index, digits = 4)))
   base::invisible(NULL)
 }
 
@@ -1185,17 +1274,49 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   mean loss for config index \code{i} and fold \code{k}.
 #' @param progress Optional \code{function(i, objfunc, sigma)} called
 #'   after each config for progress reporting (default none).
+#' @param cores Optional integer; when \code{> 1}, the flattened
+#'   (config x fold) task grid is evaluated in parallel through
+#'   \code{\link{.nmfkc.parlapply}} (PSOCK on Windows, forking elsewhere).
+#'   Because each \code{run_one(i, k)} is a deterministic self-seeded fit
+#'   and \code{parlapply} preserves input order, the aggregated result is
+#'   identical to the sequential path for any \code{cores}.  Default
+#'   \code{1L} runs the exact sequential nested loop (so every existing
+#'   caller is bitwise unchanged).
 #' @return A list with \code{objfunc} (named numeric), \code{sigma}
 #'   (named numeric), and \code{objfunc.fold} (named list of per-fold
 #'   loss vectors).  Callers using a loss that can be negative (e.g.\ KL)
 #'   may additionally force \code{sigma} to \code{NA}.
 #' @keywords internal
 #' @noRd
-.ecv.run <- function(labels, nfolds, run_one, progress = NULL) {
+.ecv.run <- function(labels, nfolds, run_one, progress = NULL, cores = 1L) {
   n   <- base::length(labels)
   obj <- stats::setNames(base::numeric(n), labels)
   sig <- stats::setNames(base::numeric(n), labels)
   fld <- stats::setNames(base::vector("list", n), labels)
+  cores <- base::suppressWarnings(base::as.integer(cores))
+  if (base::length(cores) == 1L && !base::is.na(cores) && cores > 1L) {
+    ## Flatten the (config i, fold k) grid into a single task list in the
+    ## SAME order as the sequential nested loop below (i outer, k inner),
+    ## evaluate through .nmfkc.parlapply (which returns results in input
+    ## order), then aggregate exactly as the sequential path.  Each
+    ## run_one(i, k) is a deterministic self-seeded fit, so obj/sig/fld are
+    ## identical to the sequential result regardless of `cores`.
+    grid <- base::expand.grid(k = base::seq_len(nfolds), i = base::seq_len(n),
+                              KEEP.OUT.ATTRS = FALSE)
+    vals <- base::unlist(.nmfkc.parlapply(
+      base::seq_len(base::nrow(grid)),
+      function(t) run_one(grid$i[t], grid$k[t]),
+      cores = cores))
+    for (i in base::seq_len(n)) {
+      objs <- vals[((i - 1L) * nfolds + 1L):(i * nfolds)]
+      fld[[i]] <- objs
+      obj[i]   <- base::mean(objs)
+      sig[i]   <- if (base::is.finite(obj[i]) && obj[i] >= 0)
+                    base::sqrt(obj[i]) else NA_real_
+      if (!base::is.null(progress)) progress(i, obj[i], sig[i])
+    }
+    return(base::list(objfunc = obj, sigma = sig, objfunc.fold = fld))
+  }
   for (i in base::seq_len(n)) {
     objs <- base::numeric(nfolds)
     for (k in 1:nfolds) objs[k] <- run_one(i, k)
@@ -1227,7 +1348,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @noRd
 .nmf.cluster.criteria.coef <- function(object, Y, Y2 = NULL) {
   if (base::inherits(object, "nmfkc.net")) return(base::t(object$X))
-  if (base::inherits(object, "nmfae"))     return(object$H)
+  if (base::inherits(object, "nmfae"))     return(.nmfae.B1(object))
   if (base::inherits(object, c("nmf.ffb", "nmf.sem"))) {
     if (base::is.null(Y2))
       base::stop("For nmf.ffb / nmf.sem, also pass the exogenous block via Y2=.",
@@ -1301,10 +1422,14 @@ nmf.cluster.criteria <- function(fits, Y, Y2 = NULL, names = NULL,
                call. = FALSE)
   Y <- base::as.matrix(Y)
 
+  ## Y is fixed across fits, so its sample-distance matrix is hoisted
+  ## out of the loop and passed to .cluster.criteria().
+  dY <- stats::dist(base::t(Y))
+
   ## Results are taken in the given order (NOT sorted).
   rows <- base::lapply(fits, function(f) {
     B  <- .nmf.cluster.criteria.coef(f, Y, Y2)
-    cc <- .cluster.criteria(Y, B)
+    cc <- .cluster.criteria(Y, B, dY = dY)
     rank <- if (!base::is.null(f$rank)) base::as.integer(f$rank)
             else base::nrow(base::as.matrix(B))
     base::data.frame(rank = rank, silhouette = cc$silhouette, CPCC = cc$CPCC,
@@ -1398,7 +1523,7 @@ print.nmf.cluster.criteria <- function(x, ...) {
 #' @noRd
 .nmf.hard.labels <- function(object) {
   B <- if (base::inherits(object, "nmfkc.net")) base::t(object$X)
-       else if (base::inherits(object, "nmfae")) object$H
+       else if (base::inherits(object, "nmfae")) .nmfae.B1(object)
        else if (base::inherits(object, "nmfre")) object$B.blup
        else if (base::inherits(object, "nmfkc")) object$B
        else base::stop("nmf.cluster.flow(): unsupported model class '",
@@ -1741,8 +1866,9 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' \code{nmfkc.net.rank}, \code{nmfkc.signed.rank}, \code{nmfae.rank},
 #' \code{nmfae.signed.rank}).  From a pre-built \code{criteria} data
 #' frame it determines the recommended rank and draws a concise
-#' three-criterion plot, using only \code{r.squared}, the effective-rank
-#' utilization \code{effective.rank.ratio}, and the cross-validation
+#' three-criterion plot, using only \code{r.squared}, the
+#' broken-stick-corrected \code{effective.rank.index} (derived here from
+#' the \code{effective.rank} column), and the cross-validation
 #' error \code{sigma.ecv}.  Any other columns present (e.g.\ \code{ARI},
 #' \code{silhouette}, \code{CPCC}, \code{dist.cor} from \code{nmfkc.rank})
 #' are kept in the returned table but \strong{not plotted}.  All three
@@ -1763,7 +1889,9 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' not a predictive rank optimum -- the recommended rank is driven by
 #' the cross-validation minimum and the R-squared elbow.
 #' @param criteria Data frame with at least \code{rank}, \code{r.squared},
-#'   \code{effective.rank.ratio}, and (optionally) \code{sigma.ecv}.
+#'   \code{effective.rank} (from which \code{effective.rank.expected} and
+#'   \code{effective.rank.index} are derived here), and (optionally)
+#'   \code{sigma.ecv}.
 #' @param plot Logical; draw the diagnostics plot.
 #' @param main Plot title.
 #' @return A list with \code{rank.best} (ECV minimum if available, else
@@ -1805,13 +1933,11 @@ print.nmf.cluster.flow <- function(x, ...) {
   ## This removes the small-Q inflation of eff.rank / Q, so its maximum
   ## is a meaningful rank.
   if (!base::is.null(criteria$effective.rank)) {
-    Hq <- base::vapply(rk, function(Q) base::sum(1 / base::seq_len(Q)),
-                       base::numeric(1))
-    e_null <- base::exp(Hq - 1)
-    idx <- (criteria$effective.rank - e_null) / (rk - e_null)
-    idx[!base::is.finite(idx)] <- NA_real_
-    criteria$effective.rank.expected <- e_null
-    criteria$effective.rank.index <- base::pmin(base::pmax(idx, 0), 1)
+    criteria$effective.rank.expected <-
+      base::exp(base::vapply(rk, function(Q) base::sum(1 / base::seq_len(Q)),
+                             base::numeric(1)) - 1)
+    criteria$effective.rank.index <-
+      .effective.rank.index(criteria$effective.rank, rk)
   }
 
   has_idx <- !base::is.null(criteria$effective.rank.index) &&
@@ -1836,8 +1962,10 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' Draws the concise three-criterion rank-selection plot for an object
 #' returned by \code{\link{nmfkc.rank}} (or \code{nmfkc.net.rank},
 #' \code{nmfkc.signed.rank}, \code{nmfae.rank}, \code{nmfae.signed.rank}):
-#' \code{r.squared} (red) and the effective-rank utilization
-#' \code{eff.rank} (green) on the left \eqn{[0, 1]} axis, and the
+#' \code{r.squared} (red) and the broken-stick-corrected effective-rank
+#' index \code{effective.rank.index} (green, legend label
+#' \code{eff.rank}; \strong{not} the raw \code{effective.rank.ratio})
+#' on the left \eqn{[0, 1]} axis, and the
 #' cross-validation error \code{sigma.ecv} (blue) on the right axis, each
 #' with points, rank-number labels and a highlighted best marker.
 #' @param x An object of class \code{"nmf.rank"}.
@@ -2213,10 +2341,17 @@ print.nmf.rank <- function(x, ...) {
 #'     \item \code{print.trace}: Logical. If \code{TRUE}, prints progress every 10 iterations (default: \code{FALSE}).
 #'     \item \code{print.dims}: Deprecated. Use \code{verbose} instead.
 #'     \item \code{detail}: Level of post-fit criterion computation.
-#'       \code{"full"} computes all criteria including silhouette, CPCC, dist.cor;
-#'       \code{"fast"} skips expensive distance-based criteria;
-#'       \code{"minimal"} returns only information criteria.
-#'       Default is \code{"full"}. For backward compatibility,
+#'       \code{"fast"} (\strong{default}) computes everything except the
+#'       \eqn{O(N^2)} sample-clustering criteria;
+#'       \code{"full"} adds \code{silhouette}, \code{CPCC} and
+#'       \code{dist.cor}, which need two \eqn{N\times N} distance matrices and
+#'       a cophenetic correlation --- at \eqn{N=2000} that was 26 times the
+#'       cost of the rest of the call;
+#'       \code{"minimal"} returns only information criteria and skips
+#'       \eqn{XB}.
+#'       The default changed from \code{"full"} in 0.8.9: nothing consumed
+#'       those three (see the \code{criterion} entry under Value), so every
+#'       call was paying for them.  For backward compatibility,
 #'       \code{save.time = TRUE} maps to \code{"fast"} and
 #'       \code{save.memory = TRUE} maps to \code{"minimal"}.
 #'   }
@@ -2232,6 +2367,9 @@ print.nmf.rank <- function(x, ...) {
 #' \item{B.cluster}{Hard-clustering labels (argmax over \eqn{B.prob} for each column).}
 #' \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
 #' \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
+#' \item{X.restriction}{The constraint that was applied to the columns of
+#'   \eqn{X}.  It decides how much of the \eqn{(X,C)\to(XT,T^{-1}C)} freedom is
+#'   pinned down, which inference on the latent parameters needs to know.}
 #' \item{A.attr}{List of attributes of the input covariate matrix \code{A}, containing metadata like lag order and intercept status if created by \code{nmfkc.ar} or \code{nmfkc.kernel}.}
 #' \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 #' \item{objfunc}{Final objective value.}
@@ -2245,8 +2383,41 @@ print.nmf.rank <- function(x, ...) {
 #' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-#' \item{criterion}{A list of selection criteria: \code{silhouette} (mean silhouette width of the hard clustering, computed in the original data space \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic correlation of a hierarchical clustering of the coefficient distances \code{dist(t(B))}), \code{dist.cor} (correlation between original-data and coefficient distances), \code{B.prob.max.mean} (clustering crispness: mean dominant-cluster membership, in \eqn{[1/Q, 1]}; meaningful at fixed \eqn{Q} as a confidence check before using \code{B.cluster} as hard labels), and \code{effective.rank}.  The last is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
-#' @seealso \code{\link{nmfkc.cv}}, \code{\link{nmfkc.rank}}, \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}}, \code{\link{predict.nmfkc}}
+#' \item{criterion}{A list with \code{effective.rank} and
+#'   \code{effective.rank.index}.
+#'
+#'   \code{effective.rank.index} is \code{effective.rank} rescaled onto
+#'   \eqn{[0,1]} by the broken-stick correction
+#'   \eqn{(\hat r_Q-E_Q)/(Q-E_Q)} with \eqn{E_Q=\exp(H_Q-1)}, the effective
+#'   rank a random split of the variance would produce; it is the quantity
+#'   \code{\link{nmfkc.rank}} plots, and \code{summary} prints it in place of
+#'   the crispness.  Read it as \strong{how evenly the across-sample
+#'   coefficient variance is shared}, which is not the same as how useful the
+#'   factors are: a factor whose coefficient is large but constant carries no
+#'   variance and pulls the index down (correctly --- the raw value can go
+#'   negative and is clamped at 0, meaning the variance is spread over fewer
+#'   factors than chance would give), while two duplicated factors split the
+#'   variance evenly and score near 1.  \code{NA} at \eqn{Q=1}, where
+#'   \eqn{E_1=Q}.
+#'
+#'   With \code{detail = "full"} the list additionally carries the
+#'   \strong{sample-clustering} criteria \code{silhouette} (mean silhouette
+#'   width of the hard clustering, computed in the original data space
+#'   \code{dist(t(Y))} with the per-sample labels), \code{CPCC} (cophenetic
+#'   correlation of a hierarchical clustering of the coefficient distances
+#'   \code{dist(t(B))}) and \code{dist.cor} (correlation between original-data
+#'   and coefficient distances).  They are \strong{absent by default} because
+#'   they cost \eqn{O(N^2)} and nothing consumes them: they are no longer part
+#'   of rank selection, \code{\link{summary.nmfkc}} does not print them, and
+#'   \code{\link{nmf.cluster.criteria}} --- the right entry point when several
+#'   ranks are to be compared --- recomputes them from the fits it is given.
+#'
+#'   \code{effective.rank} is the \strong{effective rank}: \eqn{\exp} of the Shannon entropy of the explained-variance distribution \eqn{p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})}.  By the trace identity \eqn{\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))}, \eqn{p_k} is the exact fraction of the total coefficient variance carried by factor \eqn{k}, so the entropy measures how that variance is spread across factors.  It ranges in \eqn{[1, Q]} (1 when one factor carries all the variance, \eqn{Q} when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \eqn{\exp(\mathrm{entropy})} functional form of Roy & Vetterli (2007).}
+#' @seealso \code{\link{nmfkc.inference}} (standard errors and p-values for
+#'   \eqn{C}), \code{\link{summary.nmfkc}}, \code{\link{plot.nmfkc}},
+#'   \code{\link{nmfkc.cv}}, \code{\link{nmfkc.ecv}}, \code{\link{nmfkc.rank}},
+#'   \code{\link{nmfkc.kernel}}, \code{\link{nmfkc.ar}},
+#'   \code{\link{nmfkc.DOT}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
 #' Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
@@ -2317,6 +2488,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   X.init <- if (!base::is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
   nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
   seed <- if (!base::is.null(extra_args$seed)) extra_args$seed else 123
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  base::on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   C.init <- if (!is.null(extra_args$C.init)) extra_args$C.init else NULL
   ## Symmetric NMF (Y ~ X X^T or X C X^T) has moved out of nmfkc() into
   ## the dedicated nmfkc.net() function (Frobenius bilateral-gradient
@@ -2347,8 +2521,14 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   if (base::is.null(detail)) {
     # backward compatibility: derive detail from save.time / save.memory
     if (save.memory) detail <- "minimal"
-    else if (save.time) detail <- "fast"
-    else detail <- "full"
+    ## "fast" is the default because the only things "full" adds -- the
+    ## sample-clustering criteria silhouette / CPCC / dist.cor -- are O(N^2)
+    ## (two distance matrices plus a cophenetic correlation) and nothing reads
+    ## them: they left rank selection, summary.nmfkc() never printed them, and
+    ## nmf.cluster.criteria() recomputes them from the fits it is given.  At
+    ## N = 2000 they were 26x the rest of the call; over a 500-replicate
+    ## bootstrap, 83s against 9s.  Ask for detail = "full" to get them.
+    else detail <- "fast"
   }
   detail <- base::match.arg(detail, base::c("full", "fast", "minimal"))
 
@@ -2455,6 +2635,20 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   objfunc.iter <- 0*(1:maxit)
   i_end <- NULL
 
+  ## Loop-invariant precompute: Y.weights and Y are fixed throughout, so the
+  ## weighted response W*Y is constant.  (Used by the X- and C-steps and the
+  ## objective every iteration; computing it once avoids a P x N element-wise
+  ## product per iteration.  Numerically identical to the inline form.)
+  ## With no missing data and no user weights, Y.weights is all ones, and
+  ## multiplying by exactly 1.0 is the identity in IEEE arithmetic -- so every
+  ## `Y.weights * <P x N>` below is an allocation and a pass over the matrix
+  ## that produces its own input.  Skipping them is bit-identical, not an
+  ## approximation.  Measured on a 19 MB matrix: 20 iterations of
+  ## `Y.weights * XB` cost 0.20s against 0.00s; at MNIST scale each such
+  ## product is a 125 MB allocation per iteration.
+  unweighted <- base::all(Y.weights == 1)
+  WY <- if (unweighted) Y else Y.weights * Y
+
   # --- 4. Main Loop (Weighted) ---
   for(i in 1:maxit){
     if(is.null(A)) B <- C else B <- C %*% A
@@ -2462,9 +2656,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     if(print.trace && i %% 10==0) message(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
     if(method=="EU"){
+      WXB <- if (unweighted) XB else Y.weights * XB  # invariant given XB
       if(!is.X.scalar && X.restriction!="fixed"){
-        num_X <- (Y.weights * Y) %*% t(B)
-        den_X <- (Y.weights * XB) %*% t(B)
+        num_X <- tcrossprod(WY, B)         # = (Y.weights*Y) %*% t(B)
+        den_X <- tcrossprod(WXB, B)        # = (Y.weights*XB) %*% t(B)
         if (X.L2.ortho > 0) {
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
@@ -2485,13 +2680,13 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         tX <- t(X)
       }
       if(is.null(A)) {
-        num_C <- tX %*% (Y.weights * Y)
-        den_C <- tX %*% (Y.weights * XB)
+        num_C <- tX %*% WY
+        den_C <- tX %*% WXB
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
-        num_C <- tX %*% (Y.weights * Y) %*% At
-        den_C <- tX %*% (Y.weights * XB) %*% At
+        num_C <- tX %*% WY %*% At
+        den_C <- tX %*% WXB %*% At
         if (C.L1 != 0) den_C <- den_C + (C.L1/2) * matrix(1, nrow=Q, ncol=nrow(A))
         C <- C * (num_C / (den_C + .eps))
       }
@@ -2501,13 +2696,14 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
       ## loss consistent for any non-negative W.  For binary W in {0,1}
       ## (the standard ECV / CV / NA-mask case) this is identical to
       ## sum((W*(Y-XB))^2) since W = W^2.
-      obj <- sum(Y.weights * (Y - XB)^2)
+      obj <- if (unweighted) sum((Y - XB)^2) else sum(Y.weights * (Y - XB)^2)
 
     }else{ # KL
+      Xeps  <- XB + .eps                          # within-iteration invariant
+      ratio <- Y.weights * (Y / Xeps)             # computed once, used by X- and C-steps
       if(!is.X.scalar && X.restriction!="fixed"){
-        ratio <- Y.weights * (Y / (XB + .eps))
-        num_X <- ratio %*% t(B)
-        den_X <- Y.weights %*% t(B)
+        num_X <- tcrossprod(ratio, B)             # = ratio %*% t(B)
+        den_X <- tcrossprod(Y.weights, B)         # = Y.weights %*% t(B)
         if (X.L2.ortho > 0) {
           XtX <- crossprod(X); diag(XtX) <- 0
           den_X <- den_X + X.L2.ortho * (X %*% XtX)
@@ -2528,19 +2724,17 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         tX <- t(X)
       }
       if(is.null(A)) {
-        ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio
         den_C <- tX %*% Y.weights
         if (C.L1 != 0) den_C <- den_C + C.L1 * ones_QN
         C <- C * (num_C / (den_C + .eps))
       } else {
-        ratio <- Y.weights * (Y / (XB + .eps))
         num_C <- tX %*% ratio %*% At
         den_C <- tX %*% Y.weights %*% At
         if (C.L1 != 0) den_C <- den_C + C.L1 * matrix(1, nrow=Q, ncol=nrow(A))
         C <- C * (num_C / (den_C + .eps))
       }
-      term1 <- - (Y.weights * Y) * log(XB + .eps)
+      term1 <- - WY * log(Xeps)                   # WY = Y.weights*Y; Xeps = XB+.eps
       term2 <- Y.weights * XB
       obj <- sum(term1 + term2)
     }
@@ -2576,6 +2770,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     objfunc <- sum(term1 + term2)
   }
 
+  ## The trace is trimmed to [10:end] so the plot is not dominated by the first
+  ## few iterations, which means length(objfunc.iter) is NOT the iteration
+  ## count -- it is short by 9 whenever the fit ran at least 10 iterations.
+  ## Record the real count before trimming.
+  iter.used <- if (!is.null(i_end)) i_end else i
   if(!is.null(i_end)){ objfunc.iter <- objfunc.iter[10:i_end]
   } else if (i >= 10){ objfunc.iter <- objfunc.iter[10:i]
   } else { objfunc.iter <- objfunc.iter[1:i] }
@@ -2633,6 +2832,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     B.cluster = B.cluster,
     X.prob    = X.prob,
     X.cluster = X.cluster,
+    ## Recorded because it decides how much of the (X, C) -> (XT, T^-1 C)
+    ## freedom is pinned down, which downstream inference needs to know.
+    X.restriction = X.restriction,
     A.attr    = A.attr,
     formula.meta = formula.meta,
     n.missing = n.missing,
@@ -2640,12 +2842,27 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     rank      = Q,
     objfunc   = objfunc,
     objfunc.iter = objfunc.iter,
+    ## `iter` is the house name (nmfae / nmfre / nmf.sem / nmfkc.net all use
+    ## it); nmfkc simply never recorded it.  It is the actual number of MU
+    ## iterations -- objfunc.iter is trimmed to [10:end] for plotting, so its
+    ## length under-reports by 9.  Whether the run converged or merely hit
+    ## maxit was previously not recoverable from the object at all.
+    iter      = iter.used,
+    maxit     = maxit,
+    epsilon   = epsilon,
+    converged = (epsilon.iter <= base::abs(epsilon)),
     r.squared          = r2,
     r.squared.uncentered     = r2.uncentered,
     r.squared.centered = r2.centered,
     sigma     = sigma,
     mae = mae,
-    criterion = crit_result$criterion
+    ## Drop the sample-clustering criteria unless they were actually computed.
+    ## Leaving NA placeholders would be ambiguous: CPCC is legitimately NA at
+    ## Q = 1 under detail = "full", so NA cannot also mean "not computed".
+    criterion = if (detail == "full") crit_result$criterion
+                else crit_result$criterion[
+                  base::setdiff(base::names(crit_result$criterion),
+                                base::c("silhouette", "CPCC", "dist.cor"))]
   )
   class(result) <- c("nmfkc", "nmf")
   return(result)
@@ -2727,7 +2944,13 @@ summary.nmfkc <- function(object, ...) {
 
   ans$formula.meta <- object$formula.meta
   ans$method <- object$method
-  ans$iter <- length(object$objfunc.iter)
+  ## objfunc.iter is trimmed to [10:end] for plotting, so its length is 9 short
+  ## of the real count whenever the fit ran at least 10 iterations.
+  ans$iter <- if (!is.null(object$iter)) object$iter
+              else length(object$objfunc.iter)
+  ans$maxit <- object$maxit
+  ans$epsilon <- object$epsilon
+  ans$converged <- object$converged
   ans$objfunc <- object$objfunc
   ans$r.squared          <- object$r.squared
   ans$r.squared.uncentered     <- object$r.squared.uncentered
@@ -2753,7 +2976,10 @@ summary.nmfkc <- function(object, ...) {
   if (!is.null(object$B.prob)){
     # Sparsity
     ans$B.prob.sparsity <- mean(object$B.prob < 1e-4)
-    ans$B.prob.max.mean <- object$criterion$B.prob.max.mean
+    ## The one [0, 1] factor diagnostic.  It replaces the old clustering
+    ## crispness (B.prob.max.mean), which lived in [1/Q, 1], was monotone in Q,
+    ## and had no consumer anywhere in the package.
+    ans$effective.rank.index <- object$criterion$effective.rank.index
   }
 
   class(ans) <- "summary.nmfkc"
@@ -2786,7 +3012,7 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
   cat("Runtime:    ",
       if (is.numeric(x$runtime)) sprintf("%.1fsec", x$runtime) else x$runtime, "\n")
   if (!is.null(x$method)) cat("Method:     ", x$method, "\n")
-  cat("Iterations: ", x$iter, "\n")
+  .print.convergence(x)
 
   if (!is.null(x$n.missing)) {
     cat("Missing:    ", x$n.missing,
@@ -2797,7 +3023,7 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 
   .print.structure.diagnostics(
     sparsity  = c("Basis (X)" = x$X.sparsity, "Coef (B)" = x$B.prob.sparsity),
-    crispness = x$B.prob.max.mean)
+    eff.rank.index = x$effective.rank.index)
   cat("\n")
   invisible(x)
 }
@@ -2936,7 +3162,11 @@ nmfkc.class <- function(x){
 #'
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.cv}}
 #' @export
-predict.nmfkc <- function(object, newA = NULL, newdata = NULL, type = "response", ...) {
+predict.nmfkc <- function(object, newA = NULL, newdata = NULL,
+                          type = c("response", "prob", "class"), ...) {
+  ## Without match.arg a typo fell through the if/else chain and returned the
+  ## class labels -- or, for an unmatched value, NULL -- instead of erroring.
+  type <- match.arg(type)
   x <- object
   .eps <- 1e-10
 
@@ -3081,6 +3311,9 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   div <- if (!is.null(extra_args$nfolds)) extra_args$nfolds
          else if (!is.null(extra_args$div)) extra_args$div else 5
   seed <- if (!is.null(extra_args$seed)) extra_args$seed else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   shuffle <- if (!is.null(extra_args$shuffle)) extra_args$shuffle else TRUE
 
   epsilon <- if (!is.null(extra_args$epsilon)) extra_args$epsilon else 1e-4
@@ -3128,16 +3361,25 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
     oldSum <- 0
     epsilon.iter <- Inf
 
+    # Loop-invariant terms hoisted out of the multiplicative updates:
+    # the EU numerator X^T (W * Y) and the KL denominator X^T W do not
+    # depend on the current iterate C.
+    if(method=="EU"){
+      num_fixed <- crossprod(X, W_test * Y_test)
+    }else{
+      den_fixed <- crossprod(X, W_test)
+    }
+
     for(l in 1:maxit){
       B <- C
       XB <- X %*% B
 
       if(method=="EU"){
         # Weighted Update for B (EU)
-        # Num: X^T (W * Y)
-        num <- t(X) %*% (W_test * Y_test)
+        # Num: X^T (W * Y)  (precomputed above)
+        num <- num_fixed
         # Den: X^T (W * XB)
-        den <- t(X) %*% (W_test * XB)
+        den <- crossprod(X, W_test * XB)
 
         C <- C * ( num / (den + .eps) )
 
@@ -3145,9 +3387,9 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
         # Weighted Update for B (KL)
         # Num: X^T (W * (Y/XB))
         ratio <- W_test * (Y_test / (XB + .eps))
-        num <- t(X) %*% ratio
-        # Den: X^T W
-        den <- t(X) %*% W_test
+        num <- crossprod(X, ratio)
+        # Den: X^T W  (precomputed above)
+        den <- den_fixed
 
         C <- C * ( num / (den + .eps) )
       }
@@ -3158,7 +3400,7 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
         epsilon.iter <- abs(newSum-oldSum) / pmax(abs(newSum), 1)
         if(epsilon.iter <= abs(epsilon)) break
       }
-      oldSum <- sum(C)
+      oldSum <- newSum
     }
 
     B <- C
@@ -3183,6 +3425,13 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
   }
 
   # Create Folds
+  ## The loop below runs `1:(div - 1)`, and `1:0` is c(1, 0) -- so nfolds = 1
+  ## did not error, it ran a nonsense extra pass and died inside nmfkc() with
+  ## "missing value where TRUE/FALSE needed".  nmf.ffb.cv already stops here.
+  if (!is.numeric(div) || length(div) != 1L || div < 2)
+    stop("'nfolds' must be an integer >= 2 (got ", div, ").")
+  if (div > N)
+    stop("'nfolds' (", div, ") cannot exceed the number of samples (", N, ").")
   remainder <- N %% div
   division <- N %/% div
   block <- 0*(1:N)
@@ -3232,13 +3481,34 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
     }
 
     # Run NMF on Training set (passing W_train)
+    ## NOTE on `seed`: nmfkc() resolves it as
+    ##   if (!is.null(extra_args$seed)) extra_args$seed else 123,
+    ## which cannot tell "seed = NULL was passed" from "seed was not passed".
+    ## Passing seed = NULL here would therefore NOT give the folds a free-
+    ## running stream -- it would silently yield nmfkc()'s default 123 -- so it
+    ## is not passed at all and the folds share one RNG seed.  They still start
+    ## from different initializations, because the k-means initializer is built
+    ## from each fold's own training data (measured: the initializations differ
+    ## more across folds than they do between two different seeds on the same
+    ## data).  If a fold-specific stream is ever wanted, derive the seeds
+    ## explicitly rather than relying on NULL.
+    ## The fold's own arguments must come FIRST: nmfkc() reads its options with
+    ## `extra_args$name`, and `$` returns the first match, so splicing `...`
+    ## ahead of them let a caller's argument win.  In particular
+    ## nmfkc.cv(Y, rank = 2, Y.weights = W) passed the user's full-width W in
+    ## place of this fold's W_train and died with "Dimension mismatch between Y
+    ## and Y.weights" -- the only member of the CV family that documents
+    ## Y.weights and could not accept it.  Same hazard for print.dims / Q /
+    ## save.time.  nmfkc.ecv already does it in this order.
+    dots <- list(...)
+    dots[c("Y", "A", "Q", "rank", "Y.weights", "print.trace", "print.dims",
+           "save.time", "save.memory", "shuffle")] <- NULL
     nmfkc_args <- c(
-      list(...),
       list(Y = Y_train, A = A_train, Q = Q, Y.weights = W_train, # Pass weights!
-           seed=NULL, print.trace = FALSE, print.dims = FALSE,
-           save.time = TRUE, save.memory = TRUE)
+           print.trace = FALSE, print.dims = FALSE,
+           save.time = TRUE, save.memory = TRUE),
+      dots
     )
-    nmfkc_args$shuffle <- NULL
 
     # Suppress messages from inner nmfkc calls
     res_j <- suppressMessages(do.call("nmfkc", nmfkc_args))
@@ -3308,7 +3578,11 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #' @param data A data frame (required when \code{Y} is a formula with column names).
 #' @param ... Additional arguments passed to \code{\link{nmfkc}} (e.g., \code{method="EU"}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
-#'   \code{seed} (integer seed, default 123).
+#'   \code{seed} (integer seed, default 123), and \code{cores} (evaluate the
+#'   rank x fold task grid in parallel; default \code{getOption("mc.cores", 1L)}).
+#'   Parallelism uses a PSOCK cluster on Windows and forking elsewhere; because
+#'   each task is a deterministic self-seeded fit and results are returned in
+#'   order, \code{objfunc}/\code{sigma} are identical for any \code{cores}.
 #'
 #' @return A list with components:
 #' \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
@@ -3339,6 +3613,10 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
   seed   <- if (!is.null(extra_ecv$seed))   extra_ecv$seed   else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  cores  <- if (!is.null(extra_ecv$cores))  extra_ecv$cores  else getOption("mc.cores", 1L)
   Q <- rank
   div <- nfolds
   # --- Formula Mode ---
@@ -3385,6 +3663,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   nmfkc_clean_args$print.dims <- NULL
   nmfkc_clean_args$save.time <- NULL
   nmfkc_clean_args$save.memory <- NULL
+  nmfkc_clean_args$cores <- NULL
 
   # Model-specific worker: mask fold k, refit at rank Q[i], held-out loss
   run_one <- function(i, k) {
@@ -3408,7 +3687,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 
   # 2. Loop over Q via shared driver
   message(paste0("Performing Element-wise CV for Q = ", paste(Q, collapse=","), " (", div, "-fold)..."))
-  cv <- .ecv.run(paste0("Q=", Q), div, run_one)
+  cv <- .ecv.run(paste0("Q=", Q), div, run_one, cores = cores)
   if (method != "EU") cv$sigma[] <- NA   # sigma = RMSE only for EU loss
 
   out <- list(objfunc = cv$objfunc,
@@ -3424,9 +3703,9 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 
 #' @title Compute model selection criteria for a fitted nmfkc model
 #' @description
-#' \code{nmfkc.criterion} computes the effective rank, clustering-quality
-#' measures (silhouette, CPCC, dist.cor), and the clustering-crispness
-#' statistic (\code{B.prob.max.mean}) from a fitted \code{nmfkc} model.
+#' \code{nmfkc.criterion} computes the effective rank (raw and as the
+#' \eqn{[0,1]} broken-stick index) and the sample-clustering quality measures
+#' (silhouette, CPCC, dist.cor) from a fitted \code{nmfkc} model.
 #'
 #' This function can be called on a model that was fitted with
 #' \code{detail = "fast"} or \code{detail = "minimal"} to compute the
@@ -3453,7 +3732,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
 #'   \item{B.cluster}{Hard clustering labels (argmax of B.prob per column).}
 #'   \item{X.prob}{Row-normalized basis matrix.}
 #'   \item{X.cluster}{Hard clustering labels per row of X.}
-#'   \item{criterion}{Named list: B.prob.max.mean, effective.rank,
+#'   \item{criterion}{Named list: effective.rank, effective.rank.index,
 #'     silhouette, CPCC, dist.cor.}
 #' }
 #'
@@ -3504,24 +3783,15 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
       r2 <- r2_all$r.squared
       r2.uncentered <- r2_all$r.squared.uncentered
       r2.centered <- r2_all$r.squared.centered
-      sigma <- stats::sd(Y[valid_idx] - XB[valid_idx])
-      mae <- base::mean(base::abs(Y[valid_idx] - XB[valid_idx]))
+      resid_valid <- Y[valid_idx] - XB[valid_idx]
+      sigma <- stats::sd(resid_valid)
+      mae <- base::mean(base::abs(resid_valid))
     } else {
       r2 <- NA; r2.uncentered <- NA; r2.centered <- NA
       sigma <- NA; mae <- NA
     }
 
     B.prob <- base::t(base::t(B) / (base::colSums(B) + .eps))
-    ## Clustering crispness: mean over samples of the dominant-cluster
-    ## membership.  Range [1/Q, 1]; higher = more decisive (hard-like)
-    ## soft assignment.  Meaningful at fixed Q (e.g. as a confidence
-    ## check before treating B.cluster as hard labels); not used for
-    ## rank selection (it is monotone in Q).
-    if (Q > 1) {
-      B.prob.max.mean <- base::mean(base::apply(B.prob, 2, base::max))
-    } else {
-      B.prob.max.mean <- 1
-    }
     B.cluster <- base::apply(B.prob, 2, base::which.max)
     B.cluster[base::colSums(B.prob) == 0] <- NA
     X.prob <- X / (base::rowSums(X) + .eps)
@@ -3558,7 +3828,6 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     r2 <- NA; r2.uncentered <- NA; r2.centered <- NA
     sigma <- NA; mae <- NA
     B.prob <- NA; B.cluster <- NA
-    B.prob.max.mean <- NA
     X.prob <- NA; X.cluster <- NA
     silhouette <- NA; CPCC <- NA; dist.cor <- NA
     effective.rank <- NA_real_
@@ -3575,8 +3844,11 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
     X.prob    = X.prob,
     X.cluster = X.cluster,
     criterion = base::list(
-      B.prob.max.mean     = B.prob.max.mean,
       effective.rank      = effective.rank,
+      ## Same broken-stick correction nmfkc.rank() plots, computed here so a
+      ## single fit has it too.  Unlike effective.rank / Q (range [1/Q, 1] and
+      ## inflated at small Q) this is a genuine [0, 1] index.
+      effective.rank.index = .effective.rank.index(effective.rank, Q),
       silhouette = silhouette,
       CPCC       = CPCC,
       dist.cor   = dist.cor
@@ -3617,6 +3889,11 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #'   \itemize{
 #'     \item \code{Q}: (Deprecated) Alias for \code{rank}.
 #'     \item \code{save.time}: (Deprecated) \code{TRUE} maps to \code{detail = "fast"}.
+#'     \item \code{cores}: evaluate the per-rank fits in parallel (default
+#'       \code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+#'       elsewhere). Each rank is a deterministic self-seeded fit and results
+#'       are returned in order, so the criteria table is identical for any
+#'       \code{cores}. (Also forwarded to \code{\link{nmfkc.ecv}}.)
 #'   }
 #'
 #' @return A list containing:
@@ -3628,11 +3905,19 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #'   in \eqn{[1, Q]}); when it plateaus well below the nominal
 #'   \code{rank}, the extra factors are not carrying additional
 #'   coefficient variance, which suggests an over-specified rank.
-#'   The \code{effective.rank.ratio} column is \code{effective.rank /
-#'   rank} in \eqn{[0, 1]} (the utilization fraction plotted as
-#'   \code{eff.rank} when \code{plot = TRUE}); a peak marks the rank
-#'   at which the latent factors carry the most evenly distributed
-#'   variance.}
+#'   The \code{effective.rank.ratio} column is the raw utilization
+#'   fraction \code{effective.rank / rank} in \eqn{[0, 1]} (kept in the
+#'   table, \strong{not} plotted).  What \code{plot = TRUE} draws as the
+#'   green \code{eff.rank} line is the broken-stick-corrected
+#'   \code{effective.rank.index} column,
+#'   \code{(effective.rank - E) / (rank - E)} clamped to \eqn{[0, 1]}
+#'   with \code{E = exp(H_Q - 1)} the expected effective rank under a
+#'   random (uniform-Dirichlet) variance split (\code{H_Q} the
+#'   \eqn{Q}-th harmonic number, stored as
+#'   \code{effective.rank.expected}); anchoring 0 at this null removes
+#'   the small-rank inflation of the raw ratio, so a peak of the index
+#'   marks the rank at which the latent factors carry the most evenly
+#'   distributed variance relative to chance.}
 #' @export
 #' @references
 #' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
@@ -3669,6 +3954,7 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
   if (!is.null(extra_args$save.time) && extra_args$save.time && detail == "full") detail <- "fast"
   Q <- rank
+  cores <- if (!is.null(extra_args$cores)) extra_args$cores else getOption("mc.cores", 1L)
   # ---------------------------------------------
   num_q <- length(Q)
   results_df <- data.frame(
@@ -3683,7 +3969,11 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
   # Fitted with detail = "fast": the (O(N^2)) sample-clustering criteria
   # silhouette / CPCC / dist.cor are no longer part of rank selection.
   # For per-fit clustering quality use nmf.cluster.criteria() instead.
-  for(q_idx in 1:num_q){
+  # Per-rank worker: exactly the fit the sequential loop performed.  Each
+  # nmfkc() self-seeds (default seed = 123) so the fit is deterministic per
+  # rank; .nmfkc.parlapply preserves input order, so cores = 1 (lapply) is
+  # the sequential loop and the criteria table is identical for any `cores`.
+  fit_one_rank <- function(q_idx){
     current_Q <- Q[q_idx]
 
     extra_args_nmfkc <- extra_args
@@ -3691,10 +3981,15 @@ nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...)
     extra_args_nmfkc$save.time <- NULL
     extra_args_nmfkc$detail <- "fast"
     extra_args_nmfkc$Q <- NULL
+    extra_args_nmfkc$cores <- NULL
 
     nmfkc_args <- c(list(Y = Y, A = A, rank = current_Q), extra_args_nmfkc)
-    result <- do.call("nmfkc", nmfkc_args)
-
+    do.call("nmfkc", nmfkc_args)
+  }
+  fits <- .nmfkc.parlapply(1:num_q, fit_one_rank, cores = cores)
+  for(q_idx in 1:num_q){
+    current_Q <- Q[q_idx]
+    result <- fits[[q_idx]]
     results_df$effective.rank[q_idx] <- result$criterion$effective.rank
     results_df$effective.rank.ratio[q_idx] <-
       result$criterion$effective.rank / current_Q
@@ -4065,7 +4360,18 @@ nmfkc.residual.plot <- function(Y, result,
 #'     \item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
 #'       (default, i.i.d. multiplier per matrix cell) or \code{"column"}
 #'       (one multiplier per sample column, shared over rows).}
-#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 1000.}
+#'     \item{\code{refit.epsilon}, \code{refit.maxit}}{For
+#'       \code{method="refit"}: convergence tolerance and iteration cap of the
+#'       re-fits, defaulting to \code{1e-8} and \code{100000}.  These are
+#'       deliberately far tighter than \code{\link{nmfkc}}'s own \code{1e-4}:
+#'       under multiplicative updates a coefficient heading for the
+#'       non-negativity boundary approaches 0 slowly, so at a loose tolerance
+#'       every replicate stops while that coefficient is still spuriously
+#'       positive.  The replicates then pile up above the point estimate, the
+#'       percentile interval can exclude it entirely, and the bootstrap SE is
+#'       understated.  Loosen only if the re-fits are too slow, and check that
+#'       the intervals still contain the estimates.}
+#'     \item{\code{wild.B}}{Number of bootstrap replicates. Default is 500.}
 #'     \item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
 #'     \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
 #'     \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
@@ -4081,7 +4387,15 @@ nmfkc.residual.plot <- function(Y, result,
 #' \item{C.se.boot}{Bootstrap standard errors for \eqn{C} (Q x K matrix).}
 #' \item{C.ci.lower}{Lower CI bounds for \eqn{C} (Q x K matrix).}
 #' \item{C.ci.upper}{Upper CI bounds for \eqn{C} (Q x K matrix).}
-#' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{C}.}
+#' \item{coefficients}{Data frame with one row per element of \eqn{C}.
+#'   \code{SE} is always the sandwich standard error and \code{BSE} always the
+#'   bootstrap one, so the two columns differ; \code{z_value} and \code{p_value}
+#'   use whichever is primary for the chosen \code{method} (bootstrap under
+#'   \code{"refit"}, sandwich under \code{"onestep"}).  \code{on.boundary} flags
+#'   coefficients at or below \code{boundary.tol} (default \code{1e-3}): their
+#'   interval and p-value behave correctly in the "do not reject" direction, but
+#'   the value is not a calibrated p-value --- a one-sided bootstrap p piles up
+#'   near \eqn{1/2} at the boundary.}
 #' \item{C.p.side}{P-value type used.}
 #'
 #' @seealso \code{\link{nmfkc}}, \code{\link{summary.nmfkc.inference}}
@@ -4104,6 +4418,9 @@ nmfkc.inference <- function(object, Y, A = NULL,
   extra_args <- base::list(...)
   wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
   wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(wild.seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   wild.level  <- if (!is.null(extra_args$wild.level))  extra_args$wild.level  else 0.95
   sandwich    <- if (!is.null(extra_args$sandwich))     extra_args$sandwich    else TRUE
   C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
@@ -4118,6 +4435,19 @@ nmfkc.inference <- function(object, Y, A = NULL,
                else if (method == "onestep") "exp" else "rademacher"
   wild.unit <- if (!is.null(extra_args$wild.unit))
                  base::match.arg(extra_args$wild.unit, c("element", "column")) else "element"
+  ## Convergence control for the method = "refit" bootstrap.  This must be much
+  ## tighter than nmfkc()'s own default (1e-4): under multiplicative updates a
+  ## coefficient heading for the non-negativity boundary approaches 0 slowly, so
+  ## at a loose tolerance every replicate stops while that coefficient is still
+  ## spuriously positive.  The replicates then pile up above the point estimate
+  ## and the percentile interval can exclude it entirely (on vars::Canada, 4 of
+  ## 10 coefficients at 1e-4; none at 1e-8), while the bootstrap SE is
+  ## understated roughly twofold.
+  refit.epsilon <- if (!is.null(extra_args$refit.epsilon)) extra_args$refit.epsilon else 1e-8
+  refit.maxit   <- if (!is.null(extra_args$refit.maxit))   extra_args$refit.maxit   else 100000L
+  ## A coefficient at or below this counts as sitting on the boundary, which is
+  ## flagged in the coefficients table (see on.boundary there).
+  boundary.tol  <- if (!is.null(extra_args$boundary.tol))  extra_args$boundary.tol  else 1e-3
 
   X <- object$X   # P x Q
   C_mat <- object$C   # Q x K (or Q x N if A is NULL)
@@ -4149,18 +4479,28 @@ nmfkc.inference <- function(object, Y, A = NULL,
     else stop("Information matrix singular; install MASS package.")
   })
 
-  # Sandwich covariance: V = Hinv J Hinv
-  V_sand <- NULL
-  if (isTRUE(sandwich)) {
+  # Per-column score vectors S_n, shared by the sandwich covariance and
+  # the one-step wild bootstrap (previously computed twice).
+  s2 <- max(sigma2.used, 1e-12)
+  score_mat <- NULL
+  if (isTRUE(sandwich) || (isTRUE(wild.bootstrap) && method == "onestep")) {
     Xt <- t(X)
-    J <- matrix(0, Q * K, Q * K)
+    score_mat <- matrix(0, Q * K, N)
     for (n in 1:N) {
       a_n <- A[, n, drop = FALSE]
       r_n <- R_C[, n, drop = FALSE]
       g_n <- Xt %*% r_n
-      S_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
-      s_n <- as.vector(S_n)
-      J <- J + tcrossprod(s_n)
+      S_n <- -(g_n %*% t(a_n)) / s2
+      score_mat[, n] <- as.vector(S_n)
+    }
+  }
+
+  # Sandwich covariance: V = Hinv J Hinv
+  V_sand <- NULL
+  if (isTRUE(sandwich)) {
+    J <- matrix(0, Q * K, Q * K)
+    for (n in 1:N) {
+      J <- J + tcrossprod(score_mat[, n])
     }
     if (N > 1) J <- (N / (N - 1)) * J   # CR1 correction
     V_sand <- Hinv %*% J %*% Hinv
@@ -4181,15 +4521,7 @@ nmfkc.inference <- function(object, Y, A = NULL,
 
   if (isTRUE(wild.bootstrap)) {
     if (method == "onestep") {
-      Xt <- t(X)
-      score_mat <- matrix(0, Q * K, N)
-      for (n in 1:N) {
-        a_n <- A[, n, drop = FALSE]
-        r_n <- R_C[, n, drop = FALSE]
-        g_n <- Xt %*% r_n
-        G_n <- -(g_n %*% t(a_n)) / max(sigma2.used, 1e-12)
-        score_mat[, n] <- as.vector(G_n)
-      }
+      # score_mat was already built above (shared with the sandwich step)
       C_boot <- .boot.onestep(as.vector(C_mat), score_mat, Hinv, wild.B,
                               dist = wild.dist, seed = wild.seed, project = TRUE)
     } else {                                   # method == "refit"
@@ -4197,14 +4529,20 @@ nmfkc.inference <- function(object, Y, A = NULL,
       ## result matches the model's fitting behaviour (faithful even under
       ## singular AA', where the solution is regularisation-dependent).
       Qrank <- ncol(X)
+      ## detail = "fast" explicitly: only $C is read, so the O(N^2) clustering
+      ## criteria would be computed and thrown away wild.B times over.  Stated
+      ## rather than inherited from the default, so this stays true if the
+      ## default ever moves back.
       refit.fun <- function(Ys) nmfkc(Ys, A = A, rank = Qrank,
                                       X.init = X, X.restriction = "fixed",
-                                      verbose = FALSE)$C
+                                      epsilon = refit.epsilon, maxit = refit.maxit,
+                                      detail = "fast", verbose = FALSE)$C
       C_boot <- .boot.refit(XB, R_C, refit.fun, wild.B,
                             dist = wild.dist, seed = wild.seed,
                             unit = wild.unit, clipY = TRUE)
     }
-    bs <- .boot.summarize(C_boot, level = wild.level)
+    bs <- .boot.summarize(C_boot, est = as.vector(C_mat),
+                          level = wild.level, p.side = C.p.side)
     C.se.boot  <- matrix(bs$se,       nrow = Q, ncol = K, byrow = FALSE)
     C.ci.lower <- matrix(bs$ci.lower, nrow = Q, ncol = K, byrow = FALSE)
     C.ci.upper <- matrix(bs$ci.upper, nrow = Q, ncol = K, byrow = FALSE)
@@ -4215,13 +4553,22 @@ nmfkc.inference <- function(object, Y, A = NULL,
   C.se <- if (method == "refit" && !is.null(C.se.boot)) C.se.boot else C.se.sandwich
 
   # ---- Coefficients table ----
+  ## SE is always the sandwich SE and BSE always the bootstrap one, so the two
+  ## columns carry different information.  Under method = "refit" they used to
+  ## be filled with the same numbers, which made the table look like it reported
+  ## two estimates when it reported one.  z / p keep using the PRIMARY SE
+  ## (C.se: bootstrap under "refit", sandwich under "onestep"), so the reported
+  ## test is unchanged -- only the SE column is now informative.
   Estimate <- as.vector(C_mat)
-  SE <- as.vector(C.se)
+  SE <- as.vector(C.se.sandwich)
   BSE <- if (!is.null(C.se.boot)) as.vector(C.se.boot) else rep(NA_real_, length(Estimate))
-  z_value <- ifelse(SE > 0, Estimate / SE, NA_real_)
+  se_primary <- as.vector(C.se)
+  z_value <- ifelse(se_primary > 0, Estimate / se_primary, NA_real_)
 
   if (method == "refit" && !is.null(p.boot.vec)) {
-    p_value <- p.boot.vec               # bootstrap two-sided p (no analytical z)
+    ## Bootstrap p from the centred replicates (no analytical z); honours
+    ## C.p.side, as the "onestep" branches below do.
+    p_value <- p.boot.vec
   } else if (C.p.side == "one.sided") {
     p_value <- ifelse(is.finite(z_value), stats::pnorm(z_value, lower.tail = FALSE), NA_real_)
   } else {
@@ -4242,6 +4589,10 @@ nmfkc.inference <- function(object, Y, A = NULL,
     p_value  = p_value,
     CI_low   = if (!is.null(C.ci.lower)) as.vector(C.ci.lower) else NA_real_,
     CI_high  = if (!is.null(C.ci.upper)) as.vector(C.ci.upper) else NA_real_,
+    ## Flag the coefficients sitting on the non-negativity boundary.  Their p and
+    ## CI behave correctly in the "do not reject" direction, but the value is not
+    ## a calibrated p-value: a one-sided bootstrap p piles up near 1/2 there.
+    on.boundary = Estimate <= boundary.tol,
     row.names = NULL, stringsAsFactors = FALSE
   )
 

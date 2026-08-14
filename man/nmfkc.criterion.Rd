@@ -32,14 +32,14 @@ A list with components:
 \item{B.cluster}{Hard clustering labels (argmax of B.prob per column).}
 \item{X.prob}{Row-normalized basis matrix.}
 \item{X.cluster}{Hard clustering labels per row of X.}
-\item{criterion}{Named list: B.prob.max.mean, effective.rank,
+\item{criterion}{Named list: effective.rank, effective.rank.index,
 silhouette, CPCC, dist.cor.}
 }
 }
 \description{
-\code{nmfkc.criterion} computes the effective rank, clustering-quality
-measures (silhouette, CPCC, dist.cor), and the clustering-crispness
-statistic (\code{B.prob.max.mean}) from a fitted \code{nmfkc} model.
+\code{nmfkc.criterion} computes the effective rank (raw and as the
+\eqn{[0,1]} broken-stick index) and the sample-clustering quality measures
+(silhouette, CPCC, dist.cor) from a fitted \code{nmfkc} model.
 
 This function can be called on a model that was fitted with
 \code{detail = "fast"} or \code{detail = "minimal"} to compute the

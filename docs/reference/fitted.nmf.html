@@ -17,7 +17,7 @@ Y2 to get the direct reconstruction
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -105,8 +105,8 @@ NMF model.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfkc.html">nmfkc</a></code>, <code><a href="nmfae-deprecated.html">nmfae</a></code>, <code><a href="nmfre.html">nmfre</a></code>,
-<code><a href="nmf.sem-deprecated.html">nmf.sem</a></code>, <code><a href="residuals.nmf.html">residuals.nmf</a></code></p></div>
+    <div class="dont-index"><p><code><a href="nmfkc.html">nmfkc</a></code>, <code><a href="nmf.rrr.html">nmf.rrr</a></code>, <code><a href="nmfre.html">nmfre</a></code>,
+<code><a href="nmf.ffb.html">nmf.ffb</a></code>, <code><a href="residuals.nmf.html">residuals.nmf</a></code></p></div>
     </div>
 
     <div class="section level2">
@@ -115,18 +115,18 @@ NMF model.</p>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Y(5,10)~X(5,2)B(2,10)...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0sec</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/fitted.values.html" class="external-link">fitted</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>           [,1]       [,2]      [,3]      [,4]       [,5]      [,6]      [,7]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.4995998 0.24815097 0.6809763 0.4540411 0.21590008 0.3505264 0.5051586</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.3079812 0.41909540 0.5217952 0.3941276 0.42843160 0.5860222 0.5237823</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.2993788 0.64094847 0.5967430 0.4833731 0.67566634 0.8943268 0.6955407</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [4,] 0.1112837 0.55945347 0.3449346 0.3175521 0.60762351 0.7789430 0.5148747</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [5,] 0.7443564 0.09709801 0.9100946 0.5594559 0.01911593 0.1432742 0.5350751</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             [,8]      [,9]     [,10]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.536385387 0.3843668 0.4460027</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.272193824 0.2841969 0.4069651</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.213280548 0.3177290 0.5114678</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [4,] 0.008714655 0.1751367 0.3494710</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [5,] 0.859055948 0.5242638 0.5292518</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             [,1]      [,2]      [,3]      [,4]      [,5]      [,6]      [,7]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.283545147 0.5544245 0.3665403 0.4393818 0.5465527 0.5492524 0.3401122</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.573324096 0.3797386 0.1954475 0.1570642 0.5411677 0.3675262 0.2439152</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.697082792 0.3857293 0.1817058 0.1160069 0.6001821 0.3707009 0.2510807</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [4,] 0.256756109 0.6385265 0.4323792 0.5325227 0.5987466 0.6341660 0.3896859</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [5,] 0.008325715 0.7966175 0.5851916 0.7827758 0.6097011 0.7983124 0.4771441</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>            [,8]      [,9]     [,10]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1,] 0.40027636 0.4492140 0.6933691</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2,] 0.72684369 0.6125685 0.8818754</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3,] 0.87528451 0.7144869 1.0189297</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [4,] 0.37764976 0.4612217 0.7236190</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [5,] 0.09860759 0.3244998 0.5678558</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

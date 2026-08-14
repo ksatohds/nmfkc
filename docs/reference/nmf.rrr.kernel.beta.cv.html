@@ -17,7 +17,7 @@ nmfkc.kernel.beta.nearest.med."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -119,7 +119,11 @@ determined via <code><a href="nmfkc.kernel.beta.nearest.med.html">nmfkc.kernel.b
 <dd><p>Additional arguments. Kernel-specific args (<code>kernel</code>, <code>degree</code>)
 are passed to <code><a href="nmfkc.kernel.html">nmfkc.kernel</a></code>; all others
 (<code>div</code>, <code>seed</code>, <code>shuffle</code>, <code>epsilon</code>, <code>maxit</code>, etc.)
-are passed to <code><a href="nmfae-deprecated.html">nmfae.cv</a></code>.
+are passed to <code><a href="nmfae-deprecated.html">nmfae.cv</a></code>. Also accepts <code>cores</code> to evaluate
+the candidate <code>beta</code> values in parallel (default
+<code>getOption("mc.cores", 1L)</code>); each inner CV then runs sequentially, and
+because results are gathered in order the selected <code>beta</code> is identical
+for any <code>cores</code>.
 For backward compatibility, <code>Q</code> and <code>R</code> are accepted as aliases for
 <code>rank</code> and <code>rank.encoder</code>.</p></dd>
 
@@ -140,7 +144,7 @@ For backward compatibility, <code>Q</code> and <code>R</code> are accepted as al
 </dl></div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfae-deprecated.html">nmfae.cv</a></code>, <code><a href="nmfkc.kernel.html">nmfkc.kernel</a></code>,
+    <div class="dont-index"><p><code><a href="nmf.rrr.cv.html">nmf.rrr.cv</a></code>, <code><a href="nmfkc.kernel.html">nmfkc.kernel</a></code>,
 <code><a href="nmfkc.kernel.beta.cv.html">nmfkc.kernel.beta.cv</a></code></p></div>
     </div>
 
@@ -153,7 +157,7 @@ For backward compatibility, <code>Q</code> and <code>R</code> are accepted as al
 <span class="r-msg co"><span class="r-pr">#&gt;</span> beta=0.01...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> beta=0.02...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> 0.2sec</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> beta=0.05...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> 0.1sec</span>
 <span class="r-plt img"><img src="nmf.rrr.kernel.beta.cv-1.png" alt="" width="700" height="433"></span>

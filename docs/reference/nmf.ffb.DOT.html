@@ -39,7 +39,7 @@ edges above the threshold are displayed, while latent factors are always shown."
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -235,18 +235,18 @@ that have no edges at or above <code>threshold</code> are excluded from the grap
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   // 1. External Driving (Y2 -&gt; Factor) [C2]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   edge [color=black, fontcolor=black, style=solid];</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Y2_1 -&gt; F_1 [label="0.15", penwidth=5.00];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Y2_1 -&gt; F_1 [label="0.17", penwidth=5.00];</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   // 2. Generation (Factor -&gt; Y1) [X]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   edge [color="gray0", fontcolor="gray0", style=solid];</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   F_1 -&gt; Y1_1 [label="1.00", penwidth=5.00];</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   F_2 -&gt; Y1_2 [label="1.00", penwidth=5.00];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   F_2 -&gt; Y1_2 [label="0.99", penwidth=4.96];</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   // 3. Internal Feedback (Y1 -&gt; Factor) [C1]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   edge [style=dashed, color="gray0", fontcolor="gray0"];</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Y1_1 -&gt; F_1 [label="0.74", penwidth=3.88];</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Y1_2 -&gt; F_1 [label="0.31", penwidth=1.64];</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Y1_1 -&gt; F_2 [label="0.02", penwidth=0.50];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Y1_1 -&gt; F_1 [label="0.70", penwidth=3.65];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Y1_2 -&gt; F_1 [label="0.36", penwidth=1.88];</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Y1_1 -&gt; F_2 [label="0.03", penwidth=0.50];</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Y1_2 -&gt; F_2 [label="0.95", penwidth=5.00];</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> }</span>
 <span class="r-in"><span></span></span>

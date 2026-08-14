@@ -28,5 +28,5 @@ plot(res)
 }
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{nmfae.heatmap}}
+\code{\link{nmf.rrr}}, \code{\link{nmf.rrr.heatmap}}
 }

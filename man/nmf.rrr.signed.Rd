@@ -56,6 +56,11 @@ reduces the chance of being trapped at an inferior stationary
 point (particularly the \eqn{C_{-} = 0} trap from warm-start
 from non-negative tri-NMF-AE).  Use the default 1 for fast
 development and raise for publication-grade runs.}
+\item{\code{cores}}{Run the \code{nstart} restarts in parallel (only
+when \code{nstart > 1}).  Default \code{getOption("mc.cores", 1L)}
+(PSOCK cluster on Windows, forking elsewhere).  Each restart is
+fully self-seeded and the best run is selected by first-minimum
+objective, so the returned fit is identical for any \code{cores}.}
 \item{\code{X1.L2.ortho}, \code{X2.L2.ortho}}{Non-negative L2
 orthogonality penalties (default 0) on the \strong{columns} of
 \eqn{X_1} and the \strong{rows} of \eqn{X_2}, penalizing
@@ -102,7 +107,25 @@ An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
 \item{C}{Signed bottleneck \eqn{\Theta = C_{+} - C_{-}} (Q x R).}
 \item{X2}{Encoder basis (R x P2), row sum 1.}
 \item{Y1hat}{Fitted values \eqn{X_1 (C_{+} - C_{-}) X_2 Y_2}.}
-\item{H}{Encoding \eqn{(C_{+} - C_{-}) X_2 Y_2} (Q x N, signed).}
+\item{B1}{Decoder-side scores \eqn{B_1 = (C_{+} - C_{-}) X_2 Y_2} (Q x N),
+so that \eqn{\widehat Y_1 = X_1 B_1}. \strong{Signed}, since \eqn{C} is.}
+\item{B2}{Encoder-side scores \eqn{B_2 = X_2 Y_2} (R x N), i.e. \eqn{B_1}
+before the \eqn{C} map. Non-negative.}
+\item{H}{\strong{Deprecated}; identical to \code{B1}. Kept so that code
+written against earlier releases keeps working. Use \code{B1}.}
+\item{B.prob, B.cluster}{Sample-level soft/hard clustering from a
+non-negative clip of the (possibly signed) \eqn{B_1}; use with
+care since \eqn{C} may be signed. There are deliberately no
+\code{B1.prob} / \code{B2.prob} counterparts: a column-normalized
+membership is not a distribution when the scores can be negative.}
+\item{X1.prob}{Row-normalized \eqn{X_1} (P1 x Q): each RESPONSE VARIABLE's
+soft membership over the Q response groups. Well defined
+(\eqn{X_1 \ge 0}).}
+\item{X1.cluster}{Hard response-group label per response variable.}
+\item{X2.prob}{Column-normalized \eqn{X_2} (R x P2): each COVARIATE
+VARIABLE's soft membership over the R covariate groups. Well defined
+(\eqn{X_2 \ge 0}).}
+\item{X2.cluster}{Hard covariate-group label per covariate variable.}
 \item{rank}{\code{c(Q = Q, R = R)}.}
 \item{dims}{\code{c(P1, P2, N)}.}
 \item{objfunc, objfunc.iter}{Final and per-iteration objective values.}
@@ -152,6 +175,11 @@ summary(res)
 }
 }
 \references{
+Satoh, K. and Tokuda, Y. (2026). Co-clustering of Response and Covariate
+Variables by Tri-Factorizing Their Non-negative Regression Coefficient
+Matrix.  \emph{arXiv preprint} arXiv:2607.27474.
+\doi{10.48550/arXiv.2607.27474}
+
 Ding, C.H.Q., Li, T., and Jordan, M.I. (2010).  Convex and
 Semi-Nonnegative Matrix Factorizations.
 \emph{IEEE TPAMI}, 32(1), 45-55.
@@ -164,6 +192,6 @@ semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 }
 \seealso{
-\code{\link{nmfae}}, \code{\link{predict.nmfae.signed}},
-\code{\link{summary.nmfae.signed}}, \code{\link{nmfae.signed.rename}}
+\code{\link{nmf.rrr}}, \code{\link{predict.nmfae.signed}},
+\code{\link{summary.nmfae.signed}}, \code{\link{nmf.rrr.signed.rename}}
 }

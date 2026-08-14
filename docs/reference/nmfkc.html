@@ -23,7 +23,7 @@ The rank of the basis matrix can be specified using either the rank argument
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -172,10 +172,17 @@ to <code>nmfkc()</code> now stops with a message pointing to
 <li><p><code>print.trace</code>: Logical. If <code>TRUE</code>, prints progress every 10 iterations (default: <code>FALSE</code>).</p></li>
 <li><p><code>print.dims</code>: Deprecated. Use <code>verbose</code> instead.</p></li>
 <li><p><code>detail</code>: Level of post-fit criterion computation.
-<code>"full"</code> computes all criteria including silhouette, CPCC, dist.cor;
-<code>"fast"</code> skips expensive distance-based criteria;
-<code>"minimal"</code> returns only information criteria.
-Default is <code>"full"</code>. For backward compatibility,
+<code>"fast"</code> (<strong>default</strong>) computes everything except the
+\(O(N^2)\) sample-clustering criteria;
+<code>"full"</code> adds <code>silhouette</code>, <code>CPCC</code> and
+<code>dist.cor</code>, which need two \(N\times N\) distance matrices and
+a cophenetic correlation — at \(N=2000\) that was 26 times the
+cost of the rest of the call;
+<code>"minimal"</code> returns only information criteria and skips
+\(XB\).
+The default changed from <code>"full"</code> in 0.8.9: nothing consumed
+those three (see the <code>criterion</code> entry under Value), so every
+call was paying for them.  For backward compatibility,
 <code>save.time = TRUE</code> maps to <code>"fast"</code> and
 <code>save.memory = TRUE</code> maps to <code>"minimal"</code>.</p></li>
 </ul></dd>
@@ -217,6 +224,11 @@ Default is <code>"full"</code>. For backward compatibility,
 <dt>X.cluster</dt>
 <dd><p>Hard-clustering labels (argmax over \(X.prob\) for each row).</p></dd>
 
+<dt>X.restriction</dt>
+<dd><p>The constraint that was applied to the columns of
+\(X\).  It decides how much of the \((X,C)\to(XT,T^{-1}C)\) freedom is
+pinned down, which inference on the latent parameters needs to know.</p></dd>
+
 <dt>A.attr</dt>
 <dd><p>List of attributes of the input covariate matrix <code>A</code>, containing metadata like lag order and intercept status if created by <code>nmfkc.ar</code> or <code>nmfkc.kernel</code>.</p></dd>
 
@@ -257,7 +269,33 @@ Default is <code>"full"</code>. For backward compatibility,
 <dd><p>Mean Absolute Error between \(Y\) and \(X B\).</p></dd>
 
 <dt>criterion</dt>
-<dd><p>A list of selection criteria: <code>silhouette</code> (mean silhouette width of the hard clustering, computed in the original data space <code>dist(t(Y))</code> with the per-sample labels), <code>CPCC</code> (cophenetic correlation of a hierarchical clustering of the coefficient distances <code>dist(t(B))</code>), <code>dist.cor</code> (correlation between original-data and coefficient distances), <code>B.prob.max.mean</code> (clustering crispness: mean dominant-cluster membership, in \([1/Q, 1]\); meaningful at fixed \(Q\) as a confidence check before using <code>B.cluster</code> as hard labels), and <code>effective.rank</code>.  The last is the <strong>effective rank</strong>: \(\exp\) of the Shannon entropy of the explained-variance distribution \(p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})\).  By the trace identity \(\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))\), \(p_k\) is the exact fraction of the total coefficient variance carried by factor \(k\), so the entropy measures how that variance is spread across factors.  It ranges in \([1, Q]\) (1 when one factor carries all the variance, \(Q\) when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \(\exp(\mathrm{entropy})\) functional form of Roy &amp; Vetterli (2007).</p></dd>
+<dd><p>A list with <code>effective.rank</code> and
+<code>effective.rank.index</code>.</p>
+<p><code>effective.rank.index</code> is <code>effective.rank</code> rescaled onto
+\([0,1]\) by the broken-stick correction
+\((\hat r_Q-E_Q)/(Q-E_Q)\) with \(E_Q=\exp(H_Q-1)\), the effective
+rank a random split of the variance would produce; it is the quantity
+<code><a href="nmfkc.rank.html">nmfkc.rank</a></code> plots, and <code>summary</code> prints it in place of
+the crispness.  Read it as <strong>how evenly the across-sample
+coefficient variance is shared</strong>, which is not the same as how useful the
+factors are: a factor whose coefficient is large but constant carries no
+variance and pulls the index down (correctly — the raw value can go
+negative and is clamped at 0, meaning the variance is spread over fewer
+factors than chance would give), while two duplicated factors split the
+variance evenly and score near 1.  <code>NA</code> at \(Q=1\), where
+\(E_1=Q\).</p>
+<p>With <code>detail = "full"</code> the list additionally carries the
+<strong>sample-clustering</strong> criteria <code>silhouette</code> (mean silhouette
+width of the hard clustering, computed in the original data space
+<code>dist(t(Y))</code> with the per-sample labels), <code>CPCC</code> (cophenetic
+correlation of a hierarchical clustering of the coefficient distances
+<code>dist(t(B))</code>) and <code>dist.cor</code> (correlation between original-data
+and coefficient distances).  They are <strong>absent by default</strong> because
+they cost \(O(N^2)\) and nothing consumes them: they are no longer part
+of rank selection, <code><a href="summary.nmfkc.html">summary.nmfkc</a></code> does not print them, and
+<code><a href="nmf.cluster.criteria.html">nmf.cluster.criteria</a></code> — the right entry point when several
+ranks are to be compared — recomputes them from the fits it is given.</p>
+<p><code>effective.rank</code> is the <strong>effective rank</strong>: \(\exp\) of the Shannon entropy of the explained-variance distribution \(p_k = \mathrm{var}(B_{k\cdot}) / \sum_j \mathrm{var}(B_{j\cdot})\).  By the trace identity \(\sum_k \mathrm{var}(B_{k\cdot}) = \mathrm{tr}(\mathrm{Cov}(B))\), \(p_k\) is the exact fraction of the total coefficient variance carried by factor \(k\), so the entropy measures how that variance is spread across factors.  It ranges in \([1, Q]\) (1 when one factor carries all the variance, \(Q\) when all contribute equally) and counts the number of latent factors that actively shape across-sample variation.  This is the PCA-style explained-variance / effective-dimensionality measure and reuses the \(\exp(\mathrm{entropy})\) functional form of Roy &amp; Vetterli (2007).</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -282,7 +320,11 @@ Conference (EUSIPCO)</em> (pp. 606–610).</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfkc.cv.html">nmfkc.cv</a></code>, <code><a href="nmfkc.rank.html">nmfkc.rank</a></code>, <code><a href="nmfkc.kernel.html">nmfkc.kernel</a></code>, <code><a href="nmfkc.ar.html">nmfkc.ar</a></code>, <code><a href="predict.nmfkc.html">predict.nmfkc</a></code></p></div>
+    <div class="dont-index"><p><code><a href="nmfkc.inference.html">nmfkc.inference</a></code> (standard errors and p-values for
+\(C\)), <code><a href="summary.nmfkc.html">summary.nmfkc</a></code>, <code><a href="plot.nmfkc.html">plot.nmfkc</a></code>,
+<code><a href="nmfkc.cv.html">nmfkc.cv</a></code>, <code><a href="nmfkc.ecv.html">nmfkc.ecv</a></code>, <code><a href="nmfkc.rank.html">nmfkc.rank</a></code>,
+<code><a href="nmfkc.kernel.html">nmfkc.kernel</a></code>, <code><a href="nmfkc.ar.html">nmfkc.ar</a></code>,
+<code><a href="nmfkc.DOT.html">nmfkc.DOT</a></code>, <code><a href="predict.nmfkc.html">predict.nmfkc</a></code></p></div>
     </div>
 
     <div class="section level2">

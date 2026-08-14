@@ -227,6 +227,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   C.init     <- if (!is.null(extra_args$C.init))     extra_args$C.init     else NULL
   warm.start <- if (!is.null(extra_args$warm.start)) extra_args$warm.start else TRUE
   seed       <- if (!is.null(extra_args$seed))       extra_args$seed       else 123L
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   prefix     <- if (!is.null(extra_args$prefix))     extra_args$prefix     else "Basis"
   pars_rff   <- extra_args$pars
   Y.weights  <- extra_args$Y.weights
@@ -386,6 +389,32 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
   small <- 1e-16
   Wmat <- Y.weights  # short alias; NULL if no weights
+  ## Hoist loop-invariants used by the weighted path (Wmat, Y, A_diff are all
+  ## fixed across iterations): WY = Wmat * Y and tAd = t(A_diff) are otherwise
+  ## recomputed every iteration below, so compute them once here and reuse.
+  if (has.weights) {
+    WY  <- Wmat * Y
+    tAd <- t(A_diff)
+    ## Init alignment (weighted path only): the random / warm init can be badly
+    ## magnitude-mismatched to Y (e.g. high-magnitude data), which starves the
+    ## damped MU of a usable starting point and can strand it at a poor fixed
+    ## point.  Rescale the signed coefficient Theta = Cp - Cn by the optimal
+    ## least-squares scalar alpha0 = <W*Y, Yhat0> / <W, Yhat0^2> so that
+    ## X (Cp - Cn) A matches Y before the loop begins.  alpha0 may be negative
+    ## (init anti-correlated with Y); since Cp, Cn must stay non-negative we then
+    ## scale by |alpha0| and swap Cp <-> Cn, which flips the sign of Theta.  This
+    ## only chooses the best initial scale, so it leaves the fixed points intact.
+    Yhat0 <- X %*% (Cp - Cn) %*% A_diff
+    den0  <- sum(Wmat * Yhat0^2)
+    if (is.finite(den0) && den0 > 0) {
+      alpha0 <- sum(WY * Yhat0) / den0
+      if (is.finite(alpha0) && alpha0 > 0) {
+        Cp <- Cp * alpha0; Cn <- Cn * alpha0
+      } else if (is.finite(alpha0) && alpha0 < 0) {
+        tmp <- Cp * (-alpha0); Cp <- Cn * (-alpha0); Cn <- tmp
+      }
+    }
+  }
 
   compute_obj <- function(X, Cp, Cn) {
     Yhat <- X %*% (Cp - Cn) %*% A_diff
@@ -424,6 +453,64 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     list(num = num_X, den = den_X)
   }
 
+  ## Weighted damped-MU sweep (one iteration at damping exponent `gexp`).
+  ## Unlike the unweighted path (whose Gram-based S_p/S_n split is an exact
+  ## majorizer, Ding et al. 2010), the weighted signed split X'(W*Yhat)A' is only
+  ## an *approximate* majorizer: its negative entries move into the numerator,
+  ## so the raw multiplicative factors can overshoot and diverge to Inf/NaN on
+  ## high-magnitude data.  Damping each factor by ^gexp (cube-root default, cf.
+  ## He et al. 2011 as used in nmfkc.net) shrinks the step toward 1; the caller
+  ## backtracks gexp until the objective does not increase (monotone descent).
+  weighted_sweep <- function(X, Cp, Cn, gexp) {
+    tX <- t(X)
+    Yhat_p <- X %*% Cp %*% A_diff          # signed if A signed
+    Yhat_n <- X %*% Cn %*% A_diff
+    WYhp   <- Wmat * Yhat_p
+    WYhn   <- Wmat * Yhat_n
+    ## 6a'. Cp update via weighted split
+    ## grad_{Cp} L = -2 X^T (W*(Y - X(Cp-Cn)A)) A^T
+    ##             = -2 ( X^T (W*Y) A^T - X^T (W*Yhat_p) A^T + X^T (W*Yhat_n) A^T )
+    G_w  <- tX %*% WY   %*% tAd             # Q x D, signed
+    Hp_w <- tX %*% WYhp %*% tAd             # Q x D, signed
+    Hn_w <- tX %*% WYhn %*% tAd             # Q x D, signed
+    Gp <- pmax(G_w, 0); Gn <- pmax(-G_w, 0)
+    Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
+    Hnp <- pmax(Hn_w, 0); Hnn <- pmax(-Hn_w, 0)
+    Cp <- Cp * ((Gp + Hpn + Hnp + C.L2 * Cn) /
+                (Gn + Hpp + Hnn + C.L2 * Cp + small))^gexp
+    ## Recompute Hp_w with updated Cp (Gauss-Seidel)
+    Yhat_p <- X %*% Cp %*% A_diff
+    WYhp   <- Wmat * Yhat_p
+    Hp_w   <- tX %*% WYhp %*% tAd
+    Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
+    ## 6b'. Cn update
+    Cn <- Cn * ((Gn + Hpp + Hnn + C.L2 * Cp) /
+                (Gp + Hpn + Hnp + C.L2 * Cn + small))^gexp
+    ## 6c'. X update (weighted)
+    ## -dL/(2) = (W*Y) M^T - (W*(XM)) M^T   where M = H A (signed).
+    ## Ding split on the two signed terms A1, A2:
+    ##   Pull = [A1]_+ + [A2]_-,  Push = [A1]_- + [A2]_+
+    if (X.restriction != "fixed") {
+      H   <- Cp - Cn
+      M   <- H %*% A_diff        # Q x N, signed
+      XM  <- X %*% M             # Q_obs x N, signed
+      WXM <- Wmat * XM
+      A1  <- tcrossprod(WY,  M)  # Q_obs x Q, signed
+      A2  <- tcrossprod(WXM, M)  # Q_obs x Q, signed
+      num <- pmax(A1, 0) + pmax(-A2, 0)
+      den <- pmax(-A1, 0) + pmax(A2, 0)
+      pen <- apply_Xpen(X, num, den)
+      X <- X * (pen$num / (pen$den + small))^gexp
+      if (X.restriction != "none") {
+        d <- xscale(X)
+        X  <- sweep(X,  2, d, "/")
+        Cp <- sweep(Cp, 1, d, "*")
+        Cn <- sweep(Cn, 1, d, "*")
+      }
+    }
+    list(X = X, Cp = Cp, Cn = Cn)
+  }
+
   if (!has.weights) {
     P <- crossprod(X); G <- crossprod(X, G0)
     H <- Cp - Cn; PH <- P %*% H
@@ -452,9 +539,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
       ## 6c. X update
       if (X.restriction != "fixed") {
-        H   <- Cp - Cn; Ht <- t(H)
-        YMt <- G0 %*% Ht
-        HS  <- H %*% S; MMt <- HS %*% Ht
+        H   <- Cp - Cn
+        YMt <- tcrossprod(G0, H)
+        HS  <- H %*% S; MMt <- tcrossprod(HS, H)
         num_X <- pmax(YMt, 0) + X %*% pmax(-MMt, 0)
         den_X <- pmax(-YMt, 0) + X %*% pmax(MMt, 0)
         pen <- apply_Xpen(X, num_X, den_X)
@@ -473,58 +560,31 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       obj_cur <- Y_sqnorm - 2 * sum(G * H) + sum(H * (PH %*% S)) + pen_X(X) + pen_C(Cp, Cn)
 
     } else {
-      ## ---- Weighted path (no S/G0 precompute) ----
-      ## Let Yhat_+ = X Cp A, Yhat_- = X Cn A; residual under W.
-      tX <- t(X)
-      Yhat_p <- X %*% Cp %*% A_diff          # signed if A signed
-      Yhat_n <- X %*% Cn %*% A_diff
-      WY     <- Wmat * Y                      # weighted observations
-      WYhp   <- Wmat * Yhat_p
-      WYhn   <- Wmat * Yhat_n
-
-      ## 6a'. Cp update via weighted split
-      ## grad_{Cp} L = -2 X^T (W*(Y - X(Cp-Cn)A)) A^T
-      ##             = -2 ( X^T (W*Y) A^T - X^T (W*Yhat_p) A^T + X^T (W*Yhat_n) A^T )
-      G_w   <- tX %*% WY   %*% t(A_diff)      # Q x D, signed
-      Hp_w  <- tX %*% WYhp %*% t(A_diff)      # Q x D, signed
-      Hn_w  <- tX %*% WYhn %*% t(A_diff)      # Q x D, signed
-      Gp <- pmax(G_w, 0); Gn <- pmax(-G_w, 0)
-      Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
-      Hnp <- pmax(Hn_w, 0); Hnn <- pmax(-Hn_w, 0)
-      Cp <- Cp * (Gp + Hpn + Hnp + C.L2 * Cn) / (Gn + Hpp + Hnn + C.L2 * Cp + small)
-      ## Recompute Hp_w with updated Cp
-      Yhat_p <- X %*% Cp %*% A_diff
-      WYhp   <- Wmat * Yhat_p
-      Hp_w   <- tX %*% WYhp %*% t(A_diff)
-      Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
-      ## 6b'. Cn update
-      Cn <- Cn * (Gn + Hpp + Hnn + C.L2 * Cp) / (Gp + Hpn + Hnp + C.L2 * Cn + small)
-
-      ## 6c'. X update (weighted)
-      ## -dL/(2) = (W*Y) M^T - (W*(XM)) M^T   where M = H A (signed).
-      ## Ding split on the two signed terms A1, A2:
-      ##   Pull = [A1]_+ + [A2]_-,  Push = [A1]_- + [A2]_+
-      if (X.restriction != "fixed") {
-        H   <- Cp - Cn
-        M   <- H %*% A_diff        # Q x N, signed
-        XM  <- X %*% M             # Q_obs x N, signed
-        WY  <- Wmat * Y
-        WXM <- Wmat * XM
-        A1  <- WY  %*% t(M)        # Q_obs x Q, signed
-        A2  <- WXM %*% t(M)        # Q_obs x Q, signed
-        num <- pmax(A1, 0) + pmax(-A2, 0)
-        den <- pmax(-A1, 0) + pmax(A2, 0)
-        pen <- apply_Xpen(X, num, den)
-        X <- X * pen$num / (pen$den + small)
-        if (X.restriction != "none") {
-          d <- xscale(X)
-          X  <- sweep(X,  2, d, "/")
-          Cp <- sweep(Cp, 1, d, "*")
-          Cn <- sweep(Cn, 1, d, "*")
+      ## ---- Weighted path: damped MU with monotone backtracking guard ----
+      ## The weighted signed split is only an approximate majorizer (see
+      ## weighted_sweep), so a full-strength step can raise the objective and
+      ## snowball to Inf/NaN on high-magnitude data.  Try the cube-root-damped
+      ## sweep; if it would not decrease the (penalized) objective, shrink the
+      ## damping exponent and retry.  If no exponent yields descent, the iterate
+      ## is a fixed point of the damped map: leave it unchanged and set
+      ## obj_cur = obj_prev, which trips the convergence test below.  This makes
+      ## the weighted objective sequence monotone non-increasing, so it can never
+      ## diverge.
+      gexp     <- 1 / 3
+      accepted <- FALSE
+      for (bt in 0:8) {
+        cand     <- weighted_sweep(X, Cp, Cn, gexp)
+        obj_cand <- compute_obj(cand$X, cand$Cp, cand$Cn) +
+                    pen_X(cand$X) + pen_C(cand$Cp, cand$Cn)
+        if (is.finite(obj_cand) && obj_cand <= obj_prev) {
+          X <- cand$X; Cp <- cand$Cp; Cn <- cand$Cn
+          obj_cur  <- obj_cand
+          accepted <- TRUE
+          break
         }
+        gexp <- gexp / 3
       }
-
-      obj_cur <- compute_obj(X, Cp, Cn) + pen_X(X) + pen_C(Cp, Cn)
+      if (!accepted) obj_cur <- obj_prev
     }
 
     objfunc.iter[iter] <- obj_cur
@@ -613,6 +673,13 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     sigma         = sigma,
     mae           = mae,
     iter          = iter,
+    ## Convergence bookkeeping, matching the other fitters.  The MU loop breaks
+    ## as soon as the relative change falls below epsilon, so reaching maxit
+    ## means it did not converge.  Without these .print.convergence() could only
+    ## show a bare iteration count, which is exactly the case it exists to fix.
+    maxit         = maxit,
+    epsilon       = epsilon,
+    converged     = (iter < maxit),
     runtime       = runtime,
     rank          = Q,
     D             = D,
@@ -658,6 +725,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 #' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}
 #' @export
 predict.nmfkc.signed <- function(object, newA = NULL,
                                   type = c("response", "prob", "class"),
@@ -695,6 +763,7 @@ predict.nmfkc.signed <- function(object, newA = NULL,
 #' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}
 #' @export
 plot.nmfkc.signed <- function(x, ...) {
   extra_args <- list(...)
@@ -722,6 +791,7 @@ plot.nmfkc.signed <- function(x, ...) {
 #' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}
 #' @export
 summary.nmfkc.signed <- function(object, ...) {
   .negfrac <- function(M) {
@@ -779,6 +849,7 @@ summary.nmfkc.signed <- function(object, ...) {
 #' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
+#' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}
 #' @export
 print.summary.nmfkc.signed <- function(x,
                                         digits = max(3L, getOption("digits") - 3L),
@@ -807,7 +878,7 @@ print.summary.nmfkc.signed <- function(x,
   }
 
   cat("\nConvergence:\n")
-  cat(sprintf("  Iterations:        %d\n", x$iter))
+  .print.convergence(x, label = "  Iterations:        ")
   cat(sprintf("  Runtime (secs):    %.2f\n", x$runtime))
   cat(sprintf("  Final objfunc:     %s\n", format(x$objfunc, digits = digits)))
 
@@ -882,6 +953,9 @@ nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
   nfolds  <- if (!is.null(extra$nfolds)) extra$nfolds
              else if (!is.null(extra$div)) extra$div else 5
   seed    <- if (!is.null(extra$seed))    extra$seed    else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   shuffle <- if (!is.null(extra$shuffle)) extra$shuffle else TRUE
 
   Y <- as.matrix(Y); A <- as.matrix(A)
@@ -927,7 +1001,11 @@ nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
     objfunc = mean(objfunc.block),
     sigma = sqrt(mean(objfunc.block)),
     objfunc.block = objfunc.block,
-    block = block
+    block = block,
+    ## The inherited print.nmfkc.cv reads these two for its header; without
+    ## them it printed "nmfkc sample-wise CV (rank Q=, ?-fold)".
+    rank = rank,
+    nfolds = nfolds
   ), class = c("nmfkc.signed.cv", "nmfkc.cv"))
 }
 
@@ -965,6 +1043,9 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
   nfolds <- if (!is.null(extra$nfolds)) extra$nfolds
             else if (!is.null(extra$div)) extra$div else 5
   seed   <- if (!is.null(extra$seed))   extra$seed   else 123
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
 
   Y <- as.matrix(Y); A <- as.matrix(A)
   P <- nrow(Y); N <- ncol(Y)

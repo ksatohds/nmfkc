@@ -19,7 +19,12 @@ nmfkc.kernel.beta.cv(Y, rank = 2, U, V = NULL, beta = NULL, plot = TRUE, ...)
 
 \item{plot}{Logical. If TRUE (default), plots the objective function values for each candidate \code{beta}.}
 
-\item{...}{Additional arguments passed to \code{nmfkc.cv}.}
+\item{...}{Additional arguments passed to \code{nmfkc.cv}. Also accepts
+\code{cores} (evaluate the \code{beta} candidates in parallel; default
+\code{getOption("mc.cores", 1L)}; PSOCK cluster on Windows, forking
+elsewhere). Each candidate is a deterministic \code{nmfkc.cv} call (its
+folds are seeded) and results are returned in order, so \code{objfunc}
+and the selected \code{beta} are identical for any \code{cores}.}
 }
 \value{
 A list with components:

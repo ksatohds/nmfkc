@@ -21,6 +21,162 @@
   if (by == "covariate") order(cv, b) else order(b, cv)
 }
 
+#' @title Which coefficient rows to show, and whether that truncates (Internal)
+#' @description
+#' A coefficient table has one row per (basis, covariate) pair, so it grows as
+#' \eqn{Q \times K} and floods the console for any realistic design.  The
+#' printers in \code{nmfkc.R} and \code{nmfae.R} cap it at \code{max.coef},
+#' preferring the significant rows; three further printers were copied from
+#' them before that cap existed and print the whole table.  Shared here so the
+#' rule has one definition.
+#' @param cf A coefficients data frame with a \code{p_value} column.
+#' @param max.coef Largest number of rows to print.
+#' @return List with \code{idx} (rows to show) and \code{truncated}.
+#' @keywords internal
+#' @noRd
+.coef.show.idx <- function(cf, max.coef = 20) {
+  n_total <- nrow(cf)
+  if (is.null(max.coef) || !is.finite(max.coef) || n_total <= max.coef)
+    return(list(idx = seq_len(n_total), truncated = FALSE))
+  p <- if (!is.null(cf$p_value)) cf$p_value else rep(NA_real_, n_total)
+  sig_idx <- which(p < 0.05)
+  if (length(sig_idx) == 0L)
+    list(idx = seq_len(min(max.coef, n_total)), truncated = TRUE)
+  else if (length(sig_idx) <= max.coef)
+    list(idx = sig_idx, truncated = FALSE)
+  else
+    list(idx = sig_idx[seq_len(max.coef)], truncated = TRUE)
+}
+
+
+# --- convergence line, shared by every print / summary method ---
+
+#' @title One-line convergence report (Internal)
+#' @description
+#' Formats \code{#iter} against \code{maxit} plus the converged verdict, from
+#' whatever fields the object carries.  Shared so that \code{print} and every
+#' \code{summary} say the same thing, and so that a run which merely exhausted
+#' \code{maxit} is never displayed as if it had converged --- which is what
+#' happened before, since none of the objects recorded the distinction.
+#' @param x A fitted model object.
+#' @param label Leading label, aligned by the caller.
+#' @return \code{NULL}, invisibly.  Prints nothing when the object has no
+#'   iteration count.
+#' @keywords internal
+#' @noRd
+.print.convergence <- function(x, label = "Iterations: ") {
+  iter <- if (!is.null(x$iter) && is.numeric(x$iter)) x$iter
+          else if (!is.null(x$objfunc.iter)) length(x$objfunc.iter)
+          else NULL
+  if (is.null(iter) || length(iter) != 1L || !is.finite(iter))
+    return(invisible(NULL))
+  line <- format(as.integer(iter))
+  if (!is.null(x$maxit) && is.numeric(x$maxit))
+    line <- sprintf("%s / %d", line, as.integer(x$maxit))
+  if (!is.null(x$converged))
+    line <- sprintf("%s %s", line,
+                    if (isTRUE(x$converged)) "(converged)" else "(NOT converged)")
+  if (!is.null(x$epsilon) && is.numeric(x$epsilon))
+    line <- sprintf("%s  epsilon = %g", line, x$epsilon)
+  if (!is.null(x$stop.reason) && is.character(x$stop.reason) &&
+      !isTRUE(x$converged))
+    line <- sprintf("%s  [%s]", line, x$stop.reason)
+  ## A nested optimizer (nmfre's ECM) stops on whichever cap it reaches first,
+  ## so reporting only the inner count leaves the stop reason unexplainable.
+  if (!is.null(x$outer.iter) && !is.null(x$outer.maxit))
+    line <- sprintf("%s  outer %d / %d", line, as.integer(x$outer.iter),
+                    as.integer(x$outer.maxit))
+  cat(label, line, "\n", sep = "")
+  invisible(NULL)
+}
+
+
+# --- print (compact fit header, shared by every optimizer) ---
+
+#' @title Compact one-screen header for a fitted NMF model (Internal)
+#' @description
+#' The body of \code{\link{print.nmf}}.  Prints only what the object actually
+#' carries, so the same code serves fitters that record different things:
+#' \code{nmfkc} has call / dims / maxit / converged, \code{nmfae} stores
+#' \code{dims} as a named integer vector rather than a formula string, and so
+#' on.
+#'
+#' The iteration count is deliberately \strong{not} taken from
+#' \code{length(objfunc.iter)}: several fitters trim that trace for plotting
+#' (\code{nmfkc} keeps \code{[10:end]}), so its length under-reports the run.
+#' @param x A fitted model object.
+#' @param digits Significant digits for the fit statistic.
+#' @return \code{NULL}, invisibly.
+#' @keywords internal
+#' @noRd
+.print.nmf.fit <- function(x, digits = max(3L, getOption("digits") - 3L)) {
+  if (!is.null(x$call))
+    cat("\nCall:\n", paste(deparse(x$call), sep = "\n", collapse = "\n"),
+        "\n\n", sep = "")
+  else cat("\n")
+  if (!is.null(x$formula.meta))
+    cat("Formula:     ", deparse(x$formula.meta$formula), "\n", sep = "")
+  ## dims is a formula-like string in most fitters but a named integer vector
+  ## in nmfae; render either rather than silently skipping one.
+  if (!is.null(x$dims)) {
+    d <- if (is.character(x$dims)) x$dims
+         else if (is.numeric(x$dims) && !is.null(names(x$dims)))
+           paste(names(x$dims), x$dims, sep = " = ", collapse = ", ")
+         else NULL
+    if (!is.null(d)) cat("Model:       ", d, "\n", sep = "")
+  }
+
+  ## Delegate, so print() and every summary() render the same fact identically
+  ## rather than in two hand-rolled formats.
+  .print.convergence(x, label = "Convergence: ")
+
+  ## One headline fit statistic, whichever the model reports.
+  if (!is.null(x$r.squared) && is.finite(x$r.squared))
+    cat(sprintf("R-squared:   %s\n", format(x$r.squared, digits = digits)))
+  else if (!is.null(x$objfunc) && length(x$objfunc) == 1L && is.finite(x$objfunc))
+    cat(sprintf("Objective:   %s\n", format(x$objfunc, digits = digits)))
+  invisible(NULL)
+}
+
+
+#' @title Print method for fitted NMF models
+#' @description
+#' Prints the call, the model shape and whether the fit converged, in the
+#' spirit of \code{print.lm}: enough to see what was fitted and whether to
+#' trust it, with everything else left to \code{summary()}.  Registered on the
+#' shared \code{"nmf"} class, so it covers every optimizer that returns one
+#' (\code{\link{nmfkc}}, \code{\link{nmfae}} / \code{nmf.rrr},
+#' \code{\link{nmfre}}, \code{\link{nmf.ffb}} and the signed variants);
+#' \code{nmf.gmm} has its own methods.
+#'
+#' Without it, printing a fit dumps the whole list --- over 350 lines for a
+#' \eqn{4\times82} problem, and unusable for a large one.
+#'
+#' Unlike \code{lm}, the coefficient matrix is \strong{not} shown: it is
+#' \eqn{Q\times K} with \eqn{K} the number of covariates --- the number of
+#' samples when there is no covariate matrix --- so it is routinely far too
+#' large for a print method.  Use \code{\link[stats]{coef}} for it.
+#'
+#' @param x A fitted model object inheriting class \code{"nmf"}.
+#' @param digits Number of significant digits.
+#' @param ... Additional arguments (currently unused).
+#' @return \code{x}, invisibly.
+#' @examples
+#' Y <- matrix(cars$dist, nrow = 1)
+#' A <- rbind(1, cars$speed)
+#' result <- nmfkc(Y, A, rank = 1)
+#' result
+#' coef(result)   # the coefficient matrix C
+#'
+#' @seealso \code{\link{summary.nmfkc}}, \code{\link{nmfkc}}
+#' @export
+print.nmf <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
+  .print.nmf.fit(x, digits = digits)
+  cat("\nUse coef() for the coefficient matrix, summary() for diagnostics.\n\n")
+  invisible(x)
+}
+
+
 # --- plot (convergence) ---
 
 #' @title Plot convergence diagnostics for NMF models
@@ -32,7 +188,7 @@
 #' @param x A fitted model object.
 #' @param ... Additional graphical arguments passed to \code{\link{plot}}.
 #' @return Invisible \code{NULL}.
-#' @seealso \code{\link{nmfre}}, \code{\link{nmf.sem}}
+#' @seealso \code{\link{nmfre}}, \code{\link{nmf.ffb}}
 #' @name plot.nmfre
 #' @examples
 #' \donttest{
@@ -171,7 +327,7 @@ print.summary.nmf.sem <- function(x, ...) {
 
   cat(sprintf("NMF-FFB: Y1(%d,N) = X(%d,%d) [C1(%d,%d) Y1 + C2(%d,%d) Y2]\n",
               P1, P1, Q, Q, P1, Q, P2))
-  cat(sprintf("Iterations: %d\n", object$iter))
+  .print.convergence(object)
 
   cat("\nStability diagnostics:\n")
   cat(sprintf("  Spectral radius(XC1): %.4f %s\n",
@@ -291,8 +447,8 @@ print.summary.nmf.sem <- function(x, ...) {
 #' @param ... Not used.
 #' @return A data frame of coefficients (if inference was performed),
 #'   or the parameter matrix \eqn{C}.
-#' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}},
-#'   \code{\link{nmfre.inference}}, \code{\link{nmf.sem.inference}}
+#' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmf.rrr.inference}},
+#'   \code{\link{nmfre.inference}}, \code{\link{nmf.ffb.inference}}
 #' @name coef.nmf
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
@@ -371,8 +527,8 @@ coef.nmf.sem <- function(object, ...) {
 #'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.
 #' @param ... For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.
 #' @return The fitted matrix \eqn{X B}.
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfae}}, \code{\link{nmfre}},
-#'   \code{\link{nmf.sem}}, \code{\link{residuals.nmf}}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmf.rrr}}, \code{\link{nmfre}},
+#'   \code{\link{nmf.ffb}}, \code{\link{residuals.nmf}}
 #' @name fitted.nmf
 #' @examples
 #' result <- nmfkc(matrix(runif(50), 5, 10), rank = 2)
@@ -383,7 +539,13 @@ NULL
 #' @rdname fitted.nmf
 #' @export
 fitted.nmf <- function(object, ...) {
-  object$XB
+  ## XB is stored by default, but nmfkc(XB = FALSE) drops it (it is P x N and
+  ## dominates the object) and detail = "minimal" sets it to NA.  Recompute
+  ## rather than hand back NA, so fitted() means the same thing either way.
+  XB <- object$XB
+  if (!is.null(XB) && !(length(XB) == 1L && is.na(XB))) return(XB)
+  if (!is.null(object$X) && !is.null(object$B)) return(object$X %*% object$B)
+  XB
 }
 
 #' @rdname fitted.nmf
@@ -440,8 +602,8 @@ fitted.nmf.sem <- function(object, ...) {
 #'   \code{"fixed"}.
 #' @param ... Not used.
 #' @return The residual matrix.
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfae}}, \code{\link{nmfre}},
-#'   \code{\link{nmf.sem}}, \code{\link{fitted.nmf}}
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmf.rrr}}, \code{\link{nmfre}},
+#'   \code{\link{nmf.ffb}}, \code{\link{fitted.nmf}}
 #' @name residuals.nmf
 #' @examples
 #' Y <- matrix(runif(50), 5, 10)
@@ -453,7 +615,11 @@ NULL
 #' @rdname residuals.nmf
 #' @export
 residuals.nmf <- function(object, Y, ...) {
-  Y - object$XB
+  ## Go through fitted() rather than reading $XB directly: XB is NA under
+  ## detail = "minimal", and fitted.nmf recomputes X %*% B in that case.  Reading
+  ## the field here made residuals() return all-NA for a fit whose fitted()
+  ## worked perfectly well.
+  Y - stats::fitted(object)
 }
 
 #' @rdname residuals.nmf
@@ -494,7 +660,7 @@ residuals.nmf.sem <- function(object, Y, ...) {
 #' @param ... Additional arguments passed to the corresponding
 #'   \code{print.summary.*} method.
 #' @return Called for its side effect (printing). Returns \code{x} invisibly.
-#' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}}
+#' @seealso \code{\link{nmfkc.inference}}, \code{\link{nmf.rrr.inference}}
 #' @export
 print.nmf.inference <- function(x, ...) {
   print(summary(x), ...)

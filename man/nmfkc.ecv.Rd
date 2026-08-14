@@ -18,7 +18,11 @@ nmfkc.ecv(Y, A = NULL, rank = 1:3, data, ...)
 
 \item{...}{Additional arguments passed to \code{\link{nmfkc}} (e.g., \code{method="EU"}).
 Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
-\code{seed} (integer seed, default 123).}
+\code{seed} (integer seed, default 123), and \code{cores} (evaluate the
+rank x fold task grid in parallel; default \code{getOption("mc.cores", 1L)}).
+Parallelism uses a PSOCK cluster on Windows and forking elsewhere; because
+each task is a deterministic self-seeded fit and results are returned in
+order, \code{objfunc}/\code{sigma} are identical for any \code{cores}.}
 }
 \value{
 A list with components:

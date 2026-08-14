@@ -70,12 +70,23 @@
 #'   the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
 #'   \rVert_F^2}. Default: \code{100}.
 #' @param C1.L1 L1 sparsity penalty for \code{C1} (i.e., \eqn{\Theta_1}).
-#'   Default: \code{1.0}.
+#'   Default: \code{1.0}.  \strong{Scale note}: this function adds
+#'   \code{C1.L1} to the multiplicative denominator, whereas
+#'   \code{\link{nmfkc}}, \code{\link{nmfae}} and \code{\link{nmfkc.net}} add
+#'   \code{C.L1 / 2}.  The same nominal value is therefore twice as strong
+#'   here.  The difference is retained so that published \code{nmf.ffb} fits
+#'   reproduce; halve the value to match the other models.
 #' @param C2.L1 L1 sparsity penalty for \code{C2} (i.e., \eqn{\Theta_2}).
-#'   Default: \code{0.1}.
+#'   Default: \code{0.1}.  Same scale note as \code{C1.L1}.
 #' @param epsilon Relative convergence threshold for the objective function.
-#'   Iterations stop when the relative change in reconstruction loss falls
-#'   below this value. Default: \code{1e-6}.
+#'   Iterations stop when the relative change in \strong{reconstruction loss}
+#'   falls below this value. Default: \code{1e-6}.
+#'   \strong{Note}: the test is on the unpenalized loss (\code{objfunc}), not
+#'   on the penalized objective the updates actually minimize
+#'   (\code{objfunc.full}).  Every other optimizer in the package tests the
+#'   penalized value, so with a large \code{X.L2.ortho} or \code{C*.L1} this
+#'   function can stop while the quantity being optimized is still moving.
+#'   Both traces are returned; compare them if the penalties are strong.
 #' @param maxit Maximum number of iterations for the multiplicative updates.
 #'   Default: \code{5000} (matches \code{\link{nmfkc}} and other MU
 #'   functions in the package).
@@ -177,6 +188,7 @@ nmf.ffb <- function(
     seed  = 123,
     ...
 ) {
+  cl <- match.call()
   # ------------------------------ checks ------------------------------
   if (!is.matrix(Y1)) Y1 <- as.matrix(Y1)
   if (!is.matrix(Y2)) Y2 <- as.matrix(Y2)
@@ -201,7 +213,14 @@ nmf.ffb <- function(
   Y2_labels    <- if (!is.null(rownames(Y2))) rownames(Y2) else paste0("Y2_", 1:P2)
   Basis_labels <- paste0("Factor", 1:Q)
 
-  set.seed(seed)
+  ## Keep the self-seeding of this fit out of the caller's random stream.
+  ## The guard matters: set.seed(NULL) does not mean "do nothing", it
+  ## re-initializes the generator from the clock, so an explicit seed = NULL
+  ## fit was irreproducible.  With the guard, seed = NULL means "leave the
+  ## stream alone" and the fit follows whatever state the caller is in.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  if (!is.null(seed)) set.seed(seed)
   .eps <- 1e-10
   .xnorm  <- function(X) sweep(X, 2, pmax(colSums(X), .eps), "/")
   mat1norm <- function(A) max(colSums(abs(A)))
@@ -303,11 +322,10 @@ nmf.ffb <- function(
   # ----------------------------- main loop ----------------------------
   for (it in 1:maxit) {
     M  <- C1 %*% Y1 + C2 %*% Y2
-    Mt <- t(M)
 
     # 2.1 update X
-    Numerator_X       <- Y1 %*% Mt
-    Denominator_X_rec <- X %*% M %*% Mt
+    Numerator_X       <- tcrossprod(Y1, M)
+    Denominator_X_rec <- tcrossprod(X %*% M, M)
 
     if (X.L2.ortho > 0) {
       XtX <- t(X) %*% X
@@ -325,13 +343,14 @@ nmf.ffb <- function(
     XtX <- Xt %*% X
 
     # 2.2 update C1
-    Numerator_C1   <- Xt %*% Y1 %*% t(Y1)
-    Denominator_C1 <- XtX %*% (C1 %*% Y1 + C2 %*% Y2) %*% t(Y1) + C1.L1 + .eps
+    XtY1           <- Xt %*% Y1
+    Numerator_C1   <- tcrossprod(XtY1, Y1)
+    Denominator_C1 <- tcrossprod(XtX %*% M, Y1) + C1.L1 + .eps
     C1 <- C1 * (Numerator_C1 / Denominator_C1)
 
     # 2.3 update C2
-    Numerator_C2   <- Xt %*% Y1 %*% t(Y2)
-    Denominator_C2 <- XtX %*% (C1 %*% Y1 + C2 %*% Y2) %*% t(Y2) + C2.L1 + .eps
+    Numerator_C2   <- tcrossprod(XtY1, Y2)
+    Denominator_C2 <- tcrossprod(XtX %*% (C1 %*% Y1 + C2 %*% Y2), Y2) + C2.L1 + .eps
     C2 <- C2 * (Numerator_C2 / Denominator_C2)
 
     # loss + penalties
@@ -442,6 +461,11 @@ nmf.ffb <- function(
   }
 
   out <- list(
+    ## call / dims match the other fitters so print.nmf() has a header to show.
+    call                = cl,
+    dims                = sprintf("Y1(%d,%d)~X(%d,%d)[C1(%d,%d)Y1+C2(%d,%d)Y2]",
+                                  nrow(Y1), ncol(Y1), nrow(X), ncol(X),
+                                  ncol(X), nrow(Y1), ncol(X), nrow(Y2)),
     X                   = X,
     C1                  = C1,
     C2                  = C2,
@@ -461,7 +485,13 @@ nmf.ffb <- function(
     effective.rank      = .effective.rank(C1 %*% Y1 + C2 %*% Y2),
     objfunc             = objfunc[1:it],
     objfunc.full        = objfunc.full[1:it],
-    iter                = it
+    iter                = it,
+    ## Convergence bookkeeping, matching nmfkc / nmfre / nmfae so print.nmf()
+    ## and the summaries can say whether the run finished or hit the cap.
+    maxit               = maxit,
+    epsilon             = epsilon,
+    converged           = !(it == maxit && exists("epsilon_iter") &&
+                            epsilon_iter > abs(epsilon))
   )
   ## Carry both the canonical NMF-FFB class (paper-aligned, primary) and
   ## the legacy "nmf.sem" class (back-compat).  S3 methods registered on
@@ -518,9 +548,15 @@ nmf.ffb <- function(
 #' @param Y1 Endogenous variable matrix (P1 x N).  Must match the data
 #'   used in \code{nmf.sem()}.
 #' @param Y2 Exogenous variable matrix (P2 x N).  Same.
-#' @param B Number of bootstrap replicates.  Default \code{1000}; required
-#'   for the \code{***} threshold (sup > 0.999).  Reduce to 500 for
-#'   exploratory speed (only \code{*} / \code{**} stay reliable).
+#' @param B Number of bootstrap replicates.  Default \code{1000}, the value the
+#'   published analysis used; the other inference functions in the package
+#'   default their \code{wild.B} to 500, and this one is deliberately left at
+#'   1000 so the manuscript results reproduce out of the box.  Note that
+#'   \code{***} (sup > 0.999) is only reachable when \emph{every} replicate
+#'   clears \code{threshold}, at any \code{B}: raising \code{B} does not add a
+#'   finer grade, it makes the same grade stronger evidence (all 1000 rather
+#'   than all 500).  Lowering it to 500 roughly halves the running time, since
+#'   each replicate is a re-fit.
 #' @param threshold Display threshold \eqn{\delta} for the support rate
 #'   \eqn{\Pr_{\mathrm{boot}}(\hat c^{(b)} > \delta)}.  Default
 #'   \code{0.01}; entries below this magnitude are treated as effectively
@@ -538,9 +574,17 @@ nmf.ffb <- function(
 #' @param ... Hidden options:
 #'   \describe{
 #'     \item{\code{epsilon}}{Convergence tolerance for the inner fixed-X MU
-#'       loop.  Default \code{1e-6}.}
+#'       loop.  Default \code{1e-8} -- deliberately tighter than a plain fit,
+#'       because under multiplicative updates an entry heading for the
+#'       non-negativity boundary approaches 0 slowly, so a loose tolerance
+#'       stops every replicate while such an entry is still above
+#'       \code{threshold}.  The support rate is then inflated and significance
+#'       over-declared: on a pure-noise design the support of null entries
+#'       falls from 0.75 to 0.20 to 0.017 as \code{epsilon} goes 1e-6, 1e-8,
+#'       1e-10, while genuinely supported entries stay at 1.  Tighten further
+#'       when near-threshold entries matter; loosen only for speed.}
 #'     \item{\code{maxit}}{Maximum iterations for the inner MU loop.
-#'       Default \code{5000}.}
+#'       Default \code{100000} (the tighter tolerance needs the headroom).}
 #'     \item{\code{ncores}}{Number of parallel workers.  Default \code{1}
 #'       (serial).  Cross-platform: uses \code{parallel::mclapply} on
 #'       Linux/macOS and \code{parallel::parLapply} (PSOCK cluster) on
@@ -576,7 +620,7 @@ nmf.ffb <- function(
 #' \code{sigma2.used}, \code{C2.se}, \code{C2.se.boot}, \code{C2.p.side}
 #' that the previous implementation produced are no longer present.
 #'
-#' @seealso \code{\link{nmf.sem}}, \code{\link{nmf.sem.DOT}}
+#' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.DOT}}
 #' @references
 #' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
 #'   to structural equation modeling for blind input-output analysis.
@@ -602,9 +646,22 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
 
   extra_args  <- base::list(...)
-  epsilon     <- if (!is.null(extra_args$epsilon))     extra_args$epsilon     else 1e-6
-  maxit       <- if (!is.null(extra_args$maxit))       extra_args$maxit       else 5000L
-  ncores      <- if (!is.null(extra_args$ncores))      extra_args$ncores      else 1L
+  ## Keep our own seeding out of the caller's random stream.
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  ## Convergence control of the fixed-X re-fits.  Deliberately tighter than a
+  ## plain fit: under multiplicative updates a coefficient heading for the
+  ## non-negativity boundary approaches 0 slowly, so a loose tolerance stops
+  ## every replicate while such an entry is still above the display threshold.
+  ## The support rate is then inflated and significance over-declared -- on a
+  ## pure-noise design the support of null entries falls 0.75 -> 0.20 -> 0.017
+  ## as epsilon goes 1e-6 -> 1e-8 -> 1e-10, while genuinely supported entries
+  ## stay at 1.  Tighten further if near-threshold entries matter.
+  epsilon     <- if (!is.null(extra_args$epsilon))     extra_args$epsilon     else 1e-8
+  maxit       <- if (!is.null(extra_args$maxit))       extra_args$maxit       else 100000L
+  ## `cores` is the house name (CONVENTIONS.md 4); `ncores` stays as the alias.
+  ncores      <- if (!is.null(extra_args$cores))       extra_args$cores
+                 else if (!is.null(extra_args$ncores)) extra_args$ncores else 1L
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
 
   Y1 <- base::as.matrix(Y1)
@@ -625,10 +682,14 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 
   ## ----------------------------------------------------------------
   ## one_boot: a single bootstrap replicate.
-  ## Closure captures Y1, Y2, X.hat, C1.L1, C2.L1, Q, P1, P2, N,
-  ## epsilon, maxit, seed.  Returns a list with valid flag plus
+  ## Closure captures Y1, Y2, X.hat, Xt, XtX, C1.L1, C2.L1, Q, P1, P2,
+  ## N, epsilon, maxit, seed.  Returns a list with valid flag plus
   ## (C1, C2, rho, AR, iter) when valid, or NA placeholders otherwise.
+  ## X.hat is fixed by design, so Xt / XtX are replicate-invariant and
+  ## computed once here rather than inside every replicate.
   ## ----------------------------------------------------------------
+  Xt  <- t(X.hat)
+  XtX <- Xt %*% X.hat
   one_boot <- function(b) {
     ## Sample column indices with replacement (pair bootstrap)
     set.seed(seed + b)
@@ -646,30 +707,31 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     }
 
     .eps_local <- 1e-10
-    Xt  <- t(X.hat)
-    XtX <- Xt %*% X.hat
-    Y1tY1_b <- tcrossprod(Y1_b)        # P1 x P1
     XtY1_b  <- Xt %*% Y1_b              # Q x N (re-used via crossprods below)
-    XtY1Y1t <- XtY1_b %*% t(Y1_b)       # Q x P1   = Xt %*% Y1_b %*% t(Y1_b)
-    XtY1Y2t <- XtY1_b %*% t(Y2_b)       # Q x P2
+    XtY1Y1t <- tcrossprod(XtY1_b, Y1_b) # Q x P1   = Xt %*% Y1_b %*% t(Y1_b)
+    XtY1Y2t <- tcrossprod(XtY1_b, Y2_b) # Q x P2
     prev_loss <- Inf
     iter_used <- 0L
 
-    ## Fixed-X MU loop on (C1, C2)
+    ## Fixed-X MU loop on (C1, C2).  M_b = C1 Y1_b + C2 Y2_b is computed
+    ## before the loop and carried across iterations: the value formed after
+    ## the C2 update (used for the loss) is exactly the loop-top value of the
+    ## next iteration, so each iteration computes it twice instead of three
+    ## times with identical operands.
+    M_b <- C1 %*% Y1_b + C2 %*% Y2_b     # Q x N latent representation
     for (it in seq_len(maxit)) {
-      M_b <- C1 %*% Y1_b + C2 %*% Y2_b   # Q x N latent representation
-
       ## C1 update
-      Den_C1 <- XtX %*% M_b %*% t(Y1_b) + C1.L1 + .eps_local
+      Den_C1 <- tcrossprod(XtX %*% M_b, Y1_b) + C1.L1 + .eps_local
       C1 <- C1 * (XtY1Y1t / Den_C1)
 
       ## C2 update (uses updated C1 via fresh M_b)
       M_b <- C1 %*% Y1_b + C2 %*% Y2_b
-      Den_C2 <- XtX %*% M_b %*% t(Y2_b) + C2.L1 + .eps_local
+      Den_C2 <- tcrossprod(XtX %*% M_b, Y2_b) + C2.L1 + .eps_local
       C2 <- C2 * (XtY1Y2t / Den_C2)
 
       ## Convergence check (relative change in reconstruction loss)
-      XB <- X.hat %*% (C1 %*% Y1_b + C2 %*% Y2_b)
+      M_b <- C1 %*% Y1_b + C2 %*% Y2_b   # new C1, new C2; carried to next iter
+      XB <- X.hat %*% M_b
       loss <- sum((Y1_b - XB)^2)
       if (it >= 10L) {
         rel <- abs(loss - prev_loss) / max(abs(loss), 1)
@@ -730,7 +792,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
       cl <- parallel::makeCluster(ncores)
       on.exit(parallel::stopCluster(cl), add = TRUE)
       parallel::clusterExport(cl,
-        varlist = c("Y1", "Y2", "X.hat", "C1.L1", "C2.L1",
+        varlist = c("Y1", "Y2", "X.hat", "Xt", "XtX", "C1.L1", "C2.L1",
                     "Q", "P1", "P2", "N", "epsilon", "maxit", "seed"),
         envir = environment())
       res_list <- parallel::parLapply(cl, seq_len(B), one_boot)
@@ -804,9 +866,15 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 
   ## ----------------------------------------------------------------
   ## Build coefficients table (rows for both C1 and C2)
-  ## p_value = 1 - support_rate is provided so that downstream
-  ## consumers (e.g., nmf.sem.DOT) that filter / star by p_value
-  ## continue to work without modification.
+  ##
+  ## `1 - support_rate` is the fraction of bootstrap replicates in which the
+  ## coefficient was NOT supported.  That is a tail proportion, not a p-value,
+  ## and CONVENTIONS.md section 6 forbids naming such a quantity `p.*` for
+  ## exactly this reason -- calling it p_value invites reading 0.03 as
+  ## significance at the 5% level, which it is not.  The column is therefore
+  ## now `prob.unsupported`, with `p_value` kept alongside it as a
+  ## back-compatible duplicate: nmf.ffb.DOT and any user script that filters or
+  ## stars on p_value keep working unchanged.
   ## ----------------------------------------------------------------
   Q_lab  <- if (!is.null(rownames(C1.hat))) rownames(C1.hat) else paste0("Factor", 1:Q)
   Y1_lab <- if (!is.null(colnames(C1.hat))) colnames(C1.hat) else paste0("Y1_", 1:P1)
@@ -823,6 +891,9 @@ nmf.ffb.inference <- function(object, Y1, Y2,
       CI_low       = as.vector(lo),
       CI_high      = as.vector(hi),
       support_rate = s_vec,
+      ## the convention-compliant name ...
+      prob.unsupported = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
+      ## ... and the historical one, same numbers, kept for back-compatibility
       p_value      = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
       sig          = sig.from.support(s_vec),
       stringsAsFactors = FALSE
@@ -866,7 +937,10 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   if (!inherits(object, "nmf.sem.inference"))
     class(object) <- c("nmf.sem.inference", class(object))
   if (!inherits(object, "nmf.ffb.inference"))
-    class(object) <- c("nmf.ffb.inference", class(object))
+    ## "nmf.inference" too, so print() reaches print.nmf.inference -> the
+    ## coefficient table.  Without it the class chain ended at "nmf" and
+    ## printing an inference result showed only the fit header.
+    class(object) <- c("nmf.ffb.inference", "nmf.inference", class(object))
   object
 }
 
@@ -907,7 +981,11 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #'   \code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 #'   \code{seed} (master random seed, default \code{NULL}),
-#'   \code{shuffle} (logical, default \code{TRUE}).
+#'   \code{shuffle} (logical, default \code{TRUE}),
+#'   \code{cores} (integer; number of parallel workers for the fold loop,
+#'   default \code{getOption("mc.cores", 1L)}). Fold partitions and per-fold
+#'   seeds are drawn before the loop and each \code{nmf.ffb} fit self-seeds,
+#'   so results are identical to the sequential run for any \code{cores}.
 #'
 #' @return A numeric scalar: mean MAE across CV folds.
 #'
@@ -918,7 +996,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #' mae <- nmf.ffb.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 #' mae
 #'
-#' @seealso \code{\link{nmf.sem}}
+#' @seealso \code{\link{nmf.ffb}}
 #' @export
 nmf.ffb.cv <- function(
     Y1, Y2,
@@ -933,8 +1011,17 @@ nmf.ffb.cv <- function(
 ){
   extra_cv <- base::list(...)
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
-  seed    <- if (!is.null(extra_cv$seed))    extra_cv$seed    else NULL
+  ## CONVENTIONS.md 2: default seeds are concrete (123), so an analysis is
+  ## reproducible without the user having to think about it.  This was the one
+  ## CV in the package defaulting to NULL, i.e. the one whose fold assignment
+  ## changed between runs.  Pass seed = NULL explicitly for the old behaviour.
+  seed    <- if ("seed" %in% names(extra_cv)) extra_cv$seed else 123L
+  ## Keep our own seeding out of the caller's random stream (no-op when
+  ## seed = NULL, which here means "use the stream as it is").
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   shuffle <- if (!is.null(extra_cv$shuffle)) extra_cv$shuffle else TRUE
+  cores   <- if (!is.null(extra_cv$cores))   extra_cv$cores   else getOption("mc.cores", 1L)
   div <- nfolds
   # ------------------------------------------------------------------
   # 1. Basic input checks
@@ -978,6 +1065,7 @@ nmf.ffb.cv <- function(
   extra_args$shuffle <- NULL
   extra_args$rank    <- NULL
   extra_args$seed    <- NULL
+  extra_args$cores   <- NULL
 
   # ------------------------------------------------------------------
   # 3. Set RNG for CV partition and per-fold seeds
@@ -1043,7 +1131,11 @@ nmf.ffb.cv <- function(
   #   - fit nmf.sem on training data,
   #   - compute MAE on test block from equilibrium mapping M.model.
   # ------------------------------------------------------------------
-  for (j in 1:div) {
+  # Per-fold task. The partition 'block' and per-fold seeds 'seeds_fold' are
+  # fixed above, and the only RNG consumer here is nmf.ffb() (self-seeds), so
+  # folds are independent and deterministic; .nmfkc.parlapply returns results
+  # in input (fold) order, so cores > 1 is bit-identical to the sequential run.
+  fold_fun <- function(j) {
     # Train / Test split
     train_idx <- block != j
     test_idx  <- block == j
@@ -1081,16 +1173,18 @@ nmf.ffb.cv <- function(
 
     # If mapping is not usable, penalize this fold (do not crash CV)
     if (is.null(res_j$M.model) || any(!is.finite(res_j$M.model))) {
-      objfunc.block[j] <- Inf
-      next
+      return(Inf)
     }
     Pre_test <- res_j$M.model %*% Y2_test
     if (any(!is.finite(Pre_test))) {
-      objfunc.block[j] <- Inf
-      next
+      return(Inf)
     }
-    objfunc.block[j] <- mean(abs(Y1_test - Pre_test))
+    mean(abs(Y1_test - Pre_test))
   }
+  objfunc.block <- base::unlist(
+    .nmfkc.parlapply(base::as.list(1:div), fold_fun,
+                     cores = cores, envir = environment()),
+    use.names = FALSE)
 
   # ------------------------------------------------------------------
   # 6. Aggregate CV score
@@ -1162,7 +1256,7 @@ nmf.ffb.cv <- function(
 #' sp$endogenous.variables
 #' sp$exogenous.variables
 #'
-#' @seealso \code{\link{nmf.sem}}
+#' @seealso \code{\link{nmf.ffb}}
 #' @export
 nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
                           auto.flipped = TRUE, verbose = FALSE, ...) {
@@ -1843,7 +1937,7 @@ nmf.ffb.DOT <- function(result,
 #'
 #' @return A character string representing a Graphviz DOT script.
 #'
-#' @seealso \code{\link{nmfkc}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.sem.DOT}},
+#' @seealso \code{\link{nmfkc}}, \code{\link{nmf.rrr.DOT}}, \code{\link{nmf.ffb.DOT}},
 #'   \code{\link{nmfkc.ar.DOT}}, \code{\link{plot.nmfkc.DOT}}
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
@@ -2048,9 +2142,16 @@ nmfkc.DOT <- function(
     cf <- result$coefficients
     basis_names <- rownames(C)
     cov_names   <- colnames(C)
+    ## nmfkc.net.inference names the two factors Basis.row / Basis.col, because
+    ## there both axes are bases.  Its result still inherits class "nmfkc", so it
+    ## can reach here; without this fallback match() returned integer(0) and the
+    ## `if` below errored with "argument is of length zero".  Same fallback that
+    ## nmfkc.net.DOT already carries.
+    row_col <- if ("Basis.row" %in% names(cf)) "Basis.row" else "Basis"
+    col_col <- if ("Basis.col" %in% names(cf)) "Basis.col" else "Covariate"
     for (k in seq_len(nrow(cf))) {
-      q <- match(cf$Basis[k], basis_names)
-      r <- match(cf$Covariate[k], cov_names)
+      q <- match(cf[[row_col]][k], basis_names)
+      r <- match(cf[[col_col]][k], cov_names)
       if (!is.na(q) && !is.na(r) && !is.na(cf$p_value[k])) {
         p <- cf$p_value[k]
         C_pval[q, r] <- p
@@ -2217,8 +2318,9 @@ nmfkc.DOT <- function(
 #' @param x An object of class \code{"nmfkc.DOT"} (or a subclass thereof).
 #' @param ... Not used.
 #' @return Called for its side effect (rendering). Returns \code{x} invisibly.
-#' @seealso \code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}},
-#'   \code{\link{nmf.sem.DOT}}, \code{\link{nmfkc.ar.DOT}}
+#' @seealso \code{\link{nmfkc.DOT}}, \code{\link{nmf.rrr.DOT}},
+#'   \code{\link{nmf.ffb.DOT}}, \code{\link{nmfkc.ar.DOT}},
+#'   \code{\link{print.nmfkc.DOT}}
 #' @export
 plot.nmfkc.DOT <- function(x, ...) {
   if (requireNamespace("DiagrammeR", quietly = TRUE)) {
@@ -2227,5 +2329,24 @@ plot.nmfkc.DOT <- function(x, ...) {
     message("DiagrammeR package not installed. Printing DOT source:")
     cat(as.character(x))
   }
+  invisible(x)
+}
+
+
+#' @title Print method for nmfkc.DOT objects
+#' @description
+#' Writes the Graphviz source out as text.  Without it, printing a DOT object
+#' fell to \code{print.default}, which showed the whole graph as one escaped
+#' string (\code{[1] "digraph NMF \{\\n ..."}) --- unreadable.  Shared by every
+#' \code{*.DOT} function through the common \code{"nmfkc.DOT"} class.
+#' @param x An object of class \code{"nmfkc.DOT"} (or a subclass).
+#' @param ... Not used.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{plot.nmfkc.DOT}}, \code{\link{nmfkc.DOT}}
+#' @export
+print.nmfkc.DOT <- function(x, ...) {
+  cat(as.character(x))
+  cat("# Use plot() to render (requires DiagrammeR),",
+      "or write this text to a .dot file.\n")
   invisible(x)
 }

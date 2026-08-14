@@ -24,7 +24,12 @@ see the note on \code{Y.weights} below.}
 
 \item{type}{\code{"tri"} (default), \code{"bi"}, or \code{"signed"}.}
 
-\item{epsilon, maxit, verbose}{Standard.}
+\item{epsilon, maxit, verbose}{Standard.  \strong{Note}: the convergence test
+uses the \emph{unpenalized} squared error, not the penalized objective the
+updates minimize, so with a large \code{C.L1} or \code{X.L2.ortho} the
+iteration can stop while the optimized quantity is still moving.  The
+other fitters test the penalized value; this is kept as-is so existing
+fits reproduce.}
 
 \item{...}{Hidden options: \code{nstart} (default 1; see note below),
 \code{seed} (default 123), \code{X.restriction}, \code{X.init},

@@ -4,7 +4,13 @@
 \alias{predict.nmfkc}
 \title{Prediction method for objects of class \code{nmfkc}}
 \usage{
-\method{predict}{nmfkc}(object, newA = NULL, newdata = NULL, type = "response", ...)
+\method{predict}{nmfkc}(
+  object,
+  newA = NULL,
+  newdata = NULL,
+  type = c("response", "prob", "class"),
+  ...
+)
 }
 \arguments{
 \item{object}{An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.}
