@@ -62,6 +62,10 @@ of \eqn{X}, which decides how much of \eqn{T} is pinned down.}
 \item{dims}{Named vector of \code{P}, \code{Q}, \code{D}.}
 }
 \description{
+This function is \strong{experimental}. The interface may change in future
+versions: argument names, defaults and the contents of the returned object
+are not yet stable.
+
 Reduces a fitted NMF-VAR to the \eqn{Q\times Q} operators that drive its
 coefficient vector.  Writing \eqn{\bm b_t=\Theta\bm a_t} for the fitted
 scores, the residual-free recursion is

@@ -1,4 +1,4 @@
-# nmfkc 0.8.9 (development)
+# nmfkc 0.9.4
 
 ### **Breaking: `nmf.rrr()` renames `B.prob` / `B.cluster` to `B1.prob` / `B1.cluster`**
 

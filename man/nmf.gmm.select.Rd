@@ -27,6 +27,10 @@ An object of class \code{"nmf.gmm.select"}: a list with the
 \code{K.best.icl} (min ICL) and \code{fits} (the fitted objects).
 }
 \description{
+This function is \strong{experimental}. The interface may change in future
+versions: argument names, defaults and the contents of the returned object
+are not yet stable.
+
 \code{nmf.gmm.select} fits \code{\link{nmf.gmm}} over a vector of \eqn{K}
 values and reports the log-likelihood, BIC and ICL for each, selecting
 \code{K.best} by BIC (\code{K.best.icl} by ICL). If a vector of known labels

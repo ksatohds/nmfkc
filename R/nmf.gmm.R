@@ -293,6 +293,10 @@
 
 #' @title Fit NMF-GMM: a Gaussian-mixture latent-class extension of NMF with covariates
 #' @description
+#' This function is \strong{experimental}. The interface may change in future
+#' versions: argument names, defaults and the contents of the returned object
+#' are not yet stable.
+#'
 #' \code{nmf.gmm} fits the model
 #' \deqn{\bm b_n\mid(z_n=k)\sim N_Q(C\bm a_n+\bm\mu_k,\Sigma_k),\qquad
 #'       \bm y_n = X\bm b_n+\bm\varepsilon_n,\quad X\ge 0,}
@@ -461,6 +465,10 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
 
 #' @title Statistical inference for an NMF-GMM fit (given basis)
 #' @description
+#' This function is \strong{experimental}. The interface may change in future
+#' versions: argument names, defaults and the contents of the returned object
+#' are not yet stable.
+#'
 #' \code{nmf.gmm.inference} adds Wald inference on the covariate-coefficient
 #' matrix \eqn{C} (\eqn{=\Theta}) of a fitted \code{\link{nmf.gmm}} object,
 #' conditional on the estimated basis \eqn{\hat X} and mixture. It reports the
@@ -575,6 +583,10 @@ nmf.gmm.inference <- function(object, Y, A = object$A, ...) {
 
 #' @title Choose the number of mixture components K for NMF-GMM
 #' @description
+#' This function is \strong{experimental}. The interface may change in future
+#' versions: argument names, defaults and the contents of the returned object
+#' are not yet stable.
+#'
 #' \code{nmf.gmm.select} fits \code{\link{nmf.gmm}} over a vector of \eqn{K}
 #' values and reports the log-likelihood, BIC and ICL for each, selecting
 #' \code{K.best} by BIC (\code{K.best.icl} by ICL). If a vector of known labels

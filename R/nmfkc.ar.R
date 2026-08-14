@@ -563,6 +563,10 @@ nmfkc.ar.degree.cv <- function(Y, rank=1, degree=1:2, intercept=TRUE, plot=TRUE,
 
 #' @title Latent transition matrices of an NMF-VAR model
 #' @description
+#' This function is \strong{experimental}. The interface may change in future
+#' versions: argument names, defaults and the contents of the returned object
+#' are not yet stable.
+#'
 #' Reduces a fitted NMF-VAR to the \eqn{Q\times Q} operators that drive its
 #' coefficient vector.  Writing \eqn{\bm b_t=\Theta\bm a_t} for the fitted
 #' scores, the residual-free recursion is
@@ -1375,6 +1379,10 @@ plot.nmfkc.ar.latent <- function(x,
 
 #' @title Bootstrap inference for the latent VAR of an NMF-VAR model
 #' @description
+#' This function is \strong{experimental}. The interface may change in future
+#' versions: argument names, defaults and the contents of the returned object
+#' are not yet stable.
+#'
 #' \code{nmfkc.ar.latent.inference} attaches a wild bootstrap to the quantities
 #' reported by \code{\link{nmfkc.ar.latent}}: standard errors and intervals for
 #' the spectral radius, the long-run mean, the long-run composition and the

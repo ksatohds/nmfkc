@@ -1,8 +1,8 @@
 Package: nmfkc
 Type: Package
 Title: Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.9.3
-Date: 2026-07-27
+Version: 0.9.4
+Date: 2026-08-14
 Authors@R:
     person("Kenichi", "Satoh",
            email = "kenichi-satoh@biwako.shiga-u.ac.jp",
@@ -25,6 +25,7 @@ Description: Performs Non-negative Matrix Factorization (NMF)
     Satoh (2025) <doi:10.48550/arXiv.2510.10375>;
     Satoh (2025) <doi:10.48550/arXiv.2512.18250>;
     Satoh (2026) <doi:10.48550/arXiv.2603.01468>;
+    Satoh and Tokuda (2026) <doi:10.48550/arXiv.2607.27474>;
     Satoh (2026) <doi:10.1007/s42081-025-00314-0>.
 License: MIT + file LICENSE
 Imports:

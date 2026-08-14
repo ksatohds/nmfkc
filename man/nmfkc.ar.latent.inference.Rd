@@ -94,6 +94,10 @@ Plus the bookkeeping entries \code{wild.B}, \code{wild.B.requested},
 \code{wild.level}, \code{dims}.
 }
 \description{
+This function is \strong{experimental}. The interface may change in future
+versions: argument names, defaults and the contents of the returned object
+are not yet stable.
+
 \code{nmfkc.ar.latent.inference} attaches a wild bootstrap to the quantities
 reported by \code{\link{nmfkc.ar.latent}}: standard errors and intervals for
 the spectral radius, the long-run mean, the long-run composition and the

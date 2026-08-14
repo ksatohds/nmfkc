@@ -143,6 +143,11 @@ res2 <- nmf.rrr(Y1, Y2, rank1=2, rank2=2)
 
 }
 \references{
+Satoh, K. and Tokuda, Y. (2026). Co-clustering of Response and Covariate
+Variables by Tri-Factorizing Their Non-negative Regression Coefficient
+Matrix. \emph{arXiv preprint} arXiv:2607.27474.
+\doi{10.48550/arXiv.2607.27474}
+
 Lee, D. D. and Seung, H. S. (2001). Algorithms for Non-negative Matrix Factorization.
 \emph{Advances in Neural Information Processing Systems}, 13.
 

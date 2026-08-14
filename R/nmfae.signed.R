@@ -161,6 +161,11 @@
 #'   \code{\link{summary.nmfae.signed}}, \code{\link{nmf.rrr.signed.rename}}
 #'
 #' @references
+#' Satoh, K. and Tokuda, Y. (2026). Co-clustering of Response and Covariate
+#' Variables by Tri-Factorizing Their Non-negative Regression Coefficient
+#' Matrix.  \emph{arXiv preprint} arXiv:2607.27474.
+#' \doi{10.48550/arXiv.2607.27474}
+#'
 #' Ding, C.H.Q., Li, T., and Jordan, M.I. (2010).  Convex and
 #' Semi-Nonnegative Matrix Factorizations.
 #' \emph{IEEE TPAMI}, 32(1), 45-55.
