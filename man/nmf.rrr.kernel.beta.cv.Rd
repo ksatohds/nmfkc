@@ -12,9 +12,7 @@ nmf.rrr.kernel.beta.cv(
   V = NULL,
   beta = NULL,
   plot = TRUE,
-  ...,
-  rank = NULL,
-  rank.encoder = NULL
+  ...
 )
 }
 \arguments{
@@ -44,9 +42,10 @@ the candidate \code{beta} values in parallel (default
 because results are gathered in order the selected \code{beta} is identical
 for any \code{cores}.
 For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
-\code{rank} and \code{rank.encoder}.}
+\code{rank} and \code{rank.encoder}.
 
-\item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2}.}
+Rank aliases accepted here for backward compatibility:
+\code{Q} for \code{rank1}, \code{R} for \code{rank2}.}
 }
 \value{
 A list with components:

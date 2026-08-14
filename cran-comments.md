@@ -34,16 +34,21 @@ mostly corrections; the items a user could notice are:
   displayed as if it had converged.
 * `nmf.rrr()` now returns the two score matrices `B1` (decoder side) and `B2`
   (encoder side) with their memberships, replacing the single `B.prob` /
-  `B.cluster`.  `H` is retained as a deprecated alias of `B1`.  This family
-  is documented as experimental, and the rename is announced in NEWS.md.
+  `B.cluster`.  `H` is retained as a deprecated alias of `B1`.
+* The `nmf.rrr` family drops its `rank` / `rank.encoder` argument aliases in
+  favour of `rank1` / `rank2` (`Q` / `R` still work).  The aliases had to be
+  declared as formals *after* `...`, because `rank` is a prefix of both
+  `rank1` and `rank2` and R's partial matching would otherwise reject
+  `rank = 3` outright; that put deprecated names in every signature.  Passing
+  a removed name now raises an error naming its replacement rather than being
+  silently absorbed by `...`.
+
+Both changes are breaking, and both are announced in NEWS.md.  They are
+confined to the `nmf.rrr` family, which is documented as experimental and was
+introduced only in the current release cycle.
 * Speed: multiplicative-update loops hoist loop invariants, and the
   cross-validation / restart wrappers take an opt-in `cores` argument.  Both
   were verified to leave results unchanged.
-
-The `nmf.gmm*` family is present in the sources but is **not exported**: the
-accompanying paper is still in preparation, so it is kept out of the public
-interface (no exported functions, no vignette, help pages marked internal)
-until the method is settled.
 
 ## Additional checks
 

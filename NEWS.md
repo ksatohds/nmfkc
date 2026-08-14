@@ -1,5 +1,22 @@
 # nmfkc 0.9.4
 
+### **Breaking: the `nmf.rrr` family drops the `rank` / `rank.encoder` aliases**
+
+- `rank` and `rank.encoder` are removed from `nmf.rrr()`, `nmf.rrr.cv()`,
+  `nmf.rrr.ecv()`, `nmf.rrr.kernel.beta.cv()`, `nmf.rrr.rank()`,
+  `nmf.rrr.signed()`, `nmf.rrr.signed.ecv()` and `nmf.rrr.signed.rank()`.
+  Use **`rank1`** and **`rank2`**. `Q` and `R` still work, via `...`.
+- They were declared as formals *after* `...`, which put deprecated names in
+  every signature and made the help page read as though they were worth using.
+  They cannot simply move into `...`: `rank` is a prefix of both `rank1` and
+  `rank2`, so R's partial matching turns `nmf.rrr(Y, rank = 3)` into
+  "argument matches multiple formal arguments" before the body runs. Declaring
+  them after `...` was the only way to suppress that -- so the choice was to
+  keep the odd signature or drop the aliases, and they are dropped.
+- `rank.encoder` is not a prefix of any remaining formal, so it would otherwise
+  have been swallowed by `...` and **silently ignored**. Passing either name
+  now raises a clear error naming its replacement.
+
 ### **Breaking: `nmf.rrr()` renames `B.prob` / `B.cluster` to `B1.prob` / `B1.cluster`**
 
 - `nmf.rrr()` now returns **two** score matrices instead of one. `B1 = C X2 Y2`

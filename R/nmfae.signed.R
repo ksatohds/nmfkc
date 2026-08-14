@@ -50,8 +50,6 @@
 #'   Default \code{Y1} (autoencoder).
 #' @param rank1 Integer. Response-basis rank Q. Default 2.
 #' @param rank2 Integer. Covariate-basis rank R. Default (\code{NULL}) = \code{rank1}.
-#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}
-#'   (\code{Q} / \code{R} also accepted via \code{...}).
 #' @param epsilon Relative convergence tolerance on the objective.
 #'   Default \code{1e-4}.
 #' @param maxit Maximum iterations.  Default 5000.
@@ -118,6 +116,8 @@
 #'       response/covariate bases.  Default \code{"Resp"}, \code{"Cov"}.}
 #'   }
 #'
+#'   Rank aliases accepted here for backward compatibility:
+#'   \code{Q} for \code{rank1}, \code{R} for \code{rank2}.
 #' @return An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
 #' \item{X1}{Decoder basis (P1 x Q), column sum 1.}
 #' \item{Cp, Cn}{Non-negative parts of \eqn{\Theta} (each Q x R).}
@@ -189,18 +189,18 @@
 #' @export
 nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
                        epsilon = 1e-4, maxit = 5000,
-                       verbose = FALSE, ...,
-                       rank = NULL, rank.encoder = NULL) {
+                       verbose = FALSE, ...) {
 
   cl <- match.call()
   extra_args <- list(...)
 
   ## ---- 1. Parameter extraction (compatibility with nmfae) ----
   ## rank1 = response basis X1, rank2 = covariate basis X2 (default rank1);
-  ## legacy rank / rank.encoder (formals) and Q / R (via ...)
-  if (is.null(rank))          rank <- rank1
+  ## Q / R remain as aliases via `...`; rank / rank.encoder were removed.
+  .nmfkc.stop.removed.rank.aliases(extra_args)
+  rank <- rank1
   if (!is.null(extra_args$Q)) rank <- extra_args$Q
-  if (is.null(rank.encoder))  rank.encoder <- rank2
+  rank.encoder <- rank2
   if (!is.null(extra_args$R)) rank.encoder <- extra_args$R
   if (is.null(rank.encoder))  rank.encoder <- rank
   Q <- as.integer(rank)
@@ -1185,7 +1185,6 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' @param rank1 Integer vector of candidate response-basis ranks. Default \code{1:2}.
 #' @param rank2 Integer vector of candidate covariate-basis ranks, or \code{NULL}
 #'   (default: pair rank2 = rank1, diagonal grid).
-#' @param rank,rank.encoder Deprecated aliases of \code{rank1} / \code{rank2}.
 #' @param ... Additional arguments:
 #'   \describe{
 #'     \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
@@ -1202,6 +1201,8 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'     \item{Other args}{\code{epsilon}, \code{maxit}, \code{warm.start},
 #'       etc.\ are passed to \code{\link{nmfae.signed}}.}
 #'   }
+#'   Rank aliases accepted here for backward compatibility:
+#'   \code{Q} for \code{rank1}, \code{R} for \code{rank2}.
 #' @return An object of class \code{c("nmfae.signed.ecv", "nmfae.ecv")} with
 #'   \code{objfunc} (MSE per pair), \code{sigma} (RMSE), \code{objfunc.fold}
 #'   (per-fold MSE), \code{folds}, \code{QR}, \code{paired}.
@@ -1216,13 +1217,14 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
 #' @export
-nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
-                             rank = NULL, rank.encoder = NULL) {
+nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...) {
   extra_ecv <- list(...)
-  # rank1/rank2 = response/covariate basis ranks to sweep; legacy rank/rank.encoder/Q/R
-  if (is.null(rank))          rank <- rank1
+  # rank1/rank2 = response/covariate basis ranks to sweep; Q / R remain as
+  # aliases, rank / rank.encoder were removed.
+  .nmfkc.stop.removed.rank.aliases(extra_ecv)
+  rank <- rank1
   if (!is.null(extra_ecv$Q))  rank <- extra_ecv$Q
-  if (is.null(rank.encoder))  rank.encoder <- rank2
+  rank.encoder <- rank2
   if (!is.null(extra_ecv$R))  rank.encoder <- extra_ecv$R
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds
             else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
@@ -1265,7 +1267,7 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
     W_train[test_idx] <- 0
     fit <- suppressMessages(
       do.call(nmf.rrr.signed,
-              c(list(Y1 = Y1, Y2 = Y2, rank = QR$Q[i], rank.encoder = QR$R[i],
+              c(list(Y1 = Y1, Y2 = Y2, rank1 = QR$Q[i], rank2 = QR$R[i],
                      Y1.weights = W_train), fit_args))
     )
     mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
@@ -1316,7 +1318,6 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #' @param Y2 Exogenous matrix; defaults to \code{Y1}.
 #' @param rank1 Integer vector of (paired) ranks to evaluate (both bases use
 #'   the same value). Legacy \code{Q} accepted via \code{...}.
-#' @param rank Deprecated alias of \code{rank1}.
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
 #' @param detail \code{"full"} (default) also runs element-wise CV
 #'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
@@ -1327,6 +1328,8 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #'   \code{getOption("mc.cores", 1L)}. Each rank is an independent self-seeded
 #'   fit and results are gathered in order, so the output is identical for any
 #'   \code{cores}.
+#'   Rank aliases accepted here for backward compatibility:
+#'   \code{Q} for \code{rank1}.
 #' @return A list with \code{rank.best} and \code{criteria}
 #'   (\code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
 #'   \code{r.squared}, \code{sigma.ecv}).
@@ -1341,11 +1344,13 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...,
 #' \emph{Technometrics}, 20(4), 397--405. (\code{sigma.ecv})
 #' @export
 nmf.rrr.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
-                              plot = TRUE, ..., rank = NULL) {
+                              plot = TRUE, ...) {
   extra <- list(...)
-  if (!is.null(rank))    rank1 <- rank
+  # Q remains as an alias via `...`; rank / rank.encoder were removed.
+  .nmfkc.stop.removed.rank.aliases(extra)
   if (!is.null(extra$Q)) rank1 <- extra$Q
-  extra$Q <- NULL; extra$R <- NULL; extra$rank.encoder <- NULL
+  # extra is forwarded to nmf.rrr.signed() below, and rank1 is passed explicitly.
+  extra$Q <- NULL; extra$R <- NULL
   cores <- if (!is.null(extra$cores)) extra$cores else getOption("mc.cores", 1L)
   extra$cores <- NULL
   detail <- match.arg(detail)

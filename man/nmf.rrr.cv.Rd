@@ -4,15 +4,7 @@
 \alias{nmf.rrr.cv}
 \title{Sample-wise k-fold Cross-Validation for nmfae}
 \usage{
-nmf.rrr.cv(
-  Y1,
-  Y2 = Y1,
-  rank1 = 2,
-  rank2 = NULL,
-  ...,
-  rank = NULL,
-  rank.encoder = NULL
-)
+nmf.rrr.cv(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...)
 }
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N). Non-negative.}
@@ -33,9 +25,10 @@ and \code{cores} (fit the folds in parallel; default
 Each fold is an independent self-seeded fit and the per-fold errors are
 summed in order, so the result is identical for any \code{cores}.
 For backward compatibility, \code{Q}, \code{R} are accepted as aliases for
-\code{rank}, \code{rank.encoder}.}
+\code{rank}, \code{rank.encoder}.
 
-\item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2}.}
+Rank aliases accepted here for backward compatibility:
+\code{Q} for \code{rank1}, \code{R} for \code{rank2}.}
 }
 \value{
 A list with components:

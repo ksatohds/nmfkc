@@ -4,15 +4,7 @@
 \alias{nmf.rrr.signed.ecv}
 \title{Element-wise Cross-Validation for Signed-Bottleneck NMF-AE}
 \usage{
-nmf.rrr.signed.ecv(
-  Y1,
-  Y2 = Y1,
-  rank1 = 1:2,
-  rank2 = NULL,
-  ...,
-  rank = NULL,
-  rank.encoder = NULL
-)
+nmf.rrr.signed.ecv(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...)
 }
 \arguments{
 \item{Y1}{Output matrix (P1 x N).}
@@ -39,9 +31,9 @@ both signs), so \code{nstart >= 10} is recommended for
 reproducible rank selection.}
 \item{Other args}{\code{epsilon}, \code{maxit}, \code{warm.start},
 etc.\ are passed to \code{\link{nmfae.signed}}.}
-}}
-
-\item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2}.}
+}
+Rank aliases accepted here for backward compatibility:
+\code{Q} for \code{rank1}, \code{R} for \code{rank2}.}
 }
 \value{
 An object of class \code{c("nmfae.signed.ecv", "nmfae.ecv")} with

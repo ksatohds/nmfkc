@@ -12,9 +12,7 @@ nmf.rrr.signed(
   epsilon = 1e-04,
   maxit = 5000,
   verbose = FALSE,
-  ...,
-  rank = NULL,
-  rank.encoder = NULL
+  ...
 )
 }
 \arguments{
@@ -95,10 +93,10 @@ internally split into \eqn{(C_{+}, C_{-})}.}
 Default \code{FALSE}.}
 \item{\code{prefix.dec}, \code{prefix.enc}}{Label prefixes for the
 response/covariate bases.  Default \code{"Resp"}, \code{"Cov"}.}
-}}
+}
 
-\item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2}
-(\code{Q} / \code{R} also accepted via \code{...}).}
+Rank aliases accepted here for backward compatibility:
+\code{Q} for \code{rank1}, \code{R} for \code{rank2}.}
 }
 \value{
 An object of class \code{c("nmfae.signed", "nmfae", "nmf")} with:
