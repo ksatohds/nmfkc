@@ -16,9 +16,7 @@ nmf.rrr(
   epsilon = 1e-04,
   maxit = 5000,
   verbose = FALSE,
-  ...,
-  rank = NULL,
-  rank.encoder = NULL
+  ...
 )
 }
 \arguments{
@@ -68,11 +66,10 @@ initialisation steps (passed to the k-means initialiser of the
 (e.g.\ 10-20) gives a more stable initialisation and is recommended
 before inference.}
 \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
-}}
+}
 
-\item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2},
-kept for backward compatibility (\code{Q} / \code{R} are also accepted via
-\code{...}).}
+Rank aliases accepted here for backward compatibility:
+\code{Q} for \code{rank1}, \code{R} for \code{rank2}.}
 }
 \value{
 An object of class \code{"nmfae"}, a list with components:

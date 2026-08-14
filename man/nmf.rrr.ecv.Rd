@@ -4,15 +4,7 @@
 \alias{nmf.rrr.ecv}
 \title{Element-wise Cross-Validation for nmfae (Wold's CV)}
 \usage{
-nmf.rrr.ecv(
-  Y1,
-  Y2 = Y1,
-  rank1 = 1:2,
-  rank2 = NULL,
-  ...,
-  rank = NULL,
-  rank.encoder = NULL
-)
+nmf.rrr.ecv(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...)
 }
 \arguments{
 \item{Y1}{Output matrix \eqn{Y_1} (P1 x N).}
@@ -32,11 +24,10 @@ Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepte
 Each task is an independent self-seeded fit and results are aggregated in
 order, so the returned object is identical for any \code{cores}.
 For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
-\code{rank} and \code{rank.encoder}.}
+\code{rank} and \code{rank.encoder}.
 
-\item{rank, rank.encoder}{Deprecated aliases of \code{rank1} / \code{rank2}
-(\code{Q} / \code{R} also accepted via \code{...}).
-When explicitly specified, all combinations with \code{rank} are evaluated.}
+Rank aliases accepted here for backward compatibility:
+\code{Q} for \code{rank1}, \code{R} for \code{rank2}.}
 }
 \value{
 A list with components:

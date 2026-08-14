@@ -105,3 +105,25 @@
     parallel::mclapply(X, FUN, mc.cores = cores)
   }
 }
+
+## ---------------------------------------------------------------------
+## The nmf.rrr family used to accept `rank` / `rank.encoder` as aliases of
+## `rank1` / `rank2`.  They were removed in 0.9.4: `rank` is a prefix of both
+## rank1 and rank2, so R's partial matching makes nmf.rrr(Y, rank = 3) an
+## error ("argument matches multiple formal arguments") the moment the alias
+## stops being a formal declared after `...`, and keeping such a formal is
+## what put deprecated names in the signature in the first place.
+##
+## `rank.encoder` is NOT a prefix of any formal, so it would otherwise land in
+## `...` and be silently ignored -- the one outcome worse than an error.  This
+## turns it into a clear one.
+## ---------------------------------------------------------------------
+.nmfkc.stop.removed.rank.aliases <- function(dots) {
+  bad <- base::intersect(base::names(dots), c("rank", "rank.encoder"))
+  if (base::length(bad) == 0L) return(base::invisible(NULL))
+  repl <- c(rank = "rank1", rank.encoder = "rank2")[bad]
+  base::stop(base::sprintf(
+    "'%s' was removed; use '%s' instead.",
+    base::paste(bad, collapse = "', '"), base::paste(repl, collapse = "', '")),
+    call. = FALSE)
+}
