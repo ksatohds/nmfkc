@@ -69,15 +69,7 @@ predictive performance is evaluated on the held-out samples.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmf.rrr.cv</span><span class="op">(</span></span>
-<span>  <span class="va">Y1</span>,</span>
-<span>  Y2 <span class="op">=</span> <span class="va">Y1</span>,</span>
-<span>  rank1 <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  rank2 <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  <span class="va">...</span>,</span>
-<span>  rank <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  rank.encoder <span class="op">=</span> <span class="cn">NULL</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmf.rrr.cv</span><span class="op">(</span><span class="va">Y1</span>, Y2 <span class="op">=</span> <span class="va">Y1</span>, rank1 <span class="op">=</span> <span class="fl">2</span>, rank2 <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -111,11 +103,9 @@ and <code>cores</code> (fit the folds in parallel; default
 Each fold is an independent self-seeded fit and the per-fold errors are
 summed in order, so the result is identical for any <code>cores</code>.
 For backward compatibility, <code>Q</code>, <code>R</code> are accepted as aliases for
-<code>rank</code>, <code>rank.encoder</code>.</p></dd>
-
-
-<dt id="arg-rank-rank-encoder">rank, rank.encoder<a class="anchor" aria-label="anchor" href="#arg-rank-rank-encoder"></a></dt>
-<dd><p>Deprecated aliases of <code>rank1</code> / <code>rank2</code>.</p></dd>
+<code>rank</code>, <code>rank.encoder</code>.</p>
+<p>Rank aliases accepted here for backward compatibility:
+<code>Q</code> for <code>rank1</code>, <code>R</code> for <code>rank2</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

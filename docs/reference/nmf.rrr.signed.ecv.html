@@ -63,15 +63,7 @@ fitting, and held-out MSE is computed on those elements.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmf.rrr.signed.ecv</span><span class="op">(</span></span>
-<span>  <span class="va">Y1</span>,</span>
-<span>  Y2 <span class="op">=</span> <span class="va">Y1</span>,</span>
-<span>  rank1 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
-<span>  rank2 <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  <span class="va">...</span>,</span>
-<span>  rank <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  rank.encoder <span class="op">=</span> <span class="cn">NULL</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmf.rrr.signed.ecv</span><span class="op">(</span><span class="va">Y1</span>, Y2 <span class="op">=</span> <span class="va">Y1</span>, rank1 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, rank2 <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -120,11 +112,8 @@ reproducible rank selection.</p></dd>
 etc.\ are passed to <code><a href="nmfae-deprecated.html">nmfae.signed</a></code>.</p></dd>
 
 
-</dl></dd>
-
-
-<dt id="arg-rank-rank-encoder">rank, rank.encoder<a class="anchor" aria-label="anchor" href="#arg-rank-rank-encoder"></a></dt>
-<dd><p>Deprecated aliases of <code>rank1</code> / <code>rank2</code>.</p></dd>
+</dl><p>Rank aliases accepted here for backward compatibility:
+<code>Q</code> for <code>rank1</code>, <code>R</code> for <code>rank2</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
