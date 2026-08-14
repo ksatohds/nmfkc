@@ -43,7 +43,7 @@ express (e.g., high refractive index &amp;lt;-&amp;gt; low Abbe number trade-off
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -178,6 +178,13 @@ point (particularly the \(C_{-} = 0\) trap from warm-start
 from non-negative tri-NMF-AE).  Use the default 1 for fast
 development and raise for publication-grade runs.</p></dd>
 
+<dt><code>cores</code></dt>
+<dd><p>Run the <code>nstart</code> restarts in parallel (only
+when <code>nstart &gt; 1</code>).  Default <code>getOption("mc.cores", 1L)</code>
+(PSOCK cluster on Windows, forking elsewhere).  Each restart is
+fully self-seeded and the best run is selected by first-minimum
+objective, so the returned fit is identical for any <code>cores</code>.</p></dd>
+
 <dt><code>X1.L2.ortho</code>, <code>X2.L2.ortho</code></dt>
 <dd><p>Non-negative L2
 orthogonality penalties (default 0) on the <strong>columns</strong> of
@@ -257,8 +264,40 @@ response/covariate bases.  Default <code>"Resp"</code>, <code>"Cov"</code>.</p><
 <dt>Y1hat</dt>
 <dd><p>Fitted values \(X_1 (C_{+} - C_{-}) X_2 Y_2\).</p></dd>
 
+<dt>B1</dt>
+<dd><p>Decoder-side scores \(B_1 = (C_{+} - C_{-}) X_2 Y_2\) (Q x N),
+so that \(\widehat Y_1 = X_1 B_1\). <strong>Signed</strong>, since \(C\) is.</p></dd>
+
+<dt>B2</dt>
+<dd><p>Encoder-side scores \(B_2 = X_2 Y_2\) (R x N), i.e. \(B_1\)
+before the \(C\) map. Non-negative.</p></dd>
+
 <dt>H</dt>
-<dd><p>Encoding \((C_{+} - C_{-}) X_2 Y_2\) (Q x N, signed).</p></dd>
+<dd><p><strong>Deprecated</strong>; identical to <code>B1</code>. Kept so that code
+written against earlier releases keeps working. Use <code>B1</code>.</p></dd>
+
+<dt>B.prob, B.cluster</dt>
+<dd><p>Sample-level soft/hard clustering from a
+non-negative clip of the (possibly signed) \(B_1\); use with
+care since \(C\) may be signed. There are deliberately no
+<code>B1.prob</code> / <code>B2.prob</code> counterparts: a column-normalized
+membership is not a distribution when the scores can be negative.</p></dd>
+
+<dt>X1.prob</dt>
+<dd><p>Row-normalized \(X_1\) (P1 x Q): each RESPONSE VARIABLE's
+soft membership over the Q response groups. Well defined
+(\(X_1 \ge 0\)).</p></dd>
+
+<dt>X1.cluster</dt>
+<dd><p>Hard response-group label per response variable.</p></dd>
+
+<dt>X2.prob</dt>
+<dd><p>Column-normalized \(X_2\) (R x P2): each COVARIATE
+VARIABLE's soft membership over the R covariate groups. Well defined
+(\(X_2 \ge 0\)).</p></dd>
+
+<dt>X2.cluster</dt>
+<dd><p>Hard covariate-group label per covariate variable.</p></dd>
 
 <dt>rank</dt>
 <dd><p><code>c(Q = Q, R = R)</code>.</p></dd>
@@ -299,7 +338,11 @@ response/covariate bases.  Default <code>"Resp"</code>, <code>"Cov"</code>.</p><
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-    <p>Ding, C.H.Q., Li, T., and Jordan, M.I. (2010).  Convex and
+    <p>Satoh, K. and Tokuda, Y. (2026). Co-clustering of Response and Covariate
+Variables by Tri-Factorizing Their Non-negative Regression Coefficient
+Matrix.  <em>arXiv preprint</em> arXiv:2607.27474.
+<a href="https://doi.org/10.48550/arXiv.2607.27474" class="external-link">doi:10.48550/arXiv.2607.27474</a></p>
+<p>Ding, C.H.Q., Li, T., and Jordan, M.I. (2010).  Convex and
 Semi-Nonnegative Matrix Factorizations.
 <em>IEEE TPAMI</em>, 32(1), 45-55.</p>
 <p>Satoh, K. (2026).  Signed-Bottleneck NMF-AE: Signed-Bottleneck 3-Layer NMF
@@ -310,8 +353,8 @@ Pattern Analysis and Machine Intelligence</em>, 32(1), 45–55.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfae-deprecated.html">nmfae</a></code>, <code><a href="predict.nmfae.signed.html">predict.nmfae.signed</a></code>,
-<code><a href="summary.nmfae.signed.html">summary.nmfae.signed</a></code>, <code><a href="nmfae-deprecated.html">nmfae.signed.rename</a></code></p></div>
+    <div class="dont-index"><p><code><a href="nmf.rrr.html">nmf.rrr</a></code>, <code><a href="predict.nmfae.signed.html">predict.nmfae.signed</a></code>,
+<code><a href="summary.nmfae.signed.html">summary.nmfae.signed</a></code>, <code><a href="nmf.rrr.signed.rename.html">nmf.rrr.signed.rename</a></code></p></div>
     </div>
 
     <div class="section level2">
@@ -337,7 +380,7 @@ Pattern Analysis and Machine Intelligence</em>, 32(1), 45–55.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Parameters:       24</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Convergence:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations:       16</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations:       16 / 500 (converged)  epsilon = 0.0001</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Runtime (secs):   0.03</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Final objfunc:    2.128</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>

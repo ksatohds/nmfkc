@@ -17,7 +17,7 @@ nmfae.ecv with rank.encoder and its heatmap."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -106,7 +106,11 @@ eff.rank only, and recommends the R-squared elbow).</p></dd>
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Passed on to <code><a href="nmfae-deprecated.html">nmfae</a></code> and <code><a href="nmfae-deprecated.html">nmfae.ecv</a></code>
-(e.g.\ <code>maxit</code>, <code>nfolds</code>, <code>seed</code>).</p></dd>
+(e.g.\ <code>maxit</code>, <code>nfolds</code>, <code>seed</code>). Also accepts <code>cores</code>
+to evaluate the rank sweep (and the element-wise CV) in parallel; default
+<code>getOption("mc.cores", 1L)</code>. Each rank is an independent self-seeded
+fit and results are gathered in order, so the output is identical for any
+<code>cores</code>.</p></dd>
 
 
 <dt id="arg-rank">rank<a class="anchor" aria-label="anchor" href="#arg-rank"></a></dt>
@@ -130,7 +134,7 @@ components in factor and principal components models.
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfae-deprecated.html">nmfae</a></code>, <code><a href="nmfae-deprecated.html">nmfae.ecv</a></code>,
+    <div class="dont-index"><p><code><a href="nmf.rrr.html">nmf.rrr</a></code>, <code><a href="nmf.rrr.ecv.html">nmf.rrr.ecv</a></code>,
 <code><a href="nmfkc.rank.html">nmfkc.rank</a></code></p></div>
     </div>
 

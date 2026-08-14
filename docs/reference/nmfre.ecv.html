@@ -31,7 +31,7 @@ not directly comparable."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -116,6 +116,11 @@ non-negative). The basis update rule follows this choice automatically.</p></dd>
 <dd><p>Additional arguments:</p><ul><li><p><code>nfolds</code>: Number of folds (default 5; legacy <code>nfold</code> also accepted).</p></li>
 <li><p><code>rounds</code>: Iterative-imputation rounds per fold (default 4).</p></li>
 <li><p><code>seed</code>: RNG seed for the fold assignment (default 1).</p></li>
+<li><p><code>cores</code>: Integer; number of parallel workers for the rank
+sweep (default <code>getOption("mc.cores", 1L)</code>). Because the fold
+matrix is fixed before the sweep and each <code><a href="nmfre.html">nmfre</a></code> fit
+self-seeds, results are identical to the sequential run for any
+<code>cores</code>.</p></li>
 <li><p><code>print.trace</code>: Logical; print per-rank scores (default <code>FALSE</code>).</p></li>
 <li><p>Convergence controls forwarded to <code><a href="nmfre.html">nmfre</a></code>:
 <code>epsilon</code> (default <code>1e-5</code>), <code>epsilon.outer</code>

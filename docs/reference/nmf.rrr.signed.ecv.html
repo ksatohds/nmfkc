@@ -15,7 +15,7 @@ fitting, and held-out MSE is computed on those elements."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -102,6 +102,13 @@ fitting, and held-out MSE is computed on those elements.</p>
 <dt><code>seed</code></dt>
 <dd><p>RNG seed for fold assignment.  Default 123.</p></dd>
 
+<dt><code>cores</code></dt>
+<dd><p>Evaluate the \((Q,R)\)-pair \(\times\) fold grid
+in parallel.  Default <code>getOption("mc.cores", 1L)</code> (PSOCK on
+Windows, forking elsewhere).  Each task is an independent self-seeded
+fit and results are aggregated in order, so the returned object is
+identical for any <code>cores</code>.</p></dd>
+
 <dt><code>nstart</code></dt>
 <dd><p>Number of random restarts per fit.  Default 1.
 Signed models have more local minima (the bottleneck can carry
@@ -141,7 +148,7 @@ Pattern Analysis and Machine Intelligence</em>, 32(1), 45–55.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfae-deprecated.html">nmfae.signed</a></code>, <code><a href="nmfae-deprecated.html">nmfae.ecv</a></code></p></div>
+    <div class="dont-index"><p><code><a href="nmf.rrr.signed.html">nmf.rrr.signed</a></code>, <code><a href="nmf.rrr.ecv.html">nmf.rrr.ecv</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

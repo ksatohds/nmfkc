@@ -15,8 +15,8 @@
 <link href="deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><script src="deps/MathJax-3.2.2/tex-chtml.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
 <meta property="og:title" content="Non-Negative Matrix Factorization with Kernel Covariates">
-<meta name="description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects together with wild bootstrap inference, and NMF-based Structural Equation Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output model for blind source separation and path analysis. References: Satoh (2025) &lt;doi:10.48550/arXiv.2403.05359&gt;; Satoh (2025) &lt;doi:10.48550/arXiv.2510.10375&gt;; Satoh (2025) &lt;doi:10.48550/arXiv.2512.18250&gt;; Satoh (2026) &lt;doi:10.48550/arXiv.2603.01468&gt;; Satoh (2026) &lt;doi:10.1007/s42081-025-00314-0&gt;.">
-<meta property="og:description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects together with wild bootstrap inference, and NMF-based Structural Equation Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output model for blind source separation and path analysis. References: Satoh (2025) &lt;doi:10.48550/arXiv.2403.05359&gt;; Satoh (2025) &lt;doi:10.48550/arXiv.2510.10375&gt;; Satoh (2025) &lt;doi:10.48550/arXiv.2512.18250&gt;; Satoh (2026) &lt;doi:10.48550/arXiv.2603.01468&gt;; Satoh (2026) &lt;doi:10.1007/s42081-025-00314-0&gt;.">
+<meta name="description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects together with wild bootstrap inference, and NMF-based Structural Equation Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output model for blind source separation and path analysis. References: Satoh (2025) &lt;doi:10.48550/arXiv.2403.05359&gt;; Satoh (2025) &lt;doi:10.48550/arXiv.2510.10375&gt;; Satoh (2025) &lt;doi:10.48550/arXiv.2512.18250&gt;; Satoh (2026) &lt;doi:10.48550/arXiv.2603.01468&gt;; Satoh and Tokuda (2026) &lt;doi:10.48550/arXiv.2607.27474&gt;; Satoh (2026) &lt;doi:10.1007/s42081-025-00314-0&gt;.">
+<meta property="og:description" content="Performs Non-negative Matrix Factorization (NMF) with Kernel Covariates. Given an observation matrix and kernel covariates, it optimizes both a basis matrix and a parameter matrix. Notably, if the kernel matrix is an identity matrix, the method simplifies to standard NMF. Also provides NMF with Random Effects (NMF-RE) via nmfre(), which estimates a mixed-effects model combining covariate-driven scores with unit-specific random effects together with wild bootstrap inference, and NMF-based Structural Equation Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output model for blind source separation and path analysis. References: Satoh (2025) &lt;doi:10.48550/arXiv.2403.05359&gt;; Satoh (2025) &lt;doi:10.48550/arXiv.2510.10375&gt;; Satoh (2025) &lt;doi:10.48550/arXiv.2512.18250&gt;; Satoh (2026) &lt;doi:10.48550/arXiv.2603.01468&gt;; Satoh and Tokuda (2026) &lt;doi:10.48550/arXiv.2607.27474&gt;; Satoh (2026) &lt;doi:10.1007/s42081-025-00314-0&gt;.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -26,7 +26,7 @@
 
     <a class="navbar-brand me-2" href="index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -258,6 +258,53 @@
 </tbody>
 </table>
 <p>S3 methods <code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code>, <code><a href="https://rdrr.io/r/stats/fitted.values.html" class="external-link">fitted()</a></code>, <code><a href="https://rdrr.io/r/stats/residuals.html" class="external-link">residuals()</a></code>, <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> are available for all model classes. See <code><a href="reference/nmfkc.html">?nmfkc</a></code> or <code>browseVignettes("nmfkc")</code> for the full function list.</p>
+</div>
+<div class="section level1">
+<h1 id="a-note-on-numerical-precision-in-inference">A note on numerical precision in inference<a class="anchor" aria-label="anchor" href="#a-note-on-numerical-precision-in-inference"></a>
+</h1>
+<p>Under the non-negativity constraint, a coefficient whose true value is zero is approached from above, and multiplicative updates approach it <strong>slowly</strong>. How far down such a coefficient has travelled therefore depends on the convergence tolerance, and any quantity that compares it with zero — a bootstrap standard error, a percentile interval, a support rate, a p-value — inherits that dependence. A loose tolerance stops while the coefficient is still spuriously positive, which <strong>over-declares significance</strong>.</p>
+<p>The inference functions that re-fit the model on each bootstrap replicate therefore converge much more tightly than an ordinary fit:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr>
+<th align="left">Function</th>
+<th align="left">Setting</th>
+<th align="left">Default</th>
+</tr></thead>
+<tbody>
+<tr>
+<td align="left"><code>nmfkc.inference(method = "refit")</code></td>
+<td align="left">
+<code>refit.epsilon</code>, <code>refit.maxit</code>
+</td>
+<td align="left">
+<code>1e-8</code>, <code>1e5</code>
+</td>
+</tr>
+<tr>
+<td align="left"><code><a href="reference/nmf.ffb.inference.html">nmf.ffb.inference()</a></code></td>
+<td align="left">
+<code>epsilon</code>, <code>maxit</code>
+</td>
+<td align="left">
+<code>1e-8</code>, <code>1e5</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p>The number of bootstrap replicates is <code>wild.B = 500</code> throughout, except <code><a href="reference/nmf.ffb.inference.html">nmf.ffb.inference()</a></code>, whose <code>B</code> stays at <code>1000</code> — the value its published analysis used, so those results reproduce out of the box. Since that function re-fits on every replicate, its cost is linear in <code>B</code>.</p>
+<p>Two consequences worth knowing:</p>
+<ul>
+<li>
+<strong>Fit the model tightly as well.</strong> <code><a href="reference/nmfkc.html">nmfkc()</a></code> defaults to <code>epsilon = 1e-4</code>, which is fine for reconstruction but leaves near-zero coefficients well short of the boundary. For inference, fit with <code>epsilon = 1e-8</code> (and a <code>maxit</code> to match); a multistart (<code>nstart</code>) also helps, since boundary problems have flatter optima.</li>
+<li>
+<strong>Near-threshold entries stay tolerance-sensitive even at <code>1e-8</code>.</strong> Treat a coefficient sitting near the significance boundary as provisional, and check that the conclusion survives a tighter tolerance before relying on it.</li>
+</ul>
+<p><code>method = "onestep"</code> and the other inference functions (<code><a href="reference/nmfre.inference.html">nmfre.inference()</a></code>, <code><a href="reference/nmf.rrr.inference.html">nmf.rrr.inference()</a></code>) linearize instead of re-fitting and are not affected.</p>
 </div>
 <div class="section level1">
 <h1 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

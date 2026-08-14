@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -83,7 +83,12 @@
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Additional arguments passed to <code>nmfkc.cv</code>.</p></dd>
+<dd><p>Additional arguments passed to <code>nmfkc.cv</code>. Also accepts
+<code>cores</code> (evaluate the <code>beta</code> candidates in parallel; default
+<code>getOption("mc.cores", 1L)</code>; PSOCK cluster on Windows, forking
+elsewhere). Each candidate is a deterministic <code>nmfkc.cv</code> call (its
+folds are seeded) and results are returned in order, so <code>objfunc</code>
+and the selected <code>beta</code> are identical for any <code>cores</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

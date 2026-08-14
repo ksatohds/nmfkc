@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,6 +44,47 @@
       <small>Source: <a href="https://github.com/ksatohds/nmfkc/blob/HEAD/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.9.4" id="nmfkc-094">nmfkc 0.9.4<a class="anchor" aria-label="anchor" href="#nmfkc-094"></a></h2>
+<div class="section level4">
+<h4 id="breaking-nmfrrr-renames-bprob--bcluster-to-b1prob--b1cluster-0-9-4"><strong>Breaking: <code>nmf.rrr()</code> renames <code>B.prob</code> / <code>B.cluster</code> to <code>B1.prob</code> / <code>B1.cluster</code></strong><a class="anchor" aria-label="anchor" href="#breaking-nmfrrr-renames-bprob--bcluster-to-b1prob--b1cluster-0-9-4"></a></h4>
+<ul><li>
+<code><a href="../reference/nmf.rrr.html">nmf.rrr()</a></code> now returns <strong>two</strong> score matrices instead of one. <code>B1 = C X2 Y2</code> (Q x N) is the decoder-side score, with ; the new <code>B2 = X2 Y2</code> (R x N) is the encoder-side score, i.e. <code>B1</code> before the <code>C</code> map. Each gets column-normalized memberships and hard labels: <strong><code>B1.prob</code>, <code>B1.cluster</code>, <code>B2.prob</code>, <code>B2.cluster</code></strong>.</li>
+<li>
+<strong><code>B.prob</code> and <code>B.cluster</code> are gone</strong>; they shipped in 0.8.8, so code reading them must be updated to <code>B1.prob</code> / <code>B1.cluster</code>. The name <code>B</code> alone became ambiguous once both scores were exposed, and keeping it as an alias would reintroduce exactly the one-object-two-names problem this release removes elsewhere. The undocumented <code>B</code> component added during development is also removed.</li>
+<li>
+<strong><code>H</code> is retained but deprecated.</strong> It is identical to <code>B1</code>. Package-internal code now reads <code>B1</code> (through an accessor that still falls back to <code>H</code>, so objects saved by earlier releases keep working). Use <code>B1</code> in new code.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="breaking-nmfkc-stops-computing-criteria-nothing-consumed-0-9-4"><strong>Breaking: <code>nmfkc()</code> stops computing criteria nothing consumed</strong><a class="anchor" aria-label="anchor" href="#breaking-nmfkc-stops-computing-criteria-nothing-consumed-0-9-4"></a></h4>
+<ul><li>
+<strong><code>detail</code> now defaults to <code>"fast"</code>.</strong> The only thing <code>"full"</code> adds is the sample-clustering criteria <code>silhouette</code>, <code>CPCC</code> and <code>dist.cor</code>, which cost  (two distance matrices plus a cophenetic correlation) and had no consumer: they left rank selection, <code><a href="../reference/summary.nmfkc.html">summary.nmfkc()</a></code> never printed them, and <code><a href="../reference/nmf.cluster.criteria.html">nmf.cluster.criteria()</a></code> recomputes them from the fits it is given. At  they were 26x the cost of the rest of the call; over a 500-replicate bootstrap, 83s against 9s. They are <strong>absent</strong> from <code>fit$criterion</code> unless <code>detail = "full"</code> is asked for – absent rather than <code>NA</code>, because <code>CPCC</code> is legitimately <code>NA</code> at  and the two meanings must not collide.</li>
+<li>
+<strong><code>criterion$B.prob.max.mean</code> is removed.</strong> Nothing in the package read it except the summary line that printed it, and that line is now the effective-rank index (below).</li>
+<li>The bootstrap re-fits in <code>nmfkc.inference(method = "refit")</code> and <code><a href="../reference/nmfkc.ar.latent.inference.html">nmfkc.ar.latent.inference()</a></code> pass <code>detail = "fast"</code> explicitly, so this holds even if the default moves back.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="summary-reports-a--factor-diagnostic-0-9-4"><strong><code>summary()</code> reports a  factor diagnostic</strong><a class="anchor" aria-label="anchor" href="#summary-reports-a--factor-diagnostic-0-9-4"></a></h4>
+<ul><li>
+<code>criterion$effective.rank.index</code> is new on a single fit: the broken-stick correction , , that <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> already plotted. It is verified to agree bit-for-bit with the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> column at matched settings, and both now call one helper.</li>
+<li>
+<code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code> prints it as <code>Factor variance share</code> in place of the old <code>Clustering Crispness</code>. Unlike the crispness (range , monotone in ) this is a genuine  index. Read it as <strong>how evenly the across-sample coefficient variance is shared</strong>, which is not the same as how useful the factors are: two duplicated factors split the variance evenly and score near 1.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmf-gmm-family-nmfgmm--present-but-not-exported-0-9-4"><strong>NMF-GMM family (<code>nmf.gmm*</code>) — present but NOT exported</strong><a class="anchor" aria-label="anchor" href="#nmf-gmm-family-nmfgmm--present-but-not-exported-0-9-4"></a></h4>
+<p>The accompanying paper is still in preparation, so this family is deliberately kept out of the public interface: the functions are in the package but are not exported, there is no vignette, and the help pages are marked internal. Reach them as <code>nmfkc:::nmf.gmm()</code> if you want to experiment, and expect argument names, defaults and returned components to change without a deprecation cycle. They will be exported once the method is settled. What is there:</p>
+<ul><li>
+<code>nmf.gmm</code> fits NMF-GMM (Satoh 2026): a -component Gaussian mixture on the latent NMF scores, , , with a shared non-negative, column-normalized basis . Clustering is model based, through the posterior responsibilities.  () is the covariate coefficient matrix and <code>mu</code> the  class means. Fitted by a generalized EM (auto Woodbury E-step for large ); returns <code>X</code>, <code>C</code>, <code>mu</code>, <code>tau2</code>, <code>sigma2</code>, <code>xi</code>, <code>gamma</code> (responsibilities), <code>cluster</code>, <code>BIC</code>, <code>ICL</code>, and the usual house fields. The score covariance is set by <code>cov</code>: <code>"tied"</code> (shared diagonal,  variances; default), <code>"free"</code> (per-class diagonal), or <code>"scalar"</code> (isotropic , a single variance — the most parsimonious variant, and the <code>\link{nmfre}</code> model at ).</li>
+<li>Optimization / inference split: <code>nmf.gmm.inference</code> gives a Basis/Covariate coefficients table for <code>C</code> with the outer-product mixture-information SE and a wild-bootstrap SE / CI (tied covariance); <code>nmf.gmm.select</code> chooses  by BIC / ICL (optional adjusted Rand index against known labels).</li>
+<li>S3: <code>coef</code>, <code>fitted</code>, <code>predict</code> (hard class / responsibilities), <code>print</code>, <code>summary</code>, <code>plot</code>. New dependency: none (base/stats only).</li>
+<li>Verified numerically identical to the standalone research engine on the Leptograpsus crabs data (log-likelihood, <code>X</code>, <code>C</code> exact; <code>mu</code>/<code>gamma</code> equal up to the mixture’s label permutation; ARI 0.86 vs the four species-sex groups). Note on the <code>\link{nmfre}</code> nesting: <code>cov = "scalar"</code> at  gives the same (isotropic) model as <code>nmfre</code>; the default <code>cov = "tied"</code> generalizes it to a diagonal (per-basis) score covariance. In either case the two use different EM algorithms, so the fitted values need not coincide numerically.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="nmfre-correctness-fixes-identification--signed-warm-start-0-9-4"><strong><code>nmfre()</code> correctness fixes (identification + signed warm start)</strong><a class="anchor" aria-label="anchor" href="#nmfre-correctness-fixes-identification--signed-warm-start-0-9-4"></a></h4>
+<ul><li>Removed the row-centering of the random-effect matrix <code>U</code> inside the U-step. The (U, Theta) indeterminacy is <code>U -&gt; U + Delta A</code>, <code>Theta -&gt; Theta - Delta</code>, so the identification condition is <code>U A' = 0</code>, not <code>U 1 = 0</code>; the alternating fixed point satisfies <code>U A' = 0</code> automatically, and imposing row-centering on top broke it whenever <code>1'</code> is not in the row space of <code>A</code>. (Verified: after the fix <code>||U A'||</code> is ~1e-6 at convergence.)</li>
+<li>The initialization no longer clips <code>C.init</code> to <code>+eps</code> when <code>C.signed = TRUE</code>: a warm-start <code>C.init</code> may legitimately carry negative entries (e.g. a full-refit bootstrap restarting from the previous estimate), and the unconditional <code><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">pmax()</a></code> destroyed their sign at every refit. Clipping now applies only in the non-negative mode, mirroring the in-loop update rule.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.8.8" id="nmfkc-088">nmfkc 0.8.8<a class="anchor" aria-label="anchor" href="#nmfkc-088"></a></h2><p class="text-muted">CRAN release: 2026-07-13</p>
 <div class="section level4">

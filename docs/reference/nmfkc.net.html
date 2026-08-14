@@ -49,7 +49,7 @@ error.  For a signed data matrix, see nmfkc.signed.'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -142,7 +142,12 @@ see the note on <code>Y.weights</code> below.</p></dd>
 
 
 <dt id="arg-epsilon-maxit-verbose">epsilon, maxit, verbose<a class="anchor" aria-label="anchor" href="#arg-epsilon-maxit-verbose"></a></dt>
-<dd><p>Standard.</p></dd>
+<dd><p>Standard.  <strong>Note</strong>: the convergence test
+uses the <em>unpenalized</em> squared error, not the penalized objective the
+updates minimize, so with a large <code>C.L1</code> or <code>X.L2.ortho</code> the
+iteration can stop while the optimized quantity is still moving.  The
+other fitters test the penalized value; this is kept as-is so existing
+fits reproduce.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

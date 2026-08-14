@@ -77,7 +77,7 @@ mirrors the standard R convention for p-values (p &amp;lt; 0.05 / 0.01 /
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -188,9 +188,15 @@ used in <code><a href="nmf.sem-deprecated.html">nmf.sem()</a></code>.</p></dd>
 
 
 <dt id="arg-b">B<a class="anchor" aria-label="anchor" href="#arg-b"></a></dt>
-<dd><p>Number of bootstrap replicates.  Default <code>1000</code>; required
-for the <code>***</code> threshold (sup &gt; 0.999).  Reduce to 500 for
-exploratory speed (only <code>*</code> / <code>**</code> stay reliable).</p></dd>
+<dd><p>Number of bootstrap replicates.  Default <code>1000</code>, the value the
+published analysis used; the other inference functions in the package
+default their <code>wild.B</code> to 500, and this one is deliberately left at
+1000 so the manuscript results reproduce out of the box.  Note that
+<code>***</code> (sup &gt; 0.999) is only reachable when <em>every</em> replicate
+clears <code>threshold</code>, at any <code>B</code>: raising <code>B</code> does not add a
+finer grade, it makes the same grade stronger evidence (all 1000 rather
+than all 500).  Lowering it to 500 roughly halves the running time, since
+each replicate is a re-fit.</p></dd>
 
 
 <dt id="arg-threshold">threshold<a class="anchor" aria-label="anchor" href="#arg-threshold"></a></dt>
@@ -222,11 +228,19 @@ should pass the actual values used.</p></dd>
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Hidden options:</p><dl><dt><code>epsilon</code></dt>
 <dd><p>Convergence tolerance for the inner fixed-X MU
-loop.  Default <code>1e-6</code>.</p></dd>
+loop.  Default <code>1e-8</code> – deliberately tighter than a plain fit,
+because under multiplicative updates an entry heading for the
+non-negativity boundary approaches 0 slowly, so a loose tolerance
+stops every replicate while such an entry is still above
+<code>threshold</code>.  The support rate is then inflated and significance
+over-declared: on a pure-noise design the support of null entries
+falls from 0.75 to 0.20 to 0.017 as <code>epsilon</code> goes 1e-6, 1e-8,
+1e-10, while genuinely supported entries stay at 1.  Tighten further
+when near-threshold entries matter; loosen only for speed.</p></dd>
 
 <dt><code>maxit</code></dt>
 <dd><p>Maximum iterations for the inner MU loop.
-Default <code>5000</code>.</p></dd>
+Default <code>100000</code> (the tighter tolerance needs the headroom).</p></dd>
 
 <dt><code>ncores</code></dt>
 <dd><p>Number of parallel workers.  Default <code>1</code>
@@ -296,7 +310,7 @@ arXiv:2512.18250. <a href="https://arxiv.org/abs/2512.18250" class="external-lin
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmf.sem-deprecated.html">nmf.sem</a></code>, <code><a href="nmf.sem-deprecated.html">nmf.sem.DOT</a></code></p></div>
+    <div class="dont-index"><p><code><a href="nmf.ffb.html">nmf.ffb</a></code>, <code><a href="nmf.ffb.DOT.html">nmf.ffb.DOT</a></code></p></div>
     </div>
 
     <div class="section level2">
@@ -309,19 +323,19 @@ arXiv:2512.18250. <a href="https://arxiv.org/abs/2512.18250" class="external-lin
 <span class="r-in"><span><span class="va">res2</span> <span class="op">&lt;-</span> <span class="fu">nmf.ffb.inference</span><span class="op">(</span><span class="va">res</span>, <span class="va">Y1</span>, <span class="va">Y2</span>, B <span class="op">=</span> <span class="fl">200</span><span class="op">)</span>  <span class="co"># quick demo</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">res2</span><span class="op">$</span><span class="va">coefficients</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Type   Basis    Covariate     Estimate       CI_low      CI_high support_rate</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1   C1 Factor1 Sepal.Length 9.641115e-01 9.520505e-01 9.721157e-01            1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2   C1 Factor2 Sepal.Length 4.158689e-03 3.642629e-03 5.222247e-03            0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3   C1 Factor1  Sepal.Width 4.184298e-02 3.289576e-02 5.725921e-02            1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4   C1 Factor2  Sepal.Width 9.900868e-01 9.878874e-01 9.912207e-01            1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5   C2 Factor1 Petal.Length 2.255319e-02 1.777278e-02 2.936270e-02            1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6   C2 Factor2 Petal.Length 4.262750e-08 4.116256e-10 6.088379e-07            0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   p_value sig</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1       0 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2       1    </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3       0 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4       0 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5       0 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6       1    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1   C1 Factor1 Sepal.Length 9.624411e-01 9.978009e-01 9.983034e-01            1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2   C1 Factor2 Sepal.Length 4.652216e-03 3.049265e-03 4.505394e-03            0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3   C1 Factor1  Sepal.Width 4.303632e-02 2.426654e-04 4.476438e-04            0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4   C1 Factor2  Sepal.Width 9.903750e-01 9.904116e-01 9.935386e-01            1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5   C2 Factor1 Petal.Length 2.318005e-02 2.237557e-03 2.903178e-03            0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6   C2 Factor2 Petal.Length 3.800995e-09 5.063817e-14 6.615945e-10            0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   prob.unsupported p_value sig</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                0       0 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                1       1    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                1       1    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                0       0 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                1       1    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                1       1    </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

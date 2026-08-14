@@ -25,7 +25,7 @@ are evaluated via expand.grid."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -113,7 +113,11 @@ which sets <code>rank2 = rank1</code> and evaluates element-wise pairs.</p></dd>
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code><a href="nmfae-deprecated.html">nmfae</a></code> (e.g., <code>epsilon</code>, <code>maxit</code>).
 Also accepts: <code>nfolds</code> (number of folds, default 5; <code>div</code> also accepted),
-<code>seed</code> (integer seed, default 123).
+<code>seed</code> (integer seed, default 123), and <code>cores</code> (evaluate the
+\((Q,R)\)-pair \(\times\) fold grid in parallel; default
+<code>getOption("mc.cores", 1L)</code>, PSOCK on Windows / forking elsewhere).
+Each task is an independent self-seeded fit and results are aggregated in
+order, so the returned object is identical for any <code>cores</code>.
 For backward compatibility, <code>Q</code> and <code>R</code> are accepted as aliases for
 <code>rank</code> and <code>rank.encoder</code>.</p></dd>
 
@@ -152,7 +156,7 @@ future versions; details are to be described in an upcoming paper.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nmfae-deprecated.html">nmfae</a></code>, <code><a href="nmfkc.ecv.html">nmfkc.ecv</a></code></p></div>
+    <div class="dont-index"><p><code><a href="nmf.rrr.html">nmf.rrr</a></code>, <code><a href="nmfkc.ecv.html">nmfkc.ecv</a></code></p></div>
     </div>
 
     <div class="section level2">

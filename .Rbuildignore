@@ -23,3 +23,5 @@
 ^CRAN-SUBMISSION$
 ^CONVENTIONS\.md$
 ^Rplots\.pdf$
+^vignettes/.*\.html$
+^vignettes/.*_files$

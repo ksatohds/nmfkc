@@ -25,7 +25,7 @@ from C matrix (for tri-symmetric models only).
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -111,7 +111,21 @@ C edges are decorated with significance stars.</p></dd>
 
 
 <dt id="arg-threshold">threshold<a class="anchor" aria-label="anchor" href="#arg-threshold"></a></dt>
-<dd><p>Minimum coefficient value to display an edge.</p></dd>
+<dd><p>Minimum coefficient value to display an edge.  It is read
+on the membership scale for X edges (<code>X.prob</code>, rows summing to one)
+and on \(C\) for the basis-to-basis edges, and it does two jobs at once,
+switching over at \(1/Q\):</p><ul><li><p><strong>At or below \(1/Q\)</strong> it only thins edges.  No node can
+be hidden, because a row of <code>X.prob</code> sums to one and so has a
+maximum of at least \(1/Q\); every node genuinely keeps an edge.</p></li>
+<li><p><strong>Above \(1/Q\)</strong> it may also start hiding nodes (when
+<code>hide.isolated = TRUE</code>).  Not immediately: nodes go only once the
+threshold passes the smallest row maximum of <code>X.prob</code>, which is
+data-dependent and can be well above \(1/Q\).  Inspect
+<code>apply(fit$X.prob, 1, max)</code> to see where that is.</p></li>
+</ul><p>The default <code>0.01</code> therefore draws every node — guaranteed for any
+\(Q \le 100\), since only then is \(0.01 \le 1/Q\) — and most edges.
+For a readable community graph, 0.2–0.4 usually thins the edges enough
+while keeping all nodes.</p></dd>
 
 
 <dt id="arg-sig-level">sig.level<a class="anchor" aria-label="anchor" href="#arg-sig-level"></a></dt>
@@ -141,7 +155,11 @@ results are present). Set to <code>NULL</code> to show all edges above threshold
 
 <dt id="arg-hide-isolated">hide.isolated<a class="anchor" aria-label="anchor" href="#arg-hide-isolated"></a></dt>
 <dd><p>Logical; if TRUE, omit outer nodes with no X edge
-above threshold.</p></dd>
+above <code>threshold</code>.  The test is on the membership scale
+(<code>X.prob</code>), the same quantity the X edges are drawn from, so it does
+not shift with <code>type</code> or <code>X.restriction</code>.  See <code>threshold</code>
+for when this actually removes anything — at the default it never does
+for any \(Q \le 100\), which is correct rather than a limitation.</p></dd>
 
 
 <dt id="arg-y-label">Y.label<a class="anchor" aria-label="anchor" href="#arg-y-label"></a></dt>

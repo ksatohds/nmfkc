@@ -31,7 +31,7 @@ it as a complement to the CV / consensus engines, not a sole criterion."></head>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -124,7 +124,9 @@ random-initialization seed); <code>a</code> (<code>1</code>) and
 <code>b</code> over-prunes, a larger one prunes nothing); <code>maxit</code>
 (<code>3000</code>) and <code>epsilon</code> (<code>1e-6</code>) for optimisation control;
 <code>tol</code> (<code>1e-3</code>), the relevance threshold below which a component is
-counted as pruned.</p></dd>
+counted as pruned; <code>cores</code> (<code>getOption("mc.cores", 1L)</code>) runs the
+<code>nrun</code> restarts in parallel (results identical to the sequential loop
+for any <code>cores</code>; PSOCK cluster on Windows, forking elsewhere).</p></dd>
 
 </dl></div>
     <div class="section level2">
