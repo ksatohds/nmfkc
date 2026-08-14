@@ -40,11 +40,6 @@ mostly corrections; the items a user could notice are:
   cross-validation / restart wrappers take an opt-in `cores` argument.  Both
   were verified to leave results unchanged.
 
-The `nmf.gmm*` family is present in the sources but is **not exported**: the
-accompanying paper is still in preparation, so it is kept out of the public
-interface (no exported functions, no vignette, help pages marked internal)
-until the method is settled.
-
 ## Additional checks
 
 * All tests pass (testthat).
