@@ -157,7 +157,6 @@ test_that("no fitter leaves the caller's RNG stream at a fixed state", {
   fitters <- list(
     nmfkc        = function() qq(nmfkc(Y, rank = 2, verbose = FALSE)),
     nmfre        = function() qq(nmfre(Y, A = A, rank = 2, verbose = FALSE)),
-    nmf.gmm      = function() qq(nmf.gmm(Y, A, rank = 2, K = 2)),
     nmf.ffb      = function() qq(nmf.ffb(Y1, Y2, rank = 2, verbose = FALSE)),
     nmfkc.net    = function() qq(nmfkc.net(Yn, rank = 2, verbose = FALSE)),
     nmfkc.signed = function() qq(nmfkc.signed(Ys, As, rank = 2, maxit = 50,

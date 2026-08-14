@@ -16,9 +16,7 @@
 <url><loc>https://ksatohds.github.io/nmfkc/LICENSE-text.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/LICENSE.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/news/index.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/coef.nmf.gmm.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/coef.nmf.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/fitted.nmf.gmm.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/fitted.nmf.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/index.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.cluster.criteria.html</loc></url>
@@ -28,9 +26,6 @@
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.ffb.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.ffb.split.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.gmm.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.gmm.inference.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.gmm.select.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.rrr.cv.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.rrr.DOT.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmf.rrr.ecv.html</loc></url>
@@ -89,8 +84,6 @@
 <url><loc>https://ksatohds.github.io/nmfkc/reference/nmfre.inference.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmf.cluster.criteria.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmf.cluster.flow.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmf.gmm.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmf.gmm.select.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmf.rank.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmfae.cv.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmfae.ecv.html</loc></url>
@@ -107,7 +100,6 @@
 <url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmfre.ecv.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/plot.nmfre.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/plot.predict.nmfae.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/predict.nmf.gmm.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/predict.nmfae.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/predict.nmfae.signed.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/predict.nmfkc.html</loc></url>
@@ -115,8 +107,6 @@
 <url><loc>https://ksatohds.github.io/nmfkc/reference/predict.nmfre.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmf.cluster.criteria.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmf.cluster.flow.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmf.gmm.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmf.gmm.select.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmf.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmf.inference.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmf.rank.html</loc></url>
@@ -128,7 +118,6 @@
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmfkc.consensus.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmfkc.DOT.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.nmfre.ecv.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/print.summary.nmf.gmm.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.summary.nmf.sem.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.summary.nmfae.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.summary.nmfae.inference.html</loc></url>
@@ -140,9 +129,7 @@
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.net.inference.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.net.signed.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.signed.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/residuals.nmf.gmm.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/residuals.nmf.html</loc></url>
-<url><loc>https://ksatohds.github.io/nmfkc/reference/summary.nmf.gmm.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/summary.nmf.sem.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/summary.nmfae.html</loc></url>
 <url><loc>https://ksatohds.github.io/nmfkc/reference/summary.nmfae.inference.html</loc></url>

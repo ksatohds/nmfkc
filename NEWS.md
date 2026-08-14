@@ -49,33 +49,6 @@
   useful the factors are: two duplicated factors split the variance evenly and
   score near 1.
 
-### **New: NMF-GMM family (`nmf.gmm*`)**
-- `nmf.gmm()` fits NMF-GMM (Satoh 2026): a \eqn{K}-component Gaussian mixture on
-  the latent NMF scores, \eqn{\bm b_n\mid(z_n{=}k)\sim N_Q(C\bm a_n+\bm\mu_k,
-  \Sigma_k)}, \eqn{\bm y_n=X\bm b_n+\bm\varepsilon}, with a shared non-negative,
-  column-normalized basis \eqn{X}. Clustering is model based, through the
-  posterior responsibilities. \eqn{C} (\eqn{=\Theta}) is the covariate
-  coefficient matrix and `mu` the \eqn{Q\times K} class means. Fitted by a
-  generalized EM (auto Woodbury E-step for large \eqn{P}); returns `X`, `C`,
-  `mu`, `tau2`, `sigma2`, `xi`, `gamma` (responsibilities), `cluster`, `BIC`,
-  `ICL`, and the usual house fields. The score covariance is set by `cov`:
-  `"tied"` (shared diagonal, \eqn{Q} variances; default), `"free"` (per-class
-  diagonal), or `"scalar"` (isotropic \eqn{\tau^2 I}, a single variance --- the
-  most parsimonious variant, and the `\link{nmfre}` model at \eqn{K=1}).
-- Optimization / inference split: `nmf.gmm.inference()` gives a Basis/Covariate
-  coefficients table for `C` with the outer-product mixture-information SE and a
-  wild-bootstrap SE / CI (tied covariance); `nmf.gmm.select()` chooses \eqn{K}
-  by BIC / ICL (optional adjusted Rand index against known labels).
-- S3: `coef`, `fitted`, `predict` (hard class / responsibilities), `print`,
-  `summary`, `plot`. New dependency: none (base/stats only).
-- Verified numerically identical to the standalone research engine on the
-  Leptograpsus crabs data (log-likelihood, `X`, `C` exact; `mu`/`gamma` equal up
-  to the mixture's label permutation; ARI 0.86 vs the four species-sex groups).
-  Note on the `\link{nmfre}` nesting: `cov = "scalar"` at \eqn{K = 1} gives the
-  same (isotropic) model as `nmfre`; the default `cov = "tied"` generalizes it
-  to a diagonal (per-basis) score covariance. In either case the two use
-  different EM algorithms, so the fitted values need not coincide numerically.
-
 ### **`nmfre()` correctness fixes (identification + signed warm start)**
 - Removed the row-centering of the random-effect matrix `U` inside the U-step.
   The (U, Theta) indeterminacy is `U -> U + Delta A`, `Theta -> Theta - Delta`,
