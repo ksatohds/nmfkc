@@ -1414,10 +1414,11 @@ plot.predict.nmfae <- function(x, ...) {
 #' @examples
 #' Y <- t(iris[1:30, 1:4])
 #' # Default: rank2=NULL -> paired rank1=rank2
-#' res <- nmf.rrr.ecv(Y, rank1 = 1:3, nfolds = 3, maxit = 500)
+#' res <- nmf.rrr.ecv(Y, rank1 = 1:2, nfolds = 3, maxit = 200)
 #' res$sigma
-#' # Explicit rank.encoder: full grid
-#' res2 <- nmf.rrr.ecv(Y, rank1 = 1:3, rank2 = 1:3, nfolds = 3, maxit = 500)
+#' # Explicit rank2: full grid (kept small so the example stays under CRAN's
+#' # 10s budget -- a real sweep would use wider ranges and a larger maxit)
+#' res2 <- nmf.rrr.ecv(Y, rank1 = 1:2, rank2 = 1:2, nfolds = 3, maxit = 200)
 #' res2$sigma
 #'
 nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...) {

@@ -6,14 +6,16 @@
 
 * Windows 11 (local), R 4.4.1, `--as-cran`
 * Ubuntu Linux (local server), R 4.5.3
-* win-builder (R-devel, R-release)
-* R-hub v2 (Linux, macOS, Windows)
+* win-builder, R-release 4.6.1 and R-devel (2026-08-14 r90407)
+* R-hub v2 (Linux, macOS, macOS-arm64, Windows, nosuggests)
 
 ## Notes
 
 * "checking for future file timestamps ... NOTE" — appears on environments
   that cannot reach the CRAN time server to verify the current time; not a
   package issue.
+* "Possibly misspelled words in DESCRIPTION: Tokuda" — a co-author's surname,
+  in the citation for <doi:10.48550/arXiv.2607.27474>. Spelled correctly.
 
 ## This is an update
 
