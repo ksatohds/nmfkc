@@ -37,7 +37,7 @@ Encoding: UTF-8
 Language: en-US
 Roxygen: list(markdown = TRUE)
 ByteCompile: true
-VignetteBuilder: knitr
+VignetteBuilder: knitr, rmarkdown
 Suggests:
     knitr,
     rmarkdown,
