@@ -1,6 +1,6 @@
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 1-2 notes (see below; both are environmental or a proper name)
 
 ## Test environments
 
@@ -44,13 +44,13 @@ mostly corrections; the items a user could notice are:
   `rank = 3` outright; that put deprecated names in every signature.  Passing
   a removed name now raises an error naming its replacement rather than being
   silently absorbed by `...`.
-
-Both changes are breaking, and both are announced in NEWS.md.  They are
-confined to the `nmf.rrr` family, which is documented as experimental and was
-introduced only in the current release cycle.
 * Speed: multiplicative-update loops hoist loop invariants, and the
   cross-validation / restart wrappers take an opt-in `cores` argument.  Both
   were verified to leave results unchanged.
+
+The last two items are breaking changes, and both are announced in NEWS.md.
+They are confined to the `nmf.rrr` family, which is documented as
+experimental and was introduced only in the current release cycle.
 
 ## Additional checks
 
@@ -61,7 +61,7 @@ introduced only in the current release cycle.
 
 ## On the submission interval
 
-v0.8.8 was published on 2026-07-14, one month ago.  The update is offered now
+v0.8.8 was published on 2026-07-14, five weeks ago.  The update is offered now
 because it is largely bug fixes — in particular the always-zero bootstrap
 p-values and the RNG-stream pollution, both of which can silently affect a
 user's results — rather than new features.  We are happy to hold the
