@@ -30,7 +30,19 @@ test_that("nmfkc.ard print and plot run without error", {
   expect_no_error(plot(ar))
 })
 
+test_that("nrun aggregates the rank by mode over restarts (CRAN-sized)", {
+  set.seed(4)
+  X <- matrix(abs(rnorm(30 * 3)), 30, 3)
+  B <- matrix(abs(rnorm(3 * 40)), 3, 40)
+  ar <- nmfkc.ard(X %*% B, rank = 6, nrun = 3, seed = 4)
+  expect_equal(ar$nrun, 3)
+  expect_length(ar$rank.runs, 3)
+  tab <- table(ar$rank.runs)
+  expect_equal(ar$rank, as.integer(names(tab)[which.max(tab)]))
+})
+
 test_that("nrun aggregates the rank by mode over restarts", {
+  skip_on_cran()
   set.seed(4)
   X <- matrix(abs(rnorm(40 * 3)), 40, 3)
   B <- matrix(abs(rnorm(3 * 60)), 3, 60)

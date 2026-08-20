@@ -1,6 +1,18 @@
+## Resubmission
+
+This resubmits the 0.9.4 update, which the incoming pretest rejected for its
+overall check time (48 minutes on the pretest Windows machine).  0.9.5 is
+0.9.4 plus check-time reductions only — no computed value changes: the
+expensive bootstrap regression tests now carry skip_on_cran() with CRAN-sized
+copies still running there; the timeseries example sweeps fewer lag orders;
+and five of the nine vignettes moved to the package website
+(<https://ksatohds.github.io/nmfkc/articles/>), keeping four in the tarball.
+The pretest's other note, "Possibly misspelled ... Tokuda", is a co-author's
+surname (see Notes below).
+
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 1-2 notes (see below; both are environmental or a proper name)
 
 ## Test environments
 
@@ -20,7 +32,7 @@
 ## This is an update
 
 This is a maintenance update from v0.8.8 (currently on CRAN, published
-2026-07-14) to v0.9.4.  All changes are listed in NEWS.md.  The update is
+2026-07-14) to v0.9.5.  All changes are listed in NEWS.md.  The update is
 mostly corrections; the items a user could notice are:
 
 * Correctness fixes in the inference and RNG paths: the refit bootstrap
@@ -44,13 +56,13 @@ mostly corrections; the items a user could notice are:
   `rank = 3` outright; that put deprecated names in every signature.  Passing
   a removed name now raises an error naming its replacement rather than being
   silently absorbed by `...`.
-
-Both changes are breaking, and both are announced in NEWS.md.  They are
-confined to the `nmf.rrr` family, which is documented as experimental and was
-introduced only in the current release cycle.
 * Speed: multiplicative-update loops hoist loop invariants, and the
   cross-validation / restart wrappers take an opt-in `cores` argument.  Both
   were verified to leave results unchanged.
+
+The last two items are breaking changes, and both are announced in NEWS.md.
+They are confined to the `nmf.rrr` family, which is documented as
+experimental and was introduced only in the current release cycle.
 
 ## Additional checks
 
@@ -61,7 +73,7 @@ introduced only in the current release cycle.
 
 ## On the submission interval
 
-v0.8.8 was published on 2026-07-14, one month ago.  The update is offered now
+v0.8.8 was published on 2026-07-14, five weeks ago.  The update is offered now
 because it is largely bug fixes — in particular the always-zero bootstrap
 p-values and the RNG-stream pollution, both of which can silently affect a
 user's results — rather than new features.  We are happy to hold the

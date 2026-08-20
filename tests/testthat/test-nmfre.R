@@ -1,4 +1,22 @@
+test_that("nmfre() X.init paths run (CRAN-sized)", {
+  # The full block below fits nmfre() eight times (~6s locally, x17 on CRAN's
+  # pretest machine) and carries skip_on_cran(); this copy keeps the crash
+  # regression covered there: character X.init used to error in
+  # .nmfre.normalize.X ("'x' must be an array of at least two dimensions").
+  set.seed(5); P <- 5; N <- 30; Q <- 2
+  A  <- rbind(intercept = 1, male = rbinom(N, 1, 0.5))
+  Xt <- matrix(abs(rnorm(P * Q)), P, Q)
+  Y  <- pmax(Xt %*% (matrix(abs(rnorm(Q * 2)), Q, 2) %*% A +
+                       matrix(rnorm(Q * N, 0, 0.4), Q, N)) +
+               matrix(rnorm(P * N, 0, 0.3), P, N), 0)
+  d <- nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE)
+  expect_s3_class(d, "nmfre")
+  fm <- nmfre(Y, A = A, rank = Q, seed = 1, X.init = "nndsvd", verbose = FALSE)
+  expect_true(all(is.finite(fm$X)))
+})
+
 test_that("nmfre() accepts X.init as NULL, a method name, or a matrix", {
+  skip_on_cran()
   set.seed(5); P <- 5; N <- 50; Q <- 2
   A  <- rbind(intercept = 1, male = rbinom(N, 1, 0.5))
   Xt <- matrix(abs(rnorm(P * Q)), P, Q)
