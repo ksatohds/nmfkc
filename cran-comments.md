@@ -1,3 +1,15 @@
+## Resubmission
+
+This resubmits the 0.9.4 update, which the incoming pretest rejected for its
+overall check time (48 minutes on the pretest Windows machine).  0.9.5 is
+0.9.4 plus check-time reductions only — no computed value changes: the
+expensive bootstrap regression tests now carry skip_on_cran() with CRAN-sized
+copies still running there; the timeseries example sweeps fewer lag orders;
+and five of the nine vignettes moved to the package website
+(<https://ksatohds.github.io/nmfkc/articles/>), keeping four in the tarball.
+The pretest's other note, "Possibly misspelled ... Tokuda", is a co-author's
+surname (see Notes below).
+
 ## R CMD check results
 
 0 errors | 0 warnings | 1-2 notes (see below; both are environmental or a proper name)
@@ -20,7 +32,7 @@
 ## This is an update
 
 This is a maintenance update from v0.8.8 (currently on CRAN, published
-2026-07-14) to v0.9.4.  All changes are listed in NEWS.md.  The update is
+2026-07-14) to v0.9.5.  All changes are listed in NEWS.md.  The update is
 mostly corrections; the items a user could notice are:
 
 * Correctness fixes in the inference and RNG paths: the refit bootstrap

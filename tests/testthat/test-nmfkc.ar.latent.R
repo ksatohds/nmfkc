@@ -294,7 +294,25 @@ quietly <- function(expr, keep) {
   val
 }
 
+test_that("nmfkc.ar.latent.inference runs end to end (CRAN-sized)", {
+  # The full bootstrap blocks below cost ~35s locally (x17 on CRAN's pretest
+  # Windows machine), so they carry skip_on_cran(); this copy keeps the
+  # inference path itself exercised there.
+  set.seed(3)
+  Y <- matrix(abs(rnorm(3 * 25)) + 1, 3, 25)
+  a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
+  f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 2, verbose = FALSE))
+  lat <- suppressWarnings(nmfkc.ar.latent(f))
+  inf <- suppressWarnings(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 6))
+  expect_s3_class(inf, "nmfkc.ar.latent.inference")
+  expect_equal(inf$G$lag1, lat$G$lag1, tolerance = 0)
+  expect_true(is.finite(inf$spectral.radius.se) && inf$spectral.radius.se >= 0)
+  expect_lte(inf$spectral.radius.ci.lower, inf$spectral.radius.ci.upper)
+  expect_equal(inf$wild.B + inf$n.fail, 6L)
+})
+
 test_that("nmfkc.ar.latent.inference bootstraps the latent VAR", {
+  skip_on_cran()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -315,6 +333,7 @@ test_that("nmfkc.ar.latent.inference bootstraps the latent VAR", {
 })
 
 test_that("the coefficient table covers every entry of every G_d", {
+  skip_on_cran()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
   a <- nmfkc.ar(Y, degree = 2, intercept = TRUE)
@@ -357,6 +376,7 @@ test_that("a separable, column-normalised X does NOT certify uniqueness", {
 })
 
 test_that("rank 1 has no rotation, and Q > 1 is only ever APPROXIMATE", {
+  skip_on_cran()
   a <- nmfkc.ar(log(AirPassengers), degree = 2, intercept = TRUE)
   f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 1, seed = 1, verbose = FALSE))
   inf <- suppressWarnings(nmfkc.ar.latent.inference(
@@ -406,6 +426,7 @@ test_that("the KKT diagnostic reports both margins", {
 })
 
 test_that("the bootstrap is reproducible, parallel-safe and leaves the RNG alone", {
+  skip_on_cran()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -425,6 +446,7 @@ test_that("the bootstrap is reproducible, parallel-safe and leaves the RNG alone
 })
 
 test_that("an object without X/Theta can still be given the fit", {
+  skip_on_cran()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -477,6 +499,7 @@ test_that("the weighted and unweighted rules agree under column normalisation", 
 })
 
 test_that("the bootstrapped radius is the companion radius, not rho(sum G_d)", {
+  skip_on_cran()
   ## For D > 1 the two differ: with G_1 = 0.2, G_2 = 0.1 the companion radius is
   ## 0.4317 while rho(G_1 + G_2) = 0.3.  The inference must report the former,
   ## which is what nmfkc.ar.latent() reports.
@@ -564,6 +587,7 @@ test_that("identification needs BOTH anchor rows in X and pure columns in Theta"
 })
 
 test_that("the monomial step is what makes T a permutation", {
+  skip_on_cran()
   ## T >= 0 and T^-1 >= 0 together force T to be a scaled permutation, and the
   ## column-sum constraint removes the scale.  Positive test:
   for (p in list(c(1, 2), c(2, 1))) {
@@ -677,6 +701,7 @@ test_that("a fixed basis is carried into the re-fits, not re-initialised", {
 })
 
 test_that("a legitimate rho = 0 replicate is not counted as a failure", {
+  skip_on_cran()
   ## rho = 0 is a valid, stationary value: it happens when Theta collapses.
   Xz  <- matrix(c(0.5, 0.5, 0.5, 0.5), 2, 2)
   latz <- suppressWarnings(nmfkc.ar.latent(

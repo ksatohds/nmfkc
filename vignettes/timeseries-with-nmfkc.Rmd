@@ -56,9 +56,10 @@ d_air_log <- log10(d_air) # Still a ts object
 We use **Cross-Validation** to find the optimal degree (lag order). By passing the `ts` object `d_air_log`, the function automatically handles the time dimension.
 
 ```{r air-degree-cv}
-# Evaluate lag orders from 1 to 14
+# Candidate lag orders: short lags plus the seasonal ones (a full 1:14 sweep
+# gives the same winner; the subset keeps the vignette quick to build)
 # Note: ts objects are automatically transposed to (Variables x Time) internally
-cv_res <- nmfkc.ar.degree.cv(d_air_log, rank = 1, degree = 1:14, epsilon=1e-6, maxit=500000)
+cv_res <- nmfkc.ar.degree.cv(d_air_log, rank = 1, degree = c(1:3, 12:14), epsilon=1e-6, maxit=500000)
 
 # Check the optimal degree
 cv_res$degree
@@ -362,7 +363,7 @@ recomputes the latent quantities.
 
 ```{r canada-inference}
 inf_canada <- nmfkc.ar.latent.inference(lat_canada, a_canada$Y, a_canada$A,
-                                        wild.B = 200, wild.seed = 2026)
+                                        wild.B = 50, wild.seed = 2026)
 inf_canada
 ```
 
@@ -496,7 +497,7 @@ unlist(inf_canada$refit.args)
 ```
 
 And each replicate is a full re-fit, so this is the expensive step of the
-analysis. `wild.B = 200` keeps the vignette quick; the default is 500, and each
+analysis. `wild.B = 50` keeps the vignette quick; the default is 500, and each
 re-fit converges to `epsilon = 1e-8` --- a looser tolerance leaves boundary
 coefficients spuriously positive and understates the spread. On a multi-core
 machine `cores = 4` divides the wall time without changing the answer.

@@ -33,7 +33,27 @@ make_var_fit <- function(seed = 11, P = 8, N = 80) {
                                     maxit = 100000, verbose = FALSE)))
 }
 
+## CRAN's incoming pretest caps the whole check at 10 minutes, and the refit
+## bootstrap blocks below cost ~1 minute locally (x17 on the pretest Windows
+## machine).  Each therefore has a CRAN-sized copy -- smaller fixture, fewer
+## replicates -- that still detects the defect it guards (B1 was structural:
+## EVERY p-value was 0, so any refit run at any size shows it), while the
+## full-size originals carry skip_on_cran() and keep running locally.
+
+test_that("refit bootstrap p-values are not all zero (CRAN-sized)", {
+  d <- make_var_fit(P = 5, N = 30)
+  inf <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
+                                          wild.unit = "column", wild.B = 12,
+                                          refit.epsilon = 1e-5))
+  p <- inf$coefficients$p_value
+  expect_true(all(is.finite(p)))
+  expect_true(all(p >= 0 & p <= 1))
+  expect_gt(length(unique(p)), 1L)
+  expect_false(all(p == 0))
+})
+
 test_that("refit bootstrap p-values are not all zero and separate signal from noise", {
+  skip_on_cran()
   d <- make_var_fit()
   inf <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
                                           wild.unit = "column", wild.B = 100))
@@ -66,9 +86,11 @@ test_that("the bootstrap p-value inverts the CENTRED replicate distribution", {
 })
 
 test_that("nmfkc() does not leave the caller's RNG stream at a fixed state", {
-  d <- make_var_fit()
+  ## Only a Y is needed here -- make_var_fit()'s tightly converged fit (its
+  ## point is boundary coefficients) would be paid for nothing.
+  set.seed(7); Yr <- matrix(abs(rnorm(5 * 30)) + 0.1, 5, 30)
   draw_after_fit <- function() {
-    invisible(suppressWarnings(nmfkc(d$Y, rank = 2, epsilon = 1e-4,
+    invisible(suppressWarnings(nmfkc(Yr, rank = 2, epsilon = 1e-4,
                                      maxit = 50, verbose = FALSE)))
     runif(1)
   }
@@ -80,7 +102,19 @@ test_that("nmfkc() does not leave the caller's RNG stream at a fixed state", {
   expect_equal(got, want)
 })
 
+test_that("refit.epsilon reaches the re-fits: BSE moves, sandwich SE does not (CRAN-sized)", {
+  d <- make_var_fit(P = 5, N = 30)
+  tight <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
+                                            wild.unit = "column", wild.B = 6))
+  loose <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
+                                            wild.unit = "column", wild.B = 6,
+                                            refit.epsilon = 1e-4))
+  expect_false(isTRUE(all.equal(tight$coefficients$BSE, loose$coefficients$BSE)))
+  expect_equal(tight$coefficients$SE, loose$coefficients$SE, tolerance = 1e-12)
+})
+
 test_that("the refit bootstrap converges tightly enough for boundary coefficients", {
+  skip_on_cran()
   ## Under multiplicative updates a coefficient heading for the non-negativity
   ## boundary approaches 0 slowly.  At nmfkc()'s own default tolerance (1e-4)
   ## every replicate stops while it is still spuriously positive, the

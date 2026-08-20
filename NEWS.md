@@ -1,3 +1,24 @@
+# nmfkc 0.9.5 (2026-08-20)
+
+## Check time only -- no change to any computed value
+
+CRAN's incoming pretest rejected 0.9.4 for its overall check time (48 minutes
+on the pretest Windows machine against a 10-minute budget; 34 of those were
+the tests and 11 the vignettes).
+
+- The expensive regression tests -- the refit-bootstrap blocks and the latent
+  VAR bootstrap blocks -- now carry `skip_on_cran()` and keep running
+  locally at full size.  Each has a CRAN-sized copy (smaller fixture, fewer
+  replicates), so the defects they guard, in particular the always-zero
+  refit p-values fixed in 0.9.4, remain covered on CRAN itself.
+- The timeseries vignette sweeps six candidate lag orders instead of
+  fourteen (the winner, D = 12, is unchanged) and uses `wild.B = 50` in its
+  inference example.
+- Five vignettes leave the package tarball and remain on the website
+  (<https://ksatohds.github.io/nmfkc/articles/>): classification,
+  network-community, rank-selection, timeseries and topic-modeling.  The
+  tarball keeps introduction, nmf-rrr, nmf-re and nmf-sem.
+
 # nmfkc 0.9.4
 
 ### **Breaking: the `nmf.rrr` family drops the `rank` / `rank.encoder` aliases**

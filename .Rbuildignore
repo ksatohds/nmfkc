@@ -25,3 +25,8 @@
 ^Rplots\.pdf$
 ^vignettes/.*\.html$
 ^vignettes/.*_files$
+^vignettes/classification-with-nmfkc\.Rmd$
+^vignettes/network-community-with-nmfkc\.Rmd$
+^vignettes/rank-selection-with-nmfkc\.Rmd$
+^vignettes/timeseries-with-nmfkc\.Rmd$
+^vignettes/topic-modeling-with-nmfkc\.Rmd$
