@@ -18,7 +18,8 @@ surname (see Notes below).
 
 * Windows 11 (local), R 4.4.1, `--as-cran`
 * Ubuntu Linux (local server), R 4.5.3
-* win-builder, R-release 4.6.1 and R-devel (2026-08-14 r90407)
+* win-builder, R-release 4.6.1 (on 0.9.4) and R-devel (2026-08-17 r90424, on
+  this tarball: 7 minutes total, no checktime note)
 * R-hub v2 (Linux, macOS, macOS-arm64, Windows, nosuggests)
 
 ## Notes
