@@ -1,6 +1,7 @@
 ## Tests for nmf.cluster.flow() cluster-flow diagram across a sequence of fits
 
 test_that("nmf.cluster.flow returns an N x R cluster table", {
+  skip_unless_full()
   Y <- t(as.matrix(iris[, 1:4]))
   fits <- lapply(2:5, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
   fl <- nmf.cluster.flow(fits, reference = 2, plot = FALSE)
@@ -20,6 +21,7 @@ test_that("nmf.cluster.flow returns an N x R cluster table", {
 })
 
 test_that("nmf.cluster.flow keeps the given order (no rank sorting)", {
+  skip_unless_full()
   Y <- t(as.matrix(iris[, 1:4]))
   fits <- lapply(c(4, 2, 3), function(q) nmfkc(Y, Q = q, print.dims = FALSE))
   fl <- nmf.cluster.flow(fits, plot = FALSE)
@@ -28,6 +30,7 @@ test_that("nmf.cluster.flow keeps the given order (no rank sorting)", {
 })
 
 test_that("nmf.cluster.flow honours a custom `names` for the labels", {
+  skip_unless_full()
   Y <- t(as.matrix(iris[, 1:4]))
   fits <- lapply(c(3, 3, 3), function(q) nmfkc(Y, Q = q, print.dims = FALSE))
   fl <- nmf.cluster.flow(fits, names = c("modelA", "modelB", "modelC"),
@@ -39,6 +42,7 @@ test_that("nmf.cluster.flow honours a custom `names` for the labels", {
 })
 
 test_that("nmf.cluster.flow rejects a single fit and an out-of-range reference", {
+  skip_unless_full()
   Y <- t(as.matrix(iris[, 1:4]))
   one <- list(nmfkc(Y, Q = 2, print.dims = FALSE))
   expect_error(nmf.cluster.flow(one, plot = FALSE), "at least two")

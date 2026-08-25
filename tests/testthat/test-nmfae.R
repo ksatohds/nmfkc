@@ -1,4 +1,5 @@
 test_that("nmf.rrr() fits with EU and KL objectives", {
+  skip_unless_full()
   set.seed(7)
   P1 <- 6; P2 <- 6; N <- 40; Q <- 2; R <- 2
   X1 <- matrix(abs(rnorm(P1 * Q)), P1, Q)
@@ -51,6 +52,7 @@ test_that("nmf.rrr() fits with EU and KL objectives", {
 })
 
 test_that("nmf.rrr() forwards nstart to the nmfkc() initialisation", {
+  skip_unless_full()
   set.seed(3)
   P1 <- 6; P2 <- 6; N <- 40; Q <- 2; R <- 2
   Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)
@@ -71,6 +73,7 @@ test_that("nmf.rrr() forwards nstart to the nmfkc() initialisation", {
 })
 
 test_that("nmf.rrr uses Resp/Cov labels; inference and signed helpers work", {
+  skip_unless_full()
   set.seed(7); P1 <- 6; P2 <- 6; N <- 40; Q <- 2; R <- 3
   Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)
   Y1 <- matrix(abs(rnorm(P1 * Q)), P1, Q) %*% matrix(abs(rnorm(Q * R)), Q, R) %*%
@@ -97,6 +100,7 @@ test_that("nmf.rrr uses Resp/Cov labels; inference and signed helpers work", {
 })
 
 test_that("deprecated nmfae() alias still works and warns", {
+  skip_unless_full()
   set.seed(7); P1 <- 6; P2 <- 6; N <- 30; Q <- 2; R <- 2
   Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)
   Y1 <- matrix(abs(rnorm(P1 * Q)), P1, Q) %*% matrix(abs(rnorm(Q * R)), Q, R) %*%
@@ -117,6 +121,7 @@ test_that("deprecated nmfae() alias still works and warns", {
 })
 
 test_that("the KL convergence test survives a negative objective", {
+  skip_unless_full()
   ## KL objective sum(-Y log Yhat + Yhat) goes negative once Y exceeds e over
   ## most cells.  Without abs() on the denominator the relative change came out
   ## NEGATIVE, which is < any epsilon, so the fit "converged" after two
@@ -134,6 +139,7 @@ test_that("the KL convergence test survives a negative objective", {
 })
 
 test_that("nmf.rrr(maxit = 1) does not error", {
+  skip_unless_full()
   ## rel_change is only bound from the second iteration, and `&&` does not
   ## short-circuit past an unbound name.
   set.seed(3)
@@ -145,6 +151,7 @@ test_that("nmf.rrr(maxit = 1) does not error", {
 })
 
 test_that("nmf.rrr.signed returns B1/B2 but no memberships for them", {
+  skip_unless_full()
   set.seed(11)
   P1 <- 5; P2 <- 4; N <- 12; Q <- 2; R <- 3
   Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)
@@ -166,6 +173,7 @@ test_that("nmf.rrr.signed returns B1/B2 but no memberships for them", {
 })
 
 test_that("sample names survive when only Y1 is labelled", {
+  skip_unless_full()
   set.seed(12)
   P1 <- 5; P2 <- 4; N <- 9; Q <- 2; R <- 3
   Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)   # deliberately unlabelled

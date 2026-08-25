@@ -22,6 +22,7 @@ make_signed_weighted <- function(scale_mag, seed = 42,
 }
 
 test_that("weighted nmfkc.signed stays finite on high-magnitude data (no NaN)", {
+  skip_unless_full()
   d <- make_signed_weighted(scale_mag = 1000)
   fit <- suppressWarnings(suppressMessages(
     nmfkc.signed(d$Y, d$A, rank = d$rank, Y.weights = d$W,
@@ -42,6 +43,7 @@ test_that("weighted nmfkc.signed stays finite on high-magnitude data (no NaN)", 
 })
 
 test_that("weighted nmfkc.signed objective is monotone non-increasing", {
+  skip_unless_full()
   ## The backtracking guard accepts a damped step only when it does not raise
   ## the objective, so the recorded trace must never increase.
   for (mag in c(1, 100, 1e4, 1e6)) {
@@ -61,6 +63,7 @@ test_that("weighted nmfkc.signed objective is monotone non-increasing", {
 })
 
 test_that("weighted nmfkc.signed fit quality is magnitude-independent", {
+  skip_unless_full()
   ## After internal init-alignment the same problem scaled up by 10^k should
   ## reach essentially the same fit; the pre-fix code diverged for large k.
   r2 <- vapply(c(1, 1e3, 1e6, 1e9), function(mag) {
@@ -76,6 +79,7 @@ test_that("weighted nmfkc.signed fit quality is magnitude-independent", {
 })
 
 test_that("weighted element-wise CV runs to completion on high-magnitude data", {
+  skip_unless_full()
   ## nmfkc.signed.ecv() drives the weighted path via a 0/1 hold-out mask; it
   ## must produce finite CV errors rather than NaN.
   d <- make_signed_weighted(scale_mag = 1000, N = 40)

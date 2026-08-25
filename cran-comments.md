@@ -1,4 +1,20 @@
-## Resubmission
+## Resubmission (second)
+
+0.9.5 was archived by the pretest for "Overall checktime 11 min > 10 min",
+almost all of it `checking tests ... [442s]`.  Thank you for the suggestion to
+run the less important tests conditionally on an environment variable; 0.9.6
+does exactly that, and nothing else changed.
+
+Only `tests/testthat/test-cran-smoke.R` now runs by default: it exercises
+every exported fitter and its S3 methods on 6 x 20 toy matrices, 35
+assertions in under a second, with no bootstrap, no cross-validation and no
+restarts.  The other 145 blocks begin with `skip_unless_full()` and run when
+`NMFKC_FULL_TESTS` is set, which is what we run before every release (3173
+assertions, 144 seconds locally).  Nothing was deleted.
+
+Measured here: 1.7 s in CRAN mode, 144 s in full mode, no failures in either.
+
+## Resubmission (first)
 
 This resubmits the 0.9.4 update, which the incoming pretest rejected for its
 overall check time (48 minutes on the pretest Windows machine).  0.9.5 is
@@ -18,8 +34,7 @@ surname (see Notes below).
 
 * Windows 11 (local), R 4.4.1, `--as-cran`
 * Ubuntu Linux (local server), R 4.5.3
-* win-builder, R-release 4.6.1 (on 0.9.4) and R-devel (2026-08-17 r90424, on
-  this tarball: 7 minutes total, no checktime note)
+* win-builder, R-devel (2026-08-17 r90424)
 * R-hub v2 (Linux, macOS, macOS-arm64, Windows, nosuggests)
 
 ## Notes
@@ -33,7 +48,7 @@ surname (see Notes below).
 ## This is an update
 
 This is a maintenance update from v0.8.8 (currently on CRAN, published
-2026-07-14) to v0.9.5.  All changes are listed in NEWS.md.  The update is
+2026-07-14) to v0.9.6.  All changes are listed in NEWS.md.  The update is
 mostly corrections; the items a user could notice are:
 
 * Correctness fixes in the inference and RNG paths: the refit bootstrap
@@ -67,7 +82,8 @@ experimental and was introduced only in the current release cycle.
 
 ## Additional checks
 
-* All tests pass (testthat).
+* All tests pass (testthat): 35 in the default smoke suite, 3173 with
+  NMFKC_FULL_TESTS set.
 * All examples run without errors, including `--run-donttest`.
 * All vignettes build without errors.
 * No reverse dependencies on CRAN.

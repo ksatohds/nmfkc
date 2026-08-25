@@ -1,6 +1,7 @@
 ## Tests for nmfkc.bicv() (bi-cross-validation; lightweight, like nmfkc.ecv)
 
 test_that("nmfkc.bicv returns sigma per rank and recovers a rank-3 signal", {
+  skip_unless_full()
   set.seed(1)
   X <- matrix(abs(rnorm(30 * 3)), 30, 3)
   B <- matrix(abs(rnorm(3 * 40)), 3, 40)
@@ -18,6 +19,7 @@ test_that("nmfkc.bicv returns sigma per rank and recovers a rank-3 signal", {
 })
 
 test_that("nmfkc.bicv warns and returns NA for ranks too large for the block", {
+  skip_unless_full()
   set.seed(2)
   Y <- matrix(abs(rnorm(8 * 50)), 8, 50)   # only 8 rows -> nfolds=2 keeps ~4
   ## rank 6 leaves <=4 kept rows per fold -> infeasible -> warning + NA

@@ -1,6 +1,7 @@
 ## Tests for nmfkc.kernel.beta.nearest.med() candidates option
 
 test_that("candidates argument controls the beta grid", {
+  skip_unless_full()
   set.seed(1)
   U <- matrix(stats::rnorm(5 * 50), 5, 50)
 

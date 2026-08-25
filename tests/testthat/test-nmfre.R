@@ -1,6 +1,6 @@
 test_that("nmfre() X.init paths run (CRAN-sized)", {
+  skip_unless_full()
   # The full block below fits nmfre() eight times (~6s locally, x17 on CRAN's
-  # pretest machine) and carries skip_on_cran(); this copy keeps the crash
   # regression covered there: character X.init used to error in
   # .nmfre.normalize.X ("'x' must be an array of at least two dimensions").
   set.seed(5); P <- 5; N <- 30; Q <- 2
@@ -16,7 +16,7 @@ test_that("nmfre() X.init paths run (CRAN-sized)", {
 })
 
 test_that("nmfre() accepts X.init as NULL, a method name, or a matrix", {
-  skip_on_cran()
+  skip_unless_full()
   set.seed(5); P <- 5; N <- 50; Q <- 2
   A  <- rbind(intercept = 1, male = rbinom(N, 1, 0.5))
   Xt <- matrix(abs(rnorm(P * Q)), P, Q)

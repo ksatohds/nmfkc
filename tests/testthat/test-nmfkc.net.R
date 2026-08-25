@@ -14,6 +14,7 @@ make_test_network <- function() {
 
 
 test_that("nmfkc.net (tri) fits a small symmetric network", {
+  skip_unless_full()
   Y <- make_test_network()
   res <- nmfkc.net(Y, rank = 2, type = "tri", nstart = 5, maxit = 200)
 
@@ -37,6 +38,7 @@ test_that("nmfkc.net (tri) fits a small symmetric network", {
 
 
 test_that("nmfkc.net (bi) fits with C = I_Q fixed", {
+  skip_unless_full()
   Y <- make_test_network()
   res <- nmfkc.net(Y, rank = 2, type = "bi", nstart = 5, maxit = 200)
   expect_s3_class(res, "nmfkc.net.bi")
@@ -46,6 +48,7 @@ test_that("nmfkc.net (bi) fits with C = I_Q fixed", {
 
 
 test_that("nmfkc.net(type='signed') produces signed C", {
+  skip_unless_full()
   Y <- make_test_network()
   res <- nmfkc.net(Y, rank = 2, type = "signed", nstart = 5, maxit = 200)
 
@@ -64,6 +67,7 @@ test_that("nmfkc.net(type='signed') produces signed C", {
 
 
 test_that("nmfkc.net return structure is uniform (Cp/Cn NULL for tri/bi)", {
+  skip_unless_full()
   Y <- make_test_network()
   res_tri    <- nmfkc.net(Y, rank = 2, type = "tri",    nstart = 3, maxit = 100)
   res_bi     <- nmfkc.net(Y, rank = 2, type = "bi",     nstart = 3, maxit = 100)
@@ -86,6 +90,7 @@ test_that("nmfkc.net return structure is uniform (Cp/Cn NULL for tri/bi)", {
 
 
 test_that("nmfkc.net.DOT works for tri, bi, and signed", {
+  skip_unless_full()
   Y <- make_test_network()
   res_tri    <- nmfkc.net(Y, rank = 2, type = "tri", nstart = 3, maxit = 100)
   res_bi     <- nmfkc.net(Y, rank = 2, type = "bi",  nstart = 3, maxit = 100)
@@ -105,6 +110,7 @@ test_that("nmfkc.net.DOT works for tri, bi, and signed", {
 
 
 test_that("nmfkc.net.ecv supports tri/bi/signed via type argument", {
+  skip_unless_full()
   Y <- make_test_network()
 
   ## maxit large enough to avoid the "maximum iterations reached"
@@ -128,6 +134,7 @@ test_that("nmfkc.net.ecv supports tri/bi/signed via type argument", {
 
 
 test_that("nmfkc(Y.symmetric = ...) stops and redirects to nmfkc.net()", {
+  skip_unless_full()
   Y <- make_test_network()
   ## Symmetric NMF was removed from nmfkc(); passing Y.symmetric now
   ## errors with a message pointing to nmfkc.net().
@@ -144,6 +151,7 @@ test_that("nmfkc(Y.symmetric = ...) stops and redirects to nmfkc.net()", {
 })
 
 test_that("nmfkc.ecv(Y.symmetric = ...) stops and redirects to nmfkc.net.ecv()", {
+  skip_unless_full()
   Y <- make_test_network()
   expect_error(
     nmfkc.ecv(Y, rank = c(1, 2), Y.symmetric = "tri", nfolds = 3),
@@ -152,6 +160,7 @@ test_that("nmfkc.ecv(Y.symmetric = ...) stops and redirects to nmfkc.net.ecv()",
 })
 
 test_that("type='signed' does not collapse X to zero", {
+  skip_unless_full()
   ## The default init drew every entry of C0 from U(-1, 1) and symmetrised it,
   ## so with probability (1/2)^3 at Q = 2 the whole matrix came out negative:
   ## Cp was identically 0, C = Cp - Cn wholly negative against a non-negative
@@ -174,6 +183,7 @@ test_that("type='signed' does not collapse X to zero", {
 })
 
 test_that("X.restriction='fixed' actually holds X fixed in every type", {
+  skip_unless_full()
   set.seed(1)
   Y <- matrix(abs(rnorm(8 * 40)) + 1, 8, 40); S <- Y %*% t(Y)
   for (ty in c("tri", "bi", "signed")) {
@@ -185,6 +195,7 @@ test_that("X.restriction='fixed' actually holds X fixed in every type", {
 })
 
 test_that("X.L2.ortho reaches the signed path", {
+  skip_unless_full()
   set.seed(1)
   Y <- matrix(abs(rnorm(8 * 40)) + 1, 8, 40); S <- Y %*% t(Y)
   a <- suppressWarnings(nmfkc.net(S, rank = 2, verbose = FALSE,
@@ -196,6 +207,7 @@ test_that("X.L2.ortho reaches the signed path", {
 })
 
 test_that("nmfkc.net.DOT hides nodes on the membership scale, not the raw X scale", {
+  skip_unless_full()
   Y <- make_test_network()
   Q <- 2
   count_nodes <- function(dot)
@@ -229,6 +241,7 @@ test_that("nmfkc.net.DOT hides nodes on the membership scale, not the raw X scal
 })
 
 test_that("summary of nmfkc.net.inference reports the model type, not 'unknown'", {
+  skip_unless_full()
   Y <- make_test_network()
   ## $Y.symmetric is the pre-0.9.x name and was removed from nmfkc(); the
   ## variant now lives in $type.  The summary has to carry it across, or the

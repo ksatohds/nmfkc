@@ -19,6 +19,7 @@ make_canada_fit <- function() {
 # ---- nmfkc.ar.latent -------------------------------------------------------
 
 test_that("latent transition matrix reproduces the published Canada fit", {
+  skip_unless_full()
   lat <- nmfkc.ar.latent(make_canada_fit())
   expect_s3_class(lat, "nmfkc.ar.latent")
   expect_equal(unname(lat$G$lag1),
@@ -31,6 +32,7 @@ test_that("latent transition matrix reproduces the published Canada fit", {
 })
 
 test_that("the eigenvalues are all of the model's roots", {
+  skip_unless_full()
   lat <- nmfkc.ar.latent(make_canada_fit())
   expect_length(lat$eigenvalues, 2L)           # D * Q
   expect_equal(lat$spectral.radius, max(Mod(lat$eigenvalues)))
@@ -41,6 +43,7 @@ test_that("the eigenvalues are all of the model's roots", {
 })
 
 test_that("a seasonal fit reports the period of its dominant complex root", {
+  skip_unless_full()
   a <- nmfkc.ar(log(AirPassengers), degree = 12, intercept = TRUE)
   f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 1, seed = 1, verbose = FALSE))
   lat <- suppressWarnings(nmfkc.ar.latent(f))
@@ -52,6 +55,7 @@ test_that("a seasonal fit reports the period of its dominant complex root", {
 })
 
 test_that("stationary means solve the VAR fixed point and df is the effective dimension", {
+  skip_unless_full()
   set.seed(11)
   P <- 5; Q <- 2; D <- 2
   X <- matrix(runif(P * Q), P, Q); X <- sweep(X, 2, colSums(X), "/")
@@ -72,6 +76,7 @@ test_that("stationary means solve the VAR fixed point and df is the effective di
 })
 
 test_that("the lag/intercept split comes from nmfkc.ar metadata, not dimensions", {
+  skip_unless_full()
   ## P = 1 is the ambiguous case: P*D and P*D+1 are both multiples of P, so a
   ## dimension-only rule always reports an intercept.  nmfkc.ar() records the
   ## truth in attributes of A, which nmfkc() keeps in x$A.attr.
@@ -87,6 +92,7 @@ test_that("the lag/intercept split comes from nmfkc.ar metadata, not dimensions"
 })
 
 test_that("df is the effective dimension with and without an intercept", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
   for (ic in c(TRUE, FALSE)) {
@@ -99,6 +105,7 @@ test_that("df is the effective dimension with and without an intercept", {
 })
 
 test_that("nmfkc() records the constraint that decides identification", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -111,6 +118,7 @@ test_that("nmfkc() records the constraint that decides identification", {
 })
 
 test_that("a fit from a non-AR design is rejected", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
   U <- matrix(rnorm(3 * 40), 3, 40)
@@ -121,6 +129,7 @@ test_that("a fit from a non-AR design is rejected", {
 })
 
 test_that("negative coefficients warn that the Perron-Frobenius bounds may fail", {
+  skip_unless_full()
   X  <- matrix(c(0.6, 0.4, 0.3, 0.7), 2, 2)
   Th <- matrix(c(0.3, -0.1, 0.05, 0.2), 2, 2)      # signed Theta
   fit <- structure(list(X = X, C = Th), class = "nmfkc")
@@ -128,6 +137,7 @@ test_that("negative coefficients warn that the Perron-Frobenius bounds may fail"
 })
 
 test_that("a non-stationary fit warns and returns NA means", {
+  skip_unless_full()
   X  <- matrix(c(1, 0, 0, 1), 2, 2)
   Th <- matrix(c(1.5, 0, 0, 1.5), 2, 2)          # rho = 1.5
   fit <- structure(list(X = X, C = cbind(Th, c(0.1, 0.1))), class = "nmfkc")
@@ -138,6 +148,7 @@ test_that("a non-stationary fit warns and returns NA means", {
 })
 
 test_that("nmfkc.ar.latent works end to end on a real fit and prints", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
   a <- nmfkc.ar(Y, degree = 2, intercept = TRUE)
@@ -157,6 +168,7 @@ test_that("nmfkc.ar.latent works end to end on a real fit and prints", {
 # ---- nmfkc.ar.stationarity -------------------------------------------------
 
 test_that("nmfkc.ar.stationarity answers the yes/no question only", {
+  skip_unless_full()
   st <- nmfkc.ar.stationarity(make_canada_fit())
   expect_s3_class(st, "nmfkc.ar.stationarity")
   expect_true(is.numeric(st$spectral.radius) && length(st$spectral.radius) == 1L)
@@ -169,6 +181,7 @@ test_that("nmfkc.ar.stationarity answers the yes/no question only", {
 })
 
 test_that("both methods give the same spectral radius", {
+  skip_unless_full()
   fit <- make_canada_fit()
   lat <- nmfkc.ar.stationarity(fit)                        # default
   cmp <- nmfkc.ar.stationarity(fit, method = "companion")
@@ -181,12 +194,14 @@ test_that("both methods give the same spectral radius", {
 })
 
 test_that("stationarity accepts a fit or an already-computed latent object", {
+  skip_unless_full()
   fit <- make_canada_fit()
   expect_identical(nmfkc.ar.stationarity(nmfkc.ar.latent(fit)),
                    nmfkc.ar.stationarity(fit))
 })
 
 test_that("column sums bracket rho and can be inconclusive", {
+  skip_unless_full()
   st <- nmfkc.ar.stationarity(fit <- make_canada_fit())
   ## The c_j are the column sums of X Lambda, i.e. colSums(X) %*% Lambda.  The
   ## paper's printed X is rounded, so colSums(X) = (1.01, 1.00) rather than
@@ -205,6 +220,7 @@ test_that("column sums bracket rho and can be inconclusive", {
 })
 
 test_that("the two methods agree for multi-lag models", {
+  skip_unless_full()
   set.seed(7)
   P <- 6; Q <- 3; D <- 3
   for (i in 1:10) {
@@ -221,6 +237,7 @@ test_that("the two methods agree for multi-lag models", {
 # ---- plotting --------------------------------------------------------------
 
 test_that("plot.nmfkc.ar.latent draws every panel and restores par()", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 60)) + 1, 4, 60)
   a <- nmfkc.ar(Y, degree = 3, intercept = TRUE)
@@ -243,6 +260,7 @@ test_that("plot.nmfkc.ar.latent draws every panel and restores par()", {
 })
 
 test_that("plot.nmfkc.ar.stationarity draws the bracket", {
+  skip_unless_full()
   pdf(NULL); on.exit(dev.off(), add = TRUE)
   st <- nmfkc.ar.stationarity(make_canada_fit())
   expect_silent(plot(st))
@@ -250,6 +268,7 @@ test_that("plot.nmfkc.ar.stationarity draws the bracket", {
 })
 
 test_that("the phase portrait needs a stationary D = 1, Q = 2 fit with an intercept", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
   pdf(NULL); on.exit(dev.off(), add = TRUE)
@@ -270,6 +289,7 @@ test_that("the phase portrait needs a stationary D = 1, Q = 2 fit with an interc
 })
 
 test_that("the rank-1 panels work (AirPassengers-style Q = 1)", {
+  skip_unless_full()
   pdf(NULL); on.exit(dev.off(), add = TRUE)
   a <- nmfkc.ar(log(AirPassengers), degree = 12, intercept = TRUE)
   f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 1, seed = 1, verbose = FALSE))
@@ -295,8 +315,8 @@ quietly <- function(expr, keep) {
 }
 
 test_that("nmfkc.ar.latent.inference runs end to end (CRAN-sized)", {
+  skip_unless_full()
   # The full bootstrap blocks below cost ~35s locally (x17 on CRAN's pretest
-  # Windows machine), so they carry skip_on_cran(); this copy keeps the
   # inference path itself exercised there.
   set.seed(3)
   Y <- matrix(abs(rnorm(3 * 25)) + 1, 3, 25)
@@ -312,7 +332,7 @@ test_that("nmfkc.ar.latent.inference runs end to end (CRAN-sized)", {
 })
 
 test_that("nmfkc.ar.latent.inference bootstraps the latent VAR", {
-  skip_on_cran()
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -333,7 +353,7 @@ test_that("nmfkc.ar.latent.inference bootstraps the latent VAR", {
 })
 
 test_that("the coefficient table covers every entry of every G_d", {
-  skip_on_cran()
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 40)) + 1, 4, 40)
   a <- nmfkc.ar(Y, degree = 2, intercept = TRUE)
@@ -359,6 +379,7 @@ test_that("the coefficient table covers every entry of every G_d", {
 })
 
 test_that("a separable, column-normalised X does NOT certify uniqueness", {
+  skip_unless_full()
   ## The counterexample that demotes `identified`: X = I is perfectly separable
   ## with unit column sums, yet a non-permutation T keeps both factors
   ## non-negative and the product unchanged -- so G is not pinned down.
@@ -376,7 +397,7 @@ test_that("a separable, column-normalised X does NOT certify uniqueness", {
 })
 
 test_that("rank 1 has no rotation, and Q > 1 is only ever APPROXIMATE", {
-  skip_on_cran()
+  skip_unless_full()
   a <- nmfkc.ar(log(AirPassengers), degree = 2, intercept = TRUE)
   f <- suppressWarnings(nmfkc(a$Y, a$A, rank = 1, seed = 1, verbose = FALSE))
   inf <- suppressWarnings(nmfkc.ar.latent.inference(
@@ -410,6 +431,7 @@ test_that("rank 1 has no rotation, and Q > 1 is only ever APPROXIMATE", {
 })
 
 test_that("the KKT diagnostic reports both margins", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -426,7 +448,7 @@ test_that("the KKT diagnostic reports both margins", {
 })
 
 test_that("the bootstrap is reproducible, parallel-safe and leaves the RNG alone", {
-  skip_on_cran()
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -446,7 +468,7 @@ test_that("the bootstrap is reproducible, parallel-safe and leaves the RNG alone
 })
 
 test_that("an object without X/Theta can still be given the fit", {
-  skip_on_cran()
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -461,6 +483,7 @@ test_that("an object without X/Theta can still be given the fit", {
 })
 
 test_that("the wrong class is rejected by each entry point", {
+  skip_unless_full()
   fit <- make_canada_fit()
   expect_error(nmfkc.ar.latent.inference(nmfkc.ar.stationarity(fit),
                                          matrix(1, 4, 4), matrix(1, 4, 4)),
@@ -468,6 +491,7 @@ test_that("the wrong class is rejected by each entry point", {
 })
 
 test_that("the colsum bracket is weighted by colSums(X)", {
+  skip_unless_full()
   ## Counterexample: the raw column sums of Lambda would certify stationarity
   ## for a fit whose spectral radius is 1.6.
   X  <- matrix(c(20, 20), 2, 1)
@@ -486,6 +510,7 @@ test_that("the colsum bracket is weighted by colSums(X)", {
 })
 
 test_that("the weighted and unweighted rules agree under column normalisation", {
+  skip_unless_full()
   set.seed(5)
   for (i in 1:5) {
     P <- 5; Q <- 2; D <- 2
@@ -499,7 +524,7 @@ test_that("the weighted and unweighted rules agree under column normalisation", 
 })
 
 test_that("the bootstrapped radius is the companion radius, not rho(sum G_d)", {
-  skip_on_cran()
+  skip_unless_full()
   ## For D > 1 the two differ: with G_1 = 0.2, G_2 = 0.1 the companion radius is
   ## 0.4317 while rho(G_1 + G_2) = 0.3.  The inference must report the former,
   ## which is what nmfkc.ar.latent() reports.
@@ -529,6 +554,7 @@ test_that("the bootstrapped radius is the companion radius, not rho(sum G_d)", {
 })
 
 test_that("Q = 2, D = 1 with G >= 0 can never produce a complex pair", {
+  skip_unless_full()
   ## discriminant = (a - d)^2 + 4bc >= 0, so the phase portrait cannot spiral;
   ## the absence of a cycle there is a property of the design, not a finding.
   set.seed(11)
@@ -546,6 +572,7 @@ test_that("Q = 2, D = 1 with G >= 0 can never produce a complex pair", {
 })
 
 test_that("the latent recursion is VARMA: dropping the MA term is not exact", {
+  skip_unless_full()
   set.seed(1)
   P <- 3; Q <- 2; n <- 40
   X <- matrix(runif(P * Q), P, Q); X <- sweep(X, 2, colSums(X), "/")
@@ -563,6 +590,7 @@ test_that("the latent recursion is VARMA: dropping the MA term is not exact", {
 })
 
 test_that("identification needs BOTH anchor rows in X and pure columns in Theta", {
+  skip_unless_full()
   ## X separable but Theta with no pure column -> the counterexample family
   X  <- diag(2); Th <- matrix(c(2, 1, 3, 1), 2, 2)
   id <- nmfkc:::.nmfvar.identified(X, Th)
@@ -587,7 +615,7 @@ test_that("identification needs BOTH anchor rows in X and pure columns in Theta"
 })
 
 test_that("the monomial step is what makes T a permutation", {
-  skip_on_cran()
+  skip_unless_full()
   ## T >= 0 and T^-1 >= 0 together force T to be a scaled permutation, and the
   ## column-sum constraint removes the scale.  Positive test:
   for (p in list(c(1, 2), c(2, 1))) {
@@ -608,6 +636,7 @@ test_that("the monomial step is what makes T a permutation", {
 })
 
 test_that("Canada is identified, and the diagnostic says which side would fail", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -625,6 +654,7 @@ test_that("Canada is identified, and the diagnostic says which side would fail",
 })
 
 test_that("the bootstrap re-fits inherit the original estimator's settings", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -643,6 +673,7 @@ test_that("the bootstrap re-fits inherit the original estimator's settings", {
 })
 
 test_that("only per-column normalisation fixes the scale, and 'fixed' is special", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -664,6 +695,7 @@ test_that("only per-column normalisation fixes the scale, and 'fixed' is special
 })
 
 test_that("the identification diagnostic reports how far it is from exact", {
+  skip_unless_full()
   X <- diag(2); Th <- matrix(c(0.5, 0, 0, 0.5), 2, 2)
   id <- nmfkc:::.nmfvar.identified(X, Th)
   expect_true(id$ok)
@@ -679,6 +711,7 @@ test_that("the identification diagnostic reports how far it is from exact", {
 })
 
 test_that("a fixed basis is carried into the re-fits, not re-initialised", {
+  skip_unless_full()
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
@@ -701,7 +734,7 @@ test_that("a fixed basis is carried into the re-fits, not re-initialised", {
 })
 
 test_that("a legitimate rho = 0 replicate is not counted as a failure", {
-  skip_on_cran()
+  skip_unless_full()
   ## rho = 0 is a valid, stationary value: it happens when Theta collapses.
   Xz  <- matrix(c(0.5, 0.5, 0.5, 0.5), 2, 2)
   latz <- suppressWarnings(nmfkc.ar.latent(
