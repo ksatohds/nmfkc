@@ -19,6 +19,7 @@ make_test_data <- function() {
 # ============================================================
 
 test_that(".nmfkc_parse_formula: MODE 1 (data provided) basic", {
+  skip_unless_full()
   df <- make_test_data()
   res <- nmfkc:::.nmfkc_parse_formula(Y1 + Y2 + Y3 ~ A1 + A2, data = df)
 
@@ -36,6 +37,7 @@ test_that(".nmfkc_parse_formula: MODE 1 (data provided) basic", {
 })
 
 test_that(".nmfkc_parse_formula: MODE 1 dot notation on RHS", {
+  skip_unless_full()
   df <- make_test_data()
   res <- nmfkc:::.nmfkc_parse_formula(Y1 + Y2 + Y3 ~ ., data = df)
 
@@ -44,6 +46,7 @@ test_that(".nmfkc_parse_formula: MODE 1 dot notation on RHS", {
 })
 
 test_that(".nmfkc_parse_formula: MODE 1 dot notation on LHS", {
+  skip_unless_full()
   df <- make_test_data()
   res <- nmfkc:::.nmfkc_parse_formula(. ~ A1 + A2, data = df)
 
@@ -51,6 +54,7 @@ test_that(".nmfkc_parse_formula: MODE 1 dot notation on LHS", {
 })
 
 test_that(".nmfkc_parse_formula: MODE 1 A omitted (standard NMF)", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressMessages(nmfkc:::.nmfkc_parse_formula(Y1 + Y2 + Y3 ~ 0, data = df))
 
@@ -59,6 +63,7 @@ test_that(".nmfkc_parse_formula: MODE 1 A omitted (standard NMF)", {
 })
 
 test_that(".nmfkc_parse_formula: MODE 2 (direct matrix eval)", {
+  skip_unless_full()
   # Both matrices: rows=samples, cols=variables. After t(): variables x samples.
   Y_mat <- matrix(1:6, nrow = 3, ncol = 2)   # 3 samples, 2 variables
   A_mat <- matrix(1:6, nrow = 3, ncol = 2)   # 3 samples, 2 covariates
@@ -76,6 +81,7 @@ test_that(".nmfkc_parse_formula: MODE 2 (direct matrix eval)", {
 # ============================================================
 
 test_that("nmfkc: formula mode matches matrix mode", {
+  skip_unless_full()
   df <- make_test_data()
   Y_mat <- t(as.matrix(df[, c("Y1", "Y2", "Y3")]))
   A_mat <- t(as.matrix(df[, c("A1", "A2")]))
@@ -95,6 +101,7 @@ test_that("nmfkc: formula mode matches matrix mode", {
 })
 
 test_that("nmfkc: formula mode stores formula.meta", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressMessages(nmfkc::nmfkc(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
                                        rank = 2, epsilon = 1e-4, maxit = 100,
@@ -106,6 +113,7 @@ test_that("nmfkc: formula mode stores formula.meta", {
 })
 
 test_that("nmfkc: formula mode without A (standard NMF)", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressMessages(nmfkc::nmfkc(Y1 + Y2 + Y3 ~ 0, data = df,
                                        rank = 2, epsilon = 1e-4, maxit = 100,
@@ -115,6 +123,7 @@ test_that("nmfkc: formula mode without A (standard NMF)", {
 })
 
 test_that("nmfkc: formula mode rejects negative values", {
+  skip_unless_full()
   df <- make_test_data()
   df$Y1[1] <- -1
   expect_error(
@@ -125,6 +134,7 @@ test_that("nmfkc: formula mode rejects negative values", {
 })
 
 test_that("nmfkc: matrix mode formula.meta is NULL", {
+  skip_unless_full()
   Y <- matrix(rpois(30, 5), nrow = 3)
   res <- suppressMessages(nmfkc::nmfkc(Y, rank = 2, epsilon = 1e-4,
                                        maxit = 100, print.dims = FALSE))
@@ -136,6 +146,7 @@ test_that("nmfkc: matrix mode formula.meta is NULL", {
 # ============================================================
 
 test_that("predict: newdata works for formula mode models", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressMessages(nmfkc::nmfkc(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
                                        rank = 2, epsilon = 1e-4, maxit = 100,
@@ -149,6 +160,7 @@ test_that("predict: newdata works for formula mode models", {
 })
 
 test_that("predict: newdata errors for matrix-mode models", {
+  skip_unless_full()
   Y <- matrix(rpois(30, 5), nrow = 3)
   res <- suppressMessages(nmfkc::nmfkc(Y, rank = 2, epsilon = 1e-4,
                                        maxit = 100, print.dims = FALSE))
@@ -159,6 +171,7 @@ test_that("predict: newdata errors for matrix-mode models", {
 })
 
 test_that("predict: newdata errors when columns are missing", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressMessages(nmfkc::nmfkc(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
                                        rank = 2, epsilon = 1e-4, maxit = 100,
@@ -170,6 +183,7 @@ test_that("predict: newdata errors when columns are missing", {
 })
 
 test_that("predict: newdata + newA gives warning and uses newdata", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressMessages(nmfkc::nmfkc(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
                                        rank = 2, epsilon = 1e-4, maxit = 100,
@@ -185,6 +199,7 @@ test_that("predict: newdata + newA gives warning and uses newdata", {
 })
 
 test_that("predict: type='class' works with newdata", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressMessages(nmfkc::nmfkc(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
                                        rank = 2, epsilon = 1e-4, maxit = 100,
@@ -197,6 +212,7 @@ test_that("predict: type='class' works with newdata", {
 })
 
 test_that("predict: backward compatible (newA still works)", {
+  skip_unless_full()
   df <- make_test_data()
   Y_mat <- t(as.matrix(df[, c("Y1", "Y2", "Y3")]))
   A_mat <- t(as.matrix(df[, c("A1", "A2")]))
@@ -216,6 +232,7 @@ test_that("predict: backward compatible (newA still works)", {
 # ============================================================
 
 test_that("nmfkc.cv: formula mode works", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressWarnings(suppressMessages(
     nmfkc::nmfkc.cv(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
@@ -228,6 +245,7 @@ test_that("nmfkc.cv: formula mode works", {
 })
 
 test_that("nmfkc.ecv: formula mode works", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressWarnings(suppressMessages(
     nmfkc::nmfkc.ecv(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
@@ -239,6 +257,7 @@ test_that("nmfkc.ecv: formula mode works", {
 })
 
 test_that("nmfkc.rank: formula mode works", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressWarnings(suppressMessages(
     nmfkc::nmfkc.rank(Y1 + Y2 + Y3 ~ A1 + A2, data = df,
@@ -255,6 +274,7 @@ test_that("nmfkc.rank: formula mode works", {
 # ============================================================
 
 test_that("nmfkc: single Y variable formula", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressMessages(nmfkc::nmfkc(Y1 ~ A1 + A2, data = df,
                                        rank = 1, epsilon = 1e-4, maxit = 100,
@@ -263,6 +283,7 @@ test_that("nmfkc: single Y variable formula", {
 })
 
 test_that("predict: newdata with formula mode (no A = standard NMF) errors", {
+  skip_unless_full()
   df <- make_test_data()
   res <- suppressMessages(nmfkc::nmfkc(Y1 + Y2 + Y3 ~ 0, data = df,
                                        rank = 2, epsilon = 1e-4, maxit = 100,

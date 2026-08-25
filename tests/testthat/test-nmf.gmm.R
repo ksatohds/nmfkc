@@ -12,6 +12,7 @@ make_gmm_data <- function(seed = 1, P = 10, N = 80, Q = 2) {
 }
 
 test_that("nmf.gmm fits, uses house-style returns, and recovers clusters", {
+  skip_unless_full()
   d <- make_gmm_data()
   fit <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 2, X.init = d$X, seed = 1)
   expect_s3_class(fit, "nmf.gmm")
@@ -46,6 +47,7 @@ test_that("nmf.gmm fits, uses house-style returns, and recovers clusters", {
 })
 
 test_that("K=1 nmf.gmm degenerates to a single-class (NMF-RE-type) fit", {
+  skip_unless_full()
   d <- make_gmm_data()
   g1 <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 1, X.init = d$X, seed = 1)
   expect_equal(g1$K, 1L)
@@ -57,6 +59,7 @@ test_that("K=1 nmf.gmm degenerates to a single-class (NMF-RE-type) fit", {
 })
 
 test_that("nmf.gmm.inference builds the C coefficients table (tied)", {
+  skip_unless_full()
   d <- make_gmm_data()
   fit <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 2, X.init = d$X, seed = 1)
   inf <- nmf.gmm.inference(fit, d$Y, d$A, wild.B = 200, seed = 1)
@@ -72,6 +75,7 @@ test_that("nmf.gmm.inference builds the C coefficients table (tied)", {
 })
 
 test_that("nmf.gmm.select sweeps K with BIC/ICL/ARI", {
+  skip_unless_full()
   d <- make_gmm_data()
   sel <- nmf.gmm.select(d$Y, d$A, rank = d$Q, K = 1:3, X.init = d$X,
                         truth = d$z, verbose = FALSE)
@@ -84,6 +88,7 @@ test_that("nmf.gmm.select sweeps K with BIC/ICL/ARI", {
 })
 
 test_that("cov='free' (per-class variances) also runs", {
+  skip_unless_full()
   d <- make_gmm_data()
   ff <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 2, cov = "free", X.init = d$X, seed = 1)
   expect_equal(dim(ff$tau2), c(d$Q, 2L))               # per-class diagonal
@@ -91,6 +96,7 @@ test_that("cov='free' (per-class variances) also runs", {
 })
 
 test_that("cov='scalar' is the isotropic (single-variance) variant", {
+  skip_unless_full()
   d <- make_gmm_data()
   sc <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 2, cov = "scalar", X.init = d$X, seed = 1)
   ti <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 2, cov = "tied",   X.init = d$X, seed = 1)
@@ -107,6 +113,7 @@ test_that("cov='scalar' is the isotropic (single-variance) variant", {
 })
 
 test_that("the scatterplot draws the ADJUSTED scores, and says so", {
+  skip_unless_full()
   set.seed(1)
   Y <- matrix(abs(rnorm(6 * 60)) + 1, 6, 60)
   A <- rbind(1, rnorm(60))
@@ -129,6 +136,7 @@ test_that("the scatterplot draws the ADJUSTED scores, and says so", {
 })
 
 test_that("plotting never advances the caller's random stream", {
+  skip_unless_full()
   set.seed(1)
   Y <- matrix(abs(rnorm(6 * 40)) + 1, 6, 40)
   A <- rbind(1, rnorm(40))
@@ -144,6 +152,7 @@ test_that("plotting never advances the caller's random stream", {
 })
 
 test_that("the rank-1 strip plot is deterministic", {
+  skip_unless_full()
   set.seed(1)
   Y <- matrix(abs(rnorm(6 * 40)) + 1, 6, 40)
   A <- rbind(1, rnorm(40))
@@ -155,6 +164,7 @@ test_that("the rank-1 strip plot is deterministic", {
 })
 
 test_that("a rank-2 fit is drawn in its own coordinates, not rotated", {
+  skip_unless_full()
   set.seed(1)
   Y <- matrix(abs(rnorm(6 * 40)) + 1, 6, 40)
   A <- rbind(1, rnorm(40))

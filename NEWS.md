@@ -1,3 +1,33 @@
+# nmfkc 0.9.6 (2026-08-23)
+
+## Check time only -- no change to any computed value
+
+CRAN's incoming pretest still reported "Overall checktime 11 min > 10 min" for
+0.9.5, almost all of it `checking tests ... [442s]`.  Uwe Ligges suggested
+running the less important tests conditionally on an environment variable set
+only on the maintainer's machine, and that is what this release does.
+
+- **`tests/testthat/test-cran-smoke.R`** is new and is the only test file that
+  runs by default.  It exercises every exported fitter and its S3 methods on
+  toy data (6 x 20 matrices) in under a second: 35 assertions, no bootstrap,
+  no cross-validation, no restarts.
+- Every other block -- 145 of them -- now begins with `skip_unless_full()`,
+  defined in `tests/testthat/helper-nmfkc.R`.  The full suite runs when
+  `NMFKC_FULL_TESTS` is set:
+
+  ```r
+  Sys.setenv(NMFKC_FULL_TESTS = "true"); devtools::test()
+  ```
+
+  3173 assertions, 144 seconds locally, and it is what the maintainer and CI
+  run before every release.  Nothing was deleted: the regression tests for the
+  always-zero refit p-values, the RNG-stream pollution, the convergence
+  tolerances and the identification conditions are all still there.
+- The earlier `skip_on_cran()` guards are gone, subsumed by the new one.
+
+Measured: 1.7 s in CRAN mode against 144 s in full mode, both with zero
+failures.
+
 # nmfkc 0.9.5 (2026-08-20)
 
 ## Check time only -- no change to any computed value

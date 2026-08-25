@@ -1,6 +1,7 @@
 ## Tests for nmfkc.ard() (ARD-NMF rank determination prototype)
 
 test_that("nmfkc.ard prunes an over-complete fit toward the true rank", {
+  skip_unless_full()
   set.seed(1)
   X <- matrix(abs(rnorm(40 * 3)), 40, 3)
   B <- matrix(abs(rnorm(3 * 60)), 3, 60)
@@ -22,6 +23,7 @@ test_that("nmfkc.ard prunes an over-complete fit toward the true rank", {
 })
 
 test_that("nmfkc.ard print and plot run without error", {
+  skip_unless_full()
   set.seed(2)
   Y <- matrix(abs(rnorm(30 * 40)), 30, 40)
   ar <- nmfkc.ard(Y, rank = 8, seed = 2)
@@ -31,6 +33,7 @@ test_that("nmfkc.ard print and plot run without error", {
 })
 
 test_that("nrun aggregates the rank by mode over restarts (CRAN-sized)", {
+  skip_unless_full()
   set.seed(4)
   X <- matrix(abs(rnorm(30 * 3)), 30, 3)
   B <- matrix(abs(rnorm(3 * 40)), 3, 40)
@@ -42,7 +45,7 @@ test_that("nrun aggregates the rank by mode over restarts (CRAN-sized)", {
 })
 
 test_that("nrun aggregates the rank by mode over restarts", {
-  skip_on_cran()
+  skip_unless_full()
   set.seed(4)
   X <- matrix(abs(rnorm(40 * 3)), 40, 3)
   B <- matrix(abs(rnorm(3 * 60)), 3, 60)
@@ -56,6 +59,7 @@ test_that("nrun aggregates the rank by mode over restarts", {
 })
 
 test_that("L1 prior also returns a valid pruned rank", {
+  skip_unless_full()
   set.seed(3)
   X <- matrix(abs(rnorm(40 * 3)), 40, 3)
   B <- matrix(abs(rnorm(3 * 60)), 3, 60)

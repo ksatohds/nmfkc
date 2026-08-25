@@ -1,4 +1,5 @@
 test_that("workwell", {
+  skip_unless_full()
   X <- cbind(c(1,0,1),c(0,1,0))
   B <- cbind(c(1,0),c(0,1),c(1,1))
   Y <- X %*% B
@@ -8,6 +9,7 @@ test_that("workwell", {
 })
 
 test_that("X.init = kmeans++ works and is reproducible", {
+  skip_unless_full()
   Y <- t(iris[, -5])
   r1 <- nmfkc(Y, rank = 3, X.init = "kmeans++", seed = 1, verbose = FALSE, print.dims = FALSE)
   r2 <- nmfkc(Y, rank = 3, X.init = "kmeans++", seed = 1, verbose = FALSE, print.dims = FALSE)
@@ -20,6 +22,7 @@ test_that("X.init = kmeans++ works and is reproducible", {
 })
 
 test_that(".kmeanspp.seed returns k distinct-ish centres of right shape", {
+  skip_unless_full()
   set.seed(1)
   pts <- matrix(rnorm(200), nrow = 40, ncol = 5)   # 40 points in R^5
   s <- nmfkc:::.kmeanspp.seed(pts, 4)
@@ -28,6 +31,7 @@ test_that(".kmeanspp.seed returns k distinct-ish centres of right shape", {
 })
 
 test_that("X.L2.smooth is off by default, smooths rows, and stays monotone", {
+  skip_unless_full()
   set.seed(1)
   P <- 24; N <- 30; Q <- 2
   Xt <- matrix(abs(rnorm(P * Q)), P, Q)

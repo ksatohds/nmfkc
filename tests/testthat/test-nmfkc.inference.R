@@ -1,5 +1,6 @@
 
 test_that("SE is the sandwich SE and BSE the bootstrap one, not the same number", {
+  skip_unless_full()
   set.seed(4)
   Y <- matrix(abs(rnorm(5 * 40)) + 1, 5, 40)
   A <- rbind(1, abs(rnorm(40)))
@@ -19,6 +20,7 @@ test_that("SE is the sandwich SE and BSE the bootstrap one, not the same number"
 })
 
 test_that("boundary.tol controls the on.boundary flag", {
+  skip_unless_full()
   set.seed(4)
   Y <- matrix(abs(rnorm(5 * 40)) + 1, 5, 40)
   A <- rbind(1, abs(rnorm(40)))
@@ -29,6 +31,7 @@ test_that("boundary.tol controls the on.boundary flag", {
 })
 
 test_that("print.nmfkc is an lm-style one-screen display, not a list dump", {
+  skip_unless_full()
   Y <- matrix(cars$dist, nrow = 1); A <- rbind(1, cars$speed)
   f <- suppressWarnings(nmfkc(Y, A, rank = 1, verbose = FALSE))
   out <- capture.output(print(f))
@@ -43,6 +46,7 @@ test_that("print.nmfkc is an lm-style one-screen display, not a list dump", {
 })
 
 test_that("print.nmfkc says whether the fit converged", {
+  skip_unless_full()
   set.seed(2)
   Y <- matrix(abs(rnorm(5 * 60)) + 1, 5, 60); A <- rbind(1, abs(rnorm(60)))
   ok <- suppressWarnings(nmfkc(Y, A, rank = 2, verbose = FALSE))
@@ -62,6 +66,7 @@ test_that("print.nmfkc says whether the fit converged", {
 })
 
 test_that("fitted() works even when XB was not stored", {
+  skip_unless_full()
   set.seed(2)
   Y <- matrix(abs(rnorm(5 * 40)) + 1, 5, 40); A <- rbind(1, abs(rnorm(40)))
   f <- suppressWarnings(nmfkc(Y, A, rank = 2, verbose = FALSE))
@@ -72,6 +77,7 @@ test_that("fitted() works even when XB was not stored", {
 })
 
 test_that("the unweighted short-circuit is bit-identical", {
+  skip_unless_full()
   ## Y.weights is all ones unless ECV / BiCV / an NA mask / explicit weights
   ## put zeros in it, and multiplying by exactly 1 is the identity -- so the
   ## skip must not move a single bit on either path.
@@ -92,6 +98,7 @@ test_that("the unweighted short-circuit is bit-identical", {
 })
 
 test_that("detail defaults to fast and drops only the O(N^2) criteria", {
+  skip_unless_full()
   set.seed(2)
   Y <- matrix(abs(rnorm(5 * 60)) + 1, 5, 60); A <- rbind(1, abs(rnorm(60)))
   f <- suppressWarnings(nmfkc(Y, A, rank = 2, verbose = FALSE))
@@ -111,6 +118,7 @@ test_that("detail defaults to fast and drops only the O(N^2) criteria", {
 })
 
 test_that("effective.rank.index is the [0,1] broken-stick index nmfkc.rank plots", {
+  skip_unless_full()
   set.seed(2)
   Y <- matrix(abs(rnorm(5 * 60)) + 1, 5, 60); A <- rbind(1, abs(rnorm(60)))
   fits <- lapply(2:3, function(q)
@@ -130,6 +138,7 @@ test_that("effective.rank.index is the [0,1] broken-stick index nmfkc.rank plots
 })
 
 test_that("the broken-stick index measures variance share, not usefulness", {
+  skip_unless_full()
   eri <- nmfkc:::.effective.rank.index
   er  <- nmfkc:::.effective.rank
   set.seed(1); N <- 200; b <- runif(N)

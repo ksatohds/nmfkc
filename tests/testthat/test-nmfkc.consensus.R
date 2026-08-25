@@ -8,6 +8,7 @@ make_blocks <- function(seed = 1) {
 }
 
 test_that("nmfkc.consensus returns stability scores per rank", {
+  skip_unless_full()
   Y <- make_blocks()
   cs <- suppressMessages(nmfkc.consensus(Y, rank = 2:5, nrun = 15, seed = 1))
 
@@ -25,6 +26,7 @@ test_that("nmfkc.consensus returns stability scores per rank", {
 })
 
 test_that("nmfkc.consensus is most stable at the true rank (3 clusters)", {
+  skip_unless_full()
   Y <- make_blocks()
   cs <- suppressMessages(nmfkc.consensus(Y, rank = 2:5, nrun = 15, seed = 1))
   ## true rank 3: dispersion ~1 and clearly above rank 2 (under-split)
@@ -38,6 +40,7 @@ test_that("nmfkc.consensus is most stable at the true rank (3 clusters)", {
 })
 
 test_that("keep.consensus returns N x N consensus matrices", {
+  skip_unless_full()
   Y <- make_blocks()
   cs <- suppressMessages(nmfkc.consensus(Y, rank = 2:3, nrun = 10,
                                          keep.consensus = TRUE))
@@ -49,6 +52,7 @@ test_that("keep.consensus returns N x N consensus matrices", {
 })
 
 test_that("print and both plot types work", {
+  skip_unless_full()
   Y <- make_blocks()
   cs <- suppressMessages(nmfkc.consensus(Y, rank = 2:4, nrun = 10,
                                          keep.consensus = TRUE))
@@ -61,6 +65,7 @@ test_that("print and both plot types work", {
 })
 
 test_that("plot heatmap errors without stored consensus", {
+  skip_unless_full()
   Y <- make_blocks()
   cs <- suppressMessages(nmfkc.consensus(Y, rank = 2:3, nrun = 8))  # no keep
   expect_error(plot(cs, type = "heatmap"), "keep.consensus")

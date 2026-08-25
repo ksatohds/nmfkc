@@ -1,6 +1,7 @@
 ## Tests for nmf.cluster.criteria() sample-clustering quality across ranks
 
 test_that("nmf.cluster.criteria builds a per-rank criteria table from a fit list", {
+  skip_unless_full()
   Y <- t(as.matrix(iris[, 1:4]))
   fits <- lapply(2:4, function(q) nmfkc(Y, Q = q, print.dims = FALSE))
   cc <- nmf.cluster.criteria(fits, Y, plot = FALSE)
@@ -16,6 +17,7 @@ test_that("nmf.cluster.criteria builds a per-rank criteria table from a fit list
 })
 
 test_that("nmf.cluster.criteria accepts a single fit (wrapped)", {
+  skip_unless_full()
   Y <- t(as.matrix(iris[, 1:4]))
   fit <- nmfkc(Y, Q = 3, print.dims = FALSE)
   cc <- nmf.cluster.criteria(fit, Y, plot = FALSE)
@@ -24,6 +26,7 @@ test_that("nmf.cluster.criteria accepts a single fit (wrapped)", {
 })
 
 test_that("nmf.cluster.criteria sets silhouette NA when the coefficient is signed", {
+  skip_unless_full()
   set.seed(7)
   Y <- matrix(rnorm(8 * 20), 8, 20)
   A <- rbind(intercept = 1, x = rnorm(20))
@@ -39,6 +42,7 @@ test_that("nmf.cluster.criteria sets silhouette NA when the coefficient is signe
 })
 
 test_that("nmf.cluster.criteria matches nmfkc.criterion's values (shared helper)", {
+  skip_unless_full()
   Y <- t(as.matrix(iris[, 1:4]))
   ## detail = "full" is now needed: nmfkc() defaults to "fast" and no longer
   ## carries the O(N^2) sample-clustering criteria, which is exactly why
@@ -53,6 +57,7 @@ test_that("nmf.cluster.criteria matches nmfkc.criterion's values (shared helper)
 })
 
 test_that("nmf.cluster.criteria requires Y", {
+  skip_unless_full()
   Y <- t(as.matrix(iris[, 1:4]))
   fit <- nmfkc(Y, Q = 2, print.dims = FALSE)
   expect_error(nmf.cluster.criteria(fit), "requires the original data")

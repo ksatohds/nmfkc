@@ -38,9 +38,9 @@ make_var_fit <- function(seed = 11, P = 8, N = 80) {
 ## machine).  Each therefore has a CRAN-sized copy -- smaller fixture, fewer
 ## replicates -- that still detects the defect it guards (B1 was structural:
 ## EVERY p-value was 0, so any refit run at any size shows it), while the
-## full-size originals carry skip_on_cran() and keep running locally.
 
 test_that("refit bootstrap p-values are not all zero (CRAN-sized)", {
+  skip_unless_full()
   d <- make_var_fit(P = 5, N = 30)
   inf <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
                                           wild.unit = "column", wild.B = 12,
@@ -53,7 +53,7 @@ test_that("refit bootstrap p-values are not all zero (CRAN-sized)", {
 })
 
 test_that("refit bootstrap p-values are not all zero and separate signal from noise", {
-  skip_on_cran()
+  skip_unless_full()
   d <- make_var_fit()
   inf <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
                                           wild.unit = "column", wild.B = 100))
@@ -71,6 +71,7 @@ test_that("refit bootstrap p-values are not all zero and separate signal from no
 })
 
 test_that("the bootstrap p-value inverts the CENTRED replicate distribution", {
+  skip_unless_full()
   ## direct check of the helper: replicates centred on est, so a coefficient
   ## whose replicates sit well below 2*est gets a small one-sided p, and one
   ## whose estimate is at the boundary gets a large (conservative) p.
@@ -86,6 +87,7 @@ test_that("the bootstrap p-value inverts the CENTRED replicate distribution", {
 })
 
 test_that("nmfkc() does not leave the caller's RNG stream at a fixed state", {
+  skip_unless_full()
   ## Only a Y is needed here -- make_var_fit()'s tightly converged fit (its
   ## point is boundary coefficients) would be paid for nothing.
   set.seed(7); Yr <- matrix(abs(rnorm(5 * 30)) + 0.1, 5, 30)
@@ -103,6 +105,7 @@ test_that("nmfkc() does not leave the caller's RNG stream at a fixed state", {
 })
 
 test_that("refit.epsilon reaches the re-fits: BSE moves, sandwich SE does not (CRAN-sized)", {
+  skip_unless_full()
   d <- make_var_fit(P = 5, N = 30)
   tight <- suppressWarnings(nmfkc.inference(d$fit, d$Y, d$A, method = "refit",
                                             wild.unit = "column", wild.B = 6))
@@ -114,7 +117,7 @@ test_that("refit.epsilon reaches the re-fits: BSE moves, sandwich SE does not (C
 })
 
 test_that("the refit bootstrap converges tightly enough for boundary coefficients", {
-  skip_on_cran()
+  skip_unless_full()
   ## Under multiplicative updates a coefficient heading for the non-negativity
   ## boundary approaches 0 slowly.  At nmfkc()'s own default tolerance (1e-4)
   ## every replicate stops while it is still spuriously positive, the
@@ -138,6 +141,7 @@ test_that("the refit bootstrap converges tightly enough for boundary coefficient
 })
 
 test_that("no inference or CV wrapper resets the caller's RNG stream", {
+  skip_unless_full()
   ## Consuming randomness is fine; RESETTING the stream to a fixed state is the
   ## bug -- it makes every call leave .Random.seed in the same place, so a user
   ## loop repeats itself.  Detect it by checking that what came before the call
@@ -168,6 +172,7 @@ test_that("no inference or CV wrapper resets the caller's RNG stream", {
 })
 
 test_that("nmf.ffb() with seed = NULL does not re-initialize the generator", {
+  skip_unless_full()
   ## set.seed(NULL) re-seeds from the clock rather than doing nothing, which
   ## would make a seed = NULL fit irreproducible; nmf.ffb.cv() passes NULL to
   ## mean "use the stream as it is".
@@ -180,6 +185,7 @@ test_that("nmf.ffb() with seed = NULL does not re-initialize the generator", {
 })
 
 test_that("no fitter leaves the caller's RNG stream at a fixed state", {
+  skip_unless_full()
   set.seed(11); P <- 8; N <- 40
   Y  <- matrix(abs(rnorm(P * 2)), P, 2) %*% matrix(abs(rnorm(2 * N)), 2, N) +
         matrix(abs(rnorm(P * N)) * 0.1, P, N)
@@ -207,6 +213,7 @@ test_that("no fitter leaves the caller's RNG stream at a fixed state", {
 })
 
 test_that("seeding behaviour of the fit itself is unchanged", {
+  skip_unless_full()
   d <- make_var_fit()
   ## a seeded fit stays reproducible ...
   a <- suppressWarnings(nmfkc(d$Y, rank = 2, seed = 7, verbose = FALSE))
