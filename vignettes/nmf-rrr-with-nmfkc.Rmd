@@ -174,6 +174,111 @@ round(fit$C, 3)
 nmf.rrr.heatmap(fit)
 ```
 
+## Clustering the individuals as well as the variables
+
+The same fit clusters the **sites**. The two score matrices
+
+\deqn{B_2 = X_2 Y_2 \quad (R\times N), \qquad B_1 = \Theta B_2 \quad (Q\times N)}
+
+give each site a profile over the covariate groups and over the response
+groups; column-normalising them yields soft memberships (`B2.prob`,
+`B1.prob`), and the arg-max gives hard labels (`B2.cluster`, `B1.cluster`).
+So a single model produces four groupings: two of variables (\eqn{X_1},
+\eqn{X_2}) and two of individuals (\eqn{B_1}, \eqn{B_2}).
+
+```{r ind-algebra}
+max(abs(fit$B1 - fit$C %*% fit$X2 %*% Y2))   # B1 = Theta B2, to machine precision
+```
+
+The Doubs sites are numbered from the source (1) downstream to (30), **and
+that order is never given to the model**. A labelling that comes out
+contiguous along the river is therefore a genuine recovery of the
+longitudinal gradient, not something the fit was told.
+
+```{r ind-clusters}
+runs <- function(cl, tag) {
+  cl <- as.vector(cl); r <- rle(cl)
+  cat(sprintf("%-4s %s\n", tag, paste(cl, collapse = " ")))
+  cat(sprintf("%-4s %d run(s): %s\n", "", length(r$lengths),
+              paste(sprintf("%s x%d", r$values, r$lengths), collapse = " | ")))
+  if (length(r$lengths) == 2)
+    cat(sprintf("%-4s one break, between site %d and %d\n", "",
+                r$lengths[1], r$lengths[1] + 1))
+  cat("\n")
+}
+runs(fit$B1.cluster, "B1")   # response side: fish community
+runs(fit$B2.cluster, "B2")   # covariate side: environment
+```
+
+Each side splits the river once, but **not at the same place**: the fish
+community changes at site 10|11, the environment at 20|21. Sites 11--20 are
+already downstream-type in their fauna while their measured environment is
+still upstream-type -- the fish respond before the environmental variables
+recorded here cross over.
+
+The soft memberships show how sharp each transition is.
+
+```{r ind-soft}
+round(fit$B1.prob[, 8:13], 2)    # response side, around the 10|11 break
+round(fit$B2.prob[, 18:23], 2)   # covariate side, around the 20|21 break
+```
+
+### Mapping the clusters onto the river
+
+`doubs$xy` holds schematic map coordinates for the 30 sites, so the two
+labellings can be drawn on the river itself.
+
+```{r ind-map, fig.width = 8, fig.height = 4.2}
+xy <- doubs$xy
+panel <- function(cl, upstream.level, main, brk) {
+  fill <- ifelse(as.vector(cl) == upstream.level, "white", "black")
+  plot(xy, type = "n", asp = 1, xlab = "x (km)", ylab = "y (km)", main = main)
+  lines(xy, col = "grey60", lwd = 2)                    # river course
+  points(xy, pch = 21, bg = fill, col = "black", cex = 1.6)
+  text(xy, labels = 1:30, pos = 3, offset = 0.4, cex = 0.55)
+  mid <- (xy[brk, ] + xy[brk + 1, ]) / 2                # mark the break
+  points(mid, pch = 4, cex = 2, lwd = 2.5)
+}
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
+panel(fit$B1.cluster, 1, "B1: fish community", 10)
+panel(fit$B2.cluster, 2, "B2: environment", 20)
+par(op)
+```
+
+Open circles are the upstream type, filled the downstream type, and the cross
+marks the break. Both transitions are single and contiguous, and the offset
+between them is the stretch where the two blocks disagree.
+
+Whether supervision matters here is worth checking: `k-means` on either raw
+block, blind to the other block, is the natural baseline. Cluster labels are
+arbitrary, so agreement is measured in a label-switch-invariant way.
+
+```{r ind-baseline}
+set.seed(1)
+km1 <- kmeans(t(Y1), 2, nstart = 50)$cluster
+km2 <- kmeans(t(Y2), 2, nstart = 50)$cluster
+agree <- function(a, b) max(mean(a == b), mean(a != b))
+c(B1.vs.kmY1 = agree(km1, as.vector(fit$B1.cluster)),
+  B2.vs.kmY2 = agree(km2, as.vector(fit$B2.cluster)))
+runs(km1, "km1")   # k-means on the fish block alone
+runs(km2, "km2")   # k-means on the environment block alone
+```
+
+The covariate side is close (`0.87`): the environmental gradient is strong
+enough that an unsupervised split of \eqn{Y_2} nearly reproduces \eqn{B_2}.
+The response side is not (`0.60`). Left to itself, `k-means` on the fish block
+does not even return a contiguous stretch of river -- it breaks late and then
+scatters a few sites back -- because unsupervised clustering weights whatever
+variance dominates \eqn{Y_1}, gradient or not.
+
+\eqn{B_1} is contiguous because it is not computed from \eqn{Y_1} at all: it is
+\eqn{\Theta B_2}, the environment read through the correspondence matrix. That
+is what supervision buys here, and it is also why the two site clusterings can
+be compared at all -- they are tied to each other through \eqn{\Theta}, so the
+10\|11 versus 20\|21 offset means something. The same model says which fish
+guild goes with which environmental gradient, and where along the river each
+one turns over.
+
 ## Relation to other methods
 
 Dropping non-negativity, \eqn{Y_1\approx M Y_2} at rank \eqn{\min(Q,R)} is
