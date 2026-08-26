@@ -34,7 +34,7 @@ surname (see Notes below).
 
 * Windows 11 (local), R 4.4.1, `--as-cran`
 * Ubuntu Linux (local server), R 4.5.3
-* win-builder, R-devel (2026-08-17 r90424)
+* win-builder, R-devel (2026-08-24 r90445): 232 s total, tests 15 s
 * R-hub v2 (Linux, macOS, macOS-arm64, Windows, nosuggests)
 
 ## Notes
