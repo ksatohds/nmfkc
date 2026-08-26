@@ -25,7 +25,7 @@ are evaluated via expand.grid."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.7</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -78,15 +78,7 @@ are evaluated via <code>expand.grid</code>.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmf.rrr.ecv</span><span class="op">(</span></span>
-<span>  <span class="va">Y1</span>,</span>
-<span>  Y2 <span class="op">=</span> <span class="va">Y1</span>,</span>
-<span>  rank1 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
-<span>  rank2 <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  <span class="va">...</span>,</span>
-<span>  rank <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  rank.encoder <span class="op">=</span> <span class="cn">NULL</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">nmf.rrr.ecv</span><span class="op">(</span><span class="va">Y1</span>, Y2 <span class="op">=</span> <span class="va">Y1</span>, rank1 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, rank2 <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -119,13 +111,9 @@ Also accepts: <code>nfolds</code> (number of folds, default 5; <code>div</code> 
 Each task is an independent self-seeded fit and results are aggregated in
 order, so the returned object is identical for any <code>cores</code>.
 For backward compatibility, <code>Q</code> and <code>R</code> are accepted as aliases for
-<code>rank</code> and <code>rank.encoder</code>.</p></dd>
-
-
-<dt id="arg-rank-rank-encoder">rank, rank.encoder<a class="anchor" aria-label="anchor" href="#arg-rank-rank-encoder"></a></dt>
-<dd><p>Deprecated aliases of <code>rank1</code> / <code>rank2</code>
-(<code>Q</code> / <code>R</code> also accepted via <code>...</code>).
-When explicitly specified, all combinations with <code>rank</code> are evaluated.</p></dd>
+<code>rank</code> and <code>rank.encoder</code>.</p>
+<p>Rank aliases accepted here for backward compatibility:
+<code>Q</code> for <code>rank1</code>, <code>R</code> for <code>rank2</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -163,31 +151,24 @@ future versions; details are to be described in an upcoming paper.</p>
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">iris</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">30</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="co"># Default: rank2=NULL -&gt; paired rank1=rank2</span></span></span>
-<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">nmf.rrr.ecv</span><span class="op">(</span><span class="va">Y</span>, rank1 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, nfolds <span class="op">=</span> <span class="fl">3</span>, maxit <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Element-wise CV: 3 (Q,R) pairs, 3-fold, 9 tasks...</span>
+<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">nmf.rrr.ecv</span><span class="op">(</span><span class="va">Y</span>, rank1 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, nfolds <span class="op">=</span> <span class="fl">3</span>, maxit <span class="op">=</span> <span class="fl">200</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Element-wise CV: 2 (Q,R) pairs, 3-fold, 6 tasks...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=1, R=1: MSE=0.021319, sigma=0.1460</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=2, R=2: MSE=0.021287, sigma=0.1459</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=3, R=3: MSE=0.021299, sigma=0.1459</span>
 <span class="r-in"><span><span class="va">res</span><span class="op">$</span><span class="va">sigma</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Q=1,R=1   Q=2,R=2   Q=3,R=3 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 0.1460097 0.1459009 0.1459406 </span>
-<span class="r-in"><span><span class="co"># Explicit rank.encoder: full grid</span></span></span>
-<span class="r-in"><span><span class="va">res2</span> <span class="op">&lt;-</span> <span class="fu">nmf.rrr.ecv</span><span class="op">(</span><span class="va">Y</span>, rank1 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, rank2 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, nfolds <span class="op">=</span> <span class="fl">3</span>, maxit <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Element-wise CV: 9 (Q,R) pairs, 3-fold, 27 tasks...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Q=1,R=1   Q=2,R=2 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 0.1460097 0.1459009 </span>
+<span class="r-in"><span><span class="co"># Explicit rank2: full grid (kept small so the example stays under CRAN's</span></span></span>
+<span class="r-in"><span><span class="co"># 10s budget -- a real sweep would use wider ranges and a larger maxit)</span></span></span>
+<span class="r-in"><span><span class="va">res2</span> <span class="op">&lt;-</span> <span class="fu">nmf.rrr.ecv</span><span class="op">(</span><span class="va">Y</span>, rank1 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, rank2 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, nfolds <span class="op">=</span> <span class="fl">3</span>, maxit <span class="op">=</span> <span class="fl">200</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Element-wise CV: 4 (Q,R) pairs, 3-fold, 12 tasks...</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=1, R=1: MSE=0.021319, sigma=0.1460</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=2, R=1: MSE=0.021319, sigma=0.1460</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=3, R=1: MSE=0.021319, sigma=0.1460</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=1, R=2: MSE=0.021321, sigma=0.1460</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=2, R=2: MSE=0.021287, sigma=0.1459</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=3, R=2: MSE=0.021299, sigma=0.1459</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=1, R=3: MSE=0.021322, sigma=0.1460</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=2, R=3: MSE=0.021289, sigma=0.1459</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>   Q=3, R=3: MSE=0.021299, sigma=0.1459</span>
 <span class="r-in"><span><span class="va">res2</span><span class="op">$</span><span class="va">sigma</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Q=1,R=1   Q=2,R=1   Q=3,R=1   Q=1,R=2   Q=2,R=2   Q=3,R=2   Q=1,R=3   Q=2,R=3 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 0.1460097 0.1460097 0.1460097 0.1460179 0.1459009 0.1459408 0.1460194 0.1459088 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Q=3,R=3 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 0.1459406 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Q=1,R=1   Q=2,R=1   Q=1,R=2   Q=2,R=2 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 0.1460097 0.1460097 0.1460179 0.1459009 </span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

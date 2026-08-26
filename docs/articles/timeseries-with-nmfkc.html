@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.7</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -153,20 +153,13 @@ matrix or create time vectors; <code>nmfkc</code> functions handle
 <code>d_air_log</code>, the function automatically handles the time
 dimension.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Evaluate lag orders from 1 to 14</span></span>
+<code class="sourceCode R"><span><span class="co"># Candidate lag orders: short lags plus the seasonal ones (a full 1:14 sweep</span></span>
+<span><span class="co"># gives the same winner; the subset keeps the vignette quick to build)</span></span>
 <span><span class="co"># Note: ts objects are automatically transposed to (Variables x Time) internally</span></span>
-<span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv</a></span><span class="op">(</span><span class="va">d_air_log</span>, rank <span class="op">=</span> <span class="fl">1</span>, degree <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">14</span>, epsilon<span class="op">=</span><span class="fl">1e-6</span>, maxit<span class="op">=</span><span class="fl">500000</span><span class="op">)</span></span>
+<span><span class="va">cv_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.degree.cv.html">nmfkc.ar.degree.cv</a></span><span class="op">(</span><span class="va">d_air_log</span>, rank <span class="op">=</span> <span class="fl">1</span>, degree <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, <span class="fl">12</span><span class="op">:</span><span class="fl">14</span><span class="op">)</span>, epsilon<span class="op">=</span><span class="fl">1e-6</span>, maxit<span class="op">=</span><span class="fl">500000</span><span class="op">)</span></span>
 <span><span class="co">#&gt; degree=1...0.2sec</span></span>
 <span><span class="co">#&gt; degree=2...0.7sec</span></span>
-<span><span class="co">#&gt; degree=3...0.7sec</span></span>
-<span><span class="co">#&gt; degree=4...0.7sec</span></span>
-<span><span class="co">#&gt; degree=5...0.7sec</span></span>
-<span><span class="co">#&gt; degree=6...0.8sec</span></span>
-<span><span class="co">#&gt; degree=7...0.7sec</span></span>
-<span><span class="co">#&gt; degree=8...0.8sec</span></span>
-<span><span class="co">#&gt; degree=9...0.9sec</span></span>
-<span><span class="co">#&gt; degree=10...0.9sec</span></span>
-<span><span class="co">#&gt; degree=11...0.9sec</span></span>
+<span><span class="co">#&gt; degree=3...0.8sec</span></span>
 <span><span class="co">#&gt; degree=12...0.8sec</span></span>
 <span><span class="co">#&gt; degree=13...0.9sec</span></span>
 <span><span class="co">#&gt; degree=14...1sec</span></span></code></pre></div>
@@ -518,7 +511,7 @@ bootstrap to all of them: it resamples the residuals, re-fits the whole
 NMF-VAR on each replicate, and recomputes the latent quantities.</p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">inf_canada</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.ar.latent.inference.html">nmfkc.ar.latent.inference</a></span><span class="op">(</span><span class="va">lat_canada</span>, <span class="va">a_canada</span><span class="op">$</span><span class="va">Y</span>, <span class="va">a_canada</span><span class="op">$</span><span class="va">A</span>,</span>
-<span>                                        wild.B <span class="op">=</span> <span class="fl">200</span>, wild.seed <span class="op">=</span> <span class="fl">2026</span><span class="op">)</span></span>
+<span>                                        wild.B <span class="op">=</span> <span class="fl">50</span>, wild.seed <span class="op">=</span> <span class="fl">2026</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning in nmfkc.ar.latent.inference(lat_canada, a_canada$Y, a_canada$A, : The</span></span>
 <span><span class="co">#&gt; anchor-row / pure-column diagnostic passes only APPROXIMATELY (anchor margin</span></span>
 <span><span class="co">#&gt; 1.58e-06, pure margin 1.52e-06). The uniqueness argument needs exact anchors</span></span>
@@ -526,7 +519,7 @@ NMF-VAR on each replicate, and recomputes the latent quantities.</p>
 <span><span class="co">#&gt; certified.</span></span>
 <span><span class="va">inf_canada</span></span>
 <span><span class="co">#&gt; Bootstrap inference for the latent VAR</span></span>
-<span><span class="co">#&gt;   B = 200 (0 failed), unit = "column", dist = "rademacher", truncation rate = 1.20%</span></span>
+<span><span class="co">#&gt;   B = 50 (0 failed), unit = "column", dist = "rademacher", truncation rate = 1.24%</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Latent transition matrices  G_d = Theta_d %*% X   (row = effect at t, column = cause at t-d)</span></span>
 <span><span class="co">#&gt;   NOTE: the diagnostic passes only APPROXIMATELY (anchor margin 1.58e-06, pure margin 1.52e-06);</span></span>
@@ -538,16 +531,16 @@ NMF-VAR on each replicate, and recomputes the latent quantities.</p>
 <span><span class="co">#&gt; Condition2      0.031      0.606</span></span>
 <span><span class="co">#&gt; SE:</span></span>
 <span><span class="co">#&gt;            Condition1 Condition2</span></span>
-<span><span class="co">#&gt; Condition1      0.117      0.067</span></span>
-<span><span class="co">#&gt; Condition2      0.071      0.098</span></span>
+<span><span class="co">#&gt; Condition1      0.104      0.059</span></span>
+<span><span class="co">#&gt; Condition2      0.068      0.094</span></span>
 <span><span class="co">#&gt; p-value:</span></span>
 <span><span class="co">#&gt;            Condition1 Condition2</span></span>
-<span><span class="co">#&gt; Condition1       0.00        0.6</span></span>
-<span><span class="co">#&gt; Condition2       0.83        0.0</span></span>
+<span><span class="co">#&gt; Condition1       0.00       0.48</span></span>
+<span><span class="co">#&gt; Condition2       0.76       0.00</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; rho(G) = 0.7809   SE = 0.1017   95% CI = [0.6316, 1.0052]</span></span>
-<span><span class="co">#&gt;   bootstrap mean = 0.8593  (bias +0.0784)</span></span>
-<span><span class="co">#&gt;   bootstrap tail P*(rho* &gt;= 1) = 0.030</span></span>
+<span><span class="co">#&gt; rho(G) = 0.7809   SE = 0.0949   95% CI = [0.6752, 0.9970]</span></span>
+<span><span class="co">#&gt;   bootstrap mean = 0.8491  (bias +0.0683)</span></span>
+<span><span class="co">#&gt;   bootstrap tail P*(rho* &gt;= 1) = 0.020</span></span>
 <span><span class="co">#&gt;   (a tail probability around the fitted model, NOT a unit-root test: the</span></span>
 <span><span class="co">#&gt;    replicates are not drawn under an imposed H0: rho = 1)</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -555,8 +548,8 @@ NMF-VAR on each replicate, and recomputes the latent quantities.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; long-run composition p*:</span></span>
 <span><span class="co">#&gt;            estimate  lower  upper</span></span>
-<span><span class="co">#&gt; Condition1   0.6673 0.5332 0.7305</span></span>
-<span><span class="co">#&gt; Condition2   0.3327 0.2695 0.4668</span></span>
+<span><span class="co">#&gt; Condition1   0.6673 0.5405 0.7095</span></span>
+<span><span class="co">#&gt; Condition2   0.3327 0.2905 0.4595</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; strict complementarity: 4 boundary coords, all multipliers positive = TRUE, ratio = 112.5</span></span></code></pre></div>
 <p><strong>What is identified decides what can be bootstrapped.</strong>
@@ -624,14 +617,14 @@ whole family and need none of this.</p>
 <div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">inf_canada</span><span class="op">$</span><span class="va">coefficients</span></span>
 <span><span class="co">#&gt;   Lag      Basis  Covariate   Estimate        BSE       CI_low   CI_high</span></span>
-<span><span class="co">#&gt; 1   1 Condition1 Condition1 0.76632196 0.11668139 0.5628885464 0.9462658</span></span>
-<span><span class="co">#&gt; 2   1 Condition2 Condition1 0.03105503 0.07063638 0.0000256766 0.2581664</span></span>
-<span><span class="co">#&gt; 3   1 Condition1 Condition2 0.08193278 0.06696417 0.0152680967 0.2789300</span></span>
-<span><span class="co">#&gt; 4   1 Condition2 Condition2 0.60571985 0.09829586 0.4295495664 0.8291294</span></span>
+<span><span class="co">#&gt; 1   1 Condition1 Condition1 0.76632196 0.10419980 0.6074697968 0.9437548</span></span>
+<span><span class="co">#&gt; 2   1 Condition2 Condition1 0.03105503 0.06783299 0.0001236741 0.2282448</span></span>
+<span><span class="co">#&gt; 3   1 Condition1 Condition2 0.08193278 0.05923828 0.0148432334 0.2086580</span></span>
+<span><span class="co">#&gt; 4   1 Condition2 Condition2 0.60571985 0.09384040 0.5087705690 0.8547712</span></span>
 <span><span class="co">#&gt;   p_value</span></span>
 <span><span class="co">#&gt; 1    0.00</span></span>
-<span><span class="co">#&gt; 2    0.83</span></span>
-<span><span class="co">#&gt; 3    0.60</span></span>
+<span><span class="co">#&gt; 2    0.76</span></span>
+<span><span class="co">#&gt; 3    0.48</span></span>
 <span><span class="co">#&gt; 4    0.00</span></span></code></pre></div>
 <p>With that caveat: the diagonal entries have <span class="math inline">\(p\)</span>-values near 0 while the off-diagonal
 ones do not (0.61 and 0.87). Even taken descriptively, the asymmetric
@@ -648,8 +641,8 @@ null.</p>
 <span>  lo   <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">spectral.radius.ci.lower</span>,</span>
 <span>  hi   <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">spectral.radius.ci.upper</span>,</span>
 <span>  tail <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">prob.nonstationary</span><span class="op">)</span></span>
-<span><span class="co">#&gt;       rho        se        lo        hi      tail </span></span>
-<span><span class="co">#&gt; 0.7808507 0.1017442 0.6316020 1.0052234 0.0300000</span></span></code></pre></div>
+<span><span class="co">#&gt;        rho         se         lo         hi       tail </span></span>
+<span><span class="co">#&gt; 0.78085067 0.09485203 0.67515748 0.99699597 0.02000000</span></span></code></pre></div>
 <p>The long-run mean gets an interval too, so the level the process
 reverts to can be reported with uncertainty rather than as a bare
 number:</p>
@@ -659,8 +652,8 @@ number:</p>
 <span>      upper    <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">mu.y.ci.upper</span><span class="op">)</span></span>
 <span><span class="co">#&gt;               [,1]      [,2]      [,3]      [,4]</span></span>
 <span><span class="co">#&gt; estimate 0.6648544 0.5764437 0.3167251 0.2685294</span></span>
-<span><span class="co">#&gt; lower    0.4011656 0.3553783 0.2409933 0.2031827</span></span>
-<span><span class="co">#&gt; upper    1.3754326 1.2485637 0.6573849 0.5474548</span></span></code></pre></div>
+<span><span class="co">#&gt; lower    0.4742694 0.4038747 0.2633305 0.2216688</span></span>
+<span><span class="co">#&gt; upper    1.2653695 1.1707735 0.6983002 0.6437495</span></span></code></pre></div>
 <p>Two diagnostics deserve a look before the intervals are trusted.</p>
 <p><code>truncate.rate</code> is the fraction of replicate observations
 that fell below zero and were clipped; a large value means the wild
@@ -681,9 +674,9 @@ surviving positive coefficient.</p>
 <span>  usable.reps   <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">wild.B</span>,</span>
 <span>  failed.reps   <span class="op">=</span> <span class="va">inf_canada</span><span class="op">$</span><span class="va">n.fail</span><span class="op">)</span></span>
 <span><span class="co">#&gt; truncate.rate    n.boundary    delta.dual    delta.prim     kkt.ratio </span></span>
-<span><span class="co">#&gt;  1.202744e-02  4.000000e+00  2.144266e-03  2.017429e-01  1.124564e+02 </span></span>
+<span><span class="co">#&gt;  1.243902e-02  4.000000e+00  2.144266e-03  2.017429e-01  1.124564e+02 </span></span>
 <span><span class="co">#&gt;   usable.reps   failed.reps </span></span>
-<span><span class="co">#&gt;  2.000000e+02  0.000000e+00</span></span></code></pre></div>
+<span><span class="co">#&gt;  5.000000e+01  0.000000e+00</span></span></code></pre></div>
 <p>A <strong>small</strong> dual margin is not a numerical defect — it
 is a statement about the model. If the model were correctly specified,
 <span class="math inline">\(\Xi_0=X\Theta\)</span> would make the
@@ -708,7 +701,7 @@ the function warns and asks for it through <code>refit.args=</code>.</p>
 <span><span class="co">#&gt;        method X.restriction </span></span>
 <span><span class="co">#&gt;          "EU"     "colSums"</span></span></code></pre></div>
 <p>And each replicate is a full re-fit, so this is the expensive step of
-the analysis. <code>wild.B = 200</code> keeps the vignette quick; the
+the analysis. <code>wild.B = 50</code> keeps the vignette quick; the
 default is 500, and each re-fit converges to <code>epsilon = 1e-8</code>
 — a looser tolerance leaves boundary coefficients spuriously positive
 and understates the spread. On a multi-core machine

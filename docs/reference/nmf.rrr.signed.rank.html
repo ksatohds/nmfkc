@@ -17,7 +17,7 @@ nmfae.signed.ecv."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.7</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -72,8 +72,7 @@ plot as <code><a href="nmfkc.rank.html">nmfkc.rank</a></code>.  For a full \((Q,
 <span>  rank1 <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">5</span>,</span>
 <span>  detail <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"full"</span>, <span class="st">"fast"</span><span class="op">)</span>,</span>
 <span>  plot <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  <span class="va">...</span>,</span>
-<span>  rank <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -110,11 +109,9 @@ eff.rank only, and recommends the R-squared elbow).</p></dd>
 rank sweep (and the element-wise CV) in parallel; default
 <code>getOption("mc.cores", 1L)</code>. Each rank is an independent self-seeded
 fit and results are gathered in order, so the output is identical for any
-<code>cores</code>.</p></dd>
-
-
-<dt id="arg-rank">rank<a class="anchor" aria-label="anchor" href="#arg-rank"></a></dt>
-<dd><p>Deprecated alias of <code>rank1</code>.</p></dd>
+<code>cores</code>.
+Rank aliases accepted here for backward compatibility:
+<code>Q</code> for <code>rank1</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

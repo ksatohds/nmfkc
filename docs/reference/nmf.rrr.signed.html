@@ -43,7 +43,7 @@ express (e.g., high refractive index &amp;lt;-&amp;gt; low Abbe number trade-off
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.7</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -113,9 +113,7 @@ express (e.g., high refractive index &lt;-&gt; low Abbe number trade-off).</p>
 <span>  epsilon <span class="op">=</span> <span class="fl">1e-04</span>,</span>
 <span>  maxit <span class="op">=</span> <span class="fl">5000</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  <span class="va">...</span>,</span>
-<span>  rank <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  rank.encoder <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -238,12 +236,8 @@ Default <code>FALSE</code>.</p></dd>
 response/covariate bases.  Default <code>"Resp"</code>, <code>"Cov"</code>.</p></dd>
 
 
-</dl></dd>
-
-
-<dt id="arg-rank-rank-encoder">rank, rank.encoder<a class="anchor" aria-label="anchor" href="#arg-rank-rank-encoder"></a></dt>
-<dd><p>Deprecated aliases of <code>rank1</code> / <code>rank2</code>
-(<code>Q</code> / <code>R</code> also accepted via <code>...</code>).</p></dd>
+</dl><p>Rank aliases accepted here for backward compatibility:
+<code>Q</code> for <code>rank1</code>, <code>R</code> for <code>rank2</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -381,7 +375,7 @@ Pattern Analysis and Machine Intelligence</em>, 32(1), 45–55.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Convergence:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations:       16 / 500 (converged)  epsilon = 0.0001</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Runtime (secs):   0.03</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Runtime (secs):   0.02</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Final objfunc:    2.128</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Goodness of fit:</span>

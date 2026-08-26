@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.7</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,7 +45,41 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.9.6" id="nmfkc-096-2026-08-23">nmfkc 0.9.6 (2026-08-23)<a class="anchor" aria-label="anchor" href="#nmfkc-096-2026-08-23"></a></h2><p class="text-muted">CRAN release: 2026-08-25</p>
+<div class="section level3">
+<h3 id="check-time-only--no-change-to-any-computed-value-0-9-6">Check time only – no change to any computed value<a class="anchor" aria-label="anchor" href="#check-time-only--no-change-to-any-computed-value-0-9-6"></a></h3>
+<p>CRAN’s incoming pretest still reported “Overall checktime 11 min &gt; 10 min” for 0.9.5, almost all of it <code>checking tests ... [442s]</code>. Uwe Ligges suggested running the less important tests conditionally on an environment variable set only on the maintainer’s machine, and that is what this release does.</p>
+<ul><li><p><strong><code>tests/testthat/test-cran-smoke.R</code></strong> is new and is the only test file that runs by default. It exercises every exported fitter and its S3 methods on toy data (6 x 20 matrices) in under a second: 35 assertions, no bootstrap, no cross-validation, no restarts.</p></li>
+<li>
+<p>Every other block – 145 of them – now begins with <code>skip_unless_full()</code>, defined in <code>tests/testthat/helper-nmfkc.R</code>. The full suite runs when <code>NMFKC_FULL_TESTS</code> is set:</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Sys.setenv.html" class="external-link">Sys.setenv</a></span><span class="op">(</span>NMFKC_FULL_TESTS <span class="op">=</span> <span class="st">"true"</span><span class="op">)</span>; <span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/test.html" class="external-link">test</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p>3173 assertions, 144 seconds locally, and it is what the maintainer and CI run before every release. Nothing was deleted: the regression tests for the always-zero refit p-values, the RNG-stream pollution, the convergence tolerances and the identification conditions are all still there.</p>
+</li>
+<li><p>The earlier <code>skip_on_cran()</code> guards are gone, subsumed by the new one.</p></li>
+</ul><p>Measured: 1.7 s in CRAN mode against 144 s in full mode, both with zero failures.</p>
+</div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.9.5" id="nmfkc-095-2026-08-20">nmfkc 0.9.5 (2026-08-20)<a class="anchor" aria-label="anchor" href="#nmfkc-095-2026-08-20"></a></h2>
+<div class="section level3">
+<h3 id="check-time-only--no-change-to-any-computed-value-0-9-5">Check time only – no change to any computed value<a class="anchor" aria-label="anchor" href="#check-time-only--no-change-to-any-computed-value-0-9-5"></a></h3>
+<p>CRAN’s incoming pretest rejected 0.9.4 for its overall check time (48 minutes on the pretest Windows machine against a 10-minute budget; 34 of those were the tests and 11 the vignettes).</p>
+<ul><li>The expensive regression tests – the refit-bootstrap blocks and the latent VAR bootstrap blocks – now carry <code>skip_on_cran()</code> and keep running locally at full size. Each has a CRAN-sized copy (smaller fixture, fewer replicates), so the defects they guard, in particular the always-zero refit p-values fixed in 0.9.4, remain covered on CRAN itself.</li>
+<li>The timeseries vignette sweeps six candidate lag orders instead of fourteen (the winner, D = 12, is unchanged) and uses <code>wild.B = 50</code> in its inference example.</li>
+<li>Five vignettes leave the package tarball and remain on the website (<a href="https://ksatohds.github.io/nmfkc/articles/" class="uri">https://ksatohds.github.io/nmfkc/articles/</a>): classification, network-community, rank-selection, timeseries and topic-modeling. The tarball keeps introduction, nmf-rrr, nmf-re and nmf-sem.</li>
+</ul></div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.9.4" id="nmfkc-094">nmfkc 0.9.4<a class="anchor" aria-label="anchor" href="#nmfkc-094"></a></h2>
+<div class="section level4">
+<h4 id="breaking-the-nmfrrr-family-drops-the-rank--rankencoder-aliases-0-9-4"><strong>Breaking: the <code>nmf.rrr</code> family drops the <code>rank</code> / <code>rank.encoder</code> aliases</strong><a class="anchor" aria-label="anchor" href="#breaking-the-nmfrrr-family-drops-the-rank--rankencoder-aliases-0-9-4"></a></h4>
+<ul><li>
+<code>rank</code> and <code>rank.encoder</code> are removed from <code><a href="../reference/nmf.rrr.html">nmf.rrr()</a></code>, <code><a href="../reference/nmf.rrr.cv.html">nmf.rrr.cv()</a></code>, <code><a href="../reference/nmf.rrr.ecv.html">nmf.rrr.ecv()</a></code>, <code><a href="../reference/nmf.rrr.kernel.beta.cv.html">nmf.rrr.kernel.beta.cv()</a></code>, <code><a href="../reference/nmf.rrr.rank.html">nmf.rrr.rank()</a></code>, <code><a href="../reference/nmf.rrr.signed.html">nmf.rrr.signed()</a></code>, <code><a href="../reference/nmf.rrr.signed.ecv.html">nmf.rrr.signed.ecv()</a></code> and <code><a href="../reference/nmf.rrr.signed.rank.html">nmf.rrr.signed.rank()</a></code>. Use <strong><code>rank1</code></strong> and <strong><code>rank2</code></strong>. <code>Q</code> and <code>R</code> still work, via <code>...</code>.</li>
+<li>They were declared as formals <em>after</em> <code>...</code>, which put deprecated names in every signature and made the help page read as though they were worth using. They cannot simply move into <code>...</code>: <code>rank</code> is a prefix of both <code>rank1</code> and <code>rank2</code>, so R’s partial matching turns <code>nmf.rrr(Y, rank = 3)</code> into “argument matches multiple formal arguments” before the body runs. Declaring them after <code>...</code> was the only way to suppress that – so the choice was to keep the odd signature or drop the aliases, and they are dropped.</li>
+<li>
+<code>rank.encoder</code> is not a prefix of any remaining formal, so it would otherwise have been swallowed by <code>...</code> and <strong>silently ignored</strong>. Passing either name now raises a clear error naming its replacement.</li>
+</ul></div>
 <div class="section level4">
 <h4 id="breaking-nmfrrr-renames-bprob--bcluster-to-b1prob--b1cluster-0-9-4"><strong>Breaking: <code>nmf.rrr()</code> renames <code>B.prob</code> / <code>B.cluster</code> to <code>B1.prob</code> / <code>B1.cluster</code></strong><a class="anchor" aria-label="anchor" href="#breaking-nmfrrr-renames-bprob--bcluster-to-b1prob--b1cluster-0-9-4"></a></h4>
 <ul><li>
@@ -69,15 +103,6 @@
 <code>criterion$effective.rank.index</code> is new on a single fit: the broken-stick correction , , that <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> already plotted. It is verified to agree bit-for-bit with the <code><a href="../reference/nmfkc.rank.html">nmfkc.rank()</a></code> column at matched settings, and both now call one helper.</li>
 <li>
 <code><a href="https://rdrr.io/pkg/urca/man/summary-methods.html" class="external-link">summary()</a></code> prints it as <code>Factor variance share</code> in place of the old <code>Clustering Crispness</code>. Unlike the crispness (range , monotone in ) this is a genuine  index. Read it as <strong>how evenly the across-sample coefficient variance is shared</strong>, which is not the same as how useful the factors are: two duplicated factors split the variance evenly and score near 1.</li>
-</ul></div>
-<div class="section level4">
-<h4 id="nmf-gmm-family-nmfgmm--present-but-not-exported-0-9-4"><strong>NMF-GMM family (<code>nmf.gmm*</code>) — present but NOT exported</strong><a class="anchor" aria-label="anchor" href="#nmf-gmm-family-nmfgmm--present-but-not-exported-0-9-4"></a></h4>
-<p>The accompanying paper is still in preparation, so this family is deliberately kept out of the public interface: the functions are in the package but are not exported, there is no vignette, and the help pages are marked internal. Reach them as <code>nmfkc:::nmf.gmm()</code> if you want to experiment, and expect argument names, defaults and returned components to change without a deprecation cycle. They will be exported once the method is settled. What is there:</p>
-<ul><li>
-<code>nmf.gmm</code> fits NMF-GMM (Satoh 2026): a -component Gaussian mixture on the latent NMF scores, , , with a shared non-negative, column-normalized basis . Clustering is model based, through the posterior responsibilities.  () is the covariate coefficient matrix and <code>mu</code> the  class means. Fitted by a generalized EM (auto Woodbury E-step for large ); returns <code>X</code>, <code>C</code>, <code>mu</code>, <code>tau2</code>, <code>sigma2</code>, <code>xi</code>, <code>gamma</code> (responsibilities), <code>cluster</code>, <code>BIC</code>, <code>ICL</code>, and the usual house fields. The score covariance is set by <code>cov</code>: <code>"tied"</code> (shared diagonal,  variances; default), <code>"free"</code> (per-class diagonal), or <code>"scalar"</code> (isotropic , a single variance — the most parsimonious variant, and the <code>\link{nmfre}</code> model at ).</li>
-<li>Optimization / inference split: <code>nmf.gmm.inference</code> gives a Basis/Covariate coefficients table for <code>C</code> with the outer-product mixture-information SE and a wild-bootstrap SE / CI (tied covariance); <code>nmf.gmm.select</code> chooses  by BIC / ICL (optional adjusted Rand index against known labels).</li>
-<li>S3: <code>coef</code>, <code>fitted</code>, <code>predict</code> (hard class / responsibilities), <code>print</code>, <code>summary</code>, <code>plot</code>. New dependency: none (base/stats only).</li>
-<li>Verified numerically identical to the standalone research engine on the Leptograpsus crabs data (log-likelihood, <code>X</code>, <code>C</code> exact; <code>mu</code>/<code>gamma</code> equal up to the mixture’s label permutation; ARI 0.86 vs the four species-sex groups). Note on the <code>\link{nmfre}</code> nesting: <code>cov = "scalar"</code> at  gives the same (isotropic) model as <code>nmfre</code>; the default <code>cov = "tied"</code> generalizes it to a diagonal (per-basis) score covariance. In either case the two use different EM algorithms, so the fitted values need not coincide numerically.</li>
 </ul></div>
 <div class="section level4">
 <h4 id="nmfre-correctness-fixes-identification--signed-warm-start-0-9-4"><strong><code>nmfre()</code> correctness fixes (identification + signed warm start)</strong><a class="anchor" aria-label="anchor" href="#nmfre-correctness-fixes-identification--signed-warm-start-0-9-4"></a></h4>
