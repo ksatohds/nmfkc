@@ -127,7 +127,7 @@ Two consequences worth knowing:
   that the conclusion survives a tighter tolerance before relying on it.
 
 `method = "onestep"` and the other inference functions
-(`nmfre.inference()`, `nmf.rrr.inference()`)
+(`nmfre.inference()`, `nmf.rrr.inference()`, `nmf.gmm.inference()`)
 linearize instead of re-fitting and are not affected.
 
 # References
