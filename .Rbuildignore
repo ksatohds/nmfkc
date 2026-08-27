@@ -31,3 +31,7 @@
 ^vignettes/timeseries-with-nmfkc\.Rmd$
 ^vignettes/topic-modeling-with-nmfkc\.Rmd$
 ^tests/testthat/Rplots\.pdf$
+^vignettes/nmf-gmm-with-nmfkc\.Rmd$
+^vignettes/nmf-re-with-nmfkc\.Rmd$
+^vignettes/nmf-rrr-with-nmfkc\.Rmd$
+^vignettes/nmf-sem-with-nmfkc\.Rmd$

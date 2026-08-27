@@ -27,10 +27,6 @@ and added components: \code{coefficients} (data frame with \code{Basis},
 (\eqn{= X C}).
 }
 \description{
-This function is \strong{experimental}. The interface may change in future
-versions: argument names, defaults and the contents of the returned object
-are not yet stable.
-
 \code{nmf.gmm.inference} adds Wald inference on the covariate-coefficient
 matrix \eqn{C} (\eqn{=\Theta}) of a fitted \code{\link{nmf.gmm}} object,
 conditional on the estimated basis \eqn{\hat X} and mixture. It reports the
