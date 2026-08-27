@@ -42,7 +42,21 @@ instead and runs each inner fit with \code{cores = 1}.)
 \item \code{maxit}, \code{tol}: outer EM cap / tolerance (500, 1e-7).
 \item \code{seed}: RNG seed (default 1). \code{prefix}: basis-name prefix
 (default \code{"Basis"}).
-}}
+\item \code{data}: a data frame with one row per column of \code{Y},
+required when \code{A} is a formula (see below).
+\item \code{standardize}: when \code{A} is a formula, center and scale
+the constructed covariate columns (default \code{TRUE}). Factors are
+expanded to treatment indicators before standardization, so a
+\eqn{5}-level factor becomes four centered, scaled columns.
+}
+
+\code{A} may also be a one-sided \strong{formula} (e.g. \code{~ size} or
+\code{~ diet}), evaluated in \code{data}: the design matrix is built with
+\code{\link[stats]{model.matrix}}, its intercept column is replaced by the
+package's own intercept row, and the remaining columns are standardized by
+default. The constructed numeric \eqn{A} is returned in the fit (fields
+\code{A}, \code{A.formula}, \code{A.center}, \code{A.scale}), so
+\code{\link{nmf.gmm.inference}} works unchanged.}
 }
 \value{
 An object of class \code{"nmf.gmm"}: a list with \code{X}

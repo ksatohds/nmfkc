@@ -177,3 +177,49 @@ test_that("a rank-2 fit is drawn in its own coordinates, not rotated", {
   expect_equal(par("usr")[1] <= min(adj[1, ]), TRUE)
   expect_equal(par("usr")[2] >= max(adj[1, ]), TRUE)
 })
+
+test_that("nmf.gmm accepts a one-sided formula covariate with data", {
+  skip_unless_full()
+  d <- make_gmm_data()
+  df <- data.frame(a = d$A[2, ])
+  fit_mat <- nmf.gmm(d$Y, d$A, rank = d$Q, K = 2, X.init = d$X, seed = 1)
+  ## standardize = FALSE reproduces the numeric-A fit exactly
+  fit_fml <- nmf.gmm(d$Y, ~ a, rank = d$Q, K = 2, X.init = d$X, seed = 1,
+                     data = df, standardize = FALSE)
+  expect_equal(unname(fit_fml$A[2, ]), unname(d$A[2, ]))
+  expect_equal(fit_fml$cluster, fit_mat$cluster)
+  expect_equal(fit_fml$loglik, fit_mat$loglik, tolerance = 1e-8)
+  expect_s3_class(fit_fml$A.formula, "formula")
+  ## standardized default still recovers the classes and records the transform
+  fit_std <- nmf.gmm(d$Y, ~ a, rank = d$Q, K = 2, X.init = d$X, seed = 1,
+                     data = df)
+  expect_gt(nmfkc:::.nmfgmm.ARI(fit_std$cluster, d$z), 0.8)
+  expect_length(fit_std$A.center, 1L)
+  expect_length(fit_std$A.scale, 1L)
+  ## a factor covariate expands to indicator rows
+  df$g <- factor(rep(1:4, length.out = ncol(d$Y)))
+  fit_fac <- nmf.gmm(d$Y, ~ a + g, rank = d$Q, K = 2, X.init = d$X, seed = 1,
+                     data = df)
+  expect_equal(nrow(fit_fac$A), 1L + 1L + 3L)   # intercept + a + 3 indicators
+  ## formula without data is an error
+  expect_error(nmf.gmm(d$Y, ~ a, rank = d$Q, K = 2), "data")
+})
+
+test_that("nmf.gmm.twostage runs the matched adjust-then-cluster baseline", {
+  skip_unless_full()
+  d <- make_gmm_data()
+  ts <- nmf.gmm.twostage(d$Y, d$A, rank = d$Q, K = 2, X.init = d$X, seed = 1)
+  expect_s3_class(ts, "nmf.gmm.twostage")
+  expect_s3_class(ts, "nmf.gmm")
+  expect_true(is.list(ts$twostage))
+  expect_gte(ts$twostage$shift, 0)
+  expect_equal(ts$twostage$X0, d$X / rep(colSums(d$X), each = nrow(d$X)))
+  ## on well-separated data with a mild covariate both routes recover the classes
+  expect_gt(nmfkc:::.nmfgmm.ARI(ts$cluster, d$z), 0.5)
+  ## all nmf.gmm S3 methods apply to the returned fit
+  expect_equal(dim(fitted(ts)), dim(d$Y))
+  expect_length(predict(ts), ncol(d$Y))
+  ## intercept-only A is refused
+  expect_error(nmf.gmm.twostage(d$Y, matrix(1, 1, ncol(d$Y)), rank = d$Q, K = 2),
+               "intercept")
+})

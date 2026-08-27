@@ -110,3 +110,21 @@ test_that("the DOT writers produce graph source", {
   expect_type(as.character(d), "character")
   expect_match(paste(as.character(d), collapse = " "), "digraph|graph")
 })
+
+test_that("nmf.gmm and its two-stage baseline fit on toy data", {
+  Afit <- rbind(1, rnorm(ncol(Y)))
+  g <- suppressWarnings(nmf.gmm(Y, Afit, rank = Q, K = 2, nstart = 1,
+                                maxit = 50, seed = 1))
+  expect_s3_class(g, "nmf.gmm")
+  expect_length(g$cluster, ncol(Y))
+  expect_true(is.finite(g$BIC))
+  expect_length(predict(g), ncol(Y))
+  ts <- suppressWarnings(nmf.gmm.twostage(Y, Afit, rank = Q, K = 2, nstart = 1,
+                                          maxit = 50, seed = 1))
+  expect_s3_class(ts, "nmf.gmm.twostage")
+  expect_gte(ts$twostage$shift, 0)
+  df <- data.frame(a = Afit[2, ])
+  gf <- suppressWarnings(nmf.gmm(Y, ~ a, rank = Q, K = 2, nstart = 1,
+                                 maxit = 50, seed = 1, data = df))
+  expect_equal(nrow(gf$A), 2L)
+})

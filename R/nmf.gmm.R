@@ -291,6 +291,25 @@
 #  Public API
 # =====================================================================
 
+## Build a numeric R x N covariate matrix from a one-sided formula + data:
+## model.matrix, drop its intercept, optionally center+scale, prepend the
+## package intercept row.  Returns A with attributes A.center / A.scale.
+#' @noRd
+.nmfgmm.buildA <- function(formula, data, N, standardize = TRUE) {
+  if (is.null(data)) stop("A is a formula; supply `data` (one row per column of Y).")
+  mm <- stats::model.matrix(formula, data = data)
+  mm <- mm[, colnames(mm) != "(Intercept)", drop = FALSE]
+  if (nrow(mm) != N) stop("`data` must have one row per column of Y.")
+  ctr <- scl <- NULL
+  if (standardize && ncol(mm) > 0) {
+    mm <- scale(mm)
+    ctr <- attr(mm, "scaled:center"); scl <- attr(mm, "scaled:scale")
+  }
+  A <- rbind(Intercept = rep(1, N), t(mm))
+  attr(A, "A.center") <- ctr; attr(A, "A.scale") <- scl
+  A
+}
+
 #' @title Fit NMF-GMM: a Gaussian-mixture latent-class extension of NMF with covariates
 #' @description
 #' This function is \strong{experimental}. The interface may change in future
@@ -343,7 +362,21 @@
 #'     \item \code{maxit}, \code{tol}: outer EM cap / tolerance (500, 1e-7).
 #'     \item \code{seed}: RNG seed (default 1). \code{prefix}: basis-name prefix
 #'       (default \code{"Basis"}).
+#'     \item \code{data}: a data frame with one row per column of \code{Y},
+#'       required when \code{A} is a formula (see below).
+#'     \item \code{standardize}: when \code{A} is a formula, center and scale
+#'       the constructed covariate columns (default \code{TRUE}). Factors are
+#'       expanded to treatment indicators before standardization, so a
+#'       \eqn{5}-level factor becomes four centered, scaled columns.
 #'   }
+#'
+#'   \code{A} may also be a one-sided \strong{formula} (e.g. \code{~ size} or
+#'   \code{~ diet}), evaluated in \code{data}: the design matrix is built with
+#'   \code{\link[stats]{model.matrix}}, its intercept column is replaced by the
+#'   package's own intercept row, and the remaining columns are standardized by
+#'   default. The constructed numeric \eqn{A} is returned in the fit (fields
+#'   \code{A}, \code{A.formula}, \code{A.center}, \code{A.scale}), so
+#'   \code{\link{nmf.gmm.inference}} works unchanged.
 #'
 #' @return An object of class \code{"nmf.gmm"}: a list with \code{X}
 #'   (basis), \code{C} (\eqn{=\Theta}, Q x R), \code{mu} (class means, Q x K),
@@ -390,6 +423,12 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
 
   t0 <- proc.time()
   Y <- as.matrix(Y); P <- nrow(Y); N <- ncol(Y); Q <- as.integer(rank)
+  A.formula <- NULL; A.center <- NULL; A.scale <- NULL
+  if (inherits(A, "formula")) {
+    A.formula <- A
+    A <- .nmfgmm.buildA(A, extra$data, N, getopt("standardize", TRUE))
+    A.center <- attr(A, "A.center"); A.scale <- attr(A, "A.scale")
+  }
   if (is.null(A)) A <- matrix(1, 1, N)
   A <- as.matrix(A); if (ncol(A) != N && nrow(A) == N) A <- t(A)
   if (ncol(A) != N) stop("A must have N columns (R x N).")
@@ -458,7 +497,8 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
     ## Standard convergence names shared with the other fitters; tol is this
     ## model's epsilon.
     maxit = maxit, epsilon = tol,
-    converged = fit$iter < maxit, A = A
+    converged = fit$iter < maxit, A = A,
+    A.formula = A.formula, A.center = A.center, A.scale = A.scale
   ), class = "nmf.gmm")
 }
 
@@ -650,6 +690,96 @@ nmf.gmm.select <- function(Y, A = NULL, rank, K = 1:5, ...) {
   }
   structure(list(table = tab, K.best = K.best, K.best.icl = K.best.icl,
                  fits = fits), class = "nmf.gmm.select")
+}
+
+
+#' @title Two-stage (adjust-then-cluster) baseline for NMF-GMM
+#' @description
+#' \code{nmf.gmm.twostage} runs the \emph{two-stage} route that
+#' \code{\link{nmf.gmm}} is designed to improve on, as a matched baseline:
+#' (1) estimate least-squares scores on the initial basis, (2) regress the
+#' scores on the covariates \emph{blind to the class} and keep the residuals,
+#' (3) reconstitute the residuals in observation space, shift them to
+#' non-negativity, and (4) refit an intercept-only \code{nmf.gmm} from the
+#' \emph{same} basis initialization. Only the order of adjustment and
+#' clustering differs from the joint fit, so the pair isolates the
+#' displacement of the class means that two-stage adjustment incurs when the
+#' covariate is associated with the class (Satoh 2026, Proposition 4); when
+#' the covariate is (near-)mean-independent of the class the two routes agree.
+#'
+#' @param Y Data matrix \eqn{Y} (P x N).
+#' @param A Covariate matrix \eqn{A} (R x N) including an intercept row, or a
+#'   one-sided formula evaluated in \code{data} (as in \code{\link{nmf.gmm}}).
+#'   An intercept-only \code{A} is an error: there is nothing to adjust for.
+#' @param rank Integer rank \eqn{Q} of the basis.
+#' @param K Integer number of mixture components.
+#' @param ... Additional arguments as in \code{\link{nmf.gmm}} (\code{cov},
+#'   \code{X.init}, \code{nstart}, \code{maxit}, \code{seed}, \code{data},
+#'   \code{standardize}, ...); they are applied to both stages.
+#'
+#' @return An object of class \code{c("nmf.gmm.twostage", "nmf.gmm")}: the
+#'   stage-2 fit (all \code{\link{nmf.gmm}} fields and S3 methods apply),
+#'   plus a \code{twostage} list with the non-negativity \code{shift}, the
+#'   covariate matrix \code{A} that was removed, and the shared basis
+#'   initialization \code{X0}.
+#'
+#' @seealso \code{\link{nmf.gmm}} (the joint route this baselines).
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y <- matrix(abs(rnorm(12 * 40)) + 1, 12, 40)
+#' A <- rbind(1, rnorm(40))
+#' ts <- nmf.gmm.twostage(Y, A, rank = 2, K = 2, nstart = 2, maxit = 100)
+#' table(ts$cluster)
+#' }
+#' @export
+nmf.gmm.twostage <- function(Y, A = NULL, rank, K = 1, ...) {
+  extra <- base::list(...)
+  getopt <- function(nm, default) if (!is.null(extra[[nm]])) extra[[nm]] else default
+  intercept <- getopt("intercept", 1L)
+  seed      <- getopt("seed", 1L)
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  Y <- as.matrix(Y); N <- ncol(Y); Q <- as.integer(rank)
+  A.formula <- NULL
+  if (inherits(A, "formula")) {
+    A.formula <- A
+    A <- .nmfgmm.buildA(A, extra$data, N, getopt("standardize", TRUE))
+  }
+  if (is.null(A)) stop("nmf.gmm.twostage() needs a covariate: supply A or a formula with `data`.")
+  A <- as.matrix(A); if (ncol(A) != N && nrow(A) == N) A <- t(A)
+  if (ncol(A) != N) stop("A must have N columns (R x N).")
+  if (nrow(A) < 2) stop("A holds only an intercept; there is nothing to adjust for.")
+
+  ## stage 0: the same initial basis nmf.gmm would use
+  X.init <- extra$X.init
+  nstart <- getopt("nstart", if (K == 1) 1L else 8L)
+  if (is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)) {
+    X0 <- as.matrix(X.init)
+  } else {
+    method <- if (is.character(X.init)) X.init else "nndsvd"
+    X0 <- .init_X_method(method, Y, Q, seed = seed, nstart = max(nstart, 1L))
+  }
+  X0 <- X0 / rep(pmax(colSums(X0), 1e-12), each = nrow(X0))
+
+  ## stage 1: least-squares scores; remove the covariates blind to the class
+  B <- solve(crossprod(X0), crossprod(X0, Y))
+  Acov <- t(A[-intercept, , drop = FALSE])
+  Bres <- t(stats::resid(stats::lm(t(B) ~ Acov)))
+
+  ## stage 2: reconstitute, shift to non-negativity, refit from the same basis
+  Yres <- X0 %*% Bres
+  shift <- max(0, -min(Yres))
+  Yres <- Yres + shift
+  dimnames(Yres) <- dimnames(Y)
+  pass <- extra
+  pass$data <- NULL; pass$standardize <- NULL; pass$X.init <- NULL
+  fit <- do.call(nmf.gmm, c(list(Y = Yres, A = NULL, rank = rank, K = K,
+                                 X.init = X0), pass))
+  fit$twostage <- list(shift = shift, A = A, A.formula = A.formula, X0 = X0)
+  fit$call <- match.call()
+  class(fit) <- c("nmf.gmm.twostage", class(fit))
+  fit
 }
 
 

@@ -1,3 +1,62 @@
+# nmfkc (development version)
+
+## NMF-GMM family reinstated, with a formula interface and a two-stage baseline
+
+The `nmf.gmm*` family returns to `develop` (it was removed on 2026-08-26 while
+the accompanying paper's publication was undecided; the paper is now being
+submitted, so the family comes back unchanged -- the removal commit was
+reverted and the restored sources are byte-identical to the archived copies).
+Two additions on top of the reinstated family:
+
+- **Formula covariates.** `A` may now be a one-sided formula evaluated in a
+  new `data` argument: `nmf.gmm(Y, ~ size + diet, rank = 3, K = 4, data = df)`.
+  The design matrix is built by `model.matrix()`, its intercept column is
+  replaced by the package's intercept row, and the remaining columns are
+  centered and scaled by default (`standardize = FALSE` to keep them raw).
+  Factors expand to treatment indicators before standardization. The
+  constructed numeric `A` and the transform are returned in the fit
+  (`A`, `A.formula`, `A.center`, `A.scale`), so `nmf.gmm.inference()` works
+  unchanged. This removes the hand-rolled `rbind(1, scale(...))` boilerplate
+  that every analysis script used to repeat, and with it a documented class
+  of centered-vs-scaled description mismatches.
+- **`nmf.gmm.twostage()`.** The adjust-then-cluster baseline that the joint
+  fit is designed to improve on, packaged as the matched recipe used in the
+  paper: least-squares scores on the shared basis initialization, covariates
+  regressed out blind to the class, residuals reconstituted in observation
+  space, shifted to non-negativity, and refitted with an intercept-only
+  `nmf.gmm` from the same `X0`. Only the order of adjustment and clustering
+  differs from the joint fit. Returns a regular `nmf.gmm` object (all S3
+  methods apply) plus a `twostage` list with the shift, the removed `A` and
+  the shared `X0`. Previously this recipe lived in three analysis scripts
+  with two slightly different non-negativity shifts; now there is one.
+
+### **New: NMF-GMM family (`nmf.gmm*`)**
+- `nmf.gmm()` fits NMF-GMM (Satoh 2026): a \eqn{K}-component Gaussian mixture on
+  the latent NMF scores, \eqn{\bm b_n\mid(z_n{=}k)\sim N_Q(C\bm a_n+\bm\mu_k,
+  \Sigma_k)}, \eqn{\bm y_n=X\bm b_n+\bm\varepsilon}, with a shared non-negative,
+  column-normalized basis \eqn{X}. Clustering is model based, through the
+  posterior responsibilities. \eqn{C} (\eqn{=\Theta}) is the covariate
+  coefficient matrix and `mu` the \eqn{Q\times K} class means. Fitted by a
+  generalized EM (auto Woodbury E-step for large \eqn{P}); returns `X`, `C`,
+  `mu`, `tau2`, `sigma2`, `xi`, `gamma` (responsibilities), `cluster`, `BIC`,
+  `ICL`, and the usual house fields. The score covariance is set by `cov`:
+  `"tied"` (shared diagonal, \eqn{Q} variances; default), `"free"` (per-class
+  diagonal), or `"scalar"` (isotropic \eqn{\tau^2 I}, a single variance --- the
+  most parsimonious variant, and the `\link{nmfre}` model at \eqn{K=1}).
+- Optimization / inference split: `nmf.gmm.inference()` gives a Basis/Covariate
+  coefficients table for `C` with the outer-product mixture-information SE and a
+  wild-bootstrap SE / CI (tied covariance); `nmf.gmm.select()` chooses \eqn{K}
+  by BIC / ICL (optional adjusted Rand index against known labels).
+- S3: `coef`, `fitted`, `predict` (hard class / responsibilities), `print`,
+  `summary`, `plot`. New dependency: none (base/stats only).
+- Verified numerically identical to the standalone research engine on the
+  Leptograpsus crabs data (log-likelihood, `X`, `C` exact; `mu`/`gamma` equal up
+  to the mixture's label permutation; ARI 0.86 vs the four species-sex groups).
+  Note on the `\link{nmfre}` nesting: `cov = "scalar"` at \eqn{K = 1} gives the
+  same (isotropic) model as `nmfre`; the default `cov = "tied"` generalizes it
+  to a diagonal (per-basis) score covariance. In either case the two use
+  different EM algorithms, so the fitted values need not coincide numerically.
+
 # nmfkc 0.9.6 (2026-08-23)
 
 ## Check time only -- no change to any computed value
@@ -116,33 +175,6 @@ the tests and 11 the vignettes).
   across-sample coefficient variance is shared**, which is not the same as how
   useful the factors are: two duplicated factors split the variance evenly and
   score near 1.
-
-### **New: NMF-GMM family (`nmf.gmm*`)**
-- `nmf.gmm()` fits NMF-GMM (Satoh 2026): a \eqn{K}-component Gaussian mixture on
-  the latent NMF scores, \eqn{\bm b_n\mid(z_n{=}k)\sim N_Q(C\bm a_n+\bm\mu_k,
-  \Sigma_k)}, \eqn{\bm y_n=X\bm b_n+\bm\varepsilon}, with a shared non-negative,
-  column-normalized basis \eqn{X}. Clustering is model based, through the
-  posterior responsibilities. \eqn{C} (\eqn{=\Theta}) is the covariate
-  coefficient matrix and `mu` the \eqn{Q\times K} class means. Fitted by a
-  generalized EM (auto Woodbury E-step for large \eqn{P}); returns `X`, `C`,
-  `mu`, `tau2`, `sigma2`, `xi`, `gamma` (responsibilities), `cluster`, `BIC`,
-  `ICL`, and the usual house fields. The score covariance is set by `cov`:
-  `"tied"` (shared diagonal, \eqn{Q} variances; default), `"free"` (per-class
-  diagonal), or `"scalar"` (isotropic \eqn{\tau^2 I}, a single variance --- the
-  most parsimonious variant, and the `\link{nmfre}` model at \eqn{K=1}).
-- Optimization / inference split: `nmf.gmm.inference()` gives a Basis/Covariate
-  coefficients table for `C` with the outer-product mixture-information SE and a
-  wild-bootstrap SE / CI (tied covariance); `nmf.gmm.select()` chooses \eqn{K}
-  by BIC / ICL (optional adjusted Rand index against known labels).
-- S3: `coef`, `fitted`, `predict` (hard class / responsibilities), `print`,
-  `summary`, `plot`. New dependency: none (base/stats only).
-- Verified numerically identical to the standalone research engine on the
-  Leptograpsus crabs data (log-likelihood, `X`, `C` exact; `mu`/`gamma` equal up
-  to the mixture's label permutation; ARI 0.86 vs the four species-sex groups).
-  Note on the `\link{nmfre}` nesting: `cov = "scalar"` at \eqn{K = 1} gives the
-  same (isotropic) model as `nmfre`; the default `cov = "tied"` generalizes it
-  to a diagonal (per-basis) score covariance. In either case the two use
-  different EM algorithms, so the fitted values need not coincide numerically.
 
 ### **`nmfre()` correctness fixes (identification + signed warm start)**
 - Removed the row-centering of the random-effect matrix `U` inside the U-step.
