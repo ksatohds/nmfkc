@@ -118,15 +118,36 @@
 ## final polish in .nmfgmm.fit.
 ## ---------------------------------------------------------------------
 .nmfgmm.solve_theta_mu <- function(Theta, mu, bhat, gamma, Nj, A, intercept,
-                           inner_tol = 1e-12, inner_max = 50) {
-  Q <- nrow(mu); N <- ncol(A); K <- ncol(mu)
+                           inner_tol = 1e-12, inner_max = 50,
+                           cov = "tied", tau2 = NULL) {
+  Q <- nrow(mu); N <- ncol(A); K <- ncol(mu); R <- nrow(A)
   xi <- Nj / sum(Nj); AAt_inv <- solve(tcrossprod(A))
+  gls <- (cov == "free" && !is.null(tau2))
+  if (gls) {
+    ## weight matrix does not depend on Theta or mu: build it once
+    W <- matrix(0, Q * R, Q * R)
+    for (k in 1:K) {
+      Ak <- A %*% (gamma[, k] * t(A))            # R x R : sum_n gamma_nk a_n a_n'
+      W <- W + kronecker(Ak, diag(1 / tau2[, k], Q))
+    }
+    Wc <- chol(W)
+  }
   prev <- c(Theta, mu)
   for (it in 1:inner_max) {
-    bbar <- matrix(0, Q, N)
-    for (k in 1:K) bbar <- bbar + (bhat[[k]] - mu[, k]) * rep(gamma[, k], each = Q)
-    Theta <- (bbar %*% t(A)) %*% AAt_inv; M <- Theta %*% A
-    for (k in 1:K) mu[, k] <- rowSums((bhat[[k]] - M) * rep(gamma[, k], each = Q)) / Nj[k]
+    if (gls) {
+      rhs <- matrix(0, Q, R)
+      for (k in 1:K)
+        rhs <- rhs + (1 / tau2[, k]) *
+          (sweep(bhat[[k]], 1, mu[, k], "-") %*% (gamma[, k] * t(A)))
+      Theta <- matrix(backsolve(Wc, backsolve(Wc, as.numeric(rhs),
+                                              transpose = TRUE)), Q, R)
+    } else {
+      bbar <- matrix(0, Q, N)
+      for (k in 1:K) bbar <- bbar + sweep(sweep(bhat[[k]], 1, mu[, k], "-"), 2, gamma[, k], "*")
+      Theta <- (bbar %*% t(A)) %*% AAt_inv
+    }
+    M <- Theta %*% A
+    for (k in 1:K) mu[, k] <- rowSums(sweep(bhat[[k]] - M, 2, gamma[, k], "*")) / Nj[k]
     mubar <- as.numeric(mu %*% xi); mu <- mu - mubar
     Theta[, intercept] <- Theta[, intercept] + mubar
     cur <- c(Theta, mu)
@@ -140,43 +161,55 @@
 ## M-step
 ## ---------------------------------------------------------------------
 .nmfgmm.mstep <- function(par, es, Y, A, intercept = 1, cov = "tied",
-                  inner_tol = 1e-12, inner_max = 50) {
+                  inner_tol = 1e-12, inner_max = 50, fixX = FALSE,
+                  vfloor = NULL) {
+  ## vfloor: lower bound on the variance parameters.  NULL (default) makes it
+  ## SCALE-RELATIVE, 1e-12 * mean(Y^2), so the fit is equivariant under
+  ## Y -> cY.  The old fixed 1e-6 bound was absolute and could bind on
+  ## small-scale data (it did on the nir absorbances, whose entries are
+  ## O(0.02)); pass vfloor = 1e-6 to reproduce the old behaviour.
   X <- par$X; tau2 <- par$tau2; sigma2 <- par$sigma2
   P <- nrow(Y); N <- ncol(Y); Q <- ncol(X); K <- ncol(par$mu)
   gamma <- es$gamma; bhat <- es$bhat; Omega <- es$Omega; Nj <- es$Nj
+  if (is.null(vfloor)) vfloor <- 1e-12 * mean(Y^2)
   xi <- Nj / N
 
   ## --- inner Theta/mu alternation (ANCOVA normal equations) ---
   tm <- .nmfgmm.solve_theta_mu(par$Theta, par$mu, bhat, gamma, Nj, A, intercept,
-                       inner_tol, inner_max)
+                       inner_tol, inner_max, cov = cov, tau2 = par$tau2)
   Theta <- tm$Theta; mu <- tm$mu
 
   ## --- variances ---
   M <- Theta %*% A
-  if (cov != "free") {                               # "tied" or "scalar": one shared Omega
+  if (cov != "free") {                     # "tied" or "scalar": shared diagonal
     num <- rep(0, Q)
     for (k in 1:K) {
-      resid <- (bhat[[k]] - M) - mu[, k]
-      num <- num + rowSums(resid^2 * rep(gamma[, k], each = Q))
+      resid <- sweep(bhat[[k]] - M, 1, mu[, k], "-")
+      num <- num + rowSums(sweep(resid^2, 2, gamma[, k], "*"))
     }
-    tau2 <- pmax((num + N * diag(Omega)) / N, 1e-6)
+    tau2 <- pmax((num + N * diag(Omega)) / N, vfloor)
+    if (cov == "scalar") tau2 <- rep(mean(tau2), Q)   # isotropic: pool
   } else {
     for (k in 1:K) {
-      resid <- (bhat[[k]] - M) - mu[, k]
-      tau2[, k] <- pmax((rowSums(resid^2 * rep(gamma[, k], each = Q)) +
-                         Nj[k] * diag(Omega[[k]])) / Nj[k], 1e-6)
+      resid <- sweep(bhat[[k]] - M, 1, mu[, k], "-")
+      tau2[, k] <- pmax((rowSums(sweep(resid^2, 2, gamma[, k], "*")) +
+                         Nj[k] * diag(Omega[[k]])) / Nj[k], vfloor)
     }
   }
 
   ## --- basis: responsibility-weighted semi-NMF update ---
   Cstat <- matrix(0, P, Q); Gstat <- matrix(0, Q, Q)
   for (k in 1:K) {
-    Cstat <- Cstat + (Y * rep(gamma[, k], each = P)) %*% t(bhat[[k]])
-    Gstat <- Gstat + (bhat[[k]] * rep(gamma[, k], each = Q)) %*% t(bhat[[k]])
+    Cstat <- Cstat + sweep(Y, 2, gamma[, k], "*") %*% t(bhat[[k]])
+    Gstat <- Gstat + sweep(bhat[[k]], 2, gamma[, k], "*") %*% t(bhat[[k]])
     if (cov == "free") Gstat <- Gstat + Nj[k] * Omega[[k]]
   }
   if (cov != "free") Gstat <- Gstat + N * Omega
-  Xn <- X * sqrt((.nmfgmm.pos(Cstat) + X %*% .nmfgmm.neg(Gstat)) /
+  ## fixX = TRUE (2026-08-28): hold the basis at its current value -- used for
+  ## the fixed-basis two-stage-vs-joint comparison, where BOTH routes must run
+  ## on the SAME X so that only the order of adjustment and clustering differs.
+  Xn <- if (fixX) X else
+        X * sqrt((.nmfgmm.pos(Cstat) + X %*% .nmfgmm.neg(Gstat)) /
                  (.nmfgmm.neg(Cstat) + X %*% .nmfgmm.pos(Gstat) + 1e-12))
 
   ## --- noise variance ---
@@ -186,13 +219,13 @@
     if (cov == "free") tr <- tr + Nj[k] * sum((Xn %*% Omega[[k]]) * Xn)
   }
   if (cov != "free") tr <- N * sum((Xn %*% Omega) * Xn)
-  sigma2 <- max((ss + tr) / (P * N), 1e-6)
+  sigma2 <- max((ss + tr) / (P * N), vfloor)
 
   ## --- column-normalize X and rescale ---
-  D <- colSums(Xn); Xn <- Xn / rep(D, each = P)
-  Theta <- Theta * D; mu <- mu * D
-  tau2 <- tau2 * D^2   # length-Q D^2 recycles down cols of the Q x K free matrix; elementwise for tied/scalar
-  if (cov == "scalar") tau2 <- rep(mean(tau2), Q)     # isotropic: pool to one variance
+  D <- colSums(Xn); Xn <- sweep(Xn, 2, D, "/")
+  Theta <- sweep(Theta, 1, D, "*"); mu <- sweep(mu, 1, D, "*")
+  if (cov != "free") tau2 <- tau2 * D^2 else tau2 <- sweep(tau2, 1, D^2, "*")
+  if (cov == "scalar") tau2 <- rep(mean(tau2), Q)     # rescaling breaks isotropy
 
   list(X = Xn, Theta = Theta, mu = mu, tau2 = tau2, sigma2 = sigma2, xi = xi)
 }
@@ -205,7 +238,9 @@
   bls <- solve(crossprod(X0), crossprod(X0, Y))
   Theta <- (bls %*% t(A)) %*% solve(tcrossprod(A))
   r <- bls - Theta %*% A
-  ms <- function(M) pmax(apply(M, 1, function(v) mean(v^2)), 1e-3)
+  ## initialization floors are scale-relative too (see fit_nmfgmm's vfloor)
+  ifloor <- 1e-12 * mean(bls^2)
+  ms <- function(M) pmax(apply(M, 1, function(v) mean(v^2)), ifloor)
   if (K == 1) {
     tau2 <- if (cov == "free") matrix(ms(r), Q, 1)
             else if (cov == "scalar") rep(mean(ms(r)), Q) else ms(r)
@@ -216,8 +251,8 @@
   km <- stats::kmeans(rt, centers = .nmfgmm.kmpp(rt, K, seed), iter.max = 50)
   xi <- as.numeric(table(factor(km$cluster, levels = 1:K))) / N
   mu <- matrix(t(km$centers), Q, K)
-  if (cov != "free") {
-    resid <- r - mu[, km$cluster]; tau2 <- pmax(rowMeans(resid^2), 1e-3)
+  if (cov != "free") {                    # "tied" or "scalar": shared diagonal
+    resid <- r - mu[, km$cluster]; tau2 <- pmax(rowMeans(resid^2), ifloor)
     if (cov == "scalar") tau2 <- rep(mean(tau2), Q)
   } else {
     tau2 <- sapply(1:K, function(k) { idx <- km$cluster == k
@@ -233,33 +268,61 @@
 ## Multistart EM driver
 ## ---------------------------------------------------------------------
 .nmfgmm.fit <- function(Y, A, X0, K, cov = "tied", intercept = 1,
-                       maxit = 500, tol = 1e-7,
+                       maxit = 200000, tol = 1e-7, ptol = 1e-9,
                        nstart = if (K == 1) 1 else 8,
-                       inner_tol = 1e-12, inner_max = 50, cores = 1L) {
+                       inner_tol = 1e-12, inner_max = 50, cores = 1L, fixX = FALSE,
+                       vfloor = NULL) {
+  ## tol   : relative change of the marginal log-likelihood (the usual EM rule).
+  ## ptol  : relative change of the REPORTED parameters (X, Theta, mu); NULL
+  ##         keeps the objective-only rule.  The objective rule cannot fire when
+  ##         a nuisance variance drifts to its boundary (tau^2 -> 0 on a sample
+  ##         with no random effect), even though the reported quantities have
+  ##         settled; $stop_by records which rule fired.
+  ## vfloor: variance lower bound, NULL = scale-relative 1e-12 * mean(Y^2), so
+  ##         the fit is equivariant under Y -> cY.
   bls <- solve(crossprod(X0), crossprod(X0, Y))
-  s2_0 <- max(mean((Y - X0 %*% bls)^2), 1e-3)
+  s2_0 <- max(mean((Y - X0 %*% bls)^2), 1e-12 * mean(Y^2))
   ## One EM restart. Each start re-seeds from `s` (via .nmfgmm.init_par) and the
   ## EM loop is RNG-free, so run_start(s) is a deterministic function of s alone
   ## -- independent of the other starts and of execution order.
   run_start <- function(s) {
     par <- .nmfgmm.init_par(Y, A, X0, K, s2_0, intercept, seed = s, cov = cov)
     ll_old <- -Inf; hist <- numeric(0)
+    rep_old <- c(par$X, par$Theta, par$mu); stop_by <- "maxit"
     for (it in 1:maxit) {
       es <- .nmfgmm.estep(par, Y, A, cov = cov); hist <- c(hist, es$loglik)
-      if (abs(es$loglik - ll_old) / (abs(es$loglik) + 1) < tol) break
+      if (abs(es$loglik - ll_old) / (abs(es$loglik) + 1) < tol) {
+        stop_by <- "loglik"; break
+      }
       ll_old <- es$loglik
       par <- .nmfgmm.mstep(par, es, Y, A, intercept, cov = cov,
-                   inner_tol = inner_tol, inner_max = inner_max)
+                   inner_tol = inner_tol, inner_max = inner_max, fixX = fixX,
+                   vfloor = vfloor)
+      if (!is.null(ptol)) {
+        rep_new <- c(par$X, par$Theta, par$mu)
+        if (sqrt(sum((rep_new - rep_old)^2)) /
+            (sqrt(sum(rep_new^2)) + 1e-12) < ptol) {
+          ## The E-step just after the loop recomputes this on the same `par`,
+          ## so doing it here as well costs one full E-step for nothing.
+          ## Record only the flag; `hist` gains its last entry from that call.
+          stop_by <- "parameters"
+          break
+        }
+        rep_old <- rep_new
+      }
     }
     es <- .nmfgmm.estep(par, Y, A, cov = cov)
+    if (stop_by == "parameters") hist <- c(hist, es$loglik)
     ## polish: re-solve Theta/mu at the final responsibilities so the returned
     ## pair satisfies the ANCOVA normal equations (rem:ancova) to machine
     ## precision, removing the one-step outer-loop lag.  Holds X, variances,
     ## and the loglik fixed to outer-tol; .nmfgmm.ARI/BIC unaffected.
     tm <- .nmfgmm.solve_theta_mu(par$Theta, par$mu, es$bhat, es$gamma, es$Nj, A,
-                         intercept, inner_tol, inner_max)
+                         intercept, inner_tol, inner_max,
+                         cov = cov, tau2 = par$tau2)
     par$Theta <- tm$Theta; par$mu <- tm$mu
-    list(par = par, es = es, loglik = es$loglik, iter = it, hist = hist)
+    list(par = par, es = es, loglik = es$loglik, iter = it, hist = hist,
+         stop_by = stop_by)
   }
   ## .nmfkc.parlapply preserves input order, so which.max() picks the same
   ## first-best restart as the sequential `> best$loglik` scan -- the returned
@@ -355,7 +418,25 @@
 #'       are combined in order, so the returned fit is identical for any
 #'       \code{cores}. (\code{\link{nmf.gmm.select}} parallelizes over \code{K}
 #'       instead and runs each inner fit with \code{cores = 1}.)
-#'     \item \code{maxit}, \code{tol}: outer EM cap / tolerance (500, 1e-7).
+#'     \item \code{maxit}, \code{tol}: outer EM cap / tolerance (2e5, 1e-7).
+#'       \code{tol} is the relative change of the marginal log-likelihood, the
+#'       usual EM rule.
+#'     \item \code{ptol}: a second stopping rule, on the relative change of the
+#'       \emph{reported} parameters \eqn{X}, \eqn{C} and \eqn{\bm\mu}
+#'       (default 1e-9; \code{NULL} disables it). The log-likelihood rule alone
+#'       can fail to fire when a nuisance variance drifts to its boundary --
+#'       \eqn{\tau^2\to 0} on a sample that carries no random effect -- so the
+#'       objective keeps creeping up after the partition, the basis and the
+#'       covariate effect have settled. The returned \code{stop_by} says which
+#'       rule fired (\code{"loglik"}, \code{"parameters"} or \code{"maxit"}).
+#'     \item \code{vfloor}: lower bound on the variance parameters. The default
+#'       (\code{NULL}) makes it scale-relative, \eqn{10^{-12}\,\mathrm{mean}(Y^2)},
+#'       so the fit is equivariant under \eqn{Y\to cY}; a fixed bound would bind
+#'       on small-scale data.
+#'     \item \code{fixX}: hold the basis at its initial value instead of
+#'       updating it (default \code{FALSE}). Used to compare the joint fit with
+#'       \code{\link{nmf.gmm.twostage}} on the \emph{same} \eqn{X}, so that only
+#'       the order of adjustment and clustering differs.
 #'     \item \code{seed}: RNG seed (default 1). \code{prefix}: basis-name prefix
 #'       (default \code{"Basis"}).
 #'     \item \code{data}: a data frame with one row per column of \code{Y},
@@ -379,7 +460,8 @@
 #'   \code{tau2}, \code{sigma2}, \code{xi} (mixing proportions), \code{gamma}
 #'   (responsibilities, N x K), \code{cluster} (hard labels), \code{loglik},
 #'   \code{BIC}, \code{ICL}, \code{n.params}, \code{entropy}, \code{Yhat},
-#'   \code{objfunc(.iter)}, \code{iter}, \code{converged}, \code{K},
+#'   \code{objfunc(.iter)}, \code{iter}, \code{converged}, \code{stop_by},
+#'   \code{K},
 #'   \code{rank}, \code{cov}, \code{dims} and \code{runtime}.
 #'
 #' @seealso \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}},
@@ -400,7 +482,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   cov       <- getopt("cov", "tied")
   X.init    <- extra$X.init
   intercept <- getopt("intercept", 1L)
-  maxit     <- getopt("maxit", 500L)
+  maxit     <- getopt("maxit", 200000L)
   ## `epsilon` is the house name for the convergence tolerance in every other
   ## fitter, and this function already RETURNS it as `epsilon`.  Accepting only
   ## `tol` meant nmf.gmm(..., epsilon = 1e-9) was silently a no-op.  `tol` stays
@@ -415,6 +497,9 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   prefix    <- getopt("prefix", "Basis")
   inner_tol <- getopt("inner_tol", 1e-12)
   inner_max <- getopt("inner_max", 50L)
+  ptol      <- getopt("ptol", 1e-9)
+  vfloor    <- getopt("vfloor", NULL)
+  fixX      <- getopt("fixX", FALSE)
   cov <- match.arg(cov, c("tied", "free", "scalar"))
 
   t0 <- proc.time()
@@ -442,8 +527,9 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   X0 <- X0 / rep(pmax(colSums(X0), 1e-12), each = nrow(X0))
 
   fit <- .nmfgmm.fit(Y, A, X0, K, cov = cov, intercept = intercept,
-                     maxit = maxit, tol = tol, nstart = nstart,
-                     inner_tol = inner_tol, inner_max = inner_max, cores = cores)
+                     maxit = maxit, tol = tol, ptol = ptol, nstart = nstart,
+                     inner_tol = inner_tol, inner_max = inner_max, cores = cores,
+                     fixX = fixX, vfloor = vfloor)
   par <- fit$par; es <- fit$es
 
   ## --- labels (house style) ---
@@ -493,7 +579,10 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
     ## Standard convergence names shared with the other fitters; tol is this
     ## model's epsilon.
     maxit = maxit, epsilon = tol,
-    converged = fit$iter < maxit, A = A,
+    ## stop_by records WHICH rule fired ("loglik", "parameters" or "maxit").
+    ## iter < maxit alone cannot tell a ptol stop from a loglik stop, and it
+    ## calls a run that used its last iteration productively "not converged".
+    converged = fit$stop_by != "maxit", stop_by = fit$stop_by, A = A,
     A.formula = A.formula, A.center = A.center, A.scale = A.scale
   ), class = "nmf.gmm")
 }

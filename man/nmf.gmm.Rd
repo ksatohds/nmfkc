@@ -39,7 +39,25 @@ elsewhere). Each restart is an independent self-seeded EM and results
 are combined in order, so the returned fit is identical for any
 \code{cores}. (\code{\link{nmf.gmm.select}} parallelizes over \code{K}
 instead and runs each inner fit with \code{cores = 1}.)
-\item \code{maxit}, \code{tol}: outer EM cap / tolerance (500, 1e-7).
+\item \code{maxit}, \code{tol}: outer EM cap / tolerance (2e5, 1e-7).
+\code{tol} is the relative change of the marginal log-likelihood, the
+usual EM rule.
+\item \code{ptol}: a second stopping rule, on the relative change of the
+\emph{reported} parameters \eqn{X}, \eqn{C} and \eqn{\bm\mu}
+(default 1e-9; \code{NULL} disables it). The log-likelihood rule alone
+can fail to fire when a nuisance variance drifts to its boundary --
+\eqn{\tau^2\to 0} on a sample that carries no random effect -- so the
+objective keeps creeping up after the partition, the basis and the
+covariate effect have settled. The returned \code{stop_by} says which
+rule fired (\code{"loglik"}, \code{"parameters"} or \code{"maxit"}).
+\item \code{vfloor}: lower bound on the variance parameters. The default
+(\code{NULL}) makes it scale-relative, \eqn{10^{-12}\,\mathrm{mean}(Y^2)},
+so the fit is equivariant under \eqn{Y\to cY}; a fixed bound would bind
+on small-scale data.
+\item \code{fixX}: hold the basis at its initial value instead of
+updating it (default \code{FALSE}). Used to compare the joint fit with
+\code{\link{nmf.gmm.twostage}} on the \emph{same} \eqn{X}, so that only
+the order of adjustment and clustering differs.
 \item \code{seed}: RNG seed (default 1). \code{prefix}: basis-name prefix
 (default \code{"Basis"}).
 \item \code{data}: a data frame with one row per column of \code{Y},
@@ -64,7 +82,8 @@ An object of class \code{"nmf.gmm"}: a list with \code{X}
 \code{tau2}, \code{sigma2}, \code{xi} (mixing proportions), \code{gamma}
 (responsibilities, N x K), \code{cluster} (hard labels), \code{loglik},
 \code{BIC}, \code{ICL}, \code{n.params}, \code{entropy}, \code{Yhat},
-\code{objfunc(.iter)}, \code{iter}, \code{converged}, \code{K},
+\code{objfunc(.iter)}, \code{iter}, \code{converged}, \code{stop_by},
+\code{K},
 \code{rank}, \code{cov}, \code{dims} and \code{runtime}.
 }
 \description{
