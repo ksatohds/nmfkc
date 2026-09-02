@@ -326,26 +326,31 @@ unclass_matrix <- function(K) {
 #' @seealso \code{\link{nmfkc.kernel.gram}}, \code{\link{nmfkc.signed.rff.gram}}
 #' @export
 print.nmfkc.gram <- function(x, ...) {
-  is_rff <- identical(x$type, "rff")
-  cat(if (is_rff) "Gram summary of Random Fourier Features (signed) for nmfkc.signed()\n"
-      else         "Gram summary of Nystroem kernel covariates (non-negative) for nmfkc()\n")
+  type <- if (is.null(x$type)) "nystrom" else x$type
+  is_nys <- identical(type, "nystrom")
+  cat(switch(type,
+    rff     = "Gram summary of Random Fourier Features (signed) for nmfkc.signed()\n",
+    prf     = "Gram summary of positive random features (non-negative) for nmfkc()\n",
+              "Gram summary of Nystroem kernel covariates (non-negative) for nmfkc()\n"))
   cat(sprintf("  N (samples):        %d\n", x$N))
-  cat(sprintf("  D (%s):%s%d\n", if (is_rff) "features" else "landmarks",
-              if (is_rff) "       " else "      ", x$D))
+  cat(sprintf("  D (%s):%s%d\n", if (is_nys) "landmarks" else "features",
+              if (is_nys) "      " else "       ", x$D))
   cat(sprintf("  Y rows (P):         %d\n", nrow(x$G0)))
   if (!is.null(x$beta))
     cat(sprintf("  beta (bandwidth):   %s\n", format(x$beta, digits = 4)))
-  if (!is_rff && !is.null(x$landmarks.method))
+  if (identical(type, "prf") && isTRUE(x$pars$hyperbolic))
+    cat("  variant:            hyperbolic (antithetic pairs)\n")
+  if (is_nys && !is.null(x$landmarks.method))
     cat(sprintf("  landmarks:          %s%s\n", x$landmarks.method,
                 if (x$landmarks.method == "supplied") ""
                 else sprintf(" on a subsample of %d", x$sample.size)))
   cat(sprintf("  blocks:             %d x %d columns\n", x$n.blocks, x$block.size))
   cat(sprintf("  S  = A A^T:         %d x %d\n", nrow(x$S), ncol(x$S)))
   cat(sprintf("  G0 = Y A^T:         %d x %d\n", nrow(x$G0), ncol(x$G0)))
-  cat(if (is_rff)
-        "Pass as `A` to nmfkc.signed(); use `$pars` with nmfkc.signed.rff() for new data.\n"
-      else
-        "Pass as `A` to nmfkc(); use nmfkc.kernel(g$landmarks, U.new, beta = g$beta) for new data.\n")
+  cat(switch(type,
+    rff = "Pass as `A` to nmfkc.signed(); use `$pars` with nmfkc.signed.rff() for new data.\n",
+    prf = "Pass as `A` to nmfkc(); use `$pars` with nmfkc.rff.positive() for new data.\n",
+          "Pass as `A` to nmfkc(); use nmfkc.kernel(g$landmarks, U.new, beta = g$beta) for new data.\n"))
   invisible(x)
 }
 

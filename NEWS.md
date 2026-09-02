@@ -1,5 +1,32 @@
 # nmfkc (development version)
 
+## Positive random features: `nmfkc.rff.positive()` and `nmfkc.rff.positive.gram()`
+
+Cosine Random Fourier Features take both signs, which forces the signed
+solver and breaks the NMF-LAB reading of \eqn{B = \Theta A} as memberships.
+Positive random features (Choromanski et al. 2021, the FAVOR+ construction,
+transported from the softmax to the Gaussian kernel) are a non-negative,
+unbiased feature map for the same kernel: with \eqn{\omega \sim N(0, I_p)},
+\eqn{\phi(u) = \exp(\sqrt{2\beta}\,\omega^\top u - 2\beta\lVert u\rVert^2)}
+gives \eqn{E[\phi(u)\phi(u')] = \exp(-\beta\lVert u - u'\rVert^2)}.
+
+- **`nmfkc.rff.positive(U, beta, D, seed, pars=, hyperbolic=)`** returns the
+  \eqn{D \times N} non-negative feature matrix and the generating `pars`
+  (reuse them for new data). A constant \eqn{\kappa = 2\beta\,\mathrm{mean}
+  \lVert u_n\rVert^2} is added to every exponent to keep `exp()` in range; it
+  scales the kernel by \eqn{e^{2\kappa}}, which \eqn{\Theta} absorbs.
+  `hyperbolic = TRUE` pairs each \eqn{\omega} with \eqn{-\omega} (the
+  antithetic variant of Choromanski et al.).
+- **`nmfkc.rff.positive.gram(Y, U, beta, D, seed, block.size)`** is the
+  block-wise Gram constructor (`type = "prf"`, `signed = FALSE`); the object
+  goes to `nmfkc()` -- standard NMF-LAB with the membership interpretation
+  intact -- or to `nmfkc.signed()`.
+- Caveat, documented: the estimator is heavy-tailed for far-apart points, so
+  positive features need a larger \eqn{D} than cosine features and centred,
+  scaled inputs.
+- `print.nmfkc.gram()` now distinguishes the three feature types (RFF,
+  positive RFF, Nyström).
+
 ## `predict.nmfkc.signed(type = "prob")`: Euclidean projection onto the simplex
 
 With signed covariates (Random Fourier Features) the scores \eqn{\bm b_n =
