@@ -90,6 +90,19 @@ test_that("nmfkc.signed() accepts signed covariates", {
   expect_true(all(is.finite(f$X)))
 })
 
+test_that("nmfkc.signed() accepts a block-wise RFF Gram object in place of A", {
+  U <- matrix(rnorm(3 * N), 3, N)
+  g <- nmfkc.signed.rff.gram(Y, U, beta = 0.5, D = 6, seed = 1, block.size = 8)
+  expect_s3_class(g, "nmfkc.signed.gram")
+  Z <- nmfkc.signed.rff(U, pars = g$pars)$Z
+  expect_equal(g$S, tcrossprod(Z), tolerance = 1e-12)
+  fg <- suppressMessages(nmfkc.signed(Y, A = g, rank = Q, maxit = 30, verbose = FALSE))
+  fm <- suppressMessages(nmfkc.signed(Y, A = Z, rank = Q, maxit = 30, verbose = FALSE,
+                                      warm.start = FALSE))
+  expect_equal(fg$C, fm$C, tolerance = 1e-8)
+  expect_equal(dim(fg$B), c(Q, N))
+})
+
 test_that("nmfkc.ar() builds a lagged design that nmfkc() can fit", {
   a <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
   f <- suppressWarnings(nmfkc(a$Y, a$A, rank = Q, verbose = FALSE))

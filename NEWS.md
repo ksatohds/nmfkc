@@ -1,5 +1,38 @@
 # nmfkc (development version)
 
+## Large-N Random Fourier Features: `nmfkc.signed.rff.gram()`
+
+The RFF route to NMF-LAB Kernel (Satoh 2026, JJSD) so far needed the whole
+\eqn{D \times N} feature matrix in memory, which is \eqn{D/p} times the size
+of the data and the one thing that stops it scaling (a low-dimensional input
+with \eqn{N = 10^6}, \eqn{D = 2000} is a 16 GB matrix). The multiplicative
+updates in `nmfkc.signed()` never needed it: they only use
+\eqn{S = AA^\top} (\eqn{D \times D}) and \eqn{G_0 = YA^\top}
+(\eqn{Q_{\mathrm{obs}} \times D}).
+
+- **New `nmfkc.signed.rff.gram(Y, U, beta, D, seed, block.size)`** walks the
+  columns of `U` in blocks, regenerates the RFF block with
+  `nmfkc.signed.rff()`, accumulates \eqn{S} and \eqn{G_0}, and discards the
+  block. Peak memory is \eqn{O(D^2 + Q_{\mathrm{obs}}D + D\cdot\mathtt{block.size})}.
+  Returns a `"nmfkc.signed.gram"` object (with the RFF `pars`, a `print()`
+  method, and a block generator); `D` is a required argument here, since
+  the `N/2` default of `nmfkc.signed.rff()` would be enormous on the
+  problems this function is for.
+- **`nmfkc.signed()` accepts that object as `A`.** The MU loop is untouched;
+  the fit equals the explicit-matrix fit with `warm.start = FALSE` up to
+  summation order (tested). `B`, `XB` and the residual statistics are
+  rebuilt block by block after the fit. With Gram input the posneg
+  `warm.start` is unavailable (it needs the \eqn{2D \times N} split
+  matrix) and the direct initialization is used with a message;
+  `Y.weights` and `NA` in `Y` are errors; and `nmfkc.signed.cv()` /
+  `.ecv()` / `.rank()` refuse it with a pointer to validation-set
+  selection. The RFF `pars` stored on the object are inherited by the fit
+  for `summary()` and for regenerating test features.
+- **Existing calls are unaffected.** A matrix `A` follows exactly the old
+  code path; the new branch is entered only for the new class, which no
+  existing call can have been passing (it would have failed in
+  `as.matrix()`).
+
 ## NMF-GMM family reinstated, with a formula interface and a two-stage baseline
 
 The `nmf.gmm*` family returns to `develop` (it was removed on 2026-08-26 while
