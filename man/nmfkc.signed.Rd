@@ -27,7 +27,7 @@ internally.  When using Random Fourier Features (Rahimi & Recht
 features for new data (see \code{pars} entry in \code{\dots} below).
 
 \strong{Large \eqn{N}:} \code{A} may instead be a Gram object of class
-\code{"nmfkc.signed.gram"} returned by
+\code{"nmfkc.gram"} returned by
 \code{\link{nmfkc.signed.rff.gram}}, which holds only
 \eqn{S = AA^\top} (\eqn{D \times D}) and \eqn{G_0 = YA^\top}
 (\eqn{Q_{\mathrm{obs}} \times D}) accumulated over column blocks, so

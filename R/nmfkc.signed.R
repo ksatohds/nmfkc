@@ -63,7 +63,7 @@
 #'   features for new data (see \code{pars} entry in \code{\dots} below).
 #'
 #'   \strong{Large \eqn{N}:} \code{A} may instead be a Gram object of class
-#'   \code{"nmfkc.signed.gram"} returned by
+#'   \code{"nmfkc.gram"} returned by
 #'   \code{\link{nmfkc.signed.rff.gram}}, which holds only
 #'   \eqn{S = AA^\top} (\eqn{D \times D}) and \eqn{G_0 = YA^\top}
 #'   (\eqn{Q_{\mathrm{obs}} \times D}) accumulated over column blocks, so
@@ -268,14 +268,14 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   if (is.vector(Y)) Y <- matrix(Y, nrow = 1)
   if (!is.matrix(Y)) Y <- as.matrix(Y)
   Q_obs <- nrow(Y); N <- ncol(Y)
-  ## A may be a pre-accumulated Gram object (class "nmfkc.signed.gram",
+  ## A may be a pre-accumulated Gram object (class "nmfkc.gram",
   ## built block-wise by nmfkc.signed.rff.gram()) instead of the D x N
   ## matrix itself.  The unweighted MU loop only ever touches S = A A^T and
   ## G0 = Y A^T, so the D x N matrix need never exist in memory; this is the
   ## large-N path for Random Fourier Features.  Everything a matrix A would
   ## have provided is read off the object here, and the ordinary matrix path
   ## below is untouched.
-  is_gram <- inherits(A, "nmfkc.signed.gram")
+  is_gram <- inherits(A, "nmfkc.gram")
   if (is_gram) {
     gram <- A
     D <- as.integer(gram$D)
@@ -1067,7 +1067,7 @@ nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   shuffle <- if (!is.null(extra$shuffle)) extra$shuffle else TRUE
 
-  .nmfkc.signed.no.gram(A, "nmfkc.signed.cv")
+  .nmfkc.no.gram(A, "nmfkc.signed.cv")
   Y <- as.matrix(Y); A <- as.matrix(A)
   N <- ncol(Y)
   if (ncol(A) != N) stop("ncol(A) must equal ncol(Y).")
@@ -1157,7 +1157,7 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
   .rng <- .nmfkc.rng.save(seed)
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
 
-  .nmfkc.signed.no.gram(A, "nmfkc.signed.ecv")
+  .nmfkc.no.gram(A, "nmfkc.signed.ecv")
   Y <- as.matrix(Y); A <- as.matrix(A)
   P <- nrow(Y); N <- ncol(Y)
   if (ncol(A) != N) stop("ncol(A) must equal ncol(Y).")
@@ -1229,7 +1229,7 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
 nmfkc.signed.rank <- function(Y, A, rank = 1:5, detail = c("full", "fast"),
                               plot = TRUE, ...) {
   detail <- match.arg(detail)
-  .nmfkc.signed.no.gram(A, "nmfkc.signed.rank")
+  .nmfkc.no.gram(A, "nmfkc.signed.rank")
   Y <- as.matrix(Y); A <- as.matrix(A)
   rs <- numeric(length(rank)); er <- numeric(length(rank))
   for (i in seq_along(rank)) {

@@ -9,7 +9,7 @@
 # features are a deterministic function of (omega, b) and the input U, so
 # they can be regenerated for any column block at will.  This file
 # accumulates S and G0 over column blocks of U and returns them as a
-# "nmfkc.signed.gram" object that nmfkc.signed() accepts in place of A.
+# "nmfkc.gram" object that nmfkc.signed() accepts in place of A.
 #
 # The object also carries a block generator A.block(idx) so that
 # nmfkc.signed() can rebuild B = C A (Q x N, small) after the fit, and so
@@ -71,7 +71,7 @@
 #'   When supplied, the same random map is reused and \code{beta},
 #'   \code{D}, \code{seed} are ignored.
 #'
-#' @return An object of class \code{"nmfkc.signed.gram"}: a list with
+#' @return An object of class \code{"nmfkc.gram"}: a list with
 #'   \describe{
 #'     \item{\code{S}}{\eqn{D \times D} matrix \eqn{Z Z^\top} (signed,
 #'       positive semi-definite).}
@@ -218,46 +218,17 @@ nmfkc.signed.rff.gram <- function(Y, U, beta = NULL, D = NULL,
     G0         = G0,
     N          = N,
     D          = D,
+    type       = "rff",
+    signed     = TRUE,      # RFF features take both signs: nmfkc.signed() only
     pars       = pars,
+    beta       = pars$beta,
     block.size = block.size,
     n.blocks   = length(starts),
     A.block    = A.block,
     rownames   = NULL
-  ), class = "nmfkc.signed.gram")
+  ), class = "nmfkc.gram")
 }
 
 
-#' Print method for nmfkc.signed.gram
-#'
-#' @param x Object of class \code{"nmfkc.signed.gram"}.
-#' @param ... Unused.
-#' @return Invisible \code{x}.
-#' @section Lifecycle:
-#' This function is \strong{experimental}.
-#' @seealso \code{\link{nmfkc.signed.rff.gram}}
-#' @export
-print.nmfkc.signed.gram <- function(x, ...) {
-  cat("Gram summary of Random Fourier Features for nmfkc.signed()\n")
-  cat(sprintf("  N (samples):        %d\n", x$N))
-  cat(sprintf("  D (features):       %d\n", x$D))
-  cat(sprintf("  Y rows (Q_obs):     %d\n", nrow(x$G0)))
-  cat(sprintf("  beta (bandwidth):   %s\n", format(x$pars$beta, digits = 4)))
-  cat(sprintf("  blocks:             %d x %d columns\n", x$n.blocks, x$block.size))
-  cat(sprintf("  S  = Z Z^T:         %d x %d\n", nrow(x$S), ncol(x$S)))
-  cat(sprintf("  G0 = Y Z^T:         %d x %d\n", nrow(x$G0), ncol(x$G0)))
-  cat("Pass as `A` to nmfkc.signed(); use `$pars` with nmfkc.signed.rff() for new data.\n")
-  invisible(x)
-}
-
-
-## Fold-based helpers split the columns of A, which a Gram object cannot
-## provide.  Fail with a pointer to the validation-set procedure rather than
-## with as.matrix() on a list.
-.nmfkc.signed.no.gram <- function(A, fname) {
-  if (inherits(A, "nmfkc.signed.gram"))
-    stop(fname, "() needs the covariate matrix itself: a Gram object ",
-         "cannot be split into folds. For large N select tuning parameters ",
-         "on a held-out validation set, scoring with predict() on features ",
-         "from nmfkc.signed.rff(U.val, pars = g$pars).", call. = FALSE)
-  invisible(TRUE)
-}
+## print.nmfkc.gram() and the .nmfkc.no.gram() guard are shared with the
+## Nystroem constructor and live in R/nmfkc.kernel.gram.R.

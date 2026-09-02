@@ -2282,6 +2282,21 @@ print.nmf.rank <- function(x, ...) {
 #'   \code{Y_matrix ~ A_matrix} for direct matrix evaluation.
 #'   Supports dot notation (\code{. ~ A1 + A2}) when \code{data} is supplied.
 #' @param A Covariate matrix. Default is \code{NULL} (no covariates).
+#'   For large \eqn{N}, \code{A} may instead be a Gram object of class
+#'   \code{"nmfkc.gram"} from \code{\link{nmfkc.kernel.gram}} (block-wise
+#'   Nystr\"om kernel covariates), which holds only \eqn{S = AA^\top}
+#'   (\eqn{D \times D}) and \eqn{G_0 = YA^\top} (\eqn{P \times D}) so that
+#'   the \eqn{D \times N} matrix never has to exist in memory.  The
+#'   Euclidean multiplicative updates are unchanged (they only use those
+#'   two products) and the fit equals the explicit-matrix fit up to
+#'   floating-point summation order.  Gram input is restricted to
+#'   \code{method = "EU"} without \code{Y.weights} or \code{NA} in
+#'   \code{Y}; \code{B}, \code{XB} and the fit statistics are rebuilt
+#'   block by block after the fit; and the resampling helpers
+#'   (\code{\link{nmfkc.cv}}, \code{\link{nmfkc.ecv}},
+#'   \code{\link{nmfkc.rank}}) do not accept it.  Gram objects built from
+#'   signed features (\code{\link{nmfkc.signed.rff.gram}}) are refused
+#'   here; they belong to \code{\link{nmfkc.signed}}.
 #'   Ignored when \code{Y} is a formula.
 #' @param rank Integer. The rank of the basis matrix \eqn{X} (Q). Preferred over \code{Q}.
 #' @param data Optional. A data frame from which variables in the formula should be taken.
@@ -2548,10 +2563,39 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   }
 
   # --- Input Validation (after formula dispatch) ---
-  if(!base::is.null(A)) {
+  ## A may be a Gram object (class "nmfkc.gram", accumulated block-wise by
+  ## nmfkc.kernel.gram()) holding S = A A^T (D x D) and G0 = Y A^T (P x D)
+  ## instead of the D x N covariate matrix.  The Euclidean multiplicative
+  ## updates only ever use those two products, so on this path the matrix
+  ## never has to exist -- the large-N route for Nystroem kernel covariates.
+  ## Only the unweighted EU loss qualifies (KL and weighted losses need A on
+  ## every iteration), and the object must come from non-negative features
+  ## (signed RFF objects belong to nmfkc.signed()).
+  is_gram <- base::inherits(A, "nmfkc.gram")
+  if (is_gram) {
+    gram <- A
+    if (base::isTRUE(gram$signed))
+      base::stop("This Gram object was built from signed features (", gram$type,
+                 "); nmfkc() requires non-negative covariates. Use nmfkc.signed().")
+    if (method != "EU")
+      base::stop("Gram input supports method = \"EU\" only; the KL updates need A on every iteration.")
+    if (!base::is.null(Y.weights))
+      base::stop("Y.weights is not supported with Gram input; the weighted updates need A on every iteration.")
+    if (base::any(base::is.na(Y)))
+      base::stop("Y contains NA; a Gram-object fit cannot mask missing entries.")
+    if (!base::identical(base::as.integer(gram$N), base::ncol(Y)))
+      base::stop("The Gram object was accumulated over N = ", gram$N,
+                 " columns but ncol(Y) = ", base::ncol(Y), ".")
+    if (!base::identical(base::dim(gram$G0), base::c(base::nrow(Y), base::as.integer(gram$D))))
+      base::stop("gram$G0 must be nrow(Y) x D; the Gram object was built from a different Y.")
+    if (base::is.null(gram$A.block))
+      base::stop("The Gram object has no block generator (A.block); nmfkc() needs it to rebuild B = C A after the fit.")
+    D_A <- base::as.integer(gram$D)
+  } else if(!base::is.null(A)) {
     if(any(is.na(A))) base::stop("Covariate matrix A contains NAs. Please impute or remove them.")
     if(base::min(A, na.rm=TRUE)<0) base::stop("The matrix A should be non-negative.")
-  }
+    D_A <- base::nrow(A)
+  } else D_A <- NULL
   if(base::min(Y, na.rm=TRUE)<0) base::stop("The matrix Y should be non-negative.")
 
   # === Weights Handling ===
@@ -2599,8 +2643,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     dims <- base::sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
                           base::nrow(Y),base::ncol(Y),base::nrow(Y),Q,Q,base::ncol(Y))
   }else{
-    dims <- base::sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)",
-                          base::nrow(Y),base::ncol(Y),base::nrow(Y),Q,Q,base::nrow(A),base::nrow(A),base::ncol(Y),Q,base::ncol(Y))
+    dims <- base::sprintf("Y(%d,%d)~X(%d,%d)C(%d,%d)A(%d,%d)=XB(%d,%d)%s",
+                          base::nrow(Y),base::ncol(Y),base::nrow(Y),Q,Q,D_A,D_A,base::ncol(Y),Q,base::ncol(Y),
+                          if (is_gram) "[Gram input]" else "")
   }
   if(print.dims) base::message(base::paste0(dims,"..."),appendLF=FALSE)
   start.time <- base::Sys.time()
@@ -2622,13 +2667,20 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   if(is.null(A)){
     if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=ncol(Y)) else C <- C.init
   }else{
-    if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=nrow(A)) else C <- C.init
+    if(is.null(C.init)) C <- matrix(1, nrow=Q, ncol=D_A) else C <- C.init
   }
   hasA <- !is.null(A)
 
   ones_QN <- matrix(1, nrow=Q, ncol=ncol(Y))
-  if(hasA) {
+  if(hasA && !is_gram) {
     At <- t(A)
+  }
+  if (is_gram) {
+    ## Loop invariants of the Gram path (see the main loop).
+    S_gram  <- gram$S
+    G0_gram <- gram$G0
+    Y_sqnorm_gram <- base::sum(Y * Y)
+    ones_QD <- matrix(1, nrow = Q, ncol = D_A)
   }
 
   epsilon.iter <- Inf
@@ -2651,11 +2703,55 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 
   # --- 4. Main Loop (Weighted) ---
   for(i in 1:maxit){
-    if(is.null(A)) B <- C else B <- C %*% A
-    XB <- X %*% B
+    if (!is_gram) {
+      if(is.null(A)) B <- C else B <- C %*% A
+      XB <- X %*% B
+    }
     if(print.trace && i %% 10==0) message(paste0(format(Sys.time(), "%X")," ",i,"..."))
 
-    if(method=="EU"){
+    if (is_gram) {
+      ## ---- Gram path: the EU updates written in S = A A^T and G0 = Y A^T.
+      ## With B = C A:  Y B^T = G0 C^T,  XB B^T = X C S C^T,
+      ##                X^T Y A^T = X^T G0,  X^T XB A^T = X^T X C S,
+      ## and ||Y - XB||^2 = ||Y||^2 - 2 tr(X^T G0 C^T) + tr(C^T X^T X C S).
+      ## Nothing of size N is touched.  As in the matrix path, the loss
+      ## recorded at iteration i is the one *before* this iteration's updates,
+      ## and the C-step reuses XB from the *start* of the iteration (old X),
+      ## i.e. X^T XB A^T = X_new^T X_old C S -- kept so the two paths iterate
+      ## identically.
+      XtX  <- crossprod(X)                          # Q x Q
+      XtG0 <- tX %*% G0_gram                        # Q x D  (= X^T Y A^T)
+      CS   <- C %*% S_gram                          # Q x D  (= B A^T)
+      obj  <- Y_sqnorm_gram - 2 * sum(XtG0 * C) + sum(C * (XtX %*% CS))
+      X_old <- X
+      if(!is.X.scalar && X.restriction!="fixed"){
+        num_X <- tcrossprod(G0_gram, C)             # P x Q  (= Y B^T)
+        den_X <- X %*% tcrossprod(CS, C)            # P x Q  (= XB B^T)
+        if (X.L2.ortho > 0) {
+          XtX0 <- XtX; diag(XtX0) <- 0
+          den_X <- den_X + X.L2.ortho * (X %*% XtX0)
+        }
+        if (X.L2.smooth > 0 && nrow(X) >= 2) {
+          Pr <- nrow(X)
+          WX <- X * 0
+          WX[-Pr, ] <- WX[-Pr, ] + X[-1, , drop = FALSE]
+          WX[-1, ]  <- WX[-1, ]  + X[-Pr, , drop = FALSE]
+          degX <- c(1, rep(2, Pr - 2), 1) * X
+          num_X <- num_X + X.L2.smooth * WX
+          den_X <- den_X + X.L2.smooth * degX
+        }
+        X <- X * (num_X / (den_X + .eps))
+        X <- xnorm(X)
+        tX <- t(X)
+        XtX  <- crossprod(X, X_old)                 # X_new^T X_old
+        XtG0 <- tX %*% G0_gram
+      }
+      num_C <- XtG0                                 # Q x D
+      den_C <- XtX %*% CS                           # Q x D  (= X_new^T XB_old A^T)
+      if (C.L1 != 0) den_C <- den_C + (C.L1/2) * ones_QD
+      C <- C * (num_C / (den_C + .eps))
+
+    } else if(method=="EU"){
       WXB <- if (unweighted) XB else Y.weights * XB  # invariant given XB
       if(!is.X.scalar && X.restriction!="fixed"){
         num_X <- tcrossprod(WY, B)         # = (Y.weights*Y) %*% t(B)
@@ -2758,7 +2854,18 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     }
   }
 
-  if(is.null(A)) B <- C else B <- C %*% A
+  if (is_gram) {
+    ## Rebuild B = C A (Q x N, small) block by block from the object's
+    ## feature generator; the loop above never needed it.
+    N_all <- ncol(Y)
+    bs <- as.integer(gram$block.size)
+    if (is.na(bs) || bs < 1L) bs <- N_all
+    B <- matrix(0, Q, N_all)
+    for (s in seq.int(1L, N_all, by = bs)) {
+      idx <- s:min(s + bs - 1L, N_all)
+      B[, idx] <- C %*% gram$A.block(idx)
+    }
+  } else if(is.null(A)) B <- C else B <- C %*% A
   XB <- X %*% B
 
   if(method=="EU"){
@@ -2785,15 +2892,26 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     C <- C[index,,drop=FALSE]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
-  if (!is.null(A)) {
+  if (is_gram) {
+    colnames(C) <- if (!is.null(gram$rownames)) gram$rownames else paste0("Cov", 1:ncol(C))
+  } else if (!is.null(A)) {
     colnames(C) <- if (!is.null(rownames(A))) rownames(A) else paste0("Cov", 1:ncol(C))
   }
   rownames(X) <- rownames(Y); colnames(X) <- paste0(prefix,1:ncol(X))
   rownames(B) <- paste0(prefix,1:nrow(B)); colnames(B) <- colnames(Y)
 
+  ## Metadata of the covariate matrix, kept on the object for the S3 methods
+  ## (nmfkc.ar's lag structure, summary's "has covariates" test).  A Gram
+  ## object has no matrix attributes, so record what it was built from.
+  A.attr <- NULL
+  if (is_gram) {
+    A.attr <- base::list(function.name = "nmfkc.gram", type = gram$type,
+                         dim = base::c(D_A, base::ncol(Y)))
+  } else if (!is.null(A)) A.attr <- attributes(A)
+
   # --- Compute criteria via nmfkc.criterion ---
   crit_result <- nmfkc.criterion(
-    base::list(X = X, B = B, C = C, XB = XB, method = method, A.attr = if(!base::is.null(A)) base::attributes(A) else NULL),
+    base::list(X = X, B = B, C = C, XB = XB, method = method, A.attr = A.attr),
     Y, detail = detail, Y.weights = Y.weights, X.restriction = X.restriction
   )
   r2          <- crit_result$r.squared
@@ -2816,8 +2934,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 
   n.missing <- sum(Y.weights == 0)
   n.total <- prod(dim(Y))
-  A.attr <- NULL
-  if (!is.null(A)) A.attr <- attributes(A)
 
   result <- list(
     call      = match.call(),
@@ -3293,6 +3409,7 @@ predict.nmfkc <- function(object, newA = NULL, newdata = NULL,
 #' @export
 
 nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
+  .nmfkc.no.gram(A, "nmfkc.cv")
   # --- Formula Mode ---
   if (base::inherits(Y, "formula")) {
     resolved <- .nmfkc_resolve_formula(Y, A, base::missing(data), if (!base::missing(data)) data else NULL)
@@ -3609,6 +3726,7 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #'
 #' @export
 nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
+  .nmfkc.no.gram(A, "nmfkc.ecv")
   extra_ecv <- list(...)
   if (!is.null(extra_ecv$Q)) rank <- extra_ecv$Q
   nfolds <- if (!is.null(extra_ecv$nfolds)) extra_ecv$nfolds else if (!is.null(extra_ecv$div)) extra_ecv$div else 5
@@ -3941,6 +4059,7 @@ nmfkc.criterion <- function(object, Y, detail = c("full", "fast", "minimal"), ..
 #' nmfkc.rank(Y, rank=1:4, detail="fast")
 
 nmfkc.rank <- function(Y, A=NULL, rank=1:2, detail="full", plot=TRUE, data, ...){
+  .nmfkc.no.gram(A, "nmfkc.rank")
   # --- Formula Mode ---
   if (base::inherits(Y, "formula")) {
     resolved <- .nmfkc_resolve_formula(Y, A, base::missing(data), if (!base::missing(data)) data else NULL)

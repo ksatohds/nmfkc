@@ -22,7 +22,7 @@ test_that("block-wise S and G0 equal the one-shot products", {
   ## block.size = 17 with N = 90 -> 6 blocks, the last one ragged (5 columns)
   g <- nmfkc.signed.rff.gram(d$Y, d$U, beta = d$beta, D = d$D, seed = 3,
                              block.size = 17)
-  expect_s3_class(g, "nmfkc.signed.gram")
+  expect_s3_class(g, "nmfkc.gram")
   expect_equal(g$n.blocks, 6L)
   expect_equal(g$N, 90L); expect_equal(g$D, 12L)
   Z <- nmfkc.signed.rff(d$U, pars = g$pars)$Z

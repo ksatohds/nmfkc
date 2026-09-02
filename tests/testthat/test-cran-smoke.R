@@ -93,12 +93,24 @@ test_that("nmfkc.signed() accepts signed covariates", {
 test_that("nmfkc.signed() accepts a block-wise RFF Gram object in place of A", {
   U <- matrix(rnorm(3 * N), 3, N)
   g <- nmfkc.signed.rff.gram(Y, U, beta = 0.5, D = 6, seed = 1, block.size = 8)
-  expect_s3_class(g, "nmfkc.signed.gram")
+  expect_s3_class(g, "nmfkc.gram")
   Z <- nmfkc.signed.rff(U, pars = g$pars)$Z
   expect_equal(g$S, tcrossprod(Z), tolerance = 1e-12)
   fg <- suppressMessages(nmfkc.signed(Y, A = g, rank = Q, maxit = 30, verbose = FALSE))
   fm <- suppressMessages(nmfkc.signed(Y, A = Z, rank = Q, maxit = 30, verbose = FALSE,
                                       warm.start = FALSE))
+  expect_equal(fg$C, fm$C, tolerance = 1e-8)
+  expect_equal(dim(fg$B), c(Q, N))
+})
+
+test_that("nmfkc() accepts a block-wise Nystroem Gram object in place of A", {
+  U <- matrix(rnorm(3 * N), 3, N)
+  g <- nmfkc.kernel.gram(Y, U, V = U[, 1:4], beta = 0.5, block.size = 7)
+  expect_s3_class(g, "nmfkc.gram")
+  A <- nmfkc.kernel(U[, 1:4], U, beta = 0.5)
+  expect_equal(g$S, unname(tcrossprod(unclass(A))), tolerance = 1e-12)
+  fg <- suppressWarnings(nmfkc(Y, A = g, rank = Q, maxit = 30, verbose = FALSE))
+  fm <- suppressWarnings(nmfkc(Y, A = A, rank = Q, maxit = 30, verbose = FALSE))
   expect_equal(fg$C, fm$C, tolerance = 1e-8)
   expect_equal(dim(fg$B), c(Q, N))
 })

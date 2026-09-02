@@ -1,37 +1,59 @@
 # nmfkc (development version)
 
-## Large-N Random Fourier Features: `nmfkc.signed.rff.gram()`
+## Large N without the D x N covariate matrix: Gram input for `nmfkc()` and `nmfkc.signed()`
 
-The RFF route to NMF-LAB Kernel (Satoh 2026, JJSD) so far needed the whole
-\eqn{D \times N} feature matrix in memory, which is \eqn{D/p} times the size
-of the data and the one thing that stops it scaling (a low-dimensional input
-with \eqn{N = 10^6}, \eqn{D = 2000} is a 16 GB matrix). The multiplicative
-updates in `nmfkc.signed()` never needed it: they only use
-\eqn{S = AA^\top} (\eqn{D \times D}) and \eqn{G_0 = YA^\top}
-(\eqn{Q_{\mathrm{obs}} \times D}).
+The kernel designs of NMF-LAB (Satoh 2026, JJSD) so far needed the whole
+\eqn{D \times N} covariate matrix in memory -- Nystr\"om covariates
+\eqn{C^\top} (\eqn{M \times N}) or Random Fourier Features (\eqn{D \times N},
+which is \eqn{D/p} times the size of the data: a low-dimensional input with
+\eqn{N = 10^6}, \eqn{D = 2000} is a 16 GB matrix). The Euclidean
+multiplicative updates never needed it: they only use \eqn{S = AA^\top}
+(\eqn{D \times D}) and \eqn{G_0 = YA^\top} (\eqn{P \times D}). Two
+constructors now accumulate those two matrices over column blocks and return
+a `"nmfkc.gram"` object that the fitters accept in place of `A`.
 
-- **New `nmfkc.signed.rff.gram(Y, U, beta, D, seed, block.size)`** walks the
-  columns of `U` in blocks, regenerates the RFF block with
-  `nmfkc.signed.rff()`, accumulates \eqn{S} and \eqn{G_0}, and discards the
-  block. Peak memory is \eqn{O(D^2 + Q_{\mathrm{obs}}D + D\cdot\mathtt{block.size})}.
-  Returns a `"nmfkc.signed.gram"` object (with the RFF `pars`, a `print()`
-  method, and a block generator); `D` is a required argument here, since
-  the `N/2` default of `nmfkc.signed.rff()` would be enormous on the
-  problems this function is for.
-- **`nmfkc.signed()` accepts that object as `A`.** The MU loop is untouched;
-  the fit equals the explicit-matrix fit with `warm.start = FALSE` up to
-  summation order (tested). `B`, `XB` and the residual statistics are
-  rebuilt block by block after the fit. With Gram input the posneg
-  `warm.start` is unavailable (it needs the \eqn{2D \times N} split
-  matrix) and the direct initialization is used with a message;
-  `Y.weights` and `NA` in `Y` are errors; and `nmfkc.signed.cv()` /
-  `.ecv()` / `.rank()` refuse it with a pointer to validation-set
-  selection. The RFF `pars` stored on the object are inherited by the fit
-  for `summary()` and for regenerating test features.
+- **New `nmfkc.kernel.gram(Y, U, V, beta, block.size)`** -- Nystr\"om kernel
+  covariates for `nmfkc()`. `V` is a \eqn{p \times M} landmark matrix or an
+  integer \eqn{M}, in which case landmarks are chosen on a random subsample
+  (default 10,000 columns) by k-means++ seeding plus Lloyd refinement (the
+  package's existing `.kmeanspp.seed()`; `landmarks = "kmeans"` / `"random"`
+  are the alternatives). `beta = NULL` takes the nearest-landmark median
+  heuristic on the same subsample. Each block \eqn{k(V, U_b)} comes from
+  `nmfkc.kernel()`. The object records `landmarks`, `beta` and `kernel`, so
+  covariates for new data are `nmfkc.kernel(g$landmarks, U.new, beta = g$beta)`.
+- **New `nmfkc.signed.rff.gram(Y, U, beta, D, seed, block.size)`** -- signed
+  Random Fourier Features for `nmfkc.signed()`. Regenerates each RFF block
+  with `nmfkc.signed.rff()`; `D` is a required argument (the `N/2` default
+  of `nmfkc.signed.rff()` would be enormous here). The RFF `pars` are stored
+  on the object and inherited by the fit.
+- **`nmfkc()` accepts a non-negative Gram object as `A`** (`method = "EU"`,
+  no `Y.weights`, no `NA` in `Y`). Inside the loop the updates are written as
+  \eqn{YB^\top = G_0C^\top}, \eqn{XBB^\top = XCSC^\top},
+  \eqn{X^\top YA^\top = X^\top G_0}, \eqn{X^\top XBA^\top = X^\top XCS}, with
+  the loss in closed form; nothing of size \eqn{N} is touched per iteration,
+  which is also faster than the matrix path once \eqn{N \gg D}. `B`, `XB` and
+  every fit statistic are rebuilt block by block afterwards, so the returned
+  object is a regular `nmfkc` fit (all S3 methods apply; `A.attr` records
+  `function.name = "nmfkc.gram"`). The fit equals the explicit-matrix fit up
+  to summation order (tested with and without the X / C penalties).
+- **`nmfkc.signed()` accepts either kind of Gram object as `A`.** The MU loop
+  is untouched. With Gram input the posneg `warm.start` is unavailable (it
+  needs the \eqn{2D \times N} split matrix) and the direct initialization is
+  used with a message; `Y.weights` and `NA` in `Y` are errors.
+- Signed (RFF) objects are refused by `nmfkc()` with a pointer to
+  `nmfkc.signed()`. The fold-based helpers (`nmfkc.cv()` / `.ecv()` /
+  `.rank()` and their `.signed` counterparts) refuse Gram objects with a
+  pointer to validation-set selection, which is the paper's protocol anyway.
 - **Existing calls are unaffected.** A matrix `A` follows exactly the old
-  code path; the new branch is entered only for the new class, which no
-  existing call can have been passing (it would have failed in
-  `as.matrix()`).
+  code path in both fitters; the new branch is entered only for the new
+  class, which no existing call can have been passing (it would have failed
+  in `as.matrix()`).
+- Measured on MNIST (\eqn{N = 60{,}000}, RFF, same servers as the paper's
+  Table): the Gram and matrix routes give identical accuracy and iteration
+  counts; peak RSS 2.2 GB vs 3.5 GB at \eqn{D = 1000} and 3.2 GB vs 6.0 GB
+  at \eqn{D = 2000}. With \eqn{D = 4000} RFF features `nmfkc.signed()`
+  reaches 96.4\% test accuracy, above the paper's full \eqn{N \times N}
+  kernel (96.1\%), in under two minutes.
 
 ## NMF-GMM family reinstated, with a formula interface and a two-stage baseline
 

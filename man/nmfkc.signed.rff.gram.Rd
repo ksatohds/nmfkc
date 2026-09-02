@@ -47,7 +47,7 @@ When supplied, the same random map is reused and \code{beta},
 \code{D}, \code{seed} are ignored.}
 }
 \value{
-An object of class \code{"nmfkc.signed.gram"}: a list with
+An object of class \code{"nmfkc.gram"}: a list with
 \describe{
 \item{\code{S}}{\eqn{D \times D} matrix \eqn{Z Z^\top} (signed,
 positive semi-definite).}

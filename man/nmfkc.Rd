@@ -22,6 +22,21 @@ In Formula Mode, use \code{Y1 + Y2 ~ A1 + A2} with \code{data}, or
 Supports dot notation (\code{. ~ A1 + A2}) when \code{data} is supplied.}
 
 \item{A}{Covariate matrix. Default is \code{NULL} (no covariates).
+For large \eqn{N}, \code{A} may instead be a Gram object of class
+\code{"nmfkc.gram"} from \code{\link{nmfkc.kernel.gram}} (block-wise
+Nystr\"om kernel covariates), which holds only \eqn{S = AA^\top}
+(\eqn{D \times D}) and \eqn{G_0 = YA^\top} (\eqn{P \times D}) so that
+the \eqn{D \times N} matrix never has to exist in memory.  The
+Euclidean multiplicative updates are unchanged (they only use those
+two products) and the fit equals the explicit-matrix fit up to
+floating-point summation order.  Gram input is restricted to
+\code{method = "EU"} without \code{Y.weights} or \code{NA} in
+\code{Y}; \code{B}, \code{XB} and the fit statistics are rebuilt
+block by block after the fit; and the resampling helpers
+(\code{\link{nmfkc.cv}}, \code{\link{nmfkc.ecv}},
+\code{\link{nmfkc.rank}}) do not accept it.  Gram objects built from
+signed features (\code{\link{nmfkc.signed.rff.gram}}) are refused
+here; they belong to \code{\link{nmfkc.signed}}.
 Ignored when \code{Y} is a formula.}
 
 \item{rank}{Integer. The rank of the basis matrix \eqn{X} (Q). Preferred over \code{Q}.}
