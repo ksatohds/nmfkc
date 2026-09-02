@@ -1,5 +1,21 @@
 # nmfkc (development version)
 
+## `predict.nmfkc.signed(type = "prob")`: Euclidean projection onto the simplex
+
+With signed covariates (Random Fourier Features) the scores \eqn{\bm b_n =
+C\bm a_n} can be negative, so NMF-LAB's membership rule -- normalize
+\eqn{\bm b_n} to sum one -- is not available. `type = "prob"` now maps the
+least-squares prediction \eqn{\widehat{\bm y}_n = X\bm b_n} (whose entries
+sum to \eqn{\sum_q b_{qn}}, close to one for one-hot targets) to the
+probability simplex by Euclidean projection, \eqn{\max(\widehat{\bm y}_n -
+\tau_n\bm 1, 0)} with \eqn{\tau_n} from the sorted coordinates (Duchi,
+Shalev-Shwartz, Singer & Chandra 2008; Wang & Carreira-Perpiñán 2013): the
+closest probability vector in the Frobenius geometry the fit minimizes,
+\eqn{O(P\log P)} per column. The previous clip-and-renormalize rule is kept
+as `prob.method = "clip"`. `type = "class"` is unchanged (the argmax of
+\eqn{\widehat{\bm y}_n}, which both rules preserve), so no reported accuracy
+moves; only `type = "prob"` values change.
+
 ## Large N without the D x N covariate matrix: Gram input for `nmfkc()` and `nmfkc.signed()`
 
 The kernel designs of NMF-LAB (Satoh 2026, JJSD) so far needed the whole

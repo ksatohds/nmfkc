@@ -812,15 +812,33 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 #' Computes \eqn{\widehat Y = X \, C \, A_{\mathrm{new}}}
 #' (\eqn{= X (C_{+} - C_{-})(A_{+}^{\mathrm{new}} - A_{-}^{\mathrm{new}})}).
 #' For \code{type = "response"} the raw prediction is returned
-#' (possibly signed).  For \code{type = "prob"} and \code{"class"},
-#' negative entries of \eqn{\widehat Y} are clipped to zero before
-#' column normalization, since probabilities must be non-negative.
+#' (possibly signed).
+#'
+#' With signed covariates the scores \eqn{\bm b_n = C\bm a_n} can be
+#' negative, so the NMF-LAB recipe of normalizing \eqn{\bm b_n} to a
+#' membership vector does not apply.  Since \eqn{X} is column-stochastic,
+#' \eqn{\widehat{\bm y}_n = X\bm b_n} still sums to \eqn{\sum_q b_{qn}}
+#' (close to one for one-hot targets) and is the least-squares estimate of
+#' the class indicator; for \code{type = "prob"} it is mapped to the
+#' probability simplex by the \strong{Euclidean projection}
+#' \deqn{\widehat{\bm p}_n = \mathop{\mathrm{arg\,min}}_{\bm p \ge 0,\ \bm 1^\top \bm p = 1}
+#'       \lVert \bm p - \widehat{\bm y}_n \rVert^2
+#'       = \max(\widehat{\bm y}_n - \tau_n \bm 1, 0),}
+#' the closest probability vector in the same Frobenius geometry the fit
+#' minimizes (Duchi et al. 2008; Wang & Carreira-Perpinan 2013;
+#' \eqn{O(P \log P)} per column by sorting).  The former rule -- clip
+#' negatives to zero and renormalize -- is kept as
+#' \code{prob.method = "clip"}.  \code{type = "class"} is
+#' \eqn{\arg\max_p \widehat y_{pn}}, which both rules preserve.
 #'
 #' @param object A fitted \code{"nmfkc.signed"} object.
 #' @param newA Real-valued \eqn{D \times N_{\mathrm{new}}} covariate matrix.
 #' @param type Output: \code{"response"} (raw signed), \code{"prob"},
 #'   or \code{"class"}.
-#' @param ... Unused.
+#' @param ... Hidden option \code{prob.method}: how \code{type = "prob"}
+#'   maps \eqn{\widehat{\bm y}_n} to the simplex, \code{"simplex"}
+#'   (default; Euclidean projection) or \code{"clip"} (clip negatives,
+#'   renormalize).
 #'
 #' @return A numeric matrix (\code{"response"} or \code{"prob"}) or a
 #'   character vector (\code{"class"}).
@@ -834,27 +852,65 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 #' semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 #' Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
 #'
+#' Duchi, J., Shalev-Shwartz, S., Singer, Y., & Chandra, T. (2008).
+#' Efficient projections onto the l1-ball for learning in high dimensions.
+#' \emph{Proceedings of the 25th International Conference on Machine
+#' Learning (ICML)}, 272--279.
+#'
+#' Wang, W., & Carreira-Perpinan, M. A. (2013). Projection onto the
+#' probability simplex: an efficient algorithm with a simple proof, and an
+#' application. \emph{arXiv:1309.1541}.
+#'
 #' @seealso \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}
 #' @export
 predict.nmfkc.signed <- function(object, newA = NULL,
                                   type = c("response", "prob", "class"),
                                   ...) {
   type <- match.arg(type)
+  extra <- list(...)
+  prob.method <- if (!is.null(extra$prob.method)) extra$prob.method else "simplex"
+  prob.method <- match.arg(prob.method, c("simplex", "clip"))
   if (is.null(newA)) stop("'newA' must be supplied.")
   if (!is.matrix(newA)) newA <- as.matrix(newA)
 
   Yhat <- object$X %*% object$C %*% newA    # may be signed
   if (type == "response") return(Yhat)
 
-  ## For prob / class, clip negatives and column-normalize
-  Yhat <- pmax(Yhat, 0)
-  col_sums <- colSums(Yhat) + 1e-12
-  probs <- sweep(Yhat, 2, col_sums, "/")
-  if (type == "prob") return(probs)
+  if (type == "class") {
+    ## argmax of the least-squares scores; invariant to either simplex rule.
+    classes <- rownames(Yhat)
+    if (is.null(classes)) classes <- as.character(seq_len(nrow(Yhat)))
+    return(classes[apply(Yhat, 2, which.max)])
+  }
 
-  classes <- rownames(Yhat)
-  if (is.null(classes)) classes <- as.character(seq_len(nrow(Yhat)))
-  classes[apply(probs, 2, which.max)]
+  if (prob.method == "simplex") {
+    .proj_simplex_cols(Yhat)
+  } else {
+    Yc <- pmax(Yhat, 0)
+    sweep(Yc, 2, colSums(Yc) + 1e-12, "/")
+  }
+}
+
+
+## Euclidean projection of every column of Y onto the probability simplex
+## {p >= 0, sum(p) = 1}  (Duchi, Shalev-Shwartz, Singer & Chandra 2008,
+## Algorithm 1; Wang & Carreira-Perpinan 2013 for the short proof):
+##   sort y descending: u_1 >= ... >= u_P;  rho = max{ j : u_j - (sum_{i<=j} u_i - 1)/j > 0 };
+##   tau = (sum_{i<=rho} u_i - 1)/rho;  p = max(y - tau, 0).
+## rho >= 1 always (j = 1 gives u_1 - (u_1 - 1) = 1 > 0), so tau is defined
+## for every finite column.  Vectorized over columns: O(N P log P).
+.proj_simplex_cols <- function(Y) {
+  Y <- as.matrix(Y)
+  P <- nrow(Y); N <- ncol(Y)
+  if (P == 1L) { out <- Y; out[] <- 1; return(out) }
+  U  <- matrix(apply(Y, 2, sort, decreasing = TRUE), P, N)
+  CS <- matrix(apply(U, 2, cumsum), P, N)
+  cond <- U - sweep(CS - 1, 1, seq_len(P), "/") > 0          # P x N logical
+  rho  <- P + 1L - apply(cond[P:1, , drop = FALSE], 2, which.max)  # last TRUE
+  tau  <- (CS[cbind(rho, seq_len(N))] - 1) / rho
+  out <- pmax(sweep(Y, 2, tau, "-"), 0)
+  dimnames(out) <- dimnames(Y)
+  out
 }
 
 
