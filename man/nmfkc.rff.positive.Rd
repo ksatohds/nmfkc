@@ -56,13 +56,18 @@ unlike the cosine Random Fourier Features of
 construction of Choromanski et al. (2021), stated there for the softmax
 kernel, transported to the Gaussian kernel by rescaling.
 
-The constant \eqn{\kappa = 2\beta\,\min_n\lVert u_n\rVert^2}
-(computed on the training \code{U} and stored in \code{pars}) keeps the
-data-dependent part of the exponent non-positive, so \code{exp()} cannot
-overflow (points far from the origin underflow to zero at large
-\eqn{\beta}, which only means that bandwidth fits poorly); it scales the kernel by
-\eqn{e^{2\kappa}}, which \eqn{\Theta} absorbs, so the fitted model does not
-depend on it.  Inputs should nevertheless be centred and scaled: the
+The constant \eqn{\kappa} is minus the largest exponent
+\eqn{\sqrt{2\beta}\,\omega_d^\top u_n - 2\beta\lVert u_n\rVert^2} observed
+on the training \code{U} (stored in \code{pars}), so every training
+feature is at most \eqn{1/\sqrt{D}} and \code{exp()} cannot overflow
+(points far from the others underflow to zero at large \eqn{\beta}, which
+only means that bandwidth fits poorly).  It scales the kernel estimate by
+\eqn{e^{2\kappa}}, which \eqn{\Theta} absorbs, so the fitted model and its
+predictions do not depend on it.  Note that \eqn{\kappa} depends on the
+realized \eqn{\omega}: the stabilized features are an unbiased estimator of
+the randomly rescaled kernel \eqn{e^{2\kappa}k}, not of \eqn{k} itself; the
+unbiasedness statement above is for the unstabilized map.
+Inputs should nevertheless be centred and scaled: the
 estimator's variance grows with \eqn{\beta\lVert u - u'\rVert^2}, so
 positive features need a larger \code{D} than cosine features for the
 same accuracy.
