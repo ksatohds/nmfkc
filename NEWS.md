@@ -1,5 +1,20 @@
 # nmfkc (development version)
 
+## `nmfkc.rff.beta.cv()`: bandwidth selection for random-feature covariates
+
+The counterpart of `nmfkc.kernel.beta.cv()` for Random Fourier Features:
+for each candidate \eqn{\beta} (default: the seven-point median-heuristic
+grid) and each candidate \eqn{D}, the features are regenerated with a fixed
+seed and the fit is cross-validated column-wise -- `nmfkc.signed.cv()` for
+signed cosine features (`type = "signed"`), `nmfkc.cv()` for positive random
+features (`type = "positive"`). Returns the selected `beta`, `D` and the
+`objfunc` matrix. `sample.size` runs the selection on a random subsample of
+the columns, so that for large \eqn{N} the choice is made cheaply and the
+final fit goes through the Gram route on all \eqn{N}. `cores` parallelizes
+over candidates with identical results. (Nyström covariates need no new
+function: `nmfkc.kernel.beta.cv(Y, rank, U = landmarks, V = data)` already
+cross-validates \eqn{\beta} for them.)
+
 ## Positive random features: `nmfkc.rff.positive()` and `nmfkc.rff.positive.gram()`
 
 Cosine Random Fourier Features take both signs, which forces the signed
@@ -12,9 +27,10 @@ gives \eqn{E[\phi(u)\phi(u')] = \exp(-\beta\lVert u - u'\rVert^2)}.
 
 - **`nmfkc.rff.positive(U, beta, D, seed, pars=, hyperbolic=)`** returns the
   \eqn{D \times N} non-negative feature matrix and the generating `pars`
-  (reuse them for new data). A constant \eqn{\kappa = 2\beta\,\mathrm{mean}
-  \lVert u_n\rVert^2} is added to every exponent to keep `exp()` in range; it
-  scales the kernel by \eqn{e^{2\kappa}}, which \eqn{\Theta} absorbs.
+  (reuse them for new data). A constant \eqn{\kappa} (minus the largest
+  exponent on the training data) is added to every exponent so that `exp()`
+  cannot overflow; it scales the kernel by \eqn{e^{2\kappa}}, which
+  \eqn{\Theta} absorbs.
   `hyperbolic = TRUE` pairs each \eqn{\omega} with \eqn{-\omega} (the
   antithetic variant of Choromanski et al.).
 - **`nmfkc.rff.positive.gram(Y, U, beta, D, seed, block.size)`** is the

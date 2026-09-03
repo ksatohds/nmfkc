@@ -51,7 +51,9 @@ test_that("pars reuse reproduces the map; kappa is fixed by the training data", 
   pr2 <- nmfkc.rff.positive(d$U[, 1:7], pars = pr$pars)
   expect_equal(pr2$Z, pr$Z[, 1:7])
   expect_identical(pr2$pars, pr$pars)
-  expect_equal(pr$pars$kappa, 2 * d$beta * mean(colSums(d$U^2)))
+  ## stabilizer: training features are bounded by 1/sqrt(D) (largest exponent is 0)
+  expect_true(is.finite(pr$pars$kappa))
+  expect_equal(max(pr$Z) * sqrt(30), 1, tolerance = 1e-12)
   ## Wrong input dimension is caught; seed does not disturb the caller's stream
   expect_error(nmfkc.rff.positive(d$U[1:2, ], pars = pr$pars), "p = 3")
   set.seed(77); r0 <- stats::runif(1)

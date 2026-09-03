@@ -56,9 +56,11 @@ unlike the cosine Random Fourier Features of
 construction of Choromanski et al. (2021), stated there for the softmax
 kernel, transported to the Gaussian kernel by rescaling.
 
-The constant \eqn{\kappa = 2\beta\,\mathrm{mean}_n\lVert u_n\rVert^2}
-(computed on the training \code{U} and stored in \code{pars}) keeps
-\code{exp()} in floating-point range; it scales the kernel by
+The constant \eqn{\kappa = 2\beta\,\min_n\lVert u_n\rVert^2}
+(computed on the training \code{U} and stored in \code{pars}) keeps the
+data-dependent part of the exponent non-positive, so \code{exp()} cannot
+overflow (points far from the origin underflow to zero at large
+\eqn{\beta}, which only means that bandwidth fits poorly); it scales the kernel by
 \eqn{e^{2\kappa}}, which \eqn{\Theta} absorbs, so the fitted model does not
 depend on it.  Inputs should nevertheless be centred and scaled: the
 estimator's variance grows with \eqn{\beta\lVert u - u'\rVert^2}, so

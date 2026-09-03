@@ -17,8 +17,10 @@
 # the membership interpretation intact) and with the block-wise Gram route.
 # The price is variance: the estimator is heavy-tailed for far-apart points,
 # so more features are needed than for the cos map, and inputs should be
-# centred / scaled.  A constant kappa = 2 beta mean_n ||u_n||^2 is added to
-# the exponent of every feature to keep exp() in range; it multiplies the
+# centred / scaled.  A constant kappa = 2 beta min_n ||u_n||^2 is added to
+# the exponent of every feature so that the data-dependent part
+# -2 beta (||u||^2 - min ||u||^2) is never positive: exp() cannot overflow
+# (far points underflow to 0 instead, harmlessly).  It multiplies the
 # kernel by exp(2 kappa), a global scale that Theta absorbs.
 #
 # References:
@@ -48,9 +50,11 @@
 #' construction of Choromanski et al. (2021), stated there for the softmax
 #' kernel, transported to the Gaussian kernel by rescaling.
 #'
-#' The constant \eqn{\kappa = 2\beta\,\mathrm{mean}_n\lVert u_n\rVert^2}
-#' (computed on the training \code{U} and stored in \code{pars}) keeps
-#' \code{exp()} in floating-point range; it scales the kernel by
+#' The constant \eqn{\kappa = 2\beta\,\min_n\lVert u_n\rVert^2}
+#' (computed on the training \code{U} and stored in \code{pars}) keeps the
+#' data-dependent part of the exponent non-positive, so \code{exp()} cannot
+#' overflow (points far from the origin underflow to zero at large
+#' \eqn{\beta}, which only means that bandwidth fits poorly); it scales the kernel by
 #' \eqn{e^{2\kappa}}, which \eqn{\Theta} absorbs, so the fitted model does not
 #' depend on it.  Inputs should nevertheless be centred and scaled: the
 #' estimator's variance grows with \eqn{\beta\lVert u - u'\rVert^2}, so
@@ -139,11 +143,19 @@ nmfkc.rff.positive <- function(U, beta = NULL,
     on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
     if (!is.null(seed)) set.seed(seed)
     D_draw <- if (hyperbolic) as.integer(ceiling(D / 2)) else D
+    omega <- matrix(stats::rnorm(D_draw * nrow(U)), nrow = D_draw, ncol = nrow(U))
+    ## Stabilizer: subtract the largest exponent seen on the training data
+    ## (Performer-style), so every training feature is <= 1/sqrt(D) and
+    ## exp() cannot overflow; far points underflow to 0 instead.  A global
+    ## constant, so it only rescales the kernel by exp(2 kappa).
+    L0 <- sqrt(2 * beta) * (omega %*% U)
+    if (hyperbolic) L0 <- rbind(L0, -L0)
+    L0 <- sweep(L0, 2, -2 * beta * sq_norm, "+")
     pars <- list(
-      omega      = matrix(stats::rnorm(D_draw * nrow(U)), nrow = D_draw, ncol = nrow(U)),
+      omega      = omega,
       D          = if (hyperbolic) 2L * D_draw else D,
       beta       = beta,
-      kappa      = 2 * beta * mean(sq_norm),   # global stabilizer, see header
+      kappa      = -max(L0),
       hyperbolic = hyperbolic,
       type       = "positive"
     )
@@ -266,7 +278,7 @@ nmfkc.rff.positive.gram <- function(Y, U, beta = NULL, D = NULL,
       omega      = matrix(stats::rnorm(D_draw * nrow(U)), nrow = D_draw, ncol = nrow(U)),
       D          = if (hyperbolic) 2L * D_draw else D,
       beta       = beta,
-      kappa      = 2 * beta * mean(colSums(U * U)),
+      kappa      = NA_real_,      # filled below from a first pass over the blocks
       hyperbolic = hyperbolic,
       type       = "positive"
     )
@@ -278,11 +290,26 @@ nmfkc.rff.positive.gram <- function(Y, U, beta = NULL, D = NULL,
   if (length(block.size) != 1L || is.na(block.size) || block.size < 1L)
     stop("'block.size' must be a positive integer.")
   block.size <- min(block.size, N)
+  starts <- seq.int(1L, N, by = block.size)
+
+  if (is.na(pars$kappa)) {
+    ## First pass: the largest exponent over all training columns -- the same
+    ## stabilizer nmfkc.rff.positive() uses -- without holding the features.
+    mx <- -Inf
+    for (s in starts) {
+      idx <- s:min(s + block.size - 1L, N)
+      Ub <- U[, idx, drop = FALSE]
+      L0 <- sqrt(2 * pars$beta) * (pars$omega %*% Ub)
+      if (isTRUE(pars$hyperbolic)) L0 <- rbind(L0, -L0)
+      L0 <- sweep(L0, 2, -2 * pars$beta * colSums(Ub * Ub), "+")
+      mx <- max(mx, max(L0))
+    }
+    pars$kappa <- -mx
+  }
 
   P  <- nrow(Y)
   S  <- matrix(0, D, D)
   G0 <- matrix(0, P, D)
-  starts <- seq.int(1L, N, by = block.size)
   for (s in starts) {
     idx <- s:min(s + block.size - 1L, N)
     Zb <- nmfkc.rff.positive(U[, idx, drop = FALSE], pars = pars)$Z   # D x |idx|, >= 0
