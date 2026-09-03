@@ -1,5 +1,38 @@
 # nmfkc (development version)
 
+## `nmfkc.signed()`: multi-start (`nstart.signed`)
+
+Signed models have many more local minima than non-negative ones, because
+\eqn{\Theta = C_{+} - C_{-}} takes both signs. Until now `nmfkc.signed()`
+only forwarded `nstart` to the non-negative warm-start fit, and the
+documentation asked the caller to loop over seeds. It now does the loop:
+with `nstart.signed > 1` the whole fit is repeated from that many consecutive
+seeds (`seed`, `seed + 1`, ...) and the fit with the smallest `$objfunc` is
+returned, with `$restarts` recording the seed, objective, iteration count and
+convergence flag of every start. `cores` parallelizes the restarts. The
+default `nstart.signed = 1` leaves the previous behaviour untouched.
+
+`nstart` keeps its old meaning -- initialization of \eqn{X} inside the
+non-negative warm start -- so the two are independent. Since `$` on a list
+partial-matches, both are now read with `[[name, exact = TRUE]]`; without
+that, passing `nstart.signed` alone would also have set `nstart`.
+
+Restarts are cheap for Gram input, where \eqn{S} and \eqn{G_0} are already
+accumulated. A budget of 10-50 is recommended for publication-grade runs,
+especially when the number of classes is large. A start that stops after far
+fewer iterations than the others has usually failed, which is a cheap warning
+sign; note however that on ISOLET most of the apparent spread across starts
+turned out to come from stopping at `epsilon = 1e-4` rather than from local
+minima (the signed MU there is still improving after 20,000 iterations).
+
+## Bug fix: `lambda.ortho` no longer leaks into `C.L1`
+
+`nmfkc()` accepts the deprecated names `lambda` (now `C.L1`) and
+`lambda.ortho` (now `X.L2.ortho`) by reading them out of `...`. Because `$`
+partial-matches on lists, calling `nmfkc(..., lambda.ortho = x)` without
+`lambda` also set `C.L1 <- x`, so an orthogonality penalty silently became an
+L1 penalty of the same size. Both names are now matched exactly.
+
 ## `nmfkc.rff.beta.cv()`: bandwidth selection for random-feature covariates
 
 The counterpart of `nmfkc.kernel.beta.cv()` for Random Fourier Features:

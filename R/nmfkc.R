@@ -2495,8 +2495,12 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   ## bases. Default 0 = off (exact current behaviour).
   X.L2.smooth <- if (!base::is.null(extra_args$X.L2.smooth)) extra_args$X.L2.smooth else 0
 
-  if (C.L1 == 0 && !base::is.null(extra_args$lambda)) C.L1 <- extra_args$lambda
-  if (X.L2.ortho == 0 && !base::is.null(extra_args$lambda.ortho)) X.L2.ortho <- extra_args$lambda.ortho
+  ## Exact extraction: `$` on a list partial-matches, so extra_args$lambda would
+  ## otherwise pick up a lambda.ortho passed on its own and silently turn an
+  ## orthogonality penalty into an L1 penalty.
+  .arg <- function(name) extra_args[[name, exact = TRUE]]
+  if (C.L1 == 0 && !base::is.null(.arg("lambda"))) C.L1 <- .arg("lambda")
+  if (X.L2.ortho == 0 && !base::is.null(.arg("lambda.ortho"))) X.L2.ortho <- .arg("lambda.ortho")
 
   method <- if (!base::is.null(extra_args$method)) extra_args$method else "EU"
   X.restriction <- if (!base::is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"

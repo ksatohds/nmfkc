@@ -130,15 +130,24 @@ weights for observation-level importance weighting are also
 supported.  Default \code{NULL}: if \code{Y} has \code{NA},
 a binary mask is auto-constructed (0 for \code{NA}, 1
 elsewhere); otherwise no weighting.
-\item \code{nstart}: number of random restarts.  \strong{Signed
-models have more local minima than non-negative ones} because
-\eqn{\Theta = C_{+} - C_{-}} can take both positive and negative
-values.  Since \code{nmfkc.signed()} itself does not loop over
-restarts (callers control it), set the outer-loop size via e.g.
-running the function several times with different \code{seed}
-and keeping the fit with the smallest \code{$objfunc}.  A
-restart budget of 10-50 is recommended for publication-grade
-runs on signed data.
+\item \code{nstart.signed}: number of restarts of the signed fit
+(default 1).  \strong{Signed models have more local minima than
+non-negative ones} because \eqn{\Theta = C_{+} - C_{-}} can take
+both positive and negative values.  With
+\code{nstart.signed > 1} the whole fit is repeated from that many
+consecutive seeds (\code{seed}, \code{seed + 1}, ...) and the fit
+with the smallest \code{$objfunc} is returned; the returned
+object then also carries \code{$restarts}, a data frame of the
+seed, objective, iteration count and convergence flag of every
+start.  Note that this is a different quantity from
+\code{nstart}, which -- here as in \code{\link{nmfkc}} -- only
+governs the initialization of \eqn{X} and is forwarded to the
+non-negative warm-start fit.  A budget of 10-50 restarts is
+recommended for publication-grade runs, especially when the
+number of classes is large.  Restarts are cheap for Gram input,
+where \eqn{S} and \eqn{G_0} are already accumulated.
+\item \code{cores}: number of workers used for the restarts when
+\code{nstart.signed > 1} (default 1, i.e. sequential).
 }}
 }
 \value{
@@ -161,6 +170,11 @@ column-normalized according to \code{X.restriction}).
 \item \code{Y.signed}: logical; whether \eqn{Y} contained negative
 entries during fitting.
 \item \code{pars}: RFF generating parameters, if supplied.
+\item \code{restarts}: present only when \code{nstart.signed > 1}; a data frame
+with one row per start (\code{seed}, \code{objfunc}, \code{iter},
+\code{converged}).  A start whose objective is larger than the best one
+has reached a different local minimum; such a start typically also stops
+after far fewer iterations.
 \item \code{call}: the matched call.
 }
 }
