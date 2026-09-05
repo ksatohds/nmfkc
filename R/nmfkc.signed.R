@@ -546,6 +546,39 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     list(X = sweep(X, 2, d, "/"), Cp = sweep(Cp, 1, d, "*"), Cn = sweep(Cn, 1, d, "*"))
   }
 
+  ## Return (X, C) to the feasible set of the row-sum floor.  A multiplicative
+  ## update cannot restore a row that has reached exactly zero (0 times anything
+  ## is 0), so the floor cannot be reached from inside the update and is imposed
+  ## here instead, by alternating two rescalings until X is feasible:
+  ##   rows    : a short row is scaled up to the floor (this changes X'Theta --
+  ##             it is the constraint acting, not a reparametrization);
+  ##   columns : the usual normalization, whose scale is moved into C, so the
+  ##             gauge is restored without changing the model.
+  ## Feasible whenever tau <= Q / Q_obs, and idle once every row clears the
+  ## floor.  Being outside the multiplicative form, it suspends the monotonicity
+  ## of the objective while a row is being lifted.
+  project_rows <- function(X, Cp, Cn) {
+    if (X.rowSums.min <= 0 || !all(is.finite(X))) return(list(X = X, Cp = Cp, Cn = Cn))
+    tau <- X.rowSums.min; dtot <- rep(1, ncol(X))
+    for (it in seq_len(1000L)) {
+      rs <- rowSums(X)
+      if (all(rs >= tau * (1 - 1e-9))) break
+      ## Add the shortfall of a short row uniformly over the columns.  Rescaling
+      ## the row would not do: a row that lives in a single column would be
+      ## scaled up and the column normalization would scale it straight back,
+      ## so the two steps would cycle without ever reaching the feasible set.
+      ## Spreading the shortfall moves mass to other columns, and the
+      ## alternation converges.
+      short <- rs < tau
+      X[short, ] <- X[short, , drop = FALSE] + (tau - rs[short]) / ncol(X)
+      if (X.restriction != "none") {
+        d <- xscale(X); X <- sweep(X, 2, d, "/"); dtot <- dtot * d
+      }
+    }
+    ## the accumulated column scale is moved into C once, as the gauge requires
+    list(X = X, Cp = sweep(Cp, 1, dtot, "*"), Cn = sweep(Cn, 1, dtot, "*"))
+  }
+
   ## --- 5. Initialization ---
   X <- NULL; Cp <- NULL; Cn <- NULL
 
@@ -624,6 +657,8 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
   ## Apply the restriction to the initial values.
   { .n <- xnorm(X, Cp, Cn); X <- .n$X; Cp <- .n$Cp; Cn <- .n$Cn }
+  ## and the row-sum floor, so that the first sweep starts from a feasible X
+  { .p <- project_rows(X, Cp, Cn); X <- .p$X; Cp <- .p$Cp; Cn <- .p$Cn }
 
   small <- 1e-16
   Wmat <- Y.weights  # short alias; NULL if no weights
@@ -694,35 +729,6 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       den_X <- den_X + X.L2.smooth * degX
     }
     list(num = num_X, den = den_X)
-  }
-  ## Return (X, C) to the feasible set of the row-sum floor.  A multiplicative
-  ## update cannot restore a row that has reached exactly zero (0 times anything
-  ## is 0), so the floor cannot be reached from inside the update and is imposed
-  ## here instead, by alternating two rescalings until X is feasible:
-  ##   rows    : a short row is scaled up to the floor (this changes X'Theta --
-  ##             it is the constraint acting, not a reparametrization);
-  ##   columns : the usual normalization, whose scale is moved into C, so the
-  ##             gauge is restored without changing the model.
-  ## Feasible whenever tau <= Q / Q_obs, and idle once every row clears the
-  ## floor.  Being outside the multiplicative form, it suspends the monotonicity
-  ## of the objective while a row is being lifted.
-  project_rows <- function(X, Cp, Cn) {
-    if (X.rowSums.min <= 0) return(list(X = X, Cp = Cp, Cn = Cn))
-    for (it in seq_len(50L)) {
-      rs <- rowSums(X)
-      if (all(rs >= X.rowSums.min * (1 - 1e-9))) break
-      zero <- rs <= 0
-      if (any(zero)) { X[zero, ] <- X.rowSums.min / ncol(X); rs <- rowSums(X) }
-      lift <- rs < X.rowSums.min
-      if (any(lift)) X[lift, ] <- X[lift, , drop = FALSE] * (X.rowSums.min / rs[lift])
-      if (X.restriction != "none") {
-        d <- xscale(X)
-        X  <- sweep(X,  2, d, "/")
-        Cp <- sweep(Cp, 1, d, "*")
-        Cn <- sweep(Cn, 1, d, "*")
-      }
-    }
-    list(X = X, Cp = Cp, Cn = Cn)
   }
 
   ## Weighted damped-MU sweep (one iteration at damping exponent `gexp`).
