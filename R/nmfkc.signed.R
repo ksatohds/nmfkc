@@ -112,6 +112,15 @@
 #'       toward zero (with zero gradient on the unidentified common mode
 #'       \eqn{C_{+} + C_{-}}), injected into both the fast unweighted and the
 #'       weighted \eqn{C_{+}}/\eqn{C_{-}} updates.
+#'     \item \code{C.L1}: non-negative lasso penalty on the signed coefficient
+#'       matrix (default 0), adding \eqn{\lambda\lVert C\rVert_1}.  Under the
+#'       split \eqn{C = C_{+} - C_{-}} this is \eqn{\lambda\sum(C_{+}+C_{-})}:
+#'       at a minimizer \eqn{C_{+}} and \eqn{C_{-}} have disjoint supports, so
+#'       the sum equals the absolute value, and the constant gradient enters
+#'       only the denominators of both updates (same \eqn{\lambda/2}
+#'       convention as \code{\link{nmfkc}}).  Multiplicative updates approach
+#'       zero geometrically rather than reaching it, so the effect is
+#'       shrinkage; threshold the result if a sparse support is wanted.
 #'     \item \code{X.init}: initialization strategy for the basis matrix
 #'       \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
 #'       menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
@@ -326,6 +335,13 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   ## unidentified common mode Cp + Cn): num_Cp += C.L2 Cn, den_Cp += C.L2 Cp
   ## (and symmetrically for Cn).
   C.L2        <- if (!is.null(extra_args$C.L2))        extra_args$C.L2        else 0
+  ## Lasso on the signed coefficient matrix (default off).  With the split
+  ## C = Cp - Cn the penalty C.L1 * sum(Cp + Cn) equals C.L1 * ||C||_1 at any
+  ## minimizer: if both parts were positive in the same cell, subtracting the
+  ## smaller from each leaves C unchanged and lowers the penalty, so their
+  ## supports are disjoint there.  The gradient is the constant C.L1 in both
+  ## factors, so it enters only the denominators (C.L1/2, as in nmfkc()).
+  C.L1        <- if (!is.null(extra_args$C.L1))        extra_args$C.L1        else 0
 
   ## --- 2. Input preparation & validation ---
   if (is.vector(Y)) Y <- matrix(Y, nrow = 1)
@@ -575,7 +591,12 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     p
   }
   ## Ridge penalty value on C = Cp - Cn (added to the tracked objective).
-  pen_C <- function(Cp, Cn) if (C.L2 > 0) C.L2 * sum((Cp - Cn)^2) else 0
+  pen_C <- function(Cp, Cn) {
+    p <- 0
+    if (C.L2 > 0) p <- p + C.L2 * sum((Cp - Cn)^2)
+    if (C.L1 > 0) p <- p + C.L1 * sum(Cp + Cn)
+    p
+  }
   apply_Xpen <- function(X, num_X, den_X) {
     if (X.L2.ortho > 0) {
       XtX <- crossprod(X); diag(XtX) <- 0
@@ -616,7 +637,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
     Hnp <- pmax(Hn_w, 0); Hnn <- pmax(-Hn_w, 0)
     Cp <- Cp * ((Gp + Hpn + Hnp + C.L2 * Cn) /
-                (Gn + Hpp + Hnn + C.L2 * Cp + small))^gexp
+                (Gn + Hpp + Hnn + C.L2 * Cp + C.L1 / 2 + small))^gexp
     ## Recompute Hp_w with updated Cp (Gauss-Seidel)
     Yhat_p <- X %*% Cp %*% A_diff
     WYhp   <- Wmat * Yhat_p
@@ -624,7 +645,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     Hpp <- pmax(Hp_w, 0); Hpn <- pmax(-Hp_w, 0)
     ## 6b'. Cn update
     Cn <- Cn * ((Gn + Hpp + Hnn + C.L2 * Cp) /
-                (Gp + Hpn + Hnp + C.L2 * Cn + small))^gexp
+                (Gp + Hpn + Hnp + C.L2 * Cn + C.L1 / 2 + small))^gexp
     ## 6c'. X update (weighted)
     ## -dL/(2) = (W*Y) M^T - (W*(XM)) M^T   where M = H A (signed).
     ## Ding split on the two signed terms A1, A2:
@@ -669,12 +690,12 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       G_p <- pmax(G, 0); G_n <- pmax(-G, 0)
       PCp <- P %*% Cp;   PCn <- P %*% Cn
       Cp  <- Cp * (G_p + PCp %*% S_n + PCn %*% S_p + C.L2 * Cn) /
-                  (G_n + PCp %*% S_p + PCn %*% S_n + C.L2 * Cp + small)
+                  (G_n + PCp %*% S_p + PCn %*% S_n + C.L2 * Cp + C.L1 / 2 + small)
 
       ## 6b. Cn update (Gauss-Seidel)
       PCp <- P %*% Cp
       Cn  <- Cn * (G_n + PCp %*% S_p + PCn %*% S_n + C.L2 * Cp) /
-                  (G_p + PCp %*% S_n + PCn %*% S_p + C.L2 * Cn + small)
+                  (G_p + PCp %*% S_n + PCn %*% S_p + C.L2 * Cn + C.L1 / 2 + small)
 
       ## 6c. X update
       if (X.restriction != "fixed") {

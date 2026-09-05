@@ -81,6 +81,15 @@ matrix \eqn{C = C_{+} - C_{-}} (default 0), adding
 toward zero (with zero gradient on the unidentified common mode
 \eqn{C_{+} + C_{-}}), injected into both the fast unweighted and the
 weighted \eqn{C_{+}}/\eqn{C_{-}} updates.
+\item \code{C.L1}: non-negative lasso penalty on the signed coefficient
+matrix (default 0), adding \eqn{\lambda\lVert C\rVert_1}.  Under the
+split \eqn{C = C_{+} - C_{-}} this is \eqn{\lambda\sum(C_{+}+C_{-})}:
+at a minimizer \eqn{C_{+}} and \eqn{C_{-}} have disjoint supports, so
+the sum equals the absolute value, and the constant gradient enters
+only the denominators of both updates (same \eqn{\lambda/2}
+convention as \code{\link{nmfkc}}).  Multiplicative updates approach
+zero geometrically rather than reaching it, so the effect is
+shrinkage; threshold the result if a sparse support is wanted.
 \item \code{X.init}: initialization strategy for the basis matrix
 \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
 menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
