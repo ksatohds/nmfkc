@@ -106,10 +106,18 @@ test_that("X.rowSums.min = 0 leaves the fit unchanged", {
 test_that("without the floor a row of X can vanish, and with it none does", {
   cs <- make_reduced_case()
   expect_gt(sum(rowSums(fit_reduced(cs, 0)$X) < 1e-10), 0)      # a class is dropped
-  for (tau in c(0.2, 0.5, 1) * cs$Q / cs$P) {
+  for (tau in c(0.2, 0.5, 0.75) * cs$Q / cs$P) {
     X <- fit_reduced(cs, tau)$X
     expect_equal(sum(rowSums(X) < 1e-10), 0)
-    expect_gt(min(rowSums(X)), tau * (1 - 1e-2))                # floor met
+    expect_gt(min(rowSums(X)), tau * (1 - 1e-6))                # floor met, as a constraint
+  }
+})
+
+test_that("the floor is a constraint, so the objective stays the plain loss", {
+  cs <- make_reduced_case()
+  for (tau in c(0, 0.5 * cs$Q / cs$P)) {
+    f <- fit_reduced(cs, tau)
+    expect_equal(f$objfunc, sum((cs$Y - f$X %*% f$C %*% cs$Z)^2), tolerance = 1e-6)
   }
 })
 

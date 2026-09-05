@@ -91,21 +91,24 @@ convention as \code{\link{nmfkc}}).  Multiplicative updates approach
 zero geometrically rather than reaching it, so the effect is
 shrinkage; threshold the result if a sparse support is wanted.
 \item \code{X.rowSums.min}: floor \eqn{\tau \ge 0} on the row sums of
-\eqn{X} (default 0, off).  At \eqn{Q < Q_{\mathrm{obs}}} the updates
-otherwise drive whole rows of \eqn{X} to zero, so that the
-corresponding observed dimension --- a class, when \eqn{Y} is a label
-matrix --- is attached to no basis, contributes only error and is
-never predicted.  The floor rules that out through the one-sided
-penalty \eqn{w\sum_p \max(0, \tau - \mathrm{rowSums}(X)_p)^2}, whose
-gradient vanishes where the floor holds and is negative where it does
-not, so it enters the numerator only and preserves the multiplicative
-form.  With \code{X.restriction = "colSums"} the total mass of
-\eqn{X} is \eqn{Q}, so \eqn{\tau \le Q / Q_{\mathrm{obs}}} is required.
+\eqn{X} (default 0, off).  Unlike \code{X.L2.ortho} and
+\code{X.L2.smooth} this is a \strong{constraint, not a penalty}: it
+restricts the feasible set to
+\eqn{\{X \ge 0,\ \mathrm{colSums}(X) = 1,\
+      \mathrm{rowSums}(X) \ge \tau\}} and leaves the objective the plain
+loss, so fits at different \eqn{\tau} are compared on the same scale.
+At \eqn{Q < Q_{\mathrm{obs}}} the updates otherwise drive whole rows of
+\eqn{X} to zero, so that the corresponding observed dimension --- a
+class, when \eqn{Y} is a label matrix --- is attached to no basis,
+contributes only error and is never predicted.  A multiplicative update
+cannot restore such a row, so the constraint is imposed after each
+\eqn{X} update by alternating a row rescaling with the column
+normalization until \eqn{X} is feasible; that step is outside the
+multiplicative form and suspends the monotonicity of the objective
+while a row is being lifted.  With \code{X.restriction = "colSums"} the
+total mass of \eqn{X} is \eqn{Q}, so \eqn{\tau \le Q/Q_{\mathrm{obs}}}
+is required; \eqn{\tau = 0} reproduces the unconstrained fit exactly.
 Not available with \code{X.restriction = "fixed"}.
-\item \code{X.rowSums.weight}: weight \eqn{w} of that penalty.  The
-default \eqn{\lVert Y\rVert_F^2/\tau^2} makes a row driven to zero cost
-as much as the entire data term, so the floor acts as a constraint;
-lower it to treat the floor as a preference instead.
 \item \code{X.init}: initialization strategy for the basis matrix
 \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
 menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),

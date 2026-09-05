@@ -122,21 +122,24 @@
 #'       zero geometrically rather than reaching it, so the effect is
 #'       shrinkage; threshold the result if a sparse support is wanted.
 #'     \item \code{X.rowSums.min}: floor \eqn{\tau \ge 0} on the row sums of
-#'       \eqn{X} (default 0, off).  At \eqn{Q < Q_{\mathrm{obs}}} the updates
-#'       otherwise drive whole rows of \eqn{X} to zero, so that the
-#'       corresponding observed dimension --- a class, when \eqn{Y} is a label
-#'       matrix --- is attached to no basis, contributes only error and is
-#'       never predicted.  The floor rules that out through the one-sided
-#'       penalty \eqn{w\sum_p \max(0, \tau - \mathrm{rowSums}(X)_p)^2}, whose
-#'       gradient vanishes where the floor holds and is negative where it does
-#'       not, so it enters the numerator only and preserves the multiplicative
-#'       form.  With \code{X.restriction = "colSums"} the total mass of
-#'       \eqn{X} is \eqn{Q}, so \eqn{\tau \le Q / Q_{\mathrm{obs}}} is required.
+#'       \eqn{X} (default 0, off).  Unlike \code{X.L2.ortho} and
+#'       \code{X.L2.smooth} this is a \strong{constraint, not a penalty}: it
+#'       restricts the feasible set to
+#'       \eqn{\{X \ge 0,\ \mathrm{colSums}(X) = 1,\
+#'       \mathrm{rowSums}(X) \ge \tau\}} and leaves the objective the plain
+#'       loss, so fits at different \eqn{\tau} are compared on the same scale.
+#'       At \eqn{Q < Q_{\mathrm{obs}}} the updates otherwise drive whole rows of
+#'       \eqn{X} to zero, so that the corresponding observed dimension --- a
+#'       class, when \eqn{Y} is a label matrix --- is attached to no basis,
+#'       contributes only error and is never predicted.  A multiplicative update
+#'       cannot restore such a row, so the constraint is imposed after each
+#'       \eqn{X} update by alternating a row rescaling with the column
+#'       normalization until \eqn{X} is feasible; that step is outside the
+#'       multiplicative form and suspends the monotonicity of the objective
+#'       while a row is being lifted.  With \code{X.restriction = "colSums"} the
+#'       total mass of \eqn{X} is \eqn{Q}, so \eqn{\tau \le Q/Q_{\mathrm{obs}}}
+#'       is required; \eqn{\tau = 0} reproduces the unconstrained fit exactly.
 #'       Not available with \code{X.restriction = "fixed"}.
-#'     \item \code{X.rowSums.weight}: weight \eqn{w} of that penalty.  The
-#'       default \eqn{\lVert Y\rVert_F^2/\tau^2} makes a row driven to zero cost
-#'       as much as the entire data term, so the floor acts as a constraint;
-#'       lower it to treat the floor as a preference instead.
 #'     \item \code{X.init}: initialization strategy for the basis matrix
 #'       \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
 #'       menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
@@ -358,21 +361,17 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   ## supports are disjoint there.  The gradient is the constant C.L1 in both
   ## factors, so it enters only the denominators (C.L1/2, as in nmfkc()).
   C.L1        <- if (!is.null(extra_args$C.L1))        extra_args$C.L1        else 0
-  ## Floor on the row sums of X (default 0 = off).  At Q < Q_obs the
-  ## multiplicative updates drive whole rows of X to zero: the corresponding
-  ## observed dimension (a class, when Y is a label matrix) is then attached to
-  ## no basis at all, contributes only error, and can never be predicted.  This
-  ## is a degenerate solution rather than the intended "share a basis".  The
-  ## floor is imposed by the one-sided penalty
-  ##   w * sum_p max(0, tau - rowSums(X)_p)^2 ,
-  ## whose gradient is negative wherever the floor is violated and zero
-  ## elsewhere, so it enters the numerator only and leaves the multiplicative
-  ## form and the monotonicity of the penalized objective intact.  With
-  ## colSums(X) = 1 the total mass of X is Q, so the floor is feasible only for
-  ## tau <= Q / Q_obs.
+  ## Floor on the row sums of X (default 0 = off).  This is a CONSTRAINT, not a
+  ## penalty: it restricts the feasible set to
+  ##   {X >= 0, colSums(X) = 1, rowSums(X) >= tau}
+  ## and leaves the objective the plain loss, so fits at different tau are
+  ## compared on the same scale.  At Q < Q_obs the updates otherwise drive whole
+  ## rows of X to zero: the corresponding observed dimension (a class, when Y is
+  ## a label matrix) is then attached to no basis at all, contributes only error
+  ## and can never be predicted -- a degenerate solution rather than the
+  ## intended "share a basis".  With colSums(X) = 1 the total mass of X is Q, so
+  ## the floor is feasible only for tau <= Q / Q_obs.
   X.rowSums.min <- if (!is.null(extra_args$X.rowSums.min)) extra_args$X.rowSums.min else 0
-  X.rowSums.weight <- if (!is.null(extra_args$X.rowSums.weight))
-    extra_args$X.rowSums.weight else NA_real_
 
   ## --- 2. Input preparation & validation ---
   if (is.vector(Y)) Y <- matrix(Y, nrow = 1)
@@ -483,10 +482,8 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   }
   Y_sqnorm <- sum(Y * Y)            # always >= 0
 
-  ## Weight of the row-sum floor.  Default ||Y||_F^2 / tau^2, so that a row
-  ## driven all the way to zero costs as much as the whole data term: the floor
-  ## is then effectively a constraint rather than a tuning knob.  Validity of
-  ## tau is checked against the total mass of X, which colSums(X) = 1 fixes at Q.
+  ## Validity of the row-sum floor: colSums(X) = 1 fixes the total mass of X at
+  ## Q, so the P row sums cannot all exceed Q / Q_obs.
   if (length(X.rowSums.min) != 1L || is.na(X.rowSums.min) || X.rowSums.min < 0)
     stop("'X.rowSums.min' must be a single number >= 0.")
   if (X.rowSums.min > 0) {
@@ -497,8 +494,6 @@ nmfkc.signed <- function(Y, A, rank = NULL,
                          "total mass of X is Q = %d, so the row sums cannot all exceed",
                          "Q / nrow(Y) = %g."), X.rowSums.min, Q, Q / Q_obs))
   }
-  X.rowSums.w <- if (!is.na(X.rowSums.weight)) X.rowSums.weight
-                 else if (X.rowSums.min > 0) Y_sqnorm / X.rowSums.min^2 else 0
 
   ## --- 4. X.restriction helpers ---
   xscale <- switch(X.restriction,
@@ -636,8 +631,6 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     if (X.L2.smooth > 0 && nrow(X) >= 2)
       p <- p + (X.L2.smooth / 2) * sum((X[-1, , drop = FALSE] -
                                         X[-nrow(X), , drop = FALSE])^2)
-    if (X.rowSums.min > 0)
-      p <- p + X.rowSums.w * sum(pmax(0, X.rowSums.min - rowSums(X))^2)
     p
   }
   ## Ridge penalty value on C = Cp - Cn (added to the tracked objective).
@@ -660,28 +653,36 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       num_X <- num_X + X.L2.smooth * WX
       den_X <- den_X + X.L2.smooth * degX
     }
-    if (X.rowSums.min > 0) {
-      ## d/dX_{pq} of w * sum_p max(0, tau - s_p)^2 is -2 w max(0, tau - s_p),
-      ## constant along the row; half of its (negative) magnitude is the
-      ## numerator term, matching the convention of the data part above.
-      short <- pmax(0, X.rowSums.min - rowSums(X))
-      if (any(short > 0)) num_X <- num_X + X.rowSums.w * short
-    }
     list(num = num_X, den = den_X)
   }
-  ## The penalty alone cannot enforce the floor, because a multiplicative update
-  ## cannot revive a row that has already reached exactly zero: 0 * anything is
-  ## 0 whatever the numerator.  Rows that are short after the update therefore
-  ## get a small mass put back, which is what lets the penalty act on them at
-  ## the next sweep.  This repair is outside the multiplicative form, so the
-  ## objective is not guaranteed to be monotone while any row is being lifted;
-  ## it is idle once every row clears the floor.
-  repair_rows <- function(X) {
-    if (X.rowSums.min <= 0) return(X)
-    rs <- rowSums(X)
-    bad <- rs < X.rowSums.min
-    if (any(bad)) X[bad, ] <- pmax(X[bad, , drop = FALSE], X.rowSums.min / (2 * ncol(X)))
-    X
+  ## Return (X, C) to the feasible set of the row-sum floor.  A multiplicative
+  ## update cannot restore a row that has reached exactly zero (0 times anything
+  ## is 0), so the floor cannot be reached from inside the update and is imposed
+  ## here instead, by alternating two rescalings until X is feasible:
+  ##   rows    : a short row is scaled up to the floor (this changes X'Theta --
+  ##             it is the constraint acting, not a reparametrization);
+  ##   columns : the usual normalization, whose scale is moved into C, so the
+  ##             gauge is restored without changing the model.
+  ## Feasible whenever tau <= Q / Q_obs, and idle once every row clears the
+  ## floor.  Being outside the multiplicative form, it suspends the monotonicity
+  ## of the objective while a row is being lifted.
+  project_rows <- function(X, Cp, Cn) {
+    if (X.rowSums.min <= 0) return(list(X = X, Cp = Cp, Cn = Cn))
+    for (it in seq_len(50L)) {
+      rs <- rowSums(X)
+      if (all(rs >= X.rowSums.min * (1 - 1e-9))) break
+      zero <- rs <= 0
+      if (any(zero)) { X[zero, ] <- X.rowSums.min / ncol(X); rs <- rowSums(X) }
+      lift <- rs < X.rowSums.min
+      if (any(lift)) X[lift, ] <- X[lift, , drop = FALSE] * (X.rowSums.min / rs[lift])
+      if (X.restriction != "none") {
+        d <- xscale(X)
+        X  <- sweep(X,  2, d, "/")
+        Cp <- sweep(Cp, 1, d, "*")
+        Cn <- sweep(Cn, 1, d, "*")
+      }
+    }
+    list(X = X, Cp = Cp, Cn = Cn)
   }
 
   ## Weighted damped-MU sweep (one iteration at damping exponent `gexp`).
@@ -731,13 +732,14 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       num <- pmax(A1, 0) + pmax(-A2, 0)
       den <- pmax(-A1, 0) + pmax(A2, 0)
       pen <- apply_Xpen(X, num, den)
-      X <- repair_rows(X * (pen$num / (pen$den + small))^gexp)
+      X <- X * (pen$num / (pen$den + small))^gexp
       if (X.restriction != "none") {
         d <- xscale(X)
         X  <- sweep(X,  2, d, "/")
         Cp <- sweep(Cp, 1, d, "*")
         Cn <- sweep(Cn, 1, d, "*")
       }
+      pr <- project_rows(X, Cp, Cn); X <- pr$X; Cp <- pr$Cp; Cn <- pr$Cn
     }
     list(X = X, Cp = Cp, Cn = Cn)
   }
@@ -776,13 +778,14 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         num_X <- pmax(YMt, 0) + X %*% pmax(-MMt, 0)
         den_X <- pmax(-YMt, 0) + X %*% pmax(MMt, 0)
         pen <- apply_Xpen(X, num_X, den_X)
-        X <- repair_rows(X * pen$num / (pen$den + small))
+        X <- X * pen$num / (pen$den + small)
         if (X.restriction != "none") {
           d <- xscale(X)
           X  <- sweep(X,  2, d, "/")
           Cp <- sweep(Cp, 1, d, "*")
           Cn <- sweep(Cn, 1, d, "*")
         }
+        pr <- project_rows(X, Cp, Cn); X <- pr$X; Cp <- pr$Cp; Cn <- pr$Cn
       }
 
       ## 6d. Refresh precomputed quantities & evaluate objective in closed form
