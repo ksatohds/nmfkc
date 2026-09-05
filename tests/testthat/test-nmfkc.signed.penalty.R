@@ -138,3 +138,36 @@ test_that("the floor works on the Gram route too", {
                     X.rowSums.min = 0.5 * cs$Q / cs$P)$X
   expect_gt(min(rowSums(X)), 0.5 * cs$Q / cs$P * (1 - 1e-2))
 })
+
+## ---------------------------------------------------------------------------
+## X.restriction = "rowSums": each observed dimension is a mixture of the bases.
+
+test_that("rowSums normalization holds exactly and drops no row", {
+  cs <- make_reduced_case()
+  f <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
+                    verbose = FALSE, warm.start = FALSE, seed = 1, X.restriction = "rowSums")
+  expect_equal(unname(rowSums(f$X)), rep(1, cs$P), tolerance = 1e-8)
+  expect_equal(sum(rowSums(f$X) < 1e-10), 0)
+  ## and the column restriction is no longer imposed
+  expect_gt(max(colSums(f$X)), 1 + 1e-6)
+})
+
+test_that("rowSums leaves the objective the plain loss and refuses a redundant floor", {
+  cs <- make_reduced_case()
+  f <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
+                    verbose = FALSE, warm.start = FALSE, seed = 1, X.restriction = "rowSums")
+  expect_equal(f$objfunc, sum((cs$Y - f$X %*% f$C %*% cs$Z)^2), tolerance = 1e-6)
+  expect_error(nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, verbose = FALSE,
+                            X.restriction = "rowSums", X.rowSums.min = 0.1), "redundant")
+})
+
+test_that("rowSums works on the Gram route and at Q = Q_obs", {
+  cs <- make_reduced_case()
+  g <- nmfkc.signed.rff.gram(cs$Y, cs$U, beta = 0.05, D = 60L, seed = 1)
+  f <- nmfkc.signed(cs$Y, A = g, rank = cs$Q, epsilon = 1e-8, maxit = 20000L,
+                    verbose = FALSE, warm.start = FALSE, seed = 1, X.restriction = "rowSums")
+  expect_equal(unname(rowSums(f$X)), rep(1, cs$P), tolerance = 1e-8)
+  f2 <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$P, epsilon = 1e-8, maxit = 20000L,
+                     verbose = FALSE, warm.start = FALSE, seed = 1, X.restriction = "rowSums")
+  expect_equal(unname(rowSums(f2$X)), rep(1, cs$P), tolerance = 1e-8)
+})

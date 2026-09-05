@@ -59,123 +59,139 @@ rebuilt block by block from the object's feature generator.}
 \item{...}{Additional arguments:
 \itemize{
 \item \code{Q}: alias for \code{rank}.
-\item \code{X.restriction}: constraint applied to columns of
-\eqn{X} after every update, with the scale absorbed into
-\eqn{C_{+}, C_{-}}.  One of \code{"colSums"} (default,
+\item \code{X.restriction}: normalization applied to \eqn{X} after every
+update.  One of \code{"colSums"} (default,
 \eqn{\mathrm{colSums}(X) = 1}), \code{"colSqSums"},
-\code{"totalSum"}, \code{"none"}, \code{"fixed"}.
-\item \code{X.L2.ortho}: non-negative L2 orthogonality penalty on the
-columns of \eqn{X} (default 0), penalizing
-\eqn{(\lambda/2)\lVert \mathrm{offdiag}(X^\top X)\rVert^2}.  Same
-convention as \code{\link{nmfkc}}; skipped when \code{X.restriction
+\code{"totalSum"}, \code{"none"}, \code{"fixed"}, \code{"rowSums"}.
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{  The first three are gauge fixes: the scale is divided out of \eqn{X}
+  and multiplied into \eqn{C_{+}, C_{-}}, so \eqn{XC} and hence the fit
+  is unchanged and only the parametrization is pinned down.
+  \code{"rowSums"} (\eqn{\mathrm{rowSums}(X) = 1}) is different in kind.
+  Dividing each row of \eqn{X} by its sum changes the column space of
+  \eqn{X} and hence the model, so it is a genuine restriction --- a
+  smaller model class --- and it reads each observed dimension as a
+  mixture of the \eqn{Q} bases, rather than each basis as a distribution
+  over the observed dimensions.  Its practical point is at
+  \eqn{Q < Q_{\mathrm{obs}}}: a row of \eqn{X} can then never be zero, so
+  no observed dimension is dropped, which the column restrictions permit
+  and the multiplicative updates exploit.  Being no gauge fix, it does
+  not preserve the monotonicity of the objective, and
+  \code{X.rowSums.min} is redundant with it.
+\\item \code{X.L2.ortho}: non-negative L2 orthogonality penalty on the
+  columns of \eqn{X} (default 0), penalizing
+  \eqn{(\lambda/2)\lVert \mathrm{offdiag}(X^\top X)\rVert^2}.  Same
+  convention as \code{\link{nmfkc}}; skipped when \code{X.restriction
       = "fixed"}.
-\item \code{X.L2.smooth}: non-negative L2 row-smoothness penalty on
-\eqn{X} (default 0), penalizing
-\eqn{(\lambda/2)\,\mathrm{tr}(X^\top L X)} with \eqn{L} the
-path-graph Laplacian over rows (adjacent-row differences).  Useful
-for ordered rows (e.g. time / space); skipped when
-\code{X.restriction = "fixed"}.
-\item \code{C.L2}: non-negative ridge penalty on the signed coefficient
-matrix \eqn{C = C_{+} - C_{-}} (default 0), adding
-\eqn{\lambda\lVert C_{+} - C_{-}\rVert^2}.  Shrinks \eqn{\Theta}
-toward zero (with zero gradient on the unidentified common mode
-\eqn{C_{+} + C_{-}}), injected into both the fast unweighted and the
-weighted \eqn{C_{+}}/\eqn{C_{-}} updates.
-\item \code{C.L1}: non-negative lasso penalty on the signed coefficient
-matrix (default 0), adding \eqn{\lambda\lVert C\rVert_1}.  Under the
-split \eqn{C = C_{+} - C_{-}} this is \eqn{\lambda\sum(C_{+}+C_{-})}:
-at a minimizer \eqn{C_{+}} and \eqn{C_{-}} have disjoint supports, so
-the sum equals the absolute value, and the constant gradient enters
-only the denominators of both updates (same \eqn{\lambda/2}
-convention as \code{\link{nmfkc}}).  Multiplicative updates approach
-zero geometrically rather than reaching it, so the effect is
-shrinkage; threshold the result if a sparse support is wanted.
-\item \code{X.rowSums.min}: floor \eqn{\tau \ge 0} on the row sums of
-\eqn{X} (default 0, off).  Unlike \code{X.L2.ortho} and
-\code{X.L2.smooth} this is a \strong{constraint, not a penalty}: it
-restricts the feasible set to
-\eqn{\{X \ge 0,\ \mathrm{colSums}(X) = 1,\
+\\item \code{X.L2.smooth}: non-negative L2 row-smoothness penalty on
+  \eqn{X} (default 0), penalizing
+  \eqn{(\lambda/2)\,\mathrm{tr}(X^\top L X)} with \eqn{L} the
+  path-graph Laplacian over rows (adjacent-row differences).  Useful
+  for ordered rows (e.g. time / space); skipped when
+  \code{X.restriction = "fixed"}.
+\\item \code{C.L2}: non-negative ridge penalty on the signed coefficient
+  matrix \eqn{C = C_{+} - C_{-}} (default 0), adding
+  \eqn{\lambda\lVert C_{+} - C_{-}\rVert^2}.  Shrinks \eqn{\Theta}
+  toward zero (with zero gradient on the unidentified common mode
+  \eqn{C_{+} + C_{-}}), injected into both the fast unweighted and the
+  weighted \eqn{C_{+}}/\eqn{C_{-}} updates.
+\\item \code{C.L1}: non-negative lasso penalty on the signed coefficient
+  matrix (default 0), adding \eqn{\lambda\lVert C\rVert_1}.  Under the
+  split \eqn{C = C_{+} - C_{-}} this is \eqn{\lambda\sum(C_{+}+C_{-})}:
+  at a minimizer \eqn{C_{+}} and \eqn{C_{-}} have disjoint supports, so
+  the sum equals the absolute value, and the constant gradient enters
+  only the denominators of both updates (same \eqn{\lambda/2}
+  convention as \code{\link{nmfkc}}).  Multiplicative updates approach
+  zero geometrically rather than reaching it, so the effect is
+  shrinkage; threshold the result if a sparse support is wanted.
+\\item \code{X.rowSums.min}: floor \eqn{\tau \ge 0} on the row sums of
+  \eqn{X} (default 0, off).  Unlike \code{X.L2.ortho} and
+  \code{X.L2.smooth} this is a \\strong\{constraint, not a penalty\}: it
+  restricts the feasible set to
+  \eqn{\{X \ge 0,\ \mathrm{colSums}(X) = 1,\
       \mathrm{rowSums}(X) \ge \tau\}} and leaves the objective the plain
-loss, so fits at different \eqn{\tau} are compared on the same scale.
-At \eqn{Q < Q_{\mathrm{obs}}} the updates otherwise drive whole rows of
-\eqn{X} to zero, so that the corresponding observed dimension --- a
-class, when \eqn{Y} is a label matrix --- is attached to no basis,
-contributes only error and is never predicted.  A multiplicative update
-cannot restore such a row, so the constraint is imposed after each
-\eqn{X} update by alternating a row rescaling with the column
-normalization until \eqn{X} is feasible; that step is outside the
-multiplicative form and suspends the monotonicity of the objective
-while a row is being lifted.  With \code{X.restriction = "colSums"} the
-total mass of \eqn{X} is \eqn{Q}, so \eqn{\tau \le Q/Q_{\mathrm{obs}}}
-is required; \eqn{\tau = 0} reproduces the unconstrained fit exactly.
-Not available with \code{X.restriction = "fixed"}.
-\item \code{X.init}: initialization strategy for the basis matrix
-\eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
-menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
-\code{"kmeansar"}, \code{"nndsvd"}, \code{"runif"}, or a
-user-supplied \eqn{Q_{\mathrm{obs}} \times Q} non-negative
-numeric matrix.  String methods delegate to the shared
-internal helper \code{.init_X_method()} (see \code{\link{nmfkc}}
-for the definitions of each method).  For signed \eqn{Y},
-\code{"kmeans"} cluster centers may contain negative entries;
-they are clipped to zero to satisfy \eqn{X \ge 0}, and any
-column that collapses to all-zeros is re-filled with small
-\eqn{\mathrm{Uniform}(0, 0.1)} noise.
-\item \code{C.init}: explicit initial \eqn{Q \times D} coefficient
-matrix \eqn{\Theta} (signed).  Split internally.
-\item \code{warm.start}: logical (default \code{TRUE}).  If
-\code{TRUE} \strong{and \eqn{Y \ge 0}}, runs
-\code{nmfkc(Y, A = rbind(A_+, A_-), rank = Q)} internally to
-seed \eqn{X, C_{+}, C_{-}}.  The user's \code{X.init},
-\code{seed}, \code{nstart}, and \code{X.restriction} are
-forwarded to the internal \code{\link{nmfkc}} call so that
-initialization choices propagate consistently between the
-warm-start and the signed MU loop.  Ignored when \eqn{Y} has
-negative entries (warm-start is disabled; \code{X.init} is
-used directly by the signed branch instead).
-\item \code{seed}: RNG seed for random initialization (default 123).
-\item \code{prefix}: name prefix for rows of \eqn{C} and columns
-of \eqn{X} (default \code{"Basis"}).
-\item \code{pars}: optional list \code{list(omega, b, D, beta)}
-of Random Fourier Feature parameters (Rahimi & Recht 2007;
-\code{omega}: frequency matrix, \code{b}: phase offset,
-\code{D}: feature dimension, \code{beta}: bandwidth).  When
-supplied, it is stored in the returned object so that
-\code{summary()} can report \eqn{\beta} and downstream
-\code{predict()} calls can regenerate RFF features for new
-data.  If \code{A} is not RFF features, leave this \code{NULL}.
-\item \code{Y.weights}: Optional non-negative weight matrix
-(\eqn{Q_{\mathrm{obs}} \times N}) or vector (length \eqn{N}),
-analogous to the \code{weights} argument of
-\code{\link[stats]{lm}}.  Loss becomes
-\eqn{\sum W_{ij} \, (Y_{ij} - (XCA)_{ij})^2}
-(\code{lm()}-style, \strong{linear} in \eqn{W}).  Logical
-matrices (\code{TRUE} / \code{FALSE}) are also accepted.
-Typical usage by \code{\link{nmfkc.signed.cv}} /
-\code{\link{nmfkc.signed.ecv}} passes a binary mask
-\eqn{W \in \{0,1\}} to hold out test elements; real-valued
-weights for observation-level importance weighting are also
-supported.  Default \code{NULL}: if \code{Y} has \code{NA},
-a binary mask is auto-constructed (0 for \code{NA}, 1
-elsewhere); otherwise no weighting.
-\item \code{nstart.signed}: number of restarts of the signed fit
-(default 1).  \strong{Signed models have more local minima than
-non-negative ones} because \eqn{\Theta = C_{+} - C_{-}} can take
-both positive and negative values.  With
-\code{nstart.signed > 1} the whole fit is repeated from that many
-consecutive seeds (\code{seed}, \code{seed + 1}, ...) and the fit
-with the smallest \code{$objfunc} is returned; the returned
-object then also carries \code{$restarts}, a data frame of the
-seed, objective, iteration count and convergence flag of every
-start.  Note that this is a different quantity from
-\code{nstart}, which -- here as in \code{\link{nmfkc}} -- only
-governs the initialization of \eqn{X} and is forwarded to the
-non-negative warm-start fit.  A budget of 10-50 restarts is
-recommended for publication-grade runs, especially when the
-number of classes is large.  Restarts are cheap for Gram input,
-where \eqn{S} and \eqn{G_0} are already accumulated.
-\item \code{cores}: number of workers used for the restarts when
-\code{nstart.signed > 1} (default 1, i.e. sequential).
+  loss, so fits at different \eqn{\tau} are compared on the same scale.
+  At \eqn{Q < Q_{\mathrm{obs}}} the updates otherwise drive whole rows of
+  \eqn{X} to zero, so that the corresponding observed dimension --- a
+  class, when \eqn{Y} is a label matrix --- is attached to no basis,
+  contributes only error and is never predicted.  A multiplicative update
+  cannot restore such a row, so the constraint is imposed after each
+  \eqn{X} update by alternating a row rescaling with the column
+  normalization until \eqn{X} is feasible; that step is outside the
+  multiplicative form and suspends the monotonicity of the objective
+  while a row is being lifted.  With \code{X.restriction = "colSums"} the
+  total mass of \eqn{X} is \eqn{Q}, so \eqn{\tau \le Q/Q_{\mathrm{obs}}}
+  is required; \eqn{\tau = 0} reproduces the unconstrained fit exactly.
+  Not available with \code{X.restriction = "fixed"}.
+\\item \code{X.init}: initialization strategy for the basis matrix
+  \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
+  menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
+  \code{"kmeansar"}, \code{"nndsvd"}, \code{"runif"}, or a
+  user-supplied \eqn{Q_{\mathrm{obs}} \times Q} non-negative
+  numeric matrix.  String methods delegate to the shared
+  internal helper \code{.init_X_method()} (see \code{\link{nmfkc}}
+  for the definitions of each method).  For signed \eqn{Y},
+  \code{"kmeans"} cluster centers may contain negative entries;
+  they are clipped to zero to satisfy \eqn{X \ge 0}, and any
+  column that collapses to all-zeros is re-filled with small
+  \eqn{\mathrm{Uniform}(0, 0.1)} noise.
+\\item \code{C.init}: explicit initial \eqn{Q \times D} coefficient
+  matrix \eqn{\Theta} (signed).  Split internally.
+\\item \code{warm.start}: logical (default \code{TRUE}).  If
+  \code{TRUE} \\strong\{and \eqn{Y \ge 0}\}, runs
+  \code{nmfkc(Y, A = rbind(A_+, A_-), rank = Q)} internally to
+  seed \eqn{X, C_{+}, C_{-}}.  The user's \code{X.init},
+  \code{seed}, \code{nstart}, and \code{X.restriction} are
+  forwarded to the internal \code{\link{nmfkc}} call so that
+  initialization choices propagate consistently between the
+  warm-start and the signed MU loop.  Ignored when \eqn{Y} has
+  negative entries (warm-start is disabled; \code{X.init} is
+  used directly by the signed branch instead).
+\\item \code{seed}: RNG seed for random initialization (default 123).
+\\item \code{prefix}: name prefix for rows of \eqn{C} and columns
+  of \eqn{X} (default \code{"Basis"}).
+\\item \code{pars}: optional list \code{list(omega, b, D, beta)}
+  of Random Fourier Feature parameters (Rahimi & Recht 2007;
+  \code{omega}: frequency matrix, \code{b}: phase offset,
+  \code{D}: feature dimension, \code{beta}: bandwidth).  When
+  supplied, it is stored in the returned object so that
+  \code{summary()} can report \eqn{\beta} and downstream
+  \code{predict()} calls can regenerate RFF features for new
+  data.  If \code{A} is not RFF features, leave this \code{NULL}.
+\\item \code{Y.weights}: Optional non-negative weight matrix
+  (\eqn{Q_{\mathrm{obs}} \times N}) or vector (length \eqn{N}),
+  analogous to the \code{weights} argument of
+  \code{\link[stats]{lm}}.  Loss becomes
+  \eqn{\sum W_{ij} \, (Y_{ij} - (XCA)_{ij})^2}
+  (\code{lm()}-style, \\strong\{linear\} in \eqn{W}).  Logical
+  matrices (\code{TRUE} / \code{FALSE}) are also accepted.
+  Typical usage by \code{\link{nmfkc.signed.cv}} /
+  \code{\link{nmfkc.signed.ecv}} passes a binary mask
+  \eqn{W \in \{0,1\}} to hold out test elements; real-valued
+  weights for observation-level importance weighting are also
+  supported.  Default \code{NULL}: if \code{Y} has \code{NA},
+  a binary mask is auto-constructed (0 for \code{NA}, 1
+  elsewhere); otherwise no weighting.
+\\item \code{nstart.signed}: number of restarts of the signed fit
+  (default 1).  \\strong\{Signed models have more local minima than
+  non-negative ones\} because \eqn{\Theta = C_{+} - C_{-}} can take
+  both positive and negative values.  With
+  \code{nstart.signed > 1} the whole fit is repeated from that many
+  consecutive seeds (\code{seed}, \code{seed + 1}, ...) and the fit
+  with the smallest \code{$objfunc} is returned; the returned
+  object then also carries \code{$restarts}, a data frame of the
+  seed, objective, iteration count and convergence flag of every
+  start.  Note that this is a different quantity from
+  \code{nstart}, which -- here as in \code{\link{nmfkc}} -- only
+  governs the initialization of \eqn{X} and is forwarded to the
+  non-negative warm-start fit.  A budget of 10-50 restarts is
+  recommended for publication-grade runs, especially when the
+  number of classes is large.  Restarts are cheap for Gram input,
+  where \eqn{S} and \eqn{G_0} are already accumulated.
+\\item \code{cores}: number of workers used for the restarts when
+  \code{nstart.signed > 1} (default 1, i.e. sequential).
+}\if{html}{\out{</div>}}
+
 }}
 }
 \value{

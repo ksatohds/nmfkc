@@ -90,11 +90,25 @@
 #' @param ... Additional arguments:
 #'   \itemize{
 #'     \item \code{Q}: alias for \code{rank}.
-#'     \item \code{X.restriction}: constraint applied to columns of
-#'       \eqn{X} after every update, with the scale absorbed into
-#'       \eqn{C_{+}, C_{-}}.  One of \code{"colSums"} (default,
+#'     \item \code{X.restriction}: normalization applied to \eqn{X} after every
+#'       update.  One of \code{"colSums"} (default,
 #'       \eqn{\mathrm{colSums}(X) = 1}), \code{"colSqSums"},
-#'       \code{"totalSum"}, \code{"none"}, \code{"fixed"}.
+#'       \code{"totalSum"}, \code{"none"}, \code{"fixed"}, \code{"rowSums"}.
+#'
+#'       The first three are gauge fixes: the scale is divided out of \eqn{X}
+#'       and multiplied into \eqn{C_{+}, C_{-}}, so \eqn{XC} and hence the fit
+#'       is unchanged and only the parametrization is pinned down.
+#'       \code{"rowSums"} (\eqn{\mathrm{rowSums}(X) = 1}) is different in kind.
+#'       Dividing each row of \eqn{X} by its sum changes the column space of
+#'       \eqn{X} and hence the model, so it is a genuine restriction --- a
+#'       smaller model class --- and it reads each observed dimension as a
+#'       mixture of the \eqn{Q} bases, rather than each basis as a distribution
+#'       over the observed dimensions.  Its practical point is at
+#'       \eqn{Q < Q_{\mathrm{obs}}}: a row of \eqn{X} can then never be zero, so
+#'       no observed dimension is dropped, which the column restrictions permit
+#'       and the multiplicative updates exploit.  Being no gauge fix, it does
+#'       not preserve the monotonicity of the objective, and
+#'       \code{X.rowSums.min} is redundant with it.
 #'     \item \code{X.L2.ortho}: non-negative L2 orthogonality penalty on the
 #'       columns of \eqn{X} (default 0), penalizing
 #'       \eqn{(\lambda/2)\lVert \mathrm{offdiag}(X^\top X)\rVert^2}.  Same
@@ -284,7 +298,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   X.restriction <- if (!is.null(extra_args$X.restriction))
     extra_args$X.restriction else "colSums"
   X.restriction <- match.arg(X.restriction,
-    c("colSums", "colSqSums", "totalSum", "none", "fixed"))
+    c("colSums", "colSqSums", "totalSum", "none", "fixed", "rowSums"))
 
   X.init     <- if (!is.null(extra_args$X.init))     extra_args$X.init     else "kmeans"
   C.init     <- if (!is.null(extra_args$C.init))     extra_args$C.init     else NULL
@@ -489,6 +503,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   if (X.rowSums.min > 0) {
     if (X.restriction == "fixed")
       stop("'X.rowSums.min' cannot be used with X.restriction = \"fixed\".")
+    if (X.restriction == "rowSums")
+      stop("'X.rowSums.min' is redundant with X.restriction = \"rowSums\", ",
+           "which already makes every row sum to one.")
     if (X.restriction == "colSums" && X.rowSums.min > Q / Q_obs)
       stop(sprintf(paste("'X.rowSums.min' = %g is infeasible: with colSums(X) = 1 the",
                          "total mass of X is Q = %d, so the row sums cannot all exceed",
@@ -501,7 +518,33 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     colSqSums = function(X) sqrt(colSums(X * X)) + 1e-16,
     totalSum  = function(X) rep(sum(X) + 1e-16, ncol(X)),
     none      = function(X) rep(1, ncol(X)),
-    fixed     = function(X) rep(1, ncol(X)))
+    fixed     = function(X) rep(1, ncol(X)),
+    rowSums   = function(X) rep(1, ncol(X)))
+
+  ## Apply the restriction to X.  The column-type restrictions are gauge moves:
+  ## the scale is divided out of X and multiplied into C, so X %*% C -- and
+  ## therefore the fit -- is unchanged, and only the parametrization is pinned
+  ## down.  "rowSums" is different in kind.  Dividing each row of X by its sum
+  ## changes the column space of X and hence the model: it says that each
+  ## observed dimension is a mixture of the Q bases with weights summing to one,
+  ## which is a genuine restriction (a smaller model class) and not a gauge fix.
+  ## Its point is that a row of X can then never be zero, so no observed
+  ## dimension can be dropped at Q < Q_obs; a row that the updates have driven
+  ## to zero is restarted uniformly, since a multiplicative update could not
+  ## revive it.  Being outside the multiplicative form, it does not preserve
+  ## monotonicity of the objective.
+  xnorm <- function(X, Cp, Cn) {
+    if (X.restriction == "fixed" || X.restriction == "none")
+      return(list(X = X, Cp = Cp, Cn = Cn))
+    if (X.restriction == "rowSums") {
+      r <- rowSums(X)
+      dead <- r <= 0
+      if (any(dead)) { X[dead, ] <- 1 / ncol(X); r[dead] <- 1 }
+      return(list(X = X / r, Cp = Cp, Cn = Cn))
+    }
+    d <- xscale(X)
+    list(X = sweep(X, 2, d, "/"), Cp = sweep(Cp, 1, d, "*"), Cn = sweep(Cn, 1, d, "*"))
+  }
 
   ## --- 5. Initialization ---
   X <- NULL; Cp <- NULL; Cn <- NULL
@@ -524,7 +567,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   if (need_warm) {
     warm_args <- list(Y, A = rbind(Ap, An), rank = Q,
                       epsilon = epsilon, maxit = maxit, verbose = FALSE,
-                      seed = seed, X.restriction = X.restriction)
+                      seed = seed,
+                      X.restriction = if (X.restriction == "rowSums") "colSums"
+                                      else X.restriction)
     if (has.weights) warm_args$Y.weights <- Y.weights
     ## Forward X.init (accepts the same menu as nmfkc()) so that the user's
     ## chosen initialization propagates into the posneg warm-start.
@@ -577,13 +622,8 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     }
   }
 
-  ## Apply X.restriction initially (absorb into Cp, Cn so X %*% (Cp-Cn) %*% A is unchanged)
-  if (X.restriction != "fixed" && X.restriction != "none") {
-    d0 <- xscale(X)
-    X  <- sweep(X,  2, d0, "/")
-    Cp <- sweep(Cp, 1, d0, "*")
-    Cn <- sweep(Cn, 1, d0, "*")
-  }
+  ## Apply the restriction to the initial values.
+  { .n <- xnorm(X, Cp, Cn); X <- .n$X; Cp <- .n$Cp; Cn <- .n$Cn }
 
   small <- 1e-16
   Wmat <- Y.weights  # short alias; NULL if no weights
@@ -733,12 +773,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       den <- pmax(-A1, 0) + pmax(A2, 0)
       pen <- apply_Xpen(X, num, den)
       X <- X * (pen$num / (pen$den + small))^gexp
-      if (X.restriction != "none") {
-        d <- xscale(X)
-        X  <- sweep(X,  2, d, "/")
-        Cp <- sweep(Cp, 1, d, "*")
-        Cn <- sweep(Cn, 1, d, "*")
-      }
+      { .n <- xnorm(X, Cp, Cn); X <- .n$X; Cp <- .n$Cp; Cn <- .n$Cn }
       pr <- project_rows(X, Cp, Cn); X <- pr$X; Cp <- pr$Cp; Cn <- pr$Cn
     }
     list(X = X, Cp = Cp, Cn = Cn)
@@ -779,12 +814,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         den_X <- pmax(-YMt, 0) + X %*% pmax(MMt, 0)
         pen <- apply_Xpen(X, num_X, den_X)
         X <- X * pen$num / (pen$den + small)
-        if (X.restriction != "none") {
-          d <- xscale(X)
-          X  <- sweep(X,  2, d, "/")
-          Cp <- sweep(Cp, 1, d, "*")
-          Cn <- sweep(Cn, 1, d, "*")
-        }
+        { .n <- xnorm(X, Cp, Cn); X <- .n$X; Cp <- .n$Cp; Cn <- .n$Cn }
         pr <- project_rows(X, Cp, Cn); X <- pr$X; Cp <- pr$Cp; Cn <- pr$Cn
       }
 
