@@ -123,6 +123,15 @@ update.  One of \code{"colSums"} (default,
   total mass of \eqn{X} is \eqn{Q}, so \eqn{\tau \le Q/Q_{\mathrm{obs}}}
   is required; \eqn{\tau = 0} reproduces the unconstrained fit exactly.
   Not available with \code{X.restriction = "fixed"}.
+\\item \code{update.power}: exponent applied to the multiplicative ratio
+  in the unweighted sweep (default 1).  With 1 the updates are of the
+  Lee--Seung form and coincide with those of \code{\link{nmfkc}} when
+  \eqn{A \ge 0}; with 0.5 they are the square-root form of Ding, Li and
+  Jordan (2010), which is the form their monotonicity proof for the
+  nonnegative factor under a signed Gram matrix covers.  Both have the
+  same fixed points; the root takes smaller steps and needs more
+  iterations.  Ignored when \code{Y.weights} is supplied (the weighted
+  sweep has its own damping with backtracking).
 \\item \code{X.init}: initialization strategy for the basis matrix
   \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
   menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),

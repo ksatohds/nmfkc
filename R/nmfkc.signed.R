@@ -154,6 +154,15 @@
 #'       total mass of \eqn{X} is \eqn{Q}, so \eqn{\tau \le Q/Q_{\mathrm{obs}}}
 #'       is required; \eqn{\tau = 0} reproduces the unconstrained fit exactly.
 #'       Not available with \code{X.restriction = "fixed"}.
+#'     \item \code{update.power}: exponent applied to the multiplicative ratio
+#'       in the unweighted sweep (default 1).  With 1 the updates are of the
+#'       Lee--Seung form and coincide with those of \code{\link{nmfkc}} when
+#'       \eqn{A \ge 0}; with 0.5 they are the square-root form of Ding, Li and
+#'       Jordan (2010), which is the form their monotonicity proof for the
+#'       nonnegative factor under a signed Gram matrix covers.  Both have the
+#'       same fixed points; the root takes smaller steps and needs more
+#'       iterations.  Ignored when \code{Y.weights} is supplied (the weighted
+#'       sweep has its own damping with backtracking).
 #'     \item \code{X.init}: initialization strategy for the basis matrix
 #'       \eqn{X} (\eqn{Q_{\mathrm{obs}} \times Q}).  Accepts the same
 #'       menu as \code{\link{nmfkc}}: \code{"kmeans"} (default),
@@ -386,6 +395,17 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   ## intended "share a basis".  With colSums(X) = 1 the total mass of X is Q, so
   ## the floor is feasible only for tau <= Q / Q_obs.
   X.rowSums.min <- if (!is.null(extra_args$X.rowSums.min)) extra_args$X.rowSums.min else 0
+
+  ## Exponent of the multiplicative ratio in the unweighted sweep.  1 is the
+  ## Lee-Seung form (the default; identical to Lee-Seung when A >= 0); 0.5 is
+  ## the square-root form of Ding, Li and Jordan (2010), whose monotonicity
+  ## proof for the nonnegative factor under a signed Gram matrix covers exactly
+  ## that form.  Both have the same fixed points; the root takes half the step
+  ## in log scale and needs more iterations.  The weighted sweep has its own
+  ## damping with backtracking and ignores this.
+  update.power <- if (!is.null(.arg("update.power"))) .arg("update.power") else 1
+  if (length(update.power) != 1L || is.na(update.power) || update.power <= 0 || update.power > 1)
+    stop("'update.power' must be a single number in (0, 1].")
 
   ## --- 2. Input preparation & validation ---
   if (is.vector(Y)) Y <- matrix(Y, nrow = 1)
@@ -803,13 +823,13 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       ## 6a. Cp update
       G_p <- pmax(G, 0); G_n <- pmax(-G, 0)
       PCp <- P %*% Cp;   PCn <- P %*% Cn
-      Cp  <- Cp * (G_p + PCp %*% S_n + PCn %*% S_p + C.L2 * Cn) /
-                  (G_n + PCp %*% S_p + PCn %*% S_n + C.L2 * Cp + C.L1 / 2 + small)
+      Cp  <- Cp * ((G_p + PCp %*% S_n + PCn %*% S_p + C.L2 * Cn) /
+                   (G_n + PCp %*% S_p + PCn %*% S_n + C.L2 * Cp + C.L1 / 2 + small))^update.power
 
       ## 6b. Cn update (Gauss-Seidel)
       PCp <- P %*% Cp
-      Cn  <- Cn * (G_n + PCp %*% S_p + PCn %*% S_n + C.L2 * Cp) /
-                  (G_p + PCp %*% S_n + PCn %*% S_p + C.L2 * Cn + C.L1 / 2 + small)
+      Cn  <- Cn * ((G_n + PCp %*% S_p + PCn %*% S_n + C.L2 * Cp) /
+                   (G_p + PCp %*% S_n + PCn %*% S_p + C.L2 * Cn + C.L1 / 2 + small))^update.power
 
       ## 6c. X update
       if (X.restriction != "fixed") {
@@ -819,7 +839,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         num_X <- pmax(YMt, 0) + X %*% pmax(-MMt, 0)
         den_X <- pmax(-YMt, 0) + X %*% pmax(MMt, 0)
         pen <- apply_Xpen(X, num_X, den_X)
-        X <- X * pen$num / (pen$den + small)
+        X <- X * (pen$num / (pen$den + small))^update.power
         { .n <- xnorm(X, Cp, Cn); X <- .n$X; Cp <- .n$Cp; Cn <- .n$Cn }
         pr <- project_rows(X, Cp, Cn); X <- pr$X; Cp <- pr$Cp; Cn <- pr$Cn
       }
