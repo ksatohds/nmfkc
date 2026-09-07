@@ -234,11 +234,61 @@ plot.nmfre <- function(x, ...) {
 #'   legend).  \code{"both"} is useful for diagnosing whether
 #'   regularization is actively shaping the solution: if the two curves
 #'   diverge, the penalties are pulling the optimizer away from the
-#'   pure least-squares minimum.
+#'   pure least-squares minimum.  Ignored for \code{nmf.ffb(method =
+#'   "fiml")} objects, which carry no iteration trace: for them the BIC of
+#'   the L1 path (\code{x$path}) is drawn against \code{log(lambda1)}: the
+#'   line follows the smallest BIC at each penalty (over the starts), every
+#'   individual proposal is a small grey point, the number of selected paths
+#'   is printed at each point and the BIC-selected penalty is circled.
 #' @export
 plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
   which <- match.arg(which)
   extra_args <- list(...)
+
+  ## Likelihood-based fits have no iteration trace; draw the BIC path over
+  ## log(lambda1) instead, marking the selected penalty.  lambda1 = 0 (the
+  ## unpenalized fit) and Inf (the null) are placed one unit outside the
+  ## finite grid and labelled as such.
+  if (is.null(x$objfunc) && !is.null(x$path)) {
+    ## Several starts may be fitted at each lambda1 (nmf.ffb(starts = )):
+    ## the line follows the smallest BIC at each penalty, every individual
+    ## (lambda1, start) proposal is drawn as a small open point.
+    pth <- x$path
+    if (is.null(pth$start)) pth$start <- "full"
+    lam_all <- pth$lambda1
+    lam <- sort(unique(lam_all))
+    best <- vapply(lam, function(l) min(pth$BIC[lam_all == l]), numeric(1))
+    nnz_best <- vapply(lam, function(l) { i <- which(lam_all == l); i[which.min(pth$BIC[i])] }, integer(1))
+    fin <- is.finite(lam) & lam > 0
+    xpos <- function(l) {
+      xs <- log(l)
+      lo <- if (any(fin)) min(log(lam[fin])) else 0
+      hi <- if (any(fin)) max(log(lam[fin])) else 0
+      xs[l == 0] <- lo - 1
+      xs[is.infinite(l)] <- hi + 1
+      xs
+    }
+    xs <- xpos(lam)
+    args <- list(x = xs, y = best, type = "b", pch = 19)
+    if (is.null(extra_args$main))
+      args$main <- sprintf("BIC path | selected: lambda1 = %s, nnz = %d, rho = %.3f",
+                           format(x$lambda1.selected, digits = 4),
+                           as.integer(sum(x$support)), x$XC1.radius)
+    if (is.null(extra_args$xlab)) args$xlab <- "log(lambda1)"
+    if (is.null(extra_args$ylab)) args$ylab <- "BIC"
+    if (is.null(extra_args$xaxt)) args$xaxt <- "n"
+    if (is.null(extra_args$ylim)) args$ylim <- range(pth$BIC, finite = TRUE)
+    do.call("plot", c(args, extra_args))
+    graphics::points(xpos(lam_all), pth$BIC, pch = 1, cex = 0.7, col = "grey50")
+    graphics::axis(1, at = xs,
+                   labels = ifelse(lam == 0, "0",
+                                   ifelse(is.infinite(lam), "Inf (null)",
+                                          format(round(xs, 2)))))
+    graphics::text(xs, best, labels = pth$nnz[nnz_best], pos = 3, cex = 0.8)
+    isel <- which(lam == x$lambda1.selected)[1]
+    if (is.finite(isel)) graphics::points(xs[isel], best[isel], pch = 1, cex = 2.5, lwd = 2)
+    return(invisible(NULL))
+  }
 
   ## Pick the iteration trace(s) to plot.  Older nmf.sem objects may
   ## carry only x$objfunc (reconstruction loss); fall back gracefully.
@@ -288,7 +338,12 @@ plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
 #' @description
 #' Produces a formatted summary of a fitted NMF-FFB model, including
 #' matrix dimensions, convergence, stability diagnostics, fit statistics,
-#' and inference results (if available).
+#' and inference results (if available).  For \code{nmf.ffb(method =
+#' "fiml")} objects the fit statistics are the log-likelihoods, parameter
+#' counts and BIC of the feed-forward null, the unpenalized feedback fit and
+#' the BIC-selected model, the two likelihood-ratio statistics, and -- after
+#' \code{\link{nmf.ffb.inference}} -- their bootstrap p-values and the
+#' false-selection rate under the null.
 #'
 #' @param object An object of class \code{"nmf.ffb"} (or legacy
 #'   \code{"nmf.sem"}) returned by \code{\link{nmf.ffb}} /
@@ -325,17 +380,47 @@ print.summary.nmf.sem <- function(x, ...) {
   Q  <- ncol(object$X)
   P2 <- ncol(object$C2)
 
-  cat(sprintf("NMF-FFB: Y1(%d,N) = X(%d,%d) [C1(%d,%d) Y1 + C2(%d,%d) Y2]\n",
+  is_fiml <- identical(object$method, "fiml")
+  cat(sprintf("NMF-FFB%s: Y1(%d,N) = X(%d,%d) [C1(%d,%d) Y1 + C2(%d,%d) Y2]\n",
+              if (is_fiml) " (FIML, X fixed from stage 1)" else "",
               P1, P1, Q, Q, P1, Q, P2))
-  .print.convergence(object)
+  .print.convergence(object, label = if (is_fiml) "L-BFGS-B evaluations (selected fit): " else "Iterations: ")
 
   cat("\nStability diagnostics:\n")
   cat(sprintf("  Spectral radius(XC1): %.4f %s\n",
               object$XC1.radius,
               if (object$XC1.radius < 1) "(stable)" else "(UNSTABLE)"))
   cat(sprintf("  ||XC1||_1:            %.4f\n", object$XC1.norm1))
-  cat(sprintf("  Amplification:        %.4f (bound: %.4f)\n",
-              object$amplification, object$amplification.bound))
+  if (!is_fiml || object$XC1.radius > 0)
+    cat(sprintf("  Amplification:        %.4f (bound: %.4f)\n",
+                object$amplification, object$amplification.bound))
+
+  if (is_fiml) {
+    cat("\nLikelihood (FF null | unpenalized feedback | BIC-selected):\n")
+    cat(sprintf("  loglik:   %10.3f | %10.3f | %10.3f\n",
+                object$null$loglik, object$full$loglik, object$loglik))
+    cat(sprintf("  npar:     %10d | %10d | %10d\n",
+                as.integer(object$null$npar), as.integer(object$full$npar), as.integer(object$npar)))
+    if (!is.null(object$BIC))
+      cat(sprintf("  BIC:      %10.2f | %10.2f | %10.2f\n",
+                  object$BIC[["null"]], object$BIC[["full"]], object$BIC[["selected"]]))
+    cat(sprintf("  LR vs null: full = %.3f (mask df = %d), selected = %.3f (nnz = %d)\n",
+                object$LR[["full"]], as.integer(object$LR.df[["full"]]),
+                object$LR[["selected"]], as.integer(object$LR.df[["selected"]])))
+    cat(sprintf("  selected: lambda1 = %s, nnz = %d, rho(XC1) = %.4f, mask = %s\n",
+                format(object$lambda1.selected, digits = 4), as.integer(sum(object$support)),
+                object$XC1.radius, if (is.character(object$call$mask) || is.null(object$call$mask))
+                  if (is.null(object$call$mask)) "block" else object$call$mask else "user matrix"))
+    if (!is.null(object$LR.p.boot)) {
+      cat("\nParametric bootstrap under the FF null:\n")
+      cat(sprintf("  B = %d;  P*(LR* >= LR_obs): full = %.4f, selected = %.4f\n",
+                  as.integer(object$bootstrap.B), object$LR.p.boot[["full"]], object$LR.p.boot[["selected"]]))
+      cat(sprintf("  95%% null quantile: full = %.3f, selected = %.3f\n",
+                  object$LR.null.quantile[["full"]], object$LR.null.quantile[["selected"]]))
+      cat(sprintf("  prob.select.null (BIC picks nnz > 0 under the null): %.4f\n",
+                  object$prob.select.null))
+    }
+  }
 
   cat("\nFit statistics:\n")
   if (!is.null(object$SC.map) && is.finite(object$SC.map))
@@ -355,7 +440,9 @@ print.summary.nmf.sem <- function(x, ...) {
     ## Bootstrap meta-info (new full-pair-bootstrap inference; v0.6.8+)
     has_boot <- !is.null(object$bootstrap.B)
     if (has_boot) {
-      cat(sprintf("\nBootstrap inference (X-fixed full pair bootstrap):\n"))
+      cat(sprintf("\nBootstrap inference (%s):\n",
+                  if (is_fiml) "parametric, X and selected support fixed; post-selection"
+                  else "X-fixed full pair bootstrap"))
       cat(sprintf("  B = %d, valid = %d, threshold = %g, ci.level = %g\n",
                   object$bootstrap.B,
                   if (!is.null(object$bootstrap.n.valid)) object$bootstrap.n.valid else NA_integer_,

@@ -17,6 +17,7 @@ nmf.ffb.DOT(
   cluster.box = c("normal", "faint", "invisible", "none"),
   cluster.labels = NULL,
   hide.isolated = TRUE,
+  model = c("selected", "null", "full"),
   ...
 )
 }
@@ -62,6 +63,15 @@ labels for the Y2, factor, and Y1 clusters.}
 
 \item{hide.isolated}{Logical. If \code{TRUE} (default), Y1 and Y2 nodes
 that have no edges at or above \code{threshold} are excluded from the graph.}
+
+\item{model}{Which fit of a \code{method = "fiml"} object to draw:
+\code{"selected"} (default; the BIC-selected model, with significance
+stars when inference results are present), \code{"null"} (the
+feed-forward null: \eqn{\Theta_1 = 0}, \eqn{\Theta_2} from
+\code{result$null}) or \code{"full"} (the unpenalized feedback fit from
+\code{result$full}).  The latter two ignore \code{result$coefficients},
+which refer to the selected model.  Ignored for \code{method = "mu"}
+objects, which carry a single fit.}
 
 \item{...}{For backward compatibility: accepts deprecated names
 \code{weight_scale_y2f} (use \code{weight_scale_c2}) and

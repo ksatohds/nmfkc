@@ -20,7 +20,12 @@ tagged for printing); printed by \code{\link{print.summary.nmf.sem}}.
 \description{
 Produces a formatted summary of a fitted NMF-FFB model, including
 matrix dimensions, convergence, stability diagnostics, fit statistics,
-and inference results (if available).
+and inference results (if available).  For \code{nmf.ffb(method =
+"fiml")} objects the fit statistics are the log-likelihoods, parameter
+counts and BIC of the feed-forward null, the unpenalized feedback fit and
+the BIC-selected model, the two likelihood-ratio statistics, and -- after
+\code{\link{nmf.ffb.inference}} -- their bootstrap p-values and the
+false-selection rate under the null.
 }
 \examples{
 Y <- t(iris[, -5])

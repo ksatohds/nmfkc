@@ -1,5 +1,78 @@
 # nmfkc (development version)
 
+## `nmf.ffb()`: likelihood-based estimator (`method = "fiml"`, new default)
+
+The joint multiplicative-update estimator that `nmf.ffb()` used until now
+minimizes the structural-form squared error
+\eqn{\lVert Y_1 - X(\Theta_1 Y_1 + \Theta_2 Y_2)\rVert_F^2}. Once \eqn{X} is
+free that objective cannot separate \eqn{\Theta_1} from \eqn{\Theta_2}: the
+structural and reduced forms fit equally well, so the recovered feedback is
+an artefact of the initialization and the penalties. `nmf.ffb()` therefore
+gains a two-stage likelihood-based estimator, now the default:
+
+1. the basis \eqn{\hat X} is estimated by the feed-forward fit
+   `nmfkc(Y1, A = Y2)` (or supplied through the new `X` argument);
+2. conditional on \eqn{\hat X}, the Gaussian working model
+   `Y1 = X B + E`, `B = Theta1 Y1 + Theta2 Y2 + U`, `U ~ N(0, Phi)`,
+   `E ~ N(0, diag(psi))` is fitted by FIML (L-BFGS-B, analytic gradient)
+   under the non-negativity of `Theta1`, `Theta2` and an exclusion `mask`
+   on `Theta1` (default `"block"`: no outcome may feed back into the factor
+   that generates it). The feed-forward null (`Theta1 = 0`, a non-negative
+   MIMIC factor model with correlated factors), the unpenalized feedback fit
+   and an L1 path on `Theta1` with re-estimation on each support are fitted;
+   the support with the smallest BIC is the reported model.
+
+The penalized problem of the L1 path is non-convex, and a single starting
+point can miss the support with the smallest BIC: on the Holzinger-Swineford
+data the start from the unpenalized fit alone proposes a one-path model
+(BIC -1968.9) while the six-path model (BIC -1971.0) is proposed only from
+other starts. Every point of the path is therefore fitted from several
+starts (new argument `starts`, default `c("full", "path", "null", "soft")`:
+the unpenalized fit, continuation from the previous penalty, the null with a
+small constant `Theta1`, and the unpenalized `Theta1` soft-thresholded at
+`lambda1 / N`); every distinct support proposed by any (penalty, start) pair
+is re-estimated without penalty (from three starts, keeping the best
+log-likelihood) and BIC is minimized over all distinct candidates together
+with the null and the unpenalized model. `path` now has one row per
+(`lambda1`, start) with `start`, `support_id`, `pen.value` and `duplicate`
+columns; `candidates` (one row per distinct support), `supports` and
+`support.selected` are new fields, and `nmf.ffb.inference()` re-runs the
+same multi-start pipeline in its null bootstrap. `plot()` follows the
+smallest BIC at each penalty and draws every proposal as a grey point.
+
+The returned object keeps every legacy field (`X`, `C1`, `C2`, `XC1`,
+`Leontief.inv`, `M.model`, `MAE`, ...; `SC.map`, `SC.cov`, `objfunc` are
+`NULL`) and adds `method`, `Phi`, `psi`, `loglik`, `npar`, `null`, `full`,
+`path`, `mask`, `lambda1.selected`, `support`, `LR` (with `LR.df`), `BIC`,
+`AIC`, `call`. The likelihood-ratio statistics are returned **without
+p-values**: `Theta1 >= 0` puts the null on the boundary of the parameter
+space and the BIC refit is a post-selection statistic, so a chi-square
+reference is invalid.
+
+`nmf.ffb.inference()` on such an object runs two parametric bootstraps with
+`X` fixed: from the fitted null, re-running the whole selection pipeline on
+each replicate, giving `LR.boot`, `LR.p.boot = P*(LR* >= LR_obs)`,
+`LR.null.quantile` and `prob.select.null` (the false-selection rate of BIC
+under the null); and from the selected model with the support fixed, giving
+the usual `coefficients` table (centred percentile intervals, support rates)
+so that `nmf.ffb.DOT()` and `summary()` keep working. `nmf.ffb.DOT()` gains
+`model = c("selected", "null", "full")` to draw the feed-forward null or the
+unpenalized fit side by side with the selected model. `nmf.ffb.cv()` with
+`method = "fiml"` delegates to `nmfkc.ecv()`: column-wise CV of the
+equilibrium mapping cannot select `Theta1` (the reduced form is the same with
+and without feedback), so the only tunable quantity is the stage-1 rank.
+`summary()` reports the log-likelihoods, LR statistics and BIC of the three
+fits (and the bootstrap p-values after inference); `plot()` draws the BIC
+path over `log(lambda1)`.
+
+`method = "mu"` is the previous estimator, moved verbatim into an internal
+function and verified bit-identical (`identical()` on a battery of fits,
+inference runs and CV scores before and after the change); its objects now
+carry `method = "mu"` as an additional last field. It is kept so that
+published analyses reproduce and will be deprecated in a later release.
+`nmf.ffb.inference()`, `nmf.ffb.cv()` and `nmf.ffb.DOT()` are unchanged for
+it.
+
 ## `nmfkc.signed()`: multi-start (`nstart.signed`)
 
 Signed models have many more local minima than non-negative ones, because

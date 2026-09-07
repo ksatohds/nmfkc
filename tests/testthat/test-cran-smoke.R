@@ -72,8 +72,14 @@ test_that("nmf.rrr() returns both score matrices", {
 
 test_that("nmf.ffb() fits its two blocks", {
   f <- suppressWarnings(nmf.ffb(Y1, Y2, rank = Q, verbose = FALSE))
+  expect_identical(f$method, "fiml")
   expect_equal(nrow(f$X), nrow(Y1))
+  expect_named(f$LR, c("full", "selected"))
   expect_output(print(f))
+  expect_output(print(summary(f)))
+  fm <- suppressWarnings(nmf.ffb(Y1, Y2, rank = Q, maxit = 200, method = "mu", verbose = FALSE))
+  expect_identical(fm$method, "mu")
+  expect_equal(nrow(fm$X), nrow(Y1))
 })
 
 test_that("nmfkc.net() fits a symmetric matrix", {

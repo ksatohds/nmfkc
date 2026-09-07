@@ -19,167 +19,194 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-This vignette demonstrates how to fit the **NMF-FFB**
-(Nonnegative Matrix Factorization with Feed-Forward + Feedback;
-formerly NMF-SEM) implemented in the **nmfkc** package.
+This vignette shows how to fit **NMF-FFB** (non-negative matrix
+factorization with feedforward and feedback structure) with **nmfkc**,
+and how to decide whether the feedback is supported by the data.
 
-NMF-FFB extends standard nonnegative matrix factorization by introducing
-**feed-forward exogenous loading and feedback in latent space**.
-
-Observed endogenous variables $Y_1$ are approximated as
-
-$$
-Y_1 \approx X (\Theta_1 Y_1 + \Theta_2 Y_2).
-$$
-
-If the feedback operator $XC_1$ is stable, the model implies the equilibrium mapping
+NMF with covariates (the *feedforward* model, NMF-FF) approximates a
+non-negative endogenous data matrix $Y_1$ ($P_1 \times N$) by a
+column-stochastic basis $X$ and covariate-driven scores,
 
 $$
-\hat Y_1 \approx (I - X\Theta_1)^{-1} X\Theta_2 Y_2
-\equiv M_{\mathrm{model}} Y_2.
+Y_1 \approx X\,\Theta_2 Y_2 ,
 $$
+
+where $Y_2$ ($P_2 \times N$) holds the exogenous variables. NMF-FFB adds a
+non-negative **feedback** term through which the endogenous variables act
+back on the latent factors,
+
+$$
+Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2).
+$$
+
+Two facts shape the estimator (see `?nmf.ffb` and the references):
+
+* The equilibrium map $M=(I-X\Theta_1)^{-1}X\Theta_2$ of any stable NMF-FFB
+  model can be reproduced exactly by an NMF-FF model with the same basis
+  (reduced-form equivalence). Predictive fit therefore cannot tell
+  feedback from its absence.
+* Feedback is identified through disturbances that propagate around the
+  loop and through an **exclusion restriction**: an outcome may not feed
+  back into the factor on which it loads (no self-loops).
+
+`nmf.ffb()` therefore works in two stages: the basis $X$ is estimated by
+`nmfkc()` (Stage 1), and, conditional on $X$, a Gaussian working model
+
+$$
+Y_1 = XB + \mathcal{E},\qquad B=\Theta_1Y_1+\Theta_2Y_2+U,\qquad
+U\sim N(0,\Phi),\quad \mathcal{E}\sim N(0,\Psi)
+$$
+
+is fitted by full-information maximum likelihood (Stage 2). The
+feedforward model ($\Theta_1=0$) is the nested null model, a sparse
+$\Theta_1$ is chosen by an L1 path with BIC, and the likelihood-ratio
+statistic is calibrated by a parametric bootstrap in
+`nmf.ffb.inference()`.
 
 ---
 
-## 1. Load and preprocess data
+## 1. Data: Holzinger--Swineford tests
 
 ```{r}
 library(lavaan)
+library(nmfkc)
 data(HolzingerSwineford1939)
 
 d <- HolzingerSwineford1939
-index <- complete.cases(d)
-d <- d[index, ]
-```
+d <- d[complete.cases(d), ]
 
-### 1.1 Construct exogenous variables
-
-```{r}
-d$age.rev <- -(d$ageyr + d$agemo / 12)
-d$sex.2 <- ifelse(d$sex == 2, 1, 0)
+## exogenous variables: reversed age, sex, school
+d$age.rev   <- -(d$ageyr + d$agemo / 12)
+d$sex.2     <- ifelse(d$sex == 2, 1, 0)
 d$school.GW <- ifelse(d$school == "Grant-White", 1, 0)
 d[, c("id", "sex", "ageyr", "agemo", "school", "grade")] <- NULL
-```
 
-### 1.2 Nonnegative normalization
+## min-max scaling to [0, 1] (all variables non-negative)
+d <- nmfkc.normalize(d)
 
-```{r}
-library(nmfkc)
-d <- nmfkc::nmfkc.normalize(d)
-```
-
-## 2. Split into endogenous and exogenous blocks
-
-```{r}
-exogenous_vars <- c("age.rev", "sex.2", "school.GW")
+exogenous_vars  <- c("age.rev", "sex.2", "school.GW")
 endogenous_vars <- setdiff(colnames(d), exogenous_vars)
-
-Y1 <- t(d[, endogenous_vars])
-Y2 <- t(d[, exogenous_vars])
+Y1 <- t(d[, endogenous_vars])   # 9 tests x 300 pupils
+Y2 <- t(d[, exogenous_vars])    # 3 covariates x 300 pupils
 ```
 
-## 3. Baseline NMF model
+## 2. Choosing the number of factors
+
+The number of factors $Q$ is a property of the feedforward stage, so it is
+chosen by element-wise cross-validation of the feedforward fit
+(`nmf.ffb.cv()` delegates to `nmfkc.ecv()` for `method = "fiml"`;
+column-wise cross-validation of the equilibrium prediction cannot select
+the feedback penalty because of the reduced-form equivalence).
+
+```{r, eval = FALSE}
+cv <- nmf.ffb.cv(Y1, Y2, rank = 2:4, method = "fiml", X.L2.ortho = 100)
+cv$objfunc      # held-out reconstruction error by rank
+```
+
+For these data the canonical three-factor structure (visual, textual,
+speed) is used, $Q = 3$.
+
+## 3. Fitting NMF-FFB
+
+`nmf.ffb()` estimates the basis with `nmfkc()` (NNDSVDar initialization,
+orthogonality penalty `X.L2.ortho`) and then fits the working model by
+FIML. By default the exclusion mask is `"block"` (an outcome may feed
+back only into factors other than its dominant one), $\Phi$ is a full
+covariance matrix, and the sparse feedback structure is selected by BIC.
 
 ```{r}
-myepsilon <- 1e-6
-Q0 <- 3
-
-res0 <- nmfkc(
-  Y = Y1,
-  A = Y2,
-  rank = Q0,
-  epsilon = myepsilon,
-  X.L2.ortho = 100
-)
-
-M.simple <- res0$X %*% res0$C
+Q0  <- 3
+res <- nmf.ffb(Y1, Y2, rank = Q0, X.L2.ortho = 100)   # method = "fiml" (default)
+summary(res)
 ```
 
-## 3.5 Hyperparameter Tuning for Sparsity (Optional)
-
-```{r,eval=FALSE}
-grid_params <- expand.grid(
-    C1.L1     = c(0,1:9/10,1:10),
-    C2.L1     = c(0,1:9/10,1:10)
-)
-n_iter <- nrow(grid_params)
-mae.cv <- 0*1:n_iter
-
-for(i in 1:n_iter){
-  if (i %% round(n_iter / 10) == 0) {
-    message(sprintf("Processing... %d%% (%d/%d)", round(i/n_iter*100), i, n_iter)) 
-  }  
-  p <- grid_params[i, ]
-  res.cv <- nmf.ffb.cv(Y1, Y2, rank = Q0,
-                       X.init = res0$X,
-                       X.L2.ortho = 100,
-                       C1.L1 = p$C1.L1,
-                       C2.L1 = p$C2.L1,
-                       seed = 1, epsilon = myepsilon)
-  mae.cv[i] <- res.cv
-}
-
-f <- data.frame(grid_params,mae.cv)
-f <- f[order(f$mae.cv),]
-head(f,5)
-#    C2.L2.off C1.L1 C2.L1    mae.cv
-#140         0    10   0.6 0.1820841
-#160         0    10   0.7 0.1820843
-#180         0    10   0.8 0.1820877
-#200         0    10   0.9 0.1820907
-#120         0    10   0.5 0.1820908
-print(p <- f[1,])
-```
-
-
-## 4. NMF-FFB estimation
+The summary reports the log-likelihoods of the null (feedforward), the
+unpenalized feedback model and the BIC-selected model, the two
+likelihood-ratio statistics, the number of retained feedback entries and
+the spectral radius $\rho(X\Theta_1)$ of the selected feedback operator.
 
 ```{r}
-p <- list(C1.L1 = 10, C2.L1 = 0.6)
-
-res <- nmf.ffb(
-  Y1, Y2,
-  rank = Q0,
-  X.init = res0$X,
-  X.L2.ortho = 100,
-  C1.L1 = p$C1.L1,
-  C2.L1 = p$C2.L1,
-  epsilon = myepsilon
-)
+round(res$X, 2)          # basis (column-stochastic): which test loads on which factor
+round(res$C1, 2)         # selected feedback Theta1 (Q x P1): outcome -> factor
+round(res$C2, 2)         # exogenous coefficients Theta2 (Q x P2)
+res$LR                   # LR statistics vs. the feedforward null (full / selected)
+res$BIC                  # BIC of null / full / selected
+res$XC1.radius           # rho(X Theta1) of the selected model
 ```
+
+The BIC path shows how the number of retained feedback entries and the
+log-likelihood change along the L1 penalty. Because the penalized problem
+is non-convex, every penalty is fitted from several starting points
+(`starts`); `path` has one row per (penalty, start) and flags the rows
+that re-propose an already known support, and `candidates` lists every
+distinct support with its BIC. On these data the single start `"full"`
+would have stopped at a one-path model; the six-path model with the
+smallest BIC is found by the `"soft"` and `"null"` starts.
 
 ```{r}
-plot(res$objfunc.full, type = "l",
-     main = "Objective Function",
-     ylab = "Loss", xlab = "Iteration")
+res$path[!res$path$duplicate, ]   # first proposal of each distinct support
+res$candidates                    # all distinct supports; BIC is minimized over these
+plot(res)                # BIC versus log(lambda1); the selected point is circled
 ```
 
-## 5. Diagnostics
+## 4. Is the feedback supported? Parametric bootstrap
+
+Because $\Theta_1 \ge 0$ puts the null on the boundary and the support is
+selected from the data, the LR statistics do not follow a chi-square
+distribution. `nmf.ffb.inference()` simulates from the fitted feedforward
+model, re-runs the whole selection pipeline on each replicate, and
+returns bootstrap $p$-values together with the *null false-selection
+rate*, the probability that BIC retains at least one spurious entry when
+the feedforward model is true. A second bootstrap from the selected model
+gives interval estimates of the retained coefficients.
 
 ```{r}
-SC.map <- cor(as.vector(res$M.model),
-              as.vector(M.simple))
-
-cat("Q=     ", Q0, "\n")
-cat("RHO=   ", round(res$XC1.radius, 3), "\n")
-cat("AR=    ", round(res$amplification, 3), "\n")
-cat("SCmap= ", round(SC.map, 3), "\n")
-cat("SCcov= ", round(res$SC.cov, 3), "\n")
-cat("MAE=   ", round(res$MAE, 3), "\n")
+inf <- nmf.ffb.inference(res, Y1, Y2, B = 20, seed = 1)   # use B = 1000 in practice
+inf$LR.p.boot            # bootstrap p-values for LR(full) and LR(selected)
+inf$prob.select.null     # null false-selection rate of BIC
+head(inf$coefficients)   # retained coefficients with bootstrap intervals
 ```
 
-## 6. Visualization
+With a small `B` the $p$-values are coarse; the published analysis uses
+`B = 1000` (about one minute on a few cores because each replicate refits
+the whole path). Pass `cores = ` to parallelize.
+
+## 5. Path diagrams
+
+`nmf.ffb.DOT()` draws the feedforward model (`model = "null"`) and the
+BIC-selected model (`model = "selected"`) on the same node layout, so the
+effect of the feedback is visible as the difference between the two
+diagrams; feedback edges are dashed.
 
 ```{r}
-res.dot <- nmf.ffb.DOT(
-  res,
-  weight_scale = 5,
-  rankdir = "TB",
-  threshold = 0.01,
-  fill = FALSE,
-  cluster.box = "none"
-)
-
-# plot(res.dot)  # requires DiagrammeR
+dot_ff  <- nmf.ffb.DOT(res, model = "null",     threshold = 0.05)
+dot_ffb <- nmf.ffb.DOT(res, model = "selected", threshold = 0.05)
+# plot(dot_ff); plot(dot_ffb)   # requires DiagrammeR
 ```
 
+## 6. Reading the result
+
+In the Holzinger--Swineford data the three factors reproduce the
+visual/textual/speed grouping. The selected feedback links the speeded
+tests to the visual factor and the visual tests to the speed factor, a
+cross-factor cycle with $\rho(X\Theta_1)\approx 0.6$, and the bootstrap
+places the observed LR far outside the null distribution. Two cautions
+apply in general: the feedback coefficients are conditional structural
+coefficients, not causal effects, and a cross-factor cycle can absorb
+part of what a factor correlation would otherwise explain, so the change
+in $\Phi$ between the null and the selected fit should be inspected
+(`res$null$Phi` versus `res$Phi`).
+
+## Appendix: the legacy estimator
+
+The multiplicative-update estimator of the first version of the method
+(structural least squares with the observed $Y_1$ on the right-hand side)
+is kept as `method = "mu"` for reproducibility. It does not identify
+$\Theta_1$---its estimate of $\rho(X\Theta_1)$ is governed by the L1
+penalty and the sample size rather than by the true feedback---and it
+will be deprecated in a future release.
+
+```{r, eval = FALSE}
+res_mu <- nmf.ffb(Y1, Y2, rank = Q0, X.L2.ortho = 100,
+                  C1.L1 = 10, C2.L1 = 0.6, method = "mu")
+```

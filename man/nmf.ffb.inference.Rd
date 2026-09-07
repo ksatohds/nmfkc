@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmf.sem.R
 \name{nmf.ffb.inference}
 \alias{nmf.ffb.inference}
-\title{Statistical inference for NMF-FFB via X-fixed full pair bootstrap}
+\title{Bootstrap inference for NMF-FFB (X held fixed)}
 \usage{
 nmf.ffb.inference(
   object,
@@ -18,11 +18,11 @@ nmf.ffb.inference(
 )
 }
 \arguments{
-\item{object}{A fitted object returned by \code{\link{nmf.sem}}.  Must
+\item{object}{A fitted object returned by \code{\link{nmf.ffb}}.  Must
 contain \code{X}, \code{C1}, \code{C2}.}
 
 \item{Y1}{Endogenous variable matrix (P1 x N).  Must match the data
-used in \code{nmf.sem()}.}
+used in \code{nmf.ffb()}.}
 
 \item{Y2}{Exogenous variable matrix (P2 x N).  Same.}
 
@@ -34,27 +34,40 @@ default their \code{wild.B} to 500, and this one is deliberately left at
 clears \code{threshold}, at any \code{B}: raising \code{B} does not add a
 finer grade, it makes the same grade stronger evidence (all 1000 rather
 than all 500).  Lowering it to 500 roughly halves the running time, since
-each replicate is a re-fit.}
+each replicate is a re-fit.  For \code{method = "fiml"} each replicate of
+the null bootstrap re-runs the full selection pipeline (the null and
+unpenalized fits, \code{length(starts)} penalized fits per
+\code{lambda1} and up to three refits per distinct proposed support;
+typically 40-60 FIML fits), so start with a small \code{B} to gauge
+the running time.}
 
 \item{threshold}{Display threshold \eqn{\delta} for the support rate
 \eqn{\Pr_{\mathrm{boot}}(\hat c^{(b)} > \delta)}.  Default
 \code{0.01}; entries below this magnitude are treated as effectively
 zero in the path diagram.}
 
-\item{ci.level}{Confidence level for the percentile bootstrap CI.
+\item{ci.level}{Confidence level for the bootstrap CI.
 Default \code{0.95}.}
 
 \item{C1.L1, C2.L1}{L1 sparsity penalties used by the original
-\code{\link{nmf.sem}} fit.  These must match the fit's hyperparameters
+\code{method = "mu"} fit.  These must match the fit's hyperparameters
 for the bootstrap to estimate the correct model.  Defaults
-(\code{1.0}, \code{0.1}) match \code{nmf.sem}'s defaults but you
-should pass the actual values used.}
+(\code{1.0}, \code{0.1}) match \code{nmf.ffb}'s defaults but you
+should pass the actual values used.  Not used for \code{method = "fiml"}.}
 
-\item{seed}{Base RNG seed for the bootstrap.  Each replicate uses
-\code{seed + b} (resampling) and \code{seed + 1000 + b}
-(\eqn{C_1, C_2} initialization).  Default \code{123}.}
+\item{seed}{Base RNG seed for the bootstrap.  For \code{method = "mu"}
+each replicate uses \code{seed + b} (resampling) and
+\code{seed + 1000 + b} (\eqn{C_1, C_2} initialization); for
+\code{method = "fiml"} see Description.  Default \code{123}.}
 
-\item{...}{Hidden options:
+\item{...}{Hidden options.  Shared: \code{cores} (number of parallel
+workers, default \code{getOption("mc.cores", 1L)} for \code{"fiml"},
+\code{1} for \code{"mu"}; \code{ncores} is accepted as an alias) and
+\code{print.trace}.  For \code{method = "fiml"}: \code{factr} and
+\code{fiml.maxit} (L-BFGS-B tolerance and cap, default the values
+recorded on \code{object}) and \code{boot.null} (logical; set
+\code{FALSE} to skip the null bootstrap and only compute coefficient
+intervals).  For \code{method = "mu"}:
 \describe{
 \item{\code{epsilon}}{Convergence tolerance for the inner fixed-X MU
 loop.  Default \code{1e-8} -- deliberately tighter than a plain fit,
@@ -68,12 +81,6 @@ falls from 0.75 to 0.20 to 0.017 as \code{epsilon} goes 1e-6, 1e-8,
 when near-threshold entries matter; loosen only for speed.}
 \item{\code{maxit}}{Maximum iterations for the inner MU loop.
 Default \code{100000} (the tighter tolerance needs the headroom).}
-\item{\code{ncores}}{Number of parallel workers.  Default \code{1}
-(serial).  Cross-platform: uses \code{parallel::mclapply} on
-Linux/macOS and \code{parallel::parLapply} (PSOCK cluster) on
-Windows.}
-\item{\code{print.trace}}{Logical, print progress.  Default
-\code{FALSE}.}
 }}
 }
 \value{
@@ -84,26 +91,82 @@ and \eqn{C_2} and columns \code{Type} ("C1" / "C2"), \code{Basis},
 \code{Covariate}, \code{Estimate}, \code{CI_low}, \code{CI_high},
 \code{support_rate}, \code{p_value} (\eqn{= 1 - \mathrm{support\_rate}},
 for compatibility with downstream consumers such as
-\code{\link{nmf.sem.DOT}}), and \code{sig}.}
+\code{\link{nmf.ffb.DOT}}), and \code{sig}.}
 \item{C1.support.rate, C2.support.rate}{Per-element support rates
 (Q x P1 and Q x P2 matrices).}
 \item{C1.ci.lower, C1.ci.upper, C2.ci.lower, C2.ci.upper}{Per-element
-percentile CI bounds.}
+CI bounds (percentile for \code{"mu"}, centred percentile for
+\code{"fiml"}).}
 \item{C1.array, C2.array}{Bootstrap distributions: 3D arrays of shape
 B x Q x P1 (and B x Q x P2).  Invalid replicates contain \code{NA}.}
-\item{rho.boot, AR.boot, iter.boot}{Per-replicate spectral radius,
-amplification ratio, and inner-loop iteration count.}
+\item{rho.boot}{Per-replicate spectral radius \eqn{\rho(X C_1^*)}.}
+\item{AR.boot, iter.boot}{(\code{"mu"} only) per-replicate amplification
+ratio and inner-loop iteration count.}
 \item{bootstrap.B, bootstrap.threshold, bootstrap.ci.level}{Inputs
 recorded for reproducibility.}
-\item{bootstrap.n.valid, bootstrap.n.invalid}{Validity counts.}
+\item{bootstrap.n.valid, bootstrap.n.invalid}{Validity counts (for
+\code{"fiml"}: of the selected-model bootstrap).}
+\item{LR.boot}{(\code{"fiml"} only) \eqn{B \times 2} matrix of the null
+bootstrap statistics, columns \code{full} and \code{selected};
+\code{NA} rows are failed replicates.}
+\item{LR.p.boot}{(\code{"fiml"} only) \code{c(full, selected)}: the
+bootstrap p-values \eqn{P^*(LR^* \ge LR_{\mathrm{obs}})}.}
+\item{LR.null.quantile}{(\code{"fiml"} only) 95\\% quantiles of the two
+null distributions -- the calibrated critical values.}
+\item{prob.select.null}{(\code{"fiml"} only) share of null replicates in
+which BIC selected at least one feedback path (the false-selection rate
+under the null).  A tail probability of the procedure, not a p-value.}
+\item{nnz.boot}{(\code{"fiml"} only) number of selected paths in each
+null replicate.}
 }
 \description{
-\code{nmf.sem.inference} performs statistical inference on the structural
+\code{nmf.ffb.inference} performs statistical inference on the structural
 coefficient matrices \eqn{C_1} (latent feedback, \eqn{\Theta_1}) and
 \eqn{C_2} (exogenous loading, \eqn{\Theta_2}) from a fitted
-\code{\link{nmf.sem}} model.
+\code{\link{nmf.ffb}} model, and -- for likelihood-based fits -- calibrates
+the likelihood-ratio test of feedback against the feed-forward null.  The
+basis \eqn{\hat X} is held fixed throughout, which avoids label switching
+and gives a clean conditional interpretation: uncertainty of the structural
+coefficients given the measurement model.  Which resampling scheme is run
+depends on \code{object$method}.
 
-The procedure is a \strong{full pair bootstrap} that holds the basis
+\strong{\code{method = "fiml"}: two parametric bootstraps.}
+\enumerate{
+\item \emph{Null bootstrap (LR calibration).}  \eqn{B} data sets
+\eqn{Y_1^* = X(\Theta_2 Y_2 + U^*) + E^*} are drawn from the fitted
+feed-forward null (\code{object$null}; \eqn{U^* \sim N(0, \Phi_0)},
+\eqn{E^* \sim N(0, \mathrm{diag}\,\psi_0)}, negatives clipped at 0),
+keeping \eqn{Y_2} and \eqn{X} fixed, and the \emph{whole} selection
+pipeline (null fit, unpenalized fit, multi-start L1 path, BIC refit)
+is re-run on each with the same mask, \code{phi}, \code{lambda1}
+and \code{starts}.  The observed
+statistics are compared with the bootstrap null distribution:
+\code{LR.p.boot = P*(LR* >= LR_obs)} for both the unpenalized and the
+selected statistic.  This replaces the chi-square reference, which is
+invalid here because \eqn{\Theta_1 \ge 0} puts the null on the boundary
+(a chi-bar-square, not a chi-square) and the selected statistic is a
+post-selection quantity.  \code{prob.select.null}, the share of null
+replicates in which BIC selects at least one feedback path, is the
+false-selection rate of the procedure under the null.
+\item \emph{Selected-model bootstrap (coefficient uncertainty).}  \eqn{B}
+data sets are drawn from the selected model (with its \eqn{\Theta_1}) and
+\eqn{(\Theta_1, \Theta_2, \Phi, \psi)} are re-estimated with \eqn{X} and
+the selected support held fixed.  Confidence intervals are the centred
+(basic) percentile intervals \eqn{[2\hat\theta - q^*_{1-\alpha/2},\;
+    2\hat\theta - q^*_{\alpha/2}]}; \code{support_rate} is the share of
+replicates with \eqn{|\hat\theta^*| >} \code{threshold} (0 for entries
+outside the selected support) and \code{p_value = 1 - support_rate} is
+kept for compatibility with \code{\link{nmf.ffb.DOT}}.  Both are
+\emph{post-selection} quantities conditional on the selected support
+and can overstate significance; the calibrated statement about the
+presence of feedback is \code{LR.p.boot}.
+}
+Each replicate seeds itself (\code{seed + b} for the null bootstrap,
+\code{seed + B + b} for the selected-model bootstrap), so the result does
+not depend on \code{cores}.
+
+\strong{\code{method = "mu"} (legacy fits, and objects without a
+\code{method} field).}  The procedure is a \strong{full pair bootstrap} that holds the basis
 matrix \eqn{\hat X} from the original fit fixed across all replicates
 (which avoids label switching and gives a clean conditional
 interpretation: ``uncertainty of the structural coefficients given the
@@ -152,8 +215,14 @@ that the previous implementation produced are no longer present.
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
 res  <- nmf.ffb(Y1, Y2, rank = 2)
-res2 <- nmf.ffb.inference(res, Y1, Y2, B = 200)  # quick demo
+res2 <- nmf.ffb.inference(res, Y1, Y2, B = 20)  # quick demo; use B = 1000
+res2$LR.p.boot          # calibrated p-values of the LR statistics
+res2$prob.select.null   # false-selection rate under the null
 head(res2$coefficients)
+
+res.mu  <- nmf.ffb(Y1, Y2, rank = 2, method = "mu")
+res.mu2 <- nmf.ffb.inference(res.mu, Y1, Y2, B = 200)
+head(res.mu2$coefficients)
 }
 }
 \references{

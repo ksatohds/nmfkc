@@ -22,7 +22,12 @@ minimize), \code{"reconstruction"} (Frobenius distance only,
 legend).  \code{"both"} is useful for diagnosing whether
 regularization is actively shaping the solution: if the two curves
 diverge, the penalties are pulling the optimizer away from the
-pure least-squares minimum.}
+pure least-squares minimum.  Ignored for \code{nmf.ffb(method =
+  "fiml")} objects, which carry no iteration trace: for them the BIC of
+the L1 path (\code{x$path}) is drawn against \code{log(lambda1)}: the
+line follows the smallest BIC at each penalty (over the starts), every
+individual proposal is a small grey point, the number of selected paths
+is printed at each point and the BIC-selected penalty is circled.}
 }
 \value{
 Invisible \code{NULL}.

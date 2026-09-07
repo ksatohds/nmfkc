@@ -2,7 +2,7 @@
 % Please edit documentation in R/nmf.sem.R
 \name{nmf.ffb}
 \alias{nmf.ffb}
-\title{NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)}
+\title{NMF-FFB: non-negative matrix factorization with latent feedback}
 \usage{
 nmf.ffb(
   Y1,
@@ -15,7 +15,15 @@ nmf.ffb(
   epsilon = 1e-06,
   maxit = 5000,
   seed = 123,
-  ...
+  ...,
+  method = c("fiml", "mu"),
+  X = NULL,
+  mask = c("block", "cross", "none"),
+  cross.threshold = 0.05,
+  phi = c("full", "diag"),
+  lambda1 = NULL,
+  select = c("BIC", "none"),
+  starts = c("full", "path", "null", "soft")
 )
 }
 \arguments{
@@ -87,12 +95,16 @@ Default: \code{5000} (matches \code{\link{nmfkc}} and other MU
 functions in the package).}
 
 \item{seed}{Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
-Default: \code{123}.}
+Default: \code{123}.  For \code{method = "fiml"} the seed only reaches
+the stage-1 \code{\link{nmfkc}} fit; the FIML stage is deterministic.}
 
-\item{...}{Additional hidden arguments controlling the optional
-feedforward baseline (used both as an \eqn{X} warm-start and as
-the reference for \code{SC.map}, the input-output structural
-fidelity defined in Satoh (2025) §4.SC.map):
+\item{...}{Additional hidden arguments.  For \code{method = "fiml"}:
+\code{fiml.maxit} (L-BFGS-B iteration cap, default \code{3000}),
+\code{factr} (\code{optim} tolerance, default \code{1e3}), and
+\code{Q} (alias of \code{rank}).  For \code{method = "mu"} the
+following control the optional feedforward baseline (used both as an
+\eqn{X} warm-start and as the reference for \code{SC.map}, the
+input-output structural fidelity defined in Satoh (2025) §4.SC.map):
 \describe{
 \item{\code{nmfkc.baseline}}{Controls whether a feedforward
 \code{\link{nmfkc}}(Y1, A = Y2) fit is used as baseline.
@@ -123,11 +135,55 @@ baseline mapping.  Takes precedence over \code{nmfkc.baseline}
 for the SC.map calculation but does not affect warm-start.}
 \item{\code{Q}}{Backward-compat alias for \code{rank}.}
 }}
+
+\item{method}{\code{"fiml"} (default) or \code{"mu"}; see Description.}
+
+\item{X}{Optional basis for \code{method = "fiml"}: a \eqn{P_1 \times Q}
+non-negative matrix, or an \code{\link{nmfkc}} / \code{nmf.ffb} object
+whose \code{$X} is used.  When supplied, stage 1 is skipped and
+\code{rank} is taken from \code{ncol(X)}.}
+
+\item{mask}{Exclusion restriction on \eqn{\Theta_1} for
+\code{method = "fiml"}: \code{"block"} (default), \code{"cross"},
+\code{"none"}, or a \eqn{Q \times P_1} 0/1 matrix (1 = free).  See
+the section \emph{Exclusion mask}.}
+
+\item{cross.threshold}{Loading threshold for \code{mask = "cross"}.
+Default \code{0.05}.}
+
+\item{phi}{Covariance of the latent disturbance \eqn{U} for
+\code{method = "fiml"}: \code{"full"} (default; positive definite via
+Cholesky) or \code{"diag"}.}
+
+\item{lambda1}{Numeric vector of L1 penalties on \eqn{\Theta_1} defining
+the path (\code{method = "fiml"}).  Default \code{NULL}, meaning
+\code{N * c(0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5)}.}
+
+\item{select}{\code{"BIC"} (default): the support with the smallest BIC
+among all candidates proposed along the path is the selected model;
+\code{"none"}: the unpenalized feedback fit is returned as the selected
+model and the path is skipped.}
+
+\item{starts}{Starting points of the penalized fits at each
+\code{lambda1} (\code{method = "fiml"}); any subset of
+\code{c("full", "path", "null", "soft")}, default all four.
+\code{"full"}: the unpenalized feedback fit; \code{"path"}:
+continuation from the best penalized solution at the previous (smaller)
+penalty; \code{"null"}: the feed-forward null with \eqn{\Theta_1 =
+  0.05} on the free entries; \code{"soft"}: the unpenalized
+\eqn{\Theta_1} soft-thresholded at \code{lambda1 / N}.  A single
+start (the behaviour of earlier versions) can miss the support with
+the smallest BIC: on the Holzinger-Swineford data the start
+\code{"full"} alone proposes a one-path model (BIC \eqn{-1968.9})
+while \code{"null"} / \code{"path"} find the six-path model (BIC
+\eqn{-1971.0}).}
 }
 \value{
-A list with components:
+An object of class \code{c("nmf.ffb", "nmf.sem", "nmf")}, a list
+with components:
 \item{X}{Estimated basis matrix (\eqn{P_1 \times Q}).}
-\item{C1}{Estimated latent feedback matrix (\eqn{\Theta_1}, \eqn{Q \times P_1}).}
+\item{C1}{Estimated latent feedback matrix (\eqn{\Theta_1}, \eqn{Q \times P_1});
+for \code{"fiml"} the BIC-selected estimate.}
 \item{C2}{Estimated exogenous loading matrix (\eqn{\Theta_2}, \eqn{Q \times P_2}).}
 \item{XC1}{Feedback matrix \eqn{X \Theta_1}.}
 \item{XC2}{Direct-effect matrix \eqn{X \Theta_2}.}
@@ -138,7 +194,9 @@ A list with components:
 \eqn{M_{\mathrm{model}} = (I - X \Theta_1)^{-1} X \Theta_2}.}
 \item{amplification}{Latent amplification factor
 \eqn{\lVert M_{\mathrm{model}} \rVert_{1,\mathrm{op}} /
-         \bigl\lVert X \Theta_2 \bigr\rVert_{1,\mathrm{op}}}.}
+         \bigl\lVert X \Theta_2 \bigr\rVert_{1,\mathrm{op}}}; meaningful
+only when \code{XC1.radius > 0} (it equals 1 when no feedback is
+selected).}
 \item{amplification.bound}{Geometric-series upper bound
 \eqn{1 / (1 - \lVert X \Theta_1 \rVert_{1,\mathrm{op}})} if
 \eqn{\lVert X \Theta_1 \rVert_{1,\mathrm{op}} < 1}, otherwise \code{Inf}.}
@@ -154,18 +212,66 @@ in \code{...}; otherwise \code{NA}.  See \emph{input-output
 structural fidelity} in Satoh (2025).}
 \item{MAE}{Mean absolute error between \eqn{Y_1} and its equilibrium
 prediction \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.}
-\item{objfunc}{Vector of reconstruction losses per iteration.}
-\item{objfunc.full}{Vector of penalized objective values per iteration.}
-\item{iter}{Number of iterations actually performed.}
+\item{objfunc}{Vector of reconstruction losses per iteration
+(\code{"mu"}); \code{NULL} for \code{"fiml"}.}
+\item{objfunc.full}{Vector of penalized objective values per iteration
+(\code{"mu"}); \code{NULL} for \code{"fiml"}.}
+\item{iter, maxit, epsilon, converged}{Convergence bookkeeping.  For
+\code{"fiml"}: the number of objective evaluations of the selected
+fit, the L-BFGS-B cap (\code{fiml.maxit}), the stage-1 tolerance,
+and \code{optim()$convergence == 0}.}
+\item{method}{\code{"fiml"} or \code{"mu"}.}
+
+The following are present for \code{method = "fiml"} only
+(\code{SC.cov} and \code{SC.map} are then \code{NULL}):
+\item{Phi, psi, loglik, npar}{Latent-disturbance covariance
+(\eqn{Q \times Q}), unique variances (length \eqn{P_1}),
+log-likelihood and parameter count of the selected model.}
+\item{null}{The feed-forward null: list \code{C2, Phi, psi, loglik,
+    npar, M.model}.}
+\item{full}{The unpenalized feedback fit: list \code{C1, C2, Phi, psi,
+    loglik, npar, XC1.radius}.}
+\item{path}{Data frame with one row per (\code{lambda1}, start) of
+the L1 path (\code{lambda1 = 0} is the unpenalized fit re-estimated
+on its non-zero entries, \code{Inf} the null): \code{lambda1, start,
+    support_id, nnz, rho, loglik, BIC, MAE} (each after re-estimation on
+the proposed support),
+\code{pen.value} (the penalized objective reached by that start,
+smaller is better) and \code{duplicate} (\code{TRUE} when the same
+support was already proposed by an earlier row).}
+\item{candidates, supports, support.selected}{One row per distinct
+support (\code{support_id, nnz, rho, loglik, BIC, MAE,
+    lambda1.first, start.first, selected}; the null and the model with
+every admitted entry free are always candidates, so
+\code{candidates} can hold a support that appears in no row of
+\code{path}); the supports themselves
+(list of logical \eqn{Q \times P_1} matrices indexed by
+\code{support_id}); and the id of the selected one.}
+\item{mask, lambda1, lambda1.selected, support, starts}{The mask used
+(\eqn{Q \times P_1} 0/1), the path, the smallest penalty at which
+the selected support was proposed (\code{0} for the unpenalized
+model, \code{Inf} for the null), the selected support (logical
+\eqn{Q \times P_1}) and the starts used.}
+\item{LR, LR.df}{Likelihood-ratio statistics \code{c(full = 2(l_full -
+    l_null), selected = 2(l_sel - l_null))} and the naive degrees of
+freedom \code{c(full = sum(mask), selected = nnz)} (also stored as
+\code{attr(LR, "df")}).  No p-value is attached; see
+\code{\link{nmf.ffb.inference}}.}
+\item{BIC, AIC}{Named vectors \code{c(null, full, selected)}.}
+\item{call}{The matched call, from which
+\code{\link{nmf.ffb.inference}} inherits the design.}
 }
 \description{
 Fits the NMF-FFB model
 \deqn{
-  Y_1 \approx X \bigl( \Theta_1 Y_1 + \Theta_2 Y_2 \bigr)
+  Y_1 = X B + E, \qquad B = \Theta_1 Y_1 + \Theta_2 Y_2 + U,
 }
-under non-negativity constraints with orthogonality and sparsity regularization.
-The function returns the estimated latent factors, structural coefficient matrices,
-and the implied equilibrium (input–output) mapping.
+in which a non-negative basis \eqn{X} (\eqn{P_1 \times Q}) generates the
+endogenous block \eqn{Y_1} from latent scores \eqn{B} that are driven by
+the exogenous block \eqn{Y_2} (feed-forward, \eqn{\Theta_2}) and fed back
+by \eqn{Y_1} itself (latent feedback, \eqn{\Theta_1}).  The function
+returns the estimated basis, the structural coefficient matrices and the
+implied equilibrium (input-output) mapping.
 
 At equilibrium, the model can be written as
 \deqn{
@@ -178,14 +284,77 @@ Leontief-type cumulative-effect operator in latent space.
 Internally, the latent feedback and exogenous loading matrices are stored as
 \code{C1} and \code{C2}, corresponding to \eqn{\Theta_1} and \eqn{\Theta_2},
 respectively.
+
+Two estimators are available through \code{method}:
+\describe{
+\item{\code{"fiml"} (default)}{A two-stage likelihood-based estimator.
+\strong{Stage 1} estimates the basis with the feed-forward fit
+\code{\link{nmfkc}(Y1, A = Y2)} (\code{X.init}, \code{X.L2.ortho},
+\code{epsilon}, \code{maxit}, \code{seed} are forwarded), unless a
+basis is supplied through \code{X}.  Columns are normalized to unit
+sum.  \strong{Stage 2} holds \eqn{\hat X} fixed and fits the Gaussian
+working model \eqn{U \sim N(0, \Phi)}, \eqn{E \sim N(0,
+    \mathrm{diag}(\psi))} by full-information maximum likelihood
+(L-BFGS-B with an analytic gradient) under the non-negativity of
+\eqn{\Theta_1, \Theta_2} and an exclusion \code{mask} on
+\eqn{\Theta_1}.  It fits (a) the feed-forward null \eqn{\Theta_1 = 0}
+(a non-negative MIMIC factor model with correlated factors), (b) the
+unpenalized feedback model on the admitted entries, and (c) an L1
+path over \code{lambda1}.  The penalized problem is non-convex, so
+every point of the path is fitted from several starting points
+(\code{starts}); every distinct support proposed by any (penalty,
+start) pair is re-estimated without penalty (itself from three
+starts, keeping the best log-likelihood) and BIC is minimized over
+all distinct candidates together with the null and the unpenalized
+model.  The support with the smallest BIC is the \emph{selected}
+model, reported in \code{C1}, \code{C2}, \code{Phi}, \code{psi}.
+\code{C1.L1} and \code{C2.L1} are not used by this estimator.  The likelihood-ratio statistics against the null are
+returned without p-values: \eqn{\Theta_1 \ge 0} puts the null on the
+boundary of the parameter space and the BIC refit is a post-selection
+statistic, so a chi-square reference is not valid.  Their calibration
+by parametric bootstrap is done by \code{\link{nmf.ffb.inference}}.}
+\item{\code{"mu"}}{The legacy estimator: joint multiplicative updates of
+\eqn{X, \Theta_1, \Theta_2} for the structural-form squared error
+\eqn{\lVert Y_1 - X(\Theta_1 Y_1 + \Theta_2 Y_2)\rVert_F^2} with an
+orthogonality penalty on \eqn{X} and L1 penalties \code{C1.L1},
+\code{C2.L1}.  Kept, bit-identical, so that analyses published with it
+reproduce.  Because the structural and reduced forms have the same
+fit once \eqn{X} is free, this estimator cannot separate
+\eqn{\Theta_1} from \eqn{\Theta_2}; prefer \code{"fiml"}.}
 }
+}
+\section{Exclusion mask}{
+
+Feedback is identified only through exclusion restrictions.  With
+\code{mask = "block"} (default) an outcome may not feed back into the
+factor that generates it: entry \eqn{(q, i)} of \eqn{\Theta_1} is free
+unless \eqn{q = \arg\max_{q'} X_{i q'}} (no self-loops).  \code{"cross"}
+frees entry \eqn{(q, i)} when \eqn{X_{iq} <} \code{cross.threshold};
+\code{"none"} frees every entry (not recommended: the model is then
+identified only through the non-negativity and the covariance structure).
+A user-supplied \eqn{Q \times P_1} 0/1 matrix is used as given.
+}
+
+\section{Lifecycle}{
+
+\code{method = "fiml"} became the default in version 0.9.8.
+\code{method = "mu"} is the legacy estimator, kept for the reproducibility
+of published analyses; it will be deprecated in a later release.
+}
+
 \examples{
 # Simple NMF-FFB with iris data (non-negative)
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]  # Sepal
 Y2 <- Y[3:4, ]  # Petal
-result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
-result$MAE
+result <- nmf.ffb(Y1, Y2, rank = 2)
+result$LR          # feedback vs feed-forward null (no p-value here)
+result$BIC
+result$path
+
+# Legacy multiplicative-update estimator
+result.mu <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500, method = "mu")
+result.mu$MAE
 
 }
 \references{

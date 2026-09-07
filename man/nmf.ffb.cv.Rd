@@ -55,7 +55,10 @@ seeds are drawn before the loop and each \code{nmf.ffb} fit self-seeds,
 so results are identical to the sequential run for any \code{cores}.}
 }
 \value{
-A numeric scalar: mean MAE across CV folds.
+A numeric scalar: mean MAE across CV folds (the fits use
+\code{method = "mu"} unless \code{method} is given).  With
+\code{method = "fiml"}, the \code{\link{nmfkc.ecv}} object of the
+stage-1 rank sweep.
 }
 \description{
 Performs K-fold cross-validation to evaluate the equilibrium mapping of
@@ -70,6 +73,19 @@ test block is computed. The returned value is the average MAE across folds.
 This implements the hyperparameter selection strategy described in the paper:
 hyperparameters are chosen by predictive cross-validation rather than direct
 inspection of the internal structural matrices.
+
+\strong{\code{method = "fiml"}.}  When \code{method = "fiml"} is passed
+(through \code{...}), the column-wise scheme above is not run: the
+equilibrium prediction \eqn{M_{\mathrm{model}} Y_2} is a reduced-form
+quantity, and the reduced form is the same with and without feedback, so
+predicting held-out columns cannot select \eqn{\Theta_1} (that is what the
+BIC path and the bootstrap-calibrated LR test in \code{\link{nmf.ffb}} /
+\code{\link{nmf.ffb.inference}} are for).  The only tunable quantity is the
+stage-1 rank, and the call is delegated to the element-wise CV of the
+feed-forward fit, \code{\link{nmfkc.ecv}(Y = Y1, A = Y2, rank = rank,
+...)}, whose object is returned (\code{$objfunc} holds the CV error per
+rank; \code{rank} may be a vector, default \code{1:min(3, P1)}).
+\code{C1.L1} and \code{C2.L1} are ignored in that case.
 }
 \examples{
 Y <- t(iris[, -5])
@@ -77,6 +93,11 @@ Y1 <- Y[1:2, ]
 Y2 <- Y[3:4, ]
 mae <- nmf.ffb.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 mae
+\donttest{
+# rank selection for the likelihood-based estimator
+ecv <- nmf.ffb.cv(Y1, Y2, rank = 1:2, method = "fiml", nfolds = 3)
+ecv$objfunc
+}
 
 }
 \seealso{
