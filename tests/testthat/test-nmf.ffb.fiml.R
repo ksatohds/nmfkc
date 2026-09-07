@@ -215,7 +215,33 @@ test_that("nmf.ffb.inference() on a fiml fit runs the two parametric bootstraps"
   ## boot.null = FALSE skips the (expensive) null bootstrap
   inf3 <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 3, boot.null = FALSE)
   expect_null(inf3$LR.boot); expect_null(inf3$LR.p.boot)
+  expect_null(inf3$LR.boot.n.nonconv); expect_null(inf3$LR.boot.n.ok)
   expect_equal(nrow(inf3$coefficients), nrow(cf))
+})
+
+test_that("the bootstrap LR p-value is never exactly zero and honours its floor", {
+  skip_unless_full()
+  ## Regression test: LR.p.boot used to be the raw proportion
+  ## mean(LR* >= LR_obs), which is exactly 0 whenever no replicate reaches the
+  ## observed statistic -- the usual case for a strongly significant fit, and an
+  ## invalid p-value.  It is now (1 + #)/(1 + B_ok), floored at 1/(1 + B_ok).
+  d <- make_ffb_data()
+  fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
+  B <- 20L
+  inf <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = B)
+
+  expect_true(all(inf$LR.p.boot > 0))
+  expect_identical(inf$LR.boot.n.ok, sum(is.finite(inf$LR.boot[, "full"]) &
+                                         is.finite(inf$LR.boot[, "selected"])))
+  floor.p <- 1 / (1 + inf$LR.boot.n.ok)
+  expect_true(all(inf$LR.p.boot >= floor.p - 1e-12))
+  ## the value must equal the (1 + #)/(1 + B_ok) count on the stored replicates
+  ok <- is.finite(inf$LR.boot[, "full"]) & is.finite(inf$LR.boot[, "selected"])
+  expect_equal(unname(inf$LR.p.boot[["full"]]),
+               (1 + sum(inf$LR.boot[ok, "full"] >= fit$LR[["full"]])) / (1 + sum(ok)))
+  ## convergence counts are reported and cannot exceed the usable replicates
+  expect_named(inf$LR.boot.n.nonconv, c("null", "full"))
+  expect_true(all(inf$LR.boot.n.nonconv >= 0 & inf$LR.boot.n.nonconv <= inf$LR.boot.n.ok))
 })
 
 test_that("nmf.ffb.cv(method = 'fiml') delegates to nmfkc.ecv()", {

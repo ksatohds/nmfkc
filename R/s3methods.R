@@ -413,12 +413,21 @@ print.summary.nmf.sem <- function(x, ...) {
                   if (is.null(object$call$mask)) "block" else object$call$mask else "user matrix"))
     if (!is.null(object$LR.p.boot)) {
       cat("\nParametric bootstrap under the FF null:\n")
-      cat(sprintf("  B = %d;  P*(LR* >= LR_obs): full = %.4f, selected = %.4f\n",
-                  as.integer(object$bootstrap.B), object$LR.p.boot[["full"]], object$LR.p.boot[["selected"]]))
+      ## p = (1 + #)/(1 + B_ok); at the floor no replicate reached LR_obs, so
+      ## show it as "< floor" rather than as an exact number.
+      fmt.p <- function(p, floor.p) if (is.finite(floor.p) && p <= floor.p) sprintf("< %.2g", floor.p) else sprintf("%.4f", p)
+      floor.p <- if (!is.null(object$LR.boot.n.ok)) 1 / (1 + object$LR.boot.n.ok) else NA_real_
+      cat(sprintf("  B = %d;  bootstrap p = (1 + #{LR* >= LR_obs})/(1 + B_ok): full = %s, selected = %s\n",
+                  as.integer(object$bootstrap.B),
+                  fmt.p(object$LR.p.boot[["full"]], floor.p),
+                  fmt.p(object$LR.p.boot[["selected"]], floor.p)))
       cat(sprintf("  95%% null quantile: full = %.3f, selected = %.3f\n",
                   object$LR.null.quantile[["full"]], object$LR.null.quantile[["selected"]]))
       cat(sprintf("  prob.select.null (BIC picks nnz > 0 under the null): %.4f\n",
                   object$prob.select.null))
+      if (!is.null(object$LR.boot.n.nonconv) && max(object$LR.boot.n.nonconv) > 0)
+        cat(sprintf("  null replicates below the optimizer tolerance: %d (null fit), %d (feedback fit)\n",
+                    object$LR.boot.n.nonconv[["null"]], object$LR.boot.n.nonconv[["full"]]))
     }
   }
 

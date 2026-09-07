@@ -173,6 +173,24 @@ Fit the model tightly too (`epsilon = 1e-8`) when the fit feeds inference.
   Comparing raw replicates with zero is degenerate when every replicate is
   `>= 0`: it returns p = 0 for every coefficient. Use
   `P*(Chat* >= 2 Chat)` (basic bootstrap) and honour `C.p.side`.
+- **A Monte-Carlo p-value is `(1 + #)/(1 + B)`, never the raw proportion.**
+  The raw `mean(T* >= T_obs)` is exactly 0 whenever no replicate reaches the
+  observed statistic — the normal case for a strongly significant test — and
+  `p = 0` is not a valid p-value (Davison & Hinkley 1997, sec. 4.2). The
+  `(1 + .)/(1 + B)` form floors it at `1/(1 + B)`, so `B` sets the smallest
+  reportable value and the result should be quoted as `p < 1/B` when it sits on
+  that floor. `nmf.ffb.inference(method = "fiml")$LR.p.boot` returned the raw
+  proportion until 2026-09; it reported `p = 0` on the Holzinger–Swineford and
+  NHANES fits of the NMF-FFB paper, which reports the same results as
+  `p < 0.001`. This is the same failure the bullet above forbids for
+  coefficients: state the count-based form for *every* bootstrap p-value.
+- **Report how many bootstrap replicates missed the optimizer tolerance.**
+  Replicates that stop at `maxit` are still draws from the procedure and stay in
+  the calibration, but the share must be visible: on a flat likelihood (small
+  `N`, full `Phi`) it can reach 40% and the user has to know to re-check with a
+  larger `maxit` / smaller `factr`. Silently filtering them changes the null;
+  silently hiding them makes the calibration unauditable. See
+  `LR.boot.n.nonconv`.
 - **The one-sided Wald test is valid at the boundary.** With
   `theta_hat = max(0, theta_tilde)`, `P(theta_hat > t) = P(theta_tilde > t)`
   for every `t > 0`, so its asymptotic size is exactly alpha. The

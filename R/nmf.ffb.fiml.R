@@ -638,9 +638,16 @@
       .ffb.fiml.pipeline(Y1s, Y2, X, T2_0, mask, phi.full = phi.full, lambda1 = lambda1,
                          select = select, maxit = fiml.maxit, factr = factr, starts = starts),
       error = function(e) NULL)
-    if (base::is.null(r)) return(c(full = NA_real_, selected = NA_real_, nnz = NA_real_))
+    if (base::is.null(r))
+      return(c(full = NA_real_, selected = NA_real_, nnz = NA_real_,
+               conv.null = NA_real_, conv.full = NA_real_))
+    ## conv.* are the L-BFGS-B convergence codes of the two fits (0 = converged).
+    ## They are carried out of the worker so that the caller can report how many
+    ## null replicates hit `maxit`: on a flat likelihood (small N, full Phi) that
+    ## can be a large share, and it is not visible from the LR values alone.
     c(full = 2 * (r$f1$loglik - r$f0$loglik), selected = 2 * (r$fsel$loglik - r$f0$loglik),
-      nnz = base::sum(r$fsel$T1 > 1e-3))
+      nnz = base::sum(r$fsel$T1 > 1e-3),
+      conv.null = r$f0$conv, conv.full = r$f1$conv)
   }
   ## ---- (ii) selected-model bootstrap: coefficient uncertainty ----
   T1_s <- object$C1; T2_s <- object$C2; Phi_s <- object$Phi; psi_s <- object$psi
@@ -663,16 +670,37 @@
   if (boot.null) {
     res_null <- .nmfkc.parlapply(base::seq_len(B), boot_null_one, cores = cores, envir = base::environment())
     LR.boot <- base::do.call(base::rbind, res_null)
-    nnz.boot <- LR.boot[, "nnz"]; LR.boot <- LR.boot[, c("full", "selected"), drop = FALSE]
+    nnz.boot <- LR.boot[, "nnz"]
+    conv.null.boot <- LR.boot[, "conv.null"]; conv.full.boot <- LR.boot[, "conv.full"]
+    LR.boot <- LR.boot[, c("full", "selected"), drop = FALSE]
     ok <- base::is.finite(LR.boot[, "full"]) & base::is.finite(LR.boot[, "selected"])
-    LR.p.boot <- c(full = base::mean(LR.boot[ok, "full"] >= LR_obs[["full"]]),
-                   selected = base::mean(LR.boot[ok, "selected"] >= LR_obs[["selected"]]))
+    n.ok <- base::sum(ok)
+    ## (1 + #)/(1 + B_ok), not the raw proportion: with a strongly significant
+    ## statistic no replicate exceeds LR_obs and the raw proportion is exactly 0,
+    ## which is not a valid bootstrap p-value (Davison & Hinkley 1997, sec. 4.2).
+    ## CONVENTIONS.md 6 already forbids the degenerate "returns p = 0" form for
+    ## coefficients; this is the same rule for the LR statistic.  The floor is
+    ## 1/(1 + B_ok), so B controls the smallest reportable p-value.
+    LR.p.boot <- c(
+      full     = (1 + base::sum(LR.boot[ok, "full"]     >= LR_obs[["full"]]))     / (1 + n.ok),
+      selected = (1 + base::sum(LR.boot[ok, "selected"] >= LR_obs[["selected"]])) / (1 + n.ok))
     LR.null.quantile <- c(full = stats::quantile(LR.boot[ok, "full"], 0.95, type = 8, names = FALSE),
                           selected = stats::quantile(LR.boot[ok, "selected"], 0.95, type = 8, names = FALSE))
     prob.select.null <- base::mean(nnz.boot[ok] > 0)
+    ## How many null replicates failed to meet the optimizer tolerance.  These are
+    ## kept in the calibration (an early stop is still a draw from the procedure),
+    ## but the user is told, because a large share means the null likelihood is
+    ## flat and the calibration deserves a sensitivity check on `fiml.maxit`/`factr`.
+    n.nonconv <- c(null = base::sum(conv.null.boot[ok] != 0, na.rm = TRUE),
+                   full = base::sum(conv.full.boot[ok] != 0, na.rm = TRUE))
+    if (base::max(n.nonconv) > 0.1 * base::max(n.ok, 1L))
+      base::warning(base::sprintf(
+        "%d / %d null-bootstrap replicates did not meet the optimizer tolerance (null fit) and %d / %d (feedback fit); the null likelihood may be flat. Consider raising `fiml.maxit` or lowering `factr` and checking that LR.p.boot is stable.",
+        n.nonconv[["null"]], n.ok, n.nonconv[["full"]], n.ok))
   } else {
     LR.boot <- NULL; nnz.boot <- NULL; LR.p.boot <- NULL; LR.null.quantile <- NULL
-    prob.select.null <- NULL
+    prob.select.null <- NULL; n.nonconv <- NULL
+    conv.null.boot <- NULL; conv.full.boot <- NULL
   }
   res_sel <- .nmfkc.parlapply(base::seq_len(B), boot_sel_one, cores = cores, envir = base::environment())
 
@@ -739,6 +767,8 @@
   object$LR.p.boot <- LR.p.boot
   object$LR.null.quantile <- LR.null.quantile
   object$prob.select.null <- prob.select.null
+  object$LR.boot.n.nonconv <- n.nonconv
+  object$LR.boot.n.ok <- if (boot.null) n.ok else NULL
   object$rho.boot <- rho.vec
   object$C1.array <- C1.array
   object$C2.array <- C2.array

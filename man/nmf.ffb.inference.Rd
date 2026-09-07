@@ -110,9 +110,18 @@ recorded for reproducibility.}
 bootstrap statistics, columns \code{full} and \code{selected};
 \code{NA} rows are failed replicates.}
 \item{LR.p.boot}{(\code{"fiml"} only) \code{c(full, selected)}: the
-bootstrap p-values \eqn{P^*(LR^* \ge LR_{\mathrm{obs}})}.}
+bootstrap p-values \eqn{(1 + \#\{LR^* \ge LR_{\mathrm{obs}}\})/(1 + B_{ok})}.
+The floor is \eqn{1/(1 + B_{ok})}, so a value equal to it means "no
+replicate reached the observed statistic" and should be reported as
+\eqn{p < 1/B_{ok}} rather than as an exact number.}
 \item{LR.null.quantile}{(\code{"fiml"} only) 95\\% quantiles of the two
 null distributions -- the calibrated critical values.}
+\item{LR.boot.n.nonconv}{(\code{"fiml"} only) \code{c(null, full)}: how many
+usable null replicates did not meet the optimizer tolerance in the null and
+in the feedback fit.  They are kept in the calibration, but a large share
+signals a flat null likelihood (small \eqn{N}, full \eqn{\Phi}); re-run with
+a larger \code{fiml.maxit} or a smaller \code{factr} to check that
+\code{LR.p.boot} is stable.}
 \item{prob.select.null}{(\code{"fiml"} only) share of null replicates in
 which BIC selected at least one feedback path (the false-selection rate
 under the null).  A tail probability of the procedure, not a p-value.}
@@ -141,8 +150,13 @@ pipeline (null fit, unpenalized fit, multi-start L1 path, BIC refit)
 is re-run on each with the same mask, \code{phi}, \code{lambda1}
 and \code{starts}.  The observed
 statistics are compared with the bootstrap null distribution:
-\code{LR.p.boot = P*(LR* >= LR_obs)} for both the unpenalized and the
-selected statistic.  This replaces the chi-square reference, which is
+\code{LR.p.boot = (1 + #\{LR* >= LR_obs\}) / (1 + B_ok)} for both the
+unpenalized and the selected statistic, where \code{B_ok} is the number
+of usable replicates.  The \eqn{(1+\cdot)/(1+B)} form is used rather than
+the raw proportion so that a strongly significant statistic, which no
+replicate exceeds, reports \eqn{1/(1+B_{ok})} instead of an invalid
+\eqn{p = 0}; \code{B} therefore sets the smallest reportable p-value
+(\eqn{0.000999} at \code{B = 1000}).  This replaces the chi-square reference, which is
 invalid here because \eqn{\Theta_1 \ge 0} puts the null on the boundary
 (a chi-bar-square, not a chi-square) and the selected statistic is a
 post-selection quantity.  \code{prob.select.null}, the share of null
