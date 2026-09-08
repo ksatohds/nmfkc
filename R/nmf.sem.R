@@ -74,17 +74,29 @@
 #' }
 #'
 #' @section Exclusion mask:
-#' Feedback is identified only through exclusion restrictions.  With
-#' \code{mask = "block"} (default) an outcome may not feed back into the
-#' factor that generates it: entry \eqn{(q, i)} of \eqn{\Theta_1} is free
-#' unless \eqn{q = \arg\max_{q'} X_{i q'}} (no self-loops).  \code{"cross"}
-#' frees entry \eqn{(q, i)} when \eqn{X_{iq} <} \code{cross.threshold};
+#' Feedback is identified only through exclusion restrictions: an outcome
+#' may not feed back into a factor on which it loads, because such an entry
+#' is nearly equivalent to a change of the outcome's loading.  With
+#' \code{mask = "union"} (default) entry \eqn{(q, i)} of \eqn{\Theta_1} is
+#' excluded if \eqn{q = \arg\max_{q'} X_{i q'}} (the dominant factor) or
+#' \eqn{X_{iq} \ge} \code{cross.threshold}.  The two partial rules are kept
+#' for comparison: \code{"block"} excludes the dominant factor only, so an
+#' outcome with a substantial second loading may still feed that factor;
+#' \code{"cross"} excludes only the factors above the threshold, so an outcome
+#' whose largest loading is below the threshold keeps its own factor free
+#' (\code{"cross"} is therefore \emph{not} a superset of \code{"block"}).
 #' \code{"none"} frees every entry (not recommended: the model is then
 #' identified only through the non-negativity and the covariance structure).
 #' A user-supplied \eqn{Q \times P_1} 0/1 matrix is used as given.
 #'
+#' The mask is derived from the estimated basis and therefore from the same
+#' \eqn{Y_1} that is subsequently tested; see the \emph{Calibration} section
+#' of \code{\link{nmf.ffb.inference}} for what this implies.
+#'
 #' @section Lifecycle:
-#' \code{method = "fiml"} became the default in version 0.9.8.
+#' \code{method = "fiml"} became the default in version 0.9.8, as did
+#' \code{mask = "union"} (earlier fiml fits used \code{"block"}), and
+#' \code{\link{nmf.ffb.inference}} gained the \code{calibration} argument.
 #' \code{method = "mu"} is the legacy estimator, kept for the reproducibility
 #' of published analyses; it will be deprecated in a later release.
 #'
@@ -155,11 +167,11 @@
 #'   whose \code{$X} is used.  When supplied, stage 1 is skipped and
 #'   \code{rank} is taken from \code{ncol(X)}.
 #' @param mask Exclusion restriction on \eqn{\Theta_1} for
-#'   \code{method = "fiml"}: \code{"block"} (default), \code{"cross"},
-#'   \code{"none"}, or a \eqn{Q \times P_1} 0/1 matrix (1 = free).  See
-#'   the section \emph{Exclusion mask}.
-#' @param cross.threshold Loading threshold for \code{mask = "cross"}.
-#'   Default \code{0.05}.
+#'   \code{method = "fiml"}: \code{"union"} (default), \code{"block"},
+#'   \code{"cross"}, \code{"none"}, or a \eqn{Q \times P_1} 0/1 matrix
+#'   (1 = free).  See the section \emph{Exclusion mask}.
+#' @param cross.threshold Loading threshold for \code{mask = "union"} and
+#'   \code{"cross"}.  Default \code{0.05}.
 #' @param phi Covariance of the latent disturbance \eqn{U} for
 #'   \code{method = "fiml"}: \code{"full"} (default; positive definite via
 #'   Cholesky) or \code{"diag"}.
@@ -338,7 +350,7 @@ nmf.ffb <- function(
     ...,
     method = c("fiml", "mu"),
     X = NULL,
-    mask = c("block", "cross", "none"),
+    mask = c("union", "block", "cross", "none"),
     cross.threshold = 0.05,
     phi = c("full", "diag"),
     lambda1 = NULL,
@@ -791,6 +803,40 @@ nmf.ffb <- function(
 #' @param Y1 Endogenous variable matrix (P1 x N).  Must match the data
 #'   used in \code{nmf.ffb()}.
 #' @param Y2 Exogenous variable matrix (P2 x N).  Same.
+#' @section Calibration:
+#' For \code{method = "fiml"} the likelihood-ratio statistics are calibrated
+#' by a parametric bootstrap from the fitted feedforward null, and what is
+#' re-estimated on each replicate decides what the resulting p-value means.
+#' \describe{
+#'   \item{\code{"conditional"}}{Stage 2 alone is re-run, with the basis
+#'     \code{object$X} and the exclusion mask \code{object$mask} held at their
+#'     observed values.  This calibrates the statistic \emph{given} the basis
+#'     and the mask.  It is a valid test only if those were obtained from data
+#'     independent of \code{Y1}; when basis, mask and test come from the same
+#'     sample -- the usual case -- it overstates the evidence, because the mask
+#'     was chosen on the very data being tested.}
+#'   \item{\code{"full"}}{Stage 1 is also re-run on every replicate: the basis
+#'     is re-estimated with the settings recorded in \code{object$stage1.args},
+#'     the mask is re-derived from it with \code{object$mask.rule}, and Stage 2
+#'     follows.  This is the operating characteristic of the complete
+#'     exploratory procedure.  Its false-selection rate is large whenever the
+#'     mask is not well determined by the data (see \code{mask.change.rate}):
+#'     when the dominant factor of an outcome changes between replicates, a
+#'     previously blocked entry becomes free and a feedback coefficient can
+#'     absorb loading structure.  Costs one \code{\link{nmfkc}} fit per
+#'     replicate in addition to Stage 2.}
+#'   \item{\code{"split"} (default)}{The units are divided at random into two
+#'     halves; the basis and the mask are estimated on one half only, and Stage 2
+#'     with the conditional bootstrap is run on the other.  Because the basis
+#'     and the mask are then functions of data independent of the test half,
+#'     the conditional calibration is valid there.  Each split is used in both
+#'     directions and \code{nsplit} splits are reported (\code{split.table});
+#'     the price is the power of \eqn{N/2} units and a selected support that
+#'     varies from split to split.  Costs \code{2 * nsplit * B} Stage-2 fits.}
+#' }
+#' The three levels can disagree sharply on the same data; the NMF-FFB paper
+#' reports all three and relies on \code{"split"} as the test.
+#'
 #' @param B Number of bootstrap replicates.  Default \code{1000}, the value the
 #'   published analysis used; the other inference functions in the package
 #'   default their \code{wild.B} to 500, and this one is deliberately left at
@@ -820,6 +866,16 @@ nmf.ffb <- function(
 #'   each replicate uses \code{seed + b} (resampling) and
 #'   \code{seed + 1000 + b} (\eqn{C_1, C_2} initialization); for
 #'   \code{method = "fiml"} see Description.  Default \code{123}.
+#' @param calibration (\code{method = "fiml"} only) What is re-estimated on
+#'   each null replicate; see the section \emph{Calibration}.
+#'   \code{"split"} (default): sample splitting -- the basis and the exclusion
+#'   mask are estimated on one half of the units and Stage 2 with its
+#'   conditional bootstrap is run on the other half; \code{"conditional"}:
+#'   Stage 2 only, with \code{object$X} and \code{object$mask} held fixed;
+#'   \code{"full"}: Stage 1 and the mask are re-estimated on every replicate.
+#' @param nsplit (\code{calibration = "split"} only) Number of random splits;
+#'   each is used in both directions, so \code{2 * nsplit} half-sample tests
+#'   are reported.  Default \code{5}.
 #' @param ... Hidden options.  Shared: \code{cores} (number of parallel
 #'   workers, default \code{getOption("mc.cores", 1L)} for \code{"fiml"},
 #'   \code{1} for \code{"mu"}; \code{ncores} is accepted as an alias) and
@@ -881,6 +937,25 @@ nmf.ffb <- function(
 #'   signals a flat null likelihood (small \eqn{N}, full \eqn{\Phi}); re-run with
 #'   a larger \code{fiml.maxit} or a smaller \code{factr} to check that
 #'   \code{LR.p.boot} is stable.}
+#' \item{bootstrap.calibration}{(\code{"fiml"} only) \code{"split"},
+#'   \code{"conditional"} or \code{"full"}: the level at which the null
+#'   bootstrap was run (section \emph{Calibration}).}
+#' \item{split.table}{(\code{calibration = "split"} only) One row per
+#'   (split, direction): sizes of the two halves, free entries of the mask
+#'   derived on the estimation half, \code{LR_full}, \code{LR_selected},
+#'   \code{nnz_selected} and \code{rho} on the test half, their conditional
+#'   bootstrap p-values \code{p_full}, \code{p_selected}, the null 95\%
+#'   quantile, and the null false-selection rate on that half.  At this level
+#'   \code{LR.boot}, \code{LR.p.boot} and \code{prob.select.null} are
+#'   \code{NULL}: the table is the result, and the fraction of halves with
+#'   \code{p_full < 0.05} is the summary to report.}
+#' \item{mask.change.rate}{(\code{calibration = "full"} only) Share of null
+#'   replicates on which the re-derived exclusion mask differed from the
+#'   observed one.  A large value means the restriction is not well
+#'   determined by the data and the exploratory procedure will select
+#'   feedback under the null.}
+#' \item{LR.boot.df}{(\code{"conditional"}/\code{"full"}) Free entries of the
+#'   mask on each null replicate (constant for \code{"conditional"}).}
 #' \item{prob.select.null}{(\code{"fiml"} only) share of null replicates in
 #'   which BIC selected at least one feedback path (the false-selection rate
 #'   under the null).  A tail probability of the procedure, not a p-value.}
@@ -905,10 +980,18 @@ nmf.ffb <- function(
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
 #' res  <- nmf.ffb(Y1, Y2, rank = 2)
-#' res2 <- nmf.ffb.inference(res, Y1, Y2, B = 20)  # quick demo; use B = 1000
-#' res2$LR.p.boot          # calibrated p-values of the LR statistics
-#' res2$prob.select.null   # false-selection rate under the null
+#' ## level (i): conditional on the estimated basis and mask (quick; not a valid
+#' ## test when basis, mask and Y1 come from the same sample -- see Calibration)
+#' res2 <- nmf.ffb.inference(res, Y1, Y2, B = 20, calibration = "conditional")
+#' res2$LR.p.boot          # (1 + #)/(1 + B) bootstrap p-values, given the basis
+#' res2$prob.select.null   # false-selection rate under the null, given the basis
 #' head(res2$coefficients)
+#' ## level (iii), the default: basis and mask from one half, test on the other
+#' res3 <- nmf.ffb.inference(res, Y1, Y2, B = 20, nsplit = 2)  # use B = 1000
+#' res3$split.table        # one row per (split, direction); no single p-value
+#' ## level (ii): re-estimate basis and mask on every null replicate
+#' res4 <- nmf.ffb.inference(res, Y1, Y2, B = 20, calibration = "full")
+#' res4$mask.change.rate   # share of null replicates whose exclusion mask moved
 #'
 #' res.mu  <- nmf.ffb(Y1, Y2, rank = 2, method = "mu")
 #' res.mu2 <- nmf.ffb.inference(res.mu, Y1, Y2, B = 200)
@@ -921,15 +1004,19 @@ nmf.ffb.inference <- function(object, Y1, Y2,
                                C1.L1 = 1.0,
                                C2.L1 = 0.1,
                                seed = 123L,
+                               calibration = c("split", "conditional", "full"),
+                               nsplit = 5L,
                                ...) {
   if (is.null(object$X) || is.null(object$C1) || is.null(object$C2))
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
+  calibration <- match.arg(calibration)
 
   ## Likelihood-based fits take the parametric-bootstrap branch; objects
   ## without a `method` field predate it and are multiplicative-update fits.
   if (identical(object$method, "fiml"))
     return(.nmf.ffb.inference.fiml(object, Y1, Y2, B = B, threshold = threshold,
-                                   ci.level = ci.level, seed = seed, ...))
+                                   ci.level = ci.level, seed = seed,
+                                   calibration = calibration, nsplit = nsplit, ...))
 
   extra_args  <- base::list(...)
   ## Keep our own seeding out of the caller's random stream.

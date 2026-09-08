@@ -154,22 +154,37 @@ plot(res)                # BIC versus log(lambda1); the selected point is circle
 Because $\Theta_1 \ge 0$ puts the null on the boundary and the support is
 selected from the data, the LR statistics do not follow a chi-square
 distribution. `nmf.ffb.inference()` simulates from the fitted feedforward
-model, re-runs the whole selection pipeline on each replicate, and
-returns bootstrap $p$-values together with the *null false-selection
-rate*, the probability that BIC retains at least one spurious entry when
-the feedforward model is true. A second bootstrap from the selected model
-gives interval estimates of the retained coefficients.
+model and re-runs the selection pipeline on each replicate. *What* is
+re-run decides what the result means (argument `calibration`):
+
+* `"conditional"` keeps the estimated basis and exclusion mask fixed and
+  re-runs Stage 2 only. It is fast, but because the mask was derived from
+  the same data it is not a valid test on its own -- it overstates the
+  evidence.
+* `"full"` re-estimates the basis and the mask on every null replicate:
+  the operating characteristic of the whole exploratory procedure.
+  `mask.change.rate` tells you how often the exclusion mask moved.
+* `"split"` (the default) estimates basis and mask on one random half of
+  the units and runs the conditional bootstrap on the other half, so that
+  the calibration is valid there; several splits are reported, because
+  the selected support varies from split to split.
 
 ```{r}
-inf <- nmf.ffb.inference(res, Y1, Y2, B = 20, seed = 1)   # use B = 1000 in practice
-inf$LR.p.boot            # bootstrap p-values for LR(full) and LR(selected)
-inf$prob.select.null     # null false-selection rate of BIC
+## quick look, conditional on the estimated basis (not a valid test by itself)
+inf0 <- nmf.ffb.inference(res, Y1, Y2, B = 20, seed = 1, calibration = "conditional")
+inf0$LR.p.boot           # (1 + #)/(1 + B) bootstrap p-values, given the basis
+inf0$prob.select.null    # null false-selection rate of BIC, given the basis
+
+## the default: sample splitting (use B = 1000 and nsplit = 5 in practice)
+inf <- nmf.ffb.inference(res, Y1, Y2, B = 20, nsplit = 2, seed = 1)
+inf$split.table          # one row per (split, direction); no single p-value
 head(inf$coefficients)   # retained coefficients with bootstrap intervals
 ```
 
 With a small `B` the $p$-values are coarse; the published analysis uses
-`B = 1000` (about one minute on a few cores because each replicate refits
-the whole path). Pass `cores = ` to parallelize.
+`B = 1000` (a few minutes on a few cores because each replicate refits
+the whole path; splitting multiplies this by `2 * nsplit`). Pass
+`cores = ` to parallelize.
 
 ## 5. Path diagrams
 
@@ -189,8 +204,11 @@ dot_ffb <- nmf.ffb.DOT(res, model = "selected", threshold = 0.05)
 In the Holzinger--Swineford data the three factors reproduce the
 visual/textual/speed grouping. The selected feedback links the speeded
 tests to the visual factor and the visual tests to the speed factor, a
-cross-factor cycle with $\rho(X\Theta_1)\approx 0.6$, and the bootstrap
-places the observed LR far outside the null distribution. Two cautions
+cross-factor cycle with $\rho(X\Theta_1)\approx 0.6$. Conditional on the
+estimated basis the observed LR lies far outside the null distribution;
+once the basis and mask are estimated on an independent half of the
+sample, the evidence for feedback remains consistent across splits while
+the particular paths selected vary. Two cautions
 apply in general: the feedback coefficients are conditional structural
 coefficients, not causal effects, and a cross-factor cycle can absorb
 part of what a factor correlation would otherwise explain, so the change

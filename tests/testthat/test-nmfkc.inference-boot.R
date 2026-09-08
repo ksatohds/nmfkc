@@ -156,8 +156,10 @@ test_that("no inference or CV wrapper resets the caller's RNG stream", {
   ff  <- qq(nmf.ffb(Y1, Y2, rank = 2, verbose = FALSE))
   calls <- list(
     nmfkc.inference   = function() qq(nmfkc.inference(fk, Y, A, wild.B = 20)),
-    nmf.ffb.inference = function() qq(nmf.ffb.inference(ff, Y1, Y2, B = 10,
-                                                        ncores = 1, print.trace = FALSE)),
+    ## this test is about the RNG stream, so take the cheap conditional branch;
+    ## the default (sample splitting) halves N = 30 and is exercised elsewhere
+    nmf.ffb.inference = function() qq(nmf.ffb.inference(ff, Y1, Y2, B = 10, ncores = 1,
+                                                        print.trace = FALSE, calibration = "conditional")),
     nmfkc.cv          = function() qq(nmfkc.cv(Y, rank = 2, verbose = FALSE)),
     nmfkc.ecv         = function() qq(nmfkc.ecv(Y, rank = 2, verbose = FALSE)),
     nmf.ffb.cv        = function() qq(nmf.ffb.cv(Y1, Y2, rank = 2, seed = 7,

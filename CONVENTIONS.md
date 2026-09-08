@@ -184,6 +184,27 @@ Fit the model tightly too (`epsilon = 1e-8`) when the fit feeds inference.
   NHANES fits of the NMF-FFB paper, which reports the same results as
   `p < 0.001`. This is the same failure the bullet above forbids for
   coefficients: state the count-based form for *every* bootstrap p-value.
+- **A bootstrap calibrates only what it re-runs.** If a selection step --
+  a basis estimated from `Y1`, an exclusion mask derived from that basis, a
+  support chosen by BIC -- is held fixed at its observed value while `Y1*` is
+  regenerated, the null distribution omits the adaptivity of that step and the
+  p-value is anti-conservative. Either re-run every data-dependent step on each
+  replicate (`nmf.ffb.inference(calibration = "full")`), or make the step
+  independent of the test data by estimating it on a separate half of the
+  units (`calibration = "split"`). Conditioning on a fixed estimated basis
+  (`calibration = "conditional"`) is a valid test only when the basis came from
+  other data; label it as conditional otherwise and never call it
+  size-controlled. This rule cost the NMF-FFB paper its headline `p < 0.001`
+  on both applications (whole-procedure p = 0.05 and 0.35; the split test
+  then rejected in 9/10 and 10/10 half-samples) -- and revealed that the
+  exclusion mask moved in 40% (HS39) and 95% (NHANES) of null replicates,
+  i.e. that the restriction was not determined by the data at all.
+- **A `"cross"`-type threshold mask is not a superset of the dominant-factor
+  mask.** An outcome whose largest loading is below the threshold has no factor
+  blocked, so its self-loop is free. Combine the two rules (`mask = "union"`)
+  rather than choosing one; the paper's simulation used the threshold rule
+  while its applications used the dominant-factor rule, and the two were only
+  reconciled in the 2026-09 audit.
 - **Report how many bootstrap replicates missed the optimizer tolerance.**
   Replicates that stop at `maxit` are still draws from the procedure and stay in
   the calibration, but the share must be visible: on a flat likelihood (small

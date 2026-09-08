@@ -18,7 +18,7 @@ nmf.ffb(
   ...,
   method = c("fiml", "mu"),
   X = NULL,
-  mask = c("block", "cross", "none"),
+  mask = c("union", "block", "cross", "none"),
   cross.threshold = 0.05,
   phi = c("full", "diag"),
   lambda1 = NULL,
@@ -54,7 +54,7 @@ cluster centers become \eqn{X}.  Scales well for large
 \eqn{Y_1}; this is the default of \code{\link{nmfkc}}.
 \item \code{"kmeansar"}: \code{"kmeans"} followed by filling
 zero entries of \eqn{X} with \eqn{\mathrm{Uniform}(0,
-      \bar Y_1 / 100)} (NNDSVDar-style additive randomness to
+    \bar Y_1 / 100)} (NNDSVDar-style additive randomness to
 escape trivial stationary points).
 \item \code{"runif"}: Uniform random entries in \eqn{[0, 1]}.
 \item A numeric \eqn{P_1 \times Q} matrix supplied by the user;
@@ -67,7 +67,7 @@ before iteration.  The menu mirrors \code{\link{nmfkc}}'s
 
 \item{X.L2.ortho}{L2 orthogonality penalty for \code{X}. This controls
 the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
-  \rVert_F^2}. Default: \code{100}.}
+\rVert_F^2}. Default: \code{100}.}
 
 \item{C1.L1}{L1 sparsity penalty for \code{C1} (i.e., \eqn{\Theta_1}).
 Default: \code{1.0}.  \strong{Scale note}: this function adds
@@ -144,12 +144,12 @@ whose \code{$X} is used.  When supplied, stage 1 is skipped and
 \code{rank} is taken from \code{ncol(X)}.}
 
 \item{mask}{Exclusion restriction on \eqn{\Theta_1} for
-\code{method = "fiml"}: \code{"block"} (default), \code{"cross"},
-\code{"none"}, or a \eqn{Q \times P_1} 0/1 matrix (1 = free).  See
-the section \emph{Exclusion mask}.}
+\code{method = "fiml"}: \code{"union"} (default), \code{"block"},
+\code{"cross"}, \code{"none"}, or a \eqn{Q \times P_1} 0/1 matrix
+(1 = free).  See the section \emph{Exclusion mask}.}
 
-\item{cross.threshold}{Loading threshold for \code{mask = "cross"}.
-Default \code{0.05}.}
+\item{cross.threshold}{Loading threshold for \code{mask = "union"} and
+\code{"cross"}.  Default \code{0.05}.}
 
 \item{phi}{Covariance of the latent disturbance \eqn{U} for
 \code{method = "fiml"}: \code{"full"} (default; positive definite via
@@ -170,7 +170,7 @@ model and the path is skipped.}
 \code{"full"}: the unpenalized feedback fit; \code{"path"}:
 continuation from the best penalized solution at the previous (smaller)
 penalty; \code{"null"}: the feed-forward null with \eqn{\Theta_1 =
-  0.05} on the free entries; \code{"soft"}: the unpenalized
+0.05} on the free entries; \code{"soft"}: the unpenalized
 \eqn{\Theta_1} soft-thresholded at \code{lambda1 / N}.  A single
 start (the behaviour of earlier versions) can miss the support with
 the smallest BIC: on the Holzinger-Swineford data the start
@@ -325,19 +325,31 @@ fit once \eqn{X} is free, this estimator cannot separate
 }
 \section{Exclusion mask}{
 
-Feedback is identified only through exclusion restrictions.  With
-\code{mask = "block"} (default) an outcome may not feed back into the
-factor that generates it: entry \eqn{(q, i)} of \eqn{\Theta_1} is free
-unless \eqn{q = \arg\max_{q'} X_{i q'}} (no self-loops).  \code{"cross"}
-frees entry \eqn{(q, i)} when \eqn{X_{iq} <} \code{cross.threshold};
+Feedback is identified only through exclusion restrictions: an outcome
+may not feed back into a factor on which it loads, because such an entry
+is nearly equivalent to a change of the outcome's loading.  With
+\code{mask = "union"} (default) entry \eqn{(q, i)} of \eqn{\Theta_1} is
+excluded if \eqn{q = \arg\max_{q'} X_{i q'}} (the dominant factor) or
+\eqn{X_{iq} \ge} \code{cross.threshold}.  The two partial rules are kept
+for comparison: \code{"block"} excludes the dominant factor only, so an
+outcome with a substantial second loading may still feed that factor;
+\code{"cross"} excludes only the factors above the threshold, so an outcome
+whose largest loading is below the threshold keeps its own factor free
+(\code{"cross"} is therefore \emph{not} a superset of \code{"block"}).
 \code{"none"} frees every entry (not recommended: the model is then
 identified only through the non-negativity and the covariance structure).
 A user-supplied \eqn{Q \times P_1} 0/1 matrix is used as given.
+
+The mask is derived from the estimated basis and therefore from the same
+\eqn{Y_1} that is subsequently tested; see the \emph{Calibration} section
+of \code{\link{nmf.ffb.inference}} for what this implies.
 }
 
 \section{Lifecycle}{
 
-\code{method = "fiml"} became the default in version 0.9.8.
+\code{method = "fiml"} became the default in version 0.9.8, as did
+\code{mask = "union"} (earlier fiml fits used \code{"block"}), and
+\code{\link{nmf.ffb.inference}} gained the \code{calibration} argument.
 \code{method = "mu"} is the legacy estimator, kept for the reproducibility
 of published analyses; it will be deprecated in a later release.
 }

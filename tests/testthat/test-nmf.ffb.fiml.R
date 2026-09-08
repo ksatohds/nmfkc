@@ -153,7 +153,8 @@ test_that("nmf.ffb(method = 'mu') reproduces the pre-fiml estimator", {
   expect_length(fit$objfunc, 500L)
 
   ## legacy inference path (full pair bootstrap) is untouched
-  inf <- suppressWarnings(nmf.ffb.inference(fit, Y1, Y2, B = 20, epsilon = 1e-6, maxit = 3000))
+  inf <- suppressWarnings(nmf.ffb.inference(fit, Y1, Y2, B = 20, epsilon = 1e-6, maxit = 3000,
+                                            calibration = "conditional"))
   expect_equal(inf$coefficients$Estimate,
                c(0.69579132651489872, 0.027988927398813722, 0.35793327504197442,
                  0.95440141876463536, 0.17413656755523033, 7.6817175792012538e-07,
@@ -179,9 +180,10 @@ test_that("nmf.ffb.inference() on a fiml fit runs the two parametric bootstraps"
   skip_unless_full()
   d <- make_ffb_data()
   fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
-  inf <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 5)
+  inf <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 5, calibration = "conditional")
 
   expect_s3_class(inf, "nmf.ffb.inference"); expect_s3_class(inf, "nmf.inference")
+  expect_identical(inf$bootstrap.calibration, "conditional")
   ## null bootstrap
   expect_equal(dim(inf$LR.boot), c(5, 2)); expect_equal(colnames(inf$LR.boot), c("full", "selected"))
   expect_named(inf$LR.p.boot, c("full", "selected"))
@@ -209,11 +211,11 @@ test_that("nmf.ffb.inference() on a fiml fit runs the two parametric bootstraps"
   expect_true(is.data.frame(coef(inf)))
   ## deterministic given the seed, and the caller's stream is untouched
   set.seed(7); a <- runif(1)
-  set.seed(7); inf2 <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 5); b <- runif(1)
+  set.seed(7); inf2 <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 5, calibration = "conditional"); b <- runif(1)
   expect_identical(a, b)
   expect_identical(inf2$LR.boot, inf$LR.boot)
   ## boot.null = FALSE skips the (expensive) null bootstrap
-  inf3 <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 3, boot.null = FALSE)
+  inf3 <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 3, boot.null = FALSE, calibration = "conditional")
   expect_null(inf3$LR.boot); expect_null(inf3$LR.p.boot)
   expect_null(inf3$LR.boot.n.nonconv); expect_null(inf3$LR.boot.n.ok)
   expect_equal(nrow(inf3$coefficients), nrow(cf))
@@ -228,7 +230,7 @@ test_that("the bootstrap LR p-value is never exactly zero and honours its floor"
   d <- make_ffb_data()
   fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
   B <- 20L
-  inf <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = B)
+  inf <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = B, calibration = "conditional")
 
   expect_true(all(inf$LR.p.boot > 0))
   expect_identical(inf$LR.boot.n.ok, sum(is.finite(inf$LR.boot[, "full"]) &
@@ -242,6 +244,64 @@ test_that("the bootstrap LR p-value is never exactly zero and honours its floor"
   ## convergence counts are reported and cannot exceed the usable replicates
   expect_named(inf$LR.boot.n.nonconv, c("null", "full"))
   expect_true(all(inf$LR.boot.n.nonconv >= 0 & inf$LR.boot.n.nonconv <= inf$LR.boot.n.ok))
+})
+
+test_that("the default exclusion mask is the union of the dominant-factor and threshold rules", {
+  ## .ffb.fiml.mask() takes the basis as given (nmf.ffb normalises before calling
+  ## it), so use the rows as written: normalising here would move the argmax of
+  ## row 3 to a loading above the threshold and defeat the third case.
+  X <- rbind(c(0.60, 0.30, 0.10),   # dominant 1, loads on 2 above 0.05 -> both blocked
+             c(0.02, 0.01, 0.97),   # dominant 3 only
+             c(0.03, 0.02, 0.01))   # largest loading below 0.05: "cross" alone would free everything
+  M_union <- nmfkc:::.ffb.fiml.mask(X, "union", 0.05)
+  M_block <- nmfkc:::.ffb.fiml.mask(X, "block", 0.05)
+  M_cross <- nmfkc:::.ffb.fiml.mask(X, "cross", 0.05)
+  expect_equal(M_union, M_block * M_cross)
+  expect_true(all(M_union <= M_block) && all(M_union <= M_cross))
+  ## "cross" is not a superset of "block": outcome 3 keeps its own factor free
+  expect_true(any(M_cross > M_block))
+  expect_identical(nmfkc:::.ffb.fiml.mask(X, "union"), nmfkc:::.ffb.fiml.mask(X))
+  d <- make_ffb_data()
+  fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
+  expect_identical(fit$mask.rule, "union")
+  expect_true(is.list(fit$stage1.args) && isTRUE(fit$stage1.args$from.data))
+})
+
+test_that("calibration = 'full' re-estimates the basis and reports mask movement", {
+  skip_unless_full()
+  d <- make_ffb_data()
+  fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
+  inf <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 6, calibration = "full")
+  expect_identical(inf$bootstrap.calibration, "full")
+  expect_equal(dim(inf$LR.boot), c(6, 2))
+  expect_true(is.numeric(inf$mask.change.rate) && inf$mask.change.rate >= 0 && inf$mask.change.rate <= 1)
+  expect_length(inf$LR.boot.df, 6)
+  expect_true(all(inf$LR.p.boot > 0))
+  expect_output(print(inf), "re-estimated on every null replicate")
+})
+
+test_that("calibration = 'split' (the default) returns one row per split and direction", {
+  skip_unless_full()
+  d <- make_ffb_data()
+  fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
+  inf <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 4, nsplit = 2)
+  expect_identical(inf$bootstrap.calibration, "split")
+  st <- inf$split.table
+  expect_s3_class(st, "data.frame"); expect_equal(nrow(st), 4)
+  expect_setequal(st$direction, c("AB", "BA"))
+  expect_true(all(c("split", "N_est", "N_test", "df", "LR_full", "LR_selected", "nnz_selected",
+                    "p_full", "p_selected", "null_q95_full", "prob_select_null", "B_ok") %in% names(st)))
+  expect_true(all(st$N_est + st$N_test == ncol(d$Y1)))
+  expect_true(all(st$p_full > 0 & st$p_full <= 1))
+  ## no single p-value is defined at this level
+  expect_null(inf$LR.p.boot); expect_null(inf$prob.select.null)
+  ## coefficient CIs (conditional on the full-sample fit) are still produced
+  expect_true(is.data.frame(inf$coefficients))
+  expect_output(print(inf), "sample splitting")
+  ## a user-supplied mask cannot be re-derived: falls back with a warning
+  fitU <- nmf.ffb(d$Y1, d$Y2, rank = d$Q, mask = fit$mask)
+  expect_warning(infU <- nmf.ffb.inference(fitU, d$Y1, d$Y2, B = 3, calibration = "full"), "falling back")
+  expect_identical(infU$bootstrap.calibration, "conditional")
 })
 
 test_that("nmf.ffb.cv(method = 'fiml') delegates to nmfkc.ecv()", {

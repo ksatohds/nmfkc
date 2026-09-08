@@ -409,8 +409,32 @@ print.summary.nmf.sem <- function(x, ...) {
                 object$LR[["selected"]], as.integer(object$LR.df[["selected"]])))
     cat(sprintf("  selected: lambda1 = %s, nnz = %d, rho(XC1) = %.4f, mask = %s\n",
                 format(object$lambda1.selected, digits = 4), as.integer(sum(object$support)),
-                object$XC1.radius, if (is.character(object$call$mask) || is.null(object$call$mask))
-                  if (is.null(object$call$mask)) "block" else object$call$mask else "user matrix"))
+                object$XC1.radius,
+                if (!is.null(object$mask.rule)) object$mask.rule                 # recorded since 0.9.8
+                else if (is.null(object$call$mask)) "block"                        # older fits: the default then
+                else if (is.character(object$call$mask)) object$call$mask[1] else "user matrix"))
+    if (!is.null(object$bootstrap.calibration))
+      cat(sprintf("\nCalibration: %s\n", switch(object$bootstrap.calibration,
+        conditional = "conditional on the estimated basis and exclusion mask (level i)\n  -- not a valid test when basis, mask and test data come from the same sample",
+        full        = "basis and exclusion mask re-estimated on every null replicate (level ii)\n  -- operating characteristic of the whole exploratory procedure",
+        split       = "sample splitting: basis and mask from one half, test on the other (level iii)")))
+    if (!is.null(object$split.table)) {
+      st <- object$split.table
+      cat(sprintf("  %d splits x 2 directions, B = %d per half, N_test ~ %d\n",
+                  object$split.nsplit, as.integer(object$bootstrap.B), as.integer(stats::median(st$N_test))))
+      cat(sprintf("  p_full     : median %.4f, range [%.4f, %.4f], %d / %d halves below 0.05\n",
+                  stats::median(st$p_full), min(st$p_full), max(st$p_full), sum(st$p_full < 0.05), nrow(st)))
+      cat(sprintf("  p_selected : median %.4f, range [%.4f, %.4f], %d / %d halves below 0.05\n",
+                  stats::median(st$p_selected), min(st$p_selected), max(st$p_selected), sum(st$p_selected < 0.05), nrow(st)))
+      cat(sprintf("  LR_full    : median %.2f, range [%.2f, %.2f];  nnz selected: %s\n",
+                  stats::median(st$LR_full), min(st$LR_full), max(st$LR_full), paste(st$nnz_selected, collapse = ",")))
+      cat(sprintf("  null false-selection rate on the test halves: median %.3f\n", stats::median(st$prob_select_null)))
+      cat("  (full table in $split.table)\n")
+    }
+    if (!is.null(object$mask.change.rate))
+      cat(sprintf("  exclusion mask changed in %.1f%% of the null replicates (free entries %d-%d, observed %d)\n",
+                  100 * object$mask.change.rate, min(object$LR.boot.df, na.rm = TRUE),
+                  max(object$LR.boot.df, na.rm = TRUE), as.integer(sum(object$mask))))
     if (!is.null(object$LR.p.boot)) {
       cat("\nParametric bootstrap under the FF null:\n")
       ## p = (1 + #)/(1 + B_ok); at the floor no replicate reached LR_obs, so

@@ -1,5 +1,52 @@
 # nmfkc (development version)
 
+## `nmf.ffb.inference()`: what the bootstrap conditions on (`calibration`), and two fixes
+
+The parametric bootstrap that calibrates the feedback LR statistics used to
+hold the estimated basis `X` and the exclusion mask fixed at their observed
+values while regenerating `Y1*`. Both are functions of `Y1`, so the null
+distribution omitted the adaptivity of that selection and the p-values were
+anti-conservative: on the two positive examples of the NMF-FFB paper the
+fixed-basis bootstrap gives `p < 0.001`, re-running Stage 1 on every
+replicate gives `p = 0.05` and `0.35`, and the exclusion mask turns out to
+move in 40% and 95% of the null replicates. `nmf.ffb.inference()` therefore
+gains a `calibration` argument with three levels:
+
+* `"conditional"`: Stage 2 only, basis and mask fixed (the previous
+  behaviour). Valid only if basis and mask came from data independent of
+  `Y1`; labelled as conditional in `print()`.
+* `"full"`: Stage 1 and the mask are re-estimated on every replicate (one
+  `nmfkc()` fit per replicate). Returns `mask.change.rate`, the share of
+  replicates whose exclusion mask moved, and `LR.boot.df`.
+* `"split"` (new default): basis and mask are estimated on one random half
+  of the units and Stage 2 with its conditional bootstrap is run on the other
+  half, where that calibration is valid; each of `nsplit` splits is used in
+  both directions. Returns `split.table`, one row per (split, direction),
+  and no single p-value -- the fraction of halves below 0.05 is the summary.
+
+Two fixes in the same function. `LR.p.boot` is now `(1 + #)/(1 + B_ok)`
+instead of the raw proportion, which was exactly 0 whenever no replicate
+reached the observed statistic (the normal case for a strongly significant
+fit, and not a valid p-value); the floor `1/(1 + B_ok)` is printed as
+`< floor`. And the L-BFGS-B convergence codes of the null replicates are no
+longer discarded: `LR.boot.n.nonconv` reports how many missed the tolerance
+and a warning is raised above 10%, because on a flat null likelihood (small
+`N`, full `Phi`) the share can reach 40% and must be visible to the user.
+
+## `nmf.ffb()`: exclusion mask `"union"` (new default)
+
+`mask = "block"` excluded only the dominant factor of each outcome, and
+`mask = "cross"` only the factors with loading at or above
+`cross.threshold`. Neither is a superset of the other: an outcome with a
+substantial second loading could still feed that factor under `"block"`, and
+an outcome whose largest loading is below the threshold kept its own factor
+free under `"cross"`. The new default `"union"` excludes both, which is the
+rule "an outcome may not feed back into a factor on which it loads". On the
+NHANES data of the paper this removes four selected paths (including BMI ->
+physical factor, coefficient 0.58) that were items feeding a factor on which
+they load. The fit records `mask.rule` and `stage1.args` so that
+`nmf.ffb.inference()` can re-derive the mask and re-run Stage 1.
+
 ## `nmf.ffb()`: likelihood-based estimator (`method = "fiml"`, new default)
 
 The joint multiplicative-update estimator that `nmf.ffb()` used until now
@@ -16,8 +63,8 @@ gains a two-stage likelihood-based estimator, now the default:
    `Y1 = X B + E`, `B = Theta1 Y1 + Theta2 Y2 + U`, `U ~ N(0, Phi)`,
    `E ~ N(0, diag(psi))` is fitted by FIML (L-BFGS-B, analytic gradient)
    under the non-negativity of `Theta1`, `Theta2` and an exclusion `mask`
-   on `Theta1` (default `"block"`: no outcome may feed back into the factor
-   that generates it). The feed-forward null (`Theta1 = 0`, a non-negative
+   on `Theta1` (default `"union"`, see above: no outcome may feed back into
+   a factor on which it loads). The feed-forward null (`Theta1 = 0`, a non-negative
    MIMIC factor model with correlated factors), the unpenalized feedback fit
    and an L1 path on `Theta1` with re-estimation on each support are fitted;
    the support with the smallest BIC is the reported model.

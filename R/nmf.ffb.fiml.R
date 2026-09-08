@@ -59,29 +59,41 @@
 #' Exclusion mask for Theta1 (Internal)
 #'
 #' @param X Basis matrix (P1 x Q), column-stochastic.
-#' @param mask \code{"block"}: entry (q, i) is free unless q is the dominant
-#'   factor of outcome i (\code{which.max(X[i, ])}), i.e. an outcome may not
-#'   feed back into the factor that generates it (no self-loops);
-#'   \code{"cross"}: free where \code{X[i, q] < cross.threshold};
+#' @param mask \code{"union"} (default): entry (q, i) is excluded if q is the
+#'   dominant factor of outcome i (\code{which.max(X[i, ])}) OR
+#'   \code{X[i, q] >= cross.threshold} -- an outcome may not feed back into any
+#'   factor on which it loads; \code{"block"}: only the dominant factor is
+#'   excluded; \code{"cross"}: only factors with \code{X[i, q] >= cross.threshold}
+#'   are excluded (an outcome whose largest loading is below the threshold then
+#'   keeps its own factor free, so this is not a superset of \code{"block"});
 #'   \code{"none"}: all entries free; or a user Q x P1 0/1 matrix.
-#' @param cross.threshold Loading threshold for \code{mask = "cross"}.
+#' @param cross.threshold Loading threshold for \code{mask = "union"} and
+#'   \code{"cross"}.
 #' @return A Q x P1 matrix of 0 / 1 (1 = free).
 #' @keywords internal
 #' @noRd
-.ffb.fiml.mask <- function(X, mask = "block", cross.threshold = 0.05) {
+.ffb.fiml.mask <- function(X, mask = "union", cross.threshold = 0.05) {
   P1 <- base::nrow(X); Q <- base::ncol(X)
   if (base::is.matrix(mask) || (base::is.numeric(mask) && base::length(mask) == Q * P1)) {
     M <- base::matrix(base::as.numeric(mask), Q, P1)
     if (base::any(!(M %in% c(0, 1))))
       base::stop("a user-supplied `mask` must be a Q x P1 matrix of 0 / 1.")
   } else {
-    mask <- base::match.arg(mask, c("block", "cross", "none"))
+    mask <- base::match.arg(mask, c("union", "block", "cross", "none"))
     M <- base::matrix(1, Q, P1)
-    if (mask == "block") {
+    ## "block": the argmax factor of each outcome is excluded.  "cross": every
+    ## factor with loading >= cross.threshold is excluded -- NOT a superset of
+    ## "block", because an outcome whose largest loading is below the threshold
+    ## keeps its own factor free.  "union" (default since 0.9.8) excludes both,
+    ## which is the rule "an outcome may not feed back into a factor on which it
+    ## loads" stated in the NMF-FFB paper; the two partial rules are kept for
+    ## comparison.
+    if (mask %in% c("block", "union")) {
       dom <- base::apply(X, 1L, base::which.max)
       for (i in base::seq_len(P1)) M[dom[i], i] <- 0
-    } else if (mask == "cross") {
-      M <- (base::t(X) < cross.threshold) * 1
+    }
+    if (mask %in% c("cross", "union")) {
+      M <- M * ((base::t(X) < cross.threshold) * 1)
     }
   }
   base::dimnames(M) <- base::list(base::colnames(X), base::rownames(X))
@@ -448,7 +460,7 @@
 #' @keywords internal
 #' @noRd
 .nmf.ffb.fiml <- function(Y1, Y2, rank, X.init, X.L2.ortho, epsilon, maxit, seed,
-                          X = NULL, mask = "block", cross.threshold = 0.05,
+                          X = NULL, mask = "union", cross.threshold = 0.05,
                           phi = "full", lambda1 = NULL, select = "BIC",
                           starts = c("full", "path", "null", "soft"), cl = NULL, ...) {
   extra_args <- base::list(...)
@@ -554,6 +566,12 @@
     AIC = -2 * ll + 2 * kk,
     phi = phi, select = select, starts = starts, cross.threshold = cross.threshold,
     factr = factr, X.L2.ortho = X.L2.ortho,
+    ## what nmf.ffb.inference() needs to re-run stage 1 and re-derive the mask on
+    ## a bootstrap replicate or on half of the units (calibration = "full"/"split")
+    mask.rule = if (base::is.character(mask)) base::match.arg(mask, c("union", "block", "cross", "none")) else "user",
+    stage1.args = base::list(X.init = if (base::is.null(X.init)) "nndsvd" else X.init,
+                             X.L2.ortho = X.L2.ortho, epsilon = epsilon, maxit = maxit,
+                             seed = seed, from.data = base::is.null(X)),
     stage1 = if (base::is.null(stage1)) NULL else
       base::list(iter = stage1$iter, converged = stage1$converged, objfunc = stage1$objfunc)
   )
@@ -597,9 +615,45 @@
 #' fields.
 #' @keywords internal
 #' @noRd
+## Stage 1 on a data matrix, as nmf.ffb() runs it, returning the column-normalised
+## basis and the nmfkc coefficient matrix (the Theta2 start for stage 2).
+.ffb.fiml.stage1 <- function(Y1, Y2, Q, args, seed) {
+  s1 <- nmfkc(Y = Y1, A = Y2, Q = Q, X.init = args$X.init, X.L2.ortho = args$X.L2.ortho,
+              epsilon = args$epsilon, maxit = args$maxit, seed = seed,
+              verbose = FALSE, print.dims = FALSE)
+  Xb <- s1$X; Xb[Xb < 0] <- 0
+  Xb <- base::sweep(Xb, 2, base::pmax(base::colSums(Xb), 1e-10), "/")
+  base::dimnames(Xb) <- base::list(base::rownames(Y1), base::paste0("Factor", 1:Q))
+  base::list(X = Xb, C = s1$C)
+}
+
+## Permutation of the columns of Xnew that best matches Xref (exhaustive for Q <= 6,
+## greedy beyond); used only to report whether the exclusion mask moved.
+.ffb.fiml.align <- function(Xnew, Xref) {
+  Q <- base::ncol(Xref)
+  if (Q <= 6L) {
+    perms <- function(v) if (base::length(v) <= 1L) base::list(v) else
+      base::do.call(c, base::lapply(base::seq_along(v), function(i)
+        base::lapply(perms(v[-i]), function(p) c(v[i], p))))
+    P <- perms(base::seq_len(Q))
+    d <- base::vapply(P, function(p) base::sum(base::abs(Xnew[, p, drop = FALSE] - Xref)), numeric(1))
+    P[[base::which.min(d)]]
+  } else {
+    used <- base::integer(0); p <- base::integer(Q)
+    for (q in base::seq_len(Q)) {
+      d <- base::colSums(base::abs(Xnew - Xref[, q])); d[used] <- Inf
+      p[q] <- base::which.min(d); used <- c(used, p[q])
+    }
+    p
+  }
+}
+
 .nmf.ffb.inference.fiml <- function(object, Y1, Y2, B = 1000L, threshold = 0.01,
-                                    ci.level = 0.95, seed = 123L, ...) {
+                                    ci.level = 0.95, seed = 123L,
+                                    calibration = "split", nsplit = 5L, ...) {
   extra_args <- base::list(...)
+  calibration <- base::match.arg(calibration, c("split", "conditional", "full"))
+  nsplit <- base::as.integer(nsplit)
   cores <- if (!base::is.null(extra_args$cores)) extra_args$cores
            else if (!base::is.null(extra_args$ncores)) extra_args$ncores
            else base::getOption("mc.cores", 1L)
@@ -628,26 +682,108 @@
   support <- (object$C1 > 1e-3) * 1
   nnz_obs <- base::sum(support)
 
+  ## Stage-1 settings and the mask rule, needed when the basis is re-estimated
+  ## (calibration = "full" or "split").  Objects fitted before 0.9.8 lack them:
+  ## fall back to the nmf.ffb() defaults and to the rule that was the default then.
+  s1args <- if (!base::is.null(object$stage1.args)) object$stage1.args else
+    base::list(X.init = "nndsvd", X.L2.ortho = 100, epsilon = 1e-6, maxit = 5000, seed = seed, from.data = TRUE)
+  mask.rule <- if (!base::is.null(object$mask.rule)) object$mask.rule else "block"
+  thr <- if (!base::is.null(object$cross.threshold)) object$cross.threshold else 0.05
+  if (calibration != "conditional" && (mask.rule == "user" || !base::isTRUE(s1args$from.data))) {
+    base::warning("calibration = \"", calibration, "\" re-estimates the basis and re-derives the ",
+                  "exclusion mask on each replicate, but this fit used a user-supplied ",
+                  if (mask.rule == "user") "mask" else "basis",
+                  "; falling back to calibration = \"conditional\".")
+    calibration <- "conditional"
+  }
+  ## a mask derived from the basis: rebuilt from any X* with the same rule
+  rederive_mask <- function(Xs) if (mask.rule == "user") mask else .ffb.fiml.mask(Xs, mask.rule, thr)
+
   ## ---- (i) null bootstrap: LR calibration ----
   T2_0 <- object$null$C2; Phi_0 <- object$null$Phi; psi_0 <- object$null$psi
   LR_obs <- object$LR
   boot_null_one <- function(b) {
     base::set.seed(seed + b)
     Y1s <- .ffb.fiml.sim(X, NULL, T2_0, Phi_0, psi_0, Y2)
+    na_out <- c(full = NA_real_, selected = NA_real_, nnz = NA_real_,
+                conv.null = NA_real_, conv.full = NA_real_, df = NA_real_, mask.moved = NA_real_)
+    if (calibration == "full") {
+      ## re-run stage 1 on this replicate and re-derive the exclusion restriction,
+      ## so that the null distribution contains the basis- and mask-selection step
+      s1 <- base::tryCatch(.ffb.fiml.stage1(Y1s, Y2, Q, s1args, seed = seed + b), error = function(e) NULL)
+      if (base::is.null(s1)) return(na_out)
+      p <- .ffb.fiml.align(s1$X, X)
+      Xs <- s1$X[, p, drop = FALSE]; base::colnames(Xs) <- base::colnames(X)
+      Cs <- s1$C[p, , drop = FALSE]
+      masks <- rederive_mask(Xs)
+      moved <- base::any(masks != mask)
+    } else {
+      Xs <- X; Cs <- T2_0; masks <- mask; moved <- FALSE
+    }
     r <- base::tryCatch(
-      .ffb.fiml.pipeline(Y1s, Y2, X, T2_0, mask, phi.full = phi.full, lambda1 = lambda1,
+      .ffb.fiml.pipeline(Y1s, Y2, Xs, Cs, masks, phi.full = phi.full, lambda1 = lambda1,
                          select = select, maxit = fiml.maxit, factr = factr, starts = starts),
       error = function(e) NULL)
-    if (base::is.null(r))
-      return(c(full = NA_real_, selected = NA_real_, nnz = NA_real_,
-               conv.null = NA_real_, conv.full = NA_real_))
+    if (base::is.null(r)) return(na_out)
     ## conv.* are the L-BFGS-B convergence codes of the two fits (0 = converged).
     ## They are carried out of the worker so that the caller can report how many
     ## null replicates hit `maxit`: on a flat likelihood (small N, full Phi) that
     ## can be a large share, and it is not visible from the LR values alone.
     c(full = 2 * (r$f1$loglik - r$f0$loglik), selected = 2 * (r$fsel$loglik - r$f0$loglik),
       nnz = base::sum(r$fsel$T1 > 1e-3),
-      conv.null = r$f0$conv, conv.full = r$f1$conv)
+      conv.null = r$f0$conv, conv.full = r$f1$conv,
+      df = base::sum(masks), mask.moved = base::as.numeric(moved))
+  }
+
+  ## ---- (i-b) sample splitting: basis and mask from one half, test on the other ----
+  ## Because X_A and mask_A are functions of the estimation half only, the
+  ## conditional bootstrap on the test half is a valid calibration there.
+  split_half <- function(est, tst, tag, s) {
+    Y1e <- Y1[, est, drop = FALSE]; Y2e <- Y2[, est, drop = FALSE]
+    Y1t <- Y1[, tst, drop = FALSE]; Y2t <- Y2[, tst, drop = FALSE]
+    Nt <- base::ncol(Y1t)
+    s1 <- .ffb.fiml.stage1(Y1e, Y2e, Q, s1args, seed = seed + 7919L * s)
+    XA <- s1$X; maskA <- rederive_mask(XA)
+    ## Theta2 start on the test half: least squares given X_A, as in nmf.ffb()
+    B0 <- base::tryCatch(base::solve(base::crossprod(XA), base::crossprod(XA, Y1t)), error = function(e) NULL)
+    CA <- if (base::is.null(B0)) base::matrix(0.1, Q, base::nrow(Y2t)) else
+      base::pmax(base::tryCatch(B0 %*% base::t(Y2t) %*% base::solve(base::tcrossprod(Y2t)),
+                                error = function(e) base::matrix(0.1, Q, base::nrow(Y2t))), 1e-4)
+    na_row <- function(msg) {
+      base::warning("sample split ", tag, " of split ", s, ": ", msg, "; half reported as NA.")
+      base::data.frame(split = s, direction = tag, N_est = base::length(est), N_test = Nt, df = base::sum(maskA),
+                       LR_full = NA_real_, LR_selected = NA_real_, nnz_selected = NA_integer_, rho = NA_real_,
+                       p_full = NA_real_, p_selected = NA_real_, null_q95_full = NA_real_,
+                       prob_select_null = NA_real_, B_ok = 0L, stringsAsFactors = FALSE)
+    }
+    o <- base::tryCatch(
+      .ffb.fiml.pipeline(Y1t, Y2t, XA, CA, maskA, phi.full = phi.full, lambda1 = lambda1,
+                         select = select, maxit = fiml.maxit, factr = factr, starts = starts),
+      error = function(e) NULL)
+    if (base::is.null(o)) return(na_row("stage 2 failed on the test half (too few units?)"))
+    LRu <- 2 * (o$f1$loglik - o$f0$loglik); LRs <- 2 * (o$fsel$loglik - o$f0$loglik)
+    T2h <- o$f0$T2; Phih <- o$f0$Phi; psih <- o$f0$psi
+    one <- function(b) {
+      base::set.seed(seed + 100000L * s + 50000L * (tag == "BA") + b)
+      Y1s <- .ffb.fiml.sim(XA, NULL, T2h, Phih, psih, Y2t)
+      r <- base::tryCatch(
+        .ffb.fiml.pipeline(Y1s, Y2t, XA, T2h, maskA, phi.full = phi.full, lambda1 = lambda1,
+                           select = select, maxit = fiml.maxit, factr = factr, starts = starts),
+        error = function(e) NULL)
+      if (base::is.null(r)) return(c(NA_real_, NA_real_, NA_real_))
+      c(2 * (r$f1$loglik - r$f0$loglik), 2 * (r$fsel$loglik - r$f0$loglik), base::sum(r$fsel$T1 > 1e-3))
+    }
+    bt <- base::do.call(base::rbind, .nmfkc.parlapply(base::seq_len(B), one, cores = cores, envir = base::environment()))
+    ok <- base::is.finite(bt[, 1]) & base::is.finite(bt[, 2]); nok <- base::sum(ok)
+    if (nok == 0L) return(na_row("no usable null replicate on the test half"))
+    pv <- function(x, obs) (1 + base::sum(x >= obs)) / (1 + base::length(x))
+    base::data.frame(split = s, direction = tag, N_est = base::length(est), N_test = Nt,
+                     df = base::sum(maskA), LR_full = LRu, LR_selected = LRs,
+                     nnz_selected = base::sum(o$fsel$T1 > 1e-3), rho = o$fsel$rho,
+                     p_full = pv(bt[ok, 1], LRu), p_selected = pv(bt[ok, 2], LRs),
+                     null_q95_full = stats::quantile(bt[ok, 1], 0.95, type = 8, names = FALSE),
+                     prob_select_null = base::mean(bt[ok, 3] > 0), B_ok = nok,
+                     stringsAsFactors = FALSE)
   }
   ## ---- (ii) selected-model bootstrap: coefficient uncertainty ----
   T1_s <- object$C1; T2_s <- object$C2; Phi_s <- object$Phi; psi_s <- object$psi
@@ -667,11 +803,29 @@
   if (print.trace)
     base::message(base::sprintf("  Parametric bootstrap (fiml): B=%d, cores=%d, threshold=%.3g, ci.level=%.2f",
                                 B, base::as.integer(cores), threshold, ci.level))
-  if (boot.null) {
+  split.table <- NULL; mask.change.rate <- NULL; df.boot <- NULL
+  if (boot.null && calibration == "split") {
+    if (N < 4L * (P1 + P2)) base::warning("sample splitting with N = ", N, " leaves very small test halves; ",
+                                          "consider calibration = \"conditional\" and report it as such.")
+    rows <- base::list()
+    for (s in base::seq_len(nsplit)) {
+      base::set.seed(seed + 31L * s); idx <- base::sample.int(N)
+      A <- base::sort(idx[base::seq(1L, N, 2L)]); Bh <- base::sort(idx[base::seq(2L, N, 2L)])
+      rows[[base::length(rows) + 1L]] <- split_half(A, Bh, "AB", s)
+      rows[[base::length(rows) + 1L]] <- split_half(Bh, A, "BA", s)
+    }
+    split.table <- base::do.call(base::rbind, rows); base::rownames(split.table) <- NULL
+    ## no single p-value is defined at this level; the table is the result
+    LR.boot <- NULL; nnz.boot <- NULL; LR.p.boot <- NULL; LR.null.quantile <- NULL
+    prob.select.null <- NULL; n.nonconv <- NULL; n.ok <- NULL
+    conv.null.boot <- NULL; conv.full.boot <- NULL
+  } else if (boot.null) {
     res_null <- .nmfkc.parlapply(base::seq_len(B), boot_null_one, cores = cores, envir = base::environment())
     LR.boot <- base::do.call(base::rbind, res_null)
     nnz.boot <- LR.boot[, "nnz"]
     conv.null.boot <- LR.boot[, "conv.null"]; conv.full.boot <- LR.boot[, "conv.full"]
+    df.boot <- LR.boot[, "df"]
+    if (calibration == "full") mask.change.rate <- base::mean(LR.boot[, "mask.moved"], na.rm = TRUE)
     LR.boot <- LR.boot[, c("full", "selected"), drop = FALSE]
     ok <- base::is.finite(LR.boot[, "full"]) & base::is.finite(LR.boot[, "selected"])
     n.ok <- base::sum(ok)
@@ -768,7 +922,12 @@
   object$LR.null.quantile <- LR.null.quantile
   object$prob.select.null <- prob.select.null
   object$LR.boot.n.nonconv <- n.nonconv
-  object$LR.boot.n.ok <- if (boot.null) n.ok else NULL
+  object$LR.boot.n.ok <- if (boot.null && calibration != "split") n.ok else NULL
+  object$bootstrap.calibration <- calibration
+  object$mask.change.rate <- mask.change.rate      # "full" only: share of null replicates whose mask moved
+  object$LR.boot.df <- df.boot                      # free entries per null replicate ("full": varies)
+  object$split.table <- split.table                 # "split" only: one row per (split, direction)
+  object$split.nsplit <- if (calibration == "split") nsplit else NULL
   object$rho.boot <- rho.vec
   object$C1.array <- C1.array
   object$C2.array <- C2.array

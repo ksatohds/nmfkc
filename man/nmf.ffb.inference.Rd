@@ -14,6 +14,8 @@ nmf.ffb.inference(
   C1.L1 = 1,
   C2.L1 = 0.1,
   seed = 123L,
+  calibration = c("split", "conditional", "full"),
+  nsplit = 5L,
   ...
 )
 }
@@ -59,6 +61,18 @@ should pass the actual values used.  Not used for \code{method = "fiml"}.}
 each replicate uses \code{seed + b} (resampling) and
 \code{seed + 1000 + b} (\eqn{C_1, C_2} initialization); for
 \code{method = "fiml"} see Description.  Default \code{123}.}
+
+\item{calibration}{(\code{method = "fiml"} only) What is re-estimated on
+each null replicate; see the section \emph{Calibration}.
+\code{"split"} (default): sample splitting -- the basis and the exclusion
+mask are estimated on one half of the units and Stage 2 with its
+conditional bootstrap is run on the other half; \code{"conditional"}:
+Stage 2 only, with \code{object$X} and \code{object$mask} held fixed;
+\code{"full"}: Stage 1 and the mask are re-estimated on every replicate.}
+
+\item{nsplit}{(\code{calibration = "split"} only) Number of random splits;
+each is used in both directions, so \code{2 * nsplit} half-sample tests
+are reported.  Default \code{5}.}
 
 \item{...}{Hidden options.  Shared: \code{cores} (number of parallel
 workers, default \code{getOption("mc.cores", 1L)} for \code{"fiml"},
@@ -122,6 +136,25 @@ in the feedback fit.  They are kept in the calibration, but a large share
 signals a flat null likelihood (small \eqn{N}, full \eqn{\Phi}); re-run with
 a larger \code{fiml.maxit} or a smaller \code{factr} to check that
 \code{LR.p.boot} is stable.}
+\item{bootstrap.calibration}{(\code{"fiml"} only) \code{"split"},
+\code{"conditional"} or \code{"full"}: the level at which the null
+bootstrap was run (section \emph{Calibration}).}
+\item{split.table}{(\code{calibration = "split"} only) One row per
+(split, direction): sizes of the two halves, free entries of the mask
+derived on the estimation half, \code{LR_full}, \code{LR_selected},
+\code{nnz_selected} and \code{rho} on the test half, their conditional
+bootstrap p-values \code{p_full}, \code{p_selected}, the null 95\\%
+quantile, and the null false-selection rate on that half.  At this level
+\code{LR.boot}, \code{LR.p.boot} and \code{prob.select.null} are
+\code{NULL}: the table is the result, and the fraction of halves with
+\code{p_full < 0.05} is the summary to report.}
+\item{mask.change.rate}{(\code{calibration = "full"} only) Share of null
+replicates on which the re-derived exclusion mask differed from the
+observed one.  A large value means the restriction is not well
+determined by the data and the exploratory procedure will select
+feedback under the null.}
+\item{LR.boot.df}{(\code{"conditional"}/\code{"full"}) Free entries of the
+mask on each null replicate (constant for \code{"conditional"}).}
 \item{prob.select.null}{(\code{"fiml"} only) share of null replicates in
 which BIC selected at least one feedback path (the false-selection rate
 under the null).  A tail probability of the procedure, not a p-value.}
@@ -215,6 +248,42 @@ mirrors the standard R convention for p-values (p < 0.05 / 0.01 /
 0.001 → \emph{/\strong{/}}), translated to support_rate via
 \eqn{\mathrm{sup} = 1 - p}.
 }
+\section{Calibration}{
+
+For \code{method = "fiml"} the likelihood-ratio statistics are calibrated
+by a parametric bootstrap from the fitted feedforward null, and what is
+re-estimated on each replicate decides what the resulting p-value means.
+\describe{
+\item{\code{"conditional"}}{Stage 2 alone is re-run, with the basis
+\code{object$X} and the exclusion mask \code{object$mask} held at their
+observed values.  This calibrates the statistic \emph{given} the basis
+and the mask.  It is a valid test only if those were obtained from data
+independent of \code{Y1}; when basis, mask and test come from the same
+sample -- the usual case -- it overstates the evidence, because the mask
+was chosen on the very data being tested.}
+\item{\code{"full"}}{Stage 1 is also re-run on every replicate: the basis
+is re-estimated with the settings recorded in \code{object$stage1.args},
+the mask is re-derived from it with \code{object$mask.rule}, and Stage 2
+follows.  This is the operating characteristic of the complete
+exploratory procedure.  Its false-selection rate is large whenever the
+mask is not well determined by the data (see \code{mask.change.rate}):
+when the dominant factor of an outcome changes between replicates, a
+previously blocked entry becomes free and a feedback coefficient can
+absorb loading structure.  Costs one \code{\link{nmfkc}} fit per
+replicate in addition to Stage 2.}
+\item{\code{"split"} (default)}{The units are divided at random into two
+halves; the basis and the mask are estimated on one half only, and Stage 2
+with the conditional bootstrap is run on the other.  Because the basis
+and the mask are then functions of data independent of the test half,
+the conditional calibration is valid there.  Each split is used in both
+directions and \code{nsplit} splits are reported (\code{split.table});
+the price is the power of \eqn{N/2} units and a selected support that
+varies from split to split.  Costs \code{2 * nsplit * B} Stage-2 fits.}
+}
+The three levels can disagree sharply on the same data; the NMF-FFB paper
+reports all three and relies on \code{"split"} as the test.
+}
+
 \section{Lifecycle}{
 
 This function's interface changed at v0.6.8: the legacy 1-step Newton
