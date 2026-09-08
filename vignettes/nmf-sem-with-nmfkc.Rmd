@@ -4,7 +4,6 @@ output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{NMF-FFB with nmfkc}
   %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteDepends{lavaan}
   %\VignetteEncoding{UTF-8}
 ---
 
@@ -19,212 +18,269 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-This vignette shows how to fit **NMF-FFB** (non-negative matrix
-factorization with feedforward and feedback structure) with **nmfkc**,
-and how to decide whether the feedback is supported by the data.
-
-NMF with covariates (the *feedforward* model, NMF-FF) approximates a
-non-negative endogenous data matrix $Y_1$ ($P_1 \times N$) by a
-column-stochastic basis $X$ and covariate-driven scores,
+NMF-FFB describes non-negative outcomes $Y_1$ ($P_1 \times N$) by a small number
+of non-negative factors driven by covariates $Y_2$ ($P_2 \times N$), and asks
+whether the outcomes also feed **back** into those factors:
 
 $$
-Y_1 \approx X\,\Theta_2 Y_2 ,
+Y_1 = X B + \mathcal{E}, \qquad B = \Theta_1 Y_1 + \Theta_2 Y_2 + U ,
 $$
 
-where $Y_2$ ($P_2 \times N$) holds the exogenous variables. NMF-FFB adds a
-non-negative **feedback** term through which the endogenous variables act
-back on the latent factors,
+with $X \ge 0$ the basis, $\Theta_2 \ge 0$ the exogenous coefficients,
+$\Theta_1 \ge 0$ the feedback, $U \sim N(0, \Phi)$ a unit-level random effect and
+$\mathcal{E} \sim N(0, \Psi)$ item noise.  With $A = X\Theta_1$ the equilibrium
+is $Y_1 = (I - A)^{-1}(X\Theta_2 Y_2 + XU + \mathcal{E})$, which exists when the
+spectral radius $\rho(A) < 1$.
 
-$$
-Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2).
-$$
+Two facts shape everything below.
 
-Two facts shape the estimator (see `?nmf.ffb` and the references):
+**Feedback cannot be found by prediction.**  The equilibrium mapping
+$M = (I - X\Theta_1)^{-1}X\Theta_2$ is reproduced exactly by a feed-forward model
+with exogenous matrix $L_Q\Theta_2$.  The two models predict $Y_1$ from $Y_2$
+identically, so no cross-validation and no test-sample error can prefer one.
+What separates them is the *conditional covariance*: with feedback, the
+disturbances propagate around the loop.
 
-* The equilibrium map $M=(I-X\Theta_1)^{-1}X\Theta_2$ of any stable NMF-FFB
-  model can be reproduced exactly by an NMF-FF model with the same basis
-  (reduced-form equivalence). Predictive fit therefore cannot tell
-  feedback from its absence.
-* Feedback is identified through disturbances that propagate around the
-  loop and through an **exclusion restriction**: an outcome may not feed
-  back into the factor on which it loads (no self-loops).
+**An outcome must not feed back into its own factor.**  Without a restriction
+the factor-level directions $\Theta_1 = a X^\top \Psi^{-1}$ are observationally
+equivalent to a change in $\Theta_2$ and $\Phi$, so they are not identified.  The
+default `mask = "union"` blocks, for each outcome, the factor it loads on most
+and every factor on which it loads at least `cross.threshold`.
 
-`nmf.ffb()` therefore works in two stages: the basis $X$ is estimated by
-`nmfkc()` (Stage 1), and, conditional on $X$, a Gaussian working model
+## The workflow
 
-$$
-Y_1 = XB + \mathcal{E},\qquad B=\Theta_1Y_1+\Theta_2Y_2+U,\qquad
-U\sim N(0,\Phi),\quad \mathcal{E}\sim N(0,\Psi)
-$$
+One function per step:
 
-is fitted by full-information maximum likelihood (Stage 2). The
-feedforward model ($\Theta_1=0$) is the nested null model, a sparse
-$\Theta_1$ is chosen by an L1 path with BIC, and the likelihood-ratio
-statistic is calibrated by a parametric bootstrap in
-`nmf.ffb.inference()`.
-
----
-
-## 1. Data: Holzinger--Swineford tests
-
-```{r}
-library(lavaan)
-library(nmfkc)
-data(HolzingerSwineford1939)
-
-d <- HolzingerSwineford1939
-d <- d[complete.cases(d), ]
-
-## exogenous variables: reversed age, sex, school
-d$age.rev   <- -(d$ageyr + d$agemo / 12)
-d$sex.2     <- ifelse(d$sex == 2, 1, 0)
-d$school.GW <- ifelse(d$school == "Grant-White", 1, 0)
-d[, c("id", "sex", "ageyr", "agemo", "school", "grade")] <- NULL
-
-## min-max scaling to [0, 1] (all variables non-negative)
-d <- nmfkc.normalize(d)
-
-exogenous_vars  <- c("age.rev", "sex.2", "school.GW")
-endogenous_vars <- setdiff(colnames(d), exogenous_vars)
-Y1 <- t(d[, endogenous_vars])   # 9 tests x 300 pupils
-Y2 <- t(d[, exogenous_vars])    # 3 covariates x 300 pupils
+```r
+ecv <- nmf.ffb.ecv(Y1, Y2, rank = 1:5)   # 1. choose Q
+fit <- nmf.ffb(Y1, Y2, rank = Q)         # 2. estimate; BIC selects the support
+tst <- nmf.ffb.test(fit, Y1, Y2)         # 3. test the feed-forward null
+dgn <- nmf.ffb.diagnostics(fit)          # 4. cycles, spectral radius, best supports
+inf <- nmf.ffb.inference(fit, Y1, Y2)    # 5. intervals for the retained entries
 ```
+
+The order matters, and step 3 is the only inferential step.  What it tests is
+
+$$
+H_0: \text{the distribution of } Y_1 \mid Y_2 \text{ belongs to the feed-forward family}
+\qquad\text{against}\qquad
+H_1: \text{it does not.}
+$$
+
+Note what $H_0$ is *not*.  It is not the single point $\Theta_1 = 0$.  The map
+from parameters to distributions is not injective, so the null family is larger
+than that point: a feed-forward model with a different $\Theta_2$ and $\Phi$
+reproduces the mean *and* the covariance of some models with $\Theta_1 \ne 0$.
+Rejection therefore says "no feed-forward model with correlated factors
+reproduces these first two moments", not "$\Theta_1 \ne 0$".  Section 1 builds
+one data set of each kind so that both outcomes can be seen.  Section 6 explains
+why reading step 4 before step 3 is a mistake.
+
+## 1. Data
+
+We use two simulated data sets, so that the truth is known and the two outcomes
+of the procedure can both be shown.  Both have $P_1 = 6$ outcomes loading on
+$Q = 2$ factors and $P_2 = 3$ covariates.
+
+```{r data}
+library(nmfkc)
+set.seed(20260909)
+
+N <- 600; P1 <- 6; P2 <- 3; Q <- 2
+X.true <- matrix(0.02, P1, Q)                    # parts-based basis: 3 outcomes per factor
+X.true[1:3, 1] <- runif(3, 0.7, 1.3)
+X.true[4:6, 2] <- runif(3, 0.7, 1.3)
+X.true <- sweep(X.true, 2, colSums(X.true), "/")
+rownames(X.true) <- paste0("y", 1:P1); colnames(X.true) <- paste0("F", 1:Q)
+
+T2.true <- matrix(0, Q, P2); T2.true[1, 1] <- 1.2; T2.true[2, 2] <- 0.9; T2.true[1, 3] <- 0.5
+T1.true <- matrix(0, Q, P1); T1.true[2, 1] <- 0.8; T1.true[1, 4] <- 0.6   # y1 -> F2, y4 -> F1
+Y2 <- matrix(runif(P2 * N), P2, N); rownames(Y2) <- paste0("x", 1:P2)
+
+simulate_ffb <- function(T1, feedback.in.loop = TRUE) {
+  U <- matrix(rnorm(Q * N, sd = 0.3), Q, N)
+  E <- matrix(rnorm(P1 * N, sd = 0.1), P1, N)
+  L <- solve(diag(P1) - X.true %*% T1)
+  if (feedback.in.loop) {
+    Y1 <- L %*% (X.true %*% (T2.true %*% Y2 + U) + E)     # disturbances inside the loop
+  } else {
+    Y1 <- (L %*% X.true %*% T2.true) %*% Y2 + X.true %*% U + E   # added after it
+  }
+  Y1 <- pmax(Y1, 0); rownames(Y1) <- rownames(X.true); Y1
+}
+
+Y1.H1 <- simulate_ffb(T1.true, feedback.in.loop = TRUE)    # H1 is true
+Y1.H0 <- simulate_ffb(T1.true, feedback.in.loop = FALSE)   # H0 is true
+```
+
+Both are generated from the *same* $\Theta_1$.  The difference is where the
+disturbances enter, and that is what decides which hypothesis holds.
+
+* `Y1.H1`: $U$ and $\mathcal{E}$ enter inside the loop, so they are propagated by
+  $(I - X\Theta_1)^{-1}$.  The conditional covariance carries the loop, no
+  feed-forward model reproduces it, and $H_1$ is true.
+* `Y1.H0`: the same disturbances are added after the loop.  The conditional mean
+  is unchanged, but the covariance is $X\Phi X^\top + \Psi$, exactly what the
+  feed-forward model with exogenous matrix $L_Q\Theta_2$ gives.  The
+  distribution lies in the null family, so $H_0$ is true --- *even though*
+  $\Theta_1 \ne 0$ in the code that generated it.
+
+`Y1.H0` is the interesting one: in the parameter space it is a point with
+feedback, but as a distribution it is indistinguishable from no feedback.  There
+is nothing to detect, and the procedure should say so.
 
 ## 2. Choosing the number of factors
 
-The number of factors $Q$ is a property of the feedforward stage, so it is
-chosen by element-wise cross-validation of the feedforward fit
-(`nmf.ffb.cv()` delegates to `nmfkc.ecv()` for `method = "fiml"`;
-column-wise cross-validation of the equilibrium prediction cannot select
-the feedback penalty because of the reduced-form equivalence).
-
-```{r, eval = FALSE}
-cv <- nmf.ffb.cv(Y1, Y2, rank = 2:4, method = "fiml", X.L2.ortho = 100)
-cv$objfunc      # held-out reconstruction error by rank
+```{r ecv}
+ecv <- nmf.ffb.ecv(Y1.H1, Y2, rank = 1:4, nfolds = 5, seed = 1)
+data.frame(Q = ecv$rank, ECV = round(ecv$objfunc, 4))
+Q0 <- ecv$rank[which.min(ecv$objfunc)]
+Q0
 ```
 
-For these data the canonical three-factor structure (visual, textual,
-speed) is used, $Q = 3$.
+Held-out *entries* of $Y_1$ are predicted from the remaining ones, so this
+measures how well a $Q$-factor non-negative basis describes the outcomes -- which
+is what $Q$ is for.  It says nothing about feedback, by the first fact above.
 
-## 3. Fitting NMF-FFB
+## 3. Fitting
 
-`nmf.ffb()` estimates the basis with `nmfkc()` (NNDSVDar initialization,
-orthogonality penalty `X.L2.ortho`) and then fits the working model by
-FIML. By default the exclusion mask is `"block"` (an outcome may feed
-back only into factors other than its dominant one), $\Phi$ is a full
-covariance matrix, and the sparse feedback structure is selected by BIC.
+`nmf.ffb()` estimates the basis with `nmfkc()`, derives the exclusion
+restriction from it, fits the feed-forward null and the full feedback model by
+FIML, follows an $L_1$ path, and refits each distinct support without the
+penalty; BIC over those supports selects one.
 
-```{r}
-Q0  <- 3
-res <- nmf.ffb(Y1, Y2, rank = Q0, X.L2.ortho = 100)   # method = "fiml" (default)
-summary(res)
+```{r fit}
+fit <- nmf.ffb(Y1.H1, Y2, rank = Q0)
+round(fit$X, 3)                       # estimated basis
+round(fit$C1, 3)                      # selected feedback (Theta1), Q x P1
+c(rho = round(fit$XC1.radius, 3), LR = round(fit$LR[["full"]], 2), df = fit$LR.df)
 ```
 
-The summary reports the log-likelihoods of the null (feedforward), the
-unpenalized feedback model and the BIC-selected model, the two
-likelihood-ratio statistics, the number of retained feedback entries and
-the spectral radius $\rho(X\Theta_1)$ of the selected feedback operator.
+The two retained entries should be `y1 -> F2` and `y4 -> F1`, the truth.
 
-```{r}
-round(res$X, 2)          # basis (column-stochastic): which test loads on which factor
-round(res$C1, 2)         # selected feedback Theta1 (Q x P1): outcome -> factor
-round(res$C2, 2)         # exogenous coefficients Theta2 (Q x P2)
-res$LR                   # LR statistics vs. the feedforward null (full / selected)
-res$BIC                  # BIC of null / full / selected
-res$XC1.radius           # rho(X Theta1) of the selected model
+## 4. Is the feed-forward model enough?
+
+This is the only inferential step.  The likelihood ratio has no $\chi^2$ null
+distribution -- $\Theta_1 \ge 0$ puts the null on a boundary and the support is
+chosen from the same data -- so it is calibrated by a parametric bootstrap from
+the fitted feed-forward null.  The default calibration re-runs **the whole
+procedure** on every replicate: the basis is re-estimated, the restriction is
+re-derived from it, and the selection follows.
+
+**When $H_1$ is true** the test should reject:
+
+```{r test}
+## B = 1000 in practice; kept small here so the vignette builds quickly
+tst.H1 <- nmf.ffb.test(fit, Y1.H1, Y2, B = 50, seed = 1)
+c(p = round(tst.H1$LR.p.boot[["full"]], 3),
+  null.q95 = round(tst.H1$LR.null.quantile[["full"]], 2),
+  selects.under.null = tst.H1$prob.select.null,
+  mask.moves = round(tst.H1$mask.change.rate, 2))
 ```
 
-The BIC path shows how the number of retained feedback entries and the
-log-likelihood change along the L1 penalty. Because the penalized problem
-is non-convex, every penalty is fitted from several starting points
-(`starts`); `path` has one row per (penalty, start) and flags the rows
-that re-propose an already known support, and `candidates` lists every
-distinct support with its BIC. On these data the single start `"full"`
-would have stopped at a one-path model; the six-path model with the
-smallest BIC is found by the `"soft"` and `"null"` starts.
+**When $H_0$ is true** it should not, and BIC should retain nothing --- although
+the data were generated with the same non-zero $\Theta_1$:
 
-```{r}
-res$path[!res$path$duplicate, ]   # first proposal of each distinct support
-res$candidates                    # all distinct supports; BIC is minimized over these
-plot(res)                # BIC versus log(lambda1); the selected point is circled
+```{r test-ff}
+fit.H0 <- nmf.ffb(Y1.H0, Y2, rank = Q0)
+tst.H0 <- nmf.ffb.test(fit.H0, Y1.H0, Y2, B = 50, seed = 1)
+c(nnz = sum(fit.H0$C1 > 1e-3),
+  p = round(tst.H0$LR.p.boot[["full"]], 3),
+  selects.under.null = tst.H0$prob.select.null)
 ```
 
-## 4. Is the feedback supported? Parametric bootstrap
+Read `prob.select.null` and `mask.change.rate` alongside the *p*-value.  They say
+whether the exclusion restriction is determined well enough for the test to mean
+anything: if the dominant factor of an outcome moves from replicate to replicate,
+a blocked entry becomes free and a feedback coefficient can absorb loading
+structure.  A large `prob.select.null` with a wide null distribution is the
+signature of a data set in which the procedure finds feedback whether or not
+there is any -- report it and stop, rather than reporting the *p*-value alone.
 
-Because $\Theta_1 \ge 0$ puts the null on the boundary and the support is
-selected from the data, the LR statistics do not follow a chi-square
-distribution. `nmf.ffb.inference()` simulates from the fitted feedforward
-model and re-runs the selection pipeline on each replicate. *What* is
-re-run decides what the result means (argument `calibration`):
+If the null is not rejected, stop here and report NMF-FF.
 
-* `"conditional"` keeps the estimated basis and exclusion mask fixed and
-  re-runs Stage 2 only. It is fast, but because the mask was derived from
-  the same data it is not a valid test on its own -- it overstates the
-  evidence.
-* `"full"` re-estimates the basis and the mask on every null replicate:
-  the operating characteristic of the whole exploratory procedure.
-  `mask.change.rate` tells you how often the exclusion mask moved.
-* `"split"` (the default) estimates basis and mask on one random half of
-  the units and runs the conditional bootstrap on the other half, so that
-  the calibration is valid there; several splits are reported, because
-  the selected support varies from split to split.
+## 5. What the feedback looks like
 
-```{r}
-## quick look, conditional on the estimated basis (not a valid test by itself)
-inf0 <- nmf.ffb.inference(res, Y1, Y2, B = 20, seed = 1, calibration = "conditional")
-inf0$LR.p.boot           # (1 + #)/(1 + B) bootstrap p-values, given the basis
-inf0$prob.select.null    # null false-selection rate of BIC, given the basis
-
-## the default: sample splitting (use B = 1000 and nsplit = 5 in practice)
-inf <- nmf.ffb.inference(res, Y1, Y2, B = 20, nsplit = 2, seed = 1)
-inf$split.table          # one row per (split, direction); no single p-value
-head(inf$coefficients)   # retained coefficients with bootstrap intervals
+```{r diagnostics}
+dgn <- nmf.ffb.diagnostics(fit)
+dgn$top                      # the three best distinct supports
+round(dgn$log.N, 2)          # what one extra free entry costs in BIC
+dgn$nested                   # do they form a chain under inclusion?
+dgn$core                     # entries common to all three
+dgn$cycles$rho               # spectral radius; 0 with a non-empty support = a cascade
+dgn$cycles$cycle             # which factors lie on a cycle
 ```
 
-With a small `B` the $p$-values are coarse; the published analysis uses
-`B = 1000` (a few minutes on a few cores because each replicate refits
-the whole path; splitting multiplies this by `2 * nsplit`). Pass
-`cores = ` to parallelize.
+Adding one free entry costs $\log N$ in BIC, and a difference in BIC is twice the
+log of a Bayes factor, so a difference below about 2 is not evidence for one
+support over another: the *presence* of feedback can be settled while its
+*composition* is not.  When the best supports form a chain under inclusion their
+intersection is the part the criterion does not put in doubt; when they do not,
+no single support should be read off.
 
-## 5. Path diagrams
+`omega` reports how much of the fitted $\Theta_1$ lies in the factor-level family
+that is not identified, against its reference value:
 
-`nmf.ffb.DOT()` draws the feedforward model (`model = "null"`) and the
-BIC-selected model (`model = "selected"`) on the same node layout, so the
-effect of the feedback is visible as the difference between the two
-diagrams; feedback edges are dashed.
+```{r omega}
+round(unlist(dgn$omega[c("omega", "omega0")]), 3)
+```
 
-```{r}
-dot_ff  <- nmf.ffb.DOT(res, model = "null",     threshold = 0.05)
-dot_ffb <- nmf.ffb.DOT(res, model = "selected", threshold = 0.05)
+## 6. Why the test comes before the spectral radius
+
+The unpenalized $\hat\rho$ is biased upwards under the null, because the
+likelihood is nearly flat along the unidentified directions.  The $\hat\rho$ of
+the BIC-selected model is not:
+
+```{r rho-order}
+c(unpenalized = round(fit.H0$full$XC1.radius, 3),   # on the data where H0 is true
+  selected    = round(fit.H0$XC1.radius, 3))
+```
+
+Reading $\hat\rho$ first would suggest a loop in data that contain none.  Read it
+only after the test has been passed, and treat a positive value as a lower bound:
+BIC keeps too few entries to close the loop when the feedback is weak.
+
+## 7. Intervals for the retained entries
+
+After the null has been rejected, `nmf.ffb.inference()` gives bootstrap intervals
+for the entries of the *selected* model, with the basis and the support held
+fixed.  These describe the sampling variability of the retained coefficients, not
+the evidence for retaining them -- an interval that excludes zero is not by itself
+a finding.
+
+```{r inference}
+inf <- nmf.ffb.inference(fit, Y1.H1, Y2, B = 50, seed = 1)
+subset(inf$coefficients, Type == "C1" & Estimate > 0,
+       select = c(Basis, Covariate, Estimate, CI_low, CI_high, support_rate))
+```
+
+## 8. Path diagrams
+
+```{r dot, eval=FALSE}
+dot_ff  <- nmf.ffb.DOT(fit, model = "null",     threshold = 0.05)
+dot_ffb <- nmf.ffb.DOT(fit, model = "selected", threshold = 0.05)
 # plot(dot_ff); plot(dot_ffb)   # requires DiagrammeR
 ```
 
-## 6. Reading the result
+## Running the bootstrap in parallel
 
-In the Holzinger--Swineford data the three factors reproduce the
-visual/textual/speed grouping. The selected feedback links the speeded
-tests to the visual factor and the visual tests to the speed factor, a
-cross-factor cycle with $\rho(X\Theta_1)\approx 0.6$. Conditional on the
-estimated basis the observed LR lies far outside the null distribution;
-once the basis and mask are estimated on an independent half of the
-sample, the evidence for feedback remains consistent across splits while
-the particular paths selected vary. Two cautions
-apply in general: the feedback coefficients are conditional structural
-coefficients, not causal effects, and a cross-factor cycle can absorb
-part of what a factor correlation would otherwise explain, so the change
-in $\Phi$ between the null and the selected fit should be inspected
-(`res$null$Phi` versus `res$Phi`).
+Both bootstraps take `cores` (or `ncores`), defaulting to
+`getOption("mc.cores", 1L)` as elsewhere in the package.  With $B = 1000$ this is
+worth setting:
+
+```{r parallel, eval=FALSE}
+options(mc.cores = 8)
+tst <- nmf.ffb.test(fit, Y1.H1, Y2, B = 1000)
+inf <- nmf.ffb.inference(fit, Y1.H1, Y2, B = 1000)
+```
 
 ## Appendix: the legacy estimator
 
-The multiplicative-update estimator of the first version of the method
-(structural least squares with the observed $Y_1$ on the right-hand side)
-is kept as `method = "mu"` for reproducibility. It does not identify
-$\Theta_1$---its estimate of $\rho(X\Theta_1)$ is governed by the L1
-penalty and the sample size rather than by the true feedback---and it
-will be deprecated in a future release.
+`method = "mu"` is the multiplicative-update estimator of the first version of
+this work, kept for reproducibility.  It minimizes a squared error in the
+structural form and cannot recover $\Theta_1$, for the reason in the Overview: it
+fits the mean, and the mean does not identify feedback.
 
-```{r, eval = FALSE}
-res_mu <- nmf.ffb(Y1, Y2, rank = Q0, X.L2.ortho = 100,
-                  C1.L1 = 10, C2.L1 = 0.6, method = "mu")
+```{r mu, eval=FALSE}
+fit_mu <- nmf.ffb(Y1.H1, Y2, rank = Q0, method = "mu", maxit = 500)
 ```

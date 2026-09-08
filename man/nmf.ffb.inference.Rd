@@ -14,8 +14,6 @@ nmf.ffb.inference(
   C1.L1 = 1,
   C2.L1 = 0.1,
   seed = 123L,
-  calibration = c("split", "conditional", "full"),
-  nsplit = 5L,
   ...
 )
 }
@@ -62,25 +60,14 @@ each replicate uses \code{seed + b} (resampling) and
 \code{seed + 1000 + b} (\eqn{C_1, C_2} initialization); for
 \code{method = "fiml"} see Description.  Default \code{123}.}
 
-\item{calibration}{(\code{method = "fiml"} only) What is re-estimated on
-each null replicate; see the section \emph{Calibration}.
-\code{"split"} (default): sample splitting -- the basis and the exclusion
-mask are estimated on one half of the units and Stage 2 with its
-conditional bootstrap is run on the other half; \code{"conditional"}:
-Stage 2 only, with \code{object$X} and \code{object$mask} held fixed;
-\code{"full"}: Stage 1 and the mask are re-estimated on every replicate.}
-
-\item{nsplit}{(\code{calibration = "split"} only) Number of random splits;
-each is used in both directions, so \code{2 * nsplit} half-sample tests
-are reported.  Default \code{5}.}
-
 \item{...}{Hidden options.  Shared: \code{cores} (number of parallel
 workers, default \code{getOption("mc.cores", 1L)} for \code{"fiml"},
 \code{1} for \code{"mu"}; \code{ncores} is accepted as an alias) and
 \code{print.trace}.  For \code{method = "fiml"}: \code{factr} and
 \code{fiml.maxit} (L-BFGS-B tolerance and cap, default the values
-recorded on \code{object}) and \code{boot.null} (logical; set
-\code{FALSE} to skip the null bootstrap and only compute coefficient
+recorded on \code{object}).  The null bootstrap is no longer run here at
+all: see \code{\link{nmf.ffb.test}}.  (Removed: \code{boot.null}, which
+used to skip it, and the coefficient
 intervals).  For \code{method = "mu"}:
 \describe{
 \item{\code{epsilon}}{Convergence tolerance for the inner fixed-X MU
@@ -271,17 +258,14 @@ when the dominant factor of an outcome changes between replicates, a
 previously blocked entry becomes free and a feedback coefficient can
 absorb loading structure.  Costs one \code{\link{nmfkc}} fit per
 replicate in addition to Stage 2.}
-\item{\code{"split"} (default)}{The units are divided at random into two
-halves; the basis and the mask are estimated on one half only, and Stage 2
-with the conditional bootstrap is run on the other.  Because the basis
-and the mask are then functions of data independent of the test half,
-the conditional calibration is valid there.  Each split is used in both
-directions and \code{nsplit} splits are reported (\code{split.table});
-the price is the power of \eqn{N/2} units and a selected support that
-varies from split to split.  Costs \code{2 * nsplit * B} Stage-2 fits.}
 }
-The three levels can disagree sharply on the same data; the NMF-FFB paper
-reports all three and relies on \code{"split"} as the test.
+The two can disagree sharply on the same data, and the disagreement is
+informative: \code{"conditional"} is anti-conservative by exactly the amount
+by which the basis and the mask were fitted to the data being tested.  The
+calibration to use is \code{"full"}; \code{"conditional"} is correct only
+when the basis and the mask come from outside these data, and it is then
+selected automatically.  Sample splitting was offered in 0.9.7 and withdrawn
+in 0.9.8: it has the same size as \code{"full"} with lower power.
 }
 
 \section{Lifecycle}{
@@ -298,10 +282,9 @@ that the previous implementation produced are no longer present.
 Y <- t(iris[, -5])
 Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
 res  <- nmf.ffb(Y1, Y2, rank = 2)
-res2 <- nmf.ffb.inference(res, Y1, Y2, B = 20)  # quick demo; use B = 1000
-res2$LR.p.boot          # calibrated p-values of the LR statistics
-res2$prob.select.null   # false-selection rate under the null
-head(res2$coefficients)
+## intervals for the entries the test has already licensed reading.
+inf <- nmf.ffb.inference(res, Y1, Y2, B = 20)   # use B = 1000 in practice
+head(inf$coefficients)  # estimate, interval and support rate per entry
 
 res.mu  <- nmf.ffb(Y1, Y2, rank = 2, method = "mu")
 res.mu2 <- nmf.ffb.inference(res.mu, Y1, Y2, B = 200)

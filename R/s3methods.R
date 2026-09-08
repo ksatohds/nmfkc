@@ -413,45 +413,29 @@ print.summary.nmf.sem <- function(x, ...) {
                 if (!is.null(object$mask.rule)) object$mask.rule                 # recorded since 0.9.8
                 else if (is.null(object$call$mask)) "block"                        # older fits: the default then
                 else if (is.character(object$call$mask)) object$call$mask[1] else "user matrix"))
-    if (!is.null(object$bootstrap.calibration))
-      cat(sprintf("\nCalibration: %s\n", switch(object$bootstrap.calibration,
-        conditional = "conditional on the estimated basis and exclusion mask (level i)\n  -- not a valid test when basis, mask and test data come from the same sample",
-        full        = "basis and exclusion mask re-estimated on every null replicate (level ii)\n  -- operating characteristic of the whole exploratory procedure",
-        split       = "sample splitting: basis and mask from one half, test on the other (level iii)")))
-    if (!is.null(object$split.table)) {
-      st <- object$split.table
-      cat(sprintf("  %d splits x 2 directions, B = %d per half, N_test ~ %d\n",
-                  object$split.nsplit, as.integer(object$bootstrap.B), as.integer(stats::median(st$N_test))))
-      cat(sprintf("  p_full     : median %.4f, range [%.4f, %.4f], %d / %d halves below 0.05\n",
-                  stats::median(st$p_full), min(st$p_full), max(st$p_full), sum(st$p_full < 0.05), nrow(st)))
-      cat(sprintf("  p_selected : median %.4f, range [%.4f, %.4f], %d / %d halves below 0.05\n",
-                  stats::median(st$p_selected), min(st$p_selected), max(st$p_selected), sum(st$p_selected < 0.05), nrow(st)))
-      cat(sprintf("  LR_full    : median %.2f, range [%.2f, %.2f];  nnz selected: %s\n",
-                  stats::median(st$LR_full), min(st$LR_full), max(st$LR_full), paste(st$nnz_selected, collapse = ",")))
-      cat(sprintf("  null false-selection rate on the test halves: median %.3f\n", stats::median(st$prob_select_null)))
-      cat("  (full table in $split.table)\n")
-    }
-    if (!is.null(object$mask.change.rate))
-      cat(sprintf("  exclusion mask changed in %.1f%% of the null replicates (free entries %d-%d, observed %d)\n",
-                  100 * object$mask.change.rate, min(object$LR.boot.df, na.rm = TRUE),
-                  max(object$LR.boot.df, na.rm = TRUE), as.integer(sum(object$mask))))
-    if (!is.null(object$LR.p.boot)) {
-      cat("\nParametric bootstrap under the FF null:\n")
-      ## p = (1 + #)/(1 + B_ok); at the floor no replicate reached LR_obs, so
-      ## show it as "< floor" rather than as an exact number.
-      fmt.p <- function(p, floor.p) if (is.finite(floor.p) && p <= floor.p) sprintf("< %.2g", floor.p) else sprintf("%.4f", p)
-      floor.p <- if (!is.null(object$LR.boot.n.ok)) 1 / (1 + object$LR.boot.n.ok) else NA_real_
-      cat(sprintf("  B = %d;  bootstrap p = (1 + #{LR* >= LR_obs})/(1 + B_ok): full = %s, selected = %s\n",
-                  as.integer(object$bootstrap.B),
-                  fmt.p(object$LR.p.boot[["full"]], floor.p),
-                  fmt.p(object$LR.p.boot[["selected"]], floor.p)))
-      cat(sprintf("  95%% null quantile: full = %.3f, selected = %.3f\n",
-                  object$LR.null.quantile[["full"]], object$LR.null.quantile[["selected"]]))
-      cat(sprintf("  prob.select.null (BIC picks nnz > 0 under the null): %.4f\n",
-                  object$prob.select.null))
-      if (!is.null(object$LR.boot.n.nonconv) && max(object$LR.boot.n.nonconv) > 0)
-        cat(sprintf("  null replicates below the optimizer tolerance: %d (null fit), %d (feedback fit)\n",
-                    object$LR.boot.n.nonconv[["null"]], object$LR.boot.n.nonconv[["full"]]))
+    ## The three best distinct supports, not the winner alone: a small gap means the criterion does not
+    ## determine which entries carry the feedback.  One parameter costs log(N) in BIC, and a gap is
+    ## 2 log of a Bayes factor, so a gap below about 2 is not evidence for one support over the other
+    ## (recorded since 0.9.8).
+    if (!is.null(object$candidates) && nrow(object$candidates) > 1L && !is.null(object$supports)) {
+      cd <- object$candidates[order(object$candidates$BIC, object$candidates$nnz), , drop = FALSE]
+      k <- min(3L, nrow(cd))
+      cat(sprintf("
+  Support candidates (best %d of %d by BIC; one parameter costs log(N) = %.2f):
+",
+                  k, nrow(cd), log(object$N)))
+      for (i in seq_len(k)) {
+        sm <- object$supports[[cd$support_id[i]]]
+        ij <- which(sm, arr.ind = TRUE)
+        ent <- if (nrow(ij) == 0L) "feed-forward (no feedback)" else
+          paste(sprintf("%s<-%s", rownames(sm)[ij[, 1]], colnames(sm)[ij[, 2]]), collapse = ", ")
+        cat(sprintf("    nnz=%-2d rho=%.3f BIC=%12.2f %-11s %s
+", as.integer(cd$nnz[i]), cd$rho[i], cd$BIC[i],
+                    if (i == 1L) "(selected)" else sprintf("(+%.2f)", cd$BIC[i] - cd$BIC[1]), ent))
+      }
+      if (k > 1L && cd$BIC[2] - cd$BIC[1] < 2)
+        cat("    the first two differ by less than 2: which entries carry the feedback is not determined
+")
     }
   }
 
@@ -784,5 +768,51 @@ residuals.nmf.sem <- function(object, Y, ...) {
 #' @export
 print.nmf.inference <- function(x, ...) {
   print(summary(x), ...)
+  invisible(x)
+}
+
+#' Print a calibrated test of the feed-forward null
+#'
+#' Reports the observed likelihood ratio, its bootstrap \eqn{p}-value, and the
+#' two quantities that say whether the test means anything for these data: the
+#' null false-selection rate and, for the default calibration, how often the
+#' exclusion restriction moved.
+#'
+#' @param x An object from \code{\link{nmf.ffb.test}}.
+#' @param ... Ignored.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.ffb.test}}
+#' @export
+print.nmf.ffb.test <- function(x, ...) {
+  cat("Test of the feed-forward null (NMF-FFB)\n\n")
+  cat(sprintf("Calibration: %s\n", switch(x$calibration,
+    full        = "the whole procedure -- basis and exclusion restriction re-estimated\n             on every null replicate",
+    conditional = "conditional on the fitted basis and restriction\n             -- valid only if they come from outside these data")))
+  cat(sprintf("Data       : N = %d, %d outcomes, %d covariates, Q = %d\n", x$N, x$P1, x$P2, x$Q))
+  cat(sprintf("Free entries left by the exclusion restriction: %d\n\n", as.integer(sum(x$mask))))
+
+  ## p = (1 + #)/(1 + B_ok); at the floor no replicate reached LR_obs, so show "< floor" rather than a
+  ## number the bootstrap cannot resolve.
+  floor.p <- if (!is.null(x$LR.boot.n.ok)) 1 / (1 + x$LR.boot.n.ok) else NA_real_
+  fmt.p <- function(p) if (is.finite(floor.p) && p <= floor.p) sprintf("< %.2g", floor.p) else sprintf("%.4f", p)
+  cat(sprintf("  LR (full)     = %8.2f    p = %s\n", x$LR[["full"]], fmt.p(x$LR.p.boot[["full"]])))
+  cat(sprintf("  LR (selected) = %8.2f    p = %s\n", x$LR[["selected"]], fmt.p(x$LR.p.boot[["selected"]])))
+  cat(sprintf("  95%% null quantile: full = %.2f, selected = %.2f   (B = %d, usable %d)\n",
+              x$LR.null.quantile[["full"]], x$LR.null.quantile[["selected"]],
+              as.integer(x$B), as.integer(x$LR.boot.n.ok)))
+
+  cat("\nIs the test meaningful for these data?\n")
+  cat(sprintf("  null false-selection rate (BIC keeps an entry when FF is true): %.3f\n", x$prob.select.null))
+  if (!is.null(x$mask.change.rate)) {
+    df <- x$LR.boot.df[is.finite(x$LR.boot.df)]
+    cat(sprintf("  exclusion restriction moved in %.1f%% of the null replicates (free entries %d-%d)\n",
+                100 * x$mask.change.rate, min(df), max(df)))
+    if (x$mask.change.rate > 0.5 || x$prob.select.null > 0.5)
+      cat("  -> the restriction is not determined by these data: the procedure would retain\n",
+          "     feedback whether or not there is any.  Report this with the p-value.\n", sep = "")
+  }
+  if (!is.null(x$LR.boot.n.nonconv) && max(x$LR.boot.n.nonconv) > 0)
+    cat(sprintf("  null replicates below the optimizer tolerance: %d (null fit), %d (feedback fit)\n",
+                x$LR.boot.n.nonconv[["null"]], x$LR.boot.n.nonconv[["full"]]))
   invisible(x)
 }

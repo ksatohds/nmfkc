@@ -18,12 +18,11 @@ nmf.ffb(
   ...,
   method = c("fiml", "mu"),
   X = NULL,
-  mask = c("union", "block", "cross", "none"),
+  mask = c("union", "none"),
   cross.threshold = 0.05,
   phi = c("full", "diag"),
   lambda1 = NULL,
-  select = c("BIC", "none"),
-  starts = c("full", "path", "null", "soft")
+  select = c("BIC", "none")
 )
 }
 \arguments{
@@ -163,20 +162,6 @@ the path (\code{method = "fiml"}).  Default \code{NULL}, meaning
 among all candidates proposed along the path is the selected model;
 \code{"none"}: the unpenalized feedback fit is returned as the selected
 model and the path is skipped.}
-
-\item{starts}{Starting points of the penalized fits at each
-\code{lambda1} (\code{method = "fiml"}); any subset of
-\code{c("full", "path", "null", "soft")}, default all four.
-\code{"full"}: the unpenalized feedback fit; \code{"path"}:
-continuation from the best penalized solution at the previous (smaller)
-penalty; \code{"null"}: the feed-forward null with \eqn{\Theta_1 =
-0.05} on the free entries; \code{"soft"}: the unpenalized
-\eqn{\Theta_1} soft-thresholded at \code{lambda1 / N}.  A single
-start (the behaviour of earlier versions) can miss the support with
-the smallest BIC: on the Holzinger-Swineford data the start
-\code{"full"} alone proposes a one-path model (BIC \eqn{-1968.9})
-while \code{"null"} / \code{"path"} find the six-path model (BIC
-\eqn{-1971.0}).}
 }
 \value{
 An object of class \code{c("nmf.ffb", "nmf.sem", "nmf")}, a list

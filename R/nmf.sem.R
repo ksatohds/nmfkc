@@ -182,19 +182,6 @@
 #'   among all candidates proposed along the path is the selected model;
 #'   \code{"none"}: the unpenalized feedback fit is returned as the selected
 #'   model and the path is skipped.
-#' @param starts Starting points of the penalized fits at each
-#'   \code{lambda1} (\code{method = "fiml"}); any subset of
-#'   \code{c("full", "path", "null", "soft")}, default all four.
-#'   \code{"full"}: the unpenalized feedback fit; \code{"path"}:
-#'   continuation from the best penalized solution at the previous (smaller)
-#'   penalty; \code{"null"}: the feed-forward null with \eqn{\Theta_1 =
-#'   0.05} on the free entries; \code{"soft"}: the unpenalized
-#'   \eqn{\Theta_1} soft-thresholded at \code{lambda1 / N}.  A single
-#'   start (the behaviour of earlier versions) can miss the support with
-#'   the smallest BIC: on the Holzinger-Swineford data the start
-#'   \code{"full"} alone proposes a one-path model (BIC \eqn{-1968.9})
-#'   while \code{"null"} / \code{"path"} find the six-path model (BIC
-#'   \eqn{-1971.0}).
 #' @param ... Additional hidden arguments.  For \code{method = "fiml"}:
 #'   \code{fiml.maxit} (L-BFGS-B iteration cap, default \code{3000}),
 #'   \code{factr} (\code{optim} tolerance, default \code{1e3}), and
@@ -350,12 +337,11 @@ nmf.ffb <- function(
     ...,
     method = c("fiml", "mu"),
     X = NULL,
-    mask = c("union", "block", "cross", "none"),
+    mask = c("union", "none"),
     cross.threshold = 0.05,
     phi = c("full", "diag"),
     lambda1 = NULL,
-    select = c("BIC", "none"),
-    starts = c("full", "path", "null", "soft")
+    select = c("BIC", "none")
 ) {
   cl <- match.call()
   method <- match.arg(method)
@@ -371,11 +357,13 @@ nmf.ffb <- function(
   if (!is.matrix(mask)) mask <- match.arg(mask)
   phi <- match.arg(phi)
   select <- match.arg(select)
-  starts <- match.arg(starts, several.ok = TRUE)
+  ## Each penalized fit is warm-started from the unpenalized full-feedback fit and each support refit from
+  ## its own penalized fit.  Alternative start sets were measured and never won (NEWS 0.9.8), so there is
+  ## no choice left to expose.
   .nmf.ffb.fiml(Y1, Y2, rank = rank, X.init = X.init, X.L2.ortho = X.L2.ortho,
                 epsilon = epsilon, maxit = maxit, seed = seed,
                 X = X, mask = mask, cross.threshold = cross.threshold,
-                phi = phi, lambda1 = lambda1, select = select, starts = starts, cl = cl, ...)
+                phi = phi, lambda1 = lambda1, select = select, cl = cl, ...)
 }
 
 #' Legacy multiplicative-update NMF-FFB estimator (Internal)
@@ -825,17 +813,14 @@ nmf.ffb <- function(
 #'     previously blocked entry becomes free and a feedback coefficient can
 #'     absorb loading structure.  Costs one \code{\link{nmfkc}} fit per
 #'     replicate in addition to Stage 2.}
-#'   \item{\code{"split"} (default)}{The units are divided at random into two
-#'     halves; the basis and the mask are estimated on one half only, and Stage 2
-#'     with the conditional bootstrap is run on the other.  Because the basis
-#'     and the mask are then functions of data independent of the test half,
-#'     the conditional calibration is valid there.  Each split is used in both
-#'     directions and \code{nsplit} splits are reported (\code{split.table});
-#'     the price is the power of \eqn{N/2} units and a selected support that
-#'     varies from split to split.  Costs \code{2 * nsplit * B} Stage-2 fits.}
 #' }
-#' The three levels can disagree sharply on the same data; the NMF-FFB paper
-#' reports all three and relies on \code{"split"} as the test.
+#' The two can disagree sharply on the same data, and the disagreement is
+#' informative: \code{"conditional"} is anti-conservative by exactly the amount
+#' by which the basis and the mask were fitted to the data being tested.  The
+#' calibration to use is \code{"full"}; \code{"conditional"} is correct only
+#' when the basis and the mask come from outside these data, and it is then
+#' selected automatically.  Sample splitting was offered in 0.9.7 and withdrawn
+#' in 0.9.8: it has the same size as \code{"full"} with lower power.
 #'
 #' @param B Number of bootstrap replicates.  Default \code{1000}, the value the
 #'   published analysis used; the other inference functions in the package
@@ -866,23 +851,14 @@ nmf.ffb <- function(
 #'   each replicate uses \code{seed + b} (resampling) and
 #'   \code{seed + 1000 + b} (\eqn{C_1, C_2} initialization); for
 #'   \code{method = "fiml"} see Description.  Default \code{123}.
-#' @param calibration (\code{method = "fiml"} only) What is re-estimated on
-#'   each null replicate; see the section \emph{Calibration}.
-#'   \code{"split"} (default): sample splitting -- the basis and the exclusion
-#'   mask are estimated on one half of the units and Stage 2 with its
-#'   conditional bootstrap is run on the other half; \code{"conditional"}:
-#'   Stage 2 only, with \code{object$X} and \code{object$mask} held fixed;
-#'   \code{"full"}: Stage 1 and the mask are re-estimated on every replicate.
-#' @param nsplit (\code{calibration = "split"} only) Number of random splits;
-#'   each is used in both directions, so \code{2 * nsplit} half-sample tests
-#'   are reported.  Default \code{5}.
 #' @param ... Hidden options.  Shared: \code{cores} (number of parallel
 #'   workers, default \code{getOption("mc.cores", 1L)} for \code{"fiml"},
 #'   \code{1} for \code{"mu"}; \code{ncores} is accepted as an alias) and
 #'   \code{print.trace}.  For \code{method = "fiml"}: \code{factr} and
 #'   \code{fiml.maxit} (L-BFGS-B tolerance and cap, default the values
-#'   recorded on \code{object}) and \code{boot.null} (logical; set
-#'   \code{FALSE} to skip the null bootstrap and only compute coefficient
+#'   recorded on \code{object}).  The null bootstrap is no longer run here at
+#'   all: see \code{\link{nmf.ffb.test}}.  (Removed: \code{boot.null}, which
+#'   used to skip it, and the coefficient
 #'   intervals).  For \code{method = "mu"}:
 #'   \describe{
 #'     \item{\code{epsilon}}{Convergence tolerance for the inner fixed-X MU
@@ -980,18 +956,10 @@ nmf.ffb <- function(
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
 #' res  <- nmf.ffb(Y1, Y2, rank = 2)
-#' ## level (i): conditional on the estimated basis and mask (quick; not a valid
-#' ## test when basis, mask and Y1 come from the same sample -- see Calibration)
-#' res2 <- nmf.ffb.inference(res, Y1, Y2, B = 20, calibration = "conditional")
-#' res2$LR.p.boot          # (1 + #)/(1 + B) bootstrap p-values, given the basis
-#' res2$prob.select.null   # false-selection rate under the null, given the basis
-#' head(res2$coefficients)
-#' ## level (iii), the default: basis and mask from one half, test on the other
-#' res3 <- nmf.ffb.inference(res, Y1, Y2, B = 20, nsplit = 2)  # use B = 1000
-#' res3$split.table        # one row per (split, direction); no single p-value
-#' ## level (ii): re-estimate basis and mask on every null replicate
-#' res4 <- nmf.ffb.inference(res, Y1, Y2, B = 20, calibration = "full")
-#' res4$mask.change.rate   # share of null replicates whose exclusion mask moved
+## The test of the feed-forward null is nmf.ffb.test(); this function gives
+#' ## intervals for the entries the test has already licensed reading.
+#' inf <- nmf.ffb.inference(res, Y1, Y2, B = 20)   # use B = 1000 in practice
+#' head(inf$coefficients)  # estimate, interval and support rate per entry
 #'
 #' res.mu  <- nmf.ffb(Y1, Y2, rank = 2, method = "mu")
 #' res.mu2 <- nmf.ffb.inference(res.mu, Y1, Y2, B = 200)
@@ -1004,19 +972,15 @@ nmf.ffb.inference <- function(object, Y1, Y2,
                                C1.L1 = 1.0,
                                C2.L1 = 0.1,
                                seed = 123L,
-                               calibration = c("split", "conditional", "full"),
-                               nsplit = 5L,
                                ...) {
   if (is.null(object$X) || is.null(object$C1) || is.null(object$C2))
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
-  calibration <- match.arg(calibration)
 
   ## Likelihood-based fits take the parametric-bootstrap branch; objects
   ## without a `method` field predate it and are multiplicative-update fits.
   if (identical(object$method, "fiml"))
     return(.nmf.ffb.inference.fiml(object, Y1, Y2, B = B, threshold = threshold,
-                                   ci.level = ci.level, seed = seed,
-                                   calibration = calibration, nsplit = nsplit, ...))
+                                   ci.level = ci.level, seed = seed, what = "ci", ...))
 
   extra_args  <- base::list(...)
   ## Keep our own seeding out of the caller's random stream.
@@ -1615,6 +1579,95 @@ nmf.ffb.cv <- function(
 }
 
 
+
+#' @title Structural Diagnostics of a Fitted NMF-FFB Feedback Matrix
+#'
+#' @description
+#' Two quantities that describe \emph{what} the selected feedback is, as opposed
+#' to whether it is there (which is the job of the calibrated likelihood-ratio
+#' test in \code{\link{nmf.ffb.inference}}).
+#'
+#' \strong{Cycle structure.} The equilibrium operator is \eqn{A = X\Theta_1} on
+#' the indicators and \eqn{A_Q = \Theta_1X} on the factors, with the same
+#' spectral radius \eqn{\rho}.  The strongly connected components of the
+#' directed graph of \eqn{A_Q} are the cycles.  \eqn{\rho = 0} with a non-empty
+#' support means \eqn{A} is nilpotent: the selected feedback is a cascade of
+#' directed cross-factor paths without a closed loop.  Since \eqn{A \ge 0},
+#' Perron--Frobenius gives a non-negative leading eigenvector, and its
+#' normalized entries say how much of the loop each factor carries.
+#'
+#' \strong{Factor-level alignment.} Feedback of the form
+#' \eqn{\Theta_1 = aX^\top\Psi^{-1}} enters each factor through the factor
+#' scores of the factors and is observationally equivalent, under the Gaussian
+#' working model, to a change of \eqn{\Theta_2} and of the factor covariance
+#' \eqn{\Phi}; only the departure from that family is identified, through the
+#' uniquenesses \eqn{\Psi}.  On the free set \eqn{F} of the exclusion mask the
+#' family is a subspace of dimension at most \eqn{Q(Q-1)}, and
+#' \code{omega} is the share of the squared norm of \eqn{\Theta_1} that lies in
+#' it.  \code{omega} has no natural zero: for an isotropic direction its
+#' expectation is \code{omega0 = dim / n.free}, so it should be read against
+#' \code{omega0} and against a simulation in which the true feedback is
+#' indicator-level (there it averages about \code{1.3 * omega0}).
+#'
+#' @param object A fitted \code{nmf.ffb} object from
+#'   \code{\link{nmf.ffb}} with \code{method = "fiml"}.
+#' @param which Which feedback matrix to describe: \code{"selected"} (default,
+#'   the BIC-selected support) or \code{"full"} (the unpenalized fit).
+#' @return A list with \code{cycles} (\code{A.factor}, \code{rho},
+#'   \code{cycle}, \code{n.cycles}, \code{perron}) and \code{omega}
+#'   (\code{omega}, \code{omega0}, \code{dim}, \code{n.free}).
+#' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y2 <- matrix(runif(2 * 200), 2, 200)
+#' X <- matrix(0.02, 6, 2); X[1:3, 1] <- 1; X[4:6, 2] <- 1
+#' X <- sweep(X, 2, colSums(X), "/")
+#' T1 <- matrix(0, 2, 6); T1[1, 5] <- 0.6; T1[2, 2] <- 0.5
+#' L <- solve(diag(6) - X %*% T1)
+#' Y1 <- pmax(L %*% (X %*% (matrix(c(1, 0.5, 0.3, 1), 2, 2) %*% Y2) +
+#'                   matrix(rnorm(6 * 200, 0, 0.05), 6, 200)), 0)
+#' fit <- nmf.ffb(Y1, Y2, Q = 2)
+#' d <- nmf.ffb.diagnostics(fit)
+#' d$cycles$rho          # spectral radius
+#' d$cycles$cycle        # which factors lie on a cycle
+#' c(d$omega$omega, d$omega$omega0)
+#' }
+#' @export
+nmf.ffb.diagnostics <- function(object, which = c("selected", "full")) {
+  which <- base::match.arg(which)
+  if (!base::inherits(object, "nmf.ffb"))
+    base::stop("nmf.ffb.diagnostics() expects an object from nmf.ffb().")
+  if (base::is.null(object$mask) || base::is.null(object$psi))
+    base::stop("this fit carries no mask/uniquenesses: nmf.ffb.diagnostics() needs method = \"fiml\".")
+  T1 <- if (which == "selected") object$C1 else object$full$C1
+  psi <- if (which == "selected") object$psi else object$full$psi
+  if (base::is.null(T1)) base::stop("no ", which, " feedback matrix on this object.")
+  ## The best few distinct supports, so that the report says how thin the margin is.  BIC selects one
+  ## support; adding a free entry costs log(N), and a difference in BIC is twice the log of a Bayes factor,
+  ## so a difference below about 2 is not evidence for one support over the other (Kass and Raftery 1995).
+  ## When the best supports form a chain under inclusion their intersection is the part the criterion does
+  ## not put in doubt; when they do not, no single support should be read off.
+  top <- NULL; core <- NULL; envelope <- NULL; nested <- NA
+  if (!base::is.null(object$candidates) && !base::is.null(object$supports)) {
+    cd <- object$candidates[base::order(object$candidates$BIC, object$candidates$nnz), , drop = FALSE]
+    k <- base::min(3L, base::nrow(cd))
+    top <- base::data.frame(rank = base::seq_len(k), nnz = cd$nnz[base::seq_len(k)],
+                            rho = cd$rho[base::seq_len(k)], BIC = cd$BIC[base::seq_len(k)],
+                            dBIC = cd$BIC[base::seq_len(k)] - cd$BIC[1],
+                            stringsAsFactors = FALSE)
+    tops <- base::lapply(base::seq_len(k), function(i) object$supports[[cd$support_id[i]]])
+    core <- base::Reduce(`&`, tops) * 1
+    envelope <- base::Reduce(`|`, tops) * 1
+    nested <- base::all(base::outer(base::seq_len(k), base::seq_len(k), base::Vectorize(function(a, b)
+      base::all(!tops[[a]] | tops[[b]]) || base::all(!tops[[b]] | tops[[a]]))))
+  }
+  base::list(cycles = .ffb.fiml.cycles(object$X, T1),
+             omega = .ffb.fiml.omega(object$X, T1, psi, object$mask),
+             top = top, core = core, envelope = envelope, nested = nested,
+             log.N = if (!base::is.null(object$N)) base::log(object$N) else NA_real_,
+             which = which)
+}
 
 #' @title Heuristic Variable Splitting for NMF-FFB
 #'

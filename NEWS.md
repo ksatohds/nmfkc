@@ -1,5 +1,63 @@
 # nmfkc (development version)
 
+
+## NMF-FFB: one function per step of the procedure
+
+The feedback model is now driven by four functions, one for each step, instead
+of two that each did several things:
+
+```r
+ecv <- nmf.ffb.ecv(Y1, Y2, rank = 1:5)   # 1. choose Q by element-wise CV
+fit <- nmf.ffb(Y1, Y2, rank = Q)         # 2. estimate; BIC selects the support
+tst <- nmf.ffb.test(fit, Y1, Y2)         # 3. test the feed-forward null
+dgn <- nmf.ffb.diagnostics(fit)          # 4. cycles, spectral radius, best supports
+inf <- nmf.ffb.inference(fit, Y1, Y2)    # 5. intervals for the retained entries
+```
+
+* **New** `nmf.ffb.test()`: the calibrated test of the feed-forward null. It
+  runs the null bootstrap only, and returns `LR.p.boot`, the null quantiles,
+  the null false-selection rate `prob.select.null` and, for the default
+  calibration, `mask.change.rate`. Replicates run in parallel with
+  `cores = ` as elsewhere in the package.
+* **New** `nmf.ffb.ecv()`: choosing *Q* under the name that says what it does.
+  `nmf.ffb.cv(method = "fiml")` has delegated to element-wise CV since 0.9.7;
+  the old name still works and is kept for the multiplicative-update path.
+* **Breaking** `nmf.ffb.inference()` no longer runs the null bootstrap and no
+  longer returns `LR.boot`, `LR.p.boot`, `LR.null.quantile`, `prob.select.null`,
+  `LR.boot.*`, `mask.change.rate`, `split.table` or `bootstrap.calibration`;
+  its `calibration` and `nsplit` arguments are gone. Use `nmf.ffb.test()`.
+  An intervals object that also carried a *p*-value for the presence of
+  feedback invited the reader to treat an interval that excludes zero as
+  evidence for the entry, which it is not. This affects only the likelihood
+  branch (`method = "fiml"`), which was added after the last release.
+* `nmf.ffb.diagnostics()` now also reports the three best distinct supports with
+  their differences in BIC, the entries common to all of them, their envelope,
+  and whether they form a chain under inclusion. A difference in BIC below about
+  2 is not evidence for one support over another (Kass and Raftery 1995), so the
+  presence of feedback can be settled while its composition is not.
+
+## Options removed
+
+Measurement, not taste, decided each of these; keeping them invited the reader
+to compare procedures as if they were equally valid.
+
+* `nmf.ffb(starts = )` is gone. Every penalized fit is warm-started from the
+  unpenalized full-feedback fit. The three alternative starting points measured
+  on six data sets never uniquely attained the minimum BIC.
+* `calibration` keeps `"full"` (the default: stage 1 and the exclusion
+  restriction re-estimated in every null replicate) and `"conditional"` (valid
+  only when the basis and the mask come from outside the data being tested, and
+  selected automatically in that case). The two sample-splitting levels are
+  gone: `"split"` fixes the basis of the estimation half and is
+  anti-conservative, and `"split-full"` is valid but strictly dominated by
+  `"full"` -- same size, lower power, and it needs a large *N*.
+* `mask` keeps `"union"` (an outcome may not feed back into a factor on which it
+  loads) and `"none"`, plus a user-supplied matrix. The partial rules
+  `"block"` and `"cross"` were kept for comparison and are neither the rule of
+  the paper nor useful on their own.
+
+
+
 ## `nmf.ffb.inference()`: what the bootstrap conditions on (`calibration`), and two fixes
 
 The parametric bootstrap that calibrates the feedback LR statistics used to
