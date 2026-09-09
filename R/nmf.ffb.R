@@ -1,4 +1,4 @@
-# nmf.sem.R — NMF-FFB (formerly NMF-SEM) canonical engines + generic DOT
+# nmf.ffb.R — NMF-FFB (formerly NMF-SEM) canonical engines + generic DOT
 # Canonical:  nmf.ffb, nmf.ffb.inference, nmf.ffb.cv, nmf.ffb.split, nmf.ffb.DOT
 #             (deprecated nmf.sem* aliases live in nmf.sem-deprecated.R).
 # Also hosts: nmfkc.DOT / plot.nmfkc.DOT (shared DOT utilities).
@@ -46,11 +46,11 @@
 #'     working model \eqn{U \sim N(0, \Phi)}, \eqn{E \sim N(0,
 #'     \mathrm{diag}(\psi))} by full-information maximum likelihood
 #'     (L-BFGS-B with an analytic gradient) under the non-negativity of
-#'     \eqn{\Theta_1, \Theta_2} and an exclusion \code{mask} on
+#'     \eqn{\Theta_1, \Theta_2} and an exclusion restriction on
 #'     \eqn{\Theta_1}.  It fits (a) the feed-forward null \eqn{\Theta_1 = 0}
 #'     (a non-negative MIMIC factor model with correlated factors), (b) the
 #'     unpenalized feedback model on the admitted entries, and (c) an L1
-#'     path over \code{lambda1}.  The penalized problem is non-convex, so
+#'     path over \code{C1.L1.path}.  The penalized problem is non-convex, so
 #'     every point of the path is fitted from several starting points
 #'     (\code{starts}); every distinct support proposed by any (penalty,
 #'     start) pair is re-estimated without penalty (itself from three
@@ -73,13 +73,13 @@
 #'     \eqn{\Theta_1} from \eqn{\Theta_2}; prefer \code{"fiml"}.}
 #' }
 #'
-#' @section Exclusion mask:
+#' @section Exclusion restriction:
 #' Feedback is identified only through exclusion restrictions: an outcome
 #' may not feed back into a factor on which it loads, because such an entry
 #' is nearly equivalent to a change of the outcome's loading.  With
-#' \code{mask = "union"} (default) entry \eqn{(q, i)} of \eqn{\Theta_1} is
+#' \code{C1.restriction = "union"} (default) entry \eqn{(q, i)} of \eqn{\Theta_1} is
 #' excluded if \eqn{q = \arg\max_{q'} X_{i q'}} (the dominant factor) or
-#' \eqn{X_{iq} \ge} \code{cross.threshold}.  The two partial rules are kept
+#' \eqn{X_{iq} \ge} \code{C1.restriction.threshold}.  The two partial rules are kept
 #' for comparison: \code{"block"} excludes the dominant factor only, so an
 #' outcome with a substantial second loading may still feed that factor;
 #' \code{"cross"} excludes only the factors above the threshold, so an outcome
@@ -89,13 +89,13 @@
 #' identified only through the non-negativity and the covariance structure).
 #' A user-supplied \eqn{Q \times P_1} 0/1 matrix is used as given.
 #'
-#' The mask is derived from the estimated basis and therefore from the same
+#' The restriction is derived from the estimated basis and therefore from the same
 #' \eqn{Y_1} that is subsequently tested; see the \emph{Calibration} section
 #' of \code{\link{nmf.ffb.inference}} for what this implies.
 #'
 #' @section Lifecycle:
 #' \code{method = "fiml"} became the default in version 0.9.8, as did
-#' \code{mask = "union"} (earlier fiml fits used \code{"block"}), and
+#' \code{C1.restriction = "union"} (earlier fiml fits used \code{"block"}), and
 #' \code{\link{nmf.ffb.inference}} gained the \code{calibration} argument.
 #' \code{method = "mu"} is the legacy estimator, kept for the reproducibility
 #' of published analyses; it will be deprecated in a later release.
@@ -151,7 +151,7 @@
 #'   falls below this value. Default: \code{1e-6}.
 #'   \strong{Note}: the test is on the unpenalized loss (\code{objfunc}), not
 #'   on the penalized objective the updates actually minimize
-#'   (\code{objfunc.full}).  Every other optimizer in the package tests the
+#'   (\code{objfunc.penalized}).  Every other optimizer in the package tests the
 #'   penalized value, so with a large \code{X.L2.ortho} or \code{C*.L1} this
 #'   function can stop while the quantity being optimized is still moving.
 #'   Both traces are returned; compare them if the penalties are strong.
@@ -166,16 +166,16 @@
 #'   non-negative matrix, or an \code{\link{nmfkc}} / \code{nmf.ffb} object
 #'   whose \code{$X} is used.  When supplied, stage 1 is skipped and
 #'   \code{rank} is taken from \code{ncol(X)}.
-#' @param mask Exclusion restriction on \eqn{\Theta_1} for
+#' @param C1.restriction Exclusion restriction on \eqn{\Theta_1} for
 #'   \code{method = "fiml"}: \code{"union"} (default), \code{"block"},
 #'   \code{"cross"}, \code{"none"}, or a \eqn{Q \times P_1} 0/1 matrix
-#'   (1 = free).  See the section \emph{Exclusion mask}.
-#' @param cross.threshold Loading threshold for \code{mask = "union"} and
+#'   (1 = free).  See the section \emph{Exclusion restriction}.
+#' @param C1.restriction.threshold Loading threshold for \code{C1.restriction = "union"} and
 #'   \code{"cross"}.  Default \code{0.05}.
-#' @param phi Covariance of the latent disturbance \eqn{U} for
+#' @param Phi.restriction Covariance of the latent disturbance \eqn{U} for
 #'   \code{method = "fiml"}: \code{"full"} (default; positive definite via
 #'   Cholesky) or \code{"diag"}.
-#' @param lambda1 Numeric vector of L1 penalties on \eqn{\Theta_1} defining
+#' @param C1.L1.path Numeric vector of L1 penalties on \eqn{\Theta_1} defining
 #'   the path (\code{method = "fiml"}).  Default \code{NULL}, meaning
 #'   \code{N * c(0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5)}.
 #' @param select \code{"BIC"} (default): the support with the smallest BIC
@@ -241,7 +241,7 @@
 #'   \item{amplification.bound}{Geometric-series upper bound
 #'     \eqn{1 / (1 - \lVert X \Theta_1 \rVert_{1,\mathrm{op}})} if
 #'     \eqn{\lVert X \Theta_1 \rVert_{1,\mathrm{op}} < 1}, otherwise \code{Inf}.}
-#'   \item{Q}{Effective latent dimension used in the fit.}
+#'   \item{rank}{Effective latent dimension used in the fit.}
 #'   \item{SC.cov}{Correlation between sample and model-implied covariance
 #'     (flattened) of \eqn{Y_1}.  See \emph{second-moment fidelity} in
 #'     Satoh (2025).}
@@ -251,11 +251,11 @@
 #'     baseline is supplied via \code{M.simple} or \code{nmfkc.baseline}
 #'     in \code{...}; otherwise \code{NA}.  See \emph{input-output
 #'     structural fidelity} in Satoh (2025).}
-#'   \item{MAE}{Mean absolute error between \eqn{Y_1} and its equilibrium
+#'   \item{mae}{Mean absolute error between \eqn{Y_1} and its equilibrium
 #'     prediction \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.}
 #'   \item{objfunc}{Vector of reconstruction losses per iteration
 #'     (\code{"mu"}); \code{NULL} for \code{"fiml"}.}
-#'   \item{objfunc.full}{Vector of penalized objective values per iteration
+#'   \item{objfunc.penalized}{Vector of penalized objective values per iteration
 #'     (\code{"mu"}); \code{NULL} for \code{"fiml"}.}
 #'   \item{iter, maxit, epsilon, converged}{Convergence bookkeeping.  For
 #'     \code{"fiml"}: the number of objective evaluations of the selected
@@ -272,9 +272,9 @@
 #'     npar, M.model}.}
 #'   \item{full}{The unpenalized feedback fit: list \code{C1, C2, Phi, psi,
 #'     loglik, npar, XC1.radius}.}
-#'   \item{path}{Data frame with one row per (\code{lambda1}, start) of
-#'     the L1 path (\code{lambda1 = 0} is the unpenalized fit re-estimated
-#'     on its non-zero entries, \code{Inf} the null): \code{lambda1, start,
+#'   \item{path}{Data frame with one row per (\code{C1.L1.path}, start) of
+#'     the L1 path (\code{C1.L1.path = 0} is the unpenalized fit re-estimated
+#'     on its non-zero entries, \code{Inf} the null): \code{C1.L1.path, start,
 #'     support_id, nnz, rho, loglik, BIC, MAE} (each after re-estimation on
 #'     the proposed support),
 #'     \code{pen.value} (the penalized objective reached by that start,
@@ -288,14 +288,14 @@
 #'     \code{path}); the supports themselves
 #'     (list of logical \eqn{Q \times P_1} matrices indexed by
 #'     \code{support_id}); and the id of the selected one.}
-#'   \item{mask, lambda1, lambda1.selected, support, starts}{The mask used
+#'   \item{C1.free, C1.L1.path, C1.L1.selected, support}{The free-entry matrix used
 #'     (\eqn{Q \times P_1} 0/1), the path, the smallest penalty at which
 #'     the selected support was proposed (\code{0} for the unpenalized
 #'     model, \code{Inf} for the null), the selected support (logical
 #'     \eqn{Q \times P_1}) and the starts used.}
 #'   \item{LR, LR.df}{Likelihood-ratio statistics \code{c(full = 2(l_full -
 #'     l_null), selected = 2(l_sel - l_null))} and the naive degrees of
-#'     freedom \code{c(full = sum(mask), selected = nnz)} (also stored as
+#'     freedom \code{c(full = sum(C1.restriction), selected = nnz)} (also stored as
 #'     \code{attr(LR, "df")}).  No p-value is attached; see
 #'     \code{\link{nmf.ffb.inference}}.}
 #'   \item{BIC, AIC}{Named vectors \code{c(null, full, selected)}.}
@@ -314,7 +314,7 @@
 #'
 #' # Legacy multiplicative-update estimator
 #' result.mu <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500, method = "mu")
-#' result.mu$MAE
+#' result.mu$mae
 #'
 #' @seealso \code{\link{nmf.ffb.inference}}, \code{\link{nmf.ffb.cv}},
 #'   \code{\link{nmf.ffb.split}}, \code{\link{nmf.ffb.DOT}},
@@ -337,14 +337,42 @@ nmf.ffb <- function(
     ...,
     method = c("fiml", "mu"),
     X = NULL,
-    mask = c("union", "none"),
-    cross.threshold = 0.05,
-    phi = c("full", "diag"),
-    lambda1 = NULL,
+    C1.restriction = c("union", "none"),
+    C1.restriction.threshold = 0.05,
+    Phi.restriction = c("full", "diag"),
+    C1.L1.path = NULL,
     select = c("BIC", "none")
 ) {
   cl <- match.call()
   method <- match.arg(method)
+  ## `C1.L1` / `C2.L1` penalize the multiplicative updates.  The likelihood path has
+  ## its own penalty -- the grid `C1.L1.path`, swept with the support chosen by BIC --
+  ## and leaves Theta2 unpenalized, so these two arguments have no meaning under
+  ## method = "fiml".  Until 0.9.8 they were accepted there and silently ignored.
+  if (method == "fiml" && any(c("C1.L1", "C2.L1") %in% names(cl)))
+    warning("`C1.L1` / `C2.L1` apply to method = \"mu\" only and are ignored here. ",
+            "Under method = \"fiml\" the L1 penalty on Theta1 is the path `C1.L1.path` ",
+            "(swept, with the support selected by BIC) and Theta2 is unpenalized.",
+            call. = FALSE)
+  ## Options withdrawn in 0.9.8 would otherwise be swallowed by `...` without a word.
+  gone <- c(starts = "every penalized fit is warm-started from the unpenalized fit, the only start measurement ever preferred",
+            nsplit = "sample splitting was withdrawn: same size as calibration = \"procedure\", lower power",
+            calibration = "the calibration level is an argument of nmf.ffb.test(), not of the fit")
+  hit <- base::intersect(base::names(gone), base::names(cl))
+  if (length(hit) > 0)
+    warning("`", paste(hit, collapse = "`, `"), "` was removed in 0.9.8 and is ignored: ",
+            gone[[hit[1]]], ".", call. = FALSE)
+  ## A RENAMED argument is the more dangerous case: `mask = "none"` reaches `...`, is
+  ## dropped, and the fit silently uses the DEFAULT restriction -- the opposite of the
+  ## request.  Stop rather than warn.
+  renamed <- c(mask = "C1.restriction", cross.threshold = "C1.restriction.threshold",
+               phi = "Phi.restriction", lambda1 = "C1.L1.path")
+  hit <- base::intersect(base::names(renamed), base::names(cl))
+  if (length(hit) > 0)
+    stop("`", paste(hit, collapse = "`, `"), "` was renamed in 0.9.8; use `",
+         paste(renamed[hit], collapse = "`, `"),
+         "`. It would otherwise be dropped silently and the fit would use the default.",
+         call. = FALSE)
   if (method == "mu") {
     ## Legacy estimator: the body is unchanged (bit-identical) and lives in
     ## .nmf.ffb.mu(); only the `method` field is appended.
@@ -354,16 +382,16 @@ nmf.ffb <- function(
     out$method <- "mu"
     return(out)
   }
-  if (!is.matrix(mask)) mask <- match.arg(mask)
-  phi <- match.arg(phi)
+  if (!is.matrix(C1.restriction)) C1.restriction <- match.arg(C1.restriction)
+  Phi.restriction <- match.arg(Phi.restriction)
   select <- match.arg(select)
   ## Each penalized fit is warm-started from the unpenalized full-feedback fit and each support refit from
   ## its own penalized fit.  Alternative start sets were measured and never won (NEWS 0.9.8), so there is
   ## no choice left to expose.
   .nmf.ffb.fiml(Y1, Y2, rank = rank, X.init = X.init, X.L2.ortho = X.L2.ortho,
                 epsilon = epsilon, maxit = maxit, seed = seed,
-                X = X, mask = mask, cross.threshold = cross.threshold,
-                phi = phi, lambda1 = lambda1, select = select, cl = cl, ...)
+                X = X, C1.restriction = C1.restriction, C1.restriction.threshold = C1.restriction.threshold,
+                Phi.restriction = Phi.restriction, C1.L1.path = C1.L1.path, select = select, cl = cl, ...)
 }
 
 #' Legacy multiplicative-update NMF-FFB estimator (Internal)
@@ -514,7 +542,7 @@ nmf.ffb <- function(
   }
 
   objfunc      <- numeric(maxit)
-  objfunc.full <- numeric(maxit)
+  objfunc.penalized <- numeric(maxit)
 
   # ----------------------------- main loop ----------------------------
   for (it in 1:maxit) {
@@ -564,7 +592,7 @@ nmf.ffb <- function(
     }
     pen_C1_L1 <- C1.L1 * sum(C1)
     pen_C2_L1 <- C2.L1 * sum(C2)
-    objfunc.full[it] <- loss_rec + pen_X_ortho + pen_C1_L1 + pen_C2_L1
+    objfunc.penalized[it] <- loss_rec + pen_X_ortho + pen_C1_L1 + pen_C2_L1
 
     if (it >= 10) {
       epsilon_iter <- abs(objfunc[it] - objfunc[it - 1]) / pmax(abs(objfunc[it]), 1)
@@ -674,14 +702,14 @@ nmf.ffb <- function(
     M.model             = M.model,
     amplification       = amplification,
     amplification.bound = amplification.bound,
-    Q                   = Q,
+    rank                = Q,
     SC.cov              = SC.cov,
     SC.map              = SC.map,
-    MAE                 = MAE,
+    mae                 = MAE,
     ## Effective rank of the latent scores B = C1 Y1 + C2 Y2 (Q x N).
     effective.rank      = .effective.rank(C1 %*% Y1 + C2 %*% Y2),
     objfunc             = objfunc[1:it],
-    objfunc.full        = objfunc.full[1:it],
+    objfunc.penalized        = objfunc.penalized[1:it],
     iter                = it,
     ## Convergence bookkeeping, matching nmfkc / nmfre / nmfae so print.nmf()
     ## and the summaries can say whether the run finished or hit the cap.
@@ -703,52 +731,30 @@ nmf.ffb <- function(
 #' \code{nmf.ffb.inference} performs statistical inference on the structural
 #' coefficient matrices \eqn{C_1} (latent feedback, \eqn{\Theta_1}) and
 #' \eqn{C_2} (exogenous loading, \eqn{\Theta_2}) from a fitted
-#' \code{\link{nmf.ffb}} model, and -- for likelihood-based fits -- calibrates
-#' the likelihood-ratio test of feedback against the feed-forward null.  The
+#' \code{\link{nmf.ffb}} model, \emph{after} the feed-forward null has been
+#' rejected by \code{\link{nmf.ffb.test}}.  The
 #' basis \eqn{\hat X} is held fixed throughout, which avoids label switching
 #' and gives a clean conditional interpretation: uncertainty of the structural
 #' coefficients given the measurement model.  Which resampling scheme is run
 #' depends on \code{object$method}.
 #'
-#' \strong{\code{method = "fiml"}: two parametric bootstraps.}
-#' \enumerate{
-#'   \item \emph{Null bootstrap (LR calibration).}  \eqn{B} data sets
-#'     \eqn{Y_1^* = X(\Theta_2 Y_2 + U^*) + E^*} are drawn from the fitted
-#'     feed-forward null (\code{object$null}; \eqn{U^* \sim N(0, \Phi_0)},
-#'     \eqn{E^* \sim N(0, \mathrm{diag}\,\psi_0)}, negatives clipped at 0),
-#'     keeping \eqn{Y_2} and \eqn{X} fixed, and the \emph{whole} selection
-#'     pipeline (null fit, unpenalized fit, multi-start L1 path, BIC refit)
-#'     is re-run on each with the same mask, \code{phi}, \code{lambda1}
-#'     and \code{starts}.  The observed
-#'     statistics are compared with the bootstrap null distribution:
-#'     \code{LR.p.boot = (1 + #\{LR* >= LR_obs\}) / (1 + B_ok)} for both the
-#'     unpenalized and the selected statistic, where \code{B_ok} is the number
-#'     of usable replicates.  The \eqn{(1+\cdot)/(1+B)} form is used rather than
-#'     the raw proportion so that a strongly significant statistic, which no
-#'     replicate exceeds, reports \eqn{1/(1+B_{ok})} instead of an invalid
-#'     \eqn{p = 0}; \code{B} therefore sets the smallest reportable p-value
-#'     (\eqn{0.000999} at \code{B = 1000}).  This replaces the chi-square reference, which is
-#'     invalid here because \eqn{\Theta_1 \ge 0} puts the null on the boundary
-#'     (a chi-bar-square, not a chi-square) and the selected statistic is a
-#'     post-selection quantity.  \code{prob.select.null}, the share of null
-#'     replicates in which BIC selects at least one feedback path, is the
-#'     false-selection rate of the procedure under the null.
-#'   \item \emph{Selected-model bootstrap (coefficient uncertainty).}  \eqn{B}
-#'     data sets are drawn from the selected model (with its \eqn{\Theta_1}) and
-#'     \eqn{(\Theta_1, \Theta_2, \Phi, \psi)} are re-estimated with \eqn{X} and
-#'     the selected support held fixed.  Confidence intervals are the centred
-#'     (basic) percentile intervals \eqn{[2\hat\theta - q^*_{1-\alpha/2},\;
-#'     2\hat\theta - q^*_{\alpha/2}]}; \code{support_rate} is the share of
-#'     replicates with \eqn{|\hat\theta^*| >} \code{threshold} (0 for entries
-#'     outside the selected support) and \code{p_value = 1 - support_rate} is
-#'     kept for compatibility with \code{\link{nmf.ffb.DOT}}.  Both are
-#'     \emph{post-selection} quantities conditional on the selected support
-#'     and can overstate significance; the calibrated statement about the
-#'     presence of feedback is \code{LR.p.boot}.
-#' }
-#' Each replicate seeds itself (\code{seed + b} for the null bootstrap,
-#' \code{seed + B + b} for the selected-model bootstrap), so the result does
-#' not depend on \code{cores}.
+#' \strong{\code{method = "fiml"}: a parametric bootstrap from the selected
+#' model.}  \eqn{B} data sets are drawn from the selected model (with its
+#' \eqn{\Theta_1}) and \eqn{(\Theta_1, \Theta_2, \Phi, \psi)} are re-estimated
+#' with \eqn{X} and the selected support held fixed.  Confidence intervals are
+#' the centred (basic) percentile intervals \eqn{[2\hat\theta -
+#' q^*_{1-\alpha/2},\; 2\hat\theta - q^*_{\alpha/2}]}; \code{support_rate} is
+#' the share of replicates with \eqn{|\hat\theta^*| >} \code{threshold} (0 for
+#' entries outside the selected support), and \code{prob.unsupported} is
+#' \eqn{1 - \mathrm{support\_rate}}.
+#'
+#' These are \emph{post-selection} quantities, conditional on the support that
+#' BIC picked, and they can overstate the evidence.  They answer "how large is
+#' this entry, given that the procedure kept it", not "is there feedback at
+#' all"; the calibrated statement about the presence of feedback is
+#' \code{\link{nmf.ffb.test}}, which is the step that belongs before this one.
+#' Each replicate seeds itself (\code{seed + B + b}), so the result does not
+#' depend on \code{cores}.
 #'
 #' \strong{\code{method = "mu"} (legacy fits, and objects without a
 #' \code{method} field).}  The procedure is a \strong{full pair bootstrap} that holds the basis
@@ -791,37 +797,6 @@ nmf.ffb <- function(
 #' @param Y1 Endogenous variable matrix (P1 x N).  Must match the data
 #'   used in \code{nmf.ffb()}.
 #' @param Y2 Exogenous variable matrix (P2 x N).  Same.
-#' @section Calibration:
-#' For \code{method = "fiml"} the likelihood-ratio statistics are calibrated
-#' by a parametric bootstrap from the fitted feedforward null, and what is
-#' re-estimated on each replicate decides what the resulting p-value means.
-#' \describe{
-#'   \item{\code{"conditional"}}{Stage 2 alone is re-run, with the basis
-#'     \code{object$X} and the exclusion mask \code{object$mask} held at their
-#'     observed values.  This calibrates the statistic \emph{given} the basis
-#'     and the mask.  It is a valid test only if those were obtained from data
-#'     independent of \code{Y1}; when basis, mask and test come from the same
-#'     sample -- the usual case -- it overstates the evidence, because the mask
-#'     was chosen on the very data being tested.}
-#'   \item{\code{"full"}}{Stage 1 is also re-run on every replicate: the basis
-#'     is re-estimated with the settings recorded in \code{object$stage1.args},
-#'     the mask is re-derived from it with \code{object$mask.rule}, and Stage 2
-#'     follows.  This is the operating characteristic of the complete
-#'     exploratory procedure.  Its false-selection rate is large whenever the
-#'     mask is not well determined by the data (see \code{mask.change.rate}):
-#'     when the dominant factor of an outcome changes between replicates, a
-#'     previously blocked entry becomes free and a feedback coefficient can
-#'     absorb loading structure.  Costs one \code{\link{nmfkc}} fit per
-#'     replicate in addition to Stage 2.}
-#' }
-#' The two can disagree sharply on the same data, and the disagreement is
-#' informative: \code{"conditional"} is anti-conservative by exactly the amount
-#' by which the basis and the mask were fitted to the data being tested.  The
-#' calibration to use is \code{"full"}; \code{"conditional"} is correct only
-#' when the basis and the mask come from outside these data, and it is then
-#' selected automatically.  Sample splitting was offered in 0.9.7 and withdrawn
-#' in 0.9.8: it has the same size as \code{"full"} with lower power.
-#'
 #' @param B Number of bootstrap replicates.  Default \code{1000}, the value the
 #'   published analysis used; the other inference functions in the package
 #'   default their \code{wild.B} to 500, and this one is deliberately left at
@@ -830,17 +805,14 @@ nmf.ffb <- function(
 #'   clears \code{threshold}, at any \code{B}: raising \code{B} does not add a
 #'   finer grade, it makes the same grade stronger evidence (all 1000 rather
 #'   than all 500).  Lowering it to 500 roughly halves the running time, since
-#'   each replicate is a re-fit.  For \code{method = "fiml"} each replicate of
-#'   the null bootstrap re-runs the full selection pipeline (the null and
-#'   unpenalized fits, \code{length(starts)} penalized fits per
-#'   \code{lambda1} and up to three refits per distinct proposed support;
-#'   typically 40-60 FIML fits), so start with a small \code{B} to gauge
-#'   the running time.
+#'   each replicate is a re-fit.  For \code{method = "fiml"} a replicate is one
+#'   FIML fit on the selected support, so \code{B = 1000} is affordable; the
+#'   expensive bootstrap is the null one, which \code{\link{nmf.ffb.test}} runs.
 #' @param threshold Display threshold \eqn{\delta} for the support rate
 #'   \eqn{\Pr_{\mathrm{boot}}(\hat c^{(b)} > \delta)}.  Default
 #'   \code{0.01}; entries below this magnitude are treated as effectively
 #'   zero in the path diagram.
-#' @param ci.level Confidence level for the bootstrap CI.
+#' @param boot.level Confidence level for the bootstrap CI.
 #'   Default \code{0.95}.
 #' @param C1.L1,C2.L1 L1 sparsity penalties used by the original
 #'   \code{method = "mu"} fit.  These must match the fit's hyperparameters
@@ -880,63 +852,29 @@ nmf.ffb <- function(
 #' \item{coefficients}{Data frame with rows for every entry of \eqn{C_1}
 #'   and \eqn{C_2} and columns \code{Type} ("C1" / "C2"), \code{Basis},
 #'   \code{Covariate}, \code{Estimate}, \code{CI_low}, \code{CI_high},
-#'   \code{support_rate}, \code{p_value} (\eqn{= 1 - \mathrm{support\_rate}},
-#'   for compatibility with downstream consumers such as
-#'   \code{\link{nmf.ffb.DOT}}), and \code{sig}.}
+#'   \code{support_rate}, \code{prob.unsupported} (\eqn{= 1 -
+#'   \mathrm{support\_rate}}) and \code{sig}.}
 #' \item{C1.support.rate, C2.support.rate}{Per-element support rates
 #'   (Q x P1 and Q x P2 matrices).}
 #' \item{C1.ci.lower, C1.ci.upper, C2.ci.lower, C2.ci.upper}{Per-element
 #'   CI bounds (percentile for \code{"mu"}, centred percentile for
 #'   \code{"fiml"}).}
-#' \item{C1.array, C2.array}{Bootstrap distributions: 3D arrays of shape
+#' \item{C1.boot.draws, C2.boot.draws}{Bootstrap distributions: 3D arrays of shape
 #'   B x Q x P1 (and B x Q x P2).  Invalid replicates contain \code{NA}.}
-#' \item{rho.boot}{Per-replicate spectral radius \eqn{\rho(X C_1^*)}.}
+#' \item{rho.boot.draws}{Per-replicate spectral radius \eqn{\rho(X C_1^*)}.}
 #' \item{AR.boot, iter.boot}{(\code{"mu"} only) per-replicate amplification
 #'   ratio and inner-loop iteration count.}
-#' \item{bootstrap.B, bootstrap.threshold, bootstrap.ci.level}{Inputs
-#'   recorded for reproducibility.}
-#' \item{bootstrap.n.valid, bootstrap.n.invalid}{Validity counts (for
-#'   \code{"fiml"}: of the selected-model bootstrap).}
-#' \item{LR.boot}{(\code{"fiml"} only) \eqn{B \times 2} matrix of the null
-#'   bootstrap statistics, columns \code{full} and \code{selected};
-#'   \code{NA} rows are failed replicates.}
-#' \item{LR.p.boot}{(\code{"fiml"} only) \code{c(full, selected)}: the
-#'   bootstrap p-values \eqn{(1 + \#\{LR^* \ge LR_{\mathrm{obs}}\})/(1 + B_{ok})}.
-#'   The floor is \eqn{1/(1 + B_{ok})}, so a value equal to it means "no
-#'   replicate reached the observed statistic" and should be reported as
-#'   \eqn{p < 1/B_{ok}} rather than as an exact number.}
-#' \item{LR.null.quantile}{(\code{"fiml"} only) 95\% quantiles of the two
-#'   null distributions -- the calibrated critical values.}
-#' \item{LR.boot.n.nonconv}{(\code{"fiml"} only) \code{c(null, full)}: how many
-#'   usable null replicates did not meet the optimizer tolerance in the null and
-#'   in the feedback fit.  They are kept in the calibration, but a large share
-#'   signals a flat null likelihood (small \eqn{N}, full \eqn{\Phi}); re-run with
-#'   a larger \code{fiml.maxit} or a smaller \code{factr} to check that
-#'   \code{LR.p.boot} is stable.}
-#' \item{bootstrap.calibration}{(\code{"fiml"} only) \code{"split"},
-#'   \code{"conditional"} or \code{"full"}: the level at which the null
-#'   bootstrap was run (section \emph{Calibration}).}
-#' \item{split.table}{(\code{calibration = "split"} only) One row per
-#'   (split, direction): sizes of the two halves, free entries of the mask
-#'   derived on the estimation half, \code{LR_full}, \code{LR_selected},
-#'   \code{nnz_selected} and \code{rho} on the test half, their conditional
-#'   bootstrap p-values \code{p_full}, \code{p_selected}, the null 95\%
-#'   quantile, and the null false-selection rate on that half.  At this level
-#'   \code{LR.boot}, \code{LR.p.boot} and \code{prob.select.null} are
-#'   \code{NULL}: the table is the result, and the fraction of halves with
-#'   \code{p_full < 0.05} is the summary to report.}
-#' \item{mask.change.rate}{(\code{calibration = "full"} only) Share of null
-#'   replicates on which the re-derived exclusion mask differed from the
-#'   observed one.  A large value means the restriction is not well
-#'   determined by the data and the exploratory procedure will select
-#'   feedback under the null.}
-#' \item{LR.boot.df}{(\code{"conditional"}/\code{"full"}) Free entries of the
-#'   mask on each null replicate (constant for \code{"conditional"}).}
-#' \item{prob.select.null}{(\code{"fiml"} only) share of null replicates in
-#'   which BIC selected at least one feedback path (the false-selection rate
-#'   under the null).  A tail probability of the procedure, not a p-value.}
-#' \item{nnz.boot}{(\code{"fiml"} only) number of selected paths in each
-#'   null replicate.}
+#' #' \item{boot.B, boot.threshold, boot.level}{Inputs recorded for
+#'   reproducibility.}
+#' \item{boot.n.valid, boot.n.invalid}{Validity counts (for \code{"fiml"}:
+#'   of the selected-model bootstrap).}
+#' \item{boot.method}{How the replicates were drawn.}
+#'
+#' The calibrated test of the feed-forward null -- \code{LR.p.boot},
+#' \code{prob.select.null}, \code{C1.restriction.change.rate} and the null
+#' bootstrap behind them -- is \strong{not} returned here.  It moved to
+#' \code{\link{nmf.ffb.test}} in 0.9.8, so that an object carrying coefficient
+#' intervals cannot be mistaken for a test of feedback (see NEWS).
 #'
 #' @section Lifecycle:
 #' This function's interface changed at v0.6.8: the legacy 1-step Newton
@@ -968,19 +906,22 @@ nmf.ffb <- function(
 nmf.ffb.inference <- function(object, Y1, Y2,
                                B = 1000L,
                                threshold = 0.01,
-                               ci.level = 0.95,
+                               boot.level = 0.95,
                                C1.L1 = 1.0,
                                C2.L1 = 0.1,
                                seed = 123L,
                                ...) {
   if (is.null(object$X) || is.null(object$C1) || is.null(object$C2))
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
+  ## Renamed in 0.9.8; through `...` it would be dropped and the default used.
+  if ("ci.level" %in% names(match.call()))
+    stop("`ci.level` was renamed to `boot.level` in 0.9.8.", call. = FALSE)
 
   ## Likelihood-based fits take the parametric-bootstrap branch; objects
   ## without a `method` field predate it and are multiplicative-update fits.
   if (identical(object$method, "fiml"))
     return(.nmf.ffb.inference.fiml(object, Y1, Y2, B = B, threshold = threshold,
-                                   ci.level = ci.level, seed = seed, what = "ci", ...))
+                                   boot.level = boot.level, seed = seed, what = "ci", ...))
 
   extra_args  <- base::list(...)
   ## Keep our own seeding out of the caller's random stream.
@@ -1121,8 +1062,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## PSOCK cluster on Windows; serial when ncores == 1).
   ## ----------------------------------------------------------------
   if (print.trace)
-    base::message(sprintf("  Bootstrap: B=%d, ncores=%d, threshold=%.3g, ci.level=%.2f",
-                          B, ncores, threshold, ci.level))
+    base::message(sprintf("  Bootstrap: B=%d, ncores=%d, threshold=%.3g, boot.level=%.2f",
+                          B, ncores, threshold, boot.level))
 
   if (ncores > 1L) {
     if (.Platform$OS.type == "windows") {
@@ -1143,8 +1084,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## ----------------------------------------------------------------
   ## Aggregate replicates into 3D arrays (B x Q x P1) and (B x Q x P2)
   ## ----------------------------------------------------------------
-  C1.array <- array(NA_real_, dim = c(B, Q, P1))
-  C2.array <- array(NA_real_, dim = c(B, Q, P2))
+  C1.boot.draws <- array(NA_real_, dim = c(B, Q, P1))
+  C2.boot.draws <- array(NA_real_, dim = c(B, Q, P2))
   rho.vec  <- rep(NA_real_, B)
   AR.vec   <- rep(NA_real_, B)
   iter.vec <- rep(NA_integer_, B)
@@ -1158,8 +1099,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     if (!is.null(r$AR))   AR.vec[b]   <- r$AR
     if (!is.null(r$iter)) iter.vec[b] <- as.integer(r$iter)
     if (valid.vec[b]) {
-      C1.array[b, , ] <- r$C1
-      C2.array[b, , ] <- r$C2
+      C1.boot.draws[b, , ] <- r$C1
+      C2.boot.draws[b, , ] <- r$C2
     }
   }
   n.valid <- sum(valid.vec)
@@ -1172,7 +1113,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## ----------------------------------------------------------------
   ## Per-element summary: support rate at threshold, percentile CI
   ## ----------------------------------------------------------------
-  alpha <- 1 - ci.level
+  alpha <- 1 - boot.level
 
   apply_finite <- function(arr, FUN) {
     apply(arr, c(2, 3), function(v) {
@@ -1181,12 +1122,12 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     })
   }
 
-  C1.support  <- apply_finite(C1.array, function(v) mean(v > threshold))
-  C2.support  <- apply_finite(C2.array, function(v) mean(v > threshold))
-  C1.ci.lower <- apply_finite(C1.array, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
-  C1.ci.upper <- apply_finite(C1.array, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
-  C2.ci.lower <- apply_finite(C2.array, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
-  C2.ci.upper <- apply_finite(C2.array, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
+  C1.support  <- apply_finite(C1.boot.draws, function(v) mean(v > threshold))
+  C2.support  <- apply_finite(C2.boot.draws, function(v) mean(v > threshold))
+  C1.ci.lower <- apply_finite(C1.boot.draws, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
+  C1.ci.upper <- apply_finite(C1.boot.draws, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
+  C2.ci.lower <- apply_finite(C2.boot.draws, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
+  C2.ci.upper <- apply_finite(C2.boot.draws, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
 
   ## Significance markers from support rate (one-sided; lavaan / stats
   ## convention).  Cutoffs use strict greater-than so the rule mirrors
@@ -1231,7 +1172,6 @@ nmf.ffb.inference <- function(object, Y1, Y2,
       ## the convention-compliant name ...
       prob.unsupported = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
       ## ... and the historical one, same numbers, kept for back-compatibility
-      p_value      = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
       sig          = sig.from.support(s_vec),
       stringsAsFactors = FALSE
     )
@@ -1248,16 +1188,16 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## ----------------------------------------------------------------
   ## Append to object and return
   ## ----------------------------------------------------------------
-  object$bootstrap.B          <- B
-  object$bootstrap.threshold  <- threshold
-  object$bootstrap.ci.level   <- ci.level
-  object$bootstrap.n.valid    <- n.valid
-  object$bootstrap.n.invalid  <- B - n.valid
-  object$rho.boot             <- rho.vec
+  object$boot.B          <- B
+  object$boot.threshold  <- threshold
+  object$boot.level           <- boot.level
+  object$boot.n.valid    <- n.valid
+  object$boot.n.invalid  <- B - n.valid
+  object$rho.boot.draws             <- rho.vec
   object$AR.boot              <- AR.vec
   object$iter.boot            <- iter.vec
-  object$C1.array             <- C1.array
-  object$C2.array             <- C2.array
+  object$C1.boot.draws             <- C1.boot.draws
+  object$C2.boot.draws             <- C2.boot.draws
   object$C1.support.rate      <- C1.support
   object$C2.support.rate      <- C2.support
   object$C1.ci.lower          <- C1.ci.lower
@@ -1377,7 +1317,8 @@ nmf.ffb.cv <- function(
     ecv_args <- extra_cv
     ecv_args$method <- NULL
     ecv_args$C1.L1 <- NULL; ecv_args$C2.L1 <- NULL
-    for (nm in c("X", "mask", "cross.threshold", "phi", "lambda1", "select", "starts",
+    for (nm in c("X", "C1.restriction", "C1.restriction.threshold", "Phi.restriction",
+                 "C1.L1.path", "select",
                  "fiml.maxit", "factr", "nmfkc.baseline", "M.simple"))
       ecv_args[[nm]] <- NULL
     if (is.null(ecv_args$X.init)) ecv_args$X.init <- X.init
@@ -1601,7 +1542,7 @@ nmf.ffb.cv <- function(
 #' scores of the factors and is observationally equivalent, under the Gaussian
 #' working model, to a change of \eqn{\Theta_2} and of the factor covariance
 #' \eqn{\Phi}; only the departure from that family is identified, through the
-#' uniquenesses \eqn{\Psi}.  On the free set \eqn{F} of the exclusion mask the
+#' uniquenesses \eqn{\Psi}.  On the free set \eqn{F} of the exclusion restriction the
 #' family is a subspace of dimension at most \eqn{Q(Q-1)}, and
 #' \code{omega} is the share of the squared norm of \eqn{\Theta_1} that lies in
 #' it.  \code{omega} has no natural zero: for an isotropic direction its
@@ -1638,8 +1579,8 @@ nmf.ffb.diagnostics <- function(object, which = c("selected", "full")) {
   which <- base::match.arg(which)
   if (!base::inherits(object, "nmf.ffb"))
     base::stop("nmf.ffb.diagnostics() expects an object from nmf.ffb().")
-  if (base::is.null(object$mask) || base::is.null(object$psi))
-    base::stop("this fit carries no mask/uniquenesses: nmf.ffb.diagnostics() needs method = \"fiml\".")
+  if (base::is.null(object$C1.free) || base::is.null(object$psi))
+    base::stop("this fit carries no exclusion restriction / uniquenesses: nmf.ffb.diagnostics() needs method = \"fiml\".")
   T1 <- if (which == "selected") object$C1 else object$full$C1
   psi <- if (which == "selected") object$psi else object$full$psi
   if (base::is.null(T1)) base::stop("no ", which, " feedback matrix on this object.")
@@ -1652,7 +1593,7 @@ nmf.ffb.diagnostics <- function(object, which = c("selected", "full")) {
   if (!base::is.null(object$candidates) && !base::is.null(object$supports)) {
     cd <- object$candidates[base::order(object$candidates$BIC, object$candidates$nnz), , drop = FALSE]
     k <- base::min(3L, base::nrow(cd))
-    top <- base::data.frame(rank = base::seq_len(k), nnz = cd$nnz[base::seq_len(k)],
+    top <- base::data.frame(order = base::seq_len(k), nnz = cd$nnz[base::seq_len(k)],
                             rho = cd$rho[base::seq_len(k)], BIC = cd$BIC[base::seq_len(k)],
                             dBIC = cd$BIC[base::seq_len(k)] - cd$BIC[1],
                             stringsAsFactors = FALSE)
@@ -1663,7 +1604,7 @@ nmf.ffb.diagnostics <- function(object, which = c("selected", "full")) {
       base::all(!tops[[a]] | tops[[b]]) || base::all(!tops[[b]] | tops[[a]]))))
   }
   base::list(cycles = .ffb.fiml.cycles(object$X, T1),
-             omega = .ffb.fiml.omega(object$X, T1, psi, object$mask),
+             omega = .ffb.fiml.omega(object$X, T1, psi, object$C1.free),
              top = top, core = core, envelope = envelope, nested = nested,
              log.N = if (!base::is.null(object$N)) base::log(object$N) else NA_real_,
              which = which)
@@ -1990,7 +1931,7 @@ nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #'   (\eqn{C_1} feedback and \eqn{C_2} exogenous loadings) when
 #'   inference results are present.  If \code{result} contains a
 #'   \code{coefficients} data frame from \code{\link{nmf.sem.inference}},
-#'   only edges with \code{p_value < sig.level} are drawn, with
+#'   only edges with \code{prob.unsupported < sig.level} are drawn, with
 #'   significance stars (\code{*} \code{**} \code{***}) appended to
 #'   the edge label.  The \eqn{X} (factor-to-\eqn{Y_1}) edges are
 #'   never starred since the basis is not the inference target.
@@ -2249,9 +2190,9 @@ nmf.ffb.DOT <- function(result,
     for (k in seq_len(nrow(cf_C2))) {
       q  <- match(cf_C2$Basis[k], fac_names)
       p2 <- match(cf_C2$Covariate[k], y2_names)
-      if (!is.na(q) && !is.na(p2) && !is.na(cf_C2$p_value[k])) {
-        C2_pval[q, p2]  <- cf_C2$p_value[k]
-        C2_stars[q, p2] <- pval_to_stars(cf_C2$p_value[k])
+      if (!is.na(q) && !is.na(p2) && !is.na(cf_C2$prob.unsupported[k])) {
+        C2_pval[q, p2]  <- cf_C2$prob.unsupported[k]
+        C2_stars[q, p2] <- pval_to_stars(cf_C2$prob.unsupported[k])
       }
     }
     if (!is.null(sig.level)) {
@@ -2265,9 +2206,9 @@ nmf.ffb.DOT <- function(result,
       for (k in seq_len(nrow(cf_C1))) {
         q  <- match(cf_C1$Basis[k], fac_names)
         p1 <- match(cf_C1$Covariate[k], y1_names)
-        if (!is.na(q) && !is.na(p1) && !is.na(cf_C1$p_value[k])) {
-          C1_pval[q, p1]  <- cf_C1$p_value[k]
-          C1_stars[q, p1] <- pval_to_stars(cf_C1$p_value[k])
+        if (!is.na(q) && !is.na(p1) && !is.na(cf_C1$prob.unsupported[k])) {
+          C1_pval[q, p1]  <- cf_C1$prob.unsupported[k]
+          C1_stars[q, p1] <- pval_to_stars(cf_C1$prob.unsupported[k])
         }
       }
       if (!is.null(sig.level)) {
@@ -2361,7 +2302,7 @@ nmf.ffb.DOT <- function(result,
   }
 
   result <- paste0(dot_script, "}\n")
-  class(result) <- c("nmf.sem.DOT", "nmfkc.DOT")
+  class(result) <- c("nmf.ffb.DOT", "nmf.sem.DOT", "nmfkc.DOT")
   result
 }
 

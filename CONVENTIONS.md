@@ -22,13 +22,38 @@ with the `wild.` prefix:
 | `wild.level` | confidence level | 0.95 |
 | `wild.seed` | bootstrap seed | 123 |
 
-One deliberate exception: `nmf.ffb.inference()` keeps `B = 1000`, the value its
-published analysis used, so those results reproduce out of the box. Its help
-says so.
+The prefix names the resampling scheme, so that a reader can tell from the
+argument which bootstrap it belongs to. `nmf.ffb.test()` and
+`nmf.ffb.inference()` draw a **parametric** bootstrap, not a wild one, and
+take `boot.level`, `boot.B` … accordingly; the fields they leave on the object
+are `boot.B`, `boot.threshold`, `boot.level`, `boot.n.valid`, `boot.n.invalid`
+and `boot.method`.
+
+Two deliberate exceptions in that family: `B` and `seed` are real formals
+rather than `...` options, and `B` defaults to 1000 -- the value its published
+analysis used, so those results reproduce out of the box. Its help says so.
 
 **Return values.** Estimate / uncertainty pairs follow
 `<quantity>`, `<quantity>.se`, `<quantity>.ci.lower`, `<quantity>.ci.upper`
-(e.g. `C.se`, `C.ci.lower`; `spectral.radius.se`, `spectral.radius.ci.lower`).
+(e.g. `C.se`, `C.ci.lower`; `spectral.radius.se`, `spectral.radius.ci.lower`),
+and the raw replicates are `<quantity>.boot.draws` (`C.boot.draws`,
+`C1.boot.draws`, `rho.boot.draws`).
+
+**A field must mean what the argument of the same name means.** Every fitter
+returns `rank`, `mae`, `objfunc`, `iter`, `maxit`, `epsilon`, `converged`, and
+a reader is entitled to assume that `fit$maxit` is the `maxit` that was passed.
+`nmf.ffb()` broke this twice -- `fit$mask` was a matrix while `mask` was a rule
+string, and `fit$maxit` held the stage-2 cap while `maxit` set the stage-1 one,
+so `print()` paired stage 2's iteration count with stage 1's tolerance. Both
+were fixed in 0.9.8. A **two-stage** fitter reports the second stage under its
+own prefix (`fiml.iter`, `fiml.maxit`, `fiml.converged`) and makes `converged`
+the conjunction; a nested optimizer uses `outer.iter` / `outer.maxit`
+(`nmfre`).
+
+**A restriction on a matrix is named after the matrix**: `X.restriction`,
+`C1.restriction`, `Phi.restriction`, and anything that parameterizes it shares
+the prefix (`C1.restriction.threshold`). The realized 0/1 matrix is a separate
+field named for what it marks (`C1.free`).
 Coefficient tables use the columns `Basis`, `Covariate`, `Estimate`, `SE`,
 `BSE`, `z_value`, `p_value`, `CI_low`, `CI_high` — `nmfkc.DOT()` depends on
 `Basis` / `Covariate`.
@@ -179,7 +204,8 @@ Fit the model tightly too (`epsilon = 1e-8`) when the fit feeds inference.
   `p = 0` is not a valid p-value (Davison & Hinkley 1997, sec. 4.2). The
   `(1 + .)/(1 + B)` form floors it at `1/(1 + B)`, so `B` sets the smallest
   reportable value and the result should be quoted as `p < 1/B` when it sits on
-  that floor. `nmf.ffb.inference(method = "fiml")$LR.p.boot` returned the raw
+  that floor. `nmf.ffb.test()$LR.p.boot` (then a field of
+  `nmf.ffb.inference()`) returned the raw
   proportion until 2026-09; it reported `p = 0` on the Holzinger–Swineford and
   NHANES fits of the NMF-FFB paper, which reports the same results as
   `p < 0.001`. This is the same failure the bullet above forbids for
@@ -189,9 +215,10 @@ Fit the model tightly too (`epsilon = 1e-8`) when the fit feeds inference.
   support chosen by BIC -- is held fixed at its observed value while `Y1*` is
   regenerated, the null distribution omits the adaptivity of that step and the
   p-value is anti-conservative. Either re-run every data-dependent step on each
-  replicate (`nmf.ffb.inference(calibration = "full")`), or make the step
+  replicate (`nmf.ffb.test(calibration = "procedure")`), or make the step
   independent of the test data by estimating it on a separate half of the
-  units (`calibration = "split"`). Conditioning on a fixed estimated basis
+  units (`calibration = "split"`, withdrawn in 0.9.8: same size as
+  `"procedure"`, lower power). Conditioning on a fixed estimated basis
   (`calibration = "conditional"`) is a valid test only when the basis came from
   other data; label it as conditional otherwise and never call it
   size-controlled. This rule cost the NMF-FFB paper its headline `p < 0.001`
@@ -204,7 +231,9 @@ Fit the model tightly too (`epsilon = 1e-8`) when the fit feeds inference.
   blocked, so its self-loop is free. Combine the two rules (`mask = "union"`)
   rather than choosing one; the paper's simulation used the threshold rule
   while its applications used the dominant-factor rule, and the two were only
-  reconciled in the 2026-09 audit.
+  reconciled in the 2026-09 audit. (`mask` is the software's old word for it;
+  since 0.9.8 the argument is `C1.restriction` and the paper's word,
+  *exclusion restriction*, is used throughout.)
 - **Report how many bootstrap replicates missed the optimizer tolerance.**
   Replicates that stop at `maxit` are still draws from the procedure and stay in
   the calibration, but the share must be visible: on a flat likelihood (small
@@ -247,7 +276,11 @@ Fit the model tightly too (`epsilon = 1e-8`) when the fit feeds inference.
 - **A bootstrap tail probability is not a p-value.** Replicates drawn around the
   *estimated* model give `P*(rho* >= 1)`, not a test of `H0: rho = 1` — nothing
   imposes the null. Name such quantities `prob.*`, never `p.*`, and say in the
-  help and the print-out what they are not.
+  help and the print-out what they are not. The `nmf.ffb` / `nmf.sem`
+  coefficient table carried `1 - support_rate` under **both** names, `p_value`
+  and `prob.unsupported`, until 0.9.8; `p_value` is gone and the printers fall
+  back to `prob.unsupported`. `nmfkc`-family tables keep `p_value`, which there
+  is a genuine bootstrap p-value.
 - **Perron-Frobenius bounds apply to the matrix whose radius you want.** The
   stationarity bracket uses the column sums of `sum_d Xi_d = X Lambda`, i.e.
   `colSums(X) %*% Lambda`. The unweighted `colSums(Lambda)` is the special case
@@ -336,8 +369,8 @@ move published numbers. Both are stated in the affected help pages; do not
   break test reads the reconstruction loss, not the penalized objective the
   updates minimize; every other optimizer tests the penalized value. With a
   strong penalty they can stop while the optimized quantity is still moving.
-  `nmf.ffb` returns both traces (`objfunc`, `objfunc.full`) so the gap is at
-  least visible.
+  `nmf.ffb` returns both traces (`objfunc`, `objfunc.penalized`) so the gap is
+  at least visible.
 
 By contrast these *were* fixed, because the results they produced were not
 merely different but wrong: a KL fit whose relative-change denominator lacked

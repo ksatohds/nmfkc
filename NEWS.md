@@ -1,6 +1,86 @@
 # nmfkc (development version)
 
 
+## NMF-FFB: names brought into line with the rest of the package
+
+`nmf.ffb()` grew its own vocabulary while the likelihood estimator was being
+built, and of the 55 fields on a fit only nine shared a name with an `nmfkc()`
+fit -- two of those meaning something different. The names are now the
+package's. **This is a breaking change**, confined to the likelihood branch and
+its inference, all of which was added after the last CRAN release.
+
+| was | is | why |
+|:--|:--|:--|
+| `fit$Q` | `fit$rank` | `rank` is the field on every other fitter |
+| `fit$MAE` | `fit$mae` | likewise (the `path` / `candidates` **columns** stay `MAE`, beside `BIC`) |
+| `fit$objfunc` (`NULL`) | `fit$objfunc` = the minimized negative log-likelihood | it was the one house field the fiml path left empty |
+| `fit$objfunc.full` | `fit$objfunc.penalized` | it is the penalized objective, unrelated to the `full` fit |
+| `mask =` (argument) | `C1.restriction =` | mirrors `X.restriction`; the argument and the field of the same name held different things |
+| `fit$mask` (matrix) | `fit$C1.free` | it marks the entries left **free**, and the argument `mask` was a rule string |
+| `fit$mask.rule` | `fit$C1.restriction` | the field now means what the argument means |
+| `cross.threshold` | `C1.restriction.threshold` | it parameterizes the restriction, so it shares its prefix |
+| `phi =`, `fit$phi` | `Phi.restriction` | `phi` and `Phi` differed only in case |
+| `lambda1` | `C1.L1.path` | the L1 penalty on `C1`, as a path; `fit$path$C1.L1` is one value of it |
+| `lambda1.selected` | `C1.L1.selected` | |
+| `ci.level` | `boot.level` | the confidence level of the bootstrap, as `wild.level` elsewhere |
+| `bootstrap.B`, `.threshold`, `.ci.level`, `.n.valid`, `.n.invalid`, `.type` | `boot.B`, `boot.threshold`, `boot.level`, `boot.n.valid`, `boot.n.invalid`, `boot.method` | `boot.method` is the house name |
+| `C1.array`, `C2.array` | `C1.boot.draws`, `C2.boot.draws` | as `C.boot.draws` in `nmfkc.inference()` |
+| `rho.boot` | `rho.boot.draws` | |
+| `mask.change.rate` | `C1.restriction.change.rate` | |
+| `calibration = "full"` | `calibration = "procedure"` | `"full"` already named the unrestricted feedback fit |
+| `plot(fit, which = "full")` | `which = "penalized"` | same reason |
+| `coefficients$p_value` | (removed; use `prob.unsupported`) | it held `1 - support_rate`, which is not a p-value |
+| `nmf.ffb.diagnostics()$top$rank` | `$top$order` | `rank` now means the number of factors |
+
+Three defects surfaced while doing this, all of them silent until now.
+
+* `nmf.ffb(C1.L1 = , C2.L1 = )` had **no effect at all** under the default
+  `method = "fiml"`: the arguments were accepted and never forwarded. They
+  belong to the multiplicative updates; the likelihood path penalizes `C1`
+  along `C1.L1.path` and leaves `C2` unpenalized. Passing them to a fiml fit
+  now warns. Same in `nmf.ffb.inference()`.
+* `fit$maxit` held the **stage-2** cap while the `maxit` argument set the
+  **stage-1** one, and `print()` paired stage 2's iteration count with stage
+  1's `epsilon` (`87 / 3000  epsilon = 1e-06` -- three numbers from two
+  different optimizers). `iter`, `maxit`, `epsilon` now describe stage 1, as
+  the arguments of those names do; stage 2 is `fiml.iter`, `fiml.maxit`,
+  `factr`, `fiml.converged`; and `converged` is `TRUE` only if both stages
+  converged. `print()` shows both.
+* `plot()` on a `method = "fiml"` fit failed inside `sprintf()`. A fiml fit has
+  no iteration trace to draw (its optimizer is L-BFGS-B), so it now says so and
+  names what to use instead.
+
+Options withdrawn in 0.9.8 (`starts`, `nsplit`, `calibration` as an argument of
+the fit) reached `...` and were dropped without a word; they now warn. A
+**renamed** argument is worse than a withdrawn one -- `mask = "none"` would be
+dropped and the fit would silently use the default restriction, the opposite of
+the request -- so the four renamed arguments stop with the new name instead.
+
+### NMF-FFB is the canonical name everywhere, NMF-SEM the alias
+
+The `nmf.sem*` functions have been deprecated aliases of `nmf.ffb*` for some
+time, but the rest of the package had not followed:
+
+* the tutorial was `vignettes/nmf-sem-with-nmfkc.Rmd` and the engine file
+  `R/nmf.sem.R`; they are now `nmf-ffb-with-nmfkc.Rmd` and `R/nmf.ffb.R`;
+* **the six S3 methods were registered on `nmf.sem`, not on `nmf.ffb`** --
+  `summary()`, `plot()`, `coef()`, `fitted()`, `residuals()` and
+  `print.summary()` -- so the deprecated name was the one dispatch resolved
+  against and `?summary.nmf.sem` was the page a user landed on. They are now
+  defined on `nmf.ffb`, and the `nmf.sem` methods are one-line aliases
+  collected at the end of `R/nmf.sem-deprecated.R`, so that removing `nmf.sem`
+  later means removing one file. An object saved by a version that wrote only
+  `c("nmf.sem", "nmf")`, and a summary object of class `"summary.nmf.sem"`,
+  still dispatch;
+* `nmf.ffb.DOT()` tagged its result `c("nmf.sem.DOT", "nmfkc.DOT")`; the
+  leading class is now `"nmf.ffb.DOT"`.
+
+The fitted object still carries `c("nmf.ffb", "nmf.sem", "nmf")`, and the
+deprecated functions still work and still say so. The tutorial now also shows
+the exclusion restriction (`fit$C1.restriction`, `fit$C1.free`), the BIC path
+that `plot()` draws, and the two-stage convergence line.
+
+
 ## NMF-FFB: one function per step of the procedure
 
 The feedback model is now driven by four functions, one for each step, instead
@@ -17,14 +97,15 @@ inf <- nmf.ffb.inference(fit, Y1, Y2)    # 5. intervals for the retained entries
 * **New** `nmf.ffb.test()`: the calibrated test of the feed-forward null. It
   runs the null bootstrap only, and returns `LR.p.boot`, the null quantiles,
   the null false-selection rate `prob.select.null` and, for the default
-  calibration, `mask.change.rate`. Replicates run in parallel with
+  calibration, `C1.restriction.change.rate`. Replicates run in parallel with
   `cores = ` as elsewhere in the package.
 * **New** `nmf.ffb.ecv()`: choosing *Q* under the name that says what it does.
   `nmf.ffb.cv(method = "fiml")` has delegated to element-wise CV since 0.9.7;
   the old name still works and is kept for the multiplicative-update path.
 * **Breaking** `nmf.ffb.inference()` no longer runs the null bootstrap and no
   longer returns `LR.boot`, `LR.p.boot`, `LR.null.quantile`, `prob.select.null`,
-  `LR.boot.*`, `mask.change.rate`, `split.table` or `bootstrap.calibration`;
+  `LR.boot.*`, `C1.restriction.change.rate`, `split.table` or
+  `bootstrap.calibration`;
   its `calibration` and `nsplit` arguments are gone. Use `nmf.ffb.test()`.
   An intervals object that also carried a *p*-value for the presence of
   feedback invited the reader to treat an interval that excludes zero as
@@ -44,66 +125,65 @@ to compare procedures as if they were equally valid.
 * `nmf.ffb(starts = )` is gone. Every penalized fit is warm-started from the
   unpenalized full-feedback fit. The three alternative starting points measured
   on six data sets never uniquely attained the minimum BIC.
-* `calibration` keeps `"full"` (the default: stage 1 and the exclusion
-  restriction re-estimated in every null replicate) and `"conditional"` (valid
-  only when the basis and the mask come from outside the data being tested, and
-  selected automatically in that case). The two sample-splitting levels are
-  gone: `"split"` fixes the basis of the estimation half and is
-  anti-conservative, and `"split-full"` is valid but strictly dominated by
-  `"full"` -- same size, lower power, and it needs a large *N*.
-* `mask` keeps `"union"` (an outcome may not feed back into a factor on which it
-  loads) and `"none"`, plus a user-supplied matrix. The partial rules
-  `"block"` and `"cross"` were kept for comparison and are neither the rule of
-  the paper nor useful on their own.
+* `calibration` (now an argument of `nmf.ffb.test()`) keeps `"procedure"` (the
+  default: stage 1 and the exclusion restriction re-estimated in every null
+  replicate) and `"conditional"` (valid only when the basis and the restriction
+  come from outside the data being tested, and selected automatically in that
+  case). The two sample-splitting levels are gone: `"split"` fixes the basis of
+  the estimation half and is anti-conservative, and `"split-full"` is valid but
+  strictly dominated by `"procedure"` -- same size, lower power, and it needs a
+  large *N*.
+* `C1.restriction` keeps `"union"` (an outcome may not feed back into a factor
+  on which it loads) and `"none"`, plus a user-supplied matrix. The partial
+  rules `"block"` and `"cross"` were kept for comparison and are neither the
+  rule of the paper nor useful on their own.
 
 
 
-## `nmf.ffb.inference()`: what the bootstrap conditions on (`calibration`), and two fixes
+## The feedback test: what the bootstrap conditions on, and two fixes
 
 The parametric bootstrap that calibrates the feedback LR statistics used to
-hold the estimated basis `X` and the exclusion mask fixed at their observed
-values while regenerating `Y1*`. Both are functions of `Y1`, so the null
-distribution omitted the adaptivity of that selection and the p-values were
-anti-conservative: on the two positive examples of the NMF-FFB paper the
-fixed-basis bootstrap gives `p < 0.001`, re-running Stage 1 on every
-replicate gives `p = 0.05` and `0.35`, and the exclusion mask turns out to
-move in 40% and 95% of the null replicates. `nmf.ffb.inference()` therefore
-gains a `calibration` argument with three levels:
+hold the estimated basis `X` and the exclusion restriction fixed at their
+observed values while regenerating `Y1*`. Both are functions of `Y1`, so the
+null distribution omitted the adaptivity of that selection and the p-values
+were anti-conservative: on the two positive examples of the NMF-FFB paper the
+fixed-basis bootstrap gives `p < 0.001`, re-running stage 1 on every replicate
+gives `p = 0.05` and `0.35`, and the exclusion restriction turns out to move in
+40% and 95% of the null replicates. `nmf.ffb.test()` therefore has a
+`calibration` argument with two levels:
 
-* `"conditional"`: Stage 2 only, basis and mask fixed (the previous
-  behaviour). Valid only if basis and mask came from data independent of
-  `Y1`; labelled as conditional in `print()`.
-* `"full"`: Stage 1 and the mask are re-estimated on every replicate (one
-  `nmfkc()` fit per replicate). Returns `mask.change.rate`, the share of
-  replicates whose exclusion mask moved, and `LR.boot.df`.
-* `"split"` (new default): basis and mask are estimated on one random half
-  of the units and Stage 2 with its conditional bootstrap is run on the other
-  half, where that calibration is valid; each of `nsplit` splits is used in
-  both directions. Returns `split.table`, one row per (split, direction),
-  and no single p-value -- the fraction of halves below 0.05 is the summary.
+* `"procedure"` (default): stage 1 and the restriction are re-estimated on
+  every replicate (one `nmfkc()` fit per replicate), so the p-value is the
+  operating characteristic of the whole exploratory procedure. Returns
+  `C1.restriction.change.rate`, the share of replicates whose restriction
+  moved, and `LR.boot.df`.
+* `"conditional"`: stage 2 only, basis and restriction fixed (the pre-0.9.7
+  behaviour). Valid only if they came from data independent of `Y1`; labelled
+  as conditional in `print()`, and selected automatically when the fit used a
+  basis or a restriction supplied by the caller.
 
-Two fixes in the same function. `LR.p.boot` is now `(1 + #)/(1 + B_ok)`
-instead of the raw proportion, which was exactly 0 whenever no replicate
-reached the observed statistic (the normal case for a strongly significant
-fit, and not a valid p-value); the floor `1/(1 + B_ok)` is printed as
-`< floor`. And the L-BFGS-B convergence codes of the null replicates are no
-longer discarded: `LR.boot.n.nonconv` reports how many missed the tolerance
-and a warning is raised above 10%, because on a flat null likelihood (small
-`N`, full `Phi`) the share can reach 40% and must be visible to the user.
+Two fixes in the same code. `LR.p.boot` is now `(1 + #)/(1 + B_ok)` instead of
+the raw proportion, which was exactly 0 whenever no replicate reached the
+observed statistic (the normal case for a strongly significant fit, and not a
+valid p-value); the floor `1/(1 + B_ok)` is printed as `< floor`. And the
+L-BFGS-B convergence codes of the null replicates are no longer discarded:
+`LR.boot.n.nonconv` reports how many missed the tolerance and a warning is
+raised above 10%, because on a flat null likelihood (small `N`, full `Phi`) the
+share can reach 40% and must be visible to the user.
 
-## `nmf.ffb()`: exclusion mask `"union"` (new default)
+## `nmf.ffb()`: exclusion restriction `"union"` (new default)
 
-`mask = "block"` excluded only the dominant factor of each outcome, and
-`mask = "cross"` only the factors with loading at or above
-`cross.threshold`. Neither is a superset of the other: an outcome with a
+`C1.restriction = "block"` excluded only the dominant factor of each outcome,
+and `"cross"` only the factors with loading at or above
+`C1.restriction.threshold`. Neither is a superset of the other: an outcome with a
 substantial second loading could still feed that factor under `"block"`, and
 an outcome whose largest loading is below the threshold kept its own factor
 free under `"cross"`. The new default `"union"` excludes both, which is the
 rule "an outcome may not feed back into a factor on which it loads". On the
 NHANES data of the paper this removes four selected paths (including BMI ->
 physical factor, coefficient 0.58) that were items feeding a factor on which
-they load. The fit records `mask.rule` and `stage1.args` so that
-`nmf.ffb.inference()` can re-derive the mask and re-run Stage 1.
+they load. The fit records `C1.restriction` and `stage1.args` so that
+`nmf.ffb.test()` can re-derive the restriction and re-run stage 1.
 
 ## `nmf.ffb()`: likelihood-based estimator (`method = "fiml"`, new default)
 
@@ -120,9 +200,9 @@ gains a two-stage likelihood-based estimator, now the default:
 2. conditional on \eqn{\hat X}, the Gaussian working model
    `Y1 = X B + E`, `B = Theta1 Y1 + Theta2 Y2 + U`, `U ~ N(0, Phi)`,
    `E ~ N(0, diag(psi))` is fitted by FIML (L-BFGS-B, analytic gradient)
-   under the non-negativity of `Theta1`, `Theta2` and an exclusion `mask`
-   on `Theta1` (default `"union"`, see above: no outcome may feed back into
-   a factor on which it loads). The feed-forward null (`Theta1 = 0`, a non-negative
+   under the non-negativity of `Theta1`, `Theta2` and an exclusion
+   restriction on `Theta1` (`C1.restriction`, default `"union"`, see above: no
+   outcome may feed back into a factor on which it loads). The feed-forward null (`Theta1 = 0`, a non-negative
    MIMIC factor model with correlated factors), the unpenalized feedback fit
    and an L1 path on `Theta1` with re-estimation on each support are fitted;
    the support with the smallest BIC is the reported model.
@@ -131,44 +211,42 @@ The penalized problem of the L1 path is non-convex, and a single starting
 point can miss the support with the smallest BIC: on the Holzinger-Swineford
 data the start from the unpenalized fit alone proposes a one-path model
 (BIC -1968.9) while the six-path model (BIC -1971.0) is proposed only from
-other starts. Every point of the path is therefore fitted from several
-starts (new argument `starts`, default `c("full", "path", "null", "soft")`:
-the unpenalized fit, continuation from the previous penalty, the null with a
-small constant `Theta1`, and the unpenalized `Theta1` soft-thresholded at
-`lambda1 / N`); every distinct support proposed by any (penalty, start) pair
-is re-estimated without penalty (from three starts, keeping the best
-log-likelihood) and BIC is minimized over all distinct candidates together
-with the null and the unpenalized model. `path` now has one row per
-(`lambda1`, start) with `start`, `support_id`, `pen.value` and `duplicate`
+other starts. Every point of the path was therefore fitted from several starts (argument
+`starts`) while this release was being prepared -- and the alternatives were
+then measured on six data sets and **removed** (see *Options removed*): only
+the warm start from the unpenalized fit survives. What remains of the idea is
+the registry it needed: every distinct support proposed anywhere on the path is
+re-estimated without penalty, and BIC is minimized over all distinct candidates
+together with the null and the unpenalized model. `path` has one row per
+penalty with `C1.L1`, `start`, `support_id`, `pen.value` and `duplicate`
 columns; `candidates` (one row per distinct support), `supports` and
-`support.selected` are new fields, and `nmf.ffb.inference()` re-runs the
-same multi-start pipeline in its null bootstrap. `plot()` follows the
-smallest BIC at each penalty and draws every proposal as a grey point.
+`support.selected` are new fields, and `nmf.ffb.test()` re-runs the same
+pipeline in its null bootstrap.
 
 The returned object keeps every legacy field (`X`, `C1`, `C2`, `XC1`,
-`Leontief.inv`, `M.model`, `MAE`, ...; `SC.map`, `SC.cov`, `objfunc` are
-`NULL`) and adds `method`, `Phi`, `psi`, `loglik`, `npar`, `null`, `full`,
-`path`, `mask`, `lambda1.selected`, `support`, `LR` (with `LR.df`), `BIC`,
-`AIC`, `call`. The likelihood-ratio statistics are returned **without
+`Leontief.inv`, `M.model`, `mae`, ...; `SC.map` and `SC.cov` are `NULL`) and
+adds `method`, `Phi`, `psi`, `loglik`, `npar`, `null`, `full`, `path`,
+`C1.free`, `C1.L1.selected`, `support`, `LR` (with `LR.df`), `BIC`, `AIC`,
+`call`. The likelihood-ratio statistics are returned **without
 p-values**: `Theta1 >= 0` puts the null on the boundary of the parameter
 space and the BIC refit is a post-selection statistic, so a chi-square
 reference is invalid.
 
-`nmf.ffb.inference()` on such an object runs two parametric bootstraps with
-`X` fixed: from the fitted null, re-running the whole selection pipeline on
-each replicate, giving `LR.boot`, `LR.p.boot = P*(LR* >= LR_obs)`,
+Two parametric bootstraps run with `X` fixed, and they are now two functions.
+`nmf.ffb.test()` draws from the fitted null, re-running the whole selection
+pipeline on each replicate, and returns `LR.boot`, `LR.p.boot`,
 `LR.null.quantile` and `prob.select.null` (the false-selection rate of BIC
-under the null); and from the selected model with the support fixed, giving
-the usual `coefficients` table (centred percentile intervals, support rates)
-so that `nmf.ffb.DOT()` and `summary()` keep working. `nmf.ffb.DOT()` gains
+under the null). `nmf.ffb.inference()` draws from the selected model with the
+support fixed and returns the `coefficients` table (centred percentile
+intervals, support rates) that `nmf.ffb.DOT()` and `summary()` read. `nmf.ffb.DOT()` gains
 `model = c("selected", "null", "full")` to draw the feed-forward null or the
 unpenalized fit side by side with the selected model. `nmf.ffb.cv()` with
 `method = "fiml"` delegates to `nmfkc.ecv()`: column-wise CV of the
 equilibrium mapping cannot select `Theta1` (the reduced form is the same with
 and without feedback), so the only tunable quantity is the stage-1 rank.
 `summary()` reports the log-likelihoods, LR statistics and BIC of the three
-fits (and the bootstrap p-values after inference); `plot()` draws the BIC
-path over `log(lambda1)`.
+fits. `plot()` does not apply to a fiml fit (L-BFGS-B leaves no objective
+trace) and says so.
 
 `method = "mu"` is the previous estimator, moved verbatim into an internal
 function and verified bit-identical (`identical()` on a battery of fits,

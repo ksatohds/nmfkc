@@ -44,8 +44,9 @@ disturbances propagate around the loop.
 **An outcome must not feed back into its own factor.**  Without a restriction
 the factor-level directions $\Theta_1 = a X^\top \Psi^{-1}$ are observationally
 equivalent to a change in $\Theta_2$ and $\Phi$, so they are not identified.  The
-default `mask = "union"` blocks, for each outcome, the factor it loads on most
-and every factor on which it loads at least `cross.threshold`.
+default `C1.restriction = "union"` blocks, for each outcome, the factor it loads
+on most and every factor on which it loads at least
+`C1.restriction.threshold`.
 
 ## The workflow
 
@@ -158,6 +159,35 @@ c(rho = round(fit$XC1.radius, 3), LR = round(fit$LR[["full"]], 2), df = fit$LR.d
 
 The two retained entries should be `y1 -> F2` and `y4 -> F1`, the truth.
 
+The restriction it worked under is on the object, as the rule that produced it
+and as the matrix of entries left free:
+
+```{r restriction}
+fit$C1.restriction                    # the rule
+fit$C1.free                           # 1 = free, 0 = blocked because the outcome loads there
+```
+
+Every entry blocked here is one the likelihood is not allowed to use, so the
+degrees of freedom of the test are `sum(fit$C1.free)`, not $Q P_1$.
+
+`plot()` draws the BIC path: the line follows the smallest BIC at each penalty,
+every proposal is a grey point, the number above each is how many entries that
+support keeps, and the circled point is the selected penalty.  There is no
+objective trace to plot for a likelihood fit -- its optimizer is L-BFGS-B.
+
+```{r bicpath, fig.alt = "BIC along the L1 path"}
+plot(fit)
+```
+
+`print(fit)` reports both stages separately, because they are two optimizers:
+`iter / maxit` and `epsilon` are the stage-1 NMF that produced the basis, and
+`fiml n / m` is the L-BFGS-B of the selected fit.  `converged` is `TRUE` only if
+both converged.
+
+```{r print-fit}
+fit
+```
+
 ## 4. Is the feed-forward model enough?
 
 This is the only inferential step.  The likelihood ratio has no $\chi^2$ null
@@ -175,7 +205,7 @@ tst.H1 <- nmf.ffb.test(fit, Y1.H1, Y2, B = 50, seed = 1)
 c(p = round(tst.H1$LR.p.boot[["full"]], 3),
   null.q95 = round(tst.H1$LR.null.quantile[["full"]], 2),
   selects.under.null = tst.H1$prob.select.null,
-  mask.moves = round(tst.H1$mask.change.rate, 2))
+  restr.moves = round(tst.H1$C1.restriction.change.rate, 2))
 ```
 
 **When $H_0$ is true** it should not, and BIC should retain nothing --- although
@@ -189,7 +219,7 @@ c(nnz = sum(fit.H0$C1 > 1e-3),
   selects.under.null = tst.H0$prob.select.null)
 ```
 
-Read `prob.select.null` and `mask.change.rate` alongside the *p*-value.  They say
+Read `prob.select.null` and `C1.restriction.change.rate` alongside the *p*-value.  They say
 whether the exclusion restriction is determined well enough for the test to mean
 anything: if the dominant factor of an outcome moves from replicate to replicate,
 a blocked entry becomes free and a feedback coefficient can absorb loading
@@ -203,7 +233,7 @@ If the null is not rejected, stop here and report NMF-FF.
 
 ```{r diagnostics}
 dgn <- nmf.ffb.diagnostics(fit)
-dgn$top                      # the three best distinct supports
+dgn$top                      # the 3 best distinct supports: order, nnz, rho, BIC, dBIC
 round(dgn$log.N, 2)          # what one extra free entry costs in BIC
 dgn$nested                   # do they form a chain under inclusion?
 dgn$core                     # entries common to all three
@@ -282,5 +312,11 @@ structural form and cannot recover $\Theta_1$, for the reason in the Overview: i
 fits the mean, and the mean does not identify feedback.
 
 ```{r mu, eval=FALSE}
-fit_mu <- nmf.ffb(Y1.H1, Y2, rank = Q0, method = "mu", maxit = 500)
+fit_mu <- nmf.ffb(Y1.H1, Y2, rank = Q0, method = "mu", maxit = 500,
+                  C1.L1 = 1, C2.L1 = 0.1)
 ```
+
+`C1.L1` and `C2.L1` are the L1 penalties of *that* estimator and belong to it
+alone.  Under `method = "fiml"` the penalty on $\Theta_1$ is the path
+`C1.L1.path`, swept with the support chosen by BIC, and $\Theta_2$ is
+unpenalized; passing `C1.L1` to a likelihood fit warns and does nothing.

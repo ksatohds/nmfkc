@@ -18,9 +18,9 @@ make_ffb_data <- function() {
 
 legacy_fields <- c("X", "C1", "C2", "XC1", "XC2", "XC1.radius", "XC1.norm1",
                    "Leontief.inv", "M.model", "amplification", "amplification.bound",
-                   "Q", "MAE", "effective.rank", "iter", "converged", "epsilon", "maxit")
+                   "rank", "mae", "effective.rank", "iter", "converged", "epsilon", "maxit")
 fiml_fields <- c("method", "Phi", "psi", "loglik", "npar", "null", "full", "path",
-                 "mask", "lambda1.selected", "support", "LR", "LR.df", "BIC", "AIC", "call")
+                 "C1.free", "C1.L1.selected", "support", "LR", "LR.df", "BIC", "AIC", "call")
 
 test_that("nmf.ffb(method = 'fiml') fits, returns the legacy and the new fields, and DOT works", {
   skip_unless_full()
@@ -32,7 +32,10 @@ test_that("nmf.ffb(method = 'fiml') fits, returns the legacy and the new fields,
   expect_true(all(legacy_fields %in% names(fit)))
   expect_true(all(fiml_fields %in% names(fit)))
   expect_null(fit$SC.map); expect_null(fit$SC.cov)
-  expect_null(fit$objfunc); expect_null(fit$objfunc.full)
+  ## `objfunc` is the value the optimizer minimized, as in every other fitter: for
+  ## fiml that is the negative log-likelihood of the selected fit.
+  expect_equal(fit$objfunc, -fit$loglik)
+  expect_null(fit$objfunc.penalized); expect_null(fit$objfunc.full)
 
   ## shapes and constraints
   expect_equal(dim(fit$X), c(6, 2)); expect_equal(dim(fit$C1), c(2, 6)); expect_equal(dim(fit$C2), c(2, 2))
@@ -41,11 +44,11 @@ test_that("nmf.ffb(method = 'fiml') fits, returns the legacy and the new fields,
   expect_equal(dim(fit$Phi), c(2, 2)); expect_true(isSymmetric(fit$Phi, tol = 1e-10))
   expect_true(all(eigen(fit$Phi, only.values = TRUE)$values > 0))
 
-  ## the block mask forbids self-loops: the dominant factor of every outcome is excluded
+  ## the block restriction forbids self-loops: the dominant factor of every outcome is excluded
   dom <- apply(fit$X, 1, which.max)
-  expect_true(all(fit$mask[cbind(dom, seq_len(6))] == 0))
-  expect_equal(sum(fit$mask), 6)
-  expect_true(all(fit$C1[fit$mask == 0] == 0))
+  expect_true(all(fit$C1.free[cbind(dom, seq_len(6))] == 0))
+  expect_equal(sum(fit$C1.free), 6)
+  expect_true(all(fit$C1[fit$C1.free == 0] == 0))
 
   ## likelihood bookkeeping
   expect_gte(fit$full$loglik, fit$null$loglik - 1e-6)
@@ -53,41 +56,42 @@ test_that("nmf.ffb(method = 'fiml') fits, returns the legacy and the new fields,
   expect_named(fit$LR, c("full", "selected")); expect_named(fit$LR.df, c("full", "selected"))
   expect_equal(unname(fit$LR[["full"]]), 2 * (fit$full$loglik - fit$null$loglik))
   expect_equal(unname(attr(fit$LR, "df")), unname(fit$LR.df))
-  expect_equal(fit$LR.df[["full"]], sum(fit$mask))
+  expect_equal(fit$LR.df[["full"]], sum(fit$C1.free))
   expect_equal(fit$LR.df[["selected"]], sum(fit$support))
   expect_named(fit$BIC, c("null", "full", "selected")); expect_named(fit$AIC, c("null", "full", "selected"))
   expect_lte(fit$BIC[["selected"]], min(fit$BIC[["null"]], fit$BIC[["full"]]) + 1e-8)
-  ## multi-start path: one row per (lambda1, start); "path" continuation is
-  ## not available at the first penalty, so 1 + 3 + 4 * 7 + 1 rows
+  ## the L1 path: the unpenalized fit (C1.L1 = 0), one fit per penalty, and the
+  ## null (C1.L1 = Inf).  Every penalized fit is warm-started from the unpenalized
+  ## one -- the only start left in 0.9.8 -- so there is one row per penalty.
   expect_true(is.data.frame(fit$path))
-  expect_named(fit$path, c("lambda1", "start", "support_id", "nnz", "rho", "loglik", "BIC",
+  expect_named(fit$path, c("C1.L1", "start", "support_id", "nnz", "rho", "loglik", "BIC",
                            "MAE", "pen.value", "duplicate"))
-  expect_equal(fit$path$lambda1[1], 0); expect_true(is.infinite(tail(fit$path$lambda1, 1)))
-  expect_equal(nrow(fit$path), 2 + 3 + 4 * 7)
-  ## Only the warm start from the unpenalized fit survives (0.9.8).
-  expect_true(all(fit$path$start == "full"))
-  ## "full" also labels the lambda1 = 0 row, "null" the lambda1 = Inf row
-  expect_equal(unname(c(table(fit$path$start)[c("full", "null", "soft", "path")])), c(9L, 9L, 8L, 7L))
+  expect_equal(fit$path$C1.L1[1], 0); expect_true(is.infinite(tail(fit$path$C1.L1, 1)))
+  expect_equal(nrow(fit$path), 1 + 8 + 1)
+  ## "full" labels the unpenalized row and every penalized fit warm-started from it;
+  ## "null" labels the C1.L1 = Inf row.
+  expect_true(all(fit$path$start %in% c("full", "null")))
+  expect_equal(unname(c(table(fit$path$start)[c("full", "null")])), c(9L, 1L))
   expect_identical(fit$path$duplicate, duplicated(fit$path$support_id))
-  expect_true(all(is.finite(fit$path$pen.value[is.finite(fit$path$lambda1) & fit$path$lambda1 > 0])))
+  expect_true(all(is.finite(fit$path$pen.value[is.finite(fit$path$C1.L1) & fit$path$C1.L1 > 0])))
   ## candidates: one row per distinct support, BIC minimized over all of them
   expect_true(is.data.frame(fit$candidates))
   expect_named(fit$candidates, c("support_id", "nnz", "rho", "loglik", "BIC", "MAE",
-                                 "lambda1.first", "start.first", "selected"))
+                                 "C1.L1.first", "start.first", "selected"))
   expect_equal(fit$candidates$support_id, seq_len(nrow(fit$candidates)))
   expect_false(any(duplicated(fit$candidates$support_id)))
   expect_true(all(fit$path$support_id %in% fit$candidates$support_id))
   expect_length(fit$supports, nrow(fit$candidates))
   expect_equal(fit$candidates$nnz, vapply(fit$supports, sum, numeric(1)))
-  expect_true(all(vapply(fit$supports, function(s) all(!s[fit$mask == 0]), logical(1))))
-  expect_true(any(fit$candidates$nnz == 0) && any(fit$candidates$nnz == sum(fit$mask)))
+  expect_true(all(vapply(fit$supports, function(s) all(!s[fit$C1.free == 0]), logical(1))))
+  expect_true(any(fit$candidates$nnz == 0) && any(fit$candidates$nnz == sum(fit$C1.free)))
   expect_equal(sum(fit$candidates$selected), 1L)
   expect_equal(fit$candidates$support_id[fit$candidates$selected], fit$support.selected)
   expect_equal(fit$BIC[["selected"]], min(fit$candidates$BIC))
   expect_lte(fit$BIC[["selected"]], min(fit$path$BIC) + 1e-8)
   expect_equal(fit$support, fit$supports[[fit$support.selected]])
-  expect_equal(fit$lambda1.selected, fit$candidates$lambda1.first[fit$support.selected])
-  expect_true(fit$lambda1.selected %in% fit$path$lambda1)
+  expect_equal(fit$C1.L1.selected, fit$candidates$C1.L1.first[fit$support.selected])
+  expect_true(fit$C1.L1.selected %in% fit$path$C1.L1)
   ## every candidate BIC is consistent with its loglik and nnz
   expect_equal(fit$candidates$BIC,
                -2 * fit$candidates$loglik + log(100) * (fit$candidates$nnz + fit$null$npar))
@@ -102,27 +106,30 @@ test_that("nmf.ffb(method = 'fiml') fits, returns the legacy and the new fields,
   ## the null draws no feedback edge (Y1 -> Factor) even at a tiny threshold
   expect_false(grepl("Y1_[0-9]+ -> F_", nmf.ffb.DOT(fit, model = "null", threshold = 1e-9)))
   pdf(NULL); on.exit(dev.off(), add = TRUE)
+  ## plot() on a fiml fit draws the BIC path over the L1 penalty (there is no
+  ## objective trace to draw); it must not fall back to the MU branch.
   expect_invisible(plot(fit))
+  fit_nopath <- fit; fit_nopath$path <- NULL   # the only fiml fit with nothing to draw
+  expect_error(plot(fit_nopath), "no L1 path")
 
   ## a supplied basis skips stage 1 and reproduces the same stage-2 fit
   fit2 <- nmf.ffb(d$Y1, d$Y2, X = fit)
   expect_equal(fit2$X, fit$X)
   expect_equal(fit2$null$loglik, fit$null$loglik, tolerance = 1e-6)
   ## select = "none" returns the unpenalized fit as the selected model
-  fit3 <- nmf.ffb(d$Y1, d$Y2, X = fit$X, select = "none", phi = "diag")
+  fit3 <- nmf.ffb(d$Y1, d$Y2, X = fit$X, select = "none", Phi.restriction = "diag")
   expect_equal(fit3$C1, fit3$full$C1); expect_equal(nrow(fit3$path), 2)
   expect_true(all(fit3$Phi[upper.tri(fit3$Phi)] == 0))
-  ## a user mask is used as given
-  fit4 <- nmf.ffb(d$Y1, d$Y2, X = fit$X, mask = matrix(1, 2, 6), lambda1 = c(1, 5))
-  expect_equal(unname(fit4$LR.df[["full"]]), 12); expect_equal(nrow(fit4$path), 1 + 3 + 4 + 1)
-  ## a subset of starts: one row per (lambda1, start), and the multi-start
-  ## selection is never worse (in BIC) than any single start
+  ## a user restriction is used as given
+  fit4 <- nmf.ffb(d$Y1, d$Y2, X = fit$X, C1.restriction = matrix(1, 2, 6), C1.L1.path = c(1, 5))
+  expect_equal(unname(fit4$LR.df[["full"]]), 12); expect_equal(nrow(fit4$path), 1 + 2 + 1)
   fit5 <- nmf.ffb(d$Y1, d$Y2, X = fit$X)
-  expect_true(all(fit5$path$start == "full")); expect_equal(nrow(fit5$path), 2 + 8)
   expect_true(all(fit5$path$start %in% c("full", "null")))
+  expect_equal(nrow(fit5$path), 1 + 8 + 1)
   expect_lte(fit$BIC[["selected"]], fit5$BIC[["selected"]] + 1e-8)
-  expect_error(nmf.ffb(d$Y1, d$Y2, X = fit$X, starts = "path"), "unused argument")
-  ## (removed with `starts`) ## expect_equal(nrow(fit6$path), 2 + 1 + 2 * 7)
+  ## options removed in 0.9.8 are refused loudly rather than silently ignored
+  expect_warning(nmf.ffb(d$Y1, d$Y2, X = fit$X, starts = "path"), "removed in 0.9.8")
+  expect_warning(nmf.ffb(d$Y1, d$Y2, X = fit$X, C1.L1 = 5), "method = \"mu\" only")
   ## the caller's random stream is left alone
   set.seed(1); a <- runif(1); set.seed(1); invisible(nmf.ffb(d$Y1, d$Y2, rank = 2)); b <- runif(1)
   expect_identical(a, b)
@@ -145,7 +152,7 @@ test_that("nmf.ffb(method = 'mu') reproduces the pre-fiml estimator", {
   expect_equal(unname(fit$X), X, tolerance = 1e-12)
   expect_equal(unname(fit$C1), C1, tolerance = 1e-12)
   expect_equal(unname(fit$C2), C2, tolerance = 1e-12)
-  expect_equal(fit$MAE, 1.6921588411103816, tolerance = 1e-12)
+  expect_equal(fit$mae, 1.6921588411103816, tolerance = 1e-12)
   expect_identical(fit$iter, 500L)
   expect_equal(fit$XC1.radius, 0.98224336583946881, tolerance = 1e-12)
   expect_equal(fit$SC.map, 0.99904125606669214, tolerance = 1e-12)
@@ -167,7 +174,7 @@ test_that("nmf.ffb(method = 'mu') reproduces the pre-fiml estimator", {
                  0.99735786408504867, 0.044316128268452187, 2.1905083084032289e-06,
                  0.00016346448096955804, 5.2989243658185696e-06), tolerance = 1e-12)
   expect_equal(inf$coefficients$support_rate, c(1, 0, 1, 1, 1, 0, 0, 0))
-  expect_identical(inf$bootstrap.n.valid, 20L)
+  expect_identical(inf$boot.n.valid, 20L)
   expect_true(!is.null(inf$AR.boot))
 
   ## nmf.ffb.cv() without `method` still fits the legacy estimator in its folds
@@ -175,52 +182,60 @@ test_that("nmf.ffb(method = 'mu') reproduces the pre-fiml estimator", {
   expect_equal(cv, 1.6565815316156454, tolerance = 1e-12)
 })
 
-test_that("nmf.ffb.inference() on a fiml fit runs the two parametric bootstraps", {
+test_that("nmf.ffb.test() calibrates the feed-forward null and nothing else", {
   skip_unless_full()
   d <- make_ffb_data()
   fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
-  inf <- nmf.ffb.test(fit, d$Y1, d$Y2, B = 5, calibration = "conditional")
+  tst <- nmf.ffb.test(fit, d$Y1, d$Y2, B = 5, calibration = "conditional")
+
+  expect_s3_class(tst, "nmf.ffb.test"); expect_s3_class(tst, "nmf.test")
+  expect_identical(tst$calibration, "conditional")
+  expect_equal(dim(tst$LR.boot), c(5, 2)); expect_equal(colnames(tst$LR.boot), c("full", "selected"))
+  expect_named(tst$LR.p.boot, c("full", "selected"))
+  expect_true(all(tst$LR.p.boot >= 0 & tst$LR.p.boot <= 1))
+  expect_named(tst$LR.null.quantile, c("full", "selected"))
+  expect_true(tst$prob.select.null >= 0 && tst$prob.select.null <= 1)
+  expect_length(tst$nnz.boot, 5)
+  expect_identical(tst$rank, ncol(fit$X))
+  ## it carries no coefficient inference: that is nmf.ffb.inference()'s job
+  expect_null(tst$coefficients); expect_null(tst$C1.ci.lower)
+  expect_output(print(tst), "Test of the feed-forward null")
+  ## deterministic given the seed, and the caller's stream is untouched
+  set.seed(7); a <- runif(1)
+  set.seed(7); t2 <- nmf.ffb.test(fit, d$Y1, d$Y2, B = 5, calibration = "conditional"); b <- runif(1)
+  expect_identical(a, b)
+  expect_identical(t2$LR.boot, tst$LR.boot)
+})
+
+test_that("nmf.ffb.inference() gives intervals for the retained entries only", {
+  skip_unless_full()
+  d <- make_ffb_data()
+  fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
+  inf <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 5)
 
   expect_s3_class(inf, "nmf.ffb.inference"); expect_s3_class(inf, "nmf.inference")
-  expect_identical(inf$calibration, "conditional")
-  ## null bootstrap
-  expect_equal(dim(inf$LR.boot), c(5, 2)); expect_equal(colnames(inf$LR.boot), c("full", "selected"))
-  expect_named(inf$LR.p.boot, c("full", "selected"))
-  expect_true(all(inf$LR.p.boot >= 0 & inf$LR.p.boot <= 1))
-  expect_named(inf$LR.null.quantile, c("full", "selected"))
-  expect_true(inf$prob.select.null >= 0 && inf$prob.select.null <= 1)
-  expect_length(inf$nnz.boot, 5)
-  ## selected-model bootstrap
   cf <- inf$coefficients
   expect_true(all(c("Type", "Basis", "Covariate", "Estimate", "CI_low", "CI_high",
-                    "support_rate", "p_value", "sig") %in% names(cf)))
+                    "support_rate", "prob.unsupported", "sig") %in% names(cf)))
+  ## a support rate is not a p-value, so the table no longer carries a second
+  ## column calling it one (CONVENTIONS.md 6)
+  expect_false("p_value" %in% names(cf))
   expect_equal(nrow(cf), 2 * 6 + 2 * 2)
   expect_equal(cf$Estimate[cf$Type == "C1"], as.vector(fit$C1))
   expect_equal(cf$Estimate[cf$Type == "C2"], as.vector(fit$C2))
   expect_true(all(cf$support_rate[cf$Type == "C1"][as.vector(fit$support) == FALSE] == 0))
-  expect_equal(dim(inf$C1.array), c(5, 2, 6)); expect_equal(dim(inf$C2.array), c(5, 2, 2))
+  expect_equal(dim(inf$C1.boot.draws), c(5, 2, 6)); expect_equal(dim(inf$C2.boot.draws), c(5, 2, 2))
   expect_equal(dim(inf$C1.ci.lower), c(2, 6)); expect_equal(dim(inf$C2.ci.upper), c(2, 2))
-  expect_length(inf$rho.boot, 5)
-  expect_identical(inf$bootstrap.B, 5L); expect_equal(inf$bootstrap.threshold, 0.01)
-  expect_equal(inf$bootstrap.ci.level, 0.95)
-  expect_equal(inf$bootstrap.n.valid + inf$bootstrap.n.invalid, 5L)
+  expect_length(inf$rho.boot.draws, 5)
+  expect_identical(inf$boot.B, 5L); expect_equal(inf$boot.threshold, 0.01)
+  expect_equal(inf$boot.level, 0.95)
+  expect_equal(inf$boot.n.valid + inf$boot.n.invalid, 5L)
+  ## the calibrated test is NOT here: it moved to nmf.ffb.test() in 0.9.8
+  expect_null(inf$LR.p.boot); expect_null(inf$prob.select.null)
+  expect_null(inf$C1.restriction.change.rate)
   ## downstream consumers
   expect_s3_class(nmf.ffb.DOT(inf), "nmfkc.DOT")
-  expect_output(print(inf), "Parametric bootstrap under the FF null")
   expect_true(is.data.frame(coef(inf)))
-  ## deterministic given the seed, and the caller's stream is untouched
-  set.seed(7); a <- runif(1)
-  set.seed(7); inf2 <- nmf.ffb.test(fit, d$Y1, d$Y2, B = 5, calibration = "conditional"); b <- runif(1)
-  expect_identical(a, b)
-  expect_identical(inf2$LR.boot, inf$LR.boot)
-  ## boot.null = FALSE skips the (expensive) null bootstrap
-  ## nmf.ffb.inference() no longer runs the null bootstrap at all (0.9.8): the test moved to
-  ## nmf.ffb.test(), so an intervals object cannot be mistaken for evidence of feedback.
-  inf3 <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 3)
-  expect_null(inf3$LR.boot); expect_null(inf3$LR.p.boot)
-  expect_null(inf3$prob.select.null); expect_null(inf3$bootstrap.calibration)
-  expect_true(is.data.frame(inf3$coefficients))
-  expect_equal(nrow(inf3$coefficients), nrow(cf))
 })
 
 test_that("the bootstrap LR p-value is never exactly zero and honours its floor", {
@@ -248,37 +263,37 @@ test_that("the bootstrap LR p-value is never exactly zero and honours its floor"
   expect_true(all(inf$LR.boot.n.nonconv >= 0 & inf$LR.boot.n.nonconv <= inf$LR.boot.n.ok))
 })
 
-test_that("the exclusion mask blocks the dominant factor and every loading above the threshold", {
-  ## .ffb.fiml.mask() takes the basis as given (nmf.ffb normalises before calling it).
+test_that("the exclusion restriction blocks the dominant factor and every loading above the threshold", {
+  ## .ffb.fiml.restriction() takes the basis as given (nmf.ffb normalises before calling it).
   X <- rbind(c(0.60, 0.30, 0.10),   # dominant 1; loads on 2 and 3 above 0.05 -> all three blocked
              c(0.02, 0.01, 0.97),   # dominant 3; the other two are below the threshold -> free
              c(0.03, 0.02, 0.01))   # every loading below 0.05, but the dominant factor is still blocked
-  M <- nmfkc:::.ffb.fiml.mask(X, "union", 0.05)
+  M <- nmfkc:::.ffb.fiml.restriction(X, "union", 0.05)
   expect_equal(unname(M[, 1]), c(0, 0, 0))
   expect_equal(unname(M[, 2]), c(1, 1, 0))
   expect_equal(unname(M[, 3]), c(0, 1, 1))
-  expect_identical(nmfkc:::.ffb.fiml.mask(X, "union"), nmfkc:::.ffb.fiml.mask(X))
-  expect_true(all(nmfkc:::.ffb.fiml.mask(X, "none") == 1))
+  expect_identical(nmfkc:::.ffb.fiml.restriction(X, "union"), nmfkc:::.ffb.fiml.restriction(X))
+  expect_true(all(nmfkc:::.ffb.fiml.restriction(X, "none") == 1))
   ## the partial rules were removed in 0.9.8
-  expect_error(nmfkc:::.ffb.fiml.mask(X, "block"), "should be one of")
+  expect_error(nmfkc:::.ffb.fiml.restriction(X, "block"), "should be one of")
   d <- make_ffb_data()
   fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
-  expect_identical(fit$mask.rule, "union")
+  expect_identical(fit$C1.restriction, "union")
   expect_true(is.list(fit$stage1.args) && isTRUE(fit$stage1.args$from.data))
 })
 
 
-test_that("calibration = 'full' re-estimates the basis and reports mask movement", {
+test_that("calibration = 'procedure' re-estimates the basis and reports restriction movement", {
   skip_unless_full()
   d <- make_ffb_data()
   fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
-  inf <- nmf.ffb.test(fit, d$Y1, d$Y2, B = 6, calibration = "full")
-  expect_identical(inf$calibration, "full")
+  inf <- nmf.ffb.test(fit, d$Y1, d$Y2, B = 6, calibration = "procedure")
+  expect_identical(inf$calibration, "procedure")
   expect_equal(dim(inf$LR.boot), c(6, 2))
-  expect_true(is.numeric(inf$mask.change.rate) && inf$mask.change.rate >= 0 && inf$mask.change.rate <= 1)
+  expect_true(is.numeric(inf$C1.restriction.change.rate) && inf$C1.restriction.change.rate >= 0 && inf$C1.restriction.change.rate <= 1)
   expect_length(inf$LR.boot.df, 6)
   expect_true(all(inf$LR.p.boot > 0))
-  expect_output(print(inf), "re-estimated on every null replicate")
+  expect_output(print(inf), "re-estimated\\s+on every null replicate")
 })
 
 test_that("nmf.ffb.cv(method = 'fiml') delegates to nmfkc.ecv()", {

@@ -8,9 +8,11 @@
 #  thin deprecated wrappers so existing code keeps working.  Each
 #  emits a .Deprecated() note pointing at its nmf.ffb* replacement.
 #
-#  Fitted objects still carry class c("nmf.ffb", "nmf.sem", "nmf"),
-#  so all S3 methods (summary.nmf.sem, plot.nmf.sem, ...) are shared
-#  by both names via inheritance.
+#  Fitted objects carry class c("nmf.ffb", "nmf.sem", "nmf").  The S3
+#  methods are defined on nmf.ffb; the nmf.sem methods at the end of
+#  this file are one-line aliases, kept so that an object saved by a
+#  version that wrote only c("nmf.sem", "nmf") still dispatches.  When
+#  nmf.sem goes, this whole file goes with it.
 # ============================================================
 
 #' Deprecated NMF-SEM aliases
@@ -48,3 +50,35 @@ nmf.sem.split <- function(...) { .Deprecated("nmf.ffb.split"); nmf.ffb.split(...
 #' @rdname nmf.sem-deprecated
 #' @export
 nmf.sem.DOT <- function(...) { .Deprecated("nmf.ffb.DOT"); nmf.ffb.DOT(...) }
+
+
+# ------------------------------------------------------------------
+#  Deprecated S3 aliases.  These do not call .Deprecated(): a method is
+#  reached by dispatch, not by name, so the note would fire on ordinary
+#  use of an old object and there would be nothing the user could do
+#  about it.  The functions above are the ones worth warning on.
+# ------------------------------------------------------------------
+
+#' @rdname plot.nmfre
+#' @export
+plot.nmf.sem <- function(x, ...) plot.nmf.ffb(x, ...)
+
+#' @rdname summary.nmf.ffb
+#' @export
+summary.nmf.sem <- function(object, ...) summary.nmf.ffb(object, ...)
+
+#' @rdname print.summary.nmf.ffb
+#' @export
+print.summary.nmf.sem <- function(x, ...) print.summary.nmf.ffb(x, ...)
+
+#' @rdname coef.nmf
+#' @export
+coef.nmf.sem <- function(object, ...) coef.nmf.ffb(object, ...)
+
+#' @rdname fitted.nmf
+#' @export
+fitted.nmf.sem <- function(object, ...) fitted.nmf.ffb(object, ...)
+
+#' @rdname residuals.nmf
+#' @export
+residuals.nmf.sem <- function(object, Y, ...) residuals.nmf.ffb(object, Y, ...)

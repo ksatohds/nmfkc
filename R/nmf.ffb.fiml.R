@@ -1,3 +1,4 @@
+
 # nmf.ffb.fiml.R -- NMF-FFB, likelihood-based (FIML) estimator
 #
 # Internal engine behind nmf.ffb(method = "fiml") and the fiml branch of
@@ -16,7 +17,7 @@
 #
 # The feed-forward (FF) null is Theta1 = 0, a non-negative MIMIC factor model
 # with correlated factors; the feedback (FFB) alternative frees the entries of
-# Theta1 admitted by an exclusion mask.  Theta1 is not recoverable from the
+# Theta1 admitted by an exclusion restriction.  Theta1 is not recoverable from the
 # reduced form alone (the structural and reduced forms have the same
 # second moments once X is free), which is why X is fixed first and the
 # self-loop / dominant-factor exclusion restriction is imposed; the L1 path
@@ -26,10 +27,10 @@
 # distribution is obtained by parametric bootstrap in nmf.ffb.inference().
 #
 # Objective (negative log-likelihood up to the constant (N P1 / 2) log 2 pi):
-#   nll = (N/2) [log det Sigma + tr(Sigma^{-1} S)] + lambda1 * sum(Theta1),
+#   nll = (N/2) [log det Sigma + tr(Sigma^{-1} S)] + C1.L1 * sum(Theta1),
 #   S = R R' / N,  R = Y1 - M Y2.
 # Gradient (Omega = Sigma^{-1}, G = Omega - Omega S Omega, Yhat = M Y2):
-#   dTheta1 = N X' L' (I - Omega S) - X' L' Omega R Yhat' + lambda1   (free entries)
+#   dTheta1 = N X' L' (I - Omega S) - X' L' Omega R Yhat' + C1.L1   (free entries)
 #   dTheta2 = - X' L' Omega R Y2'
 #   Gphi    = (N/2) X' L' G L X       (w.r.t. symmetric Phi)
 #     Cholesky Phi = Lc Lc':  dLc = 2 Gphi Lc (lower triangle); the diagonal
@@ -56,40 +57,40 @@
   base::max(base::Mod(base::eigen(A, only.values = TRUE)$values))
 }
 
-#' Exclusion mask for Theta1 (Internal)
+#' Exclusion restriction on Theta1 (Internal)
 #'
 #' @param X Basis matrix (P1 x Q), column-stochastic.
-#' @param mask \code{"union"} (default): entry (q, i) is excluded if q is the
+#' @param C1.restriction \code{"union"} (default): entry (q, i) is excluded if q is the
 #'   dominant factor of outcome i (\code{which.max(X[i, ])}) OR
-#'   \code{X[i, q] >= cross.threshold} -- an outcome may not feed back into any
+#'   \code{X[i, q] >= C1.restriction.threshold} -- an outcome may not feed back into any
 #'   factor on which it loads; \code{"block"}: only the dominant factor is
-#'   excluded; \code{"cross"}: only factors with \code{X[i, q] >= cross.threshold}
+#'   excluded; \code{"cross"}: only factors with \code{X[i, q] >= C1.restriction.threshold}
 #'   are excluded (an outcome whose largest loading is below the threshold then
 #'   keeps its own factor free, so this is not a superset of \code{"block"});
 #'   \code{"none"}: all entries free; or a user Q x P1 0/1 matrix.
-#' @param cross.threshold Loading threshold for \code{mask = "union"} and
+#' @param C1.restriction.threshold Loading threshold for \code{C1.restriction = "union"} and
 #'   \code{"cross"}.
 #' @return A Q x P1 matrix of 0 / 1 (1 = free).
 #' @keywords internal
 #' @noRd
-.ffb.fiml.mask <- function(X, mask = "union", cross.threshold = 0.05) {
+.ffb.fiml.restriction <- function(X, C1.restriction = "union", C1.restriction.threshold = 0.05) {
   P1 <- base::nrow(X); Q <- base::ncol(X)
-  if (base::is.matrix(mask) || (base::is.numeric(mask) && base::length(mask) == Q * P1)) {
-    M <- base::matrix(base::as.numeric(mask), Q, P1)
+  if (base::is.matrix(C1.restriction) || (base::is.numeric(C1.restriction) && base::length(C1.restriction) == Q * P1)) {
+    M <- base::matrix(base::as.numeric(C1.restriction), Q, P1)
     if (base::any(!(M %in% c(0, 1))))
-      base::stop("a user-supplied `mask` must be a Q x P1 matrix of 0 / 1.")
+      base::stop("a user-supplied `C1.restriction` must be a Q x P1 matrix of 0 / 1.")
   } else {
-    mask <- base::match.arg(mask, c("union", "none"))
+    C1.restriction <- base::match.arg(C1.restriction, c("union", "none"))
     M <- base::matrix(1, Q, P1)
     ## "union" is the rule of the NMF-FFB paper: an outcome may not feed back into a factor on which it
     ## loads.  It excludes the argmax factor of each outcome AND every factor with loading at least
-    ## cross.threshold -- neither half alone is the rule, because an outcome whose largest loading is
+    ## C1.restriction.threshold -- neither half alone is the rule, because an outcome whose largest loading is
     ## below the threshold would keep its own factor free.  "none" leaves every entry free, which makes
     ## the factor-level directions unidentified and is provided to show that.
-    if (mask == "union") {
+    if (C1.restriction == "union") {
       dom <- base::apply(X, 1L, base::which.max)
       for (i in base::seq_len(P1)) M[dom[i], i] <- 0
-      M <- M * ((base::t(X) < cross.threshold) * 1)
+      M <- M * ((base::t(X) < C1.restriction.threshold) * 1)
     }
   }
   base::dimnames(M) <- base::list(base::colnames(X), base::rownames(X))
@@ -98,27 +99,27 @@
 
 #' Objective and analytic gradient of the working-model FIML (Internal)
 #'
-#' Builds closures for one design (data, basis, mask, penalty).  The
+#' Builds closures for one design (data, basis, restriction, penalty).  The
 #' parameter vector is \code{c(free entries of Theta1, Theta2, phi-parameters,
-#' log psi)}; masked-out entries of Theta1 are not parameters at all.
+#' log psi)}; restricted entries of Theta1 are not parameters at all.
 #'
 #' @param Y1,Y2 Data blocks (P1 x N, P2 x N).
 #' @param X Basis (P1 x Q).
 #' @param feedback Logical; \code{FALSE} fits the FF null (Theta1 = 0).
-#' @param T1.mask Q x P1 0/1 matrix of free entries (used when
+#' @param C1.free Q x P1 0/1 matrix of free entries (used when
 #'   \code{feedback = TRUE}).
-#' @param lambda1 L1 penalty on Theta1 (its entries are non-negative, so the
-#'   penalty is \code{lambda1 * sum(Theta1)}).
+#' @param C1.L1 L1 penalty on Theta1 (its entries are non-negative, so the
+#'   penalty is \code{C1.L1 * sum(Theta1)}).
 #' @param phi.full Logical; full (Cholesky) or diagonal Phi.
 #' @return A list of closures and index bookkeeping (\code{fn}, \code{gr},
 #'   \code{unpack}, \code{phi.par}, \code{npar}, ...).
 #' @keywords internal
 #' @noRd
-.ffb.fiml.objective <- function(Y1, Y2, X, feedback = TRUE, T1.mask = NULL,
-                                lambda1 = 0, phi.full = TRUE) {
+.ffb.fiml.objective <- function(Y1, Y2, X, feedback = TRUE, C1.free = NULL,
+                                C1.L1 = 0, phi.full = TRUE) {
   N <- base::ncol(Y1); P1 <- base::nrow(Y1); P2 <- base::nrow(Y2); Q <- base::ncol(X)
-  if (base::is.null(T1.mask)) T1.mask <- base::matrix(1, Q, P1)
-  free1 <- if (feedback) base::which(T1.mask != 0) else base::integer(0)
+  if (base::is.null(C1.free)) C1.free <- base::matrix(1, Q, P1)
+  free1 <- if (feedback) base::which(C1.free != 0) else base::integer(0)
   n1 <- base::length(free1); n2 <- Q * P2
   nphi <- if (phi.full) Q * (Q + 1) / 2 else Q
   idx1 <- base::seq_len(n1)
@@ -161,12 +162,12 @@
     if (base::is.null(ch)) return(bad)
     Om <- base::chol2inv(ch); OmS <- Om %*% S
     val <- (N / 2) * (2 * base::sum(base::log(base::diag(ch))) + base::sum(base::diag(OmS))) +
-      lambda1 * base::sum(p$T1)
+      C1.L1 * base::sum(p$T1)
     G <- Om - OmS %*% Om; G <- (G + base::t(G)) / 2   # Omega - Omega S Omega
     XtLtOm <- base::t(LX) %*% Om                      # X' L' Omega  (Q x P1)
     g <- base::numeric(npar)
     if (n1 > 0) {
-      dT1 <- N * base::t(LX) %*% (I_P - OmS) - XtLtOm %*% RY2t %*% base::t(M) + lambda1
+      dT1 <- N * base::t(LX) %*% (I_P - OmS) - XtLtOm %*% RY2t %*% base::t(M) + C1.L1
       g[idx1] <- dT1[free1]
     }
     g[idx2] <- base::as.numeric(-XtLtOm %*% RY2t)
@@ -211,12 +212,12 @@
 #'   reduced form (penalty removed, constant included).
 #' @keywords internal
 #' @noRd
-.ffb.fiml.fit <- function(Y1, Y2, X, feedback = TRUE, T1.mask = NULL, lambda1 = 0,
+.ffb.fiml.fit <- function(Y1, Y2, X, feedback = TRUE, C1.free = NULL, C1.L1 = 0,
                           init = NULL, maxit = 3000, phi.full = TRUE, factr = 1e3) {
   N <- base::ncol(Y1); P1 <- base::nrow(Y1); P2 <- base::nrow(Y2); Q <- base::ncol(X)
-  if (base::is.null(T1.mask)) T1.mask <- base::matrix(1, Q, P1)
-  ob <- .ffb.fiml.objective(Y1, Y2, X, feedback = feedback, T1.mask = T1.mask,
-                            lambda1 = lambda1, phi.full = phi.full)
+  if (base::is.null(C1.free)) C1.free <- base::matrix(1, Q, P1)
+  ob <- .ffb.fiml.objective(Y1, Y2, X, feedback = feedback, C1.free = C1.free,
+                            C1.L1 = C1.L1, phi.full = phi.full)
   n1 <- ob$n1; nphi <- ob$nphi
   if (base::is.null(init)) {
     T2_0 <- base::matrix(0.1, Q, P2); Phi0 <- base::diag(0.01, Q)
@@ -234,7 +235,7 @@
                     control = base::list(maxit = maxit, factr = factr))
   p <- ob$unpack(o$par); A <- X %*% p$T1
   L <- base::solve(ob$I_P - A); M <- L %*% X %*% p$T2
-  ll <- -(o$value - lambda1 * base::sum(p$T1)) - (N * P1 / 2) * base::log(2 * base::pi)
+  ll <- -(o$value - C1.L1 * base::sum(p$T1)) - (N * P1 / 2) * base::log(2 * base::pi)
   base::dimnames(p$T1) <- base::list(base::colnames(X), base::rownames(Y1))
   base::dimnames(p$T2) <- base::list(base::colnames(X), base::rownames(Y2))
   base::dimnames(p$Phi) <- base::list(base::colnames(X), base::colnames(X))
@@ -271,7 +272,7 @@
 #' The penalized problem is non-convex: L-BFGS-B started from different
 #' points lands in different local optima and proposes different supports.
 #' Every point of the path is therefore fitted from several starts
-#' (\code{starts}), every distinct support proposed by any (lambda1, start)
+#' every distinct support proposed by any (C1.L1.path, start)
 #' is re-estimated without penalty, and BIC is minimized over ALL distinct
 #' candidates (plus the null and the unpenalized full model).  The refit on
 #' a support is itself run from three starts (the penalized solution, the
@@ -283,37 +284,31 @@
 #' @param C.init Q x P2 starting value for Theta2 in the null fit (the nmfkc
 #'   coefficient matrix, or the null Theta2 of an observed fit in the
 #'   bootstrap).
-#' @param mask Q x P1 0/1 matrix of admitted Theta1 entries.
+#' @param C1.free Q x P1 0/1 matrix of admitted Theta1 entries.
 #' @param phi.full Logical; full or diagonal Phi.
-#' @param lambda1 Numeric vector of L1 penalties (the path; sorted
+#' @param C1.L1.path Numeric vector of L1 penalties (the path; sorted
 #'   increasingly, non-positive / infinite values dropped).
 #' @param select \code{"BIC"} or \code{"none"} (the unpenalized fit is the
 #'   selected model).
 #' @param maxit,factr Passed to \code{.ffb.fiml.fit}.
-#' @param starts Character vector, subset of \code{c("full", "path", "null",
-#'   "soft")}: starting points of the penalized fits.  \code{"full"}: the
-#'   unpenalized feedback fit; \code{"path"}: continuation from the best
-#'   penalized solution at the previous (smaller) lambda1; \code{"null"}:
-#'   the FF null with Theta1 = 0.05 on the free entries; \code{"soft"}: the
-#'   unpenalized Theta1 soft-thresholded at lambda1 / N.
 #' @return A list \code{f0} (null), \code{f1} (unpenalized), \code{fsel}
-#'   (selected), \code{path} (data.frame, one row per (lambda1, start)),
+#'   (selected), \code{path} (data.frame, one row per (C1.L1, start)),
 #'   \code{candidates} (data.frame, one row per distinct support),
 #'   \code{supports} (list of the distinct supports, Q x P1 logical),
-#'   \code{sel} (selected path row), \code{lambda1.selected},
+#'   \code{sel} (selected path row), \code{C1.L1.selected},
 #'   \code{support.selected} (id into \code{supports}).
 #' @keywords internal
 #' @noRd
-.ffb.fiml.pipeline <- function(Y1, Y2, X, C.init, mask, phi.full = TRUE, lambda1,
+.ffb.fiml.pipeline <- function(Y1, Y2, X, C.init, C1.free, phi.full = TRUE, C1.L1.path,
                                select = "BIC", maxit = 3000, factr = 1e3) {
   N <- base::ncol(Y1); P1 <- base::nrow(Y1); Q <- base::ncol(X)
-  mask <- (mask != 0) * 1
+  C1.free <- (C1.free != 0) * 1
   f0 <- .ffb.fiml.fit(Y1, Y2, X, feedback = FALSE, init = .ffb.ff.init(Y1, Y2, X, C.init),
                       maxit = maxit, phi.full = phi.full, factr = factr)
   k0 <- f0$npar
-  no_feedback <- base::sum(mask) == 0
+  no_feedback <- base::sum(C1.free) == 0
   f1 <- if (no_feedback) f0 else
-    .ffb.fiml.fit(Y1, Y2, X, feedback = TRUE, T1.mask = mask,
+    .ffb.fiml.fit(Y1, Y2, X, feedback = TRUE, C1.free = C1.free,
                   init = base::list(T2 = f0$T2, Phi = f0$Phi, psi = f0$psi),
                   maxit = maxit, phi.full = phi.full, factr = factr)
   ## LR = 0 exactly is a legitimate outcome, not an optimizer failure: Theta1 >= 0 puts the null on the
@@ -322,8 +317,8 @@
   ## data that first raised the suspicion (2026-09-09): from starts 0.01, 0.05, 0.2 and 0.5 every free
   ## entry returns to exactly 0 and the log-likelihood is the null one.  This is why the reference
   ## distribution is bootstrapped rather than taken from a chi-square: it has an atom at 0.
-  fit1 <- function(T1.mask, l, init)
-    .ffb.fiml.fit(Y1, Y2, X, feedback = TRUE, T1.mask = T1.mask, lambda1 = l, init = init,
+  fit1 <- function(C1.free, l, init)
+    .ffb.fiml.fit(Y1, Y2, X, feedback = TRUE, C1.free = C1.free, C1.L1 = l, init = init,
                   maxit = maxit, phi.full = phi.full, factr = factr)
   as_init <- function(f, T1 = f$T1) base::list(T1 = T1, T2 = f$T2, Phi = f$Phi, psi = f$psi)
   bic_of <- function(f, nnz) -2 * f$loglik + base::log(N) * (nnz + k0)
@@ -331,24 +326,24 @@
   ## ---- registry of distinct supports: key -> id; one refit per id ----
   key_of <- function(supp) base::paste(base::as.integer(supp != 0), collapse = "")
   keys <- base::character(0); supports <- base::list(); cand_fits <- base::list()
-  cand_first <- base::list()      # (lambda1, start) that first proposed the support
+  cand_first <- base::list()      # (C1.L1, start) that first proposed the support
   register <- function(supp, fit, l, start) {
     k <- key_of(supp); id <- base::match(k, keys)
     if (base::is.na(id)) {
       id <- base::length(keys) + 1L
       keys[id] <<- k; cand_fits[[id]] <<- fit
-      sm <- (supp != 0); base::dimnames(sm) <- base::dimnames(mask); supports[[id]] <<- sm
-      cand_first[[id]] <<- base::list(lambda1 = l, start = start)
+      sm <- (supp != 0); base::dimnames(sm) <- base::dimnames(C1.free); supports[[id]] <<- sm
+      cand_first[[id]] <<- base::list(C1.L1 = l, start = start)
     }
     id
   }
-  id_null <- register(0 * mask, f0, Inf, "null")
-  id_full <- if (no_feedback) id_null else register(mask, f1, 0, "full")
+  id_null <- register(0 * C1.free, f0, Inf, "null")
+  id_full <- if (no_feedback) id_null else register(C1.free, f1, 0, "full")
   ## unpenalized refit of a proposed support, best of three starts
   refit_support <- function(supp, fl) {
     nnz <- base::sum(supp)
     if (nnz == 0) return(f0)
-    if (nnz == base::sum(mask)) return(f1)
+    if (nnz == base::sum(C1.free)) return(f1)
     inits <- base::list(as_init(fl), as_init(f1),
                         as_init(f0, T1 = base::matrix(0.05, Q, P1)))
     best <- NULL
@@ -359,11 +354,11 @@
     best
   }
   row <- function(l, start, id, f, nnz, pen = NA_real_) base::data.frame(
-    lambda1 = l, start = start, support_id = id, nnz = nnz, rho = f$rho, loglik = f$loglik,
+    C1.L1 = l, start = start, support_id = id, nnz = nnz, rho = f$rho, loglik = f$loglik,
     BIC = bic_of(f, nnz), MAE = f$MAE, pen.value = pen, stringsAsFactors = FALSE)
-  ## lambda1 = 0: the unpenalized fit re-estimated on its own non-zero
+  ## C1.L1 = 0: the unpenalized fit re-estimated on its own non-zero
   ## entries (the model with every admitted entry free is candidate id_full)
-  supp1 <- (f1$T1 > 1e-3) * mask
+  supp1 <- (f1$T1 > 1e-3) * C1.free
   id_thr <- if (no_feedback) id_null else {
     id <- base::match(key_of(supp1), keys)
     if (base::is.na(id)) register(supp1, refit_support(supp1, f1), 0, "full") else id
@@ -375,11 +370,11 @@
   ## points (continuation along the path, a small constant, soft-thresholded f1) were measured on six data
   ## sets and none of them ever uniquely attained the minimum BIC, so they were removed in 0.9.8.
   if (select == "BIC" && !no_feedback) {
-    lambda1 <- base::sort(base::unique(lambda1[base::is.finite(lambda1) & lambda1 > 0]))
-    for (l in lambda1) {
-      fl <- fit1(mask, l, as_init(f1))
+    C1.L1.path <- base::sort(base::unique(C1.L1.path[base::is.finite(C1.L1.path) & C1.L1.path > 0]))
+    for (l in C1.L1.path) {
+      fl <- fit1(C1.free, l, as_init(f1))
       pen <- -fl$loglik + l * base::sum(fl$T1)        # penalized objective (up to a constant)
-      supp <- (fl$T1 > 1e-3) * mask
+      supp <- (fl$T1 > 1e-3) * C1.free
       id <- base::match(key_of(supp), keys)
       if (base::is.na(id)) id <- register(supp, refit_support(supp, fl), l, "full")
       path[[base::length(path) + 1]] <- row(l, "full", id, cand_fits[[id]], base::sum(supp), pen)
@@ -395,7 +390,7 @@
     f <- cand_fits[[id]]; nnz <- base::sum(supports[[id]])
     base::data.frame(support_id = id, nnz = nnz, rho = f$rho, loglik = f$loglik,
                      BIC = bic_of(f, nnz), MAE = f$MAE,
-                     lambda1.first = cand_first[[id]]$lambda1, start.first = cand_first[[id]]$start,
+                     C1.L1.first = cand_first[[id]]$C1.L1, start.first = cand_first[[id]]$start,
                      stringsAsFactors = FALSE)
   }))
   base::rownames(candidates) <- NULL
@@ -420,7 +415,7 @@
                support_id = candidates$support_id[o[2]])
   } else base::list(gap = NA_real_, nnz = NA_integer_, support_id = NA_integer_)
   base::list(f0 = f0, f1 = f1, fsel = fsel, path = path, candidates = candidates,
-             supports = supports, sel = b, lambda1.selected = b$lambda1.first,
+             supports = supports, sel = b, C1.L1.selected = b$C1.L1.first,
              support.selected = id_sel, runner.up = runner)
 }
 
@@ -462,8 +457,8 @@
 #' @keywords internal
 #' @noRd
 .nmf.ffb.fiml <- function(Y1, Y2, rank, X.init, X.L2.ortho, epsilon, maxit, seed,
-                          X = NULL, mask = "union", cross.threshold = 0.05,
-                          phi = "full", lambda1 = NULL, select = "BIC",
+                          X = NULL, C1.restriction = "union", C1.restriction.threshold = 0.05,
+                          Phi.restriction = "full", C1.L1.path = NULL, select = "BIC",
                           cl = NULL, ...) {
   extra_args <- base::list(...)
   if (!base::is.matrix(Y1)) Y1 <- base::as.matrix(Y1)
@@ -478,8 +473,11 @@
   base::rownames(Y1) <- Y1_labels; base::rownames(Y2) <- Y2_labels
 
   fiml.maxit <- if (!base::is.null(extra_args$fiml.maxit)) extra_args$fiml.maxit else 3000L
+  ## `prefix` names the factors, as in nmfkc(); "Factor" rather than nmfkc's "Basis"
+  ## because the paper and the path diagrams call them factors.
+  prefix     <- if (!base::is.null(extra_args$prefix))     extra_args$prefix     else "Factor"
   factr      <- if (!base::is.null(extra_args$factr))      extra_args$factr      else 1e3
-  phi.full   <- base::identical(phi, "full")
+  phi.full   <- base::identical(Phi.restriction, "full")
 
   ## Keep the self-seeding of stage 1 out of the caller's random stream.
   .rng <- .nmfkc.rng.save(seed)
@@ -509,7 +507,7 @@
   }
   Xb[Xb < 0] <- 0
   Xb <- base::sweep(Xb, 2, base::pmax(base::colSums(Xb), 1e-10), "/")
-  Basis_labels <- base::paste0("Factor", 1:Q)
+  Basis_labels <- base::paste0(prefix, 1:Q)
   base::dimnames(Xb) <- base::list(Y1_labels, Basis_labels)
   if (base::is.null(C.init)) {
     ## least-squares start for Theta2 given X: B = (X'X)^-1 X'Y1, C = B Y2^+
@@ -519,14 +517,14 @@
                              error = function(e) base::matrix(0.1, Q, P2))
     C.init <- base::pmax(C.init, 1e-4)
   }
-  M1 <- .ffb.fiml.mask(Xb, mask, cross.threshold)
-  if (base::is.null(lambda1)) lambda1 <- N * c(0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5)
+  M1 <- .ffb.fiml.restriction(Xb, C1.restriction, C1.restriction.threshold)
+  if (base::is.null(C1.L1.path)) C1.L1.path <- N * c(0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5)
   if (base::sum(M1) == 0)
-    base::warning("the exclusion mask admits no feedback entry (all Theta1 entries excluded); ",
+    base::warning("the exclusion restriction admits no feedback entry (all Theta1 entries excluded); ",
                   "the fit reduces to the FF null.")
 
   ## ---- stage 2: FIML pipeline ----
-  pp <- .ffb.fiml.pipeline(Y1, Y2, Xb, C.init, M1, phi.full = phi.full, lambda1 = lambda1,
+  pp <- .ffb.fiml.pipeline(Y1, Y2, Xb, C.init, M1, phi.full = phi.full, C1.L1.path = C1.L1.path,
                            select = select, maxit = fiml.maxit, factr = factr)
   f0 <- pp$f0; f1 <- pp$f1; fs <- pp$fsel
   eq <- .ffb.equilibrium(Xb, fs$T1, fs$T2, Y1, Y2)
@@ -548,10 +546,21 @@
     XC1 = eq$XC1, XC2 = eq$XC2, XC1.radius = eq$XC1.radius, XC1.norm1 = eq$XC1.norm1,
     Leontief.inv = eq$Leontief.inv, M.model = eq$M.model,
     amplification = eq$amplification, amplification.bound = eq$amplification.bound,
-    Q = Q, SC.cov = NULL, SC.map = NULL, MAE = eq$MAE,
+    rank = Q, SC.cov = NULL, SC.map = NULL, mae = eq$MAE,
     effective.rank = eq$effective.rank,
-    objfunc = NULL, objfunc.full = NULL,
-    iter = fs$iter, maxit = fiml.maxit, epsilon = epsilon, converged = fs$conv == 0,
+    ## The objective this method minimizes is the negative log-likelihood of the selected
+    ## fit (the selected support is refit unpenalized), so `objfunc` means for `method =
+    ## "fiml"` what it means for every other fitter: the value that was minimized.
+    objfunc = -fs$loglik, objfunc.full = NULL,
+    ## `iter`, `maxit` and `epsilon` describe stage 1, so that each field means exactly what
+    ## the argument of the same name means -- `maxit` used to hold the stage-2 cap, which the
+    ## print method then paired with the stage-1 `epsilon`.  Stage 2 is under `fiml.*`, and
+    ## `converged` is TRUE only when both stages converged.
+    iter = if (base::is.null(stage1)) NA_integer_ else stage1$iter,
+    maxit = maxit, epsilon = epsilon,
+    fiml.iter = fs$iter, fiml.maxit = fiml.maxit, fiml.converged = fs$conv == 0,
+    converged = (fs$conv == 0) &&
+                (base::is.null(stage1) || base::isTRUE(stage1$converged)),
     method = "fiml",
     Phi = fs$Phi, psi = fs$psi, loglik = fs$loglik, npar = kk[["selected"]],
     null = base::list(C2 = f0$T2, Phi = f0$Phi, psi = f0$psi, loglik = f0$loglik,
@@ -560,16 +569,18 @@
                       npar = kk[["full"]], XC1.radius = f1$rho, conv = f1$conv),
     path = pp$path, candidates = pp$candidates, supports = pp$supports,
     support.selected = pp$support.selected, runner.up = pp$runner.up,
-    mask = M1, lambda1 = lambda1, lambda1.selected = pp$lambda1.selected,
+    C1.free = M1, C1.L1.path = C1.L1.path, C1.L1.selected = pp$C1.L1.selected,
     support = fs$T1 > 1e-3,
     LR = LR, LR.df = LR.df,
     BIC = -2 * ll + base::log(N) * kk,
     AIC = -2 * ll + 2 * kk,
-    phi = phi, select = select, cross.threshold = cross.threshold,
+    Phi.restriction = Phi.restriction, select = select,
+    C1.restriction.threshold = C1.restriction.threshold,
     factr = factr, X.L2.ortho = X.L2.ortho,
-    ## what nmf.ffb.inference() needs to re-run stage 1 and re-derive the mask on
-    ## a bootstrap replicate or on half of the units (calibration = "full"/"split")
-    mask.rule = if (base::is.character(mask)) base::match.arg(mask, c("union", "none")) else "user",
+    ## what nmf.ffb.test() needs to re-run stage 1 and re-derive the exclusion
+    ## restriction on each null replicate (calibration = "procedure")
+    C1.restriction = if (base::is.character(C1.restriction))
+                       base::match.arg(C1.restriction, c("union", "none")) else "user",
     stage1.args = base::list(X.init = if (base::is.null(X.init)) "nndsvd" else X.init,
                              X.L2.ortho = X.L2.ortho, epsilon = epsilon, maxit = maxit,
                              seed = seed, from.data = base::is.null(X)),
@@ -659,7 +670,7 @@
 #' Feedback of the form \eqn{\Theta_1 = aX^\top\Psi^{-1}} enters each factor
 #' through the factor scores of the factors and is observationally equivalent,
 #' under the Gaussian working model, to a change of \eqn{\Theta_2} and of the
-#' factor covariance.  On the free set \eqn{F} of the exclusion mask this family
+#' factor covariance.  On the free set \eqn{F} of the exclusion restriction this family
 #' is the subspace spanned by the \eqn{Q(Q-1)} matrices
 #' \eqn{V^{(q,q')}_{ri}=1\{r=q\}X_{iq'}/\psi_i} (the diagonal of \eqn{a} is what
 #' the exclusion restriction removes).  With \eqn{\Pi} the Euclidean projector
@@ -669,14 +680,14 @@
 #' \code{omega0 = dim/|F|}, so report \code{omega} against \code{omega0}, and
 #' against a simulation in which the true feedback is indicator-level.
 #' @param X P1 x Q basis; \code{T1} Q x P1 feedback; \code{psi} the P1
-#'   uniquenesses; \code{mask} the Q x P1 0/1 exclusion mask.
+#'   uniquenesses; \code{C1.free} the Q x P1 0/1 free-entry matrix.
 #' @return List with \code{omega}, \code{omega0}, \code{dim} and \code{n.free}.
 #' @keywords internal
 #' @noRd
-.ffb.fiml.omega <- function(X, T1, psi, mask) {
+.ffb.fiml.omega <- function(X, T1, psi, C1.free) {
   Q <- base::ncol(X); P1 <- base::nrow(X)
   if (base::is.null(T1)) T1 <- base::matrix(0, Q, P1)              # feedforward model selected
-  free <- mask == 1; nf <- base::sum(free)
+  free <- C1.free == 1; nf <- base::sum(free)
   pr <- base::which(!base::diag(Q), arr.ind = TRUE)
   V <- base::vapply(base::seq_len(base::nrow(pr)), function(k) {
     D <- base::matrix(0, Q, P1); D[pr[k, 1], ] <- X[, pr[k, 2]] / psi; D[free]
@@ -708,7 +719,7 @@
 }
 
 ## Permutation of the columns of Xnew that best matches Xref (exhaustive for Q <= 6,
-## greedy beyond); used only to report whether the exclusion mask moved.
+## greedy beyond); used only to report whether the exclusion restriction moved.
 .ffb.fiml.align <- function(Xnew, Xref) {
   Q <- base::ncol(Xref)
   if (Q <= 6L) {
@@ -729,8 +740,8 @@
 }
 
 .nmf.ffb.inference.fiml <- function(object, Y1, Y2, B = 1000L, threshold = 0.01,
-                                    ci.level = 0.95, seed = 123L,
-                                    calibration = "full",
+                                    boot.level = 0.95, seed = 123L,
+                                    calibration = "procedure",
                                     what = c("both", "test", "ci"), ...) {
   ## `what` selects which of the two parametric bootstraps to run.  They answer different questions and
   ## are exposed as different functions (nmf.ffb.test and nmf.ffb.inference), but they share the whole
@@ -739,7 +750,7 @@
   ##   "ci"   : simulate from the selected model           -> intervals and support rates
   what <- base::match.arg(what)
   extra_args <- base::list(...)
-  calibration <- base::match.arg(calibration, c("full", "conditional"))
+  calibration <- base::match.arg(calibration, c("procedure", "conditional"))
   cores <- if (!base::is.null(extra_args$cores)) extra_args$cores
            else if (!base::is.null(extra_args$ncores)) extra_args$ncores
            else base::getOption("mc.cores", 1L)
@@ -761,29 +772,30 @@
   if (base::nrow(X) != P1) base::stop("nrow(X) must equal nrow(Y1); did Y1 change shape?")
   base::rownames(Y1) <- base::rownames(X)
   base::rownames(Y2) <- base::colnames(object$C2)
-  mask <- object$mask
-  phi.full <- base::identical(object$phi, "full")
-  lambda1 <- object$lambda1
+  C1free <- object$C1.free
+  phi.full <- base::identical(object$Phi.restriction, "full")
+  C1.L1.path <- object$C1.L1.path
   select <- if (!base::is.null(object$select)) object$select else "BIC"
   support <- (object$C1 > 1e-3) * 1
   nnz_obs <- base::sum(support)
 
-  ## Stage-1 settings and the mask rule, needed when the basis is re-estimated
-  ## (calibration = "full" or "split").  Objects fitted before 0.9.8 lack them:
+  ## Stage-1 settings and the restriction rule, needed when the basis is re-estimated
+  ## (calibration = "procedure").  Objects fitted before 0.9.8 lack them:
   ## fall back to the nmf.ffb() defaults and to the rule that was the default then.
   s1args <- if (!base::is.null(object$stage1.args)) object$stage1.args else
     base::list(X.init = "nndsvd", X.L2.ortho = 100, epsilon = 1e-6, maxit = 5000, seed = seed, from.data = TRUE)
-  mask.rule <- if (!base::is.null(object$mask.rule)) object$mask.rule else "union"
-  thr <- if (!base::is.null(object$cross.threshold)) object$cross.threshold else 0.05
-  if (calibration != "conditional" && (mask.rule == "user" || !base::isTRUE(s1args$from.data))) {
+  restriction <- if (!base::is.null(object$C1.restriction)) object$C1.restriction else "union"
+  thr <- if (!base::is.null(object$C1.restriction.threshold)) object$C1.restriction.threshold else 0.05
+  if (calibration != "conditional" && (restriction == "user" || !base::isTRUE(s1args$from.data))) {
     base::warning("calibration = \"", calibration, "\" re-estimates the basis and re-derives the ",
-                  "exclusion mask on each replicate, but this fit used a user-supplied ",
-                  if (mask.rule == "user") "mask" else "basis",
+                  "exclusion restriction on each replicate, but this fit used a user-supplied ",
+                  if (restriction == "user") "restriction" else "basis",
                   "; falling back to calibration = \"conditional\".")
     calibration <- "conditional"
   }
-  ## a mask derived from the basis: rebuilt from any X* with the same rule
-  rederive_mask <- function(Xs) if (mask.rule == "user") mask else .ffb.fiml.mask(Xs, mask.rule, thr)
+  ## a restriction derived from the basis: rebuilt from any X* with the same rule
+  rederive <- function(Xs) if (restriction == "user") C1free else
+    .ffb.fiml.restriction(Xs, restriction, thr)
 
   ## ---- (i) null bootstrap: LR calibration ----
   T2_0 <- object$null$C2; Phi_0 <- object$null$Phi; psi_0 <- object$null$psi
@@ -792,22 +804,22 @@
     base::set.seed(seed + b)
     Y1s <- .ffb.fiml.sim(X, NULL, T2_0, Phi_0, psi_0, Y2)
     na_out <- c(full = NA_real_, selected = NA_real_, nnz = NA_real_,
-                conv.null = NA_real_, conv.full = NA_real_, df = NA_real_, mask.moved = NA_real_)
-    if (calibration == "full") {
+                conv.null = NA_real_, conv.full = NA_real_, df = NA_real_, restriction.moved = NA_real_)
+    if (calibration == "procedure") {
       ## re-run stage 1 on this replicate and re-derive the exclusion restriction,
-      ## so that the null distribution contains the basis- and mask-selection step
+      ## so that the null distribution contains the basis- and restriction-selection step
       s1 <- base::tryCatch(.ffb.fiml.stage1(Y1s, Y2, Q, s1args, seed = seed + b), error = function(e) NULL)
       if (base::is.null(s1)) return(na_out)
       p <- .ffb.fiml.align(s1$X, X)
       Xs <- s1$X[, p, drop = FALSE]; base::colnames(Xs) <- base::colnames(X)
       Cs <- s1$C[p, , drop = FALSE]
-      masks <- rederive_mask(Xs)
-      moved <- base::any(masks != mask)
+      C1free_b <- rederive(Xs)
+      moved <- base::any(C1free_b != C1free)
     } else {
-      Xs <- X; Cs <- T2_0; masks <- mask; moved <- FALSE
+      Xs <- X; Cs <- T2_0; C1free_b <- C1free; moved <- FALSE
     }
     r <- base::tryCatch(
-      .ffb.fiml.pipeline(Y1s, Y2, Xs, Cs, masks, phi.full = phi.full, lambda1 = lambda1,
+      .ffb.fiml.pipeline(Y1s, Y2, Xs, Cs, C1free_b, phi.full = phi.full, C1.L1.path = C1.L1.path,
                          select = select, maxit = fiml.maxit, factr = factr),
       error = function(e) NULL)
     if (base::is.null(r)) return(na_out)
@@ -818,7 +830,7 @@
     c(full = 2 * (r$f1$loglik - r$f0$loglik), selected = 2 * (r$fsel$loglik - r$f0$loglik),
       nnz = base::sum(r$fsel$T1 > 1e-3),
       conv.null = r$f0$conv, conv.full = r$f1$conv,
-      df = base::sum(masks), mask.moved = base::as.numeric(moved))
+      df = base::sum(C1free_b), restriction.moved = base::as.numeric(moved))
   }
 
   ## ---- (ii) selected-model bootstrap: coefficient uncertainty ----
@@ -827,7 +839,7 @@
     base::set.seed(seed + B + b)
     Y1s <- .ffb.fiml.sim(X, T1_s, T2_s, Phi_s, psi_s, Y2)
     r <- base::tryCatch(
-      .ffb.fiml.fit(Y1s, Y2, X, feedback = nnz_obs > 0, T1.mask = support,
+      .ffb.fiml.fit(Y1s, Y2, X, feedback = nnz_obs > 0, C1.free = support,
                     init = base::list(T1 = T1_s, T2 = T2_s, Phi = Phi_s, psi = psi_s),
                     maxit = fiml.maxit, phi.full = phi.full, factr = factr),
       error = function(e) NULL)
@@ -837,16 +849,16 @@
   }
 
   if (print.trace)
-    base::message(base::sprintf("  Parametric bootstrap (fiml): B=%d, cores=%d, threshold=%.3g, ci.level=%.2f",
-                                B, base::as.integer(cores), threshold, ci.level))
-  mask.change.rate <- NULL; df.boot <- NULL
+    base::message(base::sprintf("  Parametric bootstrap (fiml): B=%d, cores=%d, threshold=%.3g, boot.level=%.2f",
+                                B, base::as.integer(cores), threshold, boot.level))
+  C1.restriction.change.rate <- NULL; df.boot <- NULL
   if (boot.null) {
     res_null <- .nmfkc.parlapply(base::seq_len(B), boot_null_one, cores = cores, envir = base::environment())
     LR.boot <- base::do.call(base::rbind, res_null)
     nnz.boot <- LR.boot[, "nnz"]
     conv.null.boot <- LR.boot[, "conv.null"]; conv.full.boot <- LR.boot[, "conv.full"]
     df.boot <- LR.boot[, "df"]
-    if (calibration == "full") mask.change.rate <- base::mean(LR.boot[, "mask.moved"], na.rm = TRUE)
+    if (calibration == "procedure") C1.restriction.change.rate <- base::mean(LR.boot[, "restriction.moved"], na.rm = TRUE)
     LR.boot <- LR.boot[, c("full", "selected"), drop = FALSE]
     ok <- base::is.finite(LR.boot[, "full"]) & base::is.finite(LR.boot[, "selected"])
     n.ok <- base::sum(ok)
@@ -885,28 +897,28 @@
       LR.p.boot = LR.p.boot, LR.null.quantile = LR.null.quantile, LR.boot = LR.boot,
       nnz.boot = nnz.boot, prob.select.null = prob.select.null,
       LR.boot.df = df.boot, LR.boot.n.ok = n.ok,
-      LR.boot.n.nonconv = n.nonconv, mask.change.rate = mask.change.rate,
-      N = N, Q = Q, P1 = P1, P2 = P2, mask = mask, call = base::match.call())
+      LR.boot.n.nonconv = n.nonconv, C1.restriction.change.rate = C1.restriction.change.rate,
+      N = N, rank = Q, P1 = P1, P2 = P2, C1.free = C1free, call = base::match.call())
     base::class(out) <- c("nmf.ffb.test", "nmf.test")
     return(out)
   }
 
   res_sel <- .nmfkc.parlapply(base::seq_len(B), boot_sel_one, cores = cores, envir = base::environment())
 
-  C1.array <- base::array(NA_real_, dim = c(B, Q, P1))
-  C2.array <- base::array(NA_real_, dim = c(B, Q, P2))
+  C1.boot.draws <- base::array(NA_real_, dim = c(B, Q, P1))
+  C2.boot.draws <- base::array(NA_real_, dim = c(B, Q, P2))
   rho.vec <- base::rep(NA_real_, B); valid.vec <- base::logical(B)
   for (b in base::seq_len(B)) {
     r <- res_sel[[b]]
     valid.vec[b] <- base::isTRUE(r$valid)
     if (!base::is.null(r$rho)) rho.vec[b] <- r$rho
-    if (valid.vec[b]) { C1.array[b, , ] <- r$C1; C2.array[b, , ] <- r$C2 }
+    if (valid.vec[b]) { C1.boot.draws[b, , ] <- r$C1; C2.boot.draws[b, , ] <- r$C2 }
   }
   n.valid <- base::sum(valid.vec)
   if (n.valid < 10L && n.valid < B)
     base::warning(base::sprintf("Only %d / %d bootstrap replicates were valid; CIs / support rates may be unreliable.", n.valid, B))
 
-  alpha <- 1 - ci.level
+  alpha <- 1 - boot.level
   apply_finite <- function(arr, FUN) {
     base::apply(arr, c(2, 3), function(v) { v <- v[base::is.finite(v)]; if (!base::length(v)) NA_real_ else FUN(v) })
   }
@@ -914,11 +926,11 @@
   ## (CONVENTIONS.md 6: invert the centred replicate distribution).
   q_lo <- function(arr) apply_finite(arr, function(v) stats::quantile(v, alpha / 2, names = FALSE))
   q_hi <- function(arr) apply_finite(arr, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
-  C1.ci.lower <- 2 * T1_s - q_hi(C1.array); C1.ci.upper <- 2 * T1_s - q_lo(C1.array)
-  C2.ci.lower <- 2 * T2_s - q_hi(C2.array); C2.ci.upper <- 2 * T2_s - q_lo(C2.array)
-  C1.support <- apply_finite(C1.array, function(v) base::mean(base::abs(v) > threshold))
+  C1.ci.lower <- 2 * T1_s - q_hi(C1.boot.draws); C1.ci.upper <- 2 * T1_s - q_lo(C1.boot.draws)
+  C2.ci.lower <- 2 * T2_s - q_hi(C2.boot.draws); C2.ci.upper <- 2 * T2_s - q_lo(C2.boot.draws)
+  C1.support <- apply_finite(C1.boot.draws, function(v) base::mean(base::abs(v) > threshold))
   C1.support[support == 0] <- 0        # excluded / unselected entries are fixed at 0
-  C2.support <- apply_finite(C2.array, function(v) base::mean(base::abs(v) > threshold))
+  C2.support <- apply_finite(C2.boot.draws, function(v) base::mean(base::abs(v) > threshold))
   sig.from.support <- function(s) {
     base::ifelse(!base::is.finite(s), " ",
       base::ifelse(s > 0.999, "***", base::ifelse(s > 0.99, "**", base::ifelse(s > 0.95, "*", " "))))
@@ -934,7 +946,6 @@
       CI_low = base::as.vector(lo), CI_high = base::as.vector(hi),
       support_rate = s_vec,
       prob.unsupported = base::ifelse(base::is.finite(s_vec), 1 - s_vec, NA_real_),
-      p_value = base::ifelse(base::is.finite(s_vec), 1 - s_vec, NA_real_),
       sig = sig.from.support(s_vec),
       stringsAsFactors = FALSE)
   }
@@ -945,18 +956,18 @@
   if (print.trace)
     base::message(base::sprintf("  Bootstrap done: %d / %d valid replicates.", n.valid, B))
 
-  object$bootstrap.B <- B
-  object$bootstrap.threshold <- threshold
-  object$bootstrap.ci.level <- ci.level
-  object$bootstrap.n.valid <- n.valid
-  object$bootstrap.n.invalid <- B - n.valid
-  object$bootstrap.type <- "parametric (fiml)"
+  object$boot.B <- B
+  object$boot.threshold <- threshold
+  object$boot.level <- boot.level
+  object$boot.n.valid <- n.valid
+  object$boot.n.invalid <- B - n.valid
+  object$boot.method <- "parametric (fiml)"
   ## The calibration of the likelihood ratio is the job of nmf.ffb.test(); an intervals object that
   ## also carried LR.p.boot invited the reader to treat a coefficient interval as a test of feedback,
   ## which \S3.5 of the paper warns against.  Removed in 0.9.8 (see NEWS).
-  object$rho.boot <- rho.vec
-  object$C1.array <- C1.array
-  object$C2.array <- C2.array
+  object$rho.boot.draws <- rho.vec
+  object$C1.boot.draws <- C1.boot.draws
+  object$C2.boot.draws <- C2.boot.draws
   object$C1.support.rate <- C1.support
   object$C2.support.rate <- C2.support
   object$C1.ci.lower <- C1.ci.lower; object$C1.ci.upper <- C1.ci.upper

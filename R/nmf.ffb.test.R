@@ -19,7 +19,7 @@
 #' \eqn{(1 + \#\{LR^{*} \ge LR\}) / (1 + B_{ok})}.
 #'
 #' \subsection{What is re-applied to each replicate}{
-#' \code{calibration = "full"} (the default) re-applies the \emph{whole
+#' \code{calibration = "procedure"} (the default) re-applies the \emph{whole
 #' procedure}: stage 1 is re-run on each \eqn{Y_1^{*}}, the basis is
 #' re-estimated, the exclusion restriction is re-derived from that basis, and
 #' stage 2 follows.  The \eqn{p}-value is then the operating characteristic of
@@ -28,20 +28,20 @@
 #'
 #' \code{"conditional"} holds \eqn{\hat X} and the exclusion restriction at
 #' their fitted values and re-runs stage 2 only.  It is valid only if basis and
-#' mask are independent of the \eqn{Y_1} being tested, which they are not when
+#' restriction are independent of the \eqn{Y_1} being tested, which they are not when
 #' all three come from the same sample; it is provided for comparison with that
 #' practice, and it is anti-conservative.
 #'
-#' Sample splitting -- basis and mask from one half of the units, test on the
+#' Sample splitting -- basis and restriction from one half of the units, test on
 #' other -- also removes the dependence, and was offered here in 0.9.7.  It was
-#' withdrawn in 0.9.8: measured against \code{"full"} it has the same size and
+#' withdrawn in 0.9.8: measured against \code{"procedure"} it has the same size and
 #' lower power, because the test uses \eqn{N/2} units, and it cannot be run at
 #' all when the halves are too small for stage 1.
 #' }
 #'
 #' \subsection{Reading the result}{
 #' Report \code{LR.p.boot} together with \code{prob.select.null} and, for
-#' \code{calibration = "full"}, \code{mask.change.rate}.  The last two say
+#' \code{calibration = "procedure"}, \code{C1.restriction.change.rate}.  The last two say
 #' whether the exclusion restriction is determined well enough for the test to
 #' mean anything: if the dominant factor of an outcome moves from one null
 #' replicate to the next, a previously blocked entry becomes free and a feedback
@@ -58,7 +58,7 @@
 #'   reportable \eqn{p}-value is \eqn{1/(1+B)}.
 #' @param calibration What is re-applied to each null replicate; see above.
 #'   \code{"conditional"} is selected automatically, with a warning, when the
-#'   fit used a basis or a mask supplied by the caller, since there is then
+#'   fit used a basis or an exclusion restriction supplied by the caller, since there is then
 #'   nothing to re-estimate.
 #' @param seed Base seed; replicate \code{b} uses \code{seed + b}.  The caller's
 #'   random stream is restored on exit.
@@ -76,9 +76,9 @@
 #' \item{LR.boot}{\eqn{B \times 2} matrix of the null replicates.}
 #' \item{prob.select.null}{Null false-selection rate: the probability that BIC
 #'   retains at least one feedback entry when the feed-forward model is true.}
-#' \item{mask.change.rate}{(\code{"full"} only) share of null replicates in which
+#' \item{C1.restriction.change.rate}{(\code{"procedure"} only) share of null replicates in which
 #'   the exclusion restriction moved.}
-#' \item{LR.boot.df}{Free entries per null replicate (varies under \code{"full"}).}
+#' \item{LR.boot.df}{Free entries per null replicate (varies under \code{"procedure"}).}
 #' \item{LR.boot.n.ok, LR.boot.n.nonconv}{Usable replicates, and how many did not
 #'   meet the optimizer tolerance.}
 #' }
@@ -97,7 +97,7 @@
 #' @export
 nmf.ffb.test <- function(object, Y1, Y2,
                          B = 1000L,
-                         calibration = c("full", "conditional"),
+                         calibration = c("procedure", "conditional"),
                          seed = 123L,
                          ...) {
   if (base::is.null(object$X) || base::is.null(object$C1) || base::is.null(object$C2))
@@ -105,6 +105,8 @@ nmf.ffb.test <- function(object, Y1, Y2,
   if (!base::identical(object$method, "fiml"))
     base::stop("nmf.ffb.test() applies to likelihood-based fits: use nmf.ffb(..., method = \"fiml\") ",
                "(the default). The multiplicative-update estimator has no likelihood to compare.")
+  if ("ci.level" %in% base::names(base::match.call()))
+    base::stop("`ci.level` was renamed to `boot.level` in 0.9.8.", call. = FALSE)
   calibration <- base::match.arg(calibration)
   .nmf.ffb.inference.fiml(object, Y1, Y2, B = B, seed = seed,
                           calibration = calibration, what = "test", ...)
