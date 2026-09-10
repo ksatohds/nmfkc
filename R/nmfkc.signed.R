@@ -247,13 +247,23 @@
 #'   \item \code{r.squared.centered}: row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
 #'   \item \code{mae}: mean absolute error.
 #'   \item \code{iter}: number of iterations performed.
+#'   \item \code{converged}: logical; whether the relative change of the
+#'     objective fell below \code{epsilon} before \code{maxit}.
+#'   \item \code{epsilon.iter}: relative change of the objective at the last
+#'     step (the quantity compared with \code{epsilon}).
+#'   \item \code{objfunc.increases}: number of steps at which the objective
+#'     rose.  The multiplicative update alone is monotone; a large count
+#'     signals that a constraint imposed by projection (such as
+#'     \code{X.rowSums.min}) is fighting the update, in which case the fit can
+#'     oscillate and exhaust \code{maxit}.
 #'   \item \code{runtime}: elapsed seconds.
 #'   \item \code{Y.signed}: logical; whether \eqn{Y} contained negative
 #'     entries during fitting.
 #'   \item \code{pars}: RFF generating parameters, if supplied.
 #'   \item \code{restarts}: present only when \code{nstart.signed > 1}; a data frame
 #'     with one row per start (\code{seed}, \code{objfunc}, \code{iter},
-#'     \code{converged}).  A start whose objective is larger than the best one
+#'     \code{converged}, \code{epsilon.iter}, \code{objfunc.increases}).
+#'     A start whose objective is larger than the best one
 #'     has reached a different local minimum; such a start typically also stops
 #'     after far fewer iterations.
 #'   \item \code{call}: the matched call.
@@ -349,7 +359,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     best <- fits[[bestidx]]
     best$restarts <- data.frame(seed = seeds, objfunc = objs,
                                 iter = vapply(fits, function(f) f$iter, numeric(1)),
-                                converged = vapply(fits, function(f) f$converged, logical(1)))
+                                converged = vapply(fits, function(f) f$converged, logical(1)),
+                                epsilon.iter = vapply(fits, function(f) f$epsilon.iter, numeric(1)),
+                                objfunc.increases = vapply(fits, function(f) f$objfunc.increases, numeric(1)))
     best$nstart.signed <- nstart.signed
     best$call <- cl
     if (isTRUE(verbose)) {
@@ -896,6 +908,16 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       abs(obj_prev - obj_cur) / max(abs(obj_prev), 1e-12) >= epsilon)
     warning(paste0("maximum iterations (", maxit, ") reached..."))
   objfunc.iter <- objfunc.iter[seq_len(iter)]
+  ## Convergence diagnostics.  `epsilon.iter` is the relative change of the
+  ## last step, the quantity the stopping rule compares with `epsilon`.
+  ## `objfunc.increases` counts the steps at which the objective rose: the
+  ## plain MU is monotone, so a large count means that something outside the
+  ## multiplicative form (the row-sum floor projection, for instance) is
+  ## pushing the iterate back and forth, and the fit may never stop.
+  epsilon.iter <- if (iter >= 2L)
+    abs(objfunc.iter[iter] - objfunc.iter[iter - 1L]) /
+      max(abs(objfunc.iter[iter - 1L]), 1e-12) else Inf
+  objfunc.increases <- sum(diff(objfunc.iter) > 0, na.rm = TRUE)
 
   ## --- 7. Post-processing: sort columns of X (nmfkc-style centroid order) ---
   if (ncol(X) > 1 && X.restriction != "fixed") {
@@ -1003,7 +1025,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     ## show a bare iteration count, which is exactly the case it exists to fix.
     maxit         = maxit,
     epsilon       = epsilon,
-    converged     = (iter < maxit),
+    epsilon.iter  = epsilon.iter,
+    objfunc.increases = objfunc.increases,
+    converged     = is.finite(epsilon.iter) && epsilon.iter < epsilon,
     runtime       = runtime,
     rank          = Q,
     D             = D,
@@ -1187,6 +1211,11 @@ summary.nmfkc.signed <- function(object, ...) {
     X.restriction = object$X.restriction,
     Y.signed      = isTRUE(object$Y.signed),
     iter          = object$iter,
+    maxit         = object$maxit,
+    epsilon       = object$epsilon,
+    epsilon.iter  = object$epsilon.iter,
+    objfunc.increases = object$objfunc.increases,
+    converged     = object$converged,
     runtime       = object$runtime,
     objfunc       = object$objfunc,
     r.squared          = object$r.squared,

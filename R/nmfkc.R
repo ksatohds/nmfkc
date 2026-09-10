@@ -3018,6 +3018,12 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     iter      = iter.used,
     maxit     = maxit,
     epsilon   = epsilon,
+    ## Relative change at the last step, and the number of steps at which the
+    ## objective rose (counted on the recorded tail of objfunc.iter).  The MU
+    ## is monotone by itself; increases point at a projected constraint such
+    ## as X.rowSums.min fighting the update, which can oscillate to maxit.
+    epsilon.iter = epsilon.iter,
+    objfunc.increases = base::sum(base::diff(objfunc.iter) > 0, na.rm = TRUE),
     converged = (epsilon.iter <= base::abs(epsilon)),
     r.squared          = r2,
     r.squared.uncentered     = r2.uncentered,

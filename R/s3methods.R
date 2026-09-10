@@ -82,6 +82,16 @@
                     if (isTRUE(x$converged)) "(converged)" else "(NOT converged)")
   if (!is.null(x$epsilon) && is.numeric(x$epsilon))
     line <- sprintf("%s  epsilon = %g", line, x$epsilon)
+  ## The relative change at the last step is what the stopping rule saw; a
+  ## fit that exhausted maxit with a change just above epsilon is oscillating,
+  ## not slowly descending, and the count of objective increases says so.
+  if (!is.null(x$epsilon.iter) && is.numeric(x$epsilon.iter) &&
+      is.finite(x$epsilon.iter))
+    line <- sprintf("%s  last change = %.2g", line, x$epsilon.iter)
+  if (!is.null(x$objfunc.increases) && is.numeric(x$objfunc.increases) &&
+      isTRUE(x$objfunc.increases > 0))
+    line <- sprintf("%s  objective rose %d times", line,
+                    as.integer(x$objfunc.increases))
   if (!is.null(x$stop.reason) && is.character(x$stop.reason) &&
       !isTRUE(x$converged))
     line <- sprintf("%s  [%s]", line, x$stop.reason)

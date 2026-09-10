@@ -219,13 +219,23 @@ column-normalized according to \code{X.restriction}).
 \item \code{r.squared.centered}: row-mean centered \eqn{1 - \|Y - \widehat Y\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}.
 \item \code{mae}: mean absolute error.
 \item \code{iter}: number of iterations performed.
+\item \code{converged}: logical; whether the relative change of the
+objective fell below \code{epsilon} before \code{maxit}.
+\item \code{epsilon.iter}: relative change of the objective at the last
+step (the quantity compared with \code{epsilon}).
+\item \code{objfunc.increases}: number of steps at which the objective
+rose.  The multiplicative update alone is monotone; a large count
+signals that a constraint imposed by projection (such as
+\code{X.rowSums.min}) is fighting the update, in which case the fit can
+oscillate and exhaust \code{maxit}.
 \item \code{runtime}: elapsed seconds.
 \item \code{Y.signed}: logical; whether \eqn{Y} contained negative
 entries during fitting.
 \item \code{pars}: RFF generating parameters, if supplied.
 \item \code{restarts}: present only when \code{nstart.signed > 1}; a data frame
 with one row per start (\code{seed}, \code{objfunc}, \code{iter},
-\code{converged}).  A start whose objective is larger than the best one
+\code{converged}, \code{epsilon.iter}, \code{objfunc.increases}).
+A start whose objective is larger than the best one
 has reached a different local minimum; such a start typically also stops
 after far fewer iterations.
 \item \code{call}: the matched call.
