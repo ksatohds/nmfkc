@@ -2337,18 +2337,6 @@ print.nmf.rank <- function(x, ...) {
 #'     \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 #'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 #'       \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
-#'     \item \code{X.rowSums.min}: floor \eqn{\tau \ge 0} on the row sums of \eqn{X}
-#'       (default 0, off).  A constraint, not a penalty: the feasible set becomes
-#'       \eqn{\{X \ge 0,\ \mathrm{colSums}(X) = 1,\ \mathrm{rowSums}(X) \ge \tau\}}
-#'       and the objective is unchanged.  At \eqn{Q < \mathrm{nrow}(Y)} the
-#'       multiplicative updates can drive a whole row of \eqn{X} to zero, after
-#'       which that row of \eqn{Y} is attached to no basis and cannot recover;
-#'       the floor prevents it.  Imposed after each update of \eqn{X} by
-#'       spreading the shortfall of a short row uniformly over its columns and
-#'       renormalizing the columns.  Feasible only for
-#'       \eqn{\tau \le Q/\mathrm{nrow}(Y)} under \code{"colSums"}; not
-#'       available with \code{"fixed"}.  Same option as in
-#'       \code{\link{nmfkc.signed}}.
 #'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"kmeans++"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar. \code{"kmeans++"} seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur & Vassilvitskii, 2007) before Lloyd refinement, giving a more careful, stable initialization (\code{nstart} is not used in this case).
 #'     \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 #'       Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
@@ -2516,7 +2504,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
 
   method <- if (!base::is.null(extra_args$method)) extra_args$method else "EU"
   X.restriction <- if (!base::is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
-  X.rowSums.min <- if (!base::is.null(.arg("X.rowSums.min"))) .arg("X.rowSums.min") else 0
   X.init <- if (!base::is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
   nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
   seed <- if (!base::is.null(extra_args$seed)) extra_args$seed else 123
@@ -2656,40 +2643,6 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
                         fixed = function(X) X
   )
 
-  ## Row-sum floor (same constraint as in nmfkc.signed).  A multiplicative
-  ## update cannot restore a row of X that has reached exactly zero, so at
-  ## Q < nrow(Y) whole rows can be driven to zero and the corresponding
-  ## observed dimension is then attached to no basis.  The floor restricts the
-  ## feasible set to rowSums(X) >= tau and leaves the objective unchanged.  It
-  ## is imposed after each normalization of X by adding the shortfall of every
-  ## short row uniformly over its columns and renormalizing the columns, the
-  ## two alternating until X is feasible.  Feasible whenever tau <= Q / nrow(Y)
-  ## under colSums; idle once every row clears the floor.  Being outside the
-  ## multiplicative form it suspends the monotonicity of the objective while a
-  ## row is being lifted.  As with xnorm() above, the column scale is left for
-  ## the following update of C to absorb.
-  if (base::length(X.rowSums.min) != 1L || base::is.na(X.rowSums.min) || X.rowSums.min < 0)
-    stop("'X.rowSums.min' must be a single number >= 0.")
-  if (X.rowSums.min > 0) {
-    if (X.restriction == "fixed")
-      stop("'X.rowSums.min' cannot be used with X.restriction = \"fixed\".")
-    if (X.restriction == "colSums" && X.rowSums.min > Q / base::nrow(Y))
-      stop(base::sprintf(base::paste("'X.rowSums.min' = %g is infeasible: with colSums(X) = 1 the",
-                                     "total mass of X is Q = %d, so the row sums cannot all exceed",
-                                     "Q / nrow(Y) = %g."), X.rowSums.min, Q, Q / base::nrow(Y)))
-  }
-  xfloor <- function(X) {
-    if (X.rowSums.min <= 0 || !base::all(base::is.finite(X))) return(X)
-    tau <- X.rowSums.min
-    for (it in base::seq_len(1000L)) {
-      rs <- base::rowSums(X)
-      if (base::all(rs >= tau * (1 - 1e-9))) break
-      short <- rs < tau
-      X[short, ] <- X[short, , drop = FALSE] + (tau - rs[short]) / base::ncol(X)
-      X <- xnorm(X)
-    }
-    X
-  }
 
   if(base::is.null(A)){
     dims <- base::sprintf("Y(%d,%d)~X(%d,%d)B(%d,%d)",
@@ -2710,7 +2663,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     X <- matrix(data=1,nrow=1,ncol=1)
     is.X.scalar <- TRUE
   }
-  X <- xfloor(xnorm(X))
+  X <- xnorm(X)
 
   # [FIX: Initialization of tX]
   # Initialize tX here so it exists even if the X update loop is skipped (e.g., scalar X)
@@ -2793,7 +2746,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
           den_X <- den_X + X.L2.smooth * degX
         }
         X <- X * (num_X / (den_X + .eps))
-        X <- xfloor(xnorm(X))
+        X <- xnorm(X)
         tX <- t(X)
         XtX  <- crossprod(X, X_old)                 # X_new^T X_old
         XtG0 <- tX %*% G0_gram
@@ -2824,7 +2777,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         }
         update_ratio <- num_X / (den_X + .eps)
         X <- X * update_ratio
-        X <- xfloor(xnorm(X))
+        X <- xnorm(X)
         tX <- t(X)
       }
       if(is.null(A)) {
@@ -2868,7 +2821,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
         }
         update_ratio <- num_X / (den_X + .eps)
         X <- X * update_ratio
-        X <- xfloor(xnorm(X))
+        X <- xnorm(X)
         tX <- t(X)
       }
       if(is.null(A)) {
@@ -3020,8 +2973,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     epsilon   = epsilon,
     ## Relative change at the last step, and the number of steps at which the
     ## objective rose (counted on the recorded tail of objfunc.iter).  The MU
-    ## is monotone by itself; increases point at a projected constraint such
-    ## as X.rowSums.min fighting the update, which can oscillate to maxit.
+    ## is monotone by itself, so a large count points at a problem.
     epsilon.iter = epsilon.iter,
     objfunc.increases = base::sum(base::diff(objfunc.iter) > 0, na.rm = TRUE),
     converged = (epsilon.iter <= base::abs(epsilon)),

@@ -83,18 +83,6 @@ selection over basis-covariate links). (Formerly \code{lambda}).
 \item \code{method}: Objective function: Euclidean distance \code{"EU"} (default) or Kullback–Leibler divergence \code{"KL"}.
 \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
-\item \code{X.rowSums.min}: floor \eqn{\tau \ge 0} on the row sums of \eqn{X}
-(default 0, off).  A constraint, not a penalty: the feasible set becomes
-\eqn{\{X \ge 0,\ \mathrm{colSums}(X) = 1,\ \mathrm{rowSums}(X) \ge \tau\}}
-and the objective is unchanged.  At \eqn{Q < \mathrm{nrow}(Y)} the
-multiplicative updates can drive a whole row of \eqn{X} to zero, after
-which that row of \eqn{Y} is attached to no basis and cannot recover;
-the floor prevents it.  Imposed after each update of \eqn{X} by
-spreading the shortfall of a short row uniformly over its columns and
-renormalizing the columns.  Feasible only for
-\eqn{\tau \le Q/\mathrm{nrow}(Y)} under \code{"colSums"}; not
-available with \code{"fixed"}.  Same option as in
-\code{\link{nmfkc.signed}}.
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"kmeans++"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar. \code{"kmeans++"} seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur & Vassilvitskii, 2007) before Lloyd refinement, giving a more careful, stable initialization (\code{nstart} is not used in this case).
 \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the

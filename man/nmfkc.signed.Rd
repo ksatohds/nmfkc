@@ -76,8 +76,7 @@ update.  One of \code{"colSums"} (default,
   \eqn{Q < Q_{\mathrm{obs}}}: a row of \eqn{X} can then never be zero, so
   no observed dimension is dropped, which the column restrictions permit
   and the multiplicative updates exploit.  Being no gauge fix, it does
-  not preserve the monotonicity of the objective, and
-  \code{X.rowSums.min} is redundant with it.
+  not preserve the monotonicity of the objective.
 \\item \code{X.L2.ortho}: non-negative L2 orthogonality penalty on the
   columns of \eqn{X} (default 0), penalizing
   \eqn{(\lambda/2)\lVert \mathrm{offdiag}(X^\top X)\rVert^2}.  Same
@@ -104,25 +103,6 @@ update.  One of \code{"colSums"} (default,
   convention as \code{\link{nmfkc}}).  Multiplicative updates approach
   zero geometrically rather than reaching it, so the effect is
   shrinkage; threshold the result if a sparse support is wanted.
-\\item \code{X.rowSums.min}: floor \eqn{\tau \ge 0} on the row sums of
-  \eqn{X} (default 0, off).  Unlike \code{X.L2.ortho} and
-  \code{X.L2.smooth} this is a \\strong\{constraint, not a penalty\}: it
-  restricts the feasible set to
-  \eqn{\{X \ge 0,\ \mathrm{colSums}(X) = 1,\
-      \mathrm{rowSums}(X) \ge \tau\}} and leaves the objective the plain
-  loss, so fits at different \eqn{\tau} are compared on the same scale.
-  At \eqn{Q < Q_{\mathrm{obs}}} the updates otherwise drive whole rows of
-  \eqn{X} to zero, so that the corresponding observed dimension --- a
-  class, when \eqn{Y} is a label matrix --- is attached to no basis,
-  contributes only error and is never predicted.  A multiplicative update
-  cannot restore such a row, so the constraint is imposed after each
-  \eqn{X} update by alternating a row rescaling with the column
-  normalization until \eqn{X} is feasible; that step is outside the
-  multiplicative form and suspends the monotonicity of the objective
-  while a row is being lifted.  With \code{X.restriction = "colSums"} the
-  total mass of \eqn{X} is \eqn{Q}, so \eqn{\tau \le Q/Q_{\mathrm{obs}}}
-  is required; \eqn{\tau = 0} reproduces the unconstrained fit exactly.
-  Not available with \code{X.restriction = "fixed"}.
 \\item \code{update.power}: exponent applied to the multiplicative ratio
   in the unweighted sweep (default 1).  With 1 the updates are of the
   Lee--Seung form and coincide with those of \code{\link{nmfkc}} when
@@ -224,9 +204,9 @@ objective fell below \code{epsilon} before \code{maxit}.
 \item \code{epsilon.iter}: relative change of the objective at the last
 step (the quantity compared with \code{epsilon}).
 \item \code{objfunc.increases}: number of steps at which the objective
-rose.  The multiplicative update alone is monotone; a large count
-signals that a constraint imposed by projection (such as
-\code{X.rowSums.min}) is fighting the update, in which case the fit can
+rose.  The unweighted multiplicative update is monotone, so a large
+count signals a problem (a non-gauge restriction such as
+\code{X.restriction = "rowSums"}, or a numerical one); such a fit can
 oscillate and exhaust \code{maxit}.
 \item \code{runtime}: elapsed seconds.
 \item \code{Y.signed}: logical; whether \eqn{Y} contained negative

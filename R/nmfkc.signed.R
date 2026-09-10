@@ -107,8 +107,7 @@
 #'       \eqn{Q < Q_{\mathrm{obs}}}: a row of \eqn{X} can then never be zero, so
 #'       no observed dimension is dropped, which the column restrictions permit
 #'       and the multiplicative updates exploit.  Being no gauge fix, it does
-#'       not preserve the monotonicity of the objective, and
-#'       \code{X.rowSums.min} is redundant with it.
+#'       not preserve the monotonicity of the objective.
 #'     \item \code{X.L2.ortho}: non-negative L2 orthogonality penalty on the
 #'       columns of \eqn{X} (default 0), penalizing
 #'       \eqn{(\lambda/2)\lVert \mathrm{offdiag}(X^\top X)\rVert^2}.  Same
@@ -135,25 +134,6 @@
 #'       convention as \code{\link{nmfkc}}).  Multiplicative updates approach
 #'       zero geometrically rather than reaching it, so the effect is
 #'       shrinkage; threshold the result if a sparse support is wanted.
-#'     \item \code{X.rowSums.min}: floor \eqn{\tau \ge 0} on the row sums of
-#'       \eqn{X} (default 0, off).  Unlike \code{X.L2.ortho} and
-#'       \code{X.L2.smooth} this is a \strong{constraint, not a penalty}: it
-#'       restricts the feasible set to
-#'       \eqn{\{X \ge 0,\ \mathrm{colSums}(X) = 1,\
-#'       \mathrm{rowSums}(X) \ge \tau\}} and leaves the objective the plain
-#'       loss, so fits at different \eqn{\tau} are compared on the same scale.
-#'       At \eqn{Q < Q_{\mathrm{obs}}} the updates otherwise drive whole rows of
-#'       \eqn{X} to zero, so that the corresponding observed dimension --- a
-#'       class, when \eqn{Y} is a label matrix --- is attached to no basis,
-#'       contributes only error and is never predicted.  A multiplicative update
-#'       cannot restore such a row, so the constraint is imposed after each
-#'       \eqn{X} update by alternating a row rescaling with the column
-#'       normalization until \eqn{X} is feasible; that step is outside the
-#'       multiplicative form and suspends the monotonicity of the objective
-#'       while a row is being lifted.  With \code{X.restriction = "colSums"} the
-#'       total mass of \eqn{X} is \eqn{Q}, so \eqn{\tau \le Q/Q_{\mathrm{obs}}}
-#'       is required; \eqn{\tau = 0} reproduces the unconstrained fit exactly.
-#'       Not available with \code{X.restriction = "fixed"}.
 #'     \item \code{update.power}: exponent applied to the multiplicative ratio
 #'       in the unweighted sweep (default 1).  With 1 the updates are of the
 #'       Lee--Seung form and coincide with those of \code{\link{nmfkc}} when
@@ -252,9 +232,9 @@
 #'   \item \code{epsilon.iter}: relative change of the objective at the last
 #'     step (the quantity compared with \code{epsilon}).
 #'   \item \code{objfunc.increases}: number of steps at which the objective
-#'     rose.  The multiplicative update alone is monotone; a large count
-#'     signals that a constraint imposed by projection (such as
-#'     \code{X.rowSums.min}) is fighting the update, in which case the fit can
+#'     rose.  The unweighted multiplicative update is monotone, so a large
+#'     count signals a problem (a non-gauge restriction such as
+#'     \code{X.restriction = "rowSums"}, or a numerical one); such a fit can
 #'     oscillate and exhaust \code{maxit}.
 #'   \item \code{runtime}: elapsed seconds.
 #'   \item \code{Y.signed}: logical; whether \eqn{Y} contained negative
@@ -396,17 +376,6 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   ## supports are disjoint there.  The gradient is the constant C.L1 in both
   ## factors, so it enters only the denominators (C.L1/2, as in nmfkc()).
   C.L1        <- if (!is.null(extra_args$C.L1))        extra_args$C.L1        else 0
-  ## Floor on the row sums of X (default 0 = off).  This is a CONSTRAINT, not a
-  ## penalty: it restricts the feasible set to
-  ##   {X >= 0, colSums(X) = 1, rowSums(X) >= tau}
-  ## and leaves the objective the plain loss, so fits at different tau are
-  ## compared on the same scale.  At Q < Q_obs the updates otherwise drive whole
-  ## rows of X to zero: the corresponding observed dimension (a class, when Y is
-  ## a label matrix) is then attached to no basis at all, contributes only error
-  ## and can never be predicted -- a degenerate solution rather than the
-  ## intended "share a basis".  With colSums(X) = 1 the total mass of X is Q, so
-  ## the floor is feasible only for tau <= Q / Q_obs.
-  X.rowSums.min <- if (!is.null(extra_args$X.rowSums.min)) extra_args$X.rowSums.min else 0
 
   ## Exponent of the multiplicative ratio in the unweighted sweep.  1 is the
   ## Lee-Seung form (the default; identical to Lee-Seung when A >= 0); 0.5 is
@@ -528,21 +497,6 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   }
   Y_sqnorm <- sum(Y * Y)            # always >= 0
 
-  ## Validity of the row-sum floor: colSums(X) = 1 fixes the total mass of X at
-  ## Q, so the P row sums cannot all exceed Q / Q_obs.
-  if (length(X.rowSums.min) != 1L || is.na(X.rowSums.min) || X.rowSums.min < 0)
-    stop("'X.rowSums.min' must be a single number >= 0.")
-  if (X.rowSums.min > 0) {
-    if (X.restriction == "fixed")
-      stop("'X.rowSums.min' cannot be used with X.restriction = \"fixed\".")
-    if (X.restriction == "rowSums")
-      stop("'X.rowSums.min' is redundant with X.restriction = \"rowSums\", ",
-           "which already makes every row sum to one.")
-    if (X.restriction == "colSums" && X.rowSums.min > Q / Q_obs)
-      stop(sprintf(paste("'X.rowSums.min' = %g is infeasible: with colSums(X) = 1 the",
-                         "total mass of X is Q = %d, so the row sums cannot all exceed",
-                         "Q / nrow(Y) = %g."), X.rowSums.min, Q, Q / Q_obs))
-  }
 
   ## --- 4. X.restriction helpers ---
   xscale <- switch(X.restriction,
@@ -578,38 +532,6 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     list(X = sweep(X, 2, d, "/"), Cp = sweep(Cp, 1, d, "*"), Cn = sweep(Cn, 1, d, "*"))
   }
 
-  ## Return (X, C) to the feasible set of the row-sum floor.  A multiplicative
-  ## update cannot restore a row that has reached exactly zero (0 times anything
-  ## is 0), so the floor cannot be reached from inside the update and is imposed
-  ## here instead, by alternating two rescalings until X is feasible:
-  ##   rows    : a short row is scaled up to the floor (this changes X'Theta --
-  ##             it is the constraint acting, not a reparametrization);
-  ##   columns : the usual normalization, whose scale is moved into C, so the
-  ##             gauge is restored without changing the model.
-  ## Feasible whenever tau <= Q / Q_obs, and idle once every row clears the
-  ## floor.  Being outside the multiplicative form, it suspends the monotonicity
-  ## of the objective while a row is being lifted.
-  project_rows <- function(X, Cp, Cn) {
-    if (X.rowSums.min <= 0 || !all(is.finite(X))) return(list(X = X, Cp = Cp, Cn = Cn))
-    tau <- X.rowSums.min; dtot <- rep(1, ncol(X))
-    for (it in seq_len(1000L)) {
-      rs <- rowSums(X)
-      if (all(rs >= tau * (1 - 1e-9))) break
-      ## Add the shortfall of a short row uniformly over the columns.  Rescaling
-      ## the row would not do: a row that lives in a single column would be
-      ## scaled up and the column normalization would scale it straight back,
-      ## so the two steps would cycle without ever reaching the feasible set.
-      ## Spreading the shortfall moves mass to other columns, and the
-      ## alternation converges.
-      short <- rs < tau
-      X[short, ] <- X[short, , drop = FALSE] + (tau - rs[short]) / ncol(X)
-      if (X.restriction != "none") {
-        d <- xscale(X); X <- sweep(X, 2, d, "/"); dtot <- dtot * d
-      }
-    }
-    ## the accumulated column scale is moved into C once, as the gauge requires
-    list(X = X, Cp = sweep(Cp, 1, dtot, "*"), Cn = sweep(Cn, 1, dtot, "*"))
-  }
 
   ## --- 5. Initialization ---
   X <- NULL; Cp <- NULL; Cn <- NULL
@@ -689,8 +611,6 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
   ## Apply the restriction to the initial values.
   { .n <- xnorm(X, Cp, Cn); X <- .n$X; Cp <- .n$Cp; Cn <- .n$Cn }
-  ## and the row-sum floor, so that the first sweep starts from a feasible X
-  { .p <- project_rows(X, Cp, Cn); X <- .p$X; Cp <- .p$Cp; Cn <- .p$Cn }
 
   small <- 1e-16
   Wmat <- Y.weights  # short alias; NULL if no weights
@@ -812,7 +732,6 @@ nmfkc.signed <- function(Y, A, rank = NULL,
       pen <- apply_Xpen(X, num, den)
       X <- X * (pen$num / (pen$den + small))^gexp
       { .n <- xnorm(X, Cp, Cn); X <- .n$X; Cp <- .n$Cp; Cn <- .n$Cn }
-      pr <- project_rows(X, Cp, Cn); X <- pr$X; Cp <- pr$Cp; Cn <- pr$Cn
     }
     list(X = X, Cp = Cp, Cn = Cn)
   }
@@ -853,7 +772,6 @@ nmfkc.signed <- function(Y, A, rank = NULL,
         pen <- apply_Xpen(X, num_X, den_X)
         X <- X * (pen$num / (pen$den + small))^update.power
         { .n <- xnorm(X, Cp, Cn); X <- .n$X; Cp <- .n$Cp; Cn <- .n$Cn }
-        pr <- project_rows(X, Cp, Cn); X <- pr$X; Cp <- pr$Cp; Cn <- pr$Cn
       }
 
       ## 6d. Refresh precomputed quantities & evaluate objective in closed form
@@ -912,7 +830,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   ## last step, the quantity the stopping rule compares with `epsilon`.
   ## `objfunc.increases` counts the steps at which the objective rose: the
   ## plain MU is monotone, so a large count means that something outside the
-  ## multiplicative form (the row-sum floor projection, for instance) is
+  ## multiplicative form (a non-gauge restriction such as "rowSums") is
   ## pushing the iterate back and forth, and the fit may never stop.
   epsilon.iter <- if (iter >= 2L)
     abs(objfunc.iter[iter] - objfunc.iter[iter - 1L]) /

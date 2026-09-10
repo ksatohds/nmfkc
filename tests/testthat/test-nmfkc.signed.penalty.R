@@ -85,7 +85,7 @@ test_that("C.L1 combines with C.L2 and with a free X", {
 })
 
 ## ---------------------------------------------------------------------------
-## X.rowSums.min: no observed dimension may be left without a basis.
+## X.restriction = "rowSums": no observed dimension may be left without a basis.
 
 make_reduced_case <- function(seed = 7, P = 10L, N = 400L, D = 60L, Q = 6L) {
   set.seed(seed)
@@ -96,59 +96,11 @@ make_reduced_case <- function(seed = 7, P = 10L, N = 400L, D = 60L, Q = 6L) {
   list(Y = Y, U = U, Z = nmfkc.signed.rff(U, beta = 0.05, D = D, seed = 1)$Z, P = P, Q = Q)
 }
 
-fit_reduced <- function(cs, tau, ...) {
-  nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
-               verbose = FALSE, warm.start = FALSE, seed = 1, X.rowSums.min = tau, ...)
-}
 
-test_that("X.rowSums.min = 0 leaves the fit unchanged", {
-  skip_unless_full()
-  cs <- make_reduced_case()
-  a <- fit_reduced(cs, 0)
-  b <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
-                    verbose = FALSE, warm.start = FALSE, seed = 1)
-  expect_equal(a$X, b$X)
-})
 
-test_that("without the floor a row of X can vanish, and with it none does", {
-  skip_unless_full()
-  cs <- make_reduced_case()
-  expect_gt(sum(rowSums(fit_reduced(cs, 0)$X) < 1e-10), 0)      # a class is dropped
-  for (tau in c(0.2, 0.5, 0.75) * cs$Q / cs$P) {
-    X <- fit_reduced(cs, tau)$X
-    expect_equal(sum(rowSums(X) < 1e-10), 0)
-    expect_gt(min(rowSums(X)), tau * (1 - 1e-6))                # floor met, as a constraint
-  }
-})
 
-test_that("the floor is a constraint, so the objective stays the plain loss", {
-  skip_unless_full()
-  cs <- make_reduced_case()
-  for (tau in c(0, 0.5 * cs$Q / cs$P)) {
-    f <- fit_reduced(cs, tau)
-    expect_equal(f$objfunc, sum((cs$Y - f$X %*% f$C %*% cs$Z)^2), tolerance = 1e-6)
-  }
-})
 
-test_that("an infeasible or unusable floor is refused", {
-  skip_unless_full()
-  cs <- make_reduced_case()
-  expect_error(fit_reduced(cs, 2 * cs$Q / cs$P), "infeasible")
-  expect_error(nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, verbose = FALSE,
-                            X.init = matrix(1 / cs$P, cs$P, cs$Q),
-                            X.restriction = "fixed", X.rowSums.min = 0.1), "fixed")
-  expect_error(fit_reduced(cs, -1), ">= 0")
-})
 
-test_that("the floor works on the Gram route too", {
-  skip_unless_full()
-  cs <- make_reduced_case()
-  g <- nmfkc.signed.rff.gram(cs$Y, cs$U, beta = 0.05, D = 60L, seed = 1)
-  X <- nmfkc.signed(cs$Y, A = g, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
-                    verbose = FALSE, warm.start = FALSE, seed = 1,
-                    X.rowSums.min = 0.5 * cs$Q / cs$P)$X
-  expect_gt(min(rowSums(X)), 0.5 * cs$Q / cs$P * (1 - 1e-2))
-})
 
 ## ---------------------------------------------------------------------------
 ## X.restriction = "rowSums": each observed dimension is a mixture of the bases.
@@ -164,14 +116,12 @@ test_that("rowSums normalization holds exactly and drops no row", {
   expect_gt(max(colSums(f$X)), 1 + 1e-6)
 })
 
-test_that("rowSums leaves the objective the plain loss and refuses a redundant floor", {
+test_that("rowSums leaves the objective the plain loss", {
   skip_unless_full()
   cs <- make_reduced_case()
   f <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
                     verbose = FALSE, warm.start = FALSE, seed = 1, X.restriction = "rowSums")
   expect_equal(f$objfunc, sum((cs$Y - f$X %*% f$C %*% cs$Z)^2), tolerance = 1e-6)
-  expect_error(nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, verbose = FALSE,
-                            X.restriction = "rowSums", X.rowSums.min = 0.1), "redundant")
 })
 
 test_that("rowSums works on the Gram route and at Q = Q_obs", {

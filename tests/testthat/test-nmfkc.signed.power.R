@@ -30,14 +30,6 @@ test_that("the square-root form is monotone and reaches the same objective", {
   expect_lt(abs(fr$objfunc - f1$objfunc) / f1$objfunc, 0.02)
 })
 
-test_that("the square-root form works with the row-sum floor", {
-  skip_unless_full()
-  d <- make_signed()
-  tau <- 0.5 * 4 / d$P
-  fr <- nmfkc.signed(d$Y, d$Z, rank = 4, epsilon = 1e-6, maxit = 2000, verbose = FALSE, seed = 1,
-                     update.power = 0.5, X.rowSums.min = tau)
-  expect_true(all(rowSums(fr$X) >= tau * (1 - 1e-6)))
-})
 
 test_that("bad update.power is refused", {
   skip_unless_full()

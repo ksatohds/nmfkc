@@ -1,5 +1,19 @@
 # nmfkc (development version)
 
+## `X.rowSums.min` removed from `nmfkc()` and `nmfkc.signed()`
+
+The row-sum floor on the basis matrix was imposed by a projection outside the
+multiplicative form, so nothing guaranteed that the iteration converged: on a
+tight floor the update pushes the pinned rows below the floor and the
+projection lifts them back, and the objective alternates between two values
+until `maxit` (observed on Covertype at rank 6, 200,000 iterations). The option
+was added after the last CRAN release and is dropped rather than patched;
+`X.restriction = "rowSums"` remains for anyone who needs every row of `X` kept
+alive. Both fitters now return `epsilon.iter` (relative change at the last
+step) and `objfunc.increases` (steps at which the objective rose), and
+`print()` / `summary()` show them, so a fit that is oscillating rather than
+descending is visible.
+
 
 ## NMF-FFB: names brought into line with the rest of the package
 
