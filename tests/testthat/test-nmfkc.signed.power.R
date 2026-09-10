@@ -9,6 +9,7 @@ make_signed <- function(seed = 1L, P = 6L, N = 90L, D = 40L) {
 }
 
 test_that("update.power = 1 is the default and unchanged", {
+  skip_unless_full()
   d <- make_signed()
   f0 <- nmfkc.signed(d$Y, d$Z, rank = 4, epsilon = 1e-6, maxit = 300, verbose = FALSE, seed = 1)
   f1 <- nmfkc.signed(d$Y, d$Z, rank = 4, epsilon = 1e-6, maxit = 300, verbose = FALSE, seed = 1,
@@ -17,6 +18,7 @@ test_that("update.power = 1 is the default and unchanged", {
 })
 
 test_that("the square-root form is monotone and reaches the same objective", {
+  skip_unless_full()
   d <- make_signed()
   f1 <- nmfkc.signed(d$Y, d$Z, rank = 4, epsilon = 1e-7, maxit = 5000, verbose = FALSE, seed = 1)
   fr <- nmfkc.signed(d$Y, d$Z, rank = 4, epsilon = 1e-7, maxit = 5000, verbose = FALSE, seed = 1,
@@ -29,6 +31,7 @@ test_that("the square-root form is monotone and reaches the same objective", {
 })
 
 test_that("the square-root form works with the row-sum floor", {
+  skip_unless_full()
   d <- make_signed()
   tau <- 0.5 * 4 / d$P
   fr <- nmfkc.signed(d$Y, d$Z, rank = 4, epsilon = 1e-6, maxit = 2000, verbose = FALSE, seed = 1,
@@ -37,6 +40,7 @@ test_that("the square-root form works with the row-sum floor", {
 })
 
 test_that("bad update.power is refused", {
+  skip_unless_full()
   d <- make_signed()
   expect_error(nmfkc.signed(d$Y, d$Z, rank = 4, maxit = 5, verbose = FALSE, update.power = 0), "update.power")
   expect_error(nmfkc.signed(d$Y, d$Z, rank = 4, maxit = 5, verbose = FALSE, update.power = 2), "update.power")

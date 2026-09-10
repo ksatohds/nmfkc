@@ -24,6 +24,7 @@ fit_fixedX <- function(cs, lam, maxit = 200000L) {
 }
 
 test_that("C.L1 = 0 leaves the fit unchanged", {
+  skip_unless_full()
   cs <- make_signed_case()
   a <- fit_fixedX(cs, 0, maxit = 3000L)
   b <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$P, epsilon = 1e-10, maxit = 3000L,
@@ -33,6 +34,7 @@ test_that("C.L1 = 0 leaves the fit unchanged", {
 })
 
 test_that("with X fixed the lasso path is monotone in both directions", {
+  skip_unless_full()
   cs <- make_signed_case()
   lams <- c(0, 0.03, 0.1, 0.3, 1)
   l1  <- numeric(length(lams)); sse <- numeric(length(lams))
@@ -46,6 +48,7 @@ test_that("with X fixed the lasso path is monotone in both directions", {
 })
 
 test_that("the returned C satisfies the lasso subgradient conditions", {
+  skip_unless_full()
   cs <- make_signed_case(); lam <- 0.3
   f <- fit_fixedX(cs, lam)
   G <- 2 * (f$C %*% cs$Z - cs$Y) %*% t(cs$Z)   # gradient of the squared loss at X = I
@@ -55,12 +58,14 @@ test_that("the returned C satisfies the lasso subgradient conditions", {
 })
 
 test_that("Cp and Cn end with disjoint supports, so sum(Cp + Cn) is ||C||_1", {
+  skip_unless_full()
   cs <- make_signed_case()
   f <- fit_fixedX(cs, 0.2, maxit = 20000L)
   expect_equal(sum(pmin(pmax(f$C, 0), pmax(-f$C, 0))), 0)
 })
 
 test_that("C.L1 acts identically on the Gram route", {
+  skip_unless_full()
   cs <- make_signed_case()
   g <- nmfkc.signed.rff.gram(cs$Y, cs$U, beta = 0.5, D = 30L, seed = 1)
   fg <- nmfkc.signed(cs$Y, A = g, rank = cs$P, epsilon = 1e-8, maxit = 5000L,
@@ -71,6 +76,7 @@ test_that("C.L1 acts identically on the Gram route", {
 })
 
 test_that("C.L1 combines with C.L2 and with a free X", {
+  skip_unless_full()
   cs <- make_signed_case()
   f <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$P, epsilon = 1e-8, maxit = 3000L,
                     verbose = FALSE, warm.start = FALSE, C.L1 = 0.05, C.L2 = 0.05)
@@ -96,6 +102,7 @@ fit_reduced <- function(cs, tau, ...) {
 }
 
 test_that("X.rowSums.min = 0 leaves the fit unchanged", {
+  skip_unless_full()
   cs <- make_reduced_case()
   a <- fit_reduced(cs, 0)
   b <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
@@ -104,6 +111,7 @@ test_that("X.rowSums.min = 0 leaves the fit unchanged", {
 })
 
 test_that("without the floor a row of X can vanish, and with it none does", {
+  skip_unless_full()
   cs <- make_reduced_case()
   expect_gt(sum(rowSums(fit_reduced(cs, 0)$X) < 1e-10), 0)      # a class is dropped
   for (tau in c(0.2, 0.5, 0.75) * cs$Q / cs$P) {
@@ -114,6 +122,7 @@ test_that("without the floor a row of X can vanish, and with it none does", {
 })
 
 test_that("the floor is a constraint, so the objective stays the plain loss", {
+  skip_unless_full()
   cs <- make_reduced_case()
   for (tau in c(0, 0.5 * cs$Q / cs$P)) {
     f <- fit_reduced(cs, tau)
@@ -122,6 +131,7 @@ test_that("the floor is a constraint, so the objective stays the plain loss", {
 })
 
 test_that("an infeasible or unusable floor is refused", {
+  skip_unless_full()
   cs <- make_reduced_case()
   expect_error(fit_reduced(cs, 2 * cs$Q / cs$P), "infeasible")
   expect_error(nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, verbose = FALSE,
@@ -131,6 +141,7 @@ test_that("an infeasible or unusable floor is refused", {
 })
 
 test_that("the floor works on the Gram route too", {
+  skip_unless_full()
   cs <- make_reduced_case()
   g <- nmfkc.signed.rff.gram(cs$Y, cs$U, beta = 0.05, D = 60L, seed = 1)
   X <- nmfkc.signed(cs$Y, A = g, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
@@ -143,6 +154,7 @@ test_that("the floor works on the Gram route too", {
 ## X.restriction = "rowSums": each observed dimension is a mixture of the bases.
 
 test_that("rowSums normalization holds exactly and drops no row", {
+  skip_unless_full()
   cs <- make_reduced_case()
   f <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
                     verbose = FALSE, warm.start = FALSE, seed = 1, X.restriction = "rowSums")
@@ -153,6 +165,7 @@ test_that("rowSums normalization holds exactly and drops no row", {
 })
 
 test_that("rowSums leaves the objective the plain loss and refuses a redundant floor", {
+  skip_unless_full()
   cs <- make_reduced_case()
   f <- nmfkc.signed(cs$Y, A = cs$Z, rank = cs$Q, epsilon = 1e-8, maxit = 40000L,
                     verbose = FALSE, warm.start = FALSE, seed = 1, X.restriction = "rowSums")
@@ -162,6 +175,7 @@ test_that("rowSums leaves the objective the plain loss and refuses a redundant f
 })
 
 test_that("rowSums works on the Gram route and at Q = Q_obs", {
+  skip_unless_full()
   cs <- make_reduced_case()
   g <- nmfkc.signed.rff.gram(cs$Y, cs$U, beta = 0.05, D = 60L, seed = 1)
   f <- nmfkc.signed(cs$Y, A = g, rank = cs$Q, epsilon = 1e-8, maxit = 20000L,

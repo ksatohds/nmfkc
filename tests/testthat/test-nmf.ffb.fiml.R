@@ -264,6 +264,7 @@ test_that("the bootstrap LR p-value is never exactly zero and honours its floor"
 })
 
 test_that("the exclusion restriction blocks the dominant factor and every loading above the threshold", {
+  skip_unless_full()
   ## .ffb.fiml.restriction() takes the basis as given (nmf.ffb normalises before calling it).
   X <- rbind(c(0.60, 0.30, 0.10),   # dominant 1; loads on 2 and 3 above 0.05 -> all three blocked
              c(0.02, 0.01, 0.97),   # dominant 3; the other two are below the threshold -> free

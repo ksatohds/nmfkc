@@ -50,7 +50,7 @@ Three defects surfaced while doing this, all of them silent until now.
   no iteration trace to draw (its optimizer is L-BFGS-B), so it now says so and
   names what to use instead.
 
-Options withdrawn in 0.9.8 (`starts`, `nsplit`, `calibration` as an argument of
+Options withdrawn in 0.9.7 (`starts`, `nsplit`, `calibration` as an argument of
 the fit) reached `...` and were dropped without a word; they now warn. A
 **renamed** argument is worse than a withdrawn one -- `mask = "none"` would be
 dropped and the fit would silently use the default restriction, the opposite of

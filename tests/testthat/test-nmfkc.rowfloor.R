@@ -11,6 +11,7 @@ make_data <- function(seed = 1L, P = 6L, N = 90L) {
 }
 
 test_that("tau = 0 leaves nmfkc() unchanged", {
+  skip_unless_full()
   d <- make_data()
   f0 <- nmfkc(d$Y, d$A, Q = 4, epsilon = 1e-6, maxit = 300, print.dims = FALSE)
   f1 <- nmfkc(d$Y, d$A, Q = 4, epsilon = 1e-6, maxit = 300, print.dims = FALSE,
@@ -20,6 +21,7 @@ test_that("tau = 0 leaves nmfkc() unchanged", {
 })
 
 test_that("the floor is met and the column sums are kept, at Q < P", {
+  skip_unless_full()
   d <- make_data()
   tau <- 0.5 * 4 / d$P
   f <- nmfkc(d$Y, d$A, Q = 4, epsilon = 1e-6, maxit = 300, print.dims = FALSE,
@@ -31,6 +33,7 @@ test_that("the floor is met and the column sums are kept, at Q < P", {
 })
 
 test_that("the floor is met under the other column restrictions", {
+  skip_unless_full()
   d <- make_data()
   for (r in c("colSqSums", "totalSum")) {
     f <- nmfkc(d$Y, d$A, Q = 4, epsilon = 1e-6, maxit = 100, print.dims = FALSE,
@@ -40,6 +43,7 @@ test_that("the floor is met under the other column restrictions", {
 })
 
 test_that("infeasible or incompatible settings are refused", {
+  skip_unless_full()
   d <- make_data()
   expect_error(nmfkc(d$Y, d$A, Q = 4, maxit = 5, print.dims = FALSE,
                      X.rowSums.min = 4 / d$P + 0.1), "infeasible")
@@ -51,6 +55,7 @@ test_that("infeasible or incompatible settings are refused", {
 })
 
 test_that("the floor also holds on the Gram route and with weights", {
+  skip_unless_full()
   d <- make_data()
   tau <- 0.5 * 4 / d$P
   g <- nmfkc.kernel.gram(d$Y, d$U, d$U, beta = 1)

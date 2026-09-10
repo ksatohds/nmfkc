@@ -108,7 +108,7 @@ of the selected-model bootstrap).}
 The calibrated test of the feed-forward null -- \code{LR.p.boot},
 \code{prob.select.null}, \code{C1.restriction.change.rate} and the null
 bootstrap behind them -- is \strong{not} returned here.  It moved to
-\code{\link{nmf.ffb.test}} in 0.9.8, so that an object carrying coefficient
+\code{\link{nmf.ffb.test}} in 0.9.7, so that an object carrying coefficient
 intervals cannot be mistaken for a test of feedback (see NEWS).
 }
 \description{
