@@ -268,7 +268,7 @@ plot.nmf.ffb <- function(x, ..., which = c("penalized", "reconstruction", "both"
   ## Likelihood-based fits have no iteration trace (L-BFGS-B); draw the BIC path
   ## over log(C1.L1) instead, marking the selected penalty.  C1.L1 = 0 (the
   ## unpenalized fit) and Inf (the null) are placed one unit outside the
-  ## finite grid and labelled as such.  The guard is the method: until 0.9.7 it
+  ## finite grid and labelled as such.  The guard is the method: until 0.9.8 it
   ## was `is.null(x$objfunc)`, which stopped working the moment `objfunc` was
   ## given the value the fiml optimizer minimized.
   if (identical(x$method, "fiml") && !is.null(x$path)) {
@@ -443,13 +443,13 @@ print.summary.nmf.ffb <- function(x, ...) {
     cat(sprintf("  selected: C1.L1 = %s, nnz = %d, rho(XC1) = %.4f, restriction = %s\n",
                 format(object$C1.L1.selected, digits = 4), as.integer(sum(object$support)),
                 object$XC1.radius,
-                if (!is.null(object$C1.restriction)) object$C1.restriction       # recorded since 0.9.7
+                if (!is.null(object$C1.restriction)) object$C1.restriction       # recorded since 0.9.8
                 else if (is.null(object$call$mask)) "block"                      # older fits: the default then
                 else if (is.character(object$call$mask)) object$call$mask[1] else "user matrix"))
     ## The three best distinct supports, not the winner alone: a small gap means the criterion does not
     ## determine which entries carry the feedback.  One parameter costs log(N) in BIC, and a gap is
     ## 2 log of a Bayes factor, so a gap below about 2 is not evidence for one support over the other
-    ## (recorded since 0.9.7).
+    ## (recorded since 0.9.8).
     if (!is.null(object$candidates) && nrow(object$candidates) > 1L && !is.null(object$supports)) {
       cd <- object$candidates[order(object$candidates$BIC, object$candidates$nnz), , drop = FALSE]
       k <- min(3L, nrow(cd))

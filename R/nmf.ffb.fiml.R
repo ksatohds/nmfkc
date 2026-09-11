@@ -368,7 +368,7 @@
   ## ---- the L1 path ----
   ## Every penalized fit is warm-started from the unpenalized full-feedback fit f1.  Three other starting
   ## points (continuation along the path, a small constant, soft-thresholded f1) were measured on six data
-  ## sets and none of them ever uniquely attained the minimum BIC, so they were removed in 0.9.7.
+  ## sets and none of them ever uniquely attained the minimum BIC, so they were removed in 0.9.8.
   if (select == "BIC" && !no_feedback) {
     C1.L1.path <- base::sort(base::unique(C1.L1.path[base::is.finite(C1.L1.path) & C1.L1.path > 0]))
     for (l in C1.L1.path) {
@@ -780,7 +780,7 @@
   nnz_obs <- base::sum(support)
 
   ## Stage-1 settings and the restriction rule, needed when the basis is re-estimated
-  ## (calibration = "procedure").  Objects fitted before 0.9.7 lack them:
+  ## (calibration = "procedure").  Objects fitted before 0.9.8 lack them:
   ## fall back to the nmf.ffb() defaults and to the rule that was the default then.
   s1args <- if (!base::is.null(object$stage1.args)) object$stage1.args else
     base::list(X.init = "nndsvd", X.L2.ortho = 100, epsilon = 1e-6, maxit = 5000, seed = seed, from.data = TRUE)
@@ -964,7 +964,7 @@
   object$boot.method <- "parametric (fiml)"
   ## The calibration of the likelihood ratio is the job of nmf.ffb.test(); an intervals object that
   ## also carried LR.p.boot invited the reader to treat a coefficient interval as a test of feedback,
-  ## which \S3.5 of the paper warns against.  Removed in 0.9.7 (see NEWS).
+  ## which \S3.5 of the paper warns against.  Removed in 0.9.8 (see NEWS).
   object$rho.boot.draws <- rho.vec
   object$C1.boot.draws <- C1.boot.draws
   object$C2.boot.draws <- C2.boot.draws

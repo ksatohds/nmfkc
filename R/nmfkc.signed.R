@@ -93,21 +93,13 @@
 #'     \item \code{X.restriction}: normalization applied to \eqn{X} after every
 #'       update.  One of \code{"colSums"} (default,
 #'       \eqn{\mathrm{colSums}(X) = 1}), \code{"colSqSums"},
-#'       \code{"totalSum"}, \code{"none"}, \code{"fixed"}, \code{"rowSums"}.
-#'
-#'       The first three are gauge fixes: the scale is divided out of \eqn{X}
-#'       and multiplied into \eqn{C_{+}, C_{-}}, so \eqn{XC} and hence the fit
-#'       is unchanged and only the parametrization is pinned down.
-#'       \code{"rowSums"} (\eqn{\mathrm{rowSums}(X) = 1}) is different in kind.
-#'       Dividing each row of \eqn{X} by its sum changes the column space of
-#'       \eqn{X} and hence the model, so it is a genuine restriction --- a
-#'       smaller model class --- and it reads each observed dimension as a
-#'       mixture of the \eqn{Q} bases, rather than each basis as a distribution
-#'       over the observed dimensions.  Its practical point is at
-#'       \eqn{Q < Q_{\mathrm{obs}}}: a row of \eqn{X} can then never be zero, so
-#'       no observed dimension is dropped, which the column restrictions permit
-#'       and the multiplicative updates exploit.  Being no gauge fix, it does
-#'       not preserve the monotonicity of the objective.
+#'       \code{"totalSum"}, \code{"none"}, \code{"fixed"}.  All of them are
+#'       gauge fixes: the scale is divided out of \eqn{X} and multiplied into
+#'       \eqn{C_{+}, C_{-}}, so \eqn{XC} and hence the fit is unchanged and
+#'       only the parametrization is pinned down.  \code{"rowSums"} was removed
+#'       in 0.9.8 and is now refused: scaling the rows of \eqn{X} changes
+#'       \eqn{XCA}, so it was a restriction acting rather than a
+#'       reparametrization, and the objective oscillated instead of descending.
 #'     \item \code{X.L2.ortho}: non-negative L2 orthogonality penalty on the
 #'       columns of \eqn{X} (default 0), penalizing
 #'       \eqn{(\lambda/2)\lVert \mathrm{offdiag}(X^\top X)\rVert^2}.  Same
@@ -232,10 +224,11 @@
 #'   \item \code{epsilon.iter}: relative change of the objective at the last
 #'     step (the quantity compared with \code{epsilon}).
 #'   \item \code{objfunc.increases}: number of steps at which the objective
-#'     rose.  The unweighted multiplicative update is monotone, so a large
-#'     count signals a problem (a non-gauge restriction such as
-#'     \code{X.restriction = "rowSums"}, or a numerical one); such a fit can
-#'     oscillate and exhaust \code{maxit}.
+#'     rose.  Every restriction on offer is a gauge fix and the unweighted
+#'     multiplicative update is monotone, so this should be zero; a positive
+#'     count means something outside the multiplicative form is pushing the
+#'     iterate back, and such a fit can oscillate and exhaust \code{maxit}.
+#'     It is what identified the two offenders removed in 0.9.8.
 #'   \item \code{runtime}: elapsed seconds.
 #'   \item \code{Y.signed}: logical; whether \eqn{Y} contained negative
 #'     entries during fitting.
@@ -296,8 +289,16 @@ nmfkc.signed <- function(Y, A, rank = NULL,
 
   X.restriction <- if (!is.null(extra_args$X.restriction))
     extra_args$X.restriction else "colSums"
+  ## Removed in 0.9.8 rather than silently re-mapped: "rowSums" scaled the rows
+  ## of X, which changes X %*% C %*% A, so it was a restriction acting from
+  ## outside the multiplicative form and the objective oscillated with a period
+  ## of two instead of descending -- the same defect that removed X.rowSums.min.
+  if (identical(X.restriction, "rowSums"))
+    stop("X.restriction = \"rowSums\" was removed in 0.9.8: scaling the rows of ",
+         "X changes X %*% C %*% A, so it is not a gauge fix and the objective ",
+         "is no longer monotone.  Use \"colSums\" (the default) instead.")
   X.restriction <- match.arg(X.restriction,
-    c("colSums", "colSqSums", "totalSum", "none", "fixed", "rowSums"))
+    c("colSums", "colSqSums", "totalSum", "none", "fixed"))
 
   X.init     <- if (!is.null(extra_args$X.init))     extra_args$X.init     else "kmeans"
   C.init     <- if (!is.null(extra_args$C.init))     extra_args$C.init     else NULL
@@ -504,30 +505,16 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     colSqSums = function(X) sqrt(colSums(X * X)) + 1e-16,
     totalSum  = function(X) rep(sum(X) + 1e-16, ncol(X)),
     none      = function(X) rep(1, ncol(X)),
-    fixed     = function(X) rep(1, ncol(X)),
-    rowSums   = function(X) rep(1, ncol(X)))
+    fixed     = function(X) rep(1, ncol(X)))
 
-  ## Apply the restriction to X.  The column-type restrictions are gauge moves:
+  ## Apply the restriction to X.  Every restriction left here is a gauge move:
   ## the scale is divided out of X and multiplied into C, so X %*% C -- and
   ## therefore the fit -- is unchanged, and only the parametrization is pinned
-  ## down.  "rowSums" is different in kind.  Dividing each row of X by its sum
-  ## changes the column space of X and hence the model: it says that each
-  ## observed dimension is a mixture of the Q bases with weights summing to one,
-  ## which is a genuine restriction (a smaller model class) and not a gauge fix.
-  ## Its point is that a row of X can then never be zero, so no observed
-  ## dimension can be dropped at Q < Q_obs; a row that the updates have driven
-  ## to zero is restarted uniformly, since a multiplicative update could not
-  ## revive it.  Being outside the multiplicative form, it does not preserve
-  ## monotonicity of the objective.
+  ## down.  That is what keeps the multiplicative updates monotone, and it is
+  ## why "rowSums", which scaled the rows and so changed the model, was removed.
   xnorm <- function(X, Cp, Cn) {
     if (X.restriction == "fixed" || X.restriction == "none")
       return(list(X = X, Cp = Cp, Cn = Cn))
-    if (X.restriction == "rowSums") {
-      r <- rowSums(X)
-      dead <- r <= 0
-      if (any(dead)) { X[dead, ] <- 1 / ncol(X); r[dead] <- 1 }
-      return(list(X = X / r, Cp = Cp, Cn = Cn))
-    }
     d <- xscale(X)
     list(X = sweep(X, 2, d, "/"), Cp = sweep(Cp, 1, d, "*"), Cn = sweep(Cn, 1, d, "*"))
   }
@@ -555,8 +542,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     warm_args <- list(Y, A = rbind(Ap, An), rank = Q,
                       epsilon = epsilon, maxit = maxit, verbose = FALSE,
                       seed = seed,
-                      X.restriction = if (X.restriction == "rowSums") "colSums"
-                                      else X.restriction)
+                      X.restriction = X.restriction)
     if (has.weights) warm_args$Y.weights <- Y.weights
     ## Forward X.init (accepts the same menu as nmfkc()) so that the user's
     ## chosen initialization propagates into the posneg warm-start.
@@ -829,9 +815,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   ## Convergence diagnostics.  `epsilon.iter` is the relative change of the
   ## last step, the quantity the stopping rule compares with `epsilon`.
   ## `objfunc.increases` counts the steps at which the objective rose: the
-  ## plain MU is monotone, so a large count means that something outside the
-  ## multiplicative form (a non-gauge restriction such as "rowSums") is
-  ## pushing the iterate back and forth, and the fit may never stop.
+  ## plain MU is monotone under every restriction still on offer, so a positive
+  ## count means that something outside the multiplicative form is pushing the
+  ## iterate back and forth, and the fit may never stop.
   epsilon.iter <- if (iter >= 2L)
     abs(objfunc.iter[iter] - objfunc.iter[iter - 1L]) /
       max(abs(objfunc.iter[iter - 1L]), 1e-12) else Inf

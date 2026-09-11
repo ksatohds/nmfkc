@@ -1,18 +1,39 @@
 # nmfkc (development version)
 
-## `X.rowSums.min` removed from `nmfkc()` and `nmfkc.signed()`
+## Every restriction on `X` that is not a gauge fix is removed
 
-The row-sum floor on the basis matrix was imposed by a projection outside the
-multiplicative form, so nothing guaranteed that the iteration converged: on a
-tight floor the update pushes the pinned rows below the floor and the
-projection lifts them back, and the objective alternates between two values
-until `maxit` (observed on Covertype at rank 6, 200,000 iterations). The option
-was added after the last CRAN release and is dropped rather than patched;
-`X.restriction = "rowSums"` remains for anyone who needs every row of `X` kept
-alive. Both fitters now return `epsilon.iter` (relative change at the last
-step) and `objfunc.increases` (steps at which the objective rose), and
-`print()` / `summary()` show them, so a fit that is oscillating rather than
-descending is visible.
+`X.rowSums.min` (both fitters) and `X.restriction = "rowSums"`
+(`nmfkc.signed()`) are gone. Both acted on the **rows** of `X`, which changes
+`X %*% C %*% A`, so neither was a gauge fix: the scale they removed could not
+be handed to `C`, they sat outside the multiplicative form, and the objective
+was no longer monotone.
+
+* The row-sum floor pushed the pinned rows below the floor and the projection
+  lifted them back, so the objective alternated between two values until
+  `maxit` (observed on Covertype at rank 6, 200,000 iterations).
+* `"rowSums"` has the same defect in a milder form: on a 10x30 example the
+  objective rose at 45 steps, every second step from the 49th on. The
+  oscillation is small enough that the fit still meets `epsilon` and stops, but
+  it descends by luck rather than by construction.
+
+Both were added after the last CRAN release, so nothing on CRAN is affected.
+`"rowSums"` is refused with a message rather than silently re-mapped to
+`"colSums"`, which would change results without saying so. The remaining
+restrictions -- `"colSums"` (default), `"colSqSums"`, `"totalSum"`, `"none"`,
+`"fixed"` -- are all gauge fixes and leave the updates monotone.
+
+Both fitters now return `epsilon.iter` (relative change at the last step) and
+`objfunc.increases` (steps at which the objective rose), and `print()` /
+`summary()` show them, so a fit that is oscillating rather than descending is
+visible. `nmfkc.signed()`'s `converged` is now the stopping rule's own test
+rather than `iter < maxit`, so a run that stopped early on a non-finite
+objective is no longer reported as converged.
+
+The two `epsilon.iter` are not the same quantity and should not be compared
+across the two fitters: `nmfkc()` divides by `max(|f_i|, 1)` and `nmfkc.signed()`
+by `|f_{i-1}|`. Each matches the stopping rule of its own fitter, and they agree
+while the objective exceeds 1; below 1 `nmfkc()`'s test is effectively an
+absolute one. Both are documented on the respective help pages.
 
 
 ## NMF-FFB: names brought into line with the rest of the package
@@ -64,7 +85,7 @@ Three defects surfaced while doing this, all of them silent until now.
   no iteration trace to draw (its optimizer is L-BFGS-B), so it now says so and
   names what to use instead.
 
-Options withdrawn in 0.9.7 (`starts`, `nsplit`, `calibration` as an argument of
+Options withdrawn in 0.9.8 (`starts`, `nsplit`, `calibration` as an argument of
 the fit) reached `...` and were dropped without a word; they now warn. A
 **renamed** argument is worse than a withdrawn one -- `mask = "none"` would be
 dropped and the fit would silently use the default restriction, the opposite of
@@ -114,7 +135,7 @@ inf <- nmf.ffb.inference(fit, Y1, Y2)    # 5. intervals for the retained entries
   calibration, `C1.restriction.change.rate`. Replicates run in parallel with
   `cores = ` as elsewhere in the package.
 * **New** `nmf.ffb.ecv()`: choosing *Q* under the name that says what it does.
-  `nmf.ffb.cv(method = "fiml")` has delegated to element-wise CV since 0.9.7;
+  `nmf.ffb.cv(method = "fiml")` has delegated to element-wise CV since 0.9.8;
   the old name still works and is kept for the multiplicative-update path.
 * **Breaking** `nmf.ffb.inference()` no longer runs the null bootstrap and no
   longer returns `LR.boot`, `LR.p.boot`, `LR.null.quantile`, `prob.select.null`,
@@ -171,7 +192,7 @@ gives `p = 0.05` and `0.35`, and the exclusion restriction turns out to move in
   operating characteristic of the whole exploratory procedure. Returns
   `C1.restriction.change.rate`, the share of replicates whose restriction
   moved, and `LR.boot.df`.
-* `"conditional"`: stage 2 only, basis and restriction fixed (the pre-0.9.7
+* `"conditional"`: stage 2 only, basis and restriction fixed (the pre-0.9.8
   behaviour). Valid only if they came from data independent of `Y1`; labelled
   as conditional in `print()`, and selected automatically when the fit used a
   basis or a restriction supplied by the caller.

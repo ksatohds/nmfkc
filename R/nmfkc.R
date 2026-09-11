@@ -2388,7 +2388,30 @@ print.nmf.rank <- function(x, ...) {
 #' \item{A.attr}{List of attributes of the input covariate matrix \code{A}, containing metadata like lag order and intercept status if created by \code{nmfkc.ar} or \code{nmfkc.kernel}.}
 #' \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 #' \item{objfunc}{Final objective value.}
-#' \item{objfunc.iter}{Objective values by iteration.}
+#' \item{objfunc.iter}{Objective values by iteration.  The trace is trimmed to
+#'   \code{[10:end]} so that the plot is not dominated by the first few steps,
+#'   so its length is 9 short of \code{iter} whenever the fit ran at least ten
+#'   iterations; use \code{iter}, not \code{length(objfunc.iter)}, for the
+#'   iteration count.}
+#' \item{iter}{Number of iterations performed.}
+#' \item{maxit}{The iteration cap that was in force.}
+#' \item{epsilon}{The convergence tolerance that was in force.}
+#' \item{epsilon.iter}{Relative change of the objective at the last step ---
+#'   the quantity the stopping rule compares with \code{epsilon}.  Measured as
+#'   \eqn{|f_i - f_{i-1}| / \max(|f_i|, 1)}; the floor of 1 means that for an
+#'   objective below 1 the test is an absolute one, which keeps a near-exact
+#'   fit from iterating forever but makes the number depend on the scale of
+#'   \eqn{Y}.  \code{\link{nmfkc.signed}} divides by \eqn{|f_{i-1}|} instead,
+#'   so the two are comparable only while the objective exceeds 1.}
+#' \item{objfunc.increases}{Number of steps at which the objective rose,
+#'   counted on the recorded (trimmed) trace.  The multiplicative update is
+#'   monotone by itself, so a positive count means something outside it --- a
+#'   restriction imposed by projection, or a numerical problem --- is pushing
+#'   the iterate back, in which case the fit can oscillate and exhaust
+#'   \code{maxit} instead of converging.}
+#' \item{converged}{Logical; whether \code{epsilon.iter} met \code{epsilon}
+#'   before \code{maxit}.  A run that merely exhausted \code{maxit} is
+#'   \code{FALSE}.}
 #' \item{r.squared}{\eqn{R^2 = \mathrm{cor}(Y, XB)^2} (Pearson; scale-invariant; \eqn{[0,1]}).}
 #' \item{r.squared.uncentered}{Uncentered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y\|_F^2} (baseline = zero matrix; natural for non-negative factorizations without an intercept).}
 #' \item{r.squared.centered}{Row-mean centered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}, the multivariate regression \eqn{R^2}.}
@@ -3076,6 +3099,11 @@ summary.nmfkc <- function(object, ...) {
               else length(object$objfunc.iter)
   ans$maxit <- object$maxit
   ans$epsilon <- object$epsilon
+  ## Carried through so that .print.convergence() says the same thing here as
+  ## in print.nmfkc(); without them summary() would drop the last relative
+  ## change and the count of objective increases from the convergence line.
+  ans$epsilon.iter <- object$epsilon.iter
+  ans$objfunc.increases <- object$objfunc.increases
   ans$converged <- object$converged
   ans$objfunc <- object$objfunc
   ans$r.squared          <- object$r.squared

@@ -33,8 +33,8 @@
 #' practice, and it is anti-conservative.
 #'
 #' Sample splitting -- basis and restriction from one half of the units, test on
-#' other -- also removes the dependence, and was offered here in 0.9.7.  It was
-#' withdrawn in 0.9.7: measured against \code{"procedure"} it has the same size and
+#' other -- also removes the dependence, and was offered here in 0.9.8.  It was
+#' withdrawn in 0.9.8: measured against \code{"procedure"} it has the same size and
 #' lower power, because the test uses \eqn{N/2} units, and it cannot be run at
 #' all when the halves are too small for stage 1.
 #' }
@@ -106,7 +106,7 @@ nmf.ffb.test <- function(object, Y1, Y2,
     base::stop("nmf.ffb.test() applies to likelihood-based fits: use nmf.ffb(..., method = \"fiml\") ",
                "(the default). The multiplicative-update estimator has no likelihood to compare.")
   if ("ci.level" %in% base::names(base::match.call()))
-    base::stop("`ci.level` was renamed to `boot.level` in 0.9.7.", call. = FALSE)
+    base::stop("`ci.level` was renamed to `boot.level` in 0.9.8.", call. = FALSE)
   calibration <- base::match.arg(calibration)
   .nmf.ffb.inference.fiml(object, Y1, Y2, B = B, seed = seed,
                           calibration = calibration, what = "test", ...)

@@ -94,7 +94,7 @@
 #' of \code{\link{nmf.ffb.inference}} for what this implies.
 #'
 #' @section Lifecycle:
-#' \code{method = "fiml"} became the default in version 0.9.7, as did
+#' \code{method = "fiml"} became the default in version 0.9.8, as did
 #' \code{C1.restriction = "union"} (earlier fiml fits used \code{"block"}), and
 #' \code{\link{nmf.ffb.inference}} gained the \code{calibration} argument.
 #' \code{method = "mu"} is the legacy estimator, kept for the reproducibility
@@ -348,19 +348,19 @@ nmf.ffb <- function(
   ## `C1.L1` / `C2.L1` penalize the multiplicative updates.  The likelihood path has
   ## its own penalty -- the grid `C1.L1.path`, swept with the support chosen by BIC --
   ## and leaves Theta2 unpenalized, so these two arguments have no meaning under
-  ## method = "fiml".  Until 0.9.7 they were accepted there and silently ignored.
+  ## method = "fiml".  Until 0.9.8 they were accepted there and silently ignored.
   if (method == "fiml" && any(c("C1.L1", "C2.L1") %in% names(cl)))
     warning("`C1.L1` / `C2.L1` apply to method = \"mu\" only and are ignored here. ",
             "Under method = \"fiml\" the L1 penalty on Theta1 is the path `C1.L1.path` ",
             "(swept, with the support selected by BIC) and Theta2 is unpenalized.",
             call. = FALSE)
-  ## Options withdrawn in 0.9.7 would otherwise be swallowed by `...` without a word.
+  ## Options withdrawn in 0.9.8 would otherwise be swallowed by `...` without a word.
   gone <- c(starts = "every penalized fit is warm-started from the unpenalized fit, the only start measurement ever preferred",
             nsplit = "sample splitting was withdrawn: same size as calibration = \"procedure\", lower power",
             calibration = "the calibration level is an argument of nmf.ffb.test(), not of the fit")
   hit <- base::intersect(base::names(gone), base::names(cl))
   if (length(hit) > 0)
-    warning("`", paste(hit, collapse = "`, `"), "` was removed in 0.9.7 and is ignored: ",
+    warning("`", paste(hit, collapse = "`, `"), "` was removed in 0.9.8 and is ignored: ",
             gone[[hit[1]]], ".", call. = FALSE)
   ## A RENAMED argument is the more dangerous case: `mask = "none"` reaches `...`, is
   ## dropped, and the fit silently uses the DEFAULT restriction -- the opposite of the
@@ -369,7 +369,7 @@ nmf.ffb <- function(
                phi = "Phi.restriction", lambda1 = "C1.L1.path")
   hit <- base::intersect(base::names(renamed), base::names(cl))
   if (length(hit) > 0)
-    stop("`", paste(hit, collapse = "`, `"), "` was renamed in 0.9.7; use `",
+    stop("`", paste(hit, collapse = "`, `"), "` was renamed in 0.9.8; use `",
          paste(renamed[hit], collapse = "`, `"),
          "`. It would otherwise be dropped silently and the fit would use the default.",
          call. = FALSE)
@@ -386,7 +386,7 @@ nmf.ffb <- function(
   Phi.restriction <- match.arg(Phi.restriction)
   select <- match.arg(select)
   ## Each penalized fit is warm-started from the unpenalized full-feedback fit and each support refit from
-  ## its own penalized fit.  Alternative start sets were measured and never won (NEWS 0.9.7), so there is
+  ## its own penalized fit.  Alternative start sets were measured and never won (NEWS 0.9.8), so there is
   ## no choice left to expose.
   .nmf.ffb.fiml(Y1, Y2, rank = rank, X.init = X.init, X.L2.ortho = X.L2.ortho,
                 epsilon = epsilon, maxit = maxit, seed = seed,
@@ -873,7 +873,7 @@ nmf.ffb <- function(
 #' The calibrated test of the feed-forward null -- \code{LR.p.boot},
 #' \code{prob.select.null}, \code{C1.restriction.change.rate} and the null
 #' bootstrap behind them -- is \strong{not} returned here.  It moved to
-#' \code{\link{nmf.ffb.test}} in 0.9.7, so that an object carrying coefficient
+#' \code{\link{nmf.ffb.test}} in 0.9.8, so that an object carrying coefficient
 #' intervals cannot be mistaken for a test of feedback (see NEWS).
 #'
 #' @section Lifecycle:
@@ -913,9 +913,9 @@ nmf.ffb.inference <- function(object, Y1, Y2,
                                ...) {
   if (is.null(object$X) || is.null(object$C1) || is.null(object$C2))
     stop("object must contain X, C1, and C2 (returned by nmf.sem).")
-  ## Renamed in 0.9.7; through `...` it would be dropped and the default used.
+  ## Renamed in 0.9.8; through `...` it would be dropped and the default used.
   if ("ci.level" %in% names(match.call()))
-    stop("`ci.level` was renamed to `boot.level` in 0.9.7.", call. = FALSE)
+    stop("`ci.level` was renamed to `boot.level` in 0.9.8.", call. = FALSE)
 
   ## Likelihood-based fits take the parametric-bootstrap branch; objects
   ## without a `method` field predate it and are multiplicative-update fits.

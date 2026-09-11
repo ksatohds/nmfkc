@@ -59,9 +59,9 @@ nmf.ffb.ecv <- function(Y1, Y2,
                         epsilon = 1e-6,
                         maxit = 5000,
                         ...) {
-  ## One implementation: nmf.ffb.cv(method = "fiml") has delegated to nmfkc.ecv() since 0.9.7, and this is
+  ## One implementation: nmf.ffb.cv(method = "fiml") has delegated to nmfkc.ecv() since 0.9.8, and this is
   ## the same call under the name that says what it does.  nmf.ffb.cv() is kept for the published
-  ## multiplicative-update path (see NEWS 0.9.7).
+  ## multiplicative-update path (see NEWS 0.9.8).
   nmf.ffb.cv(Y1, Y2, rank = rank, X.init = X.init, X.L2.ortho = X.L2.ortho,
              epsilon = epsilon, maxit = maxit, method = "fiml", ...)
 }

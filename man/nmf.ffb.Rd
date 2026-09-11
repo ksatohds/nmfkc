@@ -332,7 +332,7 @@ of \code{\link{nmf.ffb.inference}} for what this implies.
 
 \section{Lifecycle}{
 
-\code{method = "fiml"} became the default in version 0.9.7, as did
+\code{method = "fiml"} became the default in version 0.9.8, as did
 \code{C1.restriction = "union"} (earlier fiml fits used \code{"block"}), and
 \code{\link{nmf.ffb.inference}} gained the \code{calibration} argument.
 \code{method = "mu"} is the legacy estimator, kept for the reproducibility
