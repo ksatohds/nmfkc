@@ -3,7 +3,7 @@ bibentry(
   title    = "nmfkc: Non-negative Matrix Factorization with Kernel Covariates",
   author   = "Kenichi Satoh",
   year     = "2026",
-  note     = "R package version 0.6.7",
+  note     = paste("R package version", meta$Version),
   url      = "https://CRAN.R-project.org/package=nmfkc"
 )
 
@@ -29,12 +29,13 @@ bibentry(
 
 
 bibentry(
-  bibtype  = "Misc",
+  bibtype  = "Article",
   title    = "Applying non-negative matrix factorization with covariates to label matrix for classification",
   author   = "Kenichi Satoh",
-  year     = "2025",
-  note     = "arXiv:2510.10375",
-  url      = "https://arxiv.org/abs/2510.10375"
+  journal  = "Japanese Journal of Statistics and Data Science",
+  year     = "2026",
+  note     = "Published online 2026-08-25",
+  doi      = "10.1007/s42081-026-00349-x"
 )
 
 
@@ -49,11 +50,12 @@ bibentry(
 
 
 bibentry(
-  bibtype  = "Misc",
+  bibtype  = "Article",
   title    = "Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model",
   author   = "Kenichi Satoh",
-  year     = "2024",
-  note     = "arXiv:2403.05359",
+  journal  = "American Journal of Mathematical and Management Sciences",
+  year     = "2026",
+  note     = "In press; accepted 2026-09-11. Preprint arXiv:2403.05359",
   url      = "https://arxiv.org/abs/2403.05359"
 )
 

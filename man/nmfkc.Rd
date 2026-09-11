@@ -236,8 +236,9 @@ res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 
 }
 \references{
-Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
-to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
+Satoh, K. (2026). Applying Non-negative Matrix Factorization with Covariates
+to the Longitudinal Data as Growth Curve Model. \emph{American Journal of
+Mathematical and Management Sciences}. In press. arXiv:2403.05359.
 \url{https://arxiv.org/abs/2403.05359}
 
 Satoh, K. (2025). Applying non-negative matrix factorization with covariates
@@ -245,9 +246,9 @@ to multivariate time series data as a vector autoregression model.
 \emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
 \doi{10.1007/s42081-025-00314-0}
 
-Satoh, K. (2025). Applying non-negative matrix factorization with covariates
-to label matrix for classification. arXiv:2510.10375.
-\url{https://arxiv.org/abs/2510.10375}
+Satoh, K. (2026). Applying non-negative matrix factorization with covariates
+to label matrix for classification. \emph{Japanese Journal of Statistics
+and Data Science}. \doi{10.1007/s42081-026-00349-x}
 
 Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix
 Tri-Factorizations for Clustering.

@@ -184,8 +184,9 @@ nmfkc.kernel.gaussian <- function(U, V = NULL, beta = 0.5,
 #' @return Kernel matrix \eqn{A(N,M)}.
 #' @seealso \code{\link{nmfkc.kernel.gaussian}}, \code{\link{nmfkc.cv}}
 #' @export
-#' @source Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model.
-#'   arXiv preprint arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
+#' @source Satoh, K. (2026). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model.
+#'   \emph{American Journal of Mathematical and Management Sciences}. In press.
+#'   arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
 #' @examples
 #' # Example.
 #' Y <- matrix(cars$dist,nrow=1)
@@ -2458,8 +2459,9 @@ print.nmf.rank <- function(x, ...) {
 #'   \code{\link{nmfkc.DOT}}, \code{\link{predict.nmfkc}}
 #' @export
 #' @references
-#' Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
-#'   to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
+#' Satoh, K. (2026). Applying Non-negative Matrix Factorization with Covariates
+#'   to the Longitudinal Data as Growth Curve Model. \emph{American Journal of
+#'   Mathematical and Management Sciences}. In press. arXiv:2403.05359.
 #'   \url{https://arxiv.org/abs/2403.05359}
 #'
 #' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
@@ -2467,9 +2469,9 @@ print.nmf.rank <- function(x, ...) {
 #'   \emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
 #'   \doi{10.1007/s42081-025-00314-0}
 #'
-#' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
-#'   to label matrix for classification. arXiv:2510.10375.
-#'   \url{https://arxiv.org/abs/2510.10375}
+#' Satoh, K. (2026). Applying non-negative matrix factorization with covariates
+#'   to label matrix for classification. \emph{Japanese Journal of Statistics
+#'   and Data Science}. \doi{10.1007/s42081-026-00349-x}
 #'
 #' Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix
 #'   Tri-Factorizations for Clustering.
