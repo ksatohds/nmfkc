@@ -41,7 +41,8 @@ identically, so no cross-validation and no test-sample error can prefer one.
 What separates them is the *conditional covariance*: with feedback, the
 disturbances propagate around the loop.
 
-**An outcome must not feed back into its own factor.**  Without a restriction
+**An outcome must not feed back into a factor on which it has more than a
+negligible loading.**  Without a restriction
 the factor-level directions $\Theta_1 = a X^\top \Psi^{-1}$ are observationally
 equivalent to a change in $\Theta_2$ and $\Phi$, so they are not identified.  The
 default `C1.restriction = "union"` blocks, for each outcome, the factor it loads
@@ -241,10 +242,10 @@ dgn$cycles$rho               # spectral radius; 0 with a non-empty support = a c
 dgn$cycles$cycle             # which factors lie on a cycle
 ```
 
-Adding one free entry costs $\log N$ in BIC, and a difference in BIC is twice the
-log of a Bayes factor, so a difference below about 2 is not evidence for one
-support over another: the *presence* of feedback can be settled while its
-*composition* is not.  When the best supports form a chain under inclusion their
+Adding one free entry costs $\log N$ in BIC, and a difference below about 2
+does not distinguish one support from another (Kass and Raftery 1995, p. 777):
+the *inadequacy of the feed-forward family* can be settled while the
+*composition* of the feedback is not.  When the best supports form a chain under inclusion their
 intersection is the part the criterion does not put in doubt; when they do not,
 no single support should be read off.
 

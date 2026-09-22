@@ -1,5 +1,21 @@
 # nmfkc (development version)
 
+## NMF-FFB: the help pages no longer describe options that were removed
+
+`C1.restriction` accepted `"block"` and `"cross"` while the exclusion
+restriction was being settled; both were dropped in 0.9.8 in favour of
+`"union"`, but the help pages and the vignette still described them and still
+listed them as admissible values. They now describe only what the code accepts,
+`"union"` and `"none"` (or a user matrix).
+
+The wording of the restriction itself is also corrected. It was "an outcome may
+not feed back into a factor on which it loads", which reads as if any non-zero
+loading blocked the entry; the rule is "a factor on which it has more than a
+negligible loading" -- the dominant factor of the outcome, plus every factor
+whose loading reaches `C1.restriction.threshold`. Neither half alone is the
+rule, and the help now says why. The vignette adds the reference for reading a
+BIC difference as evidence (Kass and Raftery 1995, p. 777).
+
 ## The NMF-GMM family is marked experimental again
 
 `nmf.gmm()`, `nmf.gmm.inference()`, `nmf.gmm.select()`, `nmf.gmm.twostage()`

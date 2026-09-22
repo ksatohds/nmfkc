@@ -13,7 +13,7 @@
 #' predict \eqn{Y_1} from \eqn{Y_2} identically, so no prediction criterion --
 #' column-wise CV, element-wise CV, or a test-sample error -- can prefer one over
 #' the other.  Feedback is identified by the \emph{conditional covariance}, not by
-#' prediction, which is why it is settled by \code{\link{nmf.ffb.test}} and not
+#' prediction, which is why it is addressed by \code{\link{nmf.ffb.test}} and not
 #' here.
 #'
 #' @param Y1,Y2 Endogenous and exogenous matrices (variables in rows, units in

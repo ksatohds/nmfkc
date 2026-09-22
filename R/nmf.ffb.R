@@ -75,16 +75,16 @@
 #'
 #' @section Exclusion restriction:
 #' Feedback is identified only through exclusion restrictions: an outcome
-#' may not feed back into a factor on which it loads, because such an entry
-#' is nearly equivalent to a change of the outcome's loading.  With
+#' may not feed back into a factor on which it has more than a negligible
+#' loading, because such an entry is nearly equivalent to a change of the
+#' outcome's loading and uniqueness.  With
 #' \code{C1.restriction = "union"} (default) entry \eqn{(q, i)} of \eqn{\Theta_1} is
 #' excluded if \eqn{q = \arg\max_{q'} X_{i q'}} (the dominant factor) or
-#' \eqn{X_{iq} \ge} \code{C1.restriction.threshold}.  The two partial rules are kept
-#' for comparison: \code{"block"} excludes the dominant factor only, so an
-#' outcome with a substantial second loading may still feed that factor;
-#' \code{"cross"} excludes only the factors above the threshold, so an outcome
-#' whose largest loading is below the threshold keeps its own factor free
-#' (\code{"cross"} is therefore \emph{not} a superset of \code{"block"}).
+#' \eqn{X_{iq} \ge} \code{C1.restriction.threshold}.  Both halves are needed:
+#' blocking the dominant factor alone would leave an outcome with a
+#' substantial second loading free to feed that factor, and blocking only the
+#' factors above the threshold would leave an outcome whose largest loading is
+#' below the threshold free to feed its own.
 #' \code{"none"} frees every entry (not recommended: the model is then
 #' identified only through the non-negativity and the covariance structure).
 #' A user-supplied \eqn{Q \times P_1} 0/1 matrix is used as given.
@@ -95,7 +95,8 @@
 #'
 #' @section Lifecycle:
 #' \code{method = "fiml"} became the default in version 0.9.8, as did
-#' \code{C1.restriction = "union"} (earlier fiml fits used \code{"block"}), and
+#' \code{C1.restriction = "union"} (earlier fiml fits blocked the dominant
+#' factor only), and
 #' \code{\link{nmf.ffb.inference}} gained the \code{calibration} argument.
 #' \code{method = "mu"} is the legacy estimator, kept for the reproducibility
 #' of published analyses; it will be deprecated in a later release.
@@ -167,11 +168,11 @@
 #'   whose \code{$X} is used.  When supplied, stage 1 is skipped and
 #'   \code{rank} is taken from \code{ncol(X)}.
 #' @param C1.restriction Exclusion restriction on \eqn{\Theta_1} for
-#'   \code{method = "fiml"}: \code{"union"} (default), \code{"block"},
-#'   \code{"cross"}, \code{"none"}, or a \eqn{Q \times P_1} 0/1 matrix
+#'   \code{method = "fiml"}: \code{"union"} (default), \code{"none"}, or a
+#'   \eqn{Q \times P_1} 0/1 matrix
 #'   (1 = free).  See the section \emph{Exclusion restriction}.
-#' @param C1.restriction.threshold Loading threshold for \code{C1.restriction = "union"} and
-#'   \code{"cross"}.  Default \code{0.05}.
+#' @param C1.restriction.threshold Loading threshold for
+#'   \code{C1.restriction = "union"}.  Default \code{0.05}.
 #' @param Phi.restriction Covariance of the latent disturbance \eqn{U} for
 #'   \code{method = "fiml"}: \code{"full"} (default; positive definite via
 #'   Cholesky) or \code{"diag"}.

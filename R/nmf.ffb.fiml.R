@@ -19,8 +19,9 @@
 # with correlated factors; the feedback (FFB) alternative frees the entries of
 # Theta1 admitted by an exclusion restriction.  Theta1 is not recoverable from the
 # reduced form alone (the structural and reduced forms have the same
-# second moments once X is free), which is why X is fixed first and the
-# self-loop / dominant-factor exclusion restriction is imposed; the L1 path
+# second moments once X is free), which is why X is fixed first and the union
+# exclusion restriction is imposed (the dominant factor of each outcome, and
+# every factor on which it has a non-negligible loading); the L1 path
 # and BIC then select a sparse Theta1.  The likelihood-ratio statistic against
 # the FF null is returned WITHOUT a p-value: Theta1 >= 0 puts the null on the
 # boundary and the BIC refit is a post-selection statistic, so the reference
@@ -62,14 +63,14 @@
 #' @param X Basis matrix (P1 x Q), column-stochastic.
 #' @param C1.restriction \code{"union"} (default): entry (q, i) is excluded if q is the
 #'   dominant factor of outcome i (\code{which.max(X[i, ])}) OR
-#'   \code{X[i, q] >= C1.restriction.threshold} -- an outcome may not feed back into any
-#'   factor on which it loads; \code{"block"}: only the dominant factor is
-#'   excluded; \code{"cross"}: only factors with \code{X[i, q] >= C1.restriction.threshold}
-#'   are excluded (an outcome whose largest loading is below the threshold then
-#'   keeps its own factor free, so this is not a superset of \code{"block"});
+#'   \code{X[i, q] >= C1.restriction.threshold} -- an outcome may not feed back into a
+#'   factor on which it has more than a negligible loading.  Neither half alone
+#'   is the rule: the dominant factor leaves a substantial second loading free,
+#'   and the threshold alone leaves an outcome whose largest loading is below it
+#'   free to feed its own factor.
 #'   \code{"none"}: all entries free; or a user Q x P1 0/1 matrix.
-#' @param C1.restriction.threshold Loading threshold for \code{C1.restriction = "union"} and
-#'   \code{"cross"}.
+#' @param C1.restriction.threshold Loading threshold for
+#'   \code{C1.restriction = "union"}.
 #' @return A Q x P1 matrix of 0 / 1 (1 = free).
 #' @keywords internal
 #' @noRd
@@ -82,8 +83,9 @@
   } else {
     C1.restriction <- base::match.arg(C1.restriction, c("union", "none"))
     M <- base::matrix(1, Q, P1)
-    ## "union" is the rule of the NMF-FFB paper: an outcome may not feed back into a factor on which it
-    ## loads.  It excludes the argmax factor of each outcome AND every factor with loading at least
+    ## "union" is the rule of the NMF-FFB paper: an outcome may not feed back into a factor on which
+    ## it has more than a negligible loading.  It excludes the argmax factor of each outcome AND
+    ## every factor with loading at least
     ## C1.restriction.threshold -- neither half alone is the rule, because an outcome whose largest loading is
     ## below the threshold would keep its own factor free.  "none" leaves every entry free, which makes
     ## the factor-level directions unidentified and is provided to show that.
