@@ -15,7 +15,7 @@ nmf.rrr.heatmap(
 )
 }
 \arguments{
-\item{x}{An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.}
+\item{x}{An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.}
 
 \item{Y1.label}{Character vector of output variable names (rows of \eqn{X_1}).}
 

@@ -8,7 +8,7 @@ across iterations. The title shows the achieved \eqn{R^2}.}
 \method{plot}{nmfae}(x, ...)
 }
 \arguments{
-\item{x}{An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.}
+\item{x}{An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.}
 
 \item{...}{Additional graphical parameters passed to \code{plot}.}
 }

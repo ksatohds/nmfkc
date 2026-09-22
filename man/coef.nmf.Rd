@@ -22,7 +22,7 @@ or the parameter matrix \eqn{C}.
 \description{
 Returns the \code{coefficients} data frame from a fitted NMF model
 that has been passed through an inference function
-(\code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}},
+(\code{\link{nmfkc.inference}}, \code{\link{nmf.rrr.inference}},
 \code{\link{nmfre.inference}}).
 
 If inference has not been run, returns the parameter matrix \eqn{C}

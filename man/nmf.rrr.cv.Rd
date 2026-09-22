@@ -16,7 +16,7 @@ Default is \code{Y1} (autoencoder).}
 
 \item{rank2}{Integer. Rank of the covariate basis. Default (\code{NULL}) = \code{rank1}.}
 
-\item{...}{Additional arguments passed to \code{\link{nmfae}}
+\item{...}{Additional arguments passed to \code{\link{nmf.rrr}}
 (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
 Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 \code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}),

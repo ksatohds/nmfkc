@@ -7,7 +7,7 @@
 \method{plot}{nmfae.ecv}(x, ...)
 }
 \arguments{
-\item{x}{An object of class \code{"nmfae.ecv"} returned by \code{\link{nmfae.ecv}}.}
+\item{x}{An object of class \code{"nmfae.ecv"} returned by \code{\link{nmf.rrr.ecv}}.}
 
 \item{...}{Additional graphical parameters (currently unused).}
 }

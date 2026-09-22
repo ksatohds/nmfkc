@@ -27,7 +27,7 @@ nmf.rrr.DOT(
 )
 }
 \arguments{
-\item{result}{An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.}
+\item{result}{An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.}
 
 \item{type}{Character. Graph type: \code{"XCX"} (default) or \code{"YXCXY"}.}
 

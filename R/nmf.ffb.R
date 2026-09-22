@@ -141,7 +141,7 @@
 #' @param C1.L1 L1 sparsity penalty for \code{C1} (i.e., \eqn{\Theta_1}).
 #'   Default: \code{1.0}.  \strong{Scale note}: this function adds
 #'   \code{C1.L1} to the multiplicative denominator, whereas
-#'   \code{\link{nmfkc}}, \code{\link{nmfae}} and \code{\link{nmfkc.net}} add
+#'   \code{\link{nmfkc}}, \code{\link{nmf.rrr}} and \code{\link{nmfkc.net}} add
 #'   \code{C.L1 / 2}.  The same nominal value is therefore twice as strong
 #'   here.  The difference is retained so that published \code{nmf.ffb} fits
 #'   reproduce; halve the value to match the other models.
@@ -2739,7 +2739,7 @@ nmfkc.DOT <- function(
 #' to the console instead.
 #'
 #' This method handles all DOT objects produced by the nmfkc package:
-#' \code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.ffb.DOT}},
+#' \code{\link{nmfkc.DOT}}, \code{\link{nmf.rrr.DOT}}, \code{\link{nmf.ffb.DOT}},
 #' and \code{\link{nmfkc.ar.DOT}}.
 #'
 #' @param x An object of class \code{"nmfkc.DOT"} (or a subclass thereof).

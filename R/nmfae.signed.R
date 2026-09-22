@@ -4,7 +4,7 @@
 # Author: Kenichi Satoh
 # Date: 2026-04-18
 #
-# Depends: nmfkc (for warm.start via nmfae())
+# Depends: nmfkc (for warm.start via nmf.rrr())
 # References:
 #   Ding, C. H. Q., Li, T., & Jordan, M. I. (2010).
 #     Convex and Semi-Nonnegative Matrix Factorizations. IEEE TPAMI 32(1), 45-55.
@@ -38,7 +38,7 @@
 #' \eqn{\|Y_1 - X_1(C_{+} - C_{-})X_2 Y_2\|_F^2} (Lee-Seung auxiliary
 #' function method).
 #'
-#' \strong{Relation to \code{\link{nmfae}}:} When \eqn{\Theta \ge 0} suffices
+#' \strong{Relation to \code{\link{nmf.rrr}}:} When \eqn{\Theta \ge 0} suffices
 #' (the \code{nmfae} case), \code{nmfae.signed} reduces to \code{nmfae} up to
 #' the \eqn{C_{+} - C_{-}} parameterization.  Use \code{nmfae.signed} when the
 #' data exhibit negative cross-property correlations that tri-NMF-AE cannot
@@ -57,7 +57,7 @@
 #' @param ... Additional arguments:
 #'   \describe{
 #'     \item{\code{warm.start}}{One of \code{TRUE} (default, \strong{hybrid}:
-#'       warm-start \eqn{X_1, X_2} from \code{\link{nmfae}} but initialize
+#'       warm-start \eqn{X_1, X_2} from \code{\link{nmf.rrr}} but initialize
 #'       \eqn{C_{+}, C_{-}} randomly), \code{"full"} (warm-start everything
 #'       including \eqn{C_{+} = C_{\mathrm{tri}}}, \eqn{C_{-} = \delta}),
 #'       or \code{FALSE} (random for all blocks).  The hybrid default avoids
@@ -85,7 +85,7 @@
 #'       \eqn{X_1} and the \strong{rows} of \eqn{X_2}, penalizing
 #'       \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_1^\top X_1)\rVert^2} and
 #'       \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_2 X_2^\top)\rVert^2}
-#'       respectively.  Same convention as \code{\link{nmfae}}; encourage
+#'       respectively.  Same convention as \code{\link{nmf.rrr}}; encourage
 #'       more distinct (less overlapping) response / covariate bases.}
 #'     \item{\code{C.L2}}{Non-negative ridge penalty (default 0) on the signed
 #'       bottleneck \eqn{C = C_{+} - C_{-}}, adding
@@ -99,7 +99,7 @@
 #'       becomes \eqn{\sum W_{ij} \, (Y_{1,ij} - \hat Y_{1,ij})^2}
 #'       (\code{lm()}-style, \strong{linear} in \eqn{W}).  Logical
 #'       matrices (\code{TRUE} / \code{FALSE}) are also accepted.
-#'       Used by \code{\link{nmfae.signed.ecv}} to hold out test
+#'       Used by \code{\link{nmf.rrr.signed.ecv}} to hold out test
 #'       elements via a binary mask \eqn{W \in \{0,1\}}; real-valued
 #'       weights for importance weighting are also supported.  Default:
 #'       if \code{Y1} has \code{NA}, a binary mask is auto-generated
@@ -210,7 +210,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   nstart  <- if (!is.null(extra_args$nstart))  extra_args$nstart  else 1L
   ## Opt-in parallel restarts (only when nstart > 1); default sequential.
   cores   <- if (!is.null(extra_args$cores))   extra_args$cores   else getOption("mc.cores", 1L)
-  ## Basis-init method forwarded to the nmfae() warm-start step (default
+  ## Basis-init method forwarded to the nmf.rrr() warm-start step (default
   ## "kmeans"; "kmeans++" etc. accepted). String methods only.
   X.init  <- if (!is.null(extra_args$X.init))  extra_args$X.init  else "kmeans"
   X.init.method <- if (is.character(X.init)) X.init else "kmeans"
@@ -228,7 +228,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   if (!is.null(extra_args$print.trace)) print.trace <- extra_args$print.trace
   prefix.dec <- if (!is.null(extra_args$prefix.dec)) extra_args$prefix.dec else "Resp"
   prefix.enc <- if (!is.null(extra_args$prefix.enc)) extra_args$prefix.enc else "Cov"
-  ## Basis orthogonality penalties (same convention as nmfae(): off-diagonal
+  ## Basis orthogonality penalties (same convention as nmf.rrr(): off-diagonal
   ## L2 on X1 columns and X2 rows; both default off).
   X1.L2.ortho <- if (!is.null(extra_args$X1.L2.ortho)) extra_args$X1.L2.ortho else 0
   X2.L2.ortho <- if (!is.null(extra_args$X2.L2.ortho)) extra_args$X2.L2.ortho else 0
@@ -246,7 +246,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   }
 
   ## ---- 2. Input preparation & validation ----
-  ## NA in Y1 is auto-masked via Y1.weights (matches nmfae() behavior);
+  ## NA in Y1 is auto-masked via Y1.weights (matches nmf.rrr() behavior);
   ## NA in Y2 is still an error since Y2 is not weighted.
   Y1 <- as.matrix(Y1); storage.mode(Y1) <- "double"
   Y2 <- as.matrix(Y2); storage.mode(Y2) <- "double"
@@ -315,7 +315,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   ## 4a. X1, X2: warm-start from tri-NMF-AE unless mode=random or explicit override
   tri_C_for_full <- NULL
   if (warm_mode %in% c("hybrid", "full") && !Y1_signed && !use_explicit_X) {
-    if (print.trace) message("  Init: warm-start X1, X2 from nmfae() ...")
+    if (print.trace) message("  Init: warm-start X1, X2 from nmf.rrr() ...")
     res0 <- nmf.rrr(Y1, Y2, rank1 = Q, rank2 = R,
                           epsilon = epsilon, maxit = maxit,
                           verbose = FALSE, seed = seed,
@@ -381,7 +381,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   }
 
   ## Basis-orthogonality penalty value and MU denominator contributions
-  ## (same convention as nmfae()): (lambda/2)||offdiag(X1'X1)||^2 for X1
+  ## (same convention as nmf.rrr()): (lambda/2)||offdiag(X1'X1)||^2 for X1
   ## columns and (lambda/2)||offdiag(X2 X2')||^2 for X2 rows; the positive
   ## gradient X1 offdiag(X1'X1) / offdiag(X2 X2') X2 goes to the denominator.
   pen_X12 <- function(X1, X2) {
@@ -644,7 +644,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
   ## X1 / X2 are non-negative even in the signed model (only the bottleneck
   ## C = Cp - Cn is signed), so per-variable soft co-clustering is well
-  ## defined here just as in nmfae().  (B = C X2 Y2 may be signed, so the
+  ## defined here just as in nmf.rrr().  (B = C X2 Y2 may be signed, so the
   ## sample-level B.prob/B.cluster above rely on a non-negative clip of H.)
   X1.prob <- X1 / (rowSums(X1) + eps_bp)                 # response variable membership
   X1.cluster <- apply(X1.prob, 1, which.max)
@@ -710,7 +710,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' \eqn{\Theta = C_{+} - C_{-}} in the Signed-Bottleneck NMF-AE model
 #' \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}, conditional on
 #' \eqn{(\hat X_1, \hat X_2)}.  Uses sandwich covariance and wild bootstrap
-#' \strong{without} the non-negativity projection that \code{\link{nmfae.inference}}
+#' \strong{without} the non-negativity projection that \code{\link{nmf.rrr.inference}}
 #' applies (because \eqn{\Theta} is unconstrained in sign here).
 #'
 #' @param object A fitted \code{"nmfae.signed"} object.
@@ -1174,9 +1174,9 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 ## ==============================================================
 #' @title Element-wise Cross-Validation for Signed-Bottleneck NMF-AE
 #' @description
-#' Element-wise k-fold cross-validation for \code{\link{nmfae.signed}} to
+#' Element-wise k-fold cross-validation for \code{\link{nmf.rrr.signed}} to
 #' select the decoder / encoder ranks \eqn{(Q, R)}.  Mirrors
-#' \code{\link{nmfae.ecv}} but uses the \strong{weighted} Signed-Bottleneck NMF-AE fit
+#' \code{\link{nmf.rrr.ecv}} but uses the \strong{weighted} Signed-Bottleneck NMF-AE fit
 #' path (\code{Y1.weights}): test-fold elements are zero-weighted during
 #' fitting, and held-out MSE is computed on those elements.
 #'
@@ -1199,7 +1199,7 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'       both signs), so \code{nstart >= 10} is recommended for
 #'       reproducible rank selection.}
 #'     \item{Other args}{\code{epsilon}, \code{maxit}, \code{warm.start},
-#'       etc.\ are passed to \code{\link{nmfae.signed}}.}
+#'       etc.\ are passed to \code{\link{nmf.rrr.signed}}.}
 #'   }
 #'   Rank aliases accepted here for backward compatibility:
 #'   \code{Q} for \code{rank1}, \code{R} for \code{rank2}.
@@ -1308,12 +1308,12 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...) {
 
 #' @title Rank selection for nmfae.signed (paired rank, concise diagnostics)
 #' @description
-#' Fits \code{\link{nmfae.signed}} with a \strong{paired} decoder/encoder
+#' Fits \code{\link{nmf.rrr.signed}} with a \strong{paired} decoder/encoder
 #' rank (\eqn{Q = R}) across a range of ranks and reports
 #' \code{r.squared}, the effective rank (of the latent encoding \eqn{H}),
 #' and the element-wise CV error \code{sigma.ecv}, with the same concise
 #' plot as \code{\link{nmfkc.rank}}.  For a full \eqn{(Q, R)} grid use
-#' \code{\link{nmfae.signed.ecv}}.
+#' \code{\link{nmf.rrr.signed.ecv}}.
 #' @param Y1 Endogenous matrix (\eqn{P_1 \times N}); may be signed.
 #' @param Y2 Exogenous matrix; defaults to \code{Y1}.
 #' @param rank1 Integer vector of (paired) ranks to evaluate (both bases use
@@ -1322,8 +1322,8 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...) {
 #' @param detail \code{"full"} (default) also runs element-wise CV
 #'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
 #'   eff.rank only, and recommends the R-squared elbow).
-#' @param ... Passed on to \code{\link{nmfae.signed}} and
-#'   \code{\link{nmfae.signed.ecv}}. Also accepts \code{cores} to evaluate the
+#' @param ... Passed on to \code{\link{nmf.rrr.signed}} and
+#'   \code{\link{nmf.rrr.signed.ecv}}. Also accepts \code{cores} to evaluate the
 #'   rank sweep (and the element-wise CV) in parallel; default
 #'   \code{getOption("mc.cores", 1L)}. Each rank is an independent self-seeded
 #'   fit and results are gathered in order, so the output is identical for any
@@ -1386,7 +1386,7 @@ nmf.rrr.signed.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fa
 #' Produces a summary of a fitted Signed-Bottleneck NMF-AE model with
 #' inference results.  Extends \code{\link{summary.nmfae.signed}} by
 #' attaching the \code{coefficients} table and p-value side from
-#' \code{\link{nmfae.signed.inference}}.
+#' \code{\link{nmf.rrr.signed.inference}}.
 #'
 #' @param object An object of class \code{"nmfae.signed.inference"}.
 #' @param ... Additional arguments (currently unused).
@@ -1505,7 +1505,7 @@ print.summary.nmfae.signed.inference <- function(x,
 ## ==============================================================
 #' @title Heatmap visualization of nmfae.signed factor matrices
 #' @description
-#' Displays the factor blocks of a \code{\link{nmfae.signed}} fit as
+#' Displays the factor blocks of a \code{\link{nmf.rrr.signed}} fit as
 #' side-by-side heatmaps.  Non-negative blocks (\eqn{X_1, C_{+}, C_{-},
 #' X_2}) use the white-orange-red palette; the signed combined
 #' bottleneck \eqn{C = C_{+} - C_{-}} is rendered with a diverging

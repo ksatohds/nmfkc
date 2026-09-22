@@ -10,7 +10,7 @@ nmf.cluster.criteria(fits, Y, Y2 = NULL, names = NULL, plot = TRUE, ...)
 \item{fits}{A list of fitted models, one per rank, all over the same
 \eqn{N} individuals (a single fitted model is also accepted and
 wrapped automatically).  Supported families: \code{\link{nmfkc}},
-\code{\link{nmfkc.signed}}, \code{\link{nmfae}}, \code{nmfae.signed},
+\code{\link{nmfkc.signed}}, \code{\link{nmf.rrr}}, \code{nmfae.signed},
 \code{\link{nmfkc.net}}, \code{\link{nmfre}}, and
 \code{\link{nmf.ffb}}.}
 

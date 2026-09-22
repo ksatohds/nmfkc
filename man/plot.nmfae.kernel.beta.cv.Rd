@@ -8,7 +8,7 @@
 }
 \arguments{
 \item{x}{An object of class \code{"nmfae.kernel.beta.cv"} returned by
-\code{\link{nmfae.kernel.beta.cv}}.}
+\code{\link{nmf.rrr.kernel.beta.cv}}.}
 
 \item{...}{Additional graphical parameters passed to \code{plot}.}
 }

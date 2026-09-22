@@ -165,7 +165,7 @@
 #' spirit of \code{print.lm}: enough to see what was fitted and whether to
 #' trust it, with everything else left to \code{summary()}.  Registered on the
 #' shared \code{"nmf"} class, so it covers every optimizer that returns one
-#' (\code{\link{nmfkc}}, \code{\link{nmfae}} / \code{nmf.rrr},
+#' (\code{\link{nmfkc}}, \code{\link{nmf.rrr}} / \code{nmf.rrr},
 #' \code{\link{nmfre}}, \code{\link{nmf.ffb}} and the signed variants);
 #' \code{nmf.gmm} has its own methods.
 #'
@@ -568,7 +568,7 @@ print.summary.nmf.ffb <- function(x, ...) {
 #' @description
 #' Returns the \code{coefficients} data frame from a fitted NMF model
 #' that has been passed through an inference function
-#' (\code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}},
+#' (\code{\link{nmfkc.inference}}, \code{\link{nmf.rrr.inference}},
 #' \code{\link{nmfre.inference}}).
 #'
 #' If inference has not been run, returns the parameter matrix \eqn{C}

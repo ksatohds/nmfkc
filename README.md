@@ -85,10 +85,10 @@ $$Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)$$
 | `nmfkc()` | Core NMF with covariates ($Y \approx XCA$); supports kernel matrices and formula interface |
 | `nmfre()` / `nmfre.inference()` | NMF with Random Effects + wild bootstrap inference |
 | `nmf.ffb()` / `nmf.ffb.inference()` | NMF Feed-Forward + Feedback model (formerly `nmf.sem*`; those aliases were removed in 0.9.8): basis from `nmfkc()`, then FIML with an exclusion restriction, L1 path and BIC selection of the feedback (`method = "fiml"`, default; legacy `method = "mu"`) + parametric-bootstrap calibration of the LR test and coefficient intervals |
-| `nmfae()` / `nmfae.inference()` | NMF Autoencoder + inference |
+| `nmf.rrr()` / `nmf.rrr.inference()` | Non-negative reduced-rank regression + inference (formerly `nmfae*`; those aliases were removed in 0.9.8) |
 | `nmfkc.rank()` | Rank selection via elbow, cross-validation, ECV, and CPCC |
 | `nmfkc.inference()` | Sandwich SE and wild bootstrap p-values for `nmfkc` |
-| `nmfkc.DOT()` / `nmfkc.ar.DOT()` / `nmf.ffb.DOT()` / `nmfae.DOT()` | Graphviz path diagrams; render with `plot()` |
+| `nmfkc.DOT()` / `nmfkc.ar.DOT()` / `nmf.ffb.DOT()` / `nmf.rrr.DOT()` | Graphviz path diagrams; render with `plot()` |
 
 S3 methods `coef()`, `fitted()`, `residuals()`, `plot()`, `summary()`, `predict()` are available for all model classes. See `?nmfkc` or `browseVignettes("nmfkc")` for the full function list.
 

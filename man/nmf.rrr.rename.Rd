@@ -7,7 +7,7 @@
 nmf.rrr.rename(x, X1.colnames = NULL, X2.rownames = NULL)
 }
 \arguments{
-\item{x}{An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.}
+\item{x}{An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.}
 
 \item{X1.colnames}{Character vector of length \eqn{Q} for decoder bases
 (columns of \eqn{X_1} / rows of \eqn{\Theta}).  If \code{NULL}

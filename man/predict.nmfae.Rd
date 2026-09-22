@@ -7,7 +7,7 @@
 \method{predict}{nmfae}(object, newY2 = NULL, Y1 = NULL, type = c("response", "class"), ...)
 }
 \arguments{
-\item{object}{An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.}
+\item{object}{An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.}
 
 \item{newY2}{Optional new input matrix (P2 x M) for prediction.
 If \code{NULL}, returns in-sample fitted values.}

@@ -7,9 +7,9 @@
 nmf.rrr.inference(object, Y1, Y2 = Y1, wild.bootstrap = TRUE, ...)
 }
 \arguments{
-\item{object}{An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.}
+\item{object}{An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.}
 
-\item{Y1}{Output matrix \eqn{Y_1} (P1 x N). Must match the data used in \code{nmfae()}.}
+\item{Y1}{Output matrix \eqn{Y_1} (P1 x N). Must match the data used in \code{nmf.rrr()}.}
 
 \item{Y2}{Input matrix \eqn{Y_2} (P2 x N). Default is \code{Y1} (autoencoder).}
 

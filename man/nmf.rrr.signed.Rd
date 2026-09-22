@@ -36,7 +36,7 @@ Default \code{1e-4}.}
 \item{...}{Additional arguments:
 \describe{
 \item{\code{warm.start}}{One of \code{TRUE} (default, \strong{hybrid}:
-warm-start \eqn{X_1, X_2} from \code{\link{nmfae}} but initialize
+warm-start \eqn{X_1, X_2} from \code{\link{nmf.rrr}} but initialize
 \eqn{C_{+}, C_{-}} randomly), \code{"full"} (warm-start everything
 including \eqn{C_{+} = C_{\mathrm{tri}}}, \eqn{C_{-} = \delta}),
 or \code{FALSE} (random for all blocks).  The hybrid default avoids
@@ -64,7 +64,7 @@ orthogonality penalties (default 0) on the \strong{columns} of
 \eqn{X_1} and the \strong{rows} of \eqn{X_2}, penalizing
 \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_1^\top X_1)\rVert^2} and
 \eqn{(\lambda/2)\lVert\mathrm{offdiag}(X_2 X_2^\top)\rVert^2}
-respectively.  Same convention as \code{\link{nmfae}}; encourage
+respectively.  Same convention as \code{\link{nmf.rrr}}; encourage
 more distinct (less overlapping) response / covariate bases.}
 \item{\code{C.L2}}{Non-negative ridge penalty (default 0) on the signed
 bottleneck \eqn{C = C_{+} - C_{-}}, adding
@@ -78,7 +78,7 @@ zero (with zero gradient on the unidentified common mode
 becomes \eqn{\sum W_{ij} \, (Y_{1,ij} - \hat Y_{1,ij})^2}
 (\code{lm()}-style, \strong{linear} in \eqn{W}).  Logical
 matrices (\code{TRUE} / \code{FALSE}) are also accepted.
-Used by \code{\link{nmfae.signed.ecv}} to hold out test
+Used by \code{\link{nmf.rrr.signed.ecv}} to hold out test
 elements via a binary mask \eqn{W \in \{0,1\}}; real-valued
 weights for importance weighting are also supported.  Default:
 if \code{Y1} has \code{NA}, a binary mask is auto-generated
@@ -152,7 +152,7 @@ monotonically decreases the true objective
 \eqn{\|Y_1 - X_1(C_{+} - C_{-})X_2 Y_2\|_F^2} (Lee-Seung auxiliary
 function method).
 
-\strong{Relation to \code{\link{nmfae}}:} When \eqn{\Theta \ge 0} suffices
+\strong{Relation to \code{\link{nmf.rrr}}:} When \eqn{\Theta \ge 0} suffices
 (the \code{nmfae} case), \code{nmfae.signed} reduces to \code{nmfae} up to
 the \eqn{C_{+} - C_{-}} parameterization.  Use \code{nmfae.signed} when the
 data exhibit negative cross-property correlations that tri-NMF-AE cannot

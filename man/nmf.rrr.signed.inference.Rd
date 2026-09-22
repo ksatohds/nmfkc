@@ -41,7 +41,7 @@ Post-estimation inference for the \strong{signed} bottleneck
 \eqn{\Theta = C_{+} - C_{-}} in the Signed-Bottleneck NMF-AE model
 \eqn{Y_1 \approx X_1 \Theta X_2 Y_2}, conditional on
 \eqn{(\hat X_1, \hat X_2)}.  Uses sandwich covariance and wild bootstrap
-\strong{without} the non-negativity projection that \code{\link{nmfae.inference}}
+\strong{without} the non-negativity projection that \code{\link{nmf.rrr.inference}}
 applies (because \eqn{\Theta} is unconstrained in sign here).
 }
 \section{Lifecycle}{

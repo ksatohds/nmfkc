@@ -71,7 +71,7 @@ the penalty term \eqn{\lambda_X \lVert X^\top X - \mathrm{diag}(X^\top X)
 \item{C1.L1}{L1 sparsity penalty for \code{C1} (i.e., \eqn{\Theta_1}).
 Default: \code{1.0}.  \strong{Scale note}: this function adds
 \code{C1.L1} to the multiplicative denominator, whereas
-\code{\link{nmfkc}}, \code{\link{nmfae}} and \code{\link{nmfkc.net}} add
+\code{\link{nmfkc}}, \code{\link{nmf.rrr}} and \code{\link{nmfkc.net}} add
 \code{C.L1 / 2}.  The same nominal value is therefore twice as strong
 here.  The difference is retained so that published \code{nmf.ffb} fits
 reproduce; halve the value to match the other models.}

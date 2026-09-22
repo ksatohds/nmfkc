@@ -36,7 +36,7 @@ determined via \code{\link{nmfkc.kernel.beta.nearest.med}}.}
 \item{...}{Additional arguments. Kernel-specific args (\code{kernel}, \code{degree})
 are passed to \code{\link{nmfkc.kernel}}; all others
 (\code{div}, \code{seed}, \code{shuffle}, \code{epsilon}, \code{maxit}, etc.)
-are passed to \code{\link{nmfae.cv}}. Also accepts \code{cores} to evaluate
+are passed to \code{\link{nmf.rrr.cv}}. Also accepts \code{cores} to evaluate
 the candidate \code{beta} values in parallel (default
 \code{getOption("mc.cores", 1L)}); each inner CV then runs sequentially, and
 because results are gathered in order the selected \code{beta} is identical
@@ -54,7 +54,7 @@ A list with components:
 }
 \description{
 \code{nmfae.kernel.beta.cv} selects the optimal \code{beta} parameter of the
-kernel function by evaluating \code{\link{nmfae.cv}} for each candidate value.
+kernel function by evaluating \code{\link{nmf.rrr.cv}} for each candidate value.
 The kernel matrix \eqn{A = K(U, V; \beta)} replaces \eqn{Y_2} in the three-layer
 NMF model.
 

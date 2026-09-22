@@ -7,7 +7,7 @@
 \method{plot}{nmfae.cv}(x, ...)
 }
 \arguments{
-\item{x}{An object of class \code{"nmfae.cv"} returned by \code{\link{nmfae.cv}}.}
+\item{x}{An object of class \code{"nmfae.cv"} returned by \code{\link{nmf.rrr.cv}}.}
 
 \item{...}{Additional graphical parameters passed to \code{barplot}.}
 }
@@ -16,7 +16,7 @@ Invisible \code{NULL}. Called for its side effect (plot).
 }
 \description{
 Displays a bar chart of per-fold cross-validation errors from
-\code{\link{nmfae.cv}}. The overall RMSE (sigma) is shown in the title.
+\code{\link{nmf.rrr.cv}}. The overall RMSE (sigma) is shown in the title.
 }
 \seealso{
 \code{\link{nmf.rrr.cv}}

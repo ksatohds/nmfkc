@@ -1,5 +1,21 @@
 # nmfkc (development version)
 
+## The deprecated `nmfae*` names are removed
+
+The fifteen `nmfae*` / `nmfae.signed*` forwarders are gone: `nmfae()`,
+`nmfae.inference()`, `nmfae.ecv()`, `nmfae.cv()`, `nmfae.rank()`,
+`nmfae.DOT()`, `nmfae.heatmap()`, `nmfae.kernel.beta.cv()`, `nmfae.rename()`
+and their six `nmfae.signed*` counterparts. Use the `nmf.rrr*` /
+`nmf.rrr.signed*` names, which they forwarded to. Deprecated in 0.8.8, carried
+through two CRAN releases with a `.Deprecated()` note.
+
+**The `nmfae` S3 classes stay.** They are where this family's methods are
+defined, `nmf.rrr()` still returns `c("nmf.rrr", "nmfae", "nmf")`, and
+`summary()` still returns `"summary.nmfae"`. Nothing about dispatch changes, so
+code that inspects the class of a fit, and objects saved by an earlier version,
+keep working. Renaming that layer to `nmf.rrr` is a separate change, for a
+release that is not three days from a submission.
+
 ## The deprecated `nmf.sem*` names are removed
 
 `nmf.sem()`, `nmf.sem.inference()`, `nmf.sem.cv()`, `nmf.sem.split()` and

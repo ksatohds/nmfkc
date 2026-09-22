@@ -27,8 +27,8 @@ eff.rank only, and recommends the R-squared elbow).}
 
 \item{plot}{Logical; draw the diagnostics plot (default \code{TRUE}).}
 
-\item{...}{Passed on to \code{\link{nmfae.signed}} and
-\code{\link{nmfae.signed.ecv}}. Also accepts \code{cores} to evaluate the
+\item{...}{Passed on to \code{\link{nmf.rrr.signed}} and
+\code{\link{nmf.rrr.signed.ecv}}. Also accepts \code{cores} to evaluate the
 rank sweep (and the element-wise CV) in parallel; default
 \code{getOption("mc.cores", 1L)}. Each rank is an independent self-seeded
 fit and results are gathered in order, so the output is identical for any
@@ -42,12 +42,12 @@ A list with \code{rank.best} and \code{criteria}
 \code{r.squared}, \code{sigma.ecv}).
 }
 \description{
-Fits \code{\link{nmfae.signed}} with a \strong{paired} decoder/encoder
+Fits \code{\link{nmf.rrr.signed}} with a \strong{paired} decoder/encoder
 rank (\eqn{Q = R}) across a range of ranks and reports
 \code{r.squared}, the effective rank (of the latent encoding \eqn{H}),
 and the element-wise CV error \code{sigma.ecv}, with the same concise
 plot as \code{\link{nmfkc.rank}}.  For a full \eqn{(Q, R)} grid use
-\code{\link{nmfae.signed.ecv}}.
+\code{\link{nmf.rrr.signed.ecv}}.
 }
 \references{
 Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
