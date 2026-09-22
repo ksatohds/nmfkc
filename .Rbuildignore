@@ -35,3 +35,4 @@
 ^vignettes/nmf-re-with-nmfkc\.Rmd$
 ^vignettes/nmf-rrr-with-nmfkc\.Rmd$
 ^vignettes/nmf-ffb-with-nmfkc\.Rmd$
+^tests/testthat/testthat-problems\.rds$
