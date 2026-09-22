@@ -11,3 +11,6 @@ inst/doc
 .claude/settings.local.json
 nmfkc-manual.pdf
 Rplots.pdf
+
+# testthat writes this when a test fails; it is a work file, not a fixture
+testthat-problems.rds
