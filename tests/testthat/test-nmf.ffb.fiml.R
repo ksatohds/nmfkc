@@ -27,7 +27,9 @@ test_that("nmf.ffb(method = 'fiml') fits, returns the legacy and the new fields,
   d <- make_ffb_data()
   fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
 
-  expect_s3_class(fit, "nmf.ffb"); expect_s3_class(fit, "nmf.sem")
+  expect_s3_class(fit, "nmf.ffb")
+  ## the legacy "nmf.sem" class was dropped in 0.9.8 along with the aliases
+  expect_false(inherits(fit, "nmf.sem"))
   expect_identical(fit$method, "fiml")
   expect_true(all(legacy_fields %in% names(fit)))
   expect_true(all(fiml_fields %in% names(fit)))

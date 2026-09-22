@@ -1005,7 +1005,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   ## abs(rnorm(N*Q)) * 0.1, since pre-v0.6.8 nmfkc.net() used this form.
   ## Other strings ("kmeans", "kmeansar", "nndsvd", "runif") delegate to
   ## the shared .init_X_method() helper for consistency with nmfkc() /
-  ## nmf.sem().
+  ## nmf.ffb().
   for (s in seq_len(nstart)) {
     s_seed <- seed + 7919L * (s - 1L)
     if (explicit_X) {

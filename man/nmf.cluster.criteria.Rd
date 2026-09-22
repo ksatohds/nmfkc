@@ -12,13 +12,12 @@ nmf.cluster.criteria(fits, Y, Y2 = NULL, names = NULL, plot = TRUE, ...)
 wrapped automatically).  Supported families: \code{\link{nmfkc}},
 \code{\link{nmfkc.signed}}, \code{\link{nmfae}}, \code{nmfae.signed},
 \code{\link{nmfkc.net}}, \code{\link{nmfre}}, and
-\code{\link{nmf.sem}} / \code{nmf.ffb}.}
+\code{\link{nmf.ffb}}.}
 
 \item{Y}{The original data matrix used to fit the models (\eqn{Y_1}
 for \code{nmf.ffb}); required for the data-space distances.}
 
-\item{Y2}{Exogenous block, required only for \code{nmf.ffb} /
-\code{nmf.sem}.}
+\item{Y2}{Exogenous block, required only for \code{nmf.ffb}.}
 
 \item{names}{Optional character vector (length \code{length(fits)}) of
 x-axis tick labels.  Defaults to each result's \code{$rank}.}

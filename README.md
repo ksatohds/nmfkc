@@ -84,7 +84,7 @@ $$Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)$$
 |:---|:---|
 | `nmfkc()` | Core NMF with covariates ($Y \approx XCA$); supports kernel matrices and formula interface |
 | `nmfre()` / `nmfre.inference()` | NMF with Random Effects + wild bootstrap inference |
-| `nmf.ffb()` / `nmf.ffb.inference()` | NMF Feed-Forward + Feedback model (formerly `nmf.sem*`, retained as alias): basis from `nmfkc()`, then FIML with an exclusion restriction, L1 path and BIC selection of the feedback (`method = "fiml"`, default; legacy `method = "mu"`) + parametric-bootstrap calibration of the LR test and coefficient intervals |
+| `nmf.ffb()` / `nmf.ffb.inference()` | NMF Feed-Forward + Feedback model (formerly `nmf.sem*`; those aliases were removed in 0.9.8): basis from `nmfkc()`, then FIML with an exclusion restriction, L1 path and BIC selection of the feedback (`method = "fiml"`, default; legacy `method = "mu"`) + parametric-bootstrap calibration of the LR test and coefficient intervals |
 | `nmfae()` / `nmfae.inference()` | NMF Autoencoder + inference |
 | `nmfkc.rank()` | Rank selection via elbow, cross-validation, ECV, and CPCC |
 | `nmfkc.inference()` | Sandwich SE and wild bootstrap p-values for `nmfkc` |

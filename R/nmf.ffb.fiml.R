@@ -3,7 +3,7 @@
 #
 # Internal engine behind nmf.ffb(method = "fiml") and the fiml branch of
 # nmf.ffb.inference().  Nothing in this file is exported; the user-facing
-# wrappers live in R/nmf.sem.R.
+# wrappers live in R/nmf.ffb.R.
 #
 # Model (conditional on a fixed non-negative, column-stochastic basis X,
 # P1 x Q, estimated in a first stage by nmfkc(Y1, A = Y2)):
@@ -454,7 +454,7 @@
 #'
 #' Stage 1 estimates the basis with \code{\link{nmfkc}} (unless \code{X} is
 #' supplied); stage 2 runs \code{.ffb.fiml.pipeline} conditional on it and
-#' assembles an object of class \code{c("nmf.ffb", "nmf.sem", "nmf")} with the
+#' assembles an object of class \code{c("nmf.ffb", "nmf")} with the
 #' legacy fields plus the likelihood fields.  See \code{\link{nmf.ffb}}.
 #' @keywords internal
 #' @noRd
@@ -594,7 +594,7 @@
   ## the fit lies in the unidentified factor-level family (see nmf.ffb.diagnostics()).
   out$cycles <- .ffb.fiml.cycles(Xb, fs$T1)      # Xb, not the (possibly NULL) X argument
   out$omega <- .ffb.fiml.omega(Xb, fs$T1, fs$psi, M1)
-  base::class(out) <- c("nmf.ffb", "nmf.sem", "nmf")
+  base::class(out) <- c("nmf.ffb", "nmf")
   out
 }
 
@@ -975,8 +975,6 @@
   object$C1.ci.lower <- C1.ci.lower; object$C1.ci.upper <- C1.ci.upper
   object$C2.ci.lower <- C2.ci.lower; object$C2.ci.upper <- C2.ci.upper
   object$coefficients <- coefficients
-  if (!base::inherits(object, "nmf.sem.inference"))
-    base::class(object) <- c("nmf.sem.inference", base::class(object))
   if (!base::inherits(object, "nmf.ffb.inference"))
     base::class(object) <- c("nmf.ffb.inference", "nmf.inference", base::class(object))
   object

@@ -1,6 +1,6 @@
 # nmf.ffb.R — NMF-FFB (formerly NMF-SEM) canonical engines + generic DOT
 # Canonical:  nmf.ffb, nmf.ffb.inference, nmf.ffb.cv, nmf.ffb.split, nmf.ffb.DOT
-#             (deprecated nmf.sem* aliases live in nmf.sem-deprecated.R).
+#             (the deprecated nmf.sem* aliases were removed in 0.9.8).
 # Also hosts: nmfkc.DOT / plot.nmfkc.DOT (shared DOT utilities).
 
 #------------------------------------------------------------------------------
@@ -195,15 +195,15 @@
 #'       \code{\link{nmfkc}}(Y1, A = Y2) fit is used as baseline.
 #'       Possible values:
 #'       \itemize{
-#'         \item Default (not given) — \code{nmf.sem} runs
+#'         \item Default (not given) — \code{nmf.ffb} runs
 #'           \code{\link{nmfkc}} \strong{internally} when \code{X.init}
 #'           is a string method (\code{"nndsvd"}, \code{"kmeans"},
 #'           \dots) or \code{NULL}, forwarding \code{X.init},
 #'           \code{X.L2.ortho}, \code{epsilon}, \code{maxit},
 #'           \code{seed}.  The fitted \eqn{X} of the baseline is then
-#'           used as warm-start for the nmf.sem MU iterations, and
+#'           used as warm-start for the nmf.ffb MU iterations, and
 #'           \code{SC.map} is computed.  This means
-#'           \code{nmf.sem(Y1, Y2, rank = Q)} runs end-to-end without
+#'           \code{nmf.ffb(Y1, Y2, rank = Q)} runs end-to-end without
 #'           a prior \code{nmfkc} call.
 #'         \item \code{TRUE} — same as above, but force the internal
 #'           \code{\link{nmfkc}} call even when \code{X.init} is a
@@ -221,7 +221,7 @@
 #'     \item{\code{Q}}{Backward-compat alias for \code{rank}.}
 #'   }
 #'
-#' @return An object of class \code{c("nmf.ffb", "nmf.sem", "nmf")}, a list
+#' @return An object of class \code{c("nmf.ffb", "nmf")}, a list
 #'   with components:
 #'   \item{X}{Estimated basis matrix (\eqn{P_1 \times Q}).}
 #'   \item{C1}{Estimated latent feedback matrix (\eqn{\Theta_1}, \eqn{Q \times P_1});
@@ -319,7 +319,7 @@
 #'
 #' @seealso \code{\link{nmf.ffb.inference}}, \code{\link{nmf.ffb.cv}},
 #'   \code{\link{nmf.ffb.split}}, \code{\link{nmf.ffb.DOT}},
-#'   \code{\link{summary.nmf.sem}}
+#'   \code{\link{summary.nmf.ffb}}
 #' @references
 #' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
 #'   to structural equation modeling for blind input-output analysis.
@@ -458,7 +458,7 @@ nmf.ffb <- function(
   ##     X.L2.ortho, epsilon, maxit, seed; use its X as warm-start
   ##     and X * C as M.simple for SC.map.  This is the typical
   ##     workflow described in Satoh (2025) and means
-  ##       res <- nmf.sem(Y1, Y2, rank = Q)
+  ##       res <- nmf.ffb(Y1, Y2, rank = Q)
   ##     can run end-to-end without first calling nmfkc().
   ##   * TRUE: same as above (explicit opt-in even when X.init is a
   ##     user-supplied matrix; the matrix is overridden by nmfkc's X).
@@ -493,7 +493,7 @@ nmf.ffb <- function(
 
   if (auto_nmfkc) {
     ## Internal nmfkc call.  Forward only the genuinely shared options
-    ## (X.init, X.L2.ortho, epsilon, maxit, seed); the nmf.sem-specific
+    ## (X.init, X.L2.ortho, epsilon, maxit, seed); the nmf.ffb-specific
     ## C1.L1 / C2.L1 do not apply to the feedforward baseline model.
     nmfkc_xinit <- if (is.null(X.init)) "nndsvd" else X.init
     baseline_for_scmap <- nmfkc(
@@ -506,7 +506,7 @@ nmf.ffb <- function(
       verbose = FALSE,
       print.dims = FALSE
     )
-    ## Override X.init with the nmfkc-fitted X for nmf.sem warm-start
+    ## Override X.init with the nmfkc-fitted X for nmf.ffb warm-start
     X.init <- baseline_for_scmap$X
   } else if (baseline_is_obj) {
     baseline_for_scmap <- user_baseline
@@ -719,10 +719,7 @@ nmf.ffb <- function(
     converged           = !(it == maxit && exists("epsilon_iter") &&
                             epsilon_iter > abs(epsilon))
   )
-  ## Carry both the canonical NMF-FFB class (paper-aligned, primary) and
-  ## the legacy "nmf.sem" class (back-compat).  S3 methods registered on
-  ## either class are dispatched correctly via inheritance.
-  class(out) <- c("nmf.ffb", "nmf.sem", "nmf")
+  class(out) <- c("nmf.ffb", "nmf")
   out
 }
 
@@ -768,7 +765,7 @@ nmf.ffb <- function(
 #'     \eqn{(i_1, \dots, i_N)} with replacement from \eqn{\{1, \dots, N\}}
 #'     and form \eqn{Y_1^{(b)} = Y_1[, i]}, \eqn{Y_2^{(b)} = Y_2[, i]}.
 #'   \item Re-estimate \eqn{(C_1^{(b)}, C_2^{(b)})} by running the
-#'     \code{\link{nmf.sem}} multiplicative updates \emph{with \eqn{X = \hat X}
+#'     \code{\link{nmf.ffb}} multiplicative updates \emph{with \eqn{X = \hat X}
 #'     held fixed} (no \eqn{X} update; no centroid sort), using the same
 #'     \code{C1.L1}, \code{C2.L1} as the original fit.
 #'   \item Discard replicates that violate stationarity
@@ -913,7 +910,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
                                seed = 123L,
                                ...) {
   if (is.null(object$X) || is.null(object$C1) || is.null(object$C2))
-    stop("object must contain X, C1, and C2 (returned by nmf.sem).")
+    stop("object must contain X, C1, and C2 (returned by nmf.ffb).")
   ## Renamed in 0.9.8; through `...` it would be dropped and the default used.
   if ("ci.level" %in% names(match.call()))
     stop("`ci.level` was renamed to `boot.level` in 0.9.8.", call. = FALSE)
@@ -1207,13 +1204,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   object$C2.ci.upper          <- C2.ci.upper
   object$coefficients         <- coefficients
 
-  ## Add NMF-FFB inference class on top of the legacy SEM class.
   ## Final class vector for a typical input:
-  ##   c("nmf.ffb.inference", "nmf.sem.inference", "nmf.ffb", "nmf.sem")
-  ## Existing S3 methods (e.g. summary.nmf.sem) still dispatch via
-  ## inheritance.
-  if (!inherits(object, "nmf.sem.inference"))
-    class(object) <- c("nmf.sem.inference", class(object))
+  ##   c("nmf.ffb.inference", "nmf.inference", "nmf.ffb", "nmf")
   if (!inherits(object, "nmf.ffb.inference"))
     ## "nmf.inference" too, so print() reaches print.nmf.inference -> the
     ## coefficient table.  Without it the class chain ended at "nmf" and
@@ -1228,7 +1220,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #' Performs K-fold cross-validation to evaluate the equilibrium mapping of
 #' the NMF-FFB model.
 #'
-#' For each fold, \code{nmf.sem} is fitted on the training samples,
+#' For each fold, \code{nmf.ffb} is fitted on the training samples,
 #' yielding an equilibrium mapping \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.
 #' The held-out endogenous variables \eqn{Y_1} are then predicted from \eqn{Y_2}
 #' using this mapping, and the mean absolute error (MAE) over all entries in the
@@ -1256,19 +1248,19 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #' @param Y2 A non-negative numeric matrix of exogenous variables with
 #'   \strong{rows = variables (P2), columns = samples (N)}.
 #'   Must satisfy \code{ncol(Y1) == ncol(Y2)}.
-#' @param rank Integer; rank (number of latent factors) passed to \code{nmf.sem}.
-#'   If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \code{nrow(Y2)}).
+#' @param rank Integer; rank (number of latent factors) passed to \code{nmf.ffb}.
+#'   If \code{NULL}, \code{nmf.ffb} decides the effective rank (via \code{...} or \code{nrow(Y2)}).
 #' @param X.init Initialization strategy for \code{X}, forwarded to
-#'   \code{\link{nmf.sem}}.  One of \code{"nndsvd"} (default),
+#'   \code{\link{nmf.ffb}}.  One of \code{"nndsvd"} (default),
 #'   \code{"kmeans"}, \code{"kmeansar"}, \code{"runif"}, a numeric
 #'   \eqn{P_1 \times Q} matrix, or \code{NULL} (alias for
-#'   \code{"nndsvd"}).  See \code{\link{nmf.sem}} for details.
+#'   \code{"nndsvd"}).  See \code{\link{nmf.ffb}} for details.
 #' @param X.L2.ortho L2 orthogonality penalty for \code{X}.
 #' @param C1.L1 L1 sparsity penalty for \code{C1} (\eqn{\Theta_1}).
 #' @param C2.L1 L1 sparsity penalty for \code{C2} (\eqn{\Theta_2}).
-#' @param epsilon Convergence threshold for \code{nmf.sem}.
-#' @param maxit Maximum number of iterations for \code{nmf.sem}.
-#' @param ... Additional arguments passed to \code{nmf.sem} (except for
+#' @param epsilon Convergence threshold for \code{nmf.ffb}.
+#' @param maxit Maximum number of iterations for \code{nmf.ffb}.
+#' @param ... Additional arguments passed to \code{nmf.ffb} (except for
 #'   \code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 #'   \code{seed} (master random seed, default \code{NULL}),
@@ -1367,12 +1359,12 @@ nmf.ffb.cv <- function(
   }
 
   # ------------------------------------------------------------------
-  # 2. Handle extra arguments for nmf.sem
+  # 2. Handle extra arguments for nmf.ffb
   #
   # We collect additional arguments in 'extra_args' but explicitly remove
   # those that are managed at the CV level:
-  #   - div, shuffle : used only here, not passed to nmf.sem.
-  #   - rank        : passed explicitly from nmf.sem.cv.
+  #   - div, shuffle : used only here, not passed to nmf.ffb.
+  #   - rank        : passed explicitly from nmf.ffb.cv.
   #   - seed        : fold-specific seeds are generated here.
   # ------------------------------------------------------------------
   extra_args <- list(...)
@@ -1395,10 +1387,10 @@ nmf.ffb.cv <- function(
   #
   # If a master 'seed' is given:
   #   - it is used to define the CV partition (sample permutation),
-  #   - independent seeds for each nmf.sem run are drawn.
+  #   - independent seeds for each nmf.ffb run are drawn.
   # If 'seed' is NULL:
   #   - CV partition uses the current RNG state,
-  #   - nmf.sem runs use whatever the global RNG state is at call time.
+  #   - nmf.ffb runs use whatever the global RNG state is at call time.
   # ------------------------------------------------------------------
   if (!is.null(seed)) {
     set.seed(seed)
@@ -1411,7 +1403,7 @@ nmf.ffb.cv <- function(
     perm_index <- seq_len(N)
   }
 
-  # Per-fold seeds for nmf.sem (optional, only if master seed specified)
+  # Per-fold seeds for nmf.ffb (optional, only if master seed specified)
   if (!is.null(seed)) {
     seeds_fold <- sample.int(.Machine$integer.max, div)
   } else {
@@ -1451,7 +1443,7 @@ nmf.ffb.cv <- function(
   # For each fold j:
   #   - train on all samples not in fold j,
   #   - test on samples in fold j,
-  #   - fit nmf.sem on training data,
+  #   - fit nmf.ffb on training data,
   #   - compute MAE on test block from equilibrium mapping M.model.
   # ------------------------------------------------------------------
   # Per-fold task. The partition 'block' and per-fold seeds 'seeds_fold' are
@@ -1468,11 +1460,11 @@ nmf.ffb.cv <- function(
     Y2_train <- Y2[, train_idx, drop = FALSE]
     Y2_test  <- Y2[, test_idx,  drop = FALSE]
 
-    # Fold-specific seed for nmf.sem
+    # Fold-specific seed for nmf.ffb
     seed_j <- if (!is.null(seed)) seeds_fold[j] else NULL
 
-    # Assemble arguments for nmf.sem
-    nmf.sem.args <- c(
+    # Assemble arguments for nmf.ffb
+    ffb_args <- c(
       extra_args,   # User-specified additional arguments (e.g., Q)
       list(
         Y1         = Y1_train,
@@ -1488,11 +1480,11 @@ nmf.ffb.cv <- function(
     )
     # Attach seed only when it is defined
     if (!is.null(seed_j)) {
-      nmf.sem.args$seed <- seed_j
+      ffb_args$seed <- seed_j
     }
 
-    # Call nmf.sem on the training data (suppress messages for cleaner CV output)
-    res_j <- suppressMessages(do.call("nmf.ffb", nmf.sem.args))
+    # Call nmf.ffb on the training data (suppress messages for cleaner CV output)
+    res_j <- suppressMessages(do.call("nmf.ffb", ffb_args))
 
     # If mapping is not usable, penalize this fold (do not crash CV)
     if (is.null(res_j$M.model) || any(!is.finite(res_j$M.model))) {
@@ -1868,14 +1860,14 @@ nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 ############################################################
 
 ############################################################
-## 1. nmf.sem.DOT  (for NMF-FFB visualization)
+## 1. nmf.ffb.DOT  (for NMF-FFB visualization)
 ############################################################
 
 #' Generate a Graphviz DOT Diagram for an NMF-FFB Model
 #'
 #' @description
 #' Creates a Graphviz DOT script that visualizes the structural network
-#' estimated by \code{nmf.sem}.
+#' estimated by \code{nmf.ffb}.
 #' The resulting diagram displays:
 #' \itemize{
 #'   \item endogenous observed variables (\eqn{Y_1}),
@@ -1896,7 +1888,7 @@ nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' in optional visual clusters. Only variables participating in
 #' edges above the threshold are displayed, while latent factors are always shown.
 #'
-#' @param result A list returned by \code{nmf.sem}, containing matrices
+#' @param result A list returned by \code{nmf.ffb}, containing matrices
 #'   \code{X}, \code{C1}, and \code{C2}.
 #' @param weight_scale Base scaling factor for edge widths.
 #' @param weight_scale_c2 Scaling factor for edges
@@ -1931,7 +1923,7 @@ nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' @param sig.level Significance level for filtering structural edges
 #'   (\eqn{C_1} feedback and \eqn{C_2} exogenous loadings) when
 #'   inference results are present.  If \code{result} contains a
-#'   \code{coefficients} data frame from \code{\link{nmf.sem.inference}},
+#'   \code{coefficients} data frame from \code{\link{nmf.ffb.inference}},
 #'   only edges with \code{prob.unsupported < sig.level} are drawn, with
 #'   significance stars (\code{*} \code{**} \code{***}) appended to
 #'   the edge label.  The \eqn{X} (factor-to-\eqn{Y_1}) edges are
@@ -2156,7 +2148,7 @@ nmf.ffb.DOT <- function(result,
 
   ## ---------------------------------------------------------------
   ## Significance stars for C1 (feedback) and C2 (exogenous) edges,
-  ## both from nmf.sem.inference().  X (F -> Y1) edges are NOT
+  ## both from nmf.ffb.inference().  X (F -> Y1) edges are NOT
   ## starred even when inference results are present, since the
   ## basis is not the inference target.
   ##
@@ -2303,7 +2295,7 @@ nmf.ffb.DOT <- function(result,
   }
 
   result <- paste0(dot_script, "}\n")
-  class(result) <- c("nmf.ffb.DOT", "nmf.sem.DOT", "nmfkc.DOT")
+  class(result) <- c("nmf.ffb.DOT", "nmfkc.DOT")
   result
 }
 
@@ -2747,7 +2739,7 @@ nmfkc.DOT <- function(
 #' to the console instead.
 #'
 #' This method handles all DOT objects produced by the nmfkc package:
-#' \code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.sem.DOT}},
+#' \code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.ffb.DOT}},
 #' and \code{\link{nmfkc.ar.DOT}}.
 #'
 #' @param x An object of class \code{"nmfkc.DOT"} (or a subclass thereof).

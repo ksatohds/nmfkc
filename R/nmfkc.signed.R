@@ -556,7 +556,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     Cn <- res0$C[, (D + 1):(2 * D), drop = FALSE]
   } else {
     ## 5b. No warm-start: delegate to the shared .init_X_method() helper
-    ## (same menu as nmfkc() / nmf.sem(): "kmeans", "kmeansar", "nndsvd",
+    ## (same menu as nmfkc() / nmf.ffb(): "kmeans", "kmeansar", "nndsvd",
     ## "runif", or a user-supplied Q_obs x Q matrix).
     if (explicit_X_mat) {
       X <- as.matrix(X.init)
@@ -805,7 +805,7 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     obj_prev <- obj_cur
   }
   ## Warn when the MU loop exhausts maxit without meeting the
-  ## relative-tolerance criterion (matches nmfkc() / nmf.sem() convention).
+  ## relative-tolerance criterion (matches nmfkc() / nmf.ffb() convention).
   ## The non-finite-objective early break above already issued its own
   ## warning, so we additionally guard against double-warning here.
   if (iter == maxit && is.finite(obj_cur) && is.finite(obj_prev) &&

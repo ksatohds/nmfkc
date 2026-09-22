@@ -109,15 +109,15 @@ input-output structural fidelity defined in Satoh (2025) §4.SC.map):
 \code{\link{nmfkc}}(Y1, A = Y2) fit is used as baseline.
 Possible values:
 \itemize{
-\item Default (not given) — \code{nmf.sem} runs
+\item Default (not given) — \code{nmf.ffb} runs
 \code{\link{nmfkc}} \strong{internally} when \code{X.init}
 is a string method (\code{"nndsvd"}, \code{"kmeans"},
 \dots) or \code{NULL}, forwarding \code{X.init},
 \code{X.L2.ortho}, \code{epsilon}, \code{maxit},
 \code{seed}.  The fitted \eqn{X} of the baseline is then
-used as warm-start for the nmf.sem MU iterations, and
+used as warm-start for the nmf.ffb MU iterations, and
 \code{SC.map} is computed.  This means
-\code{nmf.sem(Y1, Y2, rank = Q)} runs end-to-end without
+\code{nmf.ffb(Y1, Y2, rank = Q)} runs end-to-end without
 a prior \code{nmfkc} call.
 \item \code{TRUE} — same as above, but force the internal
 \code{\link{nmfkc}} call even when \code{X.init} is a
@@ -164,7 +164,7 @@ among all candidates proposed along the path is the selected model;
 model and the path is skipped.}
 }
 \value{
-An object of class \code{c("nmf.ffb", "nmf.sem", "nmf")}, a list
+An object of class \code{c("nmf.ffb", "nmf")}, a list
 with components:
 \item{X}{Estimated basis matrix (\eqn{P_1 \times Q}).}
 \item{C1}{Estimated latent feedback matrix (\eqn{\Theta_1}, \eqn{Q \times P_1});
@@ -363,5 +363,5 @@ arXiv:2512.18250. \url{https://arxiv.org/abs/2512.18250}
 \seealso{
 \code{\link{nmf.ffb.inference}}, \code{\link{nmf.ffb.cv}},
 \code{\link{nmf.ffb.split}}, \code{\link{nmf.ffb.DOT}},
-\code{\link{summary.nmf.sem}}
+\code{\link{summary.nmf.ffb}}
 }

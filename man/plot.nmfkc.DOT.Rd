@@ -20,7 +20,7 @@ If the \pkg{DiagrammeR} package is not installed, prints the DOT source
 to the console instead.
 
 This method handles all DOT objects produced by the nmfkc package:
-\code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.sem.DOT}},
+\code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.ffb.DOT}},
 and \code{\link{nmfkc.ar.DOT}}.
 }
 \seealso{

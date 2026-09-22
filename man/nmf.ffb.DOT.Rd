@@ -22,7 +22,7 @@ nmf.ffb.DOT(
 )
 }
 \arguments{
-\item{result}{A list returned by \code{nmf.sem}, containing matrices
+\item{result}{A list returned by \code{nmf.ffb}, containing matrices
 \code{X}, \code{C1}, and \code{C2}.}
 
 \item{weight_scale}{Base scaling factor for edge widths.}
@@ -41,7 +41,7 @@ nmf.ffb.DOT(
 \item{sig.level}{Significance level for filtering structural edges
 (\eqn{C_1} feedback and \eqn{C_2} exogenous loadings) when
 inference results are present.  If \code{result} contains a
-\code{coefficients} data frame from \code{\link{nmf.sem.inference}},
+\code{coefficients} data frame from \code{\link{nmf.ffb.inference}},
 only edges with \code{prob.unsupported < sig.level} are drawn, with
 significance stars (\code{*} \code{**} \code{***}) appended to
 the edge label.  The \eqn{X} (factor-to-\eqn{Y_1}) edges are
@@ -82,7 +82,7 @@ A character string representing a valid Graphviz DOT script.
 }
 \description{
 Creates a Graphviz DOT script that visualizes the structural network
-estimated by \code{nmf.sem}.
+estimated by \code{nmf.ffb}.
 The resulting diagram displays:
 \itemize{
 \item endogenous observed variables (\eqn{Y_1}),

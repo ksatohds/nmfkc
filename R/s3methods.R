@@ -38,7 +38,7 @@
   n_total <- nrow(cf)
   if (is.null(max.coef) || !is.finite(max.coef) || n_total <= max.coef)
     return(list(idx = seq_len(n_total), truncated = FALSE))
-  ## nmfkc-family tables carry a bootstrap p-value; the nmf.ffb / nmf.sem table carries
+  ## nmfkc-family tables carry a bootstrap p-value; the nmf.ffb table carries
   ## `prob.unsupported` instead, because a support rate is not a p-value (CONVENTIONS.md 6).
   p <- if (!is.null(cf$p_value)) cf$p_value
        else if (!is.null(cf$prob.unsupported)) cf$prob.unsupported
@@ -202,7 +202,7 @@ print.nmf <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
 #' @title Plot convergence diagnostics for NMF models
 #' @description
 #' Plots the objective function value over iterations for \code{nmfre} and
-#' \code{nmf.sem} objects. (For \code{nmfkc} and \code{nmfae}, plot methods
+#' \code{nmf.ffb} objects. (For \code{nmfkc} and \code{nmfae}, plot methods
 #' are defined in their respective source files.)
 #'
 #' @param x A fitted model object.
@@ -311,7 +311,7 @@ plot.nmf.ffb <- function(x, ..., which = c("penalized", "reconstruction", "both"
     return(invisible(NULL))
   }
 
-  ## Pick the iteration trace(s) to plot.  Older nmf.sem objects may
+  ## Pick the iteration trace(s) to plot.  Older nmf.ffb objects may
   ## carry only x$objfunc (reconstruction loss); fall back gracefully.
   ## Past the BIC-path branch, a fiml fit has nothing left to draw: there is no
   ## iteration trace, and SC.cov / SC.map are NULL, so the title's round() used to
@@ -374,9 +374,8 @@ plot.nmf.ffb <- function(x, ..., which = c("penalized", "reconstruction", "both"
 #' \code{\link{nmf.ffb.inference}} -- their bootstrap p-values and the
 #' false-selection rate under the null.
 #'
-#' @param object An object of class \code{"nmf.ffb"} (or legacy
-#'   \code{"nmf.sem"}) returned by \code{\link{nmf.ffb}} /
-#'   \code{\link{nmf.sem}}.
+#' @param object An object of class \code{"nmf.ffb"} returned by
+#'   \code{\link{nmf.ffb}}.
 #' @param ... Not used.
 #' @return An object of class \code{"summary.nmf.ffb"} (the fitted model
 #'   tagged for printing); printed by \code{\link{print.summary.nmf.ffb}}.
@@ -389,9 +388,7 @@ plot.nmf.ffb <- function(x, ..., which = c("penalized", "reconstruction", "both"
 #' summary(result)
 #'
 summary.nmf.ffb <- function(object, ...) {
-  ## Both classes, so that a summary object round-trips through code written
-  ## against either name until the nmf.sem alias is removed.
-  class(object) <- c("summary.nmf.ffb", "summary.nmf.sem")
+  class(object) <- "summary.nmf.ffb"
   object
 }
 
@@ -577,10 +574,10 @@ print.summary.nmf.ffb <- function(x, ...) {
 #' If inference has not been run, returns the parameter matrix \eqn{C}
 #' (\eqn{\Theta}) directly.
 #'
-#' For \code{nmf.sem} objects, returns \eqn{C_2} (exogenous block) as fallback.
+#' For \code{nmf.ffb} objects, returns \eqn{C_2} (exogenous block) as fallback.
 #'
 #' @param object A fitted model object of class \code{"nmf"}, \code{"nmfkc"},
-#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.
+#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.ffb"}.
 #' @param ... Not used.
 #' @return A data frame of coefficients (if inference was performed),
 #'   or the parameter matrix \eqn{C}.
@@ -615,11 +612,11 @@ coef.nmf.ffb <- function(object, ...) {
   ## every entry of C1 (feedback) and C2 (exogenous), so the column
   ## layout matches `coef(res_inf)`.  Users can post-hoc filter via
   ## `subset(coef(res), Type == "C1")` regardless of whether
-  ## nmf.sem.inference() has been run.
+  ## nmf.ffb.inference() has been run.
   C1 <- object$C1
   C2 <- object$C2
   if (is.null(C1) || is.null(C2)) {
-    ## Fallback (shouldn't normally happen for an nmf.sem result)
+    ## Fallback (shouldn't normally happen for an nmf.ffb result)
     return(if (!is.null(C2)) C2 else C1)
   }
   Q  <- nrow(C1)
@@ -655,14 +652,14 @@ coef.nmf.ffb <- function(object, ...) {
 #' Returns the reconstructed matrix \eqn{\hat{Y} = X B} from a fitted
 #' NMF model.
 #'
-#' For \code{nmf.sem} objects, returns the equilibrium prediction
+#' For \code{nmf.ffb} objects, returns the equilibrium prediction
 #' \eqn{\hat{Y}_1 = M_{model} Y_2} if available. Supply \code{Y1} and
 #' \code{Y2} to get the direct reconstruction
 #' \eqn{X (C_1 Y_1 + C_2 Y_2)} instead.
 #'
 #' @param object A fitted model object of class \code{"nmf"}, \code{"nmfkc"},
-#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.
-#' @param ... For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.
+#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.ffb"}.
+#' @param ... For \code{nmf.ffb}: optionally \code{Y1} and \code{Y2}.
 #' @return The fitted matrix \eqn{X B}.
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmf.rrr}}, \code{\link{nmfre}},
 #'   \code{\link{nmf.ffb}}, \code{\link{residuals.nmf}}
@@ -779,10 +776,10 @@ residuals.nmfre <- function(object, Y, type = c("blup", "fixed"), ...) {
 #' @rdname residuals.nmf
 #' @export
 residuals.nmf.ffb <- function(object, Y, ...) {
-  ## Delegate to fitted.nmf.sem so residuals use the SAME reconstruction as
+  ## Delegate to fitted.nmf.ffb so residuals use the SAME reconstruction as
   ## fitted (direct if Y1/Y2 given via ..., else the Y2-equilibrium form).
-  ## Y is the observed response block (Y1). nmf.sem/nmf.ffb need Y2 (and,
-  ## for the direct form, Y1) supplied via ... -- see fitted.nmf.sem.
+  ## Y is the observed response block (Y1). nmf.ffb/nmf.ffb need Y2 (and,
+  ## for the direct form, Y1) supplied via ... -- see fitted.nmf.ffb.
   Y - stats::fitted(object, ...)
 }
 

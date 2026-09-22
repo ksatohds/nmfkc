@@ -151,7 +151,7 @@ measurement model''):
 \eqn{(i_1, \dots, i_N)} with replacement from \eqn{\{1, \dots, N\}}
 and form \eqn{Y_1^{(b)} = Y_1[, i]}, \eqn{Y_2^{(b)} = Y_2[, i]}.
 \item Re-estimate \eqn{(C_1^{(b)}, C_2^{(b)})} by running the
-\code{\link{nmf.sem}} multiplicative updates \emph{with \eqn{X = \hat X}
+\code{\link{nmf.ffb}} multiplicative updates \emph{with \eqn{X = \hat X}
 held fixed} (no \eqn{X} update; no centroid sort), using the same
 \code{C1.L1}, \code{C2.L1} as the original fit.
 \item Discard replicates that violate stationarity

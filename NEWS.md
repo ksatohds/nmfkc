@@ -1,5 +1,25 @@
 # nmfkc (development version)
 
+## The deprecated `nmf.sem*` names are removed
+
+`nmf.sem()`, `nmf.sem.inference()`, `nmf.sem.cv()`, `nmf.sem.split()` and
+`nmf.sem.DOT()` are gone, together with the six S3 methods registered on the
+`nmf.sem` classes. Use `nmf.ffb()` and its family; the names map one to one and
+nothing else changes, because the removed functions were pure forwarders
+(`nmf.sem <- function(...) { .Deprecated("nmf.ffb"); nmf.ffb(...) }`).
+
+They were deprecated in 0.8.8 (2026-07-14) and have emitted a `.Deprecated()`
+note through two CRAN releases, 0.8.8 and 0.9.6. No package on CRAN depends on
+`nmfkc`, so nothing else is affected.
+
+Fitted objects no longer carry the legacy class: `nmf.ffb()` now returns
+`c("nmf.ffb", "nmf")` rather than `c("nmf.ffb", "nmf.sem", "nmf")`, inference
+results drop `"nmf.sem.inference"`, `nmf.ffb.DOT()` drops `"nmf.sem.DOT"`, and
+`summary()` returns `"summary.nmf.ffb"` alone. **Code that tests for those class
+strings, and objects saved by an earlier version, will no longer dispatch to
+the `nmf.sem` methods** -- which is the point of removing them, but it is worth
+knowing before loading an old `.rds`.
+
 ## NMF-FFB: the help pages no longer describe options that were removed
 
 `C1.restriction` accepted `"block"` and `"cross"` while the exclusion

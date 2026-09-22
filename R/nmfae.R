@@ -397,7 +397,7 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     }
   }
   ## Warn when the MU loop exhausts maxit without meeting the
-  ## relative-tolerance criterion (matches nmfkc() / nmf.sem() convention).
+  ## relative-tolerance criterion (matches nmfkc() / nmf.ffb() convention).
   if (iter == maxit && exists("rel_change") && rel_change >= epsilon)
     warning(paste0("maximum iterations (", maxit, ") reached..."))
 
@@ -533,7 +533,7 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     sigma = sigma,
     mae = mae,
     niter = niter,
-    iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
+    iter = niter,          # house-style alias (matches nmfre/nmf.ffb/nmfkc.net)
     ## Convergence bookkeeping, matching nmfkc / nmfre so print.nmf() and the
     ## summaries can say whether the run finished or hit the cap -- previously
     ## the two were indistinguishable from the object.

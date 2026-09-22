@@ -25,14 +25,14 @@ nmf.ffb.cv(
 \strong{rows = variables (P2), columns = samples (N)}.
 Must satisfy \code{ncol(Y1) == ncol(Y2)}.}
 
-\item{rank}{Integer; rank (number of latent factors) passed to \code{nmf.sem}.
-If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \code{nrow(Y2)}).}
+\item{rank}{Integer; rank (number of latent factors) passed to \code{nmf.ffb}.
+If \code{NULL}, \code{nmf.ffb} decides the effective rank (via \code{...} or \code{nrow(Y2)}).}
 
 \item{X.init}{Initialization strategy for \code{X}, forwarded to
-\code{\link{nmf.sem}}.  One of \code{"nndsvd"} (default),
+\code{\link{nmf.ffb}}.  One of \code{"nndsvd"} (default),
 \code{"kmeans"}, \code{"kmeansar"}, \code{"runif"}, a numeric
 \eqn{P_1 \times Q} matrix, or \code{NULL} (alias for
-\code{"nndsvd"}).  See \code{\link{nmf.sem}} for details.}
+\code{"nndsvd"}).  See \code{\link{nmf.ffb}} for details.}
 
 \item{X.L2.ortho}{L2 orthogonality penalty for \code{X}.}
 
@@ -40,11 +40,11 @@ If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \co
 
 \item{C2.L1}{L1 sparsity penalty for \code{C2} (\eqn{\Theta_2}).}
 
-\item{epsilon}{Convergence threshold for \code{nmf.sem}.}
+\item{epsilon}{Convergence threshold for \code{nmf.ffb}.}
 
-\item{maxit}{Maximum number of iterations for \code{nmf.sem}.}
+\item{maxit}{Maximum number of iterations for \code{nmf.ffb}.}
 
-\item{...}{Additional arguments passed to \code{nmf.sem} (except for
+\item{...}{Additional arguments passed to \code{nmf.ffb} (except for
 \code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).
 Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 \code{seed} (master random seed, default \code{NULL}),
@@ -64,7 +64,7 @@ stage-1 rank sweep.
 Performs K-fold cross-validation to evaluate the equilibrium mapping of
 the NMF-FFB model.
 
-For each fold, \code{nmf.sem} is fitted on the training samples,
+For each fold, \code{nmf.ffb} is fitted on the training samples,
 yielding an equilibrium mapping \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.
 The held-out endogenous variables \eqn{Y_1} are then predicted from \eqn{Y_2}
 using this mapping, and the mean absolute error (MAE) over all entries in the

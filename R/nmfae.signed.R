@@ -527,7 +527,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     obj_prev <- obj_cur
     }  # end for iter
     ## Warn when the MU loop exhausts maxit without convergence
-    ## (matches nmfkc() / nmf.sem() convention).  Each restart inside
+    ## (matches nmfkc() / nmf.ffb() convention).  Each restart inside
     ## the multi-start loop emits its own warning if it fails to
     ## converge, so users see how many restarts hit the cap.
     if (iter == maxit && exists("rel") && rel >= epsilon)
@@ -685,7 +685,7 @@ nmf.rrr.signed <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     sigma = sigma,
     mae = mae,
     niter = niter,
-    iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
+    iter = niter,          # house-style alias (matches nmfre/nmf.ffb/nmfkc.net)
     ## Convergence bookkeeping, matching the other fitters.  The relative
     ## change lives inside the per-restart worker and is not visible here, so
     ## the verdict is the one thing that is: the MU loop breaks as soon as it

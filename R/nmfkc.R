@@ -799,7 +799,7 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 
 ## Internal: X initialization by named method.
-## Shared across NMF variants (nmfkc, nmf.sem, ...) to avoid duplication
+## Shared across NMF variants (nmfkc, nmf.ffb, ...) to avoid duplication
 ## of the "nndsvd" / "kmeans" / "kmeansar" / "kmeans++" / "runif" dispatch logic.
 ##
 ## @param method  One of "nndsvd", "kmeans", "kmeansar", "kmeans++", "runif".
@@ -1338,21 +1338,21 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' \code{nmfkc}/\code{nmfkc.signed}, \code{H} for \code{nmfae}/
 #' \code{nmfae.signed}, \eqn{X^\top} for \code{nmfkc.net} (node
 #' membership), the BLUP scores for \code{nmfre}, and
-#' \eqn{C_1 Y_1 + C_2 Y_2} for \code{nmf.ffb}/\code{nmf.sem} (which needs
+#' \eqn{C_1 Y_1 + C_2 Y_2} for \code{nmf.ffb} (which needs
 #' the exogenous block \code{Y2}).
 #' @param object A fitted MU model.
 #' @param Y The data matrix passed to \code{\link{nmf.cluster.criteria}} (used as
 #'   \eqn{Y_1} for \code{nmf.ffb}).
-#' @param Y2 Exogenous block, required only for \code{nmf.ffb}/\code{nmf.sem}.
+#' @param Y2 Exogenous block, required only for \code{nmf.ffb}.
 #' @return A \eqn{Q \times N} numeric matrix.
 #' @keywords internal
 #' @noRd
 .nmf.cluster.criteria.coef <- function(object, Y, Y2 = NULL) {
   if (base::inherits(object, "nmfkc.net")) return(base::t(object$X))
   if (base::inherits(object, "nmfae"))     return(.nmfae.B1(object))
-  if (base::inherits(object, c("nmf.ffb", "nmf.sem"))) {
+  if (base::inherits(object, "nmf.ffb")) {
     if (base::is.null(Y2))
-      base::stop("For nmf.ffb / nmf.sem, also pass the exogenous block via Y2=.",
+      base::stop("For nmf.ffb, also pass the exogenous block via Y2=.",
                  call. = FALSE)
     return(object$C1 %*% base::as.matrix(Y) + object$C2 %*% base::as.matrix(Y2))
   }
@@ -1386,11 +1386,10 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   wrapped automatically).  Supported families: \code{\link{nmfkc}},
 #'   \code{\link{nmfkc.signed}}, \code{\link{nmfae}}, \code{nmfae.signed},
 #'   \code{\link{nmfkc.net}}, \code{\link{nmfre}}, and
-#'   \code{\link{nmf.sem}} / \code{nmf.ffb}.
+#'   \code{\link{nmf.ffb}}.
 #' @param Y The original data matrix used to fit the models (\eqn{Y_1}
 #'   for \code{nmf.ffb}); required for the data-space distances.
-#' @param Y2 Exogenous block, required only for \code{nmf.ffb} /
-#'   \code{nmf.sem}.
+#' @param Y2 Exogenous block, required only for \code{nmf.ffb}.
 #' @param names Optional character vector (length \code{length(fits)}) of
 #'   x-axis tick labels.  Defaults to each result's \code{$rank}.
 #' @param plot Logical; draw the diagnostics plot immediately
@@ -2988,7 +2987,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     rank      = Q,
     objfunc   = objfunc,
     objfunc.iter = objfunc.iter,
-    ## `iter` is the house name (nmfae / nmfre / nmf.sem / nmfkc.net all use
+    ## `iter` is the house name (nmfae / nmfre / nmf.ffb / nmfkc.net all use
     ## it); nmfkc simply never recorded it.  It is the actual number of MU
     ## iterations -- objfunc.iter is trimmed to [10:end] for plotting, so its
     ## length under-reports by 9.  Whether the run converged or merely hit
