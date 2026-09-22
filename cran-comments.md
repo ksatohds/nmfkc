@@ -85,4 +85,4 @@ win-builder reports 126 seconds for this submission, against 232 for 0.9.6.
 
 ## On the submission interval
 
-v0.9.6 was published on 2026-08-25, one month ago.
+v0.9.6 was published on 2026-08-25.
