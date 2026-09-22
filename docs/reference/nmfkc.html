@@ -23,7 +23,7 @@ The rank of the basis matrix can be specified using either the rank argument
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,9 +38,10 @@ The rank of the basis matrix can be specified using either the rank argument
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-ffb-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-gmm-with-nmfkc.html">NMF-GMM: Covariate-Adjusted Model-Based Clustering with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
@@ -97,6 +98,21 @@ Supports dot notation (<code>. ~ A1 + A2</code>) when <code>data</code> is suppl
 
 <dt id="arg-a">A<a class="anchor" aria-label="anchor" href="#arg-a"></a></dt>
 <dd><p>Covariate matrix. Default is <code>NULL</code> (no covariates).
+For large \(N\), <code>A</code> may instead be a Gram object of class
+<code>"nmfkc.gram"</code> from <code><a href="nmfkc.kernel.gram.html">nmfkc.kernel.gram</a></code> (block-wise
+Nystr\"om kernel covariates), which holds only \(S = AA^\top\)
+(\(D \times D\)) and \(G_0 = YA^\top\) (\(P \times D\)) so that
+the \(D \times N\) matrix never has to exist in memory.  The
+Euclidean multiplicative updates are unchanged (they only use those
+two products) and the fit equals the explicit-matrix fit up to
+floating-point summation order.  Gram input is restricted to
+<code>method = "EU"</code> without <code>Y.weights</code> or <code>NA</code> in
+<code>Y</code>; <code>B</code>, <code>XB</code> and the fit statistics are rebuilt
+block by block after the fit; and the resampling helpers
+(<code><a href="nmfkc.cv.html">nmfkc.cv</a></code>, <code><a href="nmfkc.ecv.html">nmfkc.ecv</a></code>,
+<code><a href="nmfkc.rank.html">nmfkc.rank</a></code>) do not accept it.  Gram objects built from
+signed features (<code><a href="nmfkc.signed.rff.gram.html">nmfkc.signed.rff.gram</a></code>) are refused
+here; they belong to <code><a href="nmfkc.signed.html">nmfkc.signed</a></code>.
 Ignored when <code>Y</code> is a formula.</p></dd>
 
 
@@ -239,7 +255,42 @@ pinned down, which inference on the latent parameters needs to know.</p></dd>
 <dd><p>Final objective value.</p></dd>
 
 <dt>objfunc.iter</dt>
-<dd><p>Objective values by iteration.</p></dd>
+<dd><p>Objective values by iteration.  The trace is trimmed to
+<code>[10:end]</code> so that the plot is not dominated by the first few steps,
+so its length is 9 short of <code>iter</code> whenever the fit ran at least ten
+iterations; use <code>iter</code>, not <code>length(objfunc.iter)</code>, for the
+iteration count.</p></dd>
+
+<dt>iter</dt>
+<dd><p>Number of iterations performed.</p></dd>
+
+<dt>maxit</dt>
+<dd><p>The iteration cap that was in force.</p></dd>
+
+<dt>epsilon</dt>
+<dd><p>The convergence tolerance that was in force.</p></dd>
+
+<dt>epsilon.iter</dt>
+<dd><p>Relative change of the objective at the last step —
+the quantity the stopping rule compares with <code>epsilon</code>.  Measured as
+\(|f_i - f_{i-1}| / \max(|f_i|, 1)\); the floor of 1 means that for an
+objective below 1 the test is an absolute one, which keeps a near-exact
+fit from iterating forever but makes the number depend on the scale of
+\(Y\).  <code><a href="nmfkc.signed.html">nmfkc.signed</a></code> divides by \(|f_{i-1}|\) instead,
+so the two are comparable only while the objective exceeds 1.</p></dd>
+
+<dt>objfunc.increases</dt>
+<dd><p>Number of steps at which the objective rose,
+counted on the recorded (trimmed) trace.  The multiplicative update is
+monotone by itself, so a positive count means something outside it — a
+restriction imposed by projection, or a numerical problem — is pushing
+the iterate back, in which case the fit can oscillate and exhaust
+<code>maxit</code> instead of converging.</p></dd>
+
+<dt>converged</dt>
+<dd><p>Logical; whether <code>epsilon.iter</code> met <code>epsilon</code>
+before <code>maxit</code>.  A run that merely exhausted <code>maxit</code> is
+<code>FALSE</code>.</p></dd>
 
 <dt>r.squared</dt>
 <dd><p>\(R^2 = \mathrm{cor}(Y, XB)^2\) (Pearson; scale-invariant; \([0,1]\)).</p></dd>
@@ -300,16 +351,17 @@ ranks are to be compared — recomputes them from the fits it is given.</p>
 </dl></div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-    <p>Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
-to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
+    <p>Satoh, K. (2026). Applying Non-negative Matrix Factorization with Covariates
+to the Longitudinal Data as Growth Curve Model. <em>American Journal of
+Mathematical and Management Sciences</em>. In press. arXiv:2403.05359.
 <a href="https://arxiv.org/abs/2403.05359" class="external-link">https://arxiv.org/abs/2403.05359</a></p>
 <p>Satoh, K. (2025). Applying non-negative matrix factorization with covariates
 to multivariate time series data as a vector autoregression model.
 <em>Japanese Journal of Statistics and Data Science</em>. arXiv:2501.17446.
 <a href="https://doi.org/10.1007/s42081-025-00314-0" class="external-link">doi:10.1007/s42081-025-00314-0</a></p>
-<p>Satoh, K. (2025). Applying non-negative matrix factorization with covariates
-to label matrix for classification. arXiv:2510.10375.
-<a href="https://arxiv.org/abs/2510.10375" class="external-link">https://arxiv.org/abs/2510.10375</a></p>
+<p>Satoh, K. (2026). Applying non-negative matrix factorization with covariates
+to label matrix for classification. <em>Japanese Journal of Statistics
+and Data Science</em>. <a href="https://doi.org/10.1007/s42081-026-00349-x" class="external-link">doi:10.1007/s42081-026-00349-x</a></p>
 <p>Ding, C., Li, T., Peng, W., &amp; Park, H. (2006). Orthogonal Nonnegative Matrix
 Tri-Factorizations for Clustering.
 In <em>Proc. 12th ACM SIGKDD</em> (pp. 126–135).

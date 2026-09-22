@@ -13,7 +13,7 @@ four non-negative blocks \((C_{+}, C_{-}, X_1, X_2)\).  Each block update
 monotonically decreases the true objective
 \(\|Y_1 - X_1(C_{+} - C_{-})X_2 Y_2\|_F^2\) (Lee-Seung auxiliary
 function method).
-Relation to nmfae: When \(\Theta \ge 0\) suffices
+Relation to nmf.rrr: When \(\Theta \ge 0\) suffices
 (the nmfae case), nmfae.signed reduces to nmfae up to
 the \(C_{+} - C_{-}\) parameterization.  Use nmfae.signed when the
 data exhibit negative cross-property correlations that tri-NMF-AE cannot
@@ -31,7 +31,7 @@ four non-negative blocks \((C_{+}, C_{-}, X_1, X_2)\).  Each block update
 monotonically decreases the true objective
 \(\|Y_1 - X_1(C_{+} - C_{-})X_2 Y_2\|_F^2\) (Lee-Seung auxiliary
 function method).
-Relation to nmfae: When \(\Theta \ge 0\) suffices
+Relation to nmf.rrr: When \(\Theta \ge 0\) suffices
 (the nmfae case), nmfae.signed reduces to nmfae up to
 the \(C_{+} - C_{-}\) parameterization.  Use nmfae.signed when the
 data exhibit negative cross-property correlations that tri-NMF-AE cannot
@@ -43,7 +43,7 @@ express (e.g., high refractive index &amp;lt;-&amp;gt; low Abbe number trade-off
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -58,9 +58,10 @@ express (e.g., high refractive index &amp;lt;-&amp;gt; low Abbe number trade-off
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-ffb-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-gmm-with-nmfkc.html">NMF-GMM: Covariate-Adjusted Model-Based Clustering with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
@@ -96,7 +97,7 @@ four non-negative blocks \((C_{+}, C_{-}, X_1, X_2)\).  Each block update
 monotonically decreases the true objective
 \(\|Y_1 - X_1(C_{+} - C_{-})X_2 Y_2\|_F^2\) (Lee-Seung auxiliary
 function method).</p>
-<p><strong>Relation to <code><a href="nmfae-deprecated.html">nmfae</a></code>:</strong> When \(\Theta \ge 0\) suffices
+<p><strong>Relation to <code><a href="nmf.rrr.html">nmf.rrr</a></code>:</strong> When \(\Theta \ge 0\) suffices
 (the <code>nmfae</code> case), <code>nmfae.signed</code> reduces to <code>nmfae</code> up to
 the \(C_{+} - C_{-}\) parameterization.  Use <code>nmfae.signed</code> when the
 data exhibit negative cross-property correlations that tri-NMF-AE cannot
@@ -155,7 +156,7 @@ Default <code>1e-4</code>.</p></dd>
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments:</p><dl><dt><code>warm.start</code></dt>
 <dd><p>One of <code>TRUE</code> (default, <strong>hybrid</strong>:
-warm-start \(X_1, X_2\) from <code><a href="nmfae-deprecated.html">nmfae</a></code> but initialize
+warm-start \(X_1, X_2\) from <code><a href="nmf.rrr.html">nmf.rrr</a></code> but initialize
 \(C_{+}, C_{-}\) randomly), <code>"full"</code> (warm-start everything
 including \(C_{+} = C_{\mathrm{tri}}\), \(C_{-} = \delta\)),
 or <code>FALSE</code> (random for all blocks).  The hybrid default avoids
@@ -189,7 +190,7 @@ orthogonality penalties (default 0) on the <strong>columns</strong> of
 \(X_1\) and the <strong>rows</strong> of \(X_2\), penalizing
 \((\lambda/2)\lVert\mathrm{offdiag}(X_1^\top X_1)\rVert^2\) and
 \((\lambda/2)\lVert\mathrm{offdiag}(X_2 X_2^\top)\rVert^2\)
-respectively.  Same convention as <code><a href="nmfae-deprecated.html">nmfae</a></code>; encourage
+respectively.  Same convention as <code><a href="nmf.rrr.html">nmf.rrr</a></code>; encourage
 more distinct (less overlapping) response / covariate bases.</p></dd>
 
 <dt><code>C.L2</code></dt>
@@ -207,7 +208,7 @@ zero (with zero gradient on the unidentified common mode
 becomes \(\sum W_{ij} \, (Y_{1,ij} - \hat Y_{1,ij})^2\)
 (<code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>-style, <strong>linear</strong> in \(W\)).  Logical
 matrices (<code>TRUE</code> / <code>FALSE</code>) are also accepted.
-Used by <code><a href="nmfae-deprecated.html">nmfae.signed.ecv</a></code> to hold out test
+Used by <code><a href="nmf.rrr.signed.ecv.html">nmf.rrr.signed.ecv</a></code> to hold out test
 elements via a binary mask \(W \in \{0,1\}\); real-valued
 weights for importance weighting are also supported.  Default:
 if <code>Y1</code> has <code>NA</code>, a binary mask is auto-generated

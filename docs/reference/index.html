@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,9 +22,10 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/classification-with-nmfkc.html">Classification with NMF-LAB</a></li>
     <li><a class="dropdown-item" href="../articles/introduction-to-nmfkc.html">Introduction to nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/network-community-with-nmfkc.html">Soft community detection in networks with nmfkc.net</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-ffb-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
+    <li><a class="dropdown-item" href="../articles/nmf-gmm-with-nmfkc.html">NMF-GMM: Covariate-Adjusted Model-Based Clustering with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-re-with-nmfkc.html">NMF-RE: Mixed-Effects Modeling with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/nmf-rrr-with-nmfkc.html">Co-clustering two variable blocks with NMF-RRR (nmf.rrr)</a></li>
-    <li><a class="dropdown-item" href="../articles/nmf-sem-with-nmfkc.html">NMF-FFB with nmfkc</a></li>
     <li><a class="dropdown-item" href="../articles/rank-selection-with-nmfkc.html">Choosing the NMF rank on data with a known true rank</a></li>
     <li><a class="dropdown-item" href="../articles/timeseries-with-nmfkc.html">Time Series Analysis with NMF-VAR</a></li>
     <li><a class="dropdown-item" href="../articles/topic-modeling-with-nmfkc.html">Topic Modeling with nmfkc</a></li>
@@ -56,13 +57,25 @@
 
       <dl><dt>
 
-          <code><a href="coef.nmf.html">coef(<i>&lt;nmf&gt;</i>)</a></code> <code><a href="coef.nmf.html">coef(<i>&lt;nmf.sem&gt;</i>)</a></code>
+          <code><a href="coef.nmf.gmm.html">coef(<i>&lt;nmf.gmm&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Extract the covariate-coefficient matrix from an NMF-GMM fit</dd>
+      </dl><dl><dt>
+
+          <code><a href="coef.nmf.html">coef(<i>&lt;nmf&gt;</i>)</a></code> <code><a href="coef.nmf.html">coef(<i>&lt;nmf.ffb&gt;</i>)</a></code>
 
         </dt>
         <dd>Extract coefficients from NMF models</dd>
       </dl><dl><dt>
 
-          <code><a href="fitted.nmf.html">fitted(<i>&lt;nmf&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmfae&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmf.sem&gt;</i>)</a></code>
+          <code><a href="fitted.nmf.gmm.html">fitted(<i>&lt;nmf.gmm&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Fitted (responsibility-averaged) reconstruction of an NMF-GMM fit</dd>
+      </dl><dl><dt>
+
+          <code><a href="fitted.nmf.html">fitted(<i>&lt;nmf&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmfae&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="fitted.nmf.html">fitted(<i>&lt;nmf.ffb&gt;</i>)</a></code>
 
         </dt>
         <dd>Extract fitted values from NMF models</dd>
@@ -86,28 +99,70 @@
         <dd>Cross-Validation for NMF-FFB</dd>
       </dl><dl><dt>
 
+          <code><a href="nmf.ffb.diagnostics.html">nmf.ffb.diagnostics()</a></code>
+
+        </dt>
+        <dd>Structural Diagnostics of a Fitted NMF-FFB Feedback Matrix</dd>
+      </dl><dl><dt>
+
           <code><a href="nmf.ffb.DOT.html">nmf.ffb.DOT()</a></code>
 
         </dt>
         <dd>Generate a Graphviz DOT Diagram for an NMF-FFB Model</dd>
       </dl><dl><dt>
 
+          <code><a href="nmf.ffb.ecv.html">nmf.ffb.ecv()</a></code>
+
+        </dt>
+        <dd>Choose the number of factors for NMF-FFB by element-wise cross-validation</dd>
+      </dl><dl><dt>
+
           <code><a href="nmf.ffb.inference.html">nmf.ffb.inference()</a></code>
 
         </dt>
-        <dd>Statistical inference for NMF-FFB via X-fixed full pair bootstrap</dd>
+        <dd>Bootstrap inference for NMF-FFB (X held fixed)</dd>
       </dl><dl><dt>
 
           <code><a href="nmf.ffb.html">nmf.ffb()</a></code>
 
         </dt>
-        <dd>NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)</dd>
+        <dd>NMF-FFB: non-negative matrix factorization with latent feedback</dd>
       </dl><dl><dt>
 
           <code><a href="nmf.ffb.split.html">nmf.ffb.split()</a></code>
 
         </dt>
         <dd>Heuristic Variable Splitting for NMF-FFB</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmf.ffb.test.html">nmf.ffb.test()</a></code>
+
+        </dt>
+        <dd>Test the feed-forward null of an NMF-FFB fit</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmf.gmm.inference.html">nmf.gmm.inference()</a></code>
+
+        </dt>
+        <dd>Statistical inference for an NMF-GMM fit (given basis)</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmf.gmm.html">nmf.gmm()</a></code>
+
+        </dt>
+        <dd>Fit NMF-GMM: a Gaussian-mixture latent-class extension of NMF with covariates</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmf.gmm.select.html">nmf.gmm.select()</a></code>
+
+        </dt>
+        <dd>Choose the number of mixture components K for NMF-GMM</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmf.gmm.twostage.html">nmf.gmm.twostage()</a></code>
+
+        </dt>
+        <dd>Two-stage (adjust-then-cluster) baseline for NMF-GMM</dd>
       </dl><dl><dt>
 
           <code><a href="nmf.rrr.cv.html">nmf.rrr.cv()</a></code>
@@ -326,6 +381,12 @@
         <dd>Create a Gaussian kernel matrix from covariates</dd>
       </dl><dl><dt>
 
+          <code><a href="nmfkc.kernel.gram.html">nmfkc.kernel.gram()</a></code>
+
+        </dt>
+        <dd>Block-wise Gram accumulation of Nystroem kernel covariates for large N</dd>
+      </dl><dl><dt>
+
           <code><a href="nmfkc.kernel.html">nmfkc.kernel()</a></code>
 
         </dt>
@@ -386,6 +447,24 @@
         <dd>Plot Diagnostics: Original, Fitted, and Residual Matrices as Heatmaps</dd>
       </dl><dl><dt>
 
+          <code><a href="nmfkc.rff.beta.cv.html">nmfkc.rff.beta.cv()</a></code>
+
+        </dt>
+        <dd>Select the bandwidth of random-feature covariates by cross-validation</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.rff.positive.gram.html">nmfkc.rff.positive.gram()</a></code>
+
+        </dt>
+        <dd>Block-wise Gram accumulation of positive random features for large N</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.rff.positive.html">nmfkc.rff.positive()</a></code>
+
+        </dt>
+        <dd>Positive (non-negative) random features for the Gaussian kernel</dd>
+      </dl><dl><dt>
+
           <code><a href="nmfkc.signed.cv.html">nmfkc.signed.cv()</a></code>
 
         </dt>
@@ -408,6 +487,12 @@
 
         </dt>
         <dd>NMF-KC with signed covariate matrix</dd>
+      </dl><dl><dt>
+
+          <code><a href="nmfkc.signed.rff.gram.html">nmfkc.signed.rff.gram()</a></code>
+
+        </dt>
+        <dd>Block-wise Gram accumulation of Random Fourier Features for large N</dd>
       </dl><dl><dt>
 
           <code><a href="nmfkc.signed.rff.html">nmfkc.signed.rff()</a></code>
@@ -444,6 +529,18 @@
 
         </dt>
         <dd>Plot a cluster-flow (alluvial) diagram</dd>
+      </dl><dl><dt>
+
+          <code><a href="plot.nmf.gmm.html">plot(<i>&lt;nmf.gmm&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot method for nmf.gmm objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="plot.nmf.gmm.select.html">plot(<i>&lt;nmf.gmm.select&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot method for nmf.gmm.select objects</dd>
       </dl><dl><dt>
 
           <code><a href="plot.nmf.rank.html">plot(<i>&lt;nmf.rank&gt;</i>)</a></code>
@@ -506,10 +603,16 @@
         <dd>Plot method for nmfre.ecv objects</dd>
       </dl><dl><dt>
 
-          <code><a href="plot.nmfre.html">plot(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="plot.nmfre.html">plot(<i>&lt;nmf.sem&gt;</i>)</a></code>
+          <code><a href="plot.nmfre.html">plot(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="plot.nmfre.html">plot(<i>&lt;nmf.ffb&gt;</i>)</a></code>
 
         </dt>
         <dd>Plot convergence diagnostics for NMF models</dd>
+      </dl><dl><dt>
+
+          <code><a href="predict.nmf.gmm.html">predict(<i>&lt;nmf.gmm&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Class assignments / responsibilities from an NMF-GMM fit</dd>
       </dl><dl><dt>
 
           <code><a href="predict.nmfkc.html">predict(<i>&lt;nmfkc&gt;</i>)</a></code>
@@ -540,6 +643,24 @@
 
         </dt>
         <dd>Print method for nmf.cluster.flow objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmf.ffb.test.html">print(<i>&lt;nmf.ffb.test&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print a calibrated test of the feed-forward null</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmf.gmm.html">print(<i>&lt;nmf.gmm&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print an NMF-GMM fit</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.nmf.gmm.select.html">print(<i>&lt;nmf.gmm.select&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmf.gmm.select objects</dd>
       </dl><dl><dt>
 
           <code><a href="print.nmf.inference.html">print(<i>&lt;nmf.inference&gt;</i>)</a></code>
@@ -602,16 +723,28 @@
         <dd>Print method for nmfkc.DOT objects</dd>
       </dl><dl><dt>
 
+          <code><a href="print.nmfkc.gram.html">print(<i>&lt;nmfkc.gram&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for nmfkc.gram</dd>
+      </dl><dl><dt>
+
           <code><a href="print.nmfre.ecv.html">print(<i>&lt;nmfre.ecv&gt;</i>)</a></code>
 
         </dt>
         <dd>Print method for nmfre.ecv objects</dd>
       </dl><dl><dt>
 
-          <code><a href="print.summary.nmf.sem.html">print(<i>&lt;summary.nmf.sem&gt;</i>)</a></code>
+          <code><a href="print.summary.nmf.ffb.html">print(<i>&lt;summary.nmf.ffb&gt;</i>)</a></code>
 
         </dt>
-        <dd>Print method for summary.nmf.sem objects</dd>
+        <dd>Print method for summary.nmf.ffb objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="print.summary.nmf.gmm.html">print(<i>&lt;summary.nmf.gmm&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for summary.nmf.gmm objects</dd>
       </dl><dl><dt>
 
           <code><a href="print.summary.nmfkc.inference.html">print(<i>&lt;summary.nmfkc.inference&gt;</i>)</a></code>
@@ -650,16 +783,28 @@
         <dd>Print method for summary.nmfkc.signed</dd>
       </dl><dl><dt>
 
-          <code><a href="residuals.nmf.html">residuals(<i>&lt;nmf&gt;</i>)</a></code> <code><a href="residuals.nmf.html">residuals(<i>&lt;nmfae&gt;</i>)</a></code> <code><a href="residuals.nmf.html">residuals(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="residuals.nmf.html">residuals(<i>&lt;nmf.sem&gt;</i>)</a></code>
+          <code><a href="residuals.nmf.gmm.html">residuals(<i>&lt;nmf.gmm&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Residuals from an NMF-GMM fit</dd>
+      </dl><dl><dt>
+
+          <code><a href="residuals.nmf.html">residuals(<i>&lt;nmf&gt;</i>)</a></code> <code><a href="residuals.nmf.html">residuals(<i>&lt;nmfae&gt;</i>)</a></code> <code><a href="residuals.nmf.html">residuals(<i>&lt;nmfre&gt;</i>)</a></code> <code><a href="residuals.nmf.html">residuals(<i>&lt;nmf.ffb&gt;</i>)</a></code>
 
         </dt>
         <dd>Extract residuals from NMF models</dd>
       </dl><dl><dt>
 
-          <code><a href="summary.nmf.sem.html">summary(<i>&lt;nmf.sem&gt;</i>)</a></code>
+          <code><a href="summary.nmf.ffb.html">summary(<i>&lt;nmf.ffb&gt;</i>)</a></code>
 
         </dt>
-        <dd>Summary method for nmf.sem objects</dd>
+        <dd>Summary method for nmf.ffb objects</dd>
+      </dl><dl><dt>
+
+          <code><a href="summary.nmf.gmm.html">summary(<i>&lt;nmf.gmm&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Summary of an NMF-GMM fit</dd>
       </dl><dl><dt>
 
           <code><a href="summary.nmfkc.inference.html">summary(<i>&lt;nmfkc.inference&gt;</i>)</a></code>
