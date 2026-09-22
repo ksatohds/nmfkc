@@ -47,19 +47,21 @@ still settling);
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 0-1 notes (the one note is environmental; see below)
 
 ## Test environments
 
-* Windows 11 (local), R 4.4.1, `--as-cran`
-* win-builder, R-devel: FILL IN — total seconds, tests seconds
-* R-hub v2 (Linux, macOS, macOS-arm64, Windows, nosuggests)
+* win-builder, R-devel (2026-09-21 r90579 ucrt): **Status OK**, install 13 s,
+  check 126 s
+* Windows 11 (local), R 4.4.1, `--as-cran`: 1 note (see below)
+* Windows 11 (local), `_R_CHECK_DEPENDS_ONLY_=true` (no Suggests): 1 note (the
+  same one)
 
 ## Notes
 
 * "checking for future file timestamps ... NOTE" — appears on environments that
   cannot reach the CRAN time server to verify the current time; not a package
-  issue.
+  issue.  win-builder reports Status OK with no note at all.
 
 ## On the check time
 
@@ -70,6 +72,8 @@ assertions, about 3 seconds), and the remaining blocks begin with
 `skip_unless_full()` and run when `NMFKC_FULL_TESTS` is set, which is what we
 run before every release (4140 assertions, 566 seconds locally, no failures).
 Nothing was deleted to achieve this.
+
+win-builder reports 126 seconds for this submission, against 232 for 0.9.6.
 
 ## Additional checks
 
