@@ -4,7 +4,7 @@
 \alias{fitted.nmf}
 \alias{fitted.nmfae}
 \alias{fitted.nmfre}
-\alias{fitted.nmf.sem}
+\alias{fitted.nmf.ffb}
 \title{Extract fitted values from NMF models}
 \usage{
 \method{fitted}{nmf}(object, ...)
@@ -13,13 +13,13 @@
 
 \method{fitted}{nmfre}(object, type = c("blup", "fixed"), ...)
 
-\method{fitted}{nmf.sem}(object, ...)
+\method{fitted}{nmf.ffb}(object, ...)
 }
 \arguments{
 \item{object}{A fitted model object of class \code{"nmf"}, \code{"nmfkc"},
-\code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.}
+\code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.ffb"}.}
 
-\item{...}{For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.}
+\item{...}{For \code{nmf.ffb}: optionally \code{Y1} and \code{Y2}.}
 
 \item{type}{For \code{nmfre} objects: \code{"blup"} (default, the fit
 \eqn{X(\Theta A + U)} including random effects) or \code{"fixed"}
@@ -33,7 +33,7 @@ The fitted matrix \eqn{X B}.
 Returns the reconstructed matrix \eqn{\hat{Y} = X B} from a fitted
 NMF model.
 
-For \code{nmf.sem} objects, returns the equilibrium prediction
+For \code{nmf.ffb} objects, returns the equilibrium prediction
 \eqn{\hat{Y}_1 = M_{model} Y_2} if available. Supply \code{Y1} and
 \code{Y2} to get the direct reconstruction
 \eqn{X (C_1 Y_1 + C_2 Y_2)} instead.

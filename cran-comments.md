@@ -1,97 +1,88 @@
-## Resubmission (second)
+## This is an update
 
-0.9.5 was archived by the pretest for "Overall checktime 11 min > 10 min",
-almost all of it `checking tests ... [442s]`.  Thank you for the suggestion to
-run the less important tests conditionally on an environment variable; 0.9.6
-does exactly that, and nothing else changed.
+An update from v0.9.6 (currently on CRAN, published 2026-08-25) to v0.9.8.
+All changes are listed in NEWS.md.  Two of them are worth naming here because
+they are visible from outside the package.
 
-Only `tests/testthat/test-cran-smoke.R` now runs by default: it exercises
-every exported fitter and its S3 methods on 6 x 20 toy matrices, 35
-assertions in under a second, with no bootstrap, no cross-validation and no
-restarts.  The other 145 blocks begin with `skip_unless_full()` and run when
-`NMFKC_FULL_TESTS` is set, which is what we run before every release (3173
-assertions, 144 seconds locally).  Nothing was deleted.
+### Twenty exported functions were removed
 
-Measured here: 1.7 s in CRAN mode, 144 s in full mode, no failures in either.
+| removed (20) | use instead |
+|:--|:--|
+| `nmf.sem()`, `nmf.sem.inference()`, `nmf.sem.cv()`, `nmf.sem.split()`, `nmf.sem.DOT()` | `nmf.ffb*` |
+| `nmfae()`, `nmfae.inference()`, `nmfae.ecv()`, `nmfae.cv()`, `nmfae.rank()`, `nmfae.DOT()`, `nmfae.heatmap()`, `nmfae.kernel.beta.cv()`, `nmfae.rename()` and the six `nmfae.signed*` counterparts | `nmf.rrr*` / `nmf.rrr.signed*` |
 
-## Resubmission (first)
+Every one of them was a pure forwarder, e.g.
 
-This resubmits the 0.9.4 update, which the incoming pretest rejected for its
-overall check time (48 minutes on the pretest Windows machine).  0.9.5 is
-0.9.4 plus check-time reductions only — no computed value changes: the
-expensive bootstrap regression tests now carry skip_on_cran() with CRAN-sized
-copies still running there; the timeseries example sweeps fewer lag orders;
-and five of the nine vignettes moved to the package website
-(<https://ksatohds.github.io/nmfkc/articles/>), keeping four in the tarball.
-The pretest's other note, "Possibly misspelled ... Tokuda", is a co-author's
-surname (see Notes below).
+```r
+nmf.sem <- function(...) { .Deprecated("nmf.ffb"); nmf.ffb(...) }
+```
+
+They were deprecated in v0.8.8, announced in that release's NEWS, and have
+emitted a `.Deprecated()` note through two CRAN releases (0.8.8 on 2026-07-14
+and 0.9.6 on 2026-08-25).  The replacement names have been exported since
+v0.8.8, so code that moved to them works on the currently published version as
+well.  There are no reverse dependencies on CRAN.
+
+### Twelve functions were added
+
+`nmf.gmm()`, `nmf.gmm.inference()`, `nmf.gmm.select()`, `nmf.gmm.twostage()`
+(a Gaussian-mixture latent-class extension, new to CRAN with this release and
+documented as experimental on every one of its help pages: its interface is
+still settling);
+`nmf.ffb.ecv()`, `nmf.ffb.test()`, `nmf.ffb.diagnostics()`;
+`nmfkc.kernel.gram()`, `nmfkc.rff.beta.cv()`, `nmfkc.rff.positive()`,
+`nmfkc.rff.positive.gram()`, `nmfkc.signed.rff.gram()`.
+
+### Other changes a user could notice
+
+* `nmf.ffb()` was renamed internally to the package's house field names.  This
+  is a breaking change confined to the likelihood branch, which was added
+  after v0.9.6 and has never been on CRAN.
+* `X.rowSums.min` and `X.restriction = "rowSums"` are removed from `nmfkc()` /
+  `nmfkc.signed()`.  Both acted on the rows of the basis, which is not a gauge
+  fix, so the objective was not monotone and a fit could oscillate to `maxit`.
+  Both options were added after v0.9.6 and have never been on CRAN.
+* Both fitters now report `epsilon.iter` and `objfunc.increases`, so a fit that
+  is oscillating rather than descending is visible in `print()` / `summary()`.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1-2 notes (see below; both are environmental or a proper name)
+0 errors | 0 warnings | 0-1 notes (the one note is environmental; see below)
 
 ## Test environments
 
-* Windows 11 (local), R 4.4.1, `--as-cran`
-* Ubuntu Linux (local server), R 4.5.3
-* win-builder, R-devel (2026-08-24 r90445): 232 s total, tests 15 s
-* R-hub v2 (Linux, macOS, macOS-arm64, Windows, nosuggests)
+* win-builder, R-devel (2026-09-21 r90579 ucrt): **Status OK**, install 13 s,
+  check 126 s
+* Windows 11 (local), R 4.4.1, `--as-cran`: 1 note (see below)
+* Windows 11 (local), `_R_CHECK_DEPENDS_ONLY_=true` (no Suggests): 1 note (the
+  same one)
 
 ## Notes
 
-* "checking for future file timestamps ... NOTE" — appears on environments
-  that cannot reach the CRAN time server to verify the current time; not a
-  package issue.
-* "Possibly misspelled words in DESCRIPTION: Tokuda" — a co-author's surname,
-  in the citation for <doi:10.48550/arXiv.2607.27474>. Spelled correctly.
+* "checking for future file timestamps ... NOTE" — appears on environments that
+  cannot reach the CRAN time server to verify the current time; not a package
+  issue.  win-builder reports Status OK with no note at all.
 
-## This is an update
+## On the check time
 
-This is a maintenance update from v0.8.8 (currently on CRAN, published
-2026-07-14) to v0.9.6.  All changes are listed in NEWS.md.  The update is
-mostly corrections; the items a user could notice are:
+0.9.4 and 0.9.5 were archived by the pretest for exceeding the ten-minute
+budget.  The environment-variable arrangement introduced for 0.9.6 is
+unchanged: only `tests/testthat/test-cran-smoke.R` runs by default (55
+assertions, about 3 seconds), and the remaining blocks begin with
+`skip_unless_full()` and run when `NMFKC_FULL_TESTS` is set, which is what we
+run before every release (4140 assertions, 566 seconds locally, no failures).
+Nothing was deleted to achieve this.
 
-* Correctness fixes in the inference and RNG paths: the refit bootstrap
-  returned p-values that were always 0; several inference and
-  cross-validation wrappers reset the caller's random stream, so a user loop
-  drawing random numbers after a fit silently repeated itself; the weighted
-  path of `nmfkc.signed()` could diverge to `Inf`/`NaN`.
-* `nmfkc.net.DOT()` judged which nodes to draw on the raw basis rather than
-  on the membership scale the edges come from, so with `type = "tri"` the
-  whole outer layer could vanish from the graph.
-* Uniform `print()` / `summary()` across the fitters, including a single
-  convergence line, so a run that merely exhausted `maxit` is no longer
-  displayed as if it had converged.
-* `nmf.rrr()` now returns the two score matrices `B1` (decoder side) and `B2`
-  (encoder side) with their memberships, replacing the single `B.prob` /
-  `B.cluster`.  `H` is retained as a deprecated alias of `B1`.
-* The `nmf.rrr` family drops its `rank` / `rank.encoder` argument aliases in
-  favour of `rank1` / `rank2` (`Q` / `R` still work).  The aliases had to be
-  declared as formals *after* `...`, because `rank` is a prefix of both
-  `rank1` and `rank2` and R's partial matching would otherwise reject
-  `rank = 3` outright; that put deprecated names in every signature.  Passing
-  a removed name now raises an error naming its replacement rather than being
-  silently absorbed by `...`.
-* Speed: multiplicative-update loops hoist loop invariants, and the
-  cross-validation / restart wrappers take an opt-in `cores` argument.  Both
-  were verified to leave results unchanged.
-
-The last two items are breaking changes, and both are announced in NEWS.md.
-They are confined to the `nmf.rrr` family, which is documented as
-experimental and was introduced only in the current release cycle.
+win-builder reports 126 seconds for this submission, against 232 for 0.9.6.
 
 ## Additional checks
 
-* All tests pass (testthat): 35 in the default smoke suite, 3173 with
-  NMFKC_FULL_TESTS set.
+* All tests pass (testthat): 55 in the default smoke suite, 4140 with
+  `NMFKC_FULL_TESTS` set.
 * All examples run without errors, including `--run-donttest`.
 * All vignettes build without errors.
 * No reverse dependencies on CRAN.
 
 ## On the submission interval
 
-v0.8.8 was published on 2026-07-14, five weeks ago.  The update is offered now
-because it is largely bug fixes — in particular the always-zero bootstrap
-p-values and the RNG-stream pollution, both of which can silently affect a
-user's results — rather than new features.  We are happy to hold the
-submission if a longer interval is preferred.
+v0.9.6 was published on 2026-08-25, one month ago.

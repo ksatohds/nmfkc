@@ -728,7 +728,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   }
 
   ## Warn when the MU loop exhausted maxit without meeting the
-  ## relative-tolerance criterion (matches nmfkc() / nmf.sem()
+  ## relative-tolerance criterion (matches nmfkc() / nmf.ffb()
   ## convention).  The non-finite-objective break path issues its
   ## own diagnostic via stop_reason; here we only fire on maxit.
   if (identical(stop_reason, "maxit") && iter_done == maxit)

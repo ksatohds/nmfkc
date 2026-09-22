@@ -397,7 +397,7 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     }
   }
   ## Warn when the MU loop exhausts maxit without meeting the
-  ## relative-tolerance criterion (matches nmfkc() / nmf.sem() convention).
+  ## relative-tolerance criterion (matches nmfkc() / nmf.ffb() convention).
   if (iter == maxit && exists("rel_change") && rel_change >= epsilon)
     warning(paste0("maximum iterations (", maxit, ") reached..."))
 
@@ -533,7 +533,7 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     sigma = sigma,
     mae = mae,
     niter = niter,
-    iter = niter,          # house-style alias (matches nmfre/nmf.sem/nmfkc.net)
+    iter = niter,          # house-style alias (matches nmfre/nmf.ffb/nmfkc.net)
     ## Convergence bookkeeping, matching nmfkc / nmfre so print.nmf() and the
     ## summaries can say whether the run finished or hit the cap -- previously
     ## the two were indistinguishable from the object.
@@ -561,8 +561,8 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' Uses sandwich covariance estimation and one-step wild bootstrap with
 #' non-negative projection.
 #'
-#' @param object An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.
-#' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Must match the data used in \code{nmfae()}.
+#' @param object An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.
+#' @param Y1 Output matrix \eqn{Y_1} (P1 x N). Must match the data used in \code{nmf.rrr()}.
 #' @param Y2 Input matrix \eqn{Y_2} (P2 x N). Default is \code{Y1} (autoencoder).
 #' @param wild.bootstrap Logical. If \code{TRUE} (default), performs wild bootstrap
 #'   for bootstrap SE and confidence intervals. If \code{FALSE}, only sandwich SE
@@ -756,7 +756,7 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
 #' \eqn{\Theta}, the coefficients table, and all downstream displays
 #' such as \code{summary}, \code{nmfae.DOT}, and \code{nmfae.heatmap}.
 #'
-#' @param x An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.
+#' @param x An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.
 #' @param X1.colnames Character vector of length \eqn{Q} for decoder bases
 #'   (columns of \eqn{X_1} / rows of \eqn{\Theta}).  If \code{NULL}
 #'   (default), the decoder names are left unchanged.
@@ -806,7 +806,7 @@ nmf.rrr.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #' \code{plot.nmfae} displays the convergence trajectory of the objective function
 #' across iterations. The title shows the achieved \eqn{R^2}.
 #'
-#' @param x An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.
+#' @param x An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.
 #' @param ... Additional graphical parameters passed to \code{plot}.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
@@ -839,7 +839,7 @@ plot.nmfae <- function(x, ...) {
 #' including dimensions, convergence status, goodness-of-fit statistics,
 #' and structure diagnostics (sparsity of factor matrices).
 #'
-#' @param object An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.
+#' @param object An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.
 #' @param ... Additional arguments (currently unused).
 #'
 #' @return An object of class \code{"summary.nmfae"}, a list with components:
@@ -1113,7 +1113,7 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
 #' and \eqn{X_2} as side-by-side heatmaps. This provides an alternative to DOT graph
 #' visualization, especially when \eqn{Y_2} has many variables (e.g., kernel matrix).
 #'
-#' @param x An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.
+#' @param x An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.
 #' @param Y1.label Character vector of output variable names (rows of \eqn{X_1}).
 #' @param X1.label Character vector of decoder basis labels (columns of \eqn{X_1}).
 #' @param X2.label Character vector of encoder basis labels (rows of \eqn{X_2}).
@@ -1213,7 +1213,7 @@ nmf.rrr.heatmap <- function(x,
 #' (for \code{type = "response"}) or a confusion matrix heatmap
 #' (for \code{type = "class"}).
 #'
-#' @param object An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.
+#' @param object An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.
 #' @param newY2 Optional new input matrix (P2 x M) for prediction.
 #'   If \code{NULL}, returns in-sample fitted values.
 #' @param Y1 Optional actual output matrix for comparison plotting.
@@ -1386,7 +1386,7 @@ plot.predict.nmfae <- function(x, ...) {
 #' @param rank1 Integer vector of response-basis ranks to evaluate. Default is \code{1:2}.
 #' @param rank2 Integer vector of covariate-basis ranks to evaluate. Default is \code{NULL},
 #'   which sets \code{rank2 = rank1} and evaluates element-wise pairs.
-#' @param ... Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
+#' @param ... Additional arguments passed to \code{\link{nmf.rrr}} (e.g., \code{epsilon}, \code{maxit}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 #'   \code{seed} (integer seed, default 123), and \code{cores} (evaluate the
 #'   \eqn{(Q,R)}-pair \eqn{\times} fold grid in parallel; default
@@ -1533,12 +1533,12 @@ print.nmfae.ecv <- function(x, ...) {
 
 #' @title Rank selection for nmfae (paired rank, concise diagnostics)
 #' @description
-#' Fits \code{\link{nmfae}} with a \strong{paired} decoder/encoder rank
+#' Fits \code{\link{nmf.rrr}} with a \strong{paired} decoder/encoder rank
 #' (\eqn{Q = R}) across a range of ranks and reports \code{r.squared},
 #' the effective rank (of the latent encoding \eqn{H}), and the
 #' element-wise CV error \code{sigma.ecv}, with the same concise plot as
 #' \code{\link{nmfkc.rank}}.  For a full \eqn{(Q, R)} grid use
-#' \code{\link{nmfae.ecv}} with \code{rank.encoder} and its heatmap.
+#' \code{\link{nmf.rrr.ecv}} with \code{rank.encoder} and its heatmap.
 #' @param Y1 Endogenous matrix (\eqn{P_1 \times N}).
 #' @param Y2 Exogenous matrix; defaults to \code{Y1} (autoencoder).
 #' @param rank1 Integer vector of (paired) ranks to evaluate (both bases use
@@ -1547,7 +1547,7 @@ print.nmfae.ecv <- function(x, ...) {
 #'   (\code{sigma.ecv}); \code{"fast"} skips it (plots r.squared and
 #'   eff.rank only, and recommends the R-squared elbow).
 #' @param plot Logical; draw the diagnostics plot (default \code{TRUE}).
-#' @param ... Passed on to \code{\link{nmfae}} and \code{\link{nmfae.ecv}}
+#' @param ... Passed on to \code{\link{nmf.rrr}} and \code{\link{nmf.rrr.ecv}}
 #'   (e.g.\ \code{maxit}, \code{nfolds}, \code{seed}). Also accepts \code{cores}
 #'   to evaluate the rank sweep (and the element-wise CV) in parallel; default
 #'   \code{getOption("mc.cores", 1L)}. Each rank is an independent self-seeded
@@ -1608,7 +1608,7 @@ nmf.rrr.rank <- function(Y1, Y2 = Y1, rank1 = 1:5, detail = c("full", "fast"),
 #' When \code{rank.encoder} was \code{NULL} (paired), a line plot of sigma vs rank is drawn.
 #' When \code{rank.encoder} was explicitly specified (grid), a heatmap of sigma over the (rank, rank.encoder) grid is drawn.
 #'
-#' @param x An object of class \code{"nmfae.ecv"} returned by \code{\link{nmfae.ecv}}.
+#' @param x An object of class \code{"nmfae.ecv"} returned by \code{\link{nmf.rrr.ecv}}.
 #' @param ... Additional graphical parameters (currently unused).
 #'
 #' @return Invisible \code{NULL}. Called for its side effect of producing a plot.
@@ -1708,7 +1708,7 @@ plot.nmfae.ecv <- function(x, ...) {
 #'   Default is \code{Y1} (autoencoder).
 #' @param rank1 Integer. Rank of the response basis. Default is 2.
 #' @param rank2 Integer. Rank of the covariate basis. Default (\code{NULL}) = \code{rank1}.
-#' @param ... Additional arguments passed to \code{\link{nmfae}}
+#' @param ... Additional arguments passed to \code{\link{nmf.rrr}}
 #'   (e.g., \code{epsilon}, \code{maxit}, \code{Y1.weights}).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 #'   \code{seed} (integer seed, default 123), \code{shuffle} (logical, default \code{TRUE}),
@@ -1883,9 +1883,9 @@ nmf.rrr.cv <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL, ...) {
 #' @keywords internal
 #' @description
 #' Displays a bar chart of per-fold cross-validation errors from
-#' \code{\link{nmfae.cv}}. The overall RMSE (sigma) is shown in the title.
+#' \code{\link{nmf.rrr.cv}}. The overall RMSE (sigma) is shown in the title.
 #'
-#' @param x An object of class \code{"nmfae.cv"} returned by \code{\link{nmfae.cv}}.
+#' @param x An object of class \code{"nmfae.cv"} returned by \code{\link{nmf.rrr.cv}}.
 #' @param ... Additional graphical parameters passed to \code{barplot}.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
@@ -1909,7 +1909,7 @@ plot.nmfae.cv <- function(x, ...) {
 #' @title Optimize kernel beta for nmfae by cross-validation
 #' @description
 #' \code{nmfae.kernel.beta.cv} selects the optimal \code{beta} parameter of the
-#' kernel function by evaluating \code{\link{nmfae.cv}} for each candidate value.
+#' kernel function by evaluating \code{\link{nmf.rrr.cv}} for each candidate value.
 #' The kernel matrix \eqn{A = K(U, V; \beta)} replaces \eqn{Y_2} in the three-layer
 #' NMF model.
 #'
@@ -1929,7 +1929,7 @@ plot.nmfae.cv <- function(x, ...) {
 #' @param ... Additional arguments. Kernel-specific args (\code{kernel}, \code{degree})
 #'   are passed to \code{\link{nmfkc.kernel}}; all others
 #'   (\code{div}, \code{seed}, \code{shuffle}, \code{epsilon}, \code{maxit}, etc.)
-#'   are passed to \code{\link{nmfae.cv}}. Also accepts \code{cores} to evaluate
+#'   are passed to \code{\link{nmf.rrr.cv}}. Also accepts \code{cores} to evaluate
 #'   the candidate \code{beta} values in parallel (default
 #'   \code{getOption("mc.cores", 1L)}); each inner CV then runs sequentially, and
 #'   because results are gathered in order the selected \code{beta} is identical
@@ -2024,7 +2024,7 @@ nmf.rrr.kernel.beta.cv <- function(Y1, rank1 = 2, rank2 = NULL, U, V = NULL,
 #' \code{beta} values (log scale). The optimal beta is highlighted in red.
 #'
 #' @param x An object of class \code{"nmfae.kernel.beta.cv"} returned by
-#'   \code{\link{nmfae.kernel.beta.cv}}.
+#'   \code{\link{nmf.rrr.kernel.beta.cv}}.
 #' @param ... Additional graphical parameters passed to \code{plot}.
 #'
 #' @return Invisible \code{NULL}. Called for its side effect (plot).
@@ -2060,7 +2060,7 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' Edge widths are proportional to matrix element values, and edges below
 #' \code{threshold} are omitted for clarity.
 #'
-#' @param result An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.
+#' @param result An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.
 #' @param type Character. Graph type: \code{"XCX"} (default) or \code{"YXCXY"}.
 #' @param threshold Numeric. Edges with values below this are omitted. Default is 0.01.
 #' @param sig.level Numeric or \code{NULL}. Significance level for filtering C edges

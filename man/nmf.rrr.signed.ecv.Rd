@@ -30,7 +30,7 @@ Signed models have more local minima (the bottleneck can carry
 both signs), so \code{nstart >= 10} is recommended for
 reproducible rank selection.}
 \item{Other args}{\code{epsilon}, \code{maxit}, \code{warm.start},
-etc.\ are passed to \code{\link{nmfae.signed}}.}
+etc.\ are passed to \code{\link{nmf.rrr.signed}}.}
 }
 Rank aliases accepted here for backward compatibility:
 \code{Q} for \code{rank1}, \code{R} for \code{rank2}.}
@@ -41,9 +41,9 @@ An object of class \code{c("nmfae.signed.ecv", "nmfae.ecv")} with
 (per-fold MSE), \code{folds}, \code{QR}, \code{paired}.
 }
 \description{
-Element-wise k-fold cross-validation for \code{\link{nmfae.signed}} to
+Element-wise k-fold cross-validation for \code{\link{nmf.rrr.signed}} to
 select the decoder / encoder ranks \eqn{(Q, R)}.  Mirrors
-\code{\link{nmfae.ecv}} but uses the \strong{weighted} Signed-Bottleneck NMF-AE fit
+\code{\link{nmf.rrr.ecv}} but uses the \strong{weighted} Signed-Bottleneck NMF-AE fit
 path (\code{Y1.weights}): test-fold elements are zero-weighted during
 fitting, and held-out MSE is computed on those elements.
 }

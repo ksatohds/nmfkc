@@ -40,7 +40,7 @@ signed \eqn{C = C_{+} - C_{-}} as a separate panel.}
 Invisible \code{NULL}. Called for its side effect (plot).
 }
 \description{
-Displays the factor blocks of a \code{\link{nmfae.signed}} fit as
+Displays the factor blocks of a \code{\link{nmf.rrr.signed}} fit as
 side-by-side heatmaps.  Non-negative blocks (\eqn{X_1, C_{+}, C_{-},
 X_2}) use the white-orange-red palette; the signed combined
 bottleneck \eqn{C = C_{+} - C_{-}} is rendered with a diverging

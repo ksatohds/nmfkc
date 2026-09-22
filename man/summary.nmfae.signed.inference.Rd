@@ -18,7 +18,7 @@ An object of class \code{"summary.nmfae.signed.inference"}.
 Produces a summary of a fitted Signed-Bottleneck NMF-AE model with
 inference results.  Extends \code{\link{summary.nmfae.signed}} by
 attaching the \code{coefficients} table and p-value side from
-\code{\link{nmfae.signed.inference}}.
+\code{\link{nmf.rrr.signed.inference}}.
 }
 \section{Lifecycle}{
 

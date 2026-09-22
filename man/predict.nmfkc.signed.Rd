@@ -14,7 +14,10 @@
 \item{type}{Output: \code{"response"} (raw signed), \code{"prob"},
 or \code{"class"}.}
 
-\item{...}{Unused.}
+\item{...}{Hidden option \code{prob.method}: how \code{type = "prob"}
+maps \eqn{\widehat{\bm y}_n} to the simplex, \code{"simplex"}
+(default; Euclidean projection) or \code{"clip"} (clip negatives,
+renormalize).}
 }
 \value{
 A numeric matrix (\code{"response"} or \code{"prob"}) or a
@@ -24,9 +27,24 @@ character vector (\code{"class"}).
 Computes \eqn{\widehat Y = X \, C \, A_{\mathrm{new}}}
 (\eqn{= X (C_{+} - C_{-})(A_{+}^{\mathrm{new}} - A_{-}^{\mathrm{new}})}).
 For \code{type = "response"} the raw prediction is returned
-(possibly signed).  For \code{type = "prob"} and \code{"class"},
-negative entries of \eqn{\widehat Y} are clipped to zero before
-column normalization, since probabilities must be non-negative.
+(possibly signed).
+
+With signed covariates the scores \eqn{\bm b_n = C\bm a_n} can be
+negative, so the NMF-LAB recipe of normalizing \eqn{\bm b_n} to a
+membership vector does not apply.  Since \eqn{X} is column-stochastic,
+\eqn{\widehat{\bm y}_n = X\bm b_n} still sums to \eqn{\sum_q b_{qn}}
+(close to one for one-hot targets) and is the least-squares estimate of
+the class indicator; for \code{type = "prob"} it is mapped to the
+probability simplex by the \strong{Euclidean projection}
+\deqn{\widehat{\bm p}_n = \mathop{\mathrm{arg\,min}}_{\bm p \ge 0,\ \bm 1^\top \bm p = 1}
+      \lVert \bm p - \widehat{\bm y}_n \rVert^2
+      = \max(\widehat{\bm y}_n - \tau_n \bm 1, 0),}
+the closest probability vector in the same Frobenius geometry the fit
+minimizes (Duchi et al. 2008; Wang & Carreira-Perpinan 2013;
+\eqn{O(P \log P)} per column by sorting).  The former rule -- clip
+negatives to zero and renormalize -- is kept as
+\code{prob.method = "clip"}.  \code{type = "class"} is
+\eqn{\arg\max_p \widehat y_{pn}}, which both rules preserve.
 }
 \section{Lifecycle}{
 
@@ -38,6 +56,15 @@ future versions.
 Ding, C. H. Q., Li, T., & Jordan, M. I. (2010). Convex and
 semi-nonnegative matrix factorizations. \emph{IEEE Transactions on
 Pattern Analysis and Machine Intelligence}, 32(1), 45--55.
+
+Duchi, J., Shalev-Shwartz, S., Singer, Y., & Chandra, T. (2008).
+Efficient projections onto the l1-ball for learning in high dimensions.
+\emph{Proceedings of the 25th International Conference on Machine
+Learning (ICML)}, 272--279.
+
+Wang, W., & Carreira-Perpinan, M. A. (2013). Projection onto the
+probability simplex: an efficient algorithm with a simple proof, and an
+application. \emph{arXiv:1309.1541}.
 }
 \seealso{
 \code{\link{nmfkc.signed}}, \code{\link{nmfkc}}, \code{\link{nmfkc.signed.cv}}

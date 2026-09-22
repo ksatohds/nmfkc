@@ -38,7 +38,11 @@
   n_total <- nrow(cf)
   if (is.null(max.coef) || !is.finite(max.coef) || n_total <= max.coef)
     return(list(idx = seq_len(n_total), truncated = FALSE))
-  p <- if (!is.null(cf$p_value)) cf$p_value else rep(NA_real_, n_total)
+  ## nmfkc-family tables carry a bootstrap p-value; the nmf.ffb table carries
+  ## `prob.unsupported` instead, because a support rate is not a p-value (CONVENTIONS.md 6).
+  p <- if (!is.null(cf$p_value)) cf$p_value
+       else if (!is.null(cf$prob.unsupported)) cf$prob.unsupported
+       else rep(NA_real_, n_total)
   sig_idx <- which(p < 0.05)
   if (length(sig_idx) == 0L)
     list(idx = seq_len(min(max.coef, n_total)), truncated = TRUE)
@@ -78,11 +82,27 @@
                     if (isTRUE(x$converged)) "(converged)" else "(NOT converged)")
   if (!is.null(x$epsilon) && is.numeric(x$epsilon))
     line <- sprintf("%s  epsilon = %g", line, x$epsilon)
+  ## The relative change at the last step is what the stopping rule saw; a
+  ## fit that exhausted maxit with a change just above epsilon is oscillating,
+  ## not slowly descending, and the count of objective increases says so.
+  if (!is.null(x$epsilon.iter) && is.numeric(x$epsilon.iter) &&
+      is.finite(x$epsilon.iter))
+    line <- sprintf("%s  last change = %.2g", line, x$epsilon.iter)
+  if (!is.null(x$objfunc.increases) && is.numeric(x$objfunc.increases) &&
+      isTRUE(x$objfunc.increases > 0))
+    line <- sprintf("%s  objective rose %d times", line,
+                    as.integer(x$objfunc.increases))
   if (!is.null(x$stop.reason) && is.character(x$stop.reason) &&
       !isTRUE(x$converged))
     line <- sprintf("%s  [%s]", line, x$stop.reason)
   ## A nested optimizer (nmfre's ECM) stops on whichever cap it reaches first,
   ## so reporting only the inner count leaves the stop reason unexplainable.
+  ## A two-stage estimator (nmf.ffb: NMF basis, then FIML) reports the second stage too;
+  ## `iter`/`maxit`/`epsilon` above are stage 1, matching the arguments of those names.
+  if (!is.null(x$fiml.iter) && !is.null(x$fiml.maxit))
+    line <- sprintf("%s  fiml %d / %d%s", line, as.integer(x$fiml.iter),
+                    as.integer(x$fiml.maxit),
+                    if (isTRUE(x$fiml.converged)) "" else " (NOT converged)")
   if (!is.null(x$outer.iter) && !is.null(x$outer.maxit))
     line <- sprintf("%s  outer %d / %d", line, as.integer(x$outer.iter),
                     as.integer(x$outer.maxit))
@@ -145,9 +165,9 @@
 #' spirit of \code{print.lm}: enough to see what was fitted and whether to
 #' trust it, with everything else left to \code{summary()}.  Registered on the
 #' shared \code{"nmf"} class, so it covers every optimizer that returns one
-#' (\code{\link{nmfkc}}, \code{\link{nmfae}} / \code{nmf.rrr},
+#' (\code{\link{nmfkc}}, \code{\link{nmf.rrr}} / \code{nmf.rrr},
 #' \code{\link{nmfre}}, \code{\link{nmf.ffb}} and the signed variants);
-
+#' \code{nmf.gmm} has its own methods.
 #'
 #' Without it, printing a fit dumps the whole list --- over 350 lines for a
 #' \eqn{4\times82} problem, and unusable for a large one.
@@ -182,7 +202,7 @@ print.nmf <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
 #' @title Plot convergence diagnostics for NMF models
 #' @description
 #' Plots the objective function value over iterations for \code{nmfre} and
-#' \code{nmf.sem} objects. (For \code{nmfkc} and \code{nmfae}, plot methods
+#' \code{nmf.ffb} objects. (For \code{nmfkc} and \code{nmfae}, plot methods
 #' are defined in their respective source files.)
 #'
 #' @param x A fitted model object.
@@ -226,7 +246,7 @@ plot.nmfre <- function(x, ...) {
 }
 
 #' @rdname plot.nmfre
-#' @param which For \code{plot.nmf.sem}: which objective to plot.
+#' @param which For \code{plot.nmf.ffb}: which objective to plot.
 #'   One of \code{"full"} (default; \code{loss + penalties}, the actual
 #'   monotonically-decreasing quantity that the multiplicative updates
 #'   minimize), \code{"reconstruction"} (Frobenius distance only,
@@ -234,46 +254,105 @@ plot.nmfre <- function(x, ...) {
 #'   legend).  \code{"both"} is useful for diagnosing whether
 #'   regularization is actively shaping the solution: if the two curves
 #'   diverge, the penalties are pulling the optimizer away from the
-#'   pure least-squares minimum.
+#'   pure least-squares minimum.  Ignored for \code{nmf.ffb(method =
+#'   "fiml")} objects, which carry no iteration trace: for them the BIC of
+#'   the L1 path (\code{x$path}) is drawn against \code{log(lambda1)}: the
+#'   line follows the smallest BIC at each penalty (over the starts), every
+#'   individual proposal is a small grey point, the number of selected paths
+#'   is printed at each point and the BIC-selected penalty is circled.
 #' @export
-plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
+plot.nmf.ffb <- function(x, ..., which = c("penalized", "reconstruction", "both")) {
   which <- match.arg(which)
   extra_args <- list(...)
 
-  ## Pick the iteration trace(s) to plot.  Older nmf.sem objects may
-  ## carry only x$objfunc (reconstruction loss); fall back gracefully.
-  has_full <- !is.null(x$objfunc.full)
-  if (which == "full" && !has_full) which <- "reconstruction"
+  ## Likelihood-based fits have no iteration trace (L-BFGS-B); draw the BIC path
+  ## over log(C1.L1) instead, marking the selected penalty.  C1.L1 = 0 (the
+  ## unpenalized fit) and Inf (the null) are placed one unit outside the
+  ## finite grid and labelled as such.  The guard is the method: until 0.9.8 it
+  ## was `is.null(x$objfunc)`, which stopped working the moment `objfunc` was
+  ## given the value the fiml optimizer minimized.
+  if (identical(x$method, "fiml") && !is.null(x$path)) {
+    ## The line follows the smallest BIC at each penalty; every individual
+    ## proposal is drawn as a small open point.
+    pth <- x$path
+    if (is.null(pth$start)) pth$start <- "full"
+    lam_all <- pth$C1.L1
+    lam <- sort(unique(lam_all))
+    best <- vapply(lam, function(l) min(pth$BIC[lam_all == l]), numeric(1))
+    nnz_best <- vapply(lam, function(l) { i <- which(lam_all == l); i[which.min(pth$BIC[i])] }, integer(1))
+    fin <- is.finite(lam) & lam > 0
+    xpos <- function(l) {
+      xs <- log(l)
+      lo <- if (any(fin)) min(log(lam[fin])) else 0
+      hi <- if (any(fin)) max(log(lam[fin])) else 0
+      xs[l == 0] <- lo - 1
+      xs[is.infinite(l)] <- hi + 1
+      xs
+    }
+    xs <- xpos(lam)
+    args <- list(x = xs, y = best, type = "b", pch = 19)
+    if (is.null(extra_args$main))
+      args$main <- sprintf("BIC path | selected: C1.L1 = %s, nnz = %d, rho = %.3f",
+                           format(x$C1.L1.selected, digits = 4),
+                           as.integer(sum(x$support)), x$XC1.radius)
+    if (is.null(extra_args$xlab)) args$xlab <- "log(C1.L1)"
+    if (is.null(extra_args$ylab)) args$ylab <- "BIC"
+    if (is.null(extra_args$xaxt)) args$xaxt <- "n"
+    if (is.null(extra_args$ylim)) args$ylim <- range(pth$BIC, finite = TRUE)
+    do.call("plot", c(args, extra_args))
+    graphics::points(xpos(lam_all), pth$BIC, pch = 1, cex = 0.7, col = "grey50")
+    graphics::axis(1, at = xs,
+                   labels = ifelse(lam == 0, "0",
+                                   ifelse(is.infinite(lam), "Inf (null)",
+                                          format(round(xs, 2)))))
+    graphics::text(xs, best, labels = pth$nnz[nnz_best], pos = 3, cex = 0.8)
+    isel <- which(lam == x$C1.L1.selected)[1]
+    if (is.finite(isel)) graphics::points(xs[isel], best[isel], pch = 1, cex = 2.5, lwd = 2)
+    return(invisible(NULL))
+  }
 
-  if (which == "both" && has_full) {
-    y_full <- x$objfunc.full
+  ## Pick the iteration trace(s) to plot.  Older nmf.ffb objects may
+  ## carry only x$objfunc (reconstruction loss); fall back gracefully.
+  ## Past the BIC-path branch, a fiml fit has nothing left to draw: there is no
+  ## iteration trace, and SC.cov / SC.map are NULL, so the title's round() used to
+  ## fail with "non-numeric argument" and told the user nothing.
+  if (identical(x$method, "fiml"))
+    stop("this fit has no L1 path to draw (select = \"none\"), and a ",
+         "method = \"fiml\" fit has no objective trace (its optimizer is ",
+         "L-BFGS-B). Use nmf.ffb.DOT() for the path diagram or ",
+         "nmf.ffb.diagnostics() for the selection report.", call. = FALSE)
+  has_pen <- !is.null(x$objfunc.penalized)
+  if (which == "penalized" && !has_pen) which <- "reconstruction"
+
+  if (which == "both" && has_pen) {
+    y_pen <- x$objfunc.penalized
     y_rec  <- x$objfunc
-    iter_idx <- seq_along(y_full)
+    iter_idx <- seq_along(y_pen)
     main_default <- sprintf("MAE = %s, SC.cov = %s",
-                            round(x$MAE, 3), round(x$SC.cov, 3))
+                            round(x$mae, 3), round(x$SC.cov, 3))
     if (is.null(extra_args$main)) extra_args$main <- main_default
     if (is.null(extra_args$xlab)) extra_args$xlab <- "iter"
     if (is.null(extra_args$ylab)) extra_args$ylab <- "objective"
-    do.call(plot, c(list(iter_idx, y_full, type = "l", lwd = 2,
+    do.call(plot, c(list(iter_idx, y_pen, type = "l", lwd = 2,
                           col = "black"), extra_args))
     graphics::lines(iter_idx, y_rec, col = "tomato", lwd = 1.5, lty = 2)
     graphics::legend("topright",
-                     legend = c("loss + penalties (full)", "reconstruction only"),
+                     legend = c("loss + penalties", "reconstruction only"),
                      col    = c("black", "tomato"),
                      lty    = c(1, 2), lwd = c(2, 1.5),
                      bty    = "n", cex = 0.85)
   } else {
-    y <- if (which == "full") x$objfunc.full else x$objfunc
+    y <- if (which == "penalized") x$objfunc.penalized else x$objfunc
     args <- list(x = y)
     if (is.null(extra_args$main)) {
-      label <- if (which == "full") "loss + penalties"
+      label <- if (which == "penalized") "loss + penalties"
                else "reconstruction only"
       args$main <- sprintf("%s | MAE = %s, SC.cov = %s",
-                           label, round(x$MAE, 3), round(x$SC.cov, 3))
+                           label, round(x$mae, 3), round(x$SC.cov, 3))
     }
     if (is.null(extra_args$xlab)) args$xlab <- "iter"
     if (is.null(extra_args$ylab))
-      args$ylab <- if (which == "full") "objfunc.full" else "objfunc"
+      args$ylab <- if (which == "penalized") "objfunc.penalized" else "objfunc"
     if (is.null(extra_args$type)) args$type <- "l"
     all_args <- c(args, extra_args)
     do.call("plot", all_args)
@@ -282,20 +361,24 @@ plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
 }
 
 
-# --- summary.nmf.sem ---
+# --- summary.nmf.ffb ---
 
-#' @title Summary method for nmf.sem objects
+#' @title Summary method for nmf.ffb objects
 #' @description
 #' Produces a formatted summary of a fitted NMF-FFB model, including
 #' matrix dimensions, convergence, stability diagnostics, fit statistics,
-#' and inference results (if available).
+#' and inference results (if available).  For \code{nmf.ffb(method =
+#' "fiml")} objects the fit statistics are the log-likelihoods, parameter
+#' counts and BIC of the feed-forward null, the unpenalized feedback fit and
+#' the BIC-selected model, the two likelihood-ratio statistics, and -- after
+#' \code{\link{nmf.ffb.inference}} -- their bootstrap p-values and the
+#' false-selection rate under the null.
 #'
-#' @param object An object of class \code{"nmf.ffb"} (or legacy
-#'   \code{"nmf.sem"}) returned by \code{\link{nmf.ffb}} /
-#'   \code{\link{nmf.sem}}.
+#' @param object An object of class \code{"nmf.ffb"} returned by
+#'   \code{\link{nmf.ffb}}.
 #' @param ... Not used.
-#' @return An object of class \code{"summary.nmf.sem"} (the fitted model
-#'   tagged for printing); printed by \code{\link{print.summary.nmf.sem}}.
+#' @return An object of class \code{"summary.nmf.ffb"} (the fitted model
+#'   tagged for printing); printed by \code{\link{print.summary.nmf.ffb}}.
 #' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}}
 #' @export
 #' @examples
@@ -304,46 +387,95 @@ plot.nmf.sem <- function(x, ..., which = c("full", "reconstruction", "both")) {
 #' result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
 #' summary(result)
 #'
-summary.nmf.sem <- function(object, ...) {
-  class(object) <- "summary.nmf.sem"
+summary.nmf.ffb <- function(object, ...) {
+  class(object) <- "summary.nmf.ffb"
   object
 }
 
-#' @title Print method for summary.nmf.sem objects
+#' @title Print method for summary.nmf.ffb objects
 #' @description
 #' Prints the NMF-FFB model summary (dimensions, convergence, stability
 #' diagnostics, fit statistics, and inference results if available).
-#' @param x An object of class \code{"summary.nmf.sem"} returned by
-#'   \code{\link{summary.nmf.sem}}.
+#' @param x An object of class \code{"summary.nmf.ffb"} returned by
+#'   \code{\link{summary.nmf.ffb}}.
 #' @param ... Not used.
 #' @return Invisible \code{x}.
-#' @seealso \code{\link{summary.nmf.sem}}
+#' @seealso \code{\link{summary.nmf.ffb}}
 #' @export
-print.summary.nmf.sem <- function(x, ...) {
+print.summary.nmf.ffb <- function(x, ...) {
   object <- x
   P1 <- nrow(object$X)
   Q  <- ncol(object$X)
   P2 <- ncol(object$C2)
 
-  cat(sprintf("NMF-FFB: Y1(%d,N) = X(%d,%d) [C1(%d,%d) Y1 + C2(%d,%d) Y2]\n",
+  is_fiml <- identical(object$method, "fiml")
+  cat(sprintf("NMF-FFB%s: Y1(%d,N) = X(%d,%d) [C1(%d,%d) Y1 + C2(%d,%d) Y2]\n",
+              if (is_fiml) " (FIML, X fixed from stage 1)" else "",
               P1, P1, Q, Q, P1, Q, P2))
-  .print.convergence(object)
+  ## The label named only the second stage while the leading pair is the first one
+  ## (the NMF basis); `fiml n / m` at the end is the L-BFGS-B count of the selected fit.
+  .print.convergence(object, label = if (is_fiml) "Stage 1 NMF | stage 2 FIML: " else "Iterations: ")
 
   cat("\nStability diagnostics:\n")
   cat(sprintf("  Spectral radius(XC1): %.4f %s\n",
               object$XC1.radius,
               if (object$XC1.radius < 1) "(stable)" else "(UNSTABLE)"))
   cat(sprintf("  ||XC1||_1:            %.4f\n", object$XC1.norm1))
-  cat(sprintf("  Amplification:        %.4f (bound: %.4f)\n",
-              object$amplification, object$amplification.bound))
+  if (!is_fiml || object$XC1.radius > 0)
+    cat(sprintf("  Amplification:        %.4f (bound: %.4f)\n",
+                object$amplification, object$amplification.bound))
+
+  if (is_fiml) {
+    cat("\nLikelihood (FF null | unpenalized feedback | BIC-selected):\n")
+    cat(sprintf("  loglik:   %10.3f | %10.3f | %10.3f\n",
+                object$null$loglik, object$full$loglik, object$loglik))
+    cat(sprintf("  npar:     %10d | %10d | %10d\n",
+                as.integer(object$null$npar), as.integer(object$full$npar), as.integer(object$npar)))
+    if (!is.null(object$BIC))
+      cat(sprintf("  BIC:      %10.2f | %10.2f | %10.2f\n",
+                  object$BIC[["null"]], object$BIC[["full"]], object$BIC[["selected"]]))
+    cat(sprintf("  LR vs null: full = %.3f (free entries = %d), selected = %.3f (nnz = %d)\n",
+                object$LR[["full"]], as.integer(object$LR.df[["full"]]),
+                object$LR[["selected"]], as.integer(object$LR.df[["selected"]])))
+    cat(sprintf("  selected: C1.L1 = %s, nnz = %d, rho(XC1) = %.4f, restriction = %s\n",
+                format(object$C1.L1.selected, digits = 4), as.integer(sum(object$support)),
+                object$XC1.radius,
+                if (!is.null(object$C1.restriction)) object$C1.restriction       # recorded since 0.9.8
+                else if (is.null(object$call$mask)) "block"                      # older fits: the default then
+                else if (is.character(object$call$mask)) object$call$mask[1] else "user matrix"))
+    ## The three best distinct supports, not the winner alone: a small gap means the criterion does not
+    ## determine which entries carry the feedback.  One parameter costs log(N) in BIC, and a gap is
+    ## 2 log of a Bayes factor, so a gap below about 2 is not evidence for one support over the other
+    ## (recorded since 0.9.8).
+    if (!is.null(object$candidates) && nrow(object$candidates) > 1L && !is.null(object$supports)) {
+      cd <- object$candidates[order(object$candidates$BIC, object$candidates$nnz), , drop = FALSE]
+      k <- min(3L, nrow(cd))
+      cat(sprintf("
+  Support candidates (best %d of %d by BIC; one parameter costs log(N) = %.2f):
+",
+                  k, nrow(cd), log(object$N)))
+      for (i in seq_len(k)) {
+        sm <- object$supports[[cd$support_id[i]]]
+        ij <- which(sm, arr.ind = TRUE)
+        ent <- if (nrow(ij) == 0L) "feed-forward (no feedback)" else
+          paste(sprintf("%s<-%s", rownames(sm)[ij[, 1]], colnames(sm)[ij[, 2]]), collapse = ", ")
+        cat(sprintf("    nnz=%-2d rho=%.3f BIC=%12.2f %-11s %s
+", as.integer(cd$nnz[i]), cd$rho[i], cd$BIC[i],
+                    if (i == 1L) "(selected)" else sprintf("(+%.2f)", cd$BIC[i] - cd$BIC[1]), ent))
+      }
+      if (k > 1L && cd$BIC[2] - cd$BIC[1] < 2)
+        cat("    the first two differ by less than 2: which entries carry the feedback is not determined
+")
+    }
+  }
 
   cat("\nFit statistics:\n")
   if (!is.null(object$SC.map) && is.finite(object$SC.map))
     cat(sprintf("  SC.map (mapping correlation):    %.4f\n", object$SC.map))
   if (!is.null(object$SC.cov) && is.finite(object$SC.cov))
     cat(sprintf("  SC.cov (covariance correlation): %.4f\n", object$SC.cov))
-  if (!is.null(object$MAE)   && is.finite(object$MAE))
-    cat(sprintf("  MAE (mean absolute error):       %.4f\n", object$MAE))
+  if (!is.null(object$mae)   && is.finite(object$mae))
+    cat(sprintf("  MAE (mean absolute error):       %.4f\n", object$mae))
   if (!is.null(object$effective.rank) && is.finite(object$effective.rank))
     cat(sprintf("  Effective Rank:                  %.2f / %d  (%.1f%%)\n",
                 object$effective.rank, Q, 100 * object$effective.rank / Q))
@@ -355,7 +487,9 @@ print.summary.nmf.sem <- function(x, ...) {
     ## Bootstrap meta-info (new full-pair-bootstrap inference; v0.6.8+)
     has_boot <- !is.null(object$bootstrap.B)
     if (has_boot) {
-      cat(sprintf("\nBootstrap inference (X-fixed full pair bootstrap):\n"))
+      cat(sprintf("\nBootstrap inference (%s):\n",
+                  if (is_fiml) "parametric, X and selected support fixed; post-selection"
+                  else "X-fixed full pair bootstrap"))
       cat(sprintf("  B = %d, valid = %d, threshold = %g, ci.level = %g\n",
                   object$bootstrap.B,
                   if (!is.null(object$bootstrap.n.valid)) object$bootstrap.n.valid else NA_integer_,
@@ -377,7 +511,7 @@ print.summary.nmf.sem <- function(x, ...) {
                formatC(block$CI_high, format = "g", digits = 3, width = 10) else NULL
       sup <- if ("support_rate" %in% names(block))
                formatC(block$support_rate, format = "f", digits = 3, width = 8) else NULL
-      pv  <- block$p_value
+      pv  <- if (!is.null(block$p_value)) block$p_value else block$prob.unsupported
       pv_str <- ifelse(!is.finite(pv), "      NA",
                  ifelse(pv < 2.2e-16, "  <2e-16",
                    formatC(pv, format = "g", digits = 4, width = 8)))
@@ -434,16 +568,16 @@ print.summary.nmf.sem <- function(x, ...) {
 #' @description
 #' Returns the \code{coefficients} data frame from a fitted NMF model
 #' that has been passed through an inference function
-#' (\code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}},
+#' (\code{\link{nmfkc.inference}}, \code{\link{nmf.rrr.inference}},
 #' \code{\link{nmfre.inference}}).
 #'
 #' If inference has not been run, returns the parameter matrix \eqn{C}
 #' (\eqn{\Theta}) directly.
 #'
-#' For \code{nmf.sem} objects, returns \eqn{C_2} (exogenous block) as fallback.
+#' For \code{nmf.ffb} objects, returns \eqn{C_2} (exogenous block) as fallback.
 #'
 #' @param object A fitted model object of class \code{"nmf"}, \code{"nmfkc"},
-#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.
+#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.ffb"}.
 #' @param ... Not used.
 #' @return A data frame of coefficients (if inference was performed),
 #'   or the parameter matrix \eqn{C}.
@@ -469,7 +603,7 @@ coef.nmf <- function(object, ...) {
 
 #' @rdname coef.nmf
 #' @export
-coef.nmf.sem <- function(object, ...) {
+coef.nmf.ffb <- function(object, ...) {
   ## With inference: return the unified coefficients data frame (rows for
   ## both C1 and C2, with CI / support_rate / sig columns).
   if (!is.null(object$coefficients)) return(object$coefficients)
@@ -478,11 +612,11 @@ coef.nmf.sem <- function(object, ...) {
   ## every entry of C1 (feedback) and C2 (exogenous), so the column
   ## layout matches `coef(res_inf)`.  Users can post-hoc filter via
   ## `subset(coef(res), Type == "C1")` regardless of whether
-  ## nmf.sem.inference() has been run.
+  ## nmf.ffb.inference() has been run.
   C1 <- object$C1
   C2 <- object$C2
   if (is.null(C1) || is.null(C2)) {
-    ## Fallback (shouldn't normally happen for an nmf.sem result)
+    ## Fallback (shouldn't normally happen for an nmf.ffb result)
     return(if (!is.null(C2)) C2 else C1)
   }
   Q  <- nrow(C1)
@@ -518,14 +652,14 @@ coef.nmf.sem <- function(object, ...) {
 #' Returns the reconstructed matrix \eqn{\hat{Y} = X B} from a fitted
 #' NMF model.
 #'
-#' For \code{nmf.sem} objects, returns the equilibrium prediction
+#' For \code{nmf.ffb} objects, returns the equilibrium prediction
 #' \eqn{\hat{Y}_1 = M_{model} Y_2} if available. Supply \code{Y1} and
 #' \code{Y2} to get the direct reconstruction
 #' \eqn{X (C_1 Y_1 + C_2 Y_2)} instead.
 #'
 #' @param object A fitted model object of class \code{"nmf"}, \code{"nmfkc"},
-#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.
-#' @param ... For \code{nmf.sem}: optionally \code{Y1} and \code{Y2}.
+#'   \code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.ffb"}.
+#' @param ... For \code{nmf.ffb}: optionally \code{Y1} and \code{Y2}.
 #' @return The fitted matrix \eqn{X B}.
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmf.rrr}}, \code{\link{nmfre}},
 #'   \code{\link{nmf.ffb}}, \code{\link{residuals.nmf}}
@@ -567,7 +701,7 @@ fitted.nmfre <- function(object, type = c("blup", "fixed"), ...) {
 
 #' @rdname fitted.nmf
 #' @export
-fitted.nmf.sem <- function(object, ...) {
+fitted.nmf.ffb <- function(object, ...) {
   extra <- list(...)
   Y1 <- extra$Y1
   Y2 <- extra$Y2
@@ -641,11 +775,11 @@ residuals.nmfre <- function(object, Y, type = c("blup", "fixed"), ...) {
 
 #' @rdname residuals.nmf
 #' @export
-residuals.nmf.sem <- function(object, Y, ...) {
-  ## Delegate to fitted.nmf.sem so residuals use the SAME reconstruction as
+residuals.nmf.ffb <- function(object, Y, ...) {
+  ## Delegate to fitted.nmf.ffb so residuals use the SAME reconstruction as
   ## fitted (direct if Y1/Y2 given via ..., else the Y2-equilibrium form).
-  ## Y is the observed response block (Y1). nmf.sem/nmf.ffb need Y2 (and,
-  ## for the direct form, Y1) supplied via ... -- see fitted.nmf.sem.
+  ## Y is the observed response block (Y1). nmf.ffb/nmf.ffb need Y2 (and,
+  ## for the direct form, Y1) supplied via ... -- see fitted.nmf.ffb.
   Y - stats::fitted(object, ...)
 }
 
@@ -664,5 +798,51 @@ residuals.nmf.sem <- function(object, Y, ...) {
 #' @export
 print.nmf.inference <- function(x, ...) {
   print(summary(x), ...)
+  invisible(x)
+}
+
+#' Print a calibrated test of the feed-forward null
+#'
+#' Reports the observed likelihood ratio, its bootstrap \eqn{p}-value, and the
+#' two quantities that say whether the test means anything for these data: the
+#' null false-selection rate and, for the default calibration, how often the
+#' exclusion restriction moved.
+#'
+#' @param x An object from \code{\link{nmf.ffb.test}}.
+#' @param ... Ignored.
+#' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmf.ffb.test}}
+#' @export
+print.nmf.ffb.test <- function(x, ...) {
+  cat("Test of the feed-forward null (NMF-FFB)\n\n")
+  cat(sprintf("Calibration: %s\n", switch(x$calibration,
+    procedure   = "the whole procedure -- basis and exclusion restriction re-estimated\n             on every null replicate",
+    conditional = "conditional on the fitted basis and restriction\n             -- valid only if they come from outside these data")))
+  cat(sprintf("Data       : N = %d, %d outcomes, %d covariates, Q = %d\n", x$N, x$P1, x$P2, x$rank))
+  cat(sprintf("Free entries left by the exclusion restriction: %d\n\n", as.integer(sum(x$C1.free))))
+
+  ## p = (1 + #)/(1 + B_ok); at the floor no replicate reached LR_obs, so show "< floor" rather than a
+  ## number the bootstrap cannot resolve.
+  floor.p <- if (!is.null(x$LR.boot.n.ok)) 1 / (1 + x$LR.boot.n.ok) else NA_real_
+  fmt.p <- function(p) if (is.finite(floor.p) && p <= floor.p) sprintf("< %.2g", floor.p) else sprintf("%.4f", p)
+  cat(sprintf("  LR (full)     = %8.2f    p = %s\n", x$LR[["full"]], fmt.p(x$LR.p.boot[["full"]])))
+  cat(sprintf("  LR (selected) = %8.2f    p = %s\n", x$LR[["selected"]], fmt.p(x$LR.p.boot[["selected"]])))
+  cat(sprintf("  95%% null quantile: full = %.2f, selected = %.2f   (B = %d, usable %d)\n",
+              x$LR.null.quantile[["full"]], x$LR.null.quantile[["selected"]],
+              as.integer(x$B), as.integer(x$LR.boot.n.ok)))
+
+  cat("\nIs the test meaningful for these data?\n")
+  cat(sprintf("  null false-selection rate (BIC keeps an entry when FF is true): %.3f\n", x$prob.select.null))
+  if (!is.null(x$C1.restriction.change.rate)) {
+    df <- x$LR.boot.df[is.finite(x$LR.boot.df)]
+    cat(sprintf("  exclusion restriction moved in %.1f%% of the null replicates (free entries %d-%d)\n",
+                100 * x$C1.restriction.change.rate, min(df), max(df)))
+    if (x$C1.restriction.change.rate > 0.5 || x$prob.select.null > 0.5)
+      cat("  -> the restriction is not determined by these data: the procedure would retain\n",
+          "     feedback whether or not there is any.  Report this with the p-value.\n", sep = "")
+  }
+  if (!is.null(x$LR.boot.n.nonconv) && max(x$LR.boot.n.nonconv) > 0)
+    cat(sprintf("  null replicates below the optimizer tolerance: %d (null fit), %d (feedback fit)\n",
+                x$LR.boot.n.nonconv[["null"]], x$LR.boot.n.nonconv[["full"]]))
   invisible(x)
 }

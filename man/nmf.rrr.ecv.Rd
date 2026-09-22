@@ -16,7 +16,7 @@ nmf.rrr.ecv(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...)
 \item{rank2}{Integer vector of covariate-basis ranks to evaluate. Default is \code{NULL},
 which sets \code{rank2 = rank1} and evaluates element-wise pairs.}
 
-\item{...}{Additional arguments passed to \code{\link{nmfae}} (e.g., \code{epsilon}, \code{maxit}).
+\item{...}{Additional arguments passed to \code{\link{nmf.rrr}} (e.g., \code{epsilon}, \code{maxit}).
 Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 \code{seed} (integer seed, default 123), and \code{cores} (evaluate the
 \eqn{(Q,R)}-pair \eqn{\times} fold grid in parallel; default

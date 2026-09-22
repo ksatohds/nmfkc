@@ -2,16 +2,16 @@
 % Please edit documentation in R/s3methods.R
 \name{coef.nmf}
 \alias{coef.nmf}
-\alias{coef.nmf.sem}
+\alias{coef.nmf.ffb}
 \title{Extract coefficients from NMF models}
 \usage{
 \method{coef}{nmf}(object, ...)
 
-\method{coef}{nmf.sem}(object, ...)
+\method{coef}{nmf.ffb}(object, ...)
 }
 \arguments{
 \item{object}{A fitted model object of class \code{"nmf"}, \code{"nmfkc"},
-\code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.sem"}.}
+\code{"nmfae"}, \code{"nmfre"}, or \code{"nmf.ffb"}.}
 
 \item{...}{Not used.}
 }
@@ -22,13 +22,13 @@ or the parameter matrix \eqn{C}.
 \description{
 Returns the \code{coefficients} data frame from a fitted NMF model
 that has been passed through an inference function
-(\code{\link{nmfkc.inference}}, \code{\link{nmfae.inference}},
+(\code{\link{nmfkc.inference}}, \code{\link{nmf.rrr.inference}},
 \code{\link{nmfre.inference}}).
 
 If inference has not been run, returns the parameter matrix \eqn{C}
 (\eqn{\Theta}) directly.
 
-For \code{nmf.sem} objects, returns \eqn{C_2} (exogenous block) as fallback.
+For \code{nmf.ffb} objects, returns \eqn{C_2} (exogenous block) as fallback.
 }
 \examples{
 Y <- matrix(cars$dist, nrow = 1)

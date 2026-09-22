@@ -2,19 +2,19 @@
 % Please edit documentation in R/s3methods.R
 \name{plot.nmfre}
 \alias{plot.nmfre}
-\alias{plot.nmf.sem}
+\alias{plot.nmf.ffb}
 \title{Plot convergence diagnostics for NMF models}
 \usage{
 \method{plot}{nmfre}(x, ...)
 
-\method{plot}{nmf.sem}(x, ..., which = c("full", "reconstruction", "both"))
+\method{plot}{nmf.ffb}(x, ..., which = c("penalized", "reconstruction", "both"))
 }
 \arguments{
 \item{x}{A fitted model object.}
 
 \item{...}{Additional graphical arguments passed to \code{\link{plot}}.}
 
-\item{which}{For \code{plot.nmf.sem}: which objective to plot.
+\item{which}{For \code{plot.nmf.ffb}: which objective to plot.
 One of \code{"full"} (default; \code{loss + penalties}, the actual
 monotonically-decreasing quantity that the multiplicative updates
 minimize), \code{"reconstruction"} (Frobenius distance only,
@@ -22,14 +22,19 @@ minimize), \code{"reconstruction"} (Frobenius distance only,
 legend).  \code{"both"} is useful for diagnosing whether
 regularization is actively shaping the solution: if the two curves
 diverge, the penalties are pulling the optimizer away from the
-pure least-squares minimum.}
+pure least-squares minimum.  Ignored for \code{nmf.ffb(method =
+  "fiml")} objects, which carry no iteration trace: for them the BIC of
+the L1 path (\code{x$path}) is drawn against \code{log(lambda1)}: the
+line follows the smallest BIC at each penalty (over the starts), every
+individual proposal is a small grey point, the number of selected paths
+is printed at each point and the BIC-selected penalty is circled.}
 }
 \value{
 Invisible \code{NULL}.
 }
 \description{
 Plots the objective function value over iterations for \code{nmfre} and
-\code{nmf.sem} objects. (For \code{nmfkc} and \code{nmfae}, plot methods
+\code{nmf.ffb} objects. (For \code{nmfkc} and \code{nmfae}, plot methods
 are defined in their respective source files.)
 }
 \examples{

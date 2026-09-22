@@ -1,8 +1,8 @@
 Package: nmfkc
 Type: Package
 Title: Non-Negative Matrix Factorization with Kernel Covariates
-Version: 0.9.6
-Date: 2026-08-23
+Version: 0.9.8
+Date: 2026-09-11
 Authors@R:
     person("Kenichi", "Satoh",
            email = "kenichi-satoh@biwako.shiga-u.ac.jp",
@@ -22,7 +22,7 @@ Description: Performs Non-negative Matrix Factorization (NMF)
     Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output
     model for blind source separation and path analysis.
     References: Satoh (2025) <doi:10.48550/arXiv.2403.05359>;
-    Satoh (2025) <doi:10.48550/arXiv.2510.10375>;
+    Satoh (2026) <doi:10.1007/s42081-026-00349-x>;
     Satoh (2025) <doi:10.48550/arXiv.2512.18250>;
     Satoh (2026) <doi:10.48550/arXiv.2603.01468>;
     Satoh and Tokuda (2026) <doi:10.48550/arXiv.2607.27474>;

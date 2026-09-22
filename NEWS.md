@@ -1,3 +1,565 @@
+# nmfkc (development version)
+
+## The deprecated `nmfae*` names are removed
+
+The fifteen `nmfae*` / `nmfae.signed*` forwarders are gone: `nmfae()`,
+`nmfae.inference()`, `nmfae.ecv()`, `nmfae.cv()`, `nmfae.rank()`,
+`nmfae.DOT()`, `nmfae.heatmap()`, `nmfae.kernel.beta.cv()`, `nmfae.rename()`
+and their six `nmfae.signed*` counterparts. Use the `nmf.rrr*` /
+`nmf.rrr.signed*` names, which they forwarded to. Deprecated in 0.8.8, carried
+through two CRAN releases with a `.Deprecated()` note.
+
+**The `nmfae` S3 classes stay.** They are where this family's methods are
+defined, `nmf.rrr()` still returns `c("nmf.rrr", "nmfae", "nmf")`, and
+`summary()` still returns `"summary.nmfae"`. Nothing about dispatch changes, so
+code that inspects the class of a fit, and objects saved by an earlier version,
+keep working. Renaming that layer to `nmf.rrr` is a separate change, for a
+release that is not three days from a submission.
+
+## The deprecated `nmf.sem*` names are removed
+
+`nmf.sem()`, `nmf.sem.inference()`, `nmf.sem.cv()`, `nmf.sem.split()` and
+`nmf.sem.DOT()` are gone, together with the six S3 methods registered on the
+`nmf.sem` classes. Use `nmf.ffb()` and its family; the names map one to one and
+nothing else changes, because the removed functions were pure forwarders
+(`nmf.sem <- function(...) { .Deprecated("nmf.ffb"); nmf.ffb(...) }`).
+
+They were deprecated in 0.8.8 (2026-07-14) and have emitted a `.Deprecated()`
+note through two CRAN releases, 0.8.8 and 0.9.6. No package on CRAN depends on
+`nmfkc`, so nothing else is affected.
+
+Fitted objects no longer carry the legacy class: `nmf.ffb()` now returns
+`c("nmf.ffb", "nmf")` rather than `c("nmf.ffb", "nmf.sem", "nmf")`, inference
+results drop `"nmf.sem.inference"`, `nmf.ffb.DOT()` drops `"nmf.sem.DOT"`, and
+`summary()` returns `"summary.nmf.ffb"` alone. **Code that tests for those class
+strings, and objects saved by an earlier version, will no longer dispatch to
+the `nmf.sem` methods** -- which is the point of removing them, but it is worth
+knowing before loading an old `.rds`.
+
+## NMF-FFB: the help pages no longer describe options that were removed
+
+`C1.restriction` accepted `"block"` and `"cross"` while the exclusion
+restriction was being settled; both were dropped in 0.9.8 in favour of
+`"union"`, but the help pages and the vignette still described them and still
+listed them as admissible values. They now describe only what the code accepts,
+`"union"` and `"none"` (or a user matrix).
+
+The wording of the restriction itself is also corrected. It was "an outcome may
+not feed back into a factor on which it loads", which reads as if any non-zero
+loading blocked the entry; the rule is "a factor on which it has more than a
+negligible loading" -- the dominant factor of the outcome, plus every factor
+whose loading reaches `C1.restriction.threshold`. Neither half alone is the
+rule, and the help now says why. The vignette adds the reference for reading a
+BIC difference as evidence (Kass and Raftery 1995, p. 777).
+
+## The NMF-GMM family is marked experimental again
+
+`nmf.gmm()`, `nmf.gmm.inference()`, `nmf.gmm.select()`, `nmf.gmm.twostage()`
+and the S3 methods on their classes say on their help pages that they are
+experimental and still under development: argument names, defaults and the
+contents of the returned objects are not yet stable. The vignette says so too.
+
+The notice was removed in 0.9.7 on the reasoning that publishing on CRAN is a
+commitment to a fixed interface. That reasoning was premature — the family is
+still being developed alongside the paper — so the notice is back, and now
+covers `nmf.gmm.twostage()` and the S3 methods, which it had missed. Nothing
+else in the package carries the caveat.
+
+## Every restriction on `X` that is not a gauge fix is removed
+
+`X.rowSums.min` (both fitters) and `X.restriction = "rowSums"`
+(`nmfkc.signed()`) are gone. Both acted on the **rows** of `X`, which changes
+`X %*% C %*% A`, so neither was a gauge fix: the scale they removed could not
+be handed to `C`, they sat outside the multiplicative form, and the objective
+was no longer monotone.
+
+* The row-sum floor pushed the pinned rows below the floor and the projection
+  lifted them back, so the objective alternated between two values until
+  `maxit` (observed on Covertype at rank 6, 200,000 iterations).
+* `"rowSums"` has the same defect in a milder form: on a 10x30 example the
+  objective rose at 45 steps, every second step from the 49th on. The
+  oscillation is small enough that the fit still meets `epsilon` and stops, but
+  it descends by luck rather than by construction.
+
+Both were added after the last CRAN release, so nothing on CRAN is affected.
+`"rowSums"` is refused with a message rather than silently re-mapped to
+`"colSums"`, which would change results without saying so. The remaining
+restrictions -- `"colSums"` (default), `"colSqSums"`, `"totalSum"`, `"none"`,
+`"fixed"` -- are all gauge fixes and leave the updates monotone.
+
+Both fitters now return `epsilon.iter` (relative change at the last step) and
+`objfunc.increases` (steps at which the objective rose), and `print()` /
+`summary()` show them, so a fit that is oscillating rather than descending is
+visible. `nmfkc.signed()`'s `converged` is now the stopping rule's own test
+rather than `iter < maxit`, so a run that stopped early on a non-finite
+objective is no longer reported as converged.
+
+The two `epsilon.iter` are not the same quantity and should not be compared
+across the two fitters: `nmfkc()` divides by `max(|f_i|, 1)` and `nmfkc.signed()`
+by `|f_{i-1}|`. Each matches the stopping rule of its own fitter, and they agree
+while the objective exceeds 1; below 1 `nmfkc()`'s test is effectively an
+absolute one. Both are documented on the respective help pages.
+
+
+## NMF-FFB: names brought into line with the rest of the package
+
+`nmf.ffb()` grew its own vocabulary while the likelihood estimator was being
+built, and of the 55 fields on a fit only nine shared a name with an `nmfkc()`
+fit -- two of those meaning something different. The names are now the
+package's. **This is a breaking change**, confined to the likelihood branch and
+its inference, all of which was added after the last CRAN release.
+
+| was | is | why |
+|:--|:--|:--|
+| `fit$Q` | `fit$rank` | `rank` is the field on every other fitter |
+| `fit$MAE` | `fit$mae` | likewise (the `path` / `candidates` **columns** stay `MAE`, beside `BIC`) |
+| `fit$objfunc` (`NULL`) | `fit$objfunc` = the minimized negative log-likelihood | it was the one house field the fiml path left empty |
+| `fit$objfunc.full` | `fit$objfunc.penalized` | it is the penalized objective, unrelated to the `full` fit |
+| `mask =` (argument) | `C1.restriction =` | mirrors `X.restriction`; the argument and the field of the same name held different things |
+| `fit$mask` (matrix) | `fit$C1.free` | it marks the entries left **free**, and the argument `mask` was a rule string |
+| `fit$mask.rule` | `fit$C1.restriction` | the field now means what the argument means |
+| `cross.threshold` | `C1.restriction.threshold` | it parameterizes the restriction, so it shares its prefix |
+| `phi =`, `fit$phi` | `Phi.restriction` | `phi` and `Phi` differed only in case |
+| `lambda1` | `C1.L1.path` | the L1 penalty on `C1`, as a path; `fit$path$C1.L1` is one value of it |
+| `lambda1.selected` | `C1.L1.selected` | |
+| `ci.level` | `boot.level` | the confidence level of the bootstrap, as `wild.level` elsewhere |
+| `bootstrap.B`, `.threshold`, `.ci.level`, `.n.valid`, `.n.invalid`, `.type` | `boot.B`, `boot.threshold`, `boot.level`, `boot.n.valid`, `boot.n.invalid`, `boot.method` | `boot.method` is the house name |
+| `C1.array`, `C2.array` | `C1.boot.draws`, `C2.boot.draws` | as `C.boot.draws` in `nmfkc.inference()` |
+| `rho.boot` | `rho.boot.draws` | |
+| `mask.change.rate` | `C1.restriction.change.rate` | |
+| `calibration = "full"` | `calibration = "procedure"` | `"full"` already named the unrestricted feedback fit |
+| `plot(fit, which = "full")` | `which = "penalized"` | same reason |
+| `coefficients$p_value` | (removed; use `prob.unsupported`) | it held `1 - support_rate`, which is not a p-value |
+| `nmf.ffb.diagnostics()$top$rank` | `$top$order` | `rank` now means the number of factors |
+
+Three defects surfaced while doing this, all of them silent until now.
+
+* `nmf.ffb(C1.L1 = , C2.L1 = )` had **no effect at all** under the default
+  `method = "fiml"`: the arguments were accepted and never forwarded. They
+  belong to the multiplicative updates; the likelihood path penalizes `C1`
+  along `C1.L1.path` and leaves `C2` unpenalized. Passing them to a fiml fit
+  now warns. Same in `nmf.ffb.inference()`.
+* `fit$maxit` held the **stage-2** cap while the `maxit` argument set the
+  **stage-1** one, and `print()` paired stage 2's iteration count with stage
+  1's `epsilon` (`87 / 3000  epsilon = 1e-06` -- three numbers from two
+  different optimizers). `iter`, `maxit`, `epsilon` now describe stage 1, as
+  the arguments of those names do; stage 2 is `fiml.iter`, `fiml.maxit`,
+  `factr`, `fiml.converged`; and `converged` is `TRUE` only if both stages
+  converged. `print()` shows both.
+* `plot()` on a `method = "fiml"` fit failed inside `sprintf()`. A fiml fit has
+  no iteration trace to draw (its optimizer is L-BFGS-B), so it now says so and
+  names what to use instead.
+
+Options withdrawn in 0.9.8 (`starts`, `nsplit`, `calibration` as an argument of
+the fit) reached `...` and were dropped without a word; they now warn. A
+**renamed** argument is worse than a withdrawn one -- `mask = "none"` would be
+dropped and the fit would silently use the default restriction, the opposite of
+the request -- so the four renamed arguments stop with the new name instead.
+
+### NMF-FFB is the canonical name everywhere, NMF-SEM the alias
+
+The `nmf.sem*` functions have been deprecated aliases of `nmf.ffb*` for some
+time, but the rest of the package had not followed:
+
+* the tutorial was `vignettes/nmf-sem-with-nmfkc.Rmd` and the engine file
+  `R/nmf.sem.R`; they are now `nmf-ffb-with-nmfkc.Rmd` and `R/nmf.ffb.R`;
+* **the six S3 methods were registered on `nmf.sem`, not on `nmf.ffb`** --
+  `summary()`, `plot()`, `coef()`, `fitted()`, `residuals()` and
+  `print.summary()` -- so the deprecated name was the one dispatch resolved
+  against and `?summary.nmf.sem` was the page a user landed on. They are now
+  defined on `nmf.ffb`, and the `nmf.sem` methods are one-line aliases
+  collected at the end of `R/nmf.sem-deprecated.R`, so that removing `nmf.sem`
+  later means removing one file. An object saved by a version that wrote only
+  `c("nmf.sem", "nmf")`, and a summary object of class `"summary.nmf.sem"`,
+  still dispatch;
+* `nmf.ffb.DOT()` tagged its result `c("nmf.sem.DOT", "nmfkc.DOT")`; the
+  leading class is now `"nmf.ffb.DOT"`.
+
+The fitted object still carries `c("nmf.ffb", "nmf.sem", "nmf")`, and the
+deprecated functions still work and still say so. The tutorial now also shows
+the exclusion restriction (`fit$C1.restriction`, `fit$C1.free`), the BIC path
+that `plot()` draws, and the two-stage convergence line.
+
+
+## NMF-FFB: one function per step of the procedure
+
+The feedback model is now driven by four functions, one for each step, instead
+of two that each did several things:
+
+```r
+ecv <- nmf.ffb.ecv(Y1, Y2, rank = 1:5)   # 1. choose Q by element-wise CV
+fit <- nmf.ffb(Y1, Y2, rank = Q)         # 2. estimate; BIC selects the support
+tst <- nmf.ffb.test(fit, Y1, Y2)         # 3. test the feed-forward null
+dgn <- nmf.ffb.diagnostics(fit)          # 4. cycles, spectral radius, best supports
+inf <- nmf.ffb.inference(fit, Y1, Y2)    # 5. intervals for the retained entries
+```
+
+* **New** `nmf.ffb.test()`: the calibrated test of the feed-forward null. It
+  runs the null bootstrap only, and returns `LR.p.boot`, the null quantiles,
+  the null false-selection rate `prob.select.null` and, for the default
+  calibration, `C1.restriction.change.rate`. Replicates run in parallel with
+  `cores = ` as elsewhere in the package.
+* **New** `nmf.ffb.ecv()`: choosing *Q* under the name that says what it does.
+  `nmf.ffb.cv(method = "fiml")` has delegated to element-wise CV since 0.9.8;
+  the old name still works and is kept for the multiplicative-update path.
+* **Breaking** `nmf.ffb.inference()` no longer runs the null bootstrap and no
+  longer returns `LR.boot`, `LR.p.boot`, `LR.null.quantile`, `prob.select.null`,
+  `LR.boot.*`, `C1.restriction.change.rate`, `split.table` or
+  `bootstrap.calibration`;
+  its `calibration` and `nsplit` arguments are gone. Use `nmf.ffb.test()`.
+  An intervals object that also carried a *p*-value for the presence of
+  feedback invited the reader to treat an interval that excludes zero as
+  evidence for the entry, which it is not. This affects only the likelihood
+  branch (`method = "fiml"`), which was added after the last release.
+* `nmf.ffb.diagnostics()` now also reports the three best distinct supports with
+  their differences in BIC, the entries common to all of them, their envelope,
+  and whether they form a chain under inclusion. A difference in BIC below about
+  2 is not evidence for one support over another (Kass and Raftery 1995), so the
+  presence of feedback can be settled while its composition is not.
+
+## Options removed
+
+Measurement, not taste, decided each of these; keeping them invited the reader
+to compare procedures as if they were equally valid.
+
+* `nmf.ffb(starts = )` is gone. Every penalized fit is warm-started from the
+  unpenalized full-feedback fit. The three alternative starting points measured
+  on six data sets never uniquely attained the minimum BIC.
+* `calibration` (now an argument of `nmf.ffb.test()`) keeps `"procedure"` (the
+  default: stage 1 and the exclusion restriction re-estimated in every null
+  replicate) and `"conditional"` (valid only when the basis and the restriction
+  come from outside the data being tested, and selected automatically in that
+  case). The two sample-splitting levels are gone: `"split"` fixes the basis of
+  the estimation half and is anti-conservative, and `"split-full"` is valid but
+  strictly dominated by `"procedure"` -- same size, lower power, and it needs a
+  large *N*.
+* `C1.restriction` keeps `"union"` (an outcome may not feed back into a factor
+  on which it loads) and `"none"`, plus a user-supplied matrix. The partial
+  rules `"block"` and `"cross"` were kept for comparison and are neither the
+  rule of the paper nor useful on their own.
+
+
+
+## The feedback test: what the bootstrap conditions on, and two fixes
+
+The parametric bootstrap that calibrates the feedback LR statistics used to
+hold the estimated basis `X` and the exclusion restriction fixed at their
+observed values while regenerating `Y1*`. Both are functions of `Y1`, so the
+null distribution omitted the adaptivity of that selection and the p-values
+were anti-conservative: on the two positive examples of the NMF-FFB paper the
+fixed-basis bootstrap gives `p < 0.001`, re-running stage 1 on every replicate
+gives `p = 0.05` and `0.35`, and the exclusion restriction turns out to move in
+40% and 95% of the null replicates. `nmf.ffb.test()` therefore has a
+`calibration` argument with two levels:
+
+* `"procedure"` (default): stage 1 and the restriction are re-estimated on
+  every replicate (one `nmfkc()` fit per replicate), so the p-value is the
+  operating characteristic of the whole exploratory procedure. Returns
+  `C1.restriction.change.rate`, the share of replicates whose restriction
+  moved, and `LR.boot.df`.
+* `"conditional"`: stage 2 only, basis and restriction fixed (the pre-0.9.8
+  behaviour). Valid only if they came from data independent of `Y1`; labelled
+  as conditional in `print()`, and selected automatically when the fit used a
+  basis or a restriction supplied by the caller.
+
+Two fixes in the same code. `LR.p.boot` is now `(1 + #)/(1 + B_ok)` instead of
+the raw proportion, which was exactly 0 whenever no replicate reached the
+observed statistic (the normal case for a strongly significant fit, and not a
+valid p-value); the floor `1/(1 + B_ok)` is printed as `< floor`. And the
+L-BFGS-B convergence codes of the null replicates are no longer discarded:
+`LR.boot.n.nonconv` reports how many missed the tolerance and a warning is
+raised above 10%, because on a flat null likelihood (small `N`, full `Phi`) the
+share can reach 40% and must be visible to the user.
+
+## `nmf.ffb()`: exclusion restriction `"union"` (new default)
+
+`C1.restriction = "block"` excluded only the dominant factor of each outcome,
+and `"cross"` only the factors with loading at or above
+`C1.restriction.threshold`. Neither is a superset of the other: an outcome with a
+substantial second loading could still feed that factor under `"block"`, and
+an outcome whose largest loading is below the threshold kept its own factor
+free under `"cross"`. The new default `"union"` excludes both, which is the
+rule "an outcome may not feed back into a factor on which it loads". On the
+NHANES data of the paper this removes four selected paths (including BMI ->
+physical factor, coefficient 0.58) that were items feeding a factor on which
+they load. The fit records `C1.restriction` and `stage1.args` so that
+`nmf.ffb.test()` can re-derive the restriction and re-run stage 1.
+
+## `nmf.ffb()`: likelihood-based estimator (`method = "fiml"`, new default)
+
+The joint multiplicative-update estimator that `nmf.ffb()` used until now
+minimizes the structural-form squared error
+\eqn{\lVert Y_1 - X(\Theta_1 Y_1 + \Theta_2 Y_2)\rVert_F^2}. Once \eqn{X} is
+free that objective cannot separate \eqn{\Theta_1} from \eqn{\Theta_2}: the
+structural and reduced forms fit equally well, so the recovered feedback is
+an artefact of the initialization and the penalties. `nmf.ffb()` therefore
+gains a two-stage likelihood-based estimator, now the default:
+
+1. the basis \eqn{\hat X} is estimated by the feed-forward fit
+   `nmfkc(Y1, A = Y2)` (or supplied through the new `X` argument);
+2. conditional on \eqn{\hat X}, the Gaussian working model
+   `Y1 = X B + E`, `B = Theta1 Y1 + Theta2 Y2 + U`, `U ~ N(0, Phi)`,
+   `E ~ N(0, diag(psi))` is fitted by FIML (L-BFGS-B, analytic gradient)
+   under the non-negativity of `Theta1`, `Theta2` and an exclusion
+   restriction on `Theta1` (`C1.restriction`, default `"union"`, see above: no
+   outcome may feed back into a factor on which it loads). The feed-forward null (`Theta1 = 0`, a non-negative
+   MIMIC factor model with correlated factors), the unpenalized feedback fit
+   and an L1 path on `Theta1` with re-estimation on each support are fitted;
+   the support with the smallest BIC is the reported model.
+
+The penalized problem of the L1 path is non-convex, and a single starting
+point can miss the support with the smallest BIC: on the Holzinger-Swineford
+data the start from the unpenalized fit alone proposes a one-path model
+(BIC -1968.9) while the six-path model (BIC -1971.0) is proposed only from
+other starts. Every point of the path was therefore fitted from several starts (argument
+`starts`) while this release was being prepared -- and the alternatives were
+then measured on six data sets and **removed** (see *Options removed*): only
+the warm start from the unpenalized fit survives. What remains of the idea is
+the registry it needed: every distinct support proposed anywhere on the path is
+re-estimated without penalty, and BIC is minimized over all distinct candidates
+together with the null and the unpenalized model. `path` has one row per
+penalty with `C1.L1`, `start`, `support_id`, `pen.value` and `duplicate`
+columns; `candidates` (one row per distinct support), `supports` and
+`support.selected` are new fields, and `nmf.ffb.test()` re-runs the same
+pipeline in its null bootstrap.
+
+The returned object keeps every legacy field (`X`, `C1`, `C2`, `XC1`,
+`Leontief.inv`, `M.model`, `mae`, ...; `SC.map` and `SC.cov` are `NULL`) and
+adds `method`, `Phi`, `psi`, `loglik`, `npar`, `null`, `full`, `path`,
+`C1.free`, `C1.L1.selected`, `support`, `LR` (with `LR.df`), `BIC`, `AIC`,
+`call`. The likelihood-ratio statistics are returned **without
+p-values**: `Theta1 >= 0` puts the null on the boundary of the parameter
+space and the BIC refit is a post-selection statistic, so a chi-square
+reference is invalid.
+
+Two parametric bootstraps run with `X` fixed, and they are now two functions.
+`nmf.ffb.test()` draws from the fitted null, re-running the whole selection
+pipeline on each replicate, and returns `LR.boot`, `LR.p.boot`,
+`LR.null.quantile` and `prob.select.null` (the false-selection rate of BIC
+under the null). `nmf.ffb.inference()` draws from the selected model with the
+support fixed and returns the `coefficients` table (centred percentile
+intervals, support rates) that `nmf.ffb.DOT()` and `summary()` read. `nmf.ffb.DOT()` gains
+`model = c("selected", "null", "full")` to draw the feed-forward null or the
+unpenalized fit side by side with the selected model. `nmf.ffb.cv()` with
+`method = "fiml"` delegates to `nmfkc.ecv()`: column-wise CV of the
+equilibrium mapping cannot select `Theta1` (the reduced form is the same with
+and without feedback), so the only tunable quantity is the stage-1 rank.
+`summary()` reports the log-likelihoods, LR statistics and BIC of the three
+fits. `plot()` does not apply to a fiml fit (L-BFGS-B leaves no objective
+trace) and says so.
+
+`method = "mu"` is the previous estimator, moved verbatim into an internal
+function and verified bit-identical (`identical()` on a battery of fits,
+inference runs and CV scores before and after the change); its objects now
+carry `method = "mu"` as an additional last field. It is kept so that
+published analyses reproduce and will be deprecated in a later release.
+`nmf.ffb.inference()`, `nmf.ffb.cv()` and `nmf.ffb.DOT()` are unchanged for
+it.
+
+## `nmfkc.signed()`: multi-start (`nstart.signed`)
+
+Signed models have many more local minima than non-negative ones, because
+\eqn{\Theta = C_{+} - C_{-}} takes both signs. Until now `nmfkc.signed()`
+only forwarded `nstart` to the non-negative warm-start fit, and the
+documentation asked the caller to loop over seeds. It now does the loop:
+with `nstart.signed > 1` the whole fit is repeated from that many consecutive
+seeds (`seed`, `seed + 1`, ...) and the fit with the smallest `$objfunc` is
+returned, with `$restarts` recording the seed, objective, iteration count and
+convergence flag of every start. `cores` parallelizes the restarts. The
+default `nstart.signed = 1` leaves the previous behaviour untouched.
+
+`nstart` keeps its old meaning -- initialization of \eqn{X} inside the
+non-negative warm start -- so the two are independent. Since `$` on a list
+partial-matches, both are now read with `[[name, exact = TRUE]]`; without
+that, passing `nstart.signed` alone would also have set `nstart`.
+
+Restarts are cheap for Gram input, where \eqn{S} and \eqn{G_0} are already
+accumulated. A budget of 10-50 is recommended for publication-grade runs,
+especially when the number of classes is large. A start that stops after far
+fewer iterations than the others has usually failed, which is a cheap warning
+sign; note however that on ISOLET most of the apparent spread across starts
+turned out to come from stopping at `epsilon = 1e-4` rather than from local
+minima (the signed MU there is still improving after 20,000 iterations).
+
+## Bug fix: `lambda.ortho` no longer leaks into `C.L1`
+
+`nmfkc()` accepts the deprecated names `lambda` (now `C.L1`) and
+`lambda.ortho` (now `X.L2.ortho`) by reading them out of `...`. Because `$`
+partial-matches on lists, calling `nmfkc(..., lambda.ortho = x)` without
+`lambda` also set `C.L1 <- x`, so an orthogonality penalty silently became an
+L1 penalty of the same size. Both names are now matched exactly.
+
+## `nmfkc.rff.beta.cv()`: bandwidth selection for random-feature covariates
+
+The counterpart of `nmfkc.kernel.beta.cv()` for Random Fourier Features:
+for each candidate \eqn{\beta} (default: the seven-point median-heuristic
+grid) and each candidate \eqn{D}, the features are regenerated with a fixed
+seed and the fit is cross-validated column-wise -- `nmfkc.signed.cv()` for
+signed cosine features (`type = "signed"`), `nmfkc.cv()` for positive random
+features (`type = "positive"`). Returns the selected `beta`, `D` and the
+`objfunc` matrix. `sample.size` runs the selection on a random subsample of
+the columns, so that for large \eqn{N} the choice is made cheaply and the
+final fit goes through the Gram route on all \eqn{N}. `cores` parallelizes
+over candidates with identical results. (Nyström covariates need no new
+function: `nmfkc.kernel.beta.cv(Y, rank, U = landmarks, V = data)` already
+cross-validates \eqn{\beta} for them.)
+
+## Positive random features: `nmfkc.rff.positive()` and `nmfkc.rff.positive.gram()`
+
+Cosine Random Fourier Features take both signs, which forces the signed
+solver and breaks the NMF-LAB reading of \eqn{B = \Theta A} as memberships.
+Positive random features (Choromanski et al. 2021, the FAVOR+ construction,
+transported from the softmax to the Gaussian kernel) are a non-negative,
+unbiased feature map for the same kernel: with \eqn{\omega \sim N(0, I_p)},
+\eqn{\phi(u) = \exp(\sqrt{2\beta}\,\omega^\top u - 2\beta\lVert u\rVert^2)}
+gives \eqn{E[\phi(u)\phi(u')] = \exp(-\beta\lVert u - u'\rVert^2)}.
+
+- **`nmfkc.rff.positive(U, beta, D, seed, pars=, hyperbolic=)`** returns the
+  \eqn{D \times N} non-negative feature matrix and the generating `pars`
+  (reuse them for new data). A constant \eqn{\kappa} (minus the largest
+  exponent on the training data) is added to every exponent so that `exp()`
+  cannot overflow; it scales the kernel by \eqn{e^{2\kappa}}, which
+  \eqn{\Theta} absorbs.
+  `hyperbolic = TRUE` pairs each \eqn{\omega} with \eqn{-\omega} (the
+  antithetic variant of Choromanski et al.).
+- **`nmfkc.rff.positive.gram(Y, U, beta, D, seed, block.size)`** is the
+  block-wise Gram constructor (`type = "prf"`, `signed = FALSE`); the object
+  goes to `nmfkc()` -- standard NMF-LAB with the membership interpretation
+  intact -- or to `nmfkc.signed()`.
+- Caveat, documented: the estimator is heavy-tailed for far-apart points, so
+  positive features need a larger \eqn{D} than cosine features and centred,
+  scaled inputs.
+- `print.nmfkc.gram()` now distinguishes the three feature types (RFF,
+  positive RFF, Nyström).
+
+## `predict.nmfkc.signed(type = "prob")`: Euclidean projection onto the simplex
+
+With signed covariates (Random Fourier Features) the scores \eqn{\bm b_n =
+C\bm a_n} can be negative, so NMF-LAB's membership rule -- normalize
+\eqn{\bm b_n} to sum one -- is not available. `type = "prob"` now maps the
+least-squares prediction \eqn{\widehat{\bm y}_n = X\bm b_n} (whose entries
+sum to \eqn{\sum_q b_{qn}}, close to one for one-hot targets) to the
+probability simplex by Euclidean projection, \eqn{\max(\widehat{\bm y}_n -
+\tau_n\bm 1, 0)} with \eqn{\tau_n} from the sorted coordinates (Duchi,
+Shalev-Shwartz, Singer & Chandra 2008; Wang & Carreira-Perpiñán 2013): the
+closest probability vector in the Frobenius geometry the fit minimizes,
+\eqn{O(P\log P)} per column. The previous clip-and-renormalize rule is kept
+as `prob.method = "clip"`. `type = "class"` is unchanged (the argmax of
+\eqn{\widehat{\bm y}_n}, which both rules preserve), so no reported accuracy
+moves; only `type = "prob"` values change.
+
+## Large N without the D x N covariate matrix: Gram input for `nmfkc()` and `nmfkc.signed()`
+
+The kernel designs of NMF-LAB (Satoh 2026, JJSD) so far needed the whole
+\eqn{D \times N} covariate matrix in memory -- Nystr\"om covariates
+\eqn{C^\top} (\eqn{M \times N}) or Random Fourier Features (\eqn{D \times N},
+which is \eqn{D/p} times the size of the data: a low-dimensional input with
+\eqn{N = 10^6}, \eqn{D = 2000} is a 16 GB matrix). The Euclidean
+multiplicative updates never needed it: they only use \eqn{S = AA^\top}
+(\eqn{D \times D}) and \eqn{G_0 = YA^\top} (\eqn{P \times D}). Two
+constructors now accumulate those two matrices over column blocks and return
+a `"nmfkc.gram"` object that the fitters accept in place of `A`.
+
+- **New `nmfkc.kernel.gram(Y, U, V, beta, block.size)`** -- Nystr\"om kernel
+  covariates for `nmfkc()`. `V` is a \eqn{p \times M} landmark matrix or an
+  integer \eqn{M}, in which case landmarks are chosen on a random subsample
+  (default 10,000 columns) by k-means++ seeding plus Lloyd refinement (the
+  package's existing `.kmeanspp.seed()`; `landmarks = "kmeans"` / `"random"`
+  are the alternatives). `beta = NULL` takes the nearest-landmark median
+  heuristic on the same subsample. Each block \eqn{k(V, U_b)} comes from
+  `nmfkc.kernel()`. The object records `landmarks`, `beta` and `kernel`, so
+  covariates for new data are `nmfkc.kernel(g$landmarks, U.new, beta = g$beta)`.
+- **New `nmfkc.signed.rff.gram(Y, U, beta, D, seed, block.size)`** -- signed
+  Random Fourier Features for `nmfkc.signed()`. Regenerates each RFF block
+  with `nmfkc.signed.rff()`; `D` is a required argument (the `N/2` default
+  of `nmfkc.signed.rff()` would be enormous here). The RFF `pars` are stored
+  on the object and inherited by the fit.
+- **`nmfkc()` accepts a non-negative Gram object as `A`** (`method = "EU"`,
+  no `Y.weights`, no `NA` in `Y`). Inside the loop the updates are written as
+  \eqn{YB^\top = G_0C^\top}, \eqn{XBB^\top = XCSC^\top},
+  \eqn{X^\top YA^\top = X^\top G_0}, \eqn{X^\top XBA^\top = X^\top XCS}, with
+  the loss in closed form; nothing of size \eqn{N} is touched per iteration,
+  which is also faster than the matrix path once \eqn{N \gg D}. `B`, `XB` and
+  every fit statistic are rebuilt block by block afterwards, so the returned
+  object is a regular `nmfkc` fit (all S3 methods apply; `A.attr` records
+  `function.name = "nmfkc.gram"`). The fit equals the explicit-matrix fit up
+  to summation order (tested with and without the X / C penalties).
+- **`nmfkc.signed()` accepts either kind of Gram object as `A`.** The MU loop
+  is untouched. With Gram input the posneg `warm.start` is unavailable (it
+  needs the \eqn{2D \times N} split matrix) and the direct initialization is
+  used with a message; `Y.weights` and `NA` in `Y` are errors.
+- Signed (RFF) objects are refused by `nmfkc()` with a pointer to
+  `nmfkc.signed()`. The fold-based helpers (`nmfkc.cv()` / `.ecv()` /
+  `.rank()` and their `.signed` counterparts) refuse Gram objects with a
+  pointer to validation-set selection, which is the paper's protocol anyway.
+- **Existing calls are unaffected.** A matrix `A` follows exactly the old
+  code path in both fitters; the new branch is entered only for the new
+  class, which no existing call can have been passing (it would have failed
+  in `as.matrix()`).
+- Measured on MNIST (\eqn{N = 60{,}000}, RFF, same servers as the paper's
+  Table): the Gram and matrix routes give identical accuracy and iteration
+  counts; peak RSS 2.2 GB vs 3.5 GB at \eqn{D = 1000} and 3.2 GB vs 6.0 GB
+  at \eqn{D = 2000}. With \eqn{D = 4000} RFF features `nmfkc.signed()`
+  reaches 96.4\% test accuracy, above the paper's full \eqn{N \times N}
+  kernel (96.1\%), in under two minutes.
+
+## NMF-GMM family reinstated, with a formula interface and a two-stage baseline
+
+The `nmf.gmm*` family returns to `develop` (it was removed on 2026-08-26 while
+the accompanying paper's publication was undecided; the paper is now being
+submitted, so the family comes back unchanged -- the removal commit was
+reverted and the restored sources are byte-identical to the archived copies).
+Two additions on top of the reinstated family:
+
+- **Formula covariates.** `A` may now be a one-sided formula evaluated in a
+  new `data` argument: `nmf.gmm(Y, ~ size + diet, rank = 3, K = 4, data = df)`.
+  The design matrix is built by `model.matrix()`, its intercept column is
+  replaced by the package's intercept row, and the remaining columns are
+  centered and scaled by default (`standardize = FALSE` to keep them raw).
+  Factors expand to treatment indicators before standardization. The
+  constructed numeric `A` and the transform are returned in the fit
+  (`A`, `A.formula`, `A.center`, `A.scale`), so `nmf.gmm.inference()` works
+  unchanged. This removes the hand-rolled `rbind(1, scale(...))` boilerplate
+  that every analysis script used to repeat, and with it a documented class
+  of centered-vs-scaled description mismatches.
+- **`nmf.gmm.twostage()`.** The adjust-then-cluster baseline that the joint
+  fit is designed to improve on, packaged as the matched recipe used in the
+  paper: least-squares scores on the shared basis initialization, covariates
+  regressed out blind to the class, residuals reconstituted in observation
+  space, shifted to non-negativity, and refitted with an intercept-only
+  `nmf.gmm` from the same `X0`. Only the order of adjustment and clustering
+  differs from the joint fit. Returns a regular `nmf.gmm` object (all S3
+  methods apply) plus a `twostage` list with the shift, the removed `A` and
+  the shared `X0`. Previously this recipe lived in three analysis scripts
+  with two slightly different non-negativity shifts; now there is one.
+
+### **New: NMF-GMM family (`nmf.gmm*`)**
+- `nmf.gmm()` fits NMF-GMM (Satoh 2026): a \eqn{K}-component Gaussian mixture on
+  the latent NMF scores, \eqn{\bm b_n\mid(z_n{=}k)\sim N_Q(C\bm a_n+\bm\mu_k,
+  \Sigma_k)}, \eqn{\bm y_n=X\bm b_n+\bm\varepsilon}, with a shared non-negative,
+  column-normalized basis \eqn{X}. Clustering is model based, through the
+  posterior responsibilities. \eqn{C} (\eqn{=\Theta}) is the covariate
+  coefficient matrix and `mu` the \eqn{Q\times K} class means. Fitted by a
+  generalized EM (auto Woodbury E-step for large \eqn{P}); returns `X`, `C`,
+  `mu`, `tau2`, `sigma2`, `xi`, `gamma` (responsibilities), `cluster`, `BIC`,
+  `ICL`, and the usual house fields. The score covariance is set by `cov`:
+  `"tied"` (shared diagonal, \eqn{Q} variances; default), `"free"` (per-class
+  diagonal), or `"scalar"` (isotropic \eqn{\tau^2 I}, a single variance --- the
+  most parsimonious variant, and the `\link{nmfre}` model at \eqn{K=1}).
+- Optimization / inference split: `nmf.gmm.inference()` gives a Basis/Covariate
+  coefficients table for `C` with the outer-product mixture-information SE and a
+  wild-bootstrap SE / CI (tied covariance); `nmf.gmm.select()` chooses \eqn{K}
+  by BIC / ICL (optional adjusted Rand index against known labels).
+- S3: `coef`, `fitted`, `predict` (hard class / responsibilities), `print`,
+  `summary`, `plot`. New dependency: none (base/stats only).
+- Verified numerically identical to the standalone research engine on the
+  Leptograpsus crabs data (log-likelihood, `X`, `C` exact; `mu`/`gamma` equal up
+  to the mixture's label permutation; ARI 0.86 vs the four species-sex groups).
+  Note on the `\link{nmfre}` nesting: `cov = "scalar"` at \eqn{K = 1} gives the
+  same (isotropic) model as `nmfre`; the default `cov = "tied"` generalizes it
+  to a diagonal (per-basis) score covariance. In either case the two use
+  different EM algorithms, so the fitted values need not coincide numerically.
+
 # nmfkc 0.9.6 (2026-08-23)
 
 ## Check time only -- no change to any computed value

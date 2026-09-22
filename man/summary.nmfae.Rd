@@ -7,7 +7,7 @@
 \method{summary}{nmfae}(object, ...)
 }
 \arguments{
-\item{object}{An object of class \code{"nmfae"} returned by \code{\link{nmfae}}.}
+\item{object}{An object of class \code{"nmfae"} returned by \code{\link{nmf.rrr}}.}
 
 \item{...}{Additional arguments (currently unused).}
 }

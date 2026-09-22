@@ -99,25 +99,32 @@ test_that("nmf.rrr uses Resp/Cov labels; inference and signed helpers work", {
   expect_equal(colnames(gs$X1), paste0("Resp", 1:Q))
 })
 
-test_that("deprecated nmfae() alias still works and warns", {
+test_that("the nmfae() alias is gone, and the class it dispatched on is not", {
   skip_unless_full()
+  ## The 15 nmfae* forwarders were removed in 0.9.8.  The "nmfae" S3 classes
+  ## stay: they are where the methods for this family are defined, and
+  ## nmf.rrr() still tags its fits with them, so removing the names did not
+  ## change any dispatch.
+  for (f in c("nmfae", "nmfae.inference", "nmfae.ecv", "nmfae.cv",
+              "nmfae.rank", "nmfae.DOT", "nmfae.heatmap",
+              "nmfae.kernel.beta.cv", "nmfae.rename", "nmfae.signed",
+              "nmfae.signed.inference", "nmfae.signed.ecv",
+              "nmfae.signed.rank", "nmfae.signed.heatmap",
+              "nmfae.signed.rename"))
+    expect_false(exists(f, envir = asNamespace("nmfkc"), inherits = FALSE),
+                 info = f)
+
   set.seed(7); P1 <- 6; P2 <- 6; N <- 30; Q <- 2; R <- 2
   Y2 <- matrix(rpois(P2 * N, 4) + 0.1, P2, N)
   Y1 <- matrix(abs(rnorm(P1 * Q)), P1, Q) %*% matrix(abs(rnorm(Q * R)), Q, R) %*%
         matrix(abs(rnorm(R * P2)), R, P2) %*% Y2 +
         matrix(abs(rnorm(P1 * N, 0, 0.3)), P1, N)
-
-  ## nmfae() is a deprecated alias for nmf.rrr(): it warns but still fits,
-  ## and the object carries both the new and legacy S3 classes.
-  expect_warning(f <- nmfae(Y1, Y2 = Y2, rank1 = Q, rank2 = R, maxit = 800),
-                 "deprecated")
-  expect_s3_class(f, "nmf.rrr")
-  expect_s3_class(f, "nmfae")
-  expect_true(f$r.squared >= 0 && f$r.squared <= 1)
-
-  ## the reference fit from the canonical name matches the deprecated one
   g <- nmf.rrr(Y1, Y2 = Y2, rank1 = Q, rank2 = R, maxit = 800)
-  expect_equal(f$objfunc, g$objfunc)
+  expect_s3_class(g, "nmf.rrr")
+  expect_s3_class(g, "nmfae")
+  expect_true(g$r.squared >= 0 && g$r.squared <= 1)
+  ## and the methods registered on the legacy class are still the ones reached
+  expect_s3_class(summary(g), "summary.nmfae")
 })
 
 test_that("the KL convergence test survives a negative objective", {

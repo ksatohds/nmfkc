@@ -72,8 +72,14 @@ test_that("nmf.rrr() returns both score matrices", {
 
 test_that("nmf.ffb() fits its two blocks", {
   f <- suppressWarnings(nmf.ffb(Y1, Y2, rank = Q, verbose = FALSE))
+  expect_identical(f$method, "fiml")
   expect_equal(nrow(f$X), nrow(Y1))
+  expect_named(f$LR, c("full", "selected"))
   expect_output(print(f))
+  expect_output(print(summary(f)))
+  fm <- suppressWarnings(nmf.ffb(Y1, Y2, rank = Q, maxit = 200, method = "mu", verbose = FALSE))
+  expect_identical(fm$method, "mu")
+  expect_equal(nrow(fm$X), nrow(Y1))
 })
 
 test_that("nmfkc.net() fits a symmetric matrix", {
@@ -88,6 +94,31 @@ test_that("nmfkc.signed() accepts signed covariates", {
                                      rank = Q, maxit = 50, verbose = FALSE))
   expect_equal(dim(f$X), c(P, Q))
   expect_true(all(is.finite(f$X)))
+})
+
+test_that("nmfkc.signed() accepts a block-wise RFF Gram object in place of A", {
+  U <- matrix(rnorm(3 * N), 3, N)
+  g <- nmfkc.signed.rff.gram(Y, U, beta = 0.5, D = 6, seed = 1, block.size = 8)
+  expect_s3_class(g, "nmfkc.gram")
+  Z <- nmfkc.signed.rff(U, pars = g$pars)$Z
+  expect_equal(g$S, tcrossprod(Z), tolerance = 1e-12)
+  fg <- suppressMessages(nmfkc.signed(Y, A = g, rank = Q, maxit = 30, verbose = FALSE))
+  fm <- suppressMessages(nmfkc.signed(Y, A = Z, rank = Q, maxit = 30, verbose = FALSE,
+                                      warm.start = FALSE))
+  expect_equal(fg$C, fm$C, tolerance = 1e-8)
+  expect_equal(dim(fg$B), c(Q, N))
+})
+
+test_that("nmfkc() accepts a block-wise Nystroem Gram object in place of A", {
+  U <- matrix(rnorm(3 * N), 3, N)
+  g <- nmfkc.kernel.gram(Y, U, V = U[, 1:4], beta = 0.5, block.size = 7)
+  expect_s3_class(g, "nmfkc.gram")
+  A <- nmfkc.kernel(U[, 1:4], U, beta = 0.5)
+  expect_equal(g$S, unname(tcrossprod(unclass(A))), tolerance = 1e-12)
+  fg <- suppressWarnings(nmfkc(Y, A = g, rank = Q, maxit = 30, verbose = FALSE))
+  fm <- suppressWarnings(nmfkc(Y, A = A, rank = Q, maxit = 30, verbose = FALSE))
+  expect_equal(fg$C, fm$C, tolerance = 1e-8)
+  expect_equal(dim(fg$B), c(Q, N))
 })
 
 test_that("nmfkc.ar() builds a lagged design that nmfkc() can fit", {
@@ -109,4 +140,22 @@ test_that("the DOT writers produce graph source", {
   d <- nmfkc.DOT(f)
   expect_type(as.character(d), "character")
   expect_match(paste(as.character(d), collapse = " "), "digraph|graph")
+})
+
+test_that("nmf.gmm and its two-stage baseline fit on toy data", {
+  Afit <- rbind(1, rnorm(ncol(Y)))
+  g <- suppressWarnings(nmf.gmm(Y, Afit, rank = Q, K = 2, nstart = 1,
+                                maxit = 50, seed = 1))
+  expect_s3_class(g, "nmf.gmm")
+  expect_length(g$cluster, ncol(Y))
+  expect_true(is.finite(g$BIC))
+  expect_length(predict(g), ncol(Y))
+  ts <- suppressWarnings(nmf.gmm.twostage(Y, Afit, rank = Q, K = 2, nstart = 1,
+                                          maxit = 50, seed = 1))
+  expect_s3_class(ts, "nmf.gmm.twostage")
+  expect_gte(ts$twostage$shift, 0)
+  df <- data.frame(a = Afit[2, ])
+  gf <- suppressWarnings(nmf.gmm(Y, ~ a, rank = Q, K = 2, nstart = 1,
+                                 maxit = 50, seed = 1, data = df))
+  expect_equal(nrow(gf$A), 2L)
 })

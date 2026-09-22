@@ -156,8 +156,10 @@ test_that("no inference or CV wrapper resets the caller's RNG stream", {
   ff  <- qq(nmf.ffb(Y1, Y2, rank = 2, verbose = FALSE))
   calls <- list(
     nmfkc.inference   = function() qq(nmfkc.inference(fk, Y, A, wild.B = 20)),
-    nmf.ffb.inference = function() qq(nmf.ffb.inference(ff, Y1, Y2, B = 10,
-                                                        ncores = 1, print.trace = FALSE)),
+    ## this test is about the RNG stream, so take the cheap conditional branch;
+    ## the default (sample splitting) halves N = 30 and is exercised elsewhere
+    nmf.ffb.inference = function() qq(nmf.ffb.inference(ff, Y1, Y2, B = 10, ncores = 1,
+                                                        print.trace = FALSE, calibration = "conditional")),
     nmfkc.cv          = function() qq(nmfkc.cv(Y, rank = 2, verbose = FALSE)),
     nmfkc.ecv         = function() qq(nmfkc.ecv(Y, rank = 2, verbose = FALSE)),
     nmf.ffb.cv        = function() qq(nmf.ffb.cv(Y1, Y2, rank = 2, seed = 7,
@@ -197,6 +199,7 @@ test_that("no fitter leaves the caller's RNG stream at a fixed state", {
   fitters <- list(
     nmfkc        = function() qq(nmfkc(Y, rank = 2, verbose = FALSE)),
     nmfre        = function() qq(nmfre(Y, A = A, rank = 2, verbose = FALSE)),
+    nmf.gmm      = function() qq(nmf.gmm(Y, A, rank = 2, K = 2)),
     nmf.ffb      = function() qq(nmf.ffb(Y1, Y2, rank = 2, verbose = FALSE)),
     nmfkc.net    = function() qq(nmfkc.net(Yn, rank = 2, verbose = FALSE)),
     nmfkc.signed = function() qq(nmfkc.signed(Ys, As, rank = 2, maxit = 50,

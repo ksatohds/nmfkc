@@ -1,6 +1,6 @@
-# nmf.sem.R — NMF-FFB (formerly NMF-SEM) canonical engines + generic DOT
+# nmf.ffb.R — NMF-FFB (formerly NMF-SEM) canonical engines + generic DOT
 # Canonical:  nmf.ffb, nmf.ffb.inference, nmf.ffb.cv, nmf.ffb.split, nmf.ffb.DOT
-#             (deprecated nmf.sem* aliases live in nmf.sem-deprecated.R).
+#             (the deprecated nmf.sem* aliases were removed in 0.9.8).
 # Also hosts: nmfkc.DOT / plot.nmfkc.DOT (shared DOT utilities).
 
 #------------------------------------------------------------------------------
@@ -9,16 +9,19 @@
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
-#' @title NMF-FFB Main Estimation Algorithm (formerly NMF-SEM)
+#' @title NMF-FFB: non-negative matrix factorization with latent feedback
 #'
 #' @description
 #' Fits the NMF-FFB model
 #' \deqn{
-#'   Y_1 \approx X \bigl( \Theta_1 Y_1 + \Theta_2 Y_2 \bigr)
+#'   Y_1 = X B + E, \qquad B = \Theta_1 Y_1 + \Theta_2 Y_2 + U,
 #' }
-#' under non-negativity constraints with orthogonality and sparsity regularization.
-#' The function returns the estimated latent factors, structural coefficient matrices,
-#' and the implied equilibrium (input–output) mapping.
+#' in which a non-negative basis \eqn{X} (\eqn{P_1 \times Q}) generates the
+#' endogenous block \eqn{Y_1} from latent scores \eqn{B} that are driven by
+#' the exogenous block \eqn{Y_2} (feed-forward, \eqn{\Theta_2}) and fed back
+#' by \eqn{Y_1} itself (latent feedback, \eqn{\Theta_1}).  The function
+#' returns the estimated basis, the structural coefficient matrices and the
+#' implied equilibrium (input-output) mapping.
 #'
 #' At equilibrium, the model can be written as
 #' \deqn{
@@ -31,6 +34,72 @@
 #' Internally, the latent feedback and exogenous loading matrices are stored as
 #' \code{C1} and \code{C2}, corresponding to \eqn{\Theta_1} and \eqn{\Theta_2},
 #' respectively.
+#'
+#' Two estimators are available through \code{method}:
+#' \describe{
+#'   \item{\code{"fiml"} (default)}{A two-stage likelihood-based estimator.
+#'     \strong{Stage 1} estimates the basis with the feed-forward fit
+#'     \code{\link{nmfkc}(Y1, A = Y2)} (\code{X.init}, \code{X.L2.ortho},
+#'     \code{epsilon}, \code{maxit}, \code{seed} are forwarded), unless a
+#'     basis is supplied through \code{X}.  Columns are normalized to unit
+#'     sum.  \strong{Stage 2} holds \eqn{\hat X} fixed and fits the Gaussian
+#'     working model \eqn{U \sim N(0, \Phi)}, \eqn{E \sim N(0,
+#'     \mathrm{diag}(\psi))} by full-information maximum likelihood
+#'     (L-BFGS-B with an analytic gradient) under the non-negativity of
+#'     \eqn{\Theta_1, \Theta_2} and an exclusion restriction on
+#'     \eqn{\Theta_1}.  It fits (a) the feed-forward null \eqn{\Theta_1 = 0}
+#'     (a non-negative MIMIC factor model with correlated factors), (b) the
+#'     unpenalized feedback model on the admitted entries, and (c) an L1
+#'     path over \code{C1.L1.path}.  The penalized problem is non-convex, so
+#'     every point of the path is fitted from several starting points
+#'     (\code{starts}); every distinct support proposed by any (penalty,
+#'     start) pair is re-estimated without penalty (itself from three
+#'     starts, keeping the best log-likelihood) and BIC is minimized over
+#'     all distinct candidates together with the null and the unpenalized
+#'     model.  The support with the smallest BIC is the \emph{selected}
+#'     model, reported in \code{C1}, \code{C2}, \code{Phi}, \code{psi}.
+#'     \code{C1.L1} and \code{C2.L1} are not used by this estimator.  The likelihood-ratio statistics against the null are
+#'     returned without p-values: \eqn{\Theta_1 \ge 0} puts the null on the
+#'     boundary of the parameter space and the BIC refit is a post-selection
+#'     statistic, so a chi-square reference is not valid.  Their calibration
+#'     by parametric bootstrap is done by \code{\link{nmf.ffb.inference}}.}
+#'   \item{\code{"mu"}}{The legacy estimator: joint multiplicative updates of
+#'     \eqn{X, \Theta_1, \Theta_2} for the structural-form squared error
+#'     \eqn{\lVert Y_1 - X(\Theta_1 Y_1 + \Theta_2 Y_2)\rVert_F^2} with an
+#'     orthogonality penalty on \eqn{X} and L1 penalties \code{C1.L1},
+#'     \code{C2.L1}.  Kept, bit-identical, so that analyses published with it
+#'     reproduce.  Because the structural and reduced forms have the same
+#'     fit once \eqn{X} is free, this estimator cannot separate
+#'     \eqn{\Theta_1} from \eqn{\Theta_2}; prefer \code{"fiml"}.}
+#' }
+#'
+#' @section Exclusion restriction:
+#' Feedback is identified only through exclusion restrictions: an outcome
+#' may not feed back into a factor on which it has more than a negligible
+#' loading, because such an entry is nearly equivalent to a change of the
+#' outcome's loading and uniqueness.  With
+#' \code{C1.restriction = "union"} (default) entry \eqn{(q, i)} of \eqn{\Theta_1} is
+#' excluded if \eqn{q = \arg\max_{q'} X_{i q'}} (the dominant factor) or
+#' \eqn{X_{iq} \ge} \code{C1.restriction.threshold}.  Both halves are needed:
+#' blocking the dominant factor alone would leave an outcome with a
+#' substantial second loading free to feed that factor, and blocking only the
+#' factors above the threshold would leave an outcome whose largest loading is
+#' below the threshold free to feed its own.
+#' \code{"none"} frees every entry (not recommended: the model is then
+#' identified only through the non-negativity and the covariance structure).
+#' A user-supplied \eqn{Q \times P_1} 0/1 matrix is used as given.
+#'
+#' The restriction is derived from the estimated basis and therefore from the same
+#' \eqn{Y_1} that is subsequently tested; see the \emph{Calibration} section
+#' of \code{\link{nmf.ffb.inference}} for what this implies.
+#'
+#' @section Lifecycle:
+#' \code{method = "fiml"} became the default in version 0.9.8, as did
+#' \code{C1.restriction = "union"} (earlier fiml fits blocked the dominant
+#' factor only), and
+#' \code{\link{nmf.ffb.inference}} gained the \code{calibration} argument.
+#' \code{method = "mu"} is the legacy estimator, kept for the reproducibility
+#' of published analyses; it will be deprecated in a later release.
 #'
 #' @param Y1 A non-negative numeric matrix of endogenous variables with
 #'   \strong{rows = variables (P1), columns = samples (N)}.
@@ -72,7 +141,7 @@
 #' @param C1.L1 L1 sparsity penalty for \code{C1} (i.e., \eqn{\Theta_1}).
 #'   Default: \code{1.0}.  \strong{Scale note}: this function adds
 #'   \code{C1.L1} to the multiplicative denominator, whereas
-#'   \code{\link{nmfkc}}, \code{\link{nmfae}} and \code{\link{nmfkc.net}} add
+#'   \code{\link{nmfkc}}, \code{\link{nmf.rrr}} and \code{\link{nmfkc.net}} add
 #'   \code{C.L1 / 2}.  The same nominal value is therefore twice as strong
 #'   here.  The difference is retained so that published \code{nmf.ffb} fits
 #'   reproduce; halve the value to match the other models.
@@ -83,7 +152,7 @@
 #'   falls below this value. Default: \code{1e-6}.
 #'   \strong{Note}: the test is on the unpenalized loss (\code{objfunc}), not
 #'   on the penalized objective the updates actually minimize
-#'   (\code{objfunc.full}).  Every other optimizer in the package tests the
+#'   (\code{objfunc.penalized}).  Every other optimizer in the package tests the
 #'   penalized value, so with a large \code{X.L2.ortho} or \code{C*.L1} this
 #'   function can stop while the quantity being optimized is still moving.
 #'   Both traces are returned; compare them if the penalties are strong.
@@ -91,25 +160,50 @@
 #'   Default: \code{5000} (matches \code{\link{nmfkc}} and other MU
 #'   functions in the package).
 #' @param seed Random seed used to initialize \code{X}, \code{C1}, and \code{C2}.
-#'   Default: \code{123}.
-#' @param ... Additional hidden arguments controlling the optional
-#'   feedforward baseline (used both as an \eqn{X} warm-start and as
-#'   the reference for \code{SC.map}, the input-output structural
-#'   fidelity defined in Satoh (2025) §4.SC.map):
+#'   Default: \code{123}.  For \code{method = "fiml"} the seed only reaches
+#'   the stage-1 \code{\link{nmfkc}} fit; the FIML stage is deterministic.
+#' @param method \code{"fiml"} (default) or \code{"mu"}; see Description.
+#' @param X Optional basis for \code{method = "fiml"}: a \eqn{P_1 \times Q}
+#'   non-negative matrix, or an \code{\link{nmfkc}} / \code{nmf.ffb} object
+#'   whose \code{$X} is used.  When supplied, stage 1 is skipped and
+#'   \code{rank} is taken from \code{ncol(X)}.
+#' @param C1.restriction Exclusion restriction on \eqn{\Theta_1} for
+#'   \code{method = "fiml"}: \code{"union"} (default), \code{"none"}, or a
+#'   \eqn{Q \times P_1} 0/1 matrix
+#'   (1 = free).  See the section \emph{Exclusion restriction}.
+#' @param C1.restriction.threshold Loading threshold for
+#'   \code{C1.restriction = "union"}.  Default \code{0.05}.
+#' @param Phi.restriction Covariance of the latent disturbance \eqn{U} for
+#'   \code{method = "fiml"}: \code{"full"} (default; positive definite via
+#'   Cholesky) or \code{"diag"}.
+#' @param C1.L1.path Numeric vector of L1 penalties on \eqn{\Theta_1} defining
+#'   the path (\code{method = "fiml"}).  Default \code{NULL}, meaning
+#'   \code{N * c(0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5)}.
+#' @param select \code{"BIC"} (default): the support with the smallest BIC
+#'   among all candidates proposed along the path is the selected model;
+#'   \code{"none"}: the unpenalized feedback fit is returned as the selected
+#'   model and the path is skipped.
+#' @param ... Additional hidden arguments.  For \code{method = "fiml"}:
+#'   \code{fiml.maxit} (L-BFGS-B iteration cap, default \code{3000}),
+#'   \code{factr} (\code{optim} tolerance, default \code{1e3}), and
+#'   \code{Q} (alias of \code{rank}).  For \code{method = "mu"} the
+#'   following control the optional feedforward baseline (used both as an
+#'   \eqn{X} warm-start and as the reference for \code{SC.map}, the
+#'   input-output structural fidelity defined in Satoh (2025) §4.SC.map):
 #'   \describe{
 #'     \item{\code{nmfkc.baseline}}{Controls whether a feedforward
 #'       \code{\link{nmfkc}}(Y1, A = Y2) fit is used as baseline.
 #'       Possible values:
 #'       \itemize{
-#'         \item Default (not given) — \code{nmf.sem} runs
+#'         \item Default (not given) — \code{nmf.ffb} runs
 #'           \code{\link{nmfkc}} \strong{internally} when \code{X.init}
 #'           is a string method (\code{"nndsvd"}, \code{"kmeans"},
 #'           \dots) or \code{NULL}, forwarding \code{X.init},
 #'           \code{X.L2.ortho}, \code{epsilon}, \code{maxit},
 #'           \code{seed}.  The fitted \eqn{X} of the baseline is then
-#'           used as warm-start for the nmf.sem MU iterations, and
+#'           used as warm-start for the nmf.ffb MU iterations, and
 #'           \code{SC.map} is computed.  This means
-#'           \code{nmf.sem(Y1, Y2, rank = Q)} runs end-to-end without
+#'           \code{nmf.ffb(Y1, Y2, rank = Q)} runs end-to-end without
 #'           a prior \code{nmfkc} call.
 #'         \item \code{TRUE} — same as above, but force the internal
 #'           \code{\link{nmfkc}} call even when \code{X.init} is a
@@ -127,9 +221,11 @@
 #'     \item{\code{Q}}{Backward-compat alias for \code{rank}.}
 #'   }
 #'
-#' @return A list with components:
+#' @return An object of class \code{c("nmf.ffb", "nmf")}, a list
+#'   with components:
 #'   \item{X}{Estimated basis matrix (\eqn{P_1 \times Q}).}
-#'   \item{C1}{Estimated latent feedback matrix (\eqn{\Theta_1}, \eqn{Q \times P_1}).}
+#'   \item{C1}{Estimated latent feedback matrix (\eqn{\Theta_1}, \eqn{Q \times P_1});
+#'     for \code{"fiml"} the BIC-selected estimate.}
 #'   \item{C2}{Estimated exogenous loading matrix (\eqn{\Theta_2}, \eqn{Q \times P_2}).}
 #'   \item{XC1}{Feedback matrix \eqn{X \Theta_1}.}
 #'   \item{XC2}{Direct-effect matrix \eqn{X \Theta_2}.}
@@ -140,11 +236,13 @@
 #'     \eqn{M_{\mathrm{model}} = (I - X \Theta_1)^{-1} X \Theta_2}.}
 #'   \item{amplification}{Latent amplification factor
 #'     \eqn{\lVert M_{\mathrm{model}} \rVert_{1,\mathrm{op}} /
-#'          \bigl\lVert X \Theta_2 \bigr\rVert_{1,\mathrm{op}}}.}
+#'          \bigl\lVert X \Theta_2 \bigr\rVert_{1,\mathrm{op}}}; meaningful
+#'     only when \code{XC1.radius > 0} (it equals 1 when no feedback is
+#'     selected).}
 #'   \item{amplification.bound}{Geometric-series upper bound
 #'     \eqn{1 / (1 - \lVert X \Theta_1 \rVert_{1,\mathrm{op}})} if
 #'     \eqn{\lVert X \Theta_1 \rVert_{1,\mathrm{op}} < 1}, otherwise \code{Inf}.}
-#'   \item{Q}{Effective latent dimension used in the fit.}
+#'   \item{rank}{Effective latent dimension used in the fit.}
 #'   \item{SC.cov}{Correlation between sample and model-implied covariance
 #'     (flattened) of \eqn{Y_1}.  See \emph{second-moment fidelity} in
 #'     Satoh (2025).}
@@ -154,23 +252,74 @@
 #'     baseline is supplied via \code{M.simple} or \code{nmfkc.baseline}
 #'     in \code{...}; otherwise \code{NA}.  See \emph{input-output
 #'     structural fidelity} in Satoh (2025).}
-#'   \item{MAE}{Mean absolute error between \eqn{Y_1} and its equilibrium
+#'   \item{mae}{Mean absolute error between \eqn{Y_1} and its equilibrium
 #'     prediction \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.}
-#'   \item{objfunc}{Vector of reconstruction losses per iteration.}
-#'   \item{objfunc.full}{Vector of penalized objective values per iteration.}
-#'   \item{iter}{Number of iterations actually performed.}
+#'   \item{objfunc}{Vector of reconstruction losses per iteration
+#'     (\code{"mu"}); \code{NULL} for \code{"fiml"}.}
+#'   \item{objfunc.penalized}{Vector of penalized objective values per iteration
+#'     (\code{"mu"}); \code{NULL} for \code{"fiml"}.}
+#'   \item{iter, maxit, epsilon, converged}{Convergence bookkeeping.  For
+#'     \code{"fiml"}: the number of objective evaluations of the selected
+#'     fit, the L-BFGS-B cap (\code{fiml.maxit}), the stage-1 tolerance,
+#'     and \code{optim()$convergence == 0}.}
+#'   \item{method}{\code{"fiml"} or \code{"mu"}.}
+#'
+#'   The following are present for \code{method = "fiml"} only
+#'   (\code{SC.cov} and \code{SC.map} are then \code{NULL}):
+#'   \item{Phi, psi, loglik, npar}{Latent-disturbance covariance
+#'     (\eqn{Q \times Q}), unique variances (length \eqn{P_1}),
+#'     log-likelihood and parameter count of the selected model.}
+#'   \item{null}{The feed-forward null: list \code{C2, Phi, psi, loglik,
+#'     npar, M.model}.}
+#'   \item{full}{The unpenalized feedback fit: list \code{C1, C2, Phi, psi,
+#'     loglik, npar, XC1.radius}.}
+#'   \item{path}{Data frame with one row per (\code{C1.L1.path}, start) of
+#'     the L1 path (\code{C1.L1.path = 0} is the unpenalized fit re-estimated
+#'     on its non-zero entries, \code{Inf} the null): \code{C1.L1.path, start,
+#'     support_id, nnz, rho, loglik, BIC, MAE} (each after re-estimation on
+#'     the proposed support),
+#'     \code{pen.value} (the penalized objective reached by that start,
+#'     smaller is better) and \code{duplicate} (\code{TRUE} when the same
+#'     support was already proposed by an earlier row).}
+#'   \item{candidates, supports, support.selected}{One row per distinct
+#'     support (\code{support_id, nnz, rho, loglik, BIC, MAE,
+#'     lambda1.first, start.first, selected}; the null and the model with
+#'     every admitted entry free are always candidates, so
+#'     \code{candidates} can hold a support that appears in no row of
+#'     \code{path}); the supports themselves
+#'     (list of logical \eqn{Q \times P_1} matrices indexed by
+#'     \code{support_id}); and the id of the selected one.}
+#'   \item{C1.free, C1.L1.path, C1.L1.selected, support}{The free-entry matrix used
+#'     (\eqn{Q \times P_1} 0/1), the path, the smallest penalty at which
+#'     the selected support was proposed (\code{0} for the unpenalized
+#'     model, \code{Inf} for the null), the selected support (logical
+#'     \eqn{Q \times P_1}) and the starts used.}
+#'   \item{LR, LR.df}{Likelihood-ratio statistics \code{c(full = 2(l_full -
+#'     l_null), selected = 2(l_sel - l_null))} and the naive degrees of
+#'     freedom \code{c(full = sum(C1.restriction), selected = nnz)} (also stored as
+#'     \code{attr(LR, "df")}).  No p-value is attached; see
+#'     \code{\link{nmf.ffb.inference}}.}
+#'   \item{BIC, AIC}{Named vectors \code{c(null, full, selected)}.}
+#'   \item{call}{The matched call, from which
+#'     \code{\link{nmf.ffb.inference}} inherits the design.}
 #'
 #' @examples
 #' # Simple NMF-FFB with iris data (non-negative)
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]  # Sepal
 #' Y2 <- Y[3:4, ]  # Petal
-#' result <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500)
-#' result$MAE
+#' result <- nmf.ffb(Y1, Y2, rank = 2)
+#' result$LR          # feedback vs feed-forward null (no p-value here)
+#' result$BIC
+#' result$path
+#'
+#' # Legacy multiplicative-update estimator
+#' result.mu <- nmf.ffb(Y1, Y2, rank = 2, maxit = 500, method = "mu")
+#' result.mu$mae
 #'
 #' @seealso \code{\link{nmf.ffb.inference}}, \code{\link{nmf.ffb.cv}},
 #'   \code{\link{nmf.ffb.split}}, \code{\link{nmf.ffb.DOT}},
-#'   \code{\link{summary.nmf.sem}}
+#'   \code{\link{summary.nmf.ffb}}
 #' @references
 #' Satoh, K. (2025). Applying non-negative matrix factorization with covariates
 #'   to structural equation modeling for blind input-output analysis.
@@ -186,9 +335,86 @@ nmf.ffb <- function(
     epsilon = 1e-6,
     maxit = 5000,
     seed  = 123,
-    ...
+    ...,
+    method = c("fiml", "mu"),
+    X = NULL,
+    C1.restriction = c("union", "none"),
+    C1.restriction.threshold = 0.05,
+    Phi.restriction = c("full", "diag"),
+    C1.L1.path = NULL,
+    select = c("BIC", "none")
 ) {
   cl <- match.call()
+  method <- match.arg(method)
+  ## `C1.L1` / `C2.L1` penalize the multiplicative updates.  The likelihood path has
+  ## its own penalty -- the grid `C1.L1.path`, swept with the support chosen by BIC --
+  ## and leaves Theta2 unpenalized, so these two arguments have no meaning under
+  ## method = "fiml".  Until 0.9.8 they were accepted there and silently ignored.
+  if (method == "fiml" && any(c("C1.L1", "C2.L1") %in% names(cl)))
+    warning("`C1.L1` / `C2.L1` apply to method = \"mu\" only and are ignored here. ",
+            "Under method = \"fiml\" the L1 penalty on Theta1 is the path `C1.L1.path` ",
+            "(swept, with the support selected by BIC) and Theta2 is unpenalized.",
+            call. = FALSE)
+  ## Options withdrawn in 0.9.8 would otherwise be swallowed by `...` without a word.
+  gone <- c(starts = "every penalized fit is warm-started from the unpenalized fit, the only start measurement ever preferred",
+            nsplit = "sample splitting was withdrawn: same size as calibration = \"procedure\", lower power",
+            calibration = "the calibration level is an argument of nmf.ffb.test(), not of the fit")
+  hit <- base::intersect(base::names(gone), base::names(cl))
+  if (length(hit) > 0)
+    warning("`", paste(hit, collapse = "`, `"), "` was removed in 0.9.8 and is ignored: ",
+            gone[[hit[1]]], ".", call. = FALSE)
+  ## A RENAMED argument is the more dangerous case: `mask = "none"` reaches `...`, is
+  ## dropped, and the fit silently uses the DEFAULT restriction -- the opposite of the
+  ## request.  Stop rather than warn.
+  renamed <- c(mask = "C1.restriction", cross.threshold = "C1.restriction.threshold",
+               phi = "Phi.restriction", lambda1 = "C1.L1.path")
+  hit <- base::intersect(base::names(renamed), base::names(cl))
+  if (length(hit) > 0)
+    stop("`", paste(hit, collapse = "`, `"), "` was renamed in 0.9.8; use `",
+         paste(renamed[hit], collapse = "`, `"),
+         "`. It would otherwise be dropped silently and the fit would use the default.",
+         call. = FALSE)
+  if (method == "mu") {
+    ## Legacy estimator: the body is unchanged (bit-identical) and lives in
+    ## .nmf.ffb.mu(); only the `method` field is appended.
+    out <- .nmf.ffb.mu(Y1, Y2, rank = rank, X.init = X.init, X.L2.ortho = X.L2.ortho,
+                       C1.L1 = C1.L1, C2.L1 = C2.L1, epsilon = epsilon, maxit = maxit,
+                       seed = seed, cl = cl, ...)
+    out$method <- "mu"
+    return(out)
+  }
+  if (!is.matrix(C1.restriction)) C1.restriction <- match.arg(C1.restriction)
+  Phi.restriction <- match.arg(Phi.restriction)
+  select <- match.arg(select)
+  ## Each penalized fit is warm-started from the unpenalized full-feedback fit and each support refit from
+  ## its own penalized fit.  Alternative start sets were measured and never won (NEWS 0.9.8), so there is
+  ## no choice left to expose.
+  .nmf.ffb.fiml(Y1, Y2, rank = rank, X.init = X.init, X.L2.ortho = X.L2.ortho,
+                epsilon = epsilon, maxit = maxit, seed = seed,
+                X = X, C1.restriction = C1.restriction, C1.restriction.threshold = C1.restriction.threshold,
+                Phi.restriction = Phi.restriction, C1.L1.path = C1.L1.path, select = select, cl = cl, ...)
+}
+
+#' Legacy multiplicative-update NMF-FFB estimator (Internal)
+#'
+#' The body of \code{nmf.ffb()} as it was before \code{method = "fiml"} was
+#' added, moved here verbatim so that \code{nmf.ffb(method = "mu")} stays
+#' bit-identical to earlier releases.  \code{cl} is the caller's matched call.
+#' @keywords internal
+#' @noRd
+.nmf.ffb.mu <- function(
+    Y1, Y2,
+    rank = NULL,
+    X.init = "nndsvd",
+    X.L2.ortho = 100.0,
+    C1.L1 = 1.0,
+    C2.L1 = 0.1,
+    epsilon = 1e-6,
+    maxit = 5000,
+    seed  = 123,
+    cl = NULL,
+    ...
+) {
   # ------------------------------ checks ------------------------------
   if (!is.matrix(Y1)) Y1 <- as.matrix(Y1)
   if (!is.matrix(Y2)) Y2 <- as.matrix(Y2)
@@ -232,7 +458,7 @@ nmf.ffb <- function(
   ##     X.L2.ortho, epsilon, maxit, seed; use its X as warm-start
   ##     and X * C as M.simple for SC.map.  This is the typical
   ##     workflow described in Satoh (2025) and means
-  ##       res <- nmf.sem(Y1, Y2, rank = Q)
+  ##       res <- nmf.ffb(Y1, Y2, rank = Q)
   ##     can run end-to-end without first calling nmfkc().
   ##   * TRUE: same as above (explicit opt-in even when X.init is a
   ##     user-supplied matrix; the matrix is overridden by nmfkc's X).
@@ -267,7 +493,7 @@ nmf.ffb <- function(
 
   if (auto_nmfkc) {
     ## Internal nmfkc call.  Forward only the genuinely shared options
-    ## (X.init, X.L2.ortho, epsilon, maxit, seed); the nmf.sem-specific
+    ## (X.init, X.L2.ortho, epsilon, maxit, seed); the nmf.ffb-specific
     ## C1.L1 / C2.L1 do not apply to the feedforward baseline model.
     nmfkc_xinit <- if (is.null(X.init)) "nndsvd" else X.init
     baseline_for_scmap <- nmfkc(
@@ -280,7 +506,7 @@ nmf.ffb <- function(
       verbose = FALSE,
       print.dims = FALSE
     )
-    ## Override X.init with the nmfkc-fitted X for nmf.sem warm-start
+    ## Override X.init with the nmfkc-fitted X for nmf.ffb warm-start
     X.init <- baseline_for_scmap$X
   } else if (baseline_is_obj) {
     baseline_for_scmap <- user_baseline
@@ -317,7 +543,7 @@ nmf.ffb <- function(
   }
 
   objfunc      <- numeric(maxit)
-  objfunc.full <- numeric(maxit)
+  objfunc.penalized <- numeric(maxit)
 
   # ----------------------------- main loop ----------------------------
   for (it in 1:maxit) {
@@ -367,7 +593,7 @@ nmf.ffb <- function(
     }
     pen_C1_L1 <- C1.L1 * sum(C1)
     pen_C2_L1 <- C2.L1 * sum(C2)
-    objfunc.full[it] <- loss_rec + pen_X_ortho + pen_C1_L1 + pen_C2_L1
+    objfunc.penalized[it] <- loss_rec + pen_X_ortho + pen_C1_L1 + pen_C2_L1
 
     if (it >= 10) {
       epsilon_iter <- abs(objfunc[it] - objfunc[it - 1]) / pmax(abs(objfunc[it]), 1)
@@ -477,14 +703,14 @@ nmf.ffb <- function(
     M.model             = M.model,
     amplification       = amplification,
     amplification.bound = amplification.bound,
-    Q                   = Q,
+    rank                = Q,
     SC.cov              = SC.cov,
     SC.map              = SC.map,
-    MAE                 = MAE,
+    mae                 = MAE,
     ## Effective rank of the latent scores B = C1 Y1 + C2 Y2 (Q x N).
     effective.rank      = .effective.rank(C1 %*% Y1 + C2 %*% Y2),
     objfunc             = objfunc[1:it],
-    objfunc.full        = objfunc.full[1:it],
+    objfunc.penalized        = objfunc.penalized[1:it],
     iter                = it,
     ## Convergence bookkeeping, matching nmfkc / nmfre / nmfae so print.nmf()
     ## and the summaries can say whether the run finished or hit the cap.
@@ -493,22 +719,43 @@ nmf.ffb <- function(
     converged           = !(it == maxit && exists("epsilon_iter") &&
                             epsilon_iter > abs(epsilon))
   )
-  ## Carry both the canonical NMF-FFB class (paper-aligned, primary) and
-  ## the legacy "nmf.sem" class (back-compat).  S3 methods registered on
-  ## either class are dispatched correctly via inheritance.
-  class(out) <- c("nmf.ffb", "nmf.sem", "nmf")
+  class(out) <- c("nmf.ffb", "nmf")
   out
 }
 
 
-#' @title Statistical inference for NMF-FFB via X-fixed full pair bootstrap
+#' @title Bootstrap inference for NMF-FFB (X held fixed)
 #' @description
-#' \code{nmf.sem.inference} performs statistical inference on the structural
+#' \code{nmf.ffb.inference} performs statistical inference on the structural
 #' coefficient matrices \eqn{C_1} (latent feedback, \eqn{\Theta_1}) and
 #' \eqn{C_2} (exogenous loading, \eqn{\Theta_2}) from a fitted
-#' \code{\link{nmf.sem}} model.
+#' \code{\link{nmf.ffb}} model, \emph{after} the feed-forward null has been
+#' rejected by \code{\link{nmf.ffb.test}}.  The
+#' basis \eqn{\hat X} is held fixed throughout, which avoids label switching
+#' and gives a clean conditional interpretation: uncertainty of the structural
+#' coefficients given the measurement model.  Which resampling scheme is run
+#' depends on \code{object$method}.
 #'
-#' The procedure is a \strong{full pair bootstrap} that holds the basis
+#' \strong{\code{method = "fiml"}: a parametric bootstrap from the selected
+#' model.}  \eqn{B} data sets are drawn from the selected model (with its
+#' \eqn{\Theta_1}) and \eqn{(\Theta_1, \Theta_2, \Phi, \psi)} are re-estimated
+#' with \eqn{X} and the selected support held fixed.  Confidence intervals are
+#' the centred (basic) percentile intervals \eqn{[2\hat\theta -
+#' q^*_{1-\alpha/2},\; 2\hat\theta - q^*_{\alpha/2}]}; \code{support_rate} is
+#' the share of replicates with \eqn{|\hat\theta^*| >} \code{threshold} (0 for
+#' entries outside the selected support), and \code{prob.unsupported} is
+#' \eqn{1 - \mathrm{support\_rate}}.
+#'
+#' These are \emph{post-selection} quantities, conditional on the support that
+#' BIC picked, and they can overstate the evidence.  They answer "how large is
+#' this entry, given that the procedure kept it", not "is there feedback at
+#' all"; the calibrated statement about the presence of feedback is
+#' \code{\link{nmf.ffb.test}}, which is the step that belongs before this one.
+#' Each replicate seeds itself (\code{seed + B + b}), so the result does not
+#' depend on \code{cores}.
+#'
+#' \strong{\code{method = "mu"} (legacy fits, and objects without a
+#' \code{method} field).}  The procedure is a \strong{full pair bootstrap} that holds the basis
 #' matrix \eqn{\hat X} from the original fit fixed across all replicates
 #' (which avoids label switching and gives a clean conditional
 #' interpretation: ``uncertainty of the structural coefficients given the
@@ -518,7 +765,7 @@ nmf.ffb <- function(
 #'     \eqn{(i_1, \dots, i_N)} with replacement from \eqn{\{1, \dots, N\}}
 #'     and form \eqn{Y_1^{(b)} = Y_1[, i]}, \eqn{Y_2^{(b)} = Y_2[, i]}.
 #'   \item Re-estimate \eqn{(C_1^{(b)}, C_2^{(b)})} by running the
-#'     \code{\link{nmf.sem}} multiplicative updates \emph{with \eqn{X = \hat X}
+#'     \code{\link{nmf.ffb}} multiplicative updates \emph{with \eqn{X = \hat X}
 #'     held fixed} (no \eqn{X} update; no centroid sort), using the same
 #'     \code{C1.L1}, \code{C2.L1} as the original fit.
 #'   \item Discard replicates that violate stationarity
@@ -543,10 +790,10 @@ nmf.ffb <- function(
 #' 0.001 → */**/***), translated to support_rate via
 #' \eqn{\mathrm{sup} = 1 - p}.
 #'
-#' @param object A fitted object returned by \code{\link{nmf.sem}}.  Must
+#' @param object A fitted object returned by \code{\link{nmf.ffb}}.  Must
 #'   contain \code{X}, \code{C1}, \code{C2}.
 #' @param Y1 Endogenous variable matrix (P1 x N).  Must match the data
-#'   used in \code{nmf.sem()}.
+#'   used in \code{nmf.ffb()}.
 #' @param Y2 Exogenous variable matrix (P2 x N).  Same.
 #' @param B Number of bootstrap replicates.  Default \code{1000}, the value the
 #'   published analysis used; the other inference functions in the package
@@ -556,22 +803,33 @@ nmf.ffb <- function(
 #'   clears \code{threshold}, at any \code{B}: raising \code{B} does not add a
 #'   finer grade, it makes the same grade stronger evidence (all 1000 rather
 #'   than all 500).  Lowering it to 500 roughly halves the running time, since
-#'   each replicate is a re-fit.
+#'   each replicate is a re-fit.  For \code{method = "fiml"} a replicate is one
+#'   FIML fit on the selected support, so \code{B = 1000} is affordable; the
+#'   expensive bootstrap is the null one, which \code{\link{nmf.ffb.test}} runs.
 #' @param threshold Display threshold \eqn{\delta} for the support rate
 #'   \eqn{\Pr_{\mathrm{boot}}(\hat c^{(b)} > \delta)}.  Default
 #'   \code{0.01}; entries below this magnitude are treated as effectively
 #'   zero in the path diagram.
-#' @param ci.level Confidence level for the percentile bootstrap CI.
+#' @param boot.level Confidence level for the bootstrap CI.
 #'   Default \code{0.95}.
 #' @param C1.L1,C2.L1 L1 sparsity penalties used by the original
-#'   \code{\link{nmf.sem}} fit.  These must match the fit's hyperparameters
+#'   \code{method = "mu"} fit.  These must match the fit's hyperparameters
 #'   for the bootstrap to estimate the correct model.  Defaults
-#'   (\code{1.0}, \code{0.1}) match \code{nmf.sem}'s defaults but you
-#'   should pass the actual values used.
-#' @param seed Base RNG seed for the bootstrap.  Each replicate uses
-#'   \code{seed + b} (resampling) and \code{seed + 1000 + b}
-#'   (\eqn{C_1, C_2} initialization).  Default \code{123}.
-#' @param ... Hidden options:
+#'   (\code{1.0}, \code{0.1}) match \code{nmf.ffb}'s defaults but you
+#'   should pass the actual values used.  Not used for \code{method = "fiml"}.
+#' @param seed Base RNG seed for the bootstrap.  For \code{method = "mu"}
+#'   each replicate uses \code{seed + b} (resampling) and
+#'   \code{seed + 1000 + b} (\eqn{C_1, C_2} initialization); for
+#'   \code{method = "fiml"} see Description.  Default \code{123}.
+#' @param ... Hidden options.  Shared: \code{cores} (number of parallel
+#'   workers, default \code{getOption("mc.cores", 1L)} for \code{"fiml"},
+#'   \code{1} for \code{"mu"}; \code{ncores} is accepted as an alias) and
+#'   \code{print.trace}.  For \code{method = "fiml"}: \code{factr} and
+#'   \code{fiml.maxit} (L-BFGS-B tolerance and cap, default the values
+#'   recorded on \code{object}).  The null bootstrap is no longer run here at
+#'   all: see \code{\link{nmf.ffb.test}}.  (Removed: \code{boot.null}, which
+#'   used to skip it, and the coefficient
+#'   intervals).  For \code{method = "mu"}:
 #'   \describe{
 #'     \item{\code{epsilon}}{Convergence tolerance for the inner fixed-X MU
 #'       loop.  Default \code{1e-8} -- deliberately tighter than a plain fit,
@@ -585,12 +843,6 @@ nmf.ffb <- function(
 #'       when near-threshold entries matter; loosen only for speed.}
 #'     \item{\code{maxit}}{Maximum iterations for the inner MU loop.
 #'       Default \code{100000} (the tighter tolerance needs the headroom).}
-#'     \item{\code{ncores}}{Number of parallel workers.  Default \code{1}
-#'       (serial).  Cross-platform: uses \code{parallel::mclapply} on
-#'       Linux/macOS and \code{parallel::parLapply} (PSOCK cluster) on
-#'       Windows.}
-#'     \item{\code{print.trace}}{Logical, print progress.  Default
-#'       \code{FALSE}.}
 #'   }
 #'
 #' @return The input \code{object} with additional bootstrap inference
@@ -598,20 +850,29 @@ nmf.ffb <- function(
 #' \item{coefficients}{Data frame with rows for every entry of \eqn{C_1}
 #'   and \eqn{C_2} and columns \code{Type} ("C1" / "C2"), \code{Basis},
 #'   \code{Covariate}, \code{Estimate}, \code{CI_low}, \code{CI_high},
-#'   \code{support_rate}, \code{p_value} (\eqn{= 1 - \mathrm{support\_rate}},
-#'   for compatibility with downstream consumers such as
-#'   \code{\link{nmf.sem.DOT}}), and \code{sig}.}
+#'   \code{support_rate}, \code{prob.unsupported} (\eqn{= 1 -
+#'   \mathrm{support\_rate}}) and \code{sig}.}
 #' \item{C1.support.rate, C2.support.rate}{Per-element support rates
 #'   (Q x P1 and Q x P2 matrices).}
 #' \item{C1.ci.lower, C1.ci.upper, C2.ci.lower, C2.ci.upper}{Per-element
-#'   percentile CI bounds.}
-#' \item{C1.array, C2.array}{Bootstrap distributions: 3D arrays of shape
+#'   CI bounds (percentile for \code{"mu"}, centred percentile for
+#'   \code{"fiml"}).}
+#' \item{C1.boot.draws, C2.boot.draws}{Bootstrap distributions: 3D arrays of shape
 #'   B x Q x P1 (and B x Q x P2).  Invalid replicates contain \code{NA}.}
-#' \item{rho.boot, AR.boot, iter.boot}{Per-replicate spectral radius,
-#'   amplification ratio, and inner-loop iteration count.}
-#' \item{bootstrap.B, bootstrap.threshold, bootstrap.ci.level}{Inputs
-#'   recorded for reproducibility.}
-#' \item{bootstrap.n.valid, bootstrap.n.invalid}{Validity counts.}
+#' \item{rho.boot.draws}{Per-replicate spectral radius \eqn{\rho(X C_1^*)}.}
+#' \item{AR.boot, iter.boot}{(\code{"mu"} only) per-replicate amplification
+#'   ratio and inner-loop iteration count.}
+#' #' \item{boot.B, boot.threshold, boot.level}{Inputs recorded for
+#'   reproducibility.}
+#' \item{boot.n.valid, boot.n.invalid}{Validity counts (for \code{"fiml"}:
+#'   of the selected-model bootstrap).}
+#' \item{boot.method}{How the replicates were drawn.}
+#'
+#' The calibrated test of the feed-forward null -- \code{LR.p.boot},
+#' \code{prob.select.null}, \code{C1.restriction.change.rate} and the null
+#' bootstrap behind them -- is \strong{not} returned here.  It moved to
+#' \code{\link{nmf.ffb.test}} in 0.9.8, so that an object carrying coefficient
+#' intervals cannot be mistaken for a test of feedback (see NEWS).
 #'
 #' @section Lifecycle:
 #' This function's interface changed at v0.6.8: the legacy 1-step Newton
@@ -631,19 +892,34 @@ nmf.ffb <- function(
 #' Y <- t(iris[, -5])
 #' Y1 <- Y[1:2, ]; Y2 <- Y[3:4, ]
 #' res  <- nmf.ffb(Y1, Y2, rank = 2)
-#' res2 <- nmf.ffb.inference(res, Y1, Y2, B = 200)  # quick demo
-#' head(res2$coefficients)
+## The test of the feed-forward null is nmf.ffb.test(); this function gives
+#' ## intervals for the entries the test has already licensed reading.
+#' inf <- nmf.ffb.inference(res, Y1, Y2, B = 20)   # use B = 1000 in practice
+#' head(inf$coefficients)  # estimate, interval and support rate per entry
+#'
+#' res.mu  <- nmf.ffb(Y1, Y2, rank = 2, method = "mu")
+#' res.mu2 <- nmf.ffb.inference(res.mu, Y1, Y2, B = 200)
+#' head(res.mu2$coefficients)
 #' }
 nmf.ffb.inference <- function(object, Y1, Y2,
                                B = 1000L,
                                threshold = 0.01,
-                               ci.level = 0.95,
+                               boot.level = 0.95,
                                C1.L1 = 1.0,
                                C2.L1 = 0.1,
                                seed = 123L,
                                ...) {
   if (is.null(object$X) || is.null(object$C1) || is.null(object$C2))
-    stop("object must contain X, C1, and C2 (returned by nmf.sem).")
+    stop("object must contain X, C1, and C2 (returned by nmf.ffb).")
+  ## Renamed in 0.9.8; through `...` it would be dropped and the default used.
+  if ("ci.level" %in% names(match.call()))
+    stop("`ci.level` was renamed to `boot.level` in 0.9.8.", call. = FALSE)
+
+  ## Likelihood-based fits take the parametric-bootstrap branch; objects
+  ## without a `method` field predate it and are multiplicative-update fits.
+  if (identical(object$method, "fiml"))
+    return(.nmf.ffb.inference.fiml(object, Y1, Y2, B = B, threshold = threshold,
+                                   boot.level = boot.level, seed = seed, what = "ci", ...))
 
   extra_args  <- base::list(...)
   ## Keep our own seeding out of the caller's random stream.
@@ -784,8 +1060,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## PSOCK cluster on Windows; serial when ncores == 1).
   ## ----------------------------------------------------------------
   if (print.trace)
-    base::message(sprintf("  Bootstrap: B=%d, ncores=%d, threshold=%.3g, ci.level=%.2f",
-                          B, ncores, threshold, ci.level))
+    base::message(sprintf("  Bootstrap: B=%d, ncores=%d, threshold=%.3g, boot.level=%.2f",
+                          B, ncores, threshold, boot.level))
 
   if (ncores > 1L) {
     if (.Platform$OS.type == "windows") {
@@ -806,8 +1082,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## ----------------------------------------------------------------
   ## Aggregate replicates into 3D arrays (B x Q x P1) and (B x Q x P2)
   ## ----------------------------------------------------------------
-  C1.array <- array(NA_real_, dim = c(B, Q, P1))
-  C2.array <- array(NA_real_, dim = c(B, Q, P2))
+  C1.boot.draws <- array(NA_real_, dim = c(B, Q, P1))
+  C2.boot.draws <- array(NA_real_, dim = c(B, Q, P2))
   rho.vec  <- rep(NA_real_, B)
   AR.vec   <- rep(NA_real_, B)
   iter.vec <- rep(NA_integer_, B)
@@ -821,8 +1097,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     if (!is.null(r$AR))   AR.vec[b]   <- r$AR
     if (!is.null(r$iter)) iter.vec[b] <- as.integer(r$iter)
     if (valid.vec[b]) {
-      C1.array[b, , ] <- r$C1
-      C2.array[b, , ] <- r$C2
+      C1.boot.draws[b, , ] <- r$C1
+      C2.boot.draws[b, , ] <- r$C2
     }
   }
   n.valid <- sum(valid.vec)
@@ -835,7 +1111,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## ----------------------------------------------------------------
   ## Per-element summary: support rate at threshold, percentile CI
   ## ----------------------------------------------------------------
-  alpha <- 1 - ci.level
+  alpha <- 1 - boot.level
 
   apply_finite <- function(arr, FUN) {
     apply(arr, c(2, 3), function(v) {
@@ -844,12 +1120,12 @@ nmf.ffb.inference <- function(object, Y1, Y2,
     })
   }
 
-  C1.support  <- apply_finite(C1.array, function(v) mean(v > threshold))
-  C2.support  <- apply_finite(C2.array, function(v) mean(v > threshold))
-  C1.ci.lower <- apply_finite(C1.array, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
-  C1.ci.upper <- apply_finite(C1.array, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
-  C2.ci.lower <- apply_finite(C2.array, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
-  C2.ci.upper <- apply_finite(C2.array, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
+  C1.support  <- apply_finite(C1.boot.draws, function(v) mean(v > threshold))
+  C2.support  <- apply_finite(C2.boot.draws, function(v) mean(v > threshold))
+  C1.ci.lower <- apply_finite(C1.boot.draws, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
+  C1.ci.upper <- apply_finite(C1.boot.draws, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
+  C2.ci.lower <- apply_finite(C2.boot.draws, function(v) stats::quantile(v, alpha / 2,    names = FALSE))
+  C2.ci.upper <- apply_finite(C2.boot.draws, function(v) stats::quantile(v, 1 - alpha / 2, names = FALSE))
 
   ## Significance markers from support rate (one-sided; lavaan / stats
   ## convention).  Cutoffs use strict greater-than so the rule mirrors
@@ -894,7 +1170,6 @@ nmf.ffb.inference <- function(object, Y1, Y2,
       ## the convention-compliant name ...
       prob.unsupported = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
       ## ... and the historical one, same numbers, kept for back-compatibility
-      p_value      = ifelse(is.finite(s_vec), 1 - s_vec, NA_real_),
       sig          = sig.from.support(s_vec),
       stringsAsFactors = FALSE
     )
@@ -911,16 +1186,16 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## ----------------------------------------------------------------
   ## Append to object and return
   ## ----------------------------------------------------------------
-  object$bootstrap.B          <- B
-  object$bootstrap.threshold  <- threshold
-  object$bootstrap.ci.level   <- ci.level
-  object$bootstrap.n.valid    <- n.valid
-  object$bootstrap.n.invalid  <- B - n.valid
-  object$rho.boot             <- rho.vec
+  object$boot.B          <- B
+  object$boot.threshold  <- threshold
+  object$boot.level           <- boot.level
+  object$boot.n.valid    <- n.valid
+  object$boot.n.invalid  <- B - n.valid
+  object$rho.boot.draws             <- rho.vec
   object$AR.boot              <- AR.vec
   object$iter.boot            <- iter.vec
-  object$C1.array             <- C1.array
-  object$C2.array             <- C2.array
+  object$C1.boot.draws             <- C1.boot.draws
+  object$C2.boot.draws             <- C2.boot.draws
   object$C1.support.rate      <- C1.support
   object$C2.support.rate      <- C2.support
   object$C1.ci.lower          <- C1.ci.lower
@@ -929,13 +1204,8 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   object$C2.ci.upper          <- C2.ci.upper
   object$coefficients         <- coefficients
 
-  ## Add NMF-FFB inference class on top of the legacy SEM class.
   ## Final class vector for a typical input:
-  ##   c("nmf.ffb.inference", "nmf.sem.inference", "nmf.ffb", "nmf.sem")
-  ## Existing S3 methods (e.g. summary.nmf.sem) still dispatch via
-  ## inheritance.
-  if (!inherits(object, "nmf.sem.inference"))
-    class(object) <- c("nmf.sem.inference", class(object))
+  ##   c("nmf.ffb.inference", "nmf.inference", "nmf.ffb", "nmf")
   if (!inherits(object, "nmf.ffb.inference"))
     ## "nmf.inference" too, so print() reaches print.nmf.inference -> the
     ## coefficient table.  Without it the class chain ended at "nmf" and
@@ -950,7 +1220,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #' Performs K-fold cross-validation to evaluate the equilibrium mapping of
 #' the NMF-FFB model.
 #'
-#' For each fold, \code{nmf.sem} is fitted on the training samples,
+#' For each fold, \code{nmf.ffb} is fitted on the training samples,
 #' yielding an equilibrium mapping \eqn{\hat Y_1 = M_{\mathrm{model}} Y_2}.
 #' The held-out endogenous variables \eqn{Y_1} are then predicted from \eqn{Y_2}
 #' using this mapping, and the mean absolute error (MAE) over all entries in the
@@ -960,24 +1230,37 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #' hyperparameters are chosen by predictive cross-validation rather than direct
 #' inspection of the internal structural matrices.
 #'
+#' \strong{\code{method = "fiml"}.}  When \code{method = "fiml"} is passed
+#' (through \code{...}), the column-wise scheme above is not run: the
+#' equilibrium prediction \eqn{M_{\mathrm{model}} Y_2} is a reduced-form
+#' quantity, and the reduced form is the same with and without feedback, so
+#' predicting held-out columns cannot select \eqn{\Theta_1} (that is what the
+#' BIC path and the bootstrap-calibrated LR test in \code{\link{nmf.ffb}} /
+#' \code{\link{nmf.ffb.inference}} are for).  The only tunable quantity is the
+#' stage-1 rank, and the call is delegated to the element-wise CV of the
+#' feed-forward fit, \code{\link{nmfkc.ecv}(Y = Y1, A = Y2, rank = rank,
+#' ...)}, whose object is returned (\code{$objfunc} holds the CV error per
+#' rank; \code{rank} may be a vector, default \code{1:min(3, P1)}).
+#' \code{C1.L1} and \code{C2.L1} are ignored in that case.
+#'
 #' @param Y1 A non-negative numeric matrix of endogenous variables with
 #'   \strong{rows = variables (P1), columns = samples (N)}.
 #' @param Y2 A non-negative numeric matrix of exogenous variables with
 #'   \strong{rows = variables (P2), columns = samples (N)}.
 #'   Must satisfy \code{ncol(Y1) == ncol(Y2)}.
-#' @param rank Integer; rank (number of latent factors) passed to \code{nmf.sem}.
-#'   If \code{NULL}, \code{nmf.sem} decides the effective rank (via \code{...} or \code{nrow(Y2)}).
+#' @param rank Integer; rank (number of latent factors) passed to \code{nmf.ffb}.
+#'   If \code{NULL}, \code{nmf.ffb} decides the effective rank (via \code{...} or \code{nrow(Y2)}).
 #' @param X.init Initialization strategy for \code{X}, forwarded to
-#'   \code{\link{nmf.sem}}.  One of \code{"nndsvd"} (default),
+#'   \code{\link{nmf.ffb}}.  One of \code{"nndsvd"} (default),
 #'   \code{"kmeans"}, \code{"kmeansar"}, \code{"runif"}, a numeric
 #'   \eqn{P_1 \times Q} matrix, or \code{NULL} (alias for
-#'   \code{"nndsvd"}).  See \code{\link{nmf.sem}} for details.
+#'   \code{"nndsvd"}).  See \code{\link{nmf.ffb}} for details.
 #' @param X.L2.ortho L2 orthogonality penalty for \code{X}.
 #' @param C1.L1 L1 sparsity penalty for \code{C1} (\eqn{\Theta_1}).
 #' @param C2.L1 L1 sparsity penalty for \code{C2} (\eqn{\Theta_2}).
-#' @param epsilon Convergence threshold for \code{nmf.sem}.
-#' @param maxit Maximum number of iterations for \code{nmf.sem}.
-#' @param ... Additional arguments passed to \code{nmf.sem} (except for
+#' @param epsilon Convergence threshold for \code{nmf.ffb}.
+#' @param maxit Maximum number of iterations for \code{nmf.ffb}.
+#' @param ... Additional arguments passed to \code{nmf.ffb} (except for
 #'   \code{rank}, \code{seed}, \code{div}, \code{shuffle}, which are handled here).
 #'   Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepted),
 #'   \code{seed} (master random seed, default \code{NULL}),
@@ -987,7 +1270,10 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #'   seeds are drawn before the loop and each \code{nmf.ffb} fit self-seeds,
 #'   so results are identical to the sequential run for any \code{cores}.
 #'
-#' @return A numeric scalar: mean MAE across CV folds.
+#' @return A numeric scalar: mean MAE across CV folds (the fits use
+#'   \code{method = "mu"} unless \code{method} is given).  With
+#'   \code{method = "fiml"}, the \code{\link{nmfkc.ecv}} object of the
+#'   stage-1 rank sweep.
 #'
 #' @examples
 #' Y <- t(iris[, -5])
@@ -995,6 +1281,11 @@ nmf.ffb.inference <- function(object, Y1, Y2,
 #' Y2 <- Y[3:4, ]
 #' mae <- nmf.ffb.cv(Y1, Y2, rank = 2, maxit = 500, nfolds = 3)
 #' mae
+#' \donttest{
+#' # rank selection for the likelihood-based estimator
+#' ecv <- nmf.ffb.cv(Y1, Y2, rank = 1:2, method = "fiml", nfolds = 3)
+#' ecv$objfunc
+#' }
 #'
 #' @seealso \code{\link{nmf.ffb}}
 #' @export
@@ -1010,6 +1301,24 @@ nmf.ffb.cv <- function(
     ...
 ){
   extra_cv <- base::list(...)
+  ## method = "fiml": column-wise CV of the equilibrium mapping cannot select
+  ## Theta1 (the reduced form M Y2 is the same with and without feedback), so
+  ## the only tunable quantity is the stage-1 rank; delegate to the
+  ## element-wise CV of the feed-forward fit.
+  if (identical(extra_cv[["method", exact = TRUE]], "fiml")) {
+    if (is.null(rank)) rank <- seq_len(min(3L, nrow(as.matrix(Y1))))
+    ecv_args <- extra_cv
+    ecv_args$method <- NULL
+    ecv_args$C1.L1 <- NULL; ecv_args$C2.L1 <- NULL
+    for (nm in c("X", "C1.restriction", "C1.restriction.threshold", "Phi.restriction",
+                 "C1.L1.path", "select",
+                 "fiml.maxit", "factr", "nmfkc.baseline", "M.simple"))
+      ecv_args[[nm]] <- NULL
+    if (is.null(ecv_args$X.init)) ecv_args$X.init <- X.init
+    return(do.call("nmfkc.ecv", c(list(Y = as.matrix(Y1), A = as.matrix(Y2), rank = rank,
+                                       X.L2.ortho = X.L2.ortho, epsilon = epsilon,
+                                       maxit = maxit), ecv_args)))
+  }
   nfolds  <- if (!is.null(extra_cv$nfolds))  extra_cv$nfolds  else if (!is.null(extra_cv$div)) extra_cv$div else 5
   ## CONVENTIONS.md 2: default seeds are concrete (123), so an analysis is
   ## reproducible without the user having to think about it.  This was the one
@@ -1050,12 +1359,12 @@ nmf.ffb.cv <- function(
   }
 
   # ------------------------------------------------------------------
-  # 2. Handle extra arguments for nmf.sem
+  # 2. Handle extra arguments for nmf.ffb
   #
   # We collect additional arguments in 'extra_args' but explicitly remove
   # those that are managed at the CV level:
-  #   - div, shuffle : used only here, not passed to nmf.sem.
-  #   - rank        : passed explicitly from nmf.sem.cv.
+  #   - div, shuffle : used only here, not passed to nmf.ffb.
+  #   - rank        : passed explicitly from nmf.ffb.cv.
   #   - seed        : fold-specific seeds are generated here.
   # ------------------------------------------------------------------
   extra_args <- list(...)
@@ -1066,16 +1375,22 @@ nmf.ffb.cv <- function(
   extra_args$rank    <- NULL
   extra_args$seed    <- NULL
   extra_args$cores   <- NULL
+  ## The column-wise scheme tunes C1.L1 / C2.L1, which only the
+  ## multiplicative-update estimator uses, so the fold fits stay on
+  ## method = "mu" unless the caller says otherwise (a "fiml" request was
+  ## delegated to nmfkc.ecv above).  This keeps the CV scores identical to
+  ## those before "fiml" became nmf.ffb()'s default.
+  if (is.null(extra_args[["method", exact = TRUE]])) extra_args$method <- "mu"
 
   # ------------------------------------------------------------------
   # 3. Set RNG for CV partition and per-fold seeds
   #
   # If a master 'seed' is given:
   #   - it is used to define the CV partition (sample permutation),
-  #   - independent seeds for each nmf.sem run are drawn.
+  #   - independent seeds for each nmf.ffb run are drawn.
   # If 'seed' is NULL:
   #   - CV partition uses the current RNG state,
-  #   - nmf.sem runs use whatever the global RNG state is at call time.
+  #   - nmf.ffb runs use whatever the global RNG state is at call time.
   # ------------------------------------------------------------------
   if (!is.null(seed)) {
     set.seed(seed)
@@ -1088,7 +1403,7 @@ nmf.ffb.cv <- function(
     perm_index <- seq_len(N)
   }
 
-  # Per-fold seeds for nmf.sem (optional, only if master seed specified)
+  # Per-fold seeds for nmf.ffb (optional, only if master seed specified)
   if (!is.null(seed)) {
     seeds_fold <- sample.int(.Machine$integer.max, div)
   } else {
@@ -1128,7 +1443,7 @@ nmf.ffb.cv <- function(
   # For each fold j:
   #   - train on all samples not in fold j,
   #   - test on samples in fold j,
-  #   - fit nmf.sem on training data,
+  #   - fit nmf.ffb on training data,
   #   - compute MAE on test block from equilibrium mapping M.model.
   # ------------------------------------------------------------------
   # Per-fold task. The partition 'block' and per-fold seeds 'seeds_fold' are
@@ -1145,11 +1460,11 @@ nmf.ffb.cv <- function(
     Y2_train <- Y2[, train_idx, drop = FALSE]
     Y2_test  <- Y2[, test_idx,  drop = FALSE]
 
-    # Fold-specific seed for nmf.sem
+    # Fold-specific seed for nmf.ffb
     seed_j <- if (!is.null(seed)) seeds_fold[j] else NULL
 
-    # Assemble arguments for nmf.sem
-    nmf.sem.args <- c(
+    # Assemble arguments for nmf.ffb
+    ffb_args <- c(
       extra_args,   # User-specified additional arguments (e.g., Q)
       list(
         Y1         = Y1_train,
@@ -1165,11 +1480,11 @@ nmf.ffb.cv <- function(
     )
     # Attach seed only when it is defined
     if (!is.null(seed_j)) {
-      nmf.sem.args$seed <- seed_j
+      ffb_args$seed <- seed_j
     }
 
-    # Call nmf.sem on the training data (suppress messages for cleaner CV output)
-    res_j <- suppressMessages(do.call("nmf.ffb", nmf.sem.args))
+    # Call nmf.ffb on the training data (suppress messages for cleaner CV output)
+    res_j <- suppressMessages(do.call("nmf.ffb", ffb_args))
 
     # If mapping is not usable, penalize this fold (do not crash CV)
     if (is.null(res_j$M.model) || any(!is.finite(res_j$M.model))) {
@@ -1198,6 +1513,95 @@ nmf.ffb.cv <- function(
 }
 
 
+
+#' @title Structural Diagnostics of a Fitted NMF-FFB Feedback Matrix
+#'
+#' @description
+#' Two quantities that describe \emph{what} the selected feedback is, as opposed
+#' to whether it is there (which is the job of the calibrated likelihood-ratio
+#' test in \code{\link{nmf.ffb.inference}}).
+#'
+#' \strong{Cycle structure.} The equilibrium operator is \eqn{A = X\Theta_1} on
+#' the indicators and \eqn{A_Q = \Theta_1X} on the factors, with the same
+#' spectral radius \eqn{\rho}.  The strongly connected components of the
+#' directed graph of \eqn{A_Q} are the cycles.  \eqn{\rho = 0} with a non-empty
+#' support means \eqn{A} is nilpotent: the selected feedback is a cascade of
+#' directed cross-factor paths without a closed loop.  Since \eqn{A \ge 0},
+#' Perron--Frobenius gives a non-negative leading eigenvector, and its
+#' normalized entries say how much of the loop each factor carries.
+#'
+#' \strong{Factor-level alignment.} Feedback of the form
+#' \eqn{\Theta_1 = aX^\top\Psi^{-1}} enters each factor through the factor
+#' scores of the factors and is observationally equivalent, under the Gaussian
+#' working model, to a change of \eqn{\Theta_2} and of the factor covariance
+#' \eqn{\Phi}; only the departure from that family is identified, through the
+#' uniquenesses \eqn{\Psi}.  On the free set \eqn{F} of the exclusion restriction the
+#' family is a subspace of dimension at most \eqn{Q(Q-1)}, and
+#' \code{omega} is the share of the squared norm of \eqn{\Theta_1} that lies in
+#' it.  \code{omega} has no natural zero: for an isotropic direction its
+#' expectation is \code{omega0 = dim / n.free}, so it should be read against
+#' \code{omega0} and against a simulation in which the true feedback is
+#' indicator-level (there it averages about \code{1.3 * omega0}).
+#'
+#' @param object A fitted \code{nmf.ffb} object from
+#'   \code{\link{nmf.ffb}} with \code{method = "fiml"}.
+#' @param which Which feedback matrix to describe: \code{"selected"} (default,
+#'   the BIC-selected support) or \code{"full"} (the unpenalized fit).
+#' @return A list with \code{cycles} (\code{A.factor}, \code{rho},
+#'   \code{cycle}, \code{n.cycles}, \code{perron}) and \code{omega}
+#'   (\code{omega}, \code{omega0}, \code{dim}, \code{n.free}).
+#' @seealso \code{\link{nmf.ffb}}, \code{\link{nmf.ffb.inference}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' Y2 <- matrix(runif(2 * 200), 2, 200)
+#' X <- matrix(0.02, 6, 2); X[1:3, 1] <- 1; X[4:6, 2] <- 1
+#' X <- sweep(X, 2, colSums(X), "/")
+#' T1 <- matrix(0, 2, 6); T1[1, 5] <- 0.6; T1[2, 2] <- 0.5
+#' L <- solve(diag(6) - X %*% T1)
+#' Y1 <- pmax(L %*% (X %*% (matrix(c(1, 0.5, 0.3, 1), 2, 2) %*% Y2) +
+#'                   matrix(rnorm(6 * 200, 0, 0.05), 6, 200)), 0)
+#' fit <- nmf.ffb(Y1, Y2, Q = 2)
+#' d <- nmf.ffb.diagnostics(fit)
+#' d$cycles$rho          # spectral radius
+#' d$cycles$cycle        # which factors lie on a cycle
+#' c(d$omega$omega, d$omega$omega0)
+#' }
+#' @export
+nmf.ffb.diagnostics <- function(object, which = c("selected", "full")) {
+  which <- base::match.arg(which)
+  if (!base::inherits(object, "nmf.ffb"))
+    base::stop("nmf.ffb.diagnostics() expects an object from nmf.ffb().")
+  if (base::is.null(object$C1.free) || base::is.null(object$psi))
+    base::stop("this fit carries no exclusion restriction / uniquenesses: nmf.ffb.diagnostics() needs method = \"fiml\".")
+  T1 <- if (which == "selected") object$C1 else object$full$C1
+  psi <- if (which == "selected") object$psi else object$full$psi
+  if (base::is.null(T1)) base::stop("no ", which, " feedback matrix on this object.")
+  ## The best few distinct supports, so that the report says how thin the margin is.  BIC selects one
+  ## support; adding a free entry costs log(N), and a difference in BIC is twice the log of a Bayes factor,
+  ## so a difference below about 2 is not evidence for one support over the other (Kass and Raftery 1995).
+  ## When the best supports form a chain under inclusion their intersection is the part the criterion does
+  ## not put in doubt; when they do not, no single support should be read off.
+  top <- NULL; core <- NULL; envelope <- NULL; nested <- NA
+  if (!base::is.null(object$candidates) && !base::is.null(object$supports)) {
+    cd <- object$candidates[base::order(object$candidates$BIC, object$candidates$nnz), , drop = FALSE]
+    k <- base::min(3L, base::nrow(cd))
+    top <- base::data.frame(order = base::seq_len(k), nnz = cd$nnz[base::seq_len(k)],
+                            rho = cd$rho[base::seq_len(k)], BIC = cd$BIC[base::seq_len(k)],
+                            dBIC = cd$BIC[base::seq_len(k)] - cd$BIC[1],
+                            stringsAsFactors = FALSE)
+    tops <- base::lapply(base::seq_len(k), function(i) object$supports[[cd$support_id[i]]])
+    core <- base::Reduce(`&`, tops) * 1
+    envelope <- base::Reduce(`|`, tops) * 1
+    nested <- base::all(base::outer(base::seq_len(k), base::seq_len(k), base::Vectorize(function(a, b)
+      base::all(!tops[[a]] | tops[[b]]) || base::all(!tops[[b]] | tops[[a]]))))
+  }
+  base::list(cycles = .ffb.fiml.cycles(object$X, T1),
+             omega = .ffb.fiml.omega(object$X, T1, psi, object$C1.free),
+             top = top, core = core, envelope = envelope, nested = nested,
+             log.N = if (!base::is.null(object$N)) base::log(object$N) else NA_real_,
+             which = which)
+}
 
 #' @title Heuristic Variable Splitting for NMF-FFB
 #'
@@ -1456,14 +1860,14 @@ nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 ############################################################
 
 ############################################################
-## 1. nmf.sem.DOT  (for NMF-FFB visualization)
+## 1. nmf.ffb.DOT  (for NMF-FFB visualization)
 ############################################################
 
 #' Generate a Graphviz DOT Diagram for an NMF-FFB Model
 #'
 #' @description
 #' Creates a Graphviz DOT script that visualizes the structural network
-#' estimated by \code{nmf.sem}.
+#' estimated by \code{nmf.ffb}.
 #' The resulting diagram displays:
 #' \itemize{
 #'   \item endogenous observed variables (\eqn{Y_1}),
@@ -1484,7 +1888,7 @@ nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #' in optional visual clusters. Only variables participating in
 #' edges above the threshold are displayed, while latent factors are always shown.
 #'
-#' @param result A list returned by \code{nmf.sem}, containing matrices
+#' @param result A list returned by \code{nmf.ffb}, containing matrices
 #'   \code{X}, \code{C1}, and \code{C2}.
 #' @param weight_scale Base scaling factor for edge widths.
 #' @param weight_scale_c2 Scaling factor for edges
@@ -1508,11 +1912,19 @@ nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #'   labels for the Y2, factor, and Y1 clusters.
 #' @param hide.isolated Logical. If \code{TRUE} (default), Y1 and Y2 nodes
 #'   that have no edges at or above \code{threshold} are excluded from the graph.
+#' @param model Which fit of a \code{method = "fiml"} object to draw:
+#'   \code{"selected"} (default; the BIC-selected model, with significance
+#'   stars when inference results are present), \code{"null"} (the
+#'   feed-forward null: \eqn{\Theta_1 = 0}, \eqn{\Theta_2} from
+#'   \code{result$null}) or \code{"full"} (the unpenalized feedback fit from
+#'   \code{result$full}).  The latter two ignore \code{result$coefficients},
+#'   which refer to the selected model.  Ignored for \code{method = "mu"}
+#'   objects, which carry a single fit.
 #' @param sig.level Significance level for filtering structural edges
 #'   (\eqn{C_1} feedback and \eqn{C_2} exogenous loadings) when
 #'   inference results are present.  If \code{result} contains a
-#'   \code{coefficients} data frame from \code{\link{nmf.sem.inference}},
-#'   only edges with \code{p_value < sig.level} are drawn, with
+#'   \code{coefficients} data frame from \code{\link{nmf.ffb.inference}},
+#'   only edges with \code{prob.unsupported < sig.level} are drawn, with
 #'   significance stars (\code{*} \code{**} \code{***}) appended to
 #'   the edge label.  The \eqn{X} (factor-to-\eqn{Y_1}) edges are
 #'   never starred since the basis is not the inference target.
@@ -1545,12 +1957,27 @@ nmf.ffb.DOT <- function(result,
                         cluster.box           = c("normal", "faint", "invisible", "none"),
                         cluster.labels        = NULL,
                         hide.isolated         = TRUE,
+                        model                 = c("selected", "null", "full"),
                         ...) {
 
   ## Backward compatibility: accept deprecated names via ...
   extra_args <- base::list(...)
   if (!base::is.null(extra_args$weight_scale_y2f)) weight_scale_c2 <- extra_args$weight_scale_y2f
   if (!base::is.null(extra_args$weight_scale_fy1)) weight_scale_x1 <- extra_args$weight_scale_fy1
+
+  ## Which fit of a fiml object to draw.  The null and the unpenalized fit
+  ## are substituted into C1 / C2; the inference table (selected model) is
+  ## dropped so that no stars from another model decorate their edges.
+  model <- match.arg(model)
+  if (model != "selected") {
+    alt <- result[[model]]
+    if (is.null(alt))
+      stop(sprintf("result has no `%s` component; model = \"%s\" needs an nmf.ffb(method = \"fiml\") fit.",
+                   model, model))
+    result$C1 <- if (model == "null") 0 * result$C1 else alt$C1
+    result$C2 <- alt$C2
+    result$coefficients <- NULL
+  }
 
   ## ---------------------------------------------------------------
   ## Cluster style selection
@@ -1721,7 +2148,7 @@ nmf.ffb.DOT <- function(result,
 
   ## ---------------------------------------------------------------
   ## Significance stars for C1 (feedback) and C2 (exogenous) edges,
-  ## both from nmf.sem.inference().  X (F -> Y1) edges are NOT
+  ## both from nmf.ffb.inference().  X (F -> Y1) edges are NOT
   ## starred even when inference results are present, since the
   ## basis is not the inference target.
   ##
@@ -1756,9 +2183,9 @@ nmf.ffb.DOT <- function(result,
     for (k in seq_len(nrow(cf_C2))) {
       q  <- match(cf_C2$Basis[k], fac_names)
       p2 <- match(cf_C2$Covariate[k], y2_names)
-      if (!is.na(q) && !is.na(p2) && !is.na(cf_C2$p_value[k])) {
-        C2_pval[q, p2]  <- cf_C2$p_value[k]
-        C2_stars[q, p2] <- pval_to_stars(cf_C2$p_value[k])
+      if (!is.na(q) && !is.na(p2) && !is.na(cf_C2$prob.unsupported[k])) {
+        C2_pval[q, p2]  <- cf_C2$prob.unsupported[k]
+        C2_stars[q, p2] <- pval_to_stars(cf_C2$prob.unsupported[k])
       }
     }
     if (!is.null(sig.level)) {
@@ -1772,9 +2199,9 @@ nmf.ffb.DOT <- function(result,
       for (k in seq_len(nrow(cf_C1))) {
         q  <- match(cf_C1$Basis[k], fac_names)
         p1 <- match(cf_C1$Covariate[k], y1_names)
-        if (!is.na(q) && !is.na(p1) && !is.na(cf_C1$p_value[k])) {
-          C1_pval[q, p1]  <- cf_C1$p_value[k]
-          C1_stars[q, p1] <- pval_to_stars(cf_C1$p_value[k])
+        if (!is.na(q) && !is.na(p1) && !is.na(cf_C1$prob.unsupported[k])) {
+          C1_pval[q, p1]  <- cf_C1$prob.unsupported[k]
+          C1_stars[q, p1] <- pval_to_stars(cf_C1$prob.unsupported[k])
         }
       }
       if (!is.null(sig.level)) {
@@ -1868,7 +2295,7 @@ nmf.ffb.DOT <- function(result,
   }
 
   result <- paste0(dot_script, "}\n")
-  class(result) <- c("nmf.sem.DOT", "nmfkc.DOT")
+  class(result) <- c("nmf.ffb.DOT", "nmfkc.DOT")
   result
 }
 
@@ -2312,7 +2739,7 @@ nmfkc.DOT <- function(
 #' to the console instead.
 #'
 #' This method handles all DOT objects produced by the nmfkc package:
-#' \code{\link{nmfkc.DOT}}, \code{\link{nmfae.DOT}}, \code{\link{nmf.sem.DOT}},
+#' \code{\link{nmfkc.DOT}}, \code{\link{nmf.rrr.DOT}}, \code{\link{nmf.ffb.DOT}},
 #' and \code{\link{nmfkc.ar.DOT}}.
 #'
 #' @param x An object of class \code{"nmfkc.DOT"} (or a subclass thereof).

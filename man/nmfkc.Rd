@@ -22,6 +22,21 @@ In Formula Mode, use \code{Y1 + Y2 ~ A1 + A2} with \code{data}, or
 Supports dot notation (\code{. ~ A1 + A2}) when \code{data} is supplied.}
 
 \item{A}{Covariate matrix. Default is \code{NULL} (no covariates).
+For large \eqn{N}, \code{A} may instead be a Gram object of class
+\code{"nmfkc.gram"} from \code{\link{nmfkc.kernel.gram}} (block-wise
+Nystr\"om kernel covariates), which holds only \eqn{S = AA^\top}
+(\eqn{D \times D}) and \eqn{G_0 = YA^\top} (\eqn{P \times D}) so that
+the \eqn{D \times N} matrix never has to exist in memory.  The
+Euclidean multiplicative updates are unchanged (they only use those
+two products) and the fit equals the explicit-matrix fit up to
+floating-point summation order.  Gram input is restricted to
+\code{method = "EU"} without \code{Y.weights} or \code{NA} in
+\code{Y}; \code{B}, \code{XB} and the fit statistics are rebuilt
+block by block after the fit; and the resampling helpers
+(\code{\link{nmfkc.cv}}, \code{\link{nmfkc.ecv}},
+\code{\link{nmfkc.rank}}) do not accept it.  Gram objects built from
+signed features (\code{\link{nmfkc.signed.rff.gram}}) are refused
+here; they belong to \code{\link{nmfkc.signed}}.
 Ignored when \code{Y} is a formula.}
 
 \item{rank}{Integer. The rank of the basis matrix \eqn{X} (Q). Preferred over \code{Q}.}
@@ -121,7 +136,30 @@ pinned down, which inference on the latent parameters needs to know.}
 \item{A.attr}{List of attributes of the input covariate matrix \code{A}, containing metadata like lag order and intercept status if created by \code{nmfkc.ar} or \code{nmfkc.kernel}.}
 \item{formula.meta}{If fitted via Formula Mode, a list with \code{formula}, \code{Y_cols}, and \code{A_cols}; otherwise \code{NULL}.}
 \item{objfunc}{Final objective value.}
-\item{objfunc.iter}{Objective values by iteration.}
+\item{objfunc.iter}{Objective values by iteration.  The trace is trimmed to
+\code{[10:end]} so that the plot is not dominated by the first few steps,
+so its length is 9 short of \code{iter} whenever the fit ran at least ten
+iterations; use \code{iter}, not \code{length(objfunc.iter)}, for the
+iteration count.}
+\item{iter}{Number of iterations performed.}
+\item{maxit}{The iteration cap that was in force.}
+\item{epsilon}{The convergence tolerance that was in force.}
+\item{epsilon.iter}{Relative change of the objective at the last step ---
+the quantity the stopping rule compares with \code{epsilon}.  Measured as
+\eqn{|f_i - f_{i-1}| / \max(|f_i|, 1)}; the floor of 1 means that for an
+objective below 1 the test is an absolute one, which keeps a near-exact
+fit from iterating forever but makes the number depend on the scale of
+\eqn{Y}.  \code{\link{nmfkc.signed}} divides by \eqn{|f_{i-1}|} instead,
+so the two are comparable only while the objective exceeds 1.}
+\item{objfunc.increases}{Number of steps at which the objective rose,
+counted on the recorded (trimmed) trace.  The multiplicative update is
+monotone by itself, so a positive count means something outside it --- a
+restriction imposed by projection, or a numerical problem --- is pushing
+the iterate back, in which case the fit can oscillate and exhaust
+\code{maxit} instead of converging.}
+\item{converged}{Logical; whether \code{epsilon.iter} met \code{epsilon}
+before \code{maxit}.  A run that merely exhausted \code{maxit} is
+\code{FALSE}.}
 \item{r.squared}{\eqn{R^2 = \mathrm{cor}(Y, XB)^2} (Pearson; scale-invariant; \eqn{[0,1]}).}
 \item{r.squared.uncentered}{Uncentered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y\|_F^2} (baseline = zero matrix; natural for non-negative factorizations without an intercept).}
 \item{r.squared.centered}{Row-mean centered \eqn{R^2 = 1 - \|Y - XB\|_F^2 / \|Y - \bar Y_{p\cdot}\|_F^2}, the multivariate regression \eqn{R^2}.}
@@ -198,8 +236,9 @@ res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 
 }
 \references{
-Satoh, K. (2024). Applying Non-negative Matrix Factorization with Covariates
-to the Longitudinal Data as Growth Curve Model. arXiv:2403.05359.
+Satoh, K. (2026). Applying Non-negative Matrix Factorization with Covariates
+to the Longitudinal Data as Growth Curve Model. \emph{American Journal of
+Mathematical and Management Sciences}. In press. arXiv:2403.05359.
 \url{https://arxiv.org/abs/2403.05359}
 
 Satoh, K. (2025). Applying non-negative matrix factorization with covariates
@@ -207,9 +246,9 @@ to multivariate time series data as a vector autoregression model.
 \emph{Japanese Journal of Statistics and Data Science}. arXiv:2501.17446.
 \doi{10.1007/s42081-025-00314-0}
 
-Satoh, K. (2025). Applying non-negative matrix factorization with covariates
-to label matrix for classification. arXiv:2510.10375.
-\url{https://arxiv.org/abs/2510.10375}
+Satoh, K. (2026). Applying non-negative matrix factorization with covariates
+to label matrix for classification. \emph{Japanese Journal of Statistics
+and Data Science}. \doi{10.1007/s42081-026-00349-x}
 
 Ding, C., Li, T., Peng, W., & Park, H. (2006). Orthogonal Nonnegative Matrix
 Tri-Factorizations for Clustering.

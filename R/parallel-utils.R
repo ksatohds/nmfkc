@@ -1,7 +1,7 @@
 # =====================================================================
 #  Internal cross-platform parallel lapply
 #
-#  Used by the multi-fit wrappers (nmfkc.cv folds,
+#  Used by the multi-fit wrappers (nmf.gmm.select K-sweep, nmfkc.cv folds,
 #  rank sweeps, ...) to evaluate independent, self-seeded fits concurrently.
 #
 #  Results are IDENTICAL to lapply(): parLapply() and mclapply() both
