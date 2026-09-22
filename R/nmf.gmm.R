@@ -375,6 +375,12 @@
 
 #' @title Fit NMF-GMM: a Gaussian-mixture latent-class extension of NMF with covariates
 #' @description
+#' This function is \strong{experimental and still under development}. The
+#' interface may change in future versions: argument names, defaults and the
+#' contents of the returned object are not yet stable. Code written against it
+#' today may need adjusting after an update. The rest of the package does not
+#' carry this caveat.
+#'
 #' \code{nmf.gmm} fits the model
 #' \deqn{\bm b_n\mid(z_n=k)\sim N_Q(C\bm a_n+\bm\mu_k,\Sigma_k),\qquad
 #'       \bm y_n = X\bm b_n+\bm\varepsilon_n,\quad X\ge 0,}
@@ -590,6 +596,12 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
 
 #' @title Statistical inference for an NMF-GMM fit (given basis)
 #' @description
+#' This function is \strong{experimental and still under development}. The
+#' interface may change in future versions: argument names, defaults and the
+#' contents of the returned object are not yet stable. Code written against it
+#' today may need adjusting after an update. The rest of the package does not
+#' carry this caveat.
+#'
 #' \code{nmf.gmm.inference} adds Wald inference on the covariate-coefficient
 #' matrix \eqn{C} (\eqn{=\Theta}) of a fitted \code{\link{nmf.gmm}} object,
 #' conditional on the estimated basis \eqn{\hat X} and mixture. It reports the
@@ -704,6 +716,12 @@ nmf.gmm.inference <- function(object, Y, A = object$A, ...) {
 
 #' @title Choose the number of mixture components K for NMF-GMM
 #' @description
+#' This function is \strong{experimental and still under development}. The
+#' interface may change in future versions: argument names, defaults and the
+#' contents of the returned object are not yet stable. Code written against it
+#' today may need adjusting after an update. The rest of the package does not
+#' carry this caveat.
+#'
 #' \code{nmf.gmm.select} fits \code{\link{nmf.gmm}} over a vector of \eqn{K}
 #' values and reports the log-likelihood, BIC and ICL for each, selecting
 #' \code{K.best} by BIC (\code{K.best.icl} by ICL). If a vector of known labels
@@ -772,6 +790,12 @@ nmf.gmm.select <- function(Y, A = NULL, rank, K = 1:5, ...) {
 
 #' @title Two-stage (adjust-then-cluster) baseline for NMF-GMM
 #' @description
+#' This function is \strong{experimental and still under development}. The
+#' interface may change in future versions: argument names, defaults and the
+#' contents of the returned object are not yet stable. Code written against it
+#' today may need adjusting after an update. The rest of the package does not
+#' carry this caveat.
+#'
 #' \code{nmf.gmm.twostage} runs the \emph{two-stage} route that
 #' \code{\link{nmf.gmm}} is designed to improve on, as a matched baseline:
 #' (1) estimate least-squares scores on the initial basis, (2) regress the
@@ -865,6 +889,10 @@ nmf.gmm.twostage <- function(Y, A = NULL, rank, K = 1, ...) {
 # =====================================================================
 
 #' @title Extract the covariate-coefficient matrix from an NMF-GMM fit
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @param object An object of class \code{"nmf.gmm"}.
 #' @param ... Ignored.
 #' @return The \eqn{Q\times R} coefficient matrix \eqn{C} (\eqn{=\Theta}).
@@ -879,6 +907,10 @@ coef.nmf.gmm <- function(object, ...) {
 }
 
 #' @title Fitted (responsibility-averaged) reconstruction of an NMF-GMM fit
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @param object An object of class \code{"nmf.gmm"}.
 #' @param ... Ignored.
 #' @return The \eqn{P\times N} fitted matrix \eqn{\hat Y = X(CA + \mu\gamma^\top)}.
@@ -888,6 +920,10 @@ fitted.nmf.gmm <- function(object, ...) object$Yhat
 
 
 #' @title Residuals from an NMF-GMM fit
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @description
 #' \eqn{Y - \hat Y}, matching \code{\link{residuals.nmf}}.  Without this method
 #' \code{residuals()} fell through to \code{stats::residuals.default} and
@@ -901,6 +937,10 @@ fitted.nmf.gmm <- function(object, ...) object$Yhat
 residuals.nmf.gmm <- function(object, Y, ...) Y - stats::fitted(object)
 
 #' @title Class assignments / responsibilities from an NMF-GMM fit
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @param object An object of class \code{"nmf.gmm"}.
 #' @param type \code{"class"} (default) returns the hard cluster labels;
 #'   \code{"responsibility"} returns the N x K posterior-probability matrix.
@@ -914,6 +954,10 @@ predict.nmf.gmm <- function(object, type = c("class", "responsibility"), ...) {
 }
 
 #' @title Print an NMF-GMM fit
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @param x An object of class \code{"nmf.gmm"}.
 #' @param ... Ignored.
 #' @return \code{x}, invisibly.
@@ -937,6 +981,10 @@ print.nmf.gmm <- function(x, ...) {
 }
 
 #' @title Summary of an NMF-GMM fit
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @param object An object of class \code{"nmf.gmm"}.
 #' @param ... Ignored.
 #' @return An object of class \code{"summary.nmf.gmm"}.
@@ -956,6 +1004,10 @@ summary.nmf.gmm <- function(object, ...) {
 }
 
 #' @title Print method for summary.nmf.gmm objects
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @param x A \code{"summary.nmf.gmm"} object.
 #' @param digits Minimum significant digits.
 #' @param ... Ignored.
@@ -990,6 +1042,10 @@ print.summary.nmf.gmm <- function(x, digits = max(3L, getOption("digits") - 3L),
 }
 
 #' @title Plot method for nmf.gmm objects
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @description
 #' \code{type = "convergence"} (default) plots the EM objective
 #' (\eqn{-\log L}) over iterations.  \code{type = "adjusted.scores"} draws the
@@ -1089,6 +1145,10 @@ plot.nmf.gmm <- function(x, type = c("convergence", "adjusted.scores", "scores")
 }
 
 #' @title Print method for nmf.gmm.select objects
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @param x An object of class \code{"nmf.gmm.select"}.
 #' @param ... Ignored.
 #' @return \code{x}, invisibly.
@@ -1105,6 +1165,10 @@ print.nmf.gmm.select <- function(x, ...) {
 
 
 #' @title Plot method for nmf.gmm.select objects
+#' @section Development status:
+#' Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+#' The interface may change in future versions --- argument names, defaults
+#' and the contents of the returned object are not yet stable.
 #' @description
 #' Draws BIC and ICL against \eqn{K}, with the selected \eqn{K} marked.  Every
 #' other selector in the package (\code{\link{nmfkc.rank}},

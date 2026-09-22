@@ -87,6 +87,12 @@ An object of class \code{"nmf.gmm"}: a list with \code{X}
 \code{rank}, \code{cov}, \code{dims} and \code{runtime}.
 }
 \description{
+This function is \strong{experimental and still under development}. The
+interface may change in future versions: argument names, defaults and the
+contents of the returned object are not yet stable. Code written against it
+today may need adjusting after an update. The rest of the package does not
+carry this caveat.
+
 \code{nmf.gmm} fits the model
 \deqn{\bm b_n\mid(z_n=k)\sim N_Q(C\bm a_n+\bm\mu_k,\Sigma_k),\qquad
       \bm y_n = X\bm b_n+\bm\varepsilon_n,\quad X\ge 0,}

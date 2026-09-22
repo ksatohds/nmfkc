@@ -18,6 +18,12 @@ knitr::opts_chunk$set(
 set.seed(1)
 ```
 
+> **The NMF-GMM family is experimental and still under development.**
+> Argument names, defaults and the contents of the returned objects are not
+> yet stable, and may change in a future version. Code written against them
+> today may need adjusting after an update. The rest of the package does not
+> carry this caveat.
+
 ## Introduction
 
 NMF with covariates approximates the data by $Y\approx X\Theta A = XB$: a

@@ -1,5 +1,18 @@
 # nmfkc (development version)
 
+## The NMF-GMM family is marked experimental again
+
+`nmf.gmm()`, `nmf.gmm.inference()`, `nmf.gmm.select()`, `nmf.gmm.twostage()`
+and the S3 methods on their classes say on their help pages that they are
+experimental and still under development: argument names, defaults and the
+contents of the returned objects are not yet stable. The vignette says so too.
+
+The notice was removed in 0.9.7 on the reasoning that publishing on CRAN is a
+commitment to a fixed interface. That reasoning was premature — the family is
+still being developed alongside the paper — so the notice is back, and now
+covers `nmf.gmm.twostage()` and the S3 methods, which it had missed. Nothing
+else in the package carries the caveat.
+
 ## Every restriction on `X` that is not a gauge fix is removed
 
 `X.rowSums.min` (both fitters) and `X.restriction = "rowSums"`

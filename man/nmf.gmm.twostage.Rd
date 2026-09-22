@@ -29,6 +29,12 @@ covariate matrix \code{A} that was removed, and the shared basis
 initialization \code{X0}.
 }
 \description{
+This function is \strong{experimental and still under development}. The
+interface may change in future versions: argument names, defaults and the
+contents of the returned object are not yet stable. Code written against it
+today may need adjusting after an update. The rest of the package does not
+carry this caveat.
+
 \code{nmf.gmm.twostage} runs the \emph{two-stage} route that
 \code{\link{nmf.gmm}} is designed to improve on, as a matched baseline:
 (1) estimate least-squares scores on the initial basis, (2) regress the

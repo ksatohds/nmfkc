@@ -17,6 +17,13 @@
 \description{
 Print an NMF-GMM fit
 }
+\section{Development status}{
+
+Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+The interface may change in future versions --- argument names, defaults
+and the contents of the returned object are not yet stable.
+}
+
 \seealso{
 \code{\link{nmf.gmm}}, \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}}
 }

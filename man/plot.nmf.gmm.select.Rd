@@ -22,6 +22,13 @@ other selector in the package (\code{\link{nmfkc.rank}},
 \code{plot(nmf.gmm.select(...))} fell through to \code{plot.default} and
 errored with "'x' is a list, but does not have components 'x' and 'y'".
 }
+\section{Development status}{
+
+Part of the \strong{experimental} NMF-GMM family: see \code{\link{nmf.gmm}}.
+The interface may change in future versions --- argument names, defaults
+and the contents of the returned object are not yet stable.
+}
+
 \seealso{
 \code{\link{nmf.gmm.select}}, \code{\link{nmf.gmm}}
 }
