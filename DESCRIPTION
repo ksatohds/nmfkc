@@ -18,8 +18,8 @@ Description: Performs Non-negative Matrix Factorization (NMF)
     simplifies to standard NMF. Also provides NMF with Random Effects
     (NMF-RE) via nmfre(), which estimates a mixed-effects model combining
     covariate-driven scores with unit-specific random effects together
-    with wild bootstrap inference, and NMF-based Structural Equation
-    Modeling (NMF-SEM) via nmf.sem(), which fits a two-block input-output
+    with wild bootstrap inference, and NMF with feed-forward and feedback
+    structure (NMF-FFB) via nmf.ffb(), which fits a two-block input-output
     model for blind source separation and path analysis.
     References: Satoh (2025) <doi:10.48550/arXiv.2403.05359>;
     Satoh (2026) <doi:10.1007/s42081-026-00349-x>;
