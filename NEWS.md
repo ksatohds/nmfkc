@@ -1,3 +1,15 @@
+# nmfkc (development version)
+
+## The package description names `nmf.ffb()`, not the removed `nmf.sem()`
+
+The `Description` field of `DESCRIPTION` still told readers to reach the
+feed-forward + feedback model through `nmf.sem()` -- the very name 0.9.8
+removed -- and called the model "NMF-based Structural Equation Modeling
+(NMF-SEM)", a label the package retired when `nmf.sem()` was renamed in
+0.8.8. It now names `nmf.ffb()` and NMF-FFB. The 0.9.8 release on CRAN
+still carries the old sentence; nothing else in it refers to the removed
+functions.
+
 # nmfkc 0.9.8 (2026-09-23)
 
 ## The deprecated `nmfae*` names are removed
