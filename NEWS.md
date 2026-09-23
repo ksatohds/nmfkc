@@ -1,5 +1,33 @@
 # nmfkc (development version)
 
+## `nmf.gmm()`: an ordinary-NMF starting basis, and the basis it started from
+
+`nmf.gmm()` and `nmf.gmm.twostage()` accept `X.init = "nmf"`: the basis of an
+ordinary NMF, `nmfkc(Y, rank = rank, seed = seed)` without covariates. Before,
+the only named choices were the one-step initializers (`"nndsvd"`, the
+default, `"kmeans++"`, `"kmeans"`, ...), so reproducing a fit started from a
+fitted NMF basis meant building that basis by hand. The default is unchanged.
+
+The fit now returns `X0`, the column-normalized basis the EM started from. All
+`nstart` restarts share this one basis and differ only in the seeding of the
+mixture, so the partition can depend on the basis; returning it makes a fit
+reproducible from the object alone. Both functions now build the basis through
+one internal helper, so the two-stage baseline cannot drift from the joint fit.
+
+## `nmf.gmm.twostage()`: the help no longer says "only the order differs"
+
+The help page, the `fixX` entry of `nmf.gmm()` and the vignette said that the
+two-stage baseline differs from the joint fit "only in the order of adjustment
+and clustering". It does not: unless `fixX = TRUE`, the two-stage route refits
+the basis to the reconstituted, shifted residuals, and even with `fixX = TRUE`
+it fits different data. The text now says what is held equal (the initial
+basis, the mixture family, the settings) and what is not. It also no longer
+promises that the two routes "agree" when the covariate is mean-independent of
+the class: the class-mean displacement vanishes in the population, but the
+fitted partitions need not coincide in a finite sample. The reference to the
+accompanying paper names its oracle proposition instead of a proposition
+number, which has changed between drafts.
+
 ## The package description names `nmf.ffb()`, not the removed `nmf.sem()`
 
 The `Description` field of `DESCRIPTION` still told readers to reach the

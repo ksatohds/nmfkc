@@ -223,3 +223,25 @@ test_that("nmf.gmm.twostage runs the matched adjust-then-cluster baseline", {
   expect_error(nmf.gmm.twostage(d$Y, matrix(1, 1, ncol(d$Y)), rank = d$Q, K = 2),
                "intercept")
 })
+
+test_that("X.init = 'nmf' starts from the ordinary NMF basis, and X0 is returned", {
+  skip_unless_full()
+  d <- make_gmm_data()
+  Y <- d$Y - min(0, min(d$Y))                  # nmfkc() needs non-negative data
+  norm <- function(X) X / rep(colSums(X), each = nrow(X))
+  Xnmf <- norm(pmax(nmfkc(Y, rank = d$Q, seed = 7, verbose = FALSE)$X, 1e-8))
+  fit <- nmf.gmm(Y, d$A, rank = d$Q, K = 2, X.init = "nmf", seed = 7,
+                 nstart = 2, maxit = 200)
+  expect_equal(unname(fit$X0), unname(Xnmf))
+  expect_equal(dimnames(fit$X0), dimnames(fit$X))
+  ## a matrix X.init is returned column-normalized, and the default is NNDSVD
+  fit2 <- nmf.gmm(Y, d$A, rank = d$Q, K = 2, X.init = d$X, nstart = 2, maxit = 200)
+  expect_equal(unname(fit2$X0), unname(norm(d$X)))
+  fit3 <- nmf.gmm(Y, d$A, rank = d$Q, K = 2, nstart = 2, maxit = 200)
+  expect_equal(unname(fit3$X0),
+               unname(norm(nmfkc:::.init_X_method("nndsvd", Y, d$Q, seed = 1))))
+  ## the two-stage baseline starts from the same basis as the joint fit
+  ts <- nmf.gmm.twostage(Y, d$A, rank = d$Q, K = 2, X.init = "nmf", seed = 7,
+                         nstart = 2, maxit = 200)
+  expect_equal(unname(ts$twostage$X0), unname(Xnmf))
+})

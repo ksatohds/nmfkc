@@ -206,8 +206,9 @@
   }
   if (cov != "free") Gstat <- Gstat + N * Omega
   ## fixX = TRUE (2026-08-28): hold the basis at its current value -- used for
-  ## the fixed-basis two-stage-vs-joint comparison, where BOTH routes must run
-  ## on the SAME X so that only the order of adjustment and clustering differs.
+  ## the fixed-basis two-stage-vs-joint comparison, where BOTH routes run on the
+  ## SAME X (they still fit different data: the two-stage route fits the
+  ## reconstituted, shifted residuals).
   Xn <- if (fixX) X else
         X * sqrt((.nmfgmm.pos(Cstat) + X %*% .nmfgmm.neg(Gstat)) /
                  (.nmfgmm.neg(Cstat) + X %*% .nmfgmm.pos(Gstat) + 1e-12))
@@ -373,6 +374,32 @@
   A
 }
 
+## Initial non-negative, column-normalized basis, shared by nmf.gmm() and
+## nmf.gmm.twostage() so that both routes start from the same X0.  X.init is a
+## P x Q matrix or a method name:
+##   "nmf"      the basis of an ordinary NMF, nmfkc(Y, rank = Q, seed = seed)
+##              with no covariates, i.e. the basis a user gets by calling
+##              nmfkc() directly with the same seed (nmfkc()'s own default
+##              seed is 123).  Entries are floored at 1e-8 before normalizing,
+##              because the multiplicative X-update of the EM cannot move an
+##              exact zero.  Needs a non-negative Y.
+##   otherwise  passed to the shared initializer .init_X_method() ("nndsvd",
+##              the default, "kmeans++", "kmeans", ...).
+#' @noRd
+.nmfgmm.initX <- function(X.init, Y, Q, seed, nstart) {
+  if (is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)) {
+    X0 <- as.matrix(X.init)
+  } else {
+    method <- if (is.character(X.init)) X.init else "nndsvd"
+    if (identical(method, "nmf")) {
+      X0 <- pmax(unname(as.matrix(nmfkc(Y, rank = Q, seed = seed, verbose = FALSE)$X)), 1e-8)
+    } else {
+      X0 <- .init_X_method(method, Y, Q, seed = seed, nstart = max(nstart, 1L))
+    }
+  }
+  X0 / rep(pmax(colSums(X0), 1e-12), each = nrow(X0))
+}
+
 #' @title Fit NMF-GMM: a Gaussian-mixture latent-class extension of NMF with covariates
 #' @description
 #' This function is \strong{experimental and still under development}. The
@@ -413,8 +440,15 @@
 #'       variance --- the most parsimonious variant; at \eqn{K=1} it is the
 #'       \code{\link{nmfre}} model, and \code{tau2} is returned as one number).
 #'     \item \code{X.init}: initial basis. A \eqn{P\times Q} non-negative matrix,
-#'       or an initialization method name passed to the shared initializer
-#'       (\code{"nndsvd"} default, \code{"kmeans++"}, \code{"kmeans"}, ...).
+#'       or an initialization method name: \code{"nndsvd"} (default),
+#'       \code{"kmeans++"}, \code{"kmeans"}, ... (passed to the shared
+#'       initializer), or \code{"nmf"}, the basis of an ordinary NMF fitted by
+#'       \code{nmfkc(Y, rank = rank, seed = seed)} without covariates
+#'       (requires a non-negative \code{Y}; \code{\link{nmfkc}}'s own default
+#'       seed is 123). The EM restarts (\code{nstart}) all start from this one
+#'       basis and differ only in the seeding of the mixture, so the fit can
+#'       depend on the choice of \code{X.init}; the basis actually used is
+#'       returned as \code{X0}.
 #'     \item \code{intercept}: index of the intercept row of \code{A} (default 1);
 #'       the class-mean average is absorbed into that column of \eqn{C}.
 #'     \item \code{nstart}: EM restarts (default 1 for \code{K=1}, else 8).
@@ -441,8 +475,9 @@
 #'       on small-scale data.
 #'     \item \code{fixX}: hold the basis at its initial value instead of
 #'       updating it (default \code{FALSE}). Used to compare the joint fit with
-#'       \code{\link{nmf.gmm.twostage}} on the \emph{same} \eqn{X}, so that only
-#'       the order of adjustment and clustering differs.
+#'       \code{\link{nmf.gmm.twostage}} on the \emph{same} \eqn{X}, so that the
+#'       two routes share the basis. They still fit different data: the
+#'       two-stage route fits the reconstituted, shifted residuals.
 #'     \item \code{seed}: RNG seed (default 1). \code{prefix}: basis-name prefix
 #'       (default \code{"Basis"}).
 #'     \item \code{data}: a data frame with one row per column of \code{Y},
@@ -462,7 +497,8 @@
 #'   \code{\link{nmf.gmm.inference}} works unchanged.
 #'
 #' @return An object of class \code{"nmf.gmm"}: a list with \code{X}
-#'   (basis), \code{C} (\eqn{=\Theta}, Q x R), \code{mu} (class means, Q x K),
+#'   (basis), \code{X0} (the column-normalized initial basis the EM started
+#'   from), \code{C} (\eqn{=\Theta}, Q x R), \code{mu} (class means, Q x K),
 #'   \code{tau2}, \code{sigma2}, \code{xi} (mixing proportions), \code{gamma}
 #'   (responsibilities, N x K), \code{cluster} (hard labels), \code{loglik},
 #'   \code{BIC}, \code{ICL}, \code{n.params}, \code{entropy}, \code{Yhat},
@@ -524,13 +560,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   cores  <- getopt("cores", getOption("mc.cores", 1L))
 
   ## --- initial non-negative, column-normalized basis X0 ---
-  if (is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)) {
-    X0 <- as.matrix(X.init)
-  } else {
-    method <- if (is.character(X.init)) X.init else "nndsvd"
-    X0 <- .init_X_method(method, Y, Q, seed = seed, nstart = max(nstart, 1L))
-  }
-  X0 <- X0 / rep(pmax(colSums(X0), 1e-12), each = nrow(X0))
+  X0 <- .nmfgmm.initX(X.init, Y, Q, seed, nstart)
 
   fit <- .nmfgmm.fit(Y, A, X0, K, cov = cov, intercept = intercept,
                      maxit = maxit, tol = tol, ptol = ptol, nstart = nstart,
@@ -543,6 +573,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   blab <- paste0(prefix, seq_len(Q)); clab <- paste0("Class", seq_len(K))
   alab <- rownames(A); if (is.null(alab)) alab <- paste0("Cov", seq_len(R))
   dimnames(X) <- list(rownames(Y), blab)
+  dimnames(X0) <- list(rownames(Y), blab)
   dimnames(C) <- list(blab, alab)
   dimnames(mu) <- list(blab, clab)
   gamma <- es$gamma; colnames(gamma) <- clab
@@ -578,7 +609,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   structure(list(
     call = match.call(), dims = dims, runtime = runtime,
     rank = Q, K = K, cov = cov, intercept = intercept,
-    X = X, C = C, mu = mu, tau2 = tau2, sigma2 = par$sigma2, xi = par$xi,
+    X = X, X0 = X0, C = C, mu = mu, tau2 = tau2, sigma2 = par$sigma2, xi = par$xi,
     gamma = gamma, cluster = cluster, scores = scores, Yhat = Yhat,
     loglik = fit$loglik, BIC = bic, ICL = icl, entropy = ent, n.params = n.params,
     objfunc = -fit$loglik, objfunc.iter = -fit$hist, iter = fit$iter,
@@ -802,11 +833,16 @@ nmf.gmm.select <- function(Y, A = NULL, rank, K = 1:5, ...) {
 #' scores on the covariates \emph{blind to the class} and keep the residuals,
 #' (3) reconstitute the residuals in observation space, shift them to
 #' non-negativity, and (4) refit an intercept-only \code{nmf.gmm} from the
-#' \emph{same} basis initialization. Only the order of adjustment and
-#' clustering differs from the joint fit, so the pair isolates the
-#' displacement of the class means that two-stage adjustment incurs when the
-#' covariate is associated with the class (Satoh 2026, Proposition 4); when
-#' the covariate is (near-)mean-independent of the class the two routes agree.
+#' \emph{same} basis initialization. Both routes start from the same basis and
+#' use the same mixture family and settings. They differ in the order of
+#' adjustment and clustering and, unless \code{fixX = TRUE}, in the basis each
+#' refits to its own data: the two-stage route refits it to the
+#' reconstituted, shifted residuals. When the covariate is associated with the
+#' class, the class-blind regression of stage (2) displaces the class means
+#' (the oracle proposition of Satoh 2026); when the covariate is
+#' (near-)mean-independent of the class, that displacement vanishes in the
+#' population, so both routes target the same class means, although the
+#' fitted partitions need not coincide in a finite sample.
 #'
 #' @param Y Data matrix \eqn{Y} (P x N).
 #' @param A Covariate matrix \eqn{A} (R x N) including an intercept row, or a
@@ -853,15 +889,8 @@ nmf.gmm.twostage <- function(Y, A = NULL, rank, K = 1, ...) {
   if (nrow(A) < 2) stop("A holds only an intercept; there is nothing to adjust for.")
 
   ## stage 0: the same initial basis nmf.gmm would use
-  X.init <- extra$X.init
   nstart <- getopt("nstart", if (K == 1) 1L else 8L)
-  if (is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)) {
-    X0 <- as.matrix(X.init)
-  } else {
-    method <- if (is.character(X.init)) X.init else "nndsvd"
-    X0 <- .init_X_method(method, Y, Q, seed = seed, nstart = max(nstart, 1L))
-  }
-  X0 <- X0 / rep(pmax(colSums(X0), 1e-12), each = nrow(X0))
+  X0 <- .nmfgmm.initX(extra$X.init, Y, Q, seed, nstart)
 
   ## stage 1: least-squares scores; remove the covariates blind to the class
   B <- solve(crossprod(X0), crossprod(X0, Y))
