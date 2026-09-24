@@ -1,5 +1,24 @@
 # nmfkc (development version)
 
+## `nmf.gmm()`: covariate effects that differ by class (`class.effects`)
+
+`nmf.gmm()` gains `class.effects`, which names the covariates whose
+coefficients may differ between classes. The class-`k` mean of the scores
+becomes `C a_n + Delta_k a_n[S] + mu_k` with `sum_k xi_k Delta_k = 0`, so
+the columns `S` of `C` keep their meaning as the (xi-weighted) average effect
+and the class-specific coefficients are returned in `C.class`. Before, every
+covariate had one coefficient shared by all classes, so a covariate whose
+effect differs between classes could only be absorbed by extra components.
+Covariates are named by row of `A` or, with a formula, by term, so
+`class.effects = "diet"` frees every indicator row of a factor. The default
+(`NULL`) fits the common-effect model exactly as before. The M-step solves
+the class-specific coefficients, the common ones and the class means jointly
+by weighted least squares; BIC and ICL count the `(K - 1) Q |S|` extra
+parameters. With a categorical covariate, freeing all of its levels gives
+each level its own class means, and the likelihood then no longer ties the
+classes of one level to those of another; the help page says so.
+`nmf.gmm.inference()` and `nmf.gmm.twostage()` refuse such fits for now.
+
 ## `nmf.gmm()`: an ordinary-NMF starting basis, and the basis it started from
 
 `nmf.gmm()` and `nmf.gmm.twostage()` accept `X.init = "nmf"`: the basis of an

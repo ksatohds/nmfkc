@@ -224,6 +224,60 @@ test_that("nmf.gmm.twostage runs the matched adjust-then-cluster baseline", {
                "intercept")
 })
 
+test_that("class.effects gives the chosen covariates class-specific coefficients", {
+  skip_unless_full()
+  ## two classes whose covariate slope differs in sign on part 1
+  set.seed(3)
+  P <- 10; N <- 120; Q <- 2
+  X <- matrix(abs(rnorm(P * Q)), P, Q); X <- sweep(X, 2, colSums(X), "/")
+  a <- rnorm(N); A <- rbind(1, a)
+  z <- rep(1:2, length.out = N)
+  slope <- cbind(c(2, 0.5), c(-2, 0.5))                     # Q x K
+  muk <- cbind(c(2, -1), c(-2, 1))
+  B <- 3 + sweep(slope[, z], 2, a, "*") + muk[, z] + matrix(rnorm(Q * N) * 0.3, Q, N)
+  Y <- X %*% B + matrix(rnorm(P * N) * 0.1, P, N)
+  f0 <- nmf.gmm(Y, A, rank = Q, K = 2, X.init = X, seed = 1)
+  f1 <- nmf.gmm(Y, A, rank = Q, K = 2, X.init = X, seed = 1, class.effects = 2)
+  expect_null(f0$C.class)
+  expect_equal(f1$class.rows, 2L)
+  expect_equal(dim(f1$C.class), c(Q, 1L, 2L))
+  expect_equal(f1$n.params, f0$n.params + (2 - 1) * Q * 1)
+  expect_gt(f1$loglik, f0$loglik)
+  expect_gt(nmfkc:::.nmfgmm.ARI(f1$cluster, z), 0.8)
+  ## C[, S] is the average of the class-specific coefficients weighted by the class
+  ## shares of the final responsibilities (fit$xi lags them by one EM step)
+  xi <- colMeans(f1$gamma)
+  avg <- apply(f1$C.class[, 1, , drop = FALSE], 1, function(v) sum(v * xi))
+  expect_equal(unname(avg), unname(f1$C[, 2]), tolerance = 1e-8)
+  ## the two classes' slopes on part 1 have opposite signs, as planted
+  expect_lt(prod(f1$C.class[1, 1, ]), 0)
+  ## the EM stays monotone
+  expect_true(all(diff(-f1$objfunc.iter) >= -1e-6))
+  ## the reconstruction includes the class-specific terms
+  expect_equal(dim(fitted(f1)), dim(Y))
+  expect_lt(mean((Y - fitted(f1))^2), mean((Y - fitted(f0))^2))
+  ## by name, and at K = 1 the model is the common-effect one
+  rownames(A) <- c("Intercept", "a")
+  f1n <- nmf.gmm(Y, A, rank = Q, K = 2, X.init = X, seed = 1, class.effects = "a")
+  expect_equal(f1n$loglik, f1$loglik, tolerance = 1e-10)
+  g0 <- nmf.gmm(Y, A, rank = Q, K = 1, X.init = X, seed = 1)
+  g1 <- nmf.gmm(Y, A, rank = Q, K = 1, X.init = X, seed = 1, class.effects = "a")
+  expect_equal(g1$loglik, g0$loglik, tolerance = 1e-6)
+  ## a formula term name frees every indicator row of a factor
+  df <- data.frame(a = a, g = factor(rep(1:3, length.out = N)))
+  ff <- nmf.gmm(Y, ~ a + g, rank = Q, K = 2, X.init = X, seed = 1, data = df,
+                class.effects = "g", nstart = 2, maxit = 200)
+  expect_equal(ff$class.rows, 3:4)
+  ## refusals
+  expect_error(nmf.gmm(Y, A, rank = Q, K = 2, class.effects = 1), "intercept")
+  expect_error(nmf.gmm(Y, A, rank = Q, K = 2, class.effects = "b"), "named")
+  expect_error(nmf.gmm.inference(f1, Y, A), "class-specific")
+  expect_error(nmf.gmm.twostage(Y, A, rank = Q, K = 2, class.effects = 2), "class-specific")
+  ## the adjusted-scores plot removes each unit's own class effect
+  pdf(NULL); on.exit(dev.off(), add = TRUE)
+  expect_null(plot(f1, type = "adjusted.scores"))
+})
+
 test_that("X.init = 'nmf' starts from the ordinary NMF basis, and X0 is returned", {
   skip_unless_full()
   d <- make_gmm_data()

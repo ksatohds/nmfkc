@@ -66,6 +66,24 @@ updating it (default \code{FALSE}). Used to compare the joint fit with
 \code{\link{nmf.gmm.twostage}} on the \emph{same} \eqn{X}, so that the
 two routes share the basis. They still fit different data: the
 two-stage route fits the reconstituted, shifted residuals.
+\item \code{class.effects}: covariates whose coefficients differ by
+class (default \code{NULL}: every covariate has one coefficient shared
+by all classes). Row indices of \code{A}, row names, or --- when
+\code{A} is a formula --- term names, so \code{class.effects = "diet"}
+frees every indicator row of a factor \code{diet}. The class-\eqn{k}
+mean becomes \eqn{C\bm a_n+\Delta_k\bm a_{n,S}+\bm\mu_k} with
+\eqn{\sum_k\xi_k\Delta_k=0}, so the columns \eqn{S} of \code{C} hold
+the \eqn{\xi}-weighted average of the class-specific coefficients,
+which are returned in \code{C.class}. The intercept row cannot be
+freed: \eqn{\bm\mu_k} already makes it class-specific. With a
+continuous covariate, the class-specific coefficients are identified
+when the covariate varies within every class. With a categorical
+covariate, freeing all of its indicator rows gives every level its own
+class means, so the likelihood no longer ties the classes of one level
+to those of another: which class of one level corresponds to which
+class of another is then carried by the starting values rather than by
+the data. Not supported by \code{\link{nmf.gmm.inference}} or
+\code{\link{nmf.gmm.twostage}}.
 \item \code{seed}: RNG seed (default 1). \code{prefix}: basis-name prefix
 (default \code{"Basis"}).
 \item \code{data}: a data frame with one row per column of \code{Y},
@@ -93,7 +111,11 @@ from), \code{C} (\eqn{=\Theta}, Q x R), \code{mu} (class means, Q x K),
 \code{BIC}, \code{ICL}, \code{n.params}, \code{entropy}, \code{Yhat},
 \code{objfunc(.iter)}, \code{iter}, \code{converged}, \code{stop_by},
 \code{K},
-\code{rank}, \code{cov}, \code{dims} and \code{runtime}.
+\code{rank}, \code{cov}, \code{dims} and \code{runtime}. With
+\code{class.effects}, also \code{class.effects} (the freed rows of
+\code{A}, by name), \code{class.rows} (their indices) and \code{C.class}
+(a Q x |S| x K array of class-specific coefficients; the class-specific
+effect in observation space is \code{X \%*\% C.class[, , k]}).
 }
 \description{
 This function is \strong{experimental and still under development}. The
