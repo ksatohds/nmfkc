@@ -1128,16 +1128,24 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @keywords internal
 #' @noRd
 .nmfkc.separability <- function(X) {
+  Q <- base::ncol(X)
   cs <- base::colSums(X)
   Xn <- base::sweep(X, 2, base::ifelse(cs > 0, cs, 1), "/")
   rs <- base::rowSums(Xn)
   keep <- base::which(rs > 0)
-  S <- Xn[keep, , drop = FALSE] / rs[keep]
-  purity <- base::apply(S, 2, base::max)
-  row <- keep[base::apply(S, 2, base::which.max)]
+  if (base::length(keep) == 0L) {
+    ## X is all zero -- a degenerate fit that nmfkc() does return, e.g. an
+    ## all-zero Y under X.restriction = "none".  No basis appears anywhere.
+    purity <- base::rep(0, Q)
+    row <- base::rep(NA_integer_, Q)
+  } else {
+    S <- Xn[keep, , drop = FALSE] / rs[keep]
+    purity <- base::apply(S, 2, base::max)
+    row <- keep[base::apply(S, 2, base::which.max)]
+  }
   base::names(purity) <- base::names(row) <- base::colnames(X)
   base::list(purity = purity, row = row,
-             index = if (base::ncol(X) < 2) NA_real_ else base::min(purity))
+             index = if (Q < 2) NA_real_ else base::min(purity))
 }
 
 
@@ -2745,8 +2753,12 @@ print.nmf.rank <- function(x, ...) {
 #' \item{rank}{The rank \eqn{Q} used in the factorization.}
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-#' \item{criterion}{A list with \code{effective.rank} and
-#'   \code{effective.rank.index}.
+#' \item{criterion}{A list with \code{effective.rank},
+#'   \code{effective.rank.index}, and the separability of the basis:
+#'   \code{separability} (one value; 1 = every basis has a row of its own),
+#'   \code{anchor.purity} (per basis) and \code{anchor.row} (where each basis
+#'   is purest).  See the Details of \code{\link{summary.nmfkc}} for their
+#'   definition and reading.
 #'
 #'   \code{effective.rank.index} is \code{effective.rank} rescaled onto
 #'   \eqn{[0,1]} by the broken-stick correction
@@ -3338,6 +3350,9 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     base::list(X = X, B = B, C = C, XB = XB, method = method, A.attr = A.attr),
     Y, detail = detail, Y.weights = Y.weights, X.restriction = X.restriction
   )
+  ## Separability of the basis (see ?summary.nmfkc).  O(PQ), so it is kept
+  ## under detail = "fast" as well.
+  sep <- .nmfkc.separability(X)
   r2          <- crit_result$r.squared
   r2.uncentered     <- crit_result$r.squared.uncentered
   r2.centered <- crit_result$r.squared.centered
@@ -3404,10 +3419,13 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     ## Drop the sample-clustering criteria unless they were actually computed.
     ## Leaving NA placeholders would be ambiguous: CPCC is legitimately NA at
     ## Q = 1 under detail = "full", so NA cannot also mean "not computed".
-    criterion = if (detail == "full") crit_result$criterion
-                else crit_result$criterion[
-                  base::setdiff(base::names(crit_result$criterion),
-                                base::c("silhouette", "CPCC", "dist.cor"))]
+    criterion = c(if (detail == "full") crit_result$criterion
+                  else crit_result$criterion[
+                    base::setdiff(base::names(crit_result$criterion),
+                                  base::c("silhouette", "CPCC", "dist.cor"))],
+                  base::list(separability  = sep$index,
+                             anchor.purity = sep$purity,
+                             anchor.row    = sep$row))
   )
   ## Added only when anchors were used, so every other fit keeps exactly the
   ## fields it had.
@@ -3479,7 +3497,8 @@ plot.nmfkc <- function(x,...){
 #' on \code{X.restriction}); these are \code{anchor.purity}, attained at rows
 #' \code{anchor.row}.  The separability is their minimum: 1 when every basis
 #' has a row of its own, \eqn{1/Q} when every row mixes all bases equally, and
-#' \code{NA} for \code{rank = 1}.
+#' \code{NA} for \code{rank = 1}.  The same three values are stored on the fit,
+#' in \code{fit$criterion}.
 #'
 #' Anchors for every basis, together with \eqn{\mathrm{rank}(B) = Q}, make the
 #' factorization unique up to scale, so a value near 1 says the solution is
@@ -3543,8 +3562,13 @@ summary.nmfkc <- function(object, ...) {
     # Sparsity: Proportion of elements close to zero (< 1e-4)
     ans$X.sparsity <- mean(object$X < 1e-4)
     ## How close X is to having an anchor row for every basis; see
-    ## .nmfkc.separability() and the Details of ?summary.nmfkc.
-    sep <- .nmfkc.separability(object$X)
+    ## .nmfkc.separability() and the Details of ?summary.nmfkc.  Stored on
+    ## the fit since 1.0.0; recomputed for objects saved before that.
+    sep <- if ("separability" %in% names(object$criterion))
+             list(index  = object$criterion$separability,
+                  purity = object$criterion$anchor.purity,
+                  row    = object$criterion$anchor.row)
+           else .nmfkc.separability(object$X)
     ans$separability  <- sep$index
     ans$anchor.purity <- sep$purity
     ans$anchor.row    <- sep$row

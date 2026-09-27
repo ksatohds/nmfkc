@@ -226,8 +226,12 @@ before \code{maxit}.  A run that merely exhausted \code{maxit} is
 \item{rank}{The rank \eqn{Q} used in the factorization.}
 \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-\item{criterion}{A list with \code{effective.rank} and
-\code{effective.rank.index}.
+\item{criterion}{A list with \code{effective.rank},
+\code{effective.rank.index}, and the separability of the basis:
+\code{separability} (one value; 1 = every basis has a row of its own),
+\code{anchor.purity} (per basis) and \code{anchor.row} (where each basis
+is purest).  See the Details of \code{\link{summary.nmfkc}} for their
+definition and reading.
 
 \code{effective.rank.index} is \code{effective.rank} rescaled onto
 \eqn{[0,1]} by the broken-stick correction

@@ -30,10 +30,15 @@ to one, so the value does not depend on `X.restriction`), minimized over the
 bases.  1 means every basis has a row of its own, `1/Q` that every row mixes
 all bases equally; an `X.anchor` fit scores exactly 1, and on the data above
 the default fit scored 0.91.  The per-basis values and the rows attaining them
-are returned as `anchor.purity` and `anchor.row`.  It looks at X only --
-zeros in B or in `C` can also pin the solution -- so a value near 1 says the
-fit is nearly unique, while a low value does not say it is not.  The fitted
-object itself is unchanged.
+are `anchor.purity` and `anchor.row`.  All three are stored on the fit, in
+`fit$criterion`; `summary()` reads them there (and recomputes them for
+objects saved before 1.0.0).  It looks at X only -- zeros in B or in `C` can
+also pin the solution -- so a value near 1 says the fit is nearly unique,
+while a low value does not say it is not.
+
+These three `criterion` elements are the only change to a fitted object:
+every value it held before is unchanged (checked bit-identical on the same
+167 calls, with the new elements set aside).
 
 ## `nmfkc()` no longer stops on data with all-zero columns
 

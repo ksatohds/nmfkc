@@ -29,7 +29,8 @@ basis rescaled so that its columns sum to one (so the value does not depend
 on \code{X.restriction}); these are \code{anchor.purity}, attained at rows
 \code{anchor.row}.  The separability is their minimum: 1 when every basis
 has a row of its own, \eqn{1/Q} when every row mixes all bases equally, and
-\code{NA} for \code{rank = 1}.
+\code{NA} for \code{rank = 1}.  The same three values are stored on the fit,
+in \code{fit$criterion}.
 
 Anchors for every basis, together with \eqn{\mathrm{rank}(B) = Q}, make the
 factorization unique up to scale, so a value near 1 says the solution is

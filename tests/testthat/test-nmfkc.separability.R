@@ -31,6 +31,15 @@ test_that("a dead basis is not anchored, and rank 1 has nothing to separate", {
   expect_equal(unname(sep(X)$purity), c(1, 0))
   expect_equal(sep(X)$index, 0)
   expect_true(is.na(sep(matrix(1:3, 3, 1))$index))
+  ## an all-zero X (all-zero Y under X.restriction = "none" returns one):
+  ## no basis appears anywhere, and computing this must not break the fit
+  z <- sep(matrix(0, 4, 2))
+  expect_equal(unname(z$purity), c(0, 0))
+  expect_equal(z$index, 0)
+  expect_true(all(is.na(z$row)))
+  f <- suppressWarnings(nmfkc(matrix(0, 30, 10), rank = 2,
+                              X.restriction = "none", verbose = FALSE))
+  expect_equal(f$criterion$separability, 0)
 })
 
 test_that("summary() reports it, and an X.anchor fit scores exactly 1", {
@@ -46,6 +55,15 @@ test_that("summary() reports it, and an X.anchor fit scores exactly 1", {
   s <- summary(fa)
   expect_equal(s$separability, 1)
   expect_setequal(unname(s$anchor.row), unname(fa$X.anchor))
+  ## the fit carries the same values in its criterion list
+  expect_identical(fa$criterion$separability, s$separability)
+  expect_identical(fa$criterion$anchor.purity, s$anchor.purity)
+  expect_identical(fa$criterion$anchor.row, s$anchor.row)
+  ## an object saved before 1.0.0 has none of them: summary() recomputes
+  old <- fa
+  old$criterion[c("separability", "anchor.purity", "anchor.row")] <- NULL
+  expect_equal(summary(old)$separability, s$separability)
+  expect_equal(summary(old)$anchor.row, s$anchor.row)
   out <- utils::capture.output(print(s))
   expect_true(any(grepl("Separability:", out)))
   ## rank 1: NA, and no line printed
