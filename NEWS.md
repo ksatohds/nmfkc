@@ -1,5 +1,41 @@
 # nmfkc (development version)
 
+## `nmfkc()` no longer stops on data with all-zero columns
+
+With `X.init = "kmeans"` (the default) or `"kmeans++"`, two or more all-zero
+observation columns could make k-means return the zero vector as a cluster
+centre.  Normalizing that basis column gave 0/0, and the fit stopped with
+"missing value where TRUE/FALSE needed" -- or, with `maxit < 10`, returned an
+all-NaN object as if it were a fit.  The initialization is now rerun on the
+non-zero columns, with a message saying so; the fit itself still uses every
+column, since with covariates a zero column is informative about `C`.
+
+A fit whose objective becomes NaN now stops with the cause rather than R's
+generic message, and a `Y` with no positive entries is named as such.  A
+user-supplied `X.init` with a zero column is reported, not altered.
+
+**No fit that succeeded before changes.**  The repair acts only on a start
+that normalizes to a non-finite value, and such a start could not produce a
+result.  Checked bit-identical (`identical()` and `all.equal(tolerance = 0)`)
+on 143 previously successful calls, among them data with zero columns that
+k-means happened not to isolate, and `X.restriction = "none"`, where a zero
+basis column never failed and still stays zero.
+
+## Documentation that answers questions raised in use
+
+None of these change a result.
+
+* `epsilon` spells out the stopping rule: relative while the objective
+  exceeds 1, absolute below it, so small-magnitude data need a smaller
+  `epsilon` or rescaling.
+* `X.L2.ortho` explains why its strength depends on the scale of `Y` (and is
+  of order $1/P^2$ per pair under column-sum normalization), and how to state
+  it relative to the fit: `X.L2.ortho = lambda0 * sum(Y^2)`.
+* `C.init` explains that an exact zero in the initial value is kept
+  throughout, while a zero on the boundary is approached only slowly -- so a
+  structural zero belongs in the initial value.
+* `nmfkc.ecv()` documents that `objfunc` is named `"Q=2"`, `"Q=3"`, ...
+
 ## `nmf.gmm()`: covariate effects that differ by class (`class.effects`)
 
 `nmf.gmm()` gains `class.effects`, which names the covariates whose

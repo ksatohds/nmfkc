@@ -43,7 +43,15 @@ Ignored when \code{Y} is a formula.}
 
 \item{data}{Optional. A data frame from which variables in the formula should be taken.}
 
-\item{epsilon}{Positive convergence tolerance.}
+\item{epsilon}{Positive convergence tolerance.  From the 10th iteration
+the fit stops when \eqn{|f_i - f_{i-1}| / \max(|f_i|, 1) \le}
+\code{epsilon}, where \eqn{f_i} is the objective at iteration \eqn{i}.
+The rule is relative while the objective exceeds 1 and \emph{absolute}
+below it, so on data of small magnitude (an objective well below 1) the
+default \code{1e-4} can stop early, far from the minimum.  Rescale
+\code{Y} or lower \code{epsilon} (e.g.\ \code{1e-8}) in that case.
+Coefficients that sit on the non-negativity boundary also need a tight
+\code{epsilon}; see \code{C.init} under \code{...}.}
 
 \item{maxit}{Maximum number of iterations.}
 
@@ -69,6 +77,12 @@ otherwise no weighting.
 It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
 between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
 (Formerly \code{lambda.ortho}).
+The penalty \eqn{(\lambda/2)\sum_{q \ne r} (x_q^\top x_r)^2} is added to
+the objective as it stands, so how strongly a given \eqn{\lambda} acts
+depends on the scale of \code{Y}; with column-sum-normalized \eqn{X}
+each term is also of order \eqn{1/P^2}, so small values such as
+\eqn{\lambda \le 0.1} usually do nothing.  To state \eqn{\lambda}
+relative to the fit, pass \code{X.L2.ortho = lambda0 * sum(Y^2)}.
 \item \code{X.L2.smooth}: Nonnegative penalty parameter for row-smoothness of
 \eqn{X} (default: 0). Adds \eqn{\lambda\,\mathrm{tr}(X^\top L X)} with \eqn{L}
 the path-graph Laplacian over the \eqn{P} rows, i.e.\ it penalizes squared
@@ -84,6 +98,13 @@ selection over basis-covariate links). (Formerly \code{lambda}).
 \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"kmeans++"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar. \code{"kmeans++"} seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur & Vassilvitskii, 2007) before Lloyd refinement, giving a more careful, stable initialization (\code{nstart} is not used in this case).
+If the initialization produces a zero basis column -- typically
+\code{"kmeans"} or \code{"kmeans++"} on data with two or more all-zero
+observation columns, which k-means may gather into a cluster whose
+centre is the zero vector -- and \code{X.restriction} cannot normalize
+it, the initialization is rerun on the non-zero columns of \code{Y}
+and a message says so.  The fit itself still uses every column.  A
+user-supplied matrix with a zero column stops with an error instead.
 \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 multi-start evaluation (when \code{X.init = "runif"}).
@@ -91,6 +112,13 @@ multi-start evaluation (when \code{X.init = "runif"}).
 \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
+The multiplicative updates keep an exact zero at zero, so a zero in
+\code{C.init} (or in a user-supplied \code{X.init}) is a structural
+zero that holds throughout the fit.  A coefficient whose optimum lies
+on the boundary, by contrast, is approached only slowly and may remain
+visibly positive at the default \code{epsilon}.  To impose a zero,
+put it in the initial value rather than relying on the updates to
+reach it.
 \item \code{Y.symmetric}: \strong{Removed.} Symmetric NMF
 (\eqn{Y \approx X X^\top} or \eqn{X C X^\top}) has moved to the
 dedicated \code{\link{nmfkc.net}} function (types \code{"tri"},

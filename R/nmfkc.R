@@ -756,6 +756,93 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+## Why a fit cannot continue once the objective is NaN, in terms the caller
+## can act on.  Shared by the start-up repair and the per-iteration checks in
+## nmfkc(), so all three stop with the same explanation.
+.nmfkc.nonfinite.reason <- function(Y) {
+  if (!base::any(Y > 0))
+    return(base::paste(
+      "Y has no positive entries, so there is nothing for the basis to",
+      "represent: the columns of X collapse to zero and cannot be normalized.",
+      "Check how Y was built (for example, a selection step that kept no",
+      "variables)."))
+  base::paste(
+    "A column of X became zero and could not be normalized; this can happen",
+    "when the rank is larger than the data support.  Try a smaller rank or",
+    "X.init = \"nndsvd\".")
+}
+
+
+#' @title Repair an initial basis the normalization cannot handle (Internal)
+#' @description
+#' Returns \code{X} untouched unless normalizing it (\code{xnorm}) would give
+#' a non-finite value, which happens only when a column of \code{X} is zero
+#' and \code{X.restriction} divides by the column sum.  Such a start cannot
+#' succeed -- the NaN spreads through every update, and the fit either stops
+#' at the first convergence check or, with \code{maxit < 10}, returns an
+#' all-NaN result -- so changing only this case leaves every fit that could
+#' succeed bit-identical.  In particular, data with all-zero observation
+#' columns whose k-means clusters happen to have non-zero centres are not
+#' touched.
+#'
+#' The usual cause is \code{X.init = "kmeans"} or \code{"kmeans++"} on data
+#' with two or more all-zero observation columns: k-means gives them a
+#' cluster of their own, whose centre is the zero vector.  A zero observation
+#' carries no information about the direction of a basis vector, so the
+#' initialization is rerun on the non-zero columns only.  The fit itself still
+#' uses all of \code{Y}: with covariates, a zero column is informative about
+#' \eqn{C}, since it pulls \eqn{C a_n} towards zero.  A column still zero after
+#' that is filled with small positive values, as \code{"kmeansar"} does.
+#'
+#' A user-supplied \code{X.init} matrix is never altered; its zero columns are
+#' reported instead.  If \code{Y} has no positive entries there is nothing to
+#' represent, and the call stops with that reason.
+#' @return The initial \code{X}, repaired if it had to be.
+#' @keywords internal
+#' @noRd
+.nmfkc_repair_init_X <- function(X, xnorm, X.restriction, Y, Q, X.init,
+                                 Y.weights, seed, nstart, maxit, .eps,
+                                 print.dims = FALSE) {
+  if (base::all(base::is.finite(xnorm(X)))) return(X)
+  if (!base::any(Y > 0))
+    base::stop("nmfkc(): ", .nmfkc.nonfinite.reason(Y), call. = FALSE)
+  bad <- base::colSums(base::abs(X)) == 0 | !base::is.finite(base::colSums(X))
+  if (base::is.matrix(X.init))
+    base::stop(base::sprintf(base::paste(
+      "nmfkc(): X.init has zero column(s) %s.  X.restriction = \"%s\" divides",
+      "each column by its sum, so they cannot be normalized.  Give them",
+      "positive entries, or use X.restriction = \"none\"."),
+      base::paste(base::which(bad), collapse = ", "), X.restriction),
+      call. = FALSE)
+  keep <- base::colSums(Y > 0) > 0           # observations with a positive entry
+  X.new <- X
+  if (base::is.character(X.init) && !base::all(keep)) {
+    W.keep <- if (base::is.matrix(Y.weights)) Y.weights[, keep, drop = FALSE]
+              else Y.weights
+    X.new <- .nmfkc_init_X(Y[, keep, drop = FALSE], Q, X.init, W.keep,
+                           seed, nstart, maxit, .eps)
+  }
+  fill <- base::colSums(base::abs(X.new)) == 0 |
+          !base::is.finite(base::colSums(X.new))
+  if (base::any(fill))
+    X.new[, fill] <- stats::runif(base::nrow(X.new) * base::sum(fill)) *
+                     base::mean(Y) / 100
+  msg <- base::sprintf(
+    "nmfkc(): X.init = \"%s\" gave %d zero basis column(s), which X.restriction = \"%s\" cannot normalize",
+    if (base::is.character(X.init)) X.init else "default", base::sum(bad),
+    X.restriction)
+  if (!base::all(keep))
+    msg <- base::paste0(msg, base::sprintf(
+      "; Y has %d all-zero column(s), so the initialization was rerun on the other %d",
+      base::sum(!keep), base::sum(keep)))
+  if (base::any(fill))
+    msg <- base::paste0(msg, base::sprintf(
+      "; %d basis column(s) filled with small positive values", base::sum(fill)))
+  base::message(if (print.dims) "\n" else "", msg, ".")
+  X.new
+}
+
+
 .nndsvdar <- function(Y, Q) {
   P <- nrow(Y)
   N <- ncol(Y)
@@ -2300,7 +2387,15 @@ print.nmf.rank <- function(x, ...) {
 #'   Ignored when \code{Y} is a formula.
 #' @param rank Integer. The rank of the basis matrix \eqn{X} (Q). Preferred over \code{Q}.
 #' @param data Optional. A data frame from which variables in the formula should be taken.
-#' @param epsilon Positive convergence tolerance.
+#' @param epsilon Positive convergence tolerance.  From the 10th iteration
+#'   the fit stops when \eqn{|f_i - f_{i-1}| / \max(|f_i|, 1) \le}
+#'   \code{epsilon}, where \eqn{f_i} is the objective at iteration \eqn{i}.
+#'   The rule is relative while the objective exceeds 1 and \emph{absolute}
+#'   below it, so on data of small magnitude (an objective well below 1) the
+#'   default \code{1e-4} can stop early, far from the minimum.  Rescale
+#'   \code{Y} or lower \code{epsilon} (e.g.\ \code{1e-8}) in that case.
+#'   Coefficients that sit on the non-negativity boundary also need a tight
+#'   \code{epsilon}; see \code{C.init} under \code{...}.
 #' @param maxit Maximum number of iterations.
 #' @param verbose Logical. If \code{TRUE} (default), prints matrix dimensions and elapsed time.
 #' @param ... Additional arguments passed for fine-tuning regularization, initialization, constraints,
@@ -2323,6 +2418,12 @@ print.nmf.rank <- function(x, ...) {
 #'       It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
 #'       between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
 #'       (Formerly \code{lambda.ortho}).
+#'       The penalty \eqn{(\lambda/2)\sum_{q \ne r} (x_q^\top x_r)^2} is added to
+#'       the objective as it stands, so how strongly a given \eqn{\lambda} acts
+#'       depends on the scale of \code{Y}; with column-sum-normalized \eqn{X}
+#'       each term is also of order \eqn{1/P^2}, so small values such as
+#'       \eqn{\lambda \le 0.1} usually do nothing.  To state \eqn{\lambda}
+#'       relative to the fit, pass \code{X.L2.ortho = lambda0 * sum(Y^2)}.
 #'     \item \code{X.L2.smooth}: Nonnegative penalty parameter for row-smoothness of
 #'       \eqn{X} (default: 0). Adds \eqn{\lambda\,\mathrm{tr}(X^\top L X)} with \eqn{L}
 #'       the path-graph Laplacian over the \eqn{P} rows, i.e.\ it penalizes squared
@@ -2338,6 +2439,13 @@ print.nmf.rank <- function(x, ...) {
 #'     \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 #'       \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
 #'     \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"kmeans++"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar. \code{"kmeans++"} seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur & Vassilvitskii, 2007) before Lloyd refinement, giving a more careful, stable initialization (\code{nstart} is not used in this case).
+#'       If the initialization produces a zero basis column -- typically
+#'       \code{"kmeans"} or \code{"kmeans++"} on data with two or more all-zero
+#'       observation columns, which k-means may gather into a cluster whose
+#'       centre is the zero vector -- and \code{X.restriction} cannot normalize
+#'       it, the initialization is rerun on the non-zero columns of \code{Y}
+#'       and a message says so.  The fit itself still uses every column.  A
+#'       user-supplied matrix with a zero column stops with an error instead.
 #'     \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 #'       Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 #'       multi-start evaluation (when \code{X.init = "runif"}).
@@ -2345,6 +2453,13 @@ print.nmf.rank <- function(x, ...) {
 #'     \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 #'       (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 #'       otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
+#'       The multiplicative updates keep an exact zero at zero, so a zero in
+#'       \code{C.init} (or in a user-supplied \code{X.init}) is a structural
+#'       zero that holds throughout the fit.  A coefficient whose optimum lies
+#'       on the boundary, by contrast, is approached only slowly and may remain
+#'       visibly positive at the default \code{epsilon}.  To impose a zero,
+#'       put it in the initial value rather than relying on the updates to
+#'       reach it.
 #'     \item \code{Y.symmetric}: \strong{Removed.} Symmetric NMF
 #'       (\eqn{Y \approx X X^\top} or \eqn{X C X^\top}) has moved to the
 #'       dedicated \code{\link{nmfkc.net}} function (types \code{"tri"},
@@ -2683,6 +2798,11 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   is.X.scalar <- FALSE
   if(nrow(Y)>=2){
     X <- .nmfkc_init_X(Y, Q, X.init, Y.weights, seed, nstart, maxit, .eps)
+    ## A zero basis column cannot be normalized; see .nmfkc_repair_init_X()
+    ## for why touching only that case leaves every other fit bit-identical.
+    X <- .nmfkc_repair_init_X(X, xnorm, X.restriction, Y, Q, X.init,
+                              Y.weights, seed, nstart, maxit, .eps,
+                              print.dims = print.dims)
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
     is.X.scalar <- TRUE
@@ -2879,9 +2999,21 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     if(i>=10){
       #epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1])/(abs(objfunc.iter[i])+0.1)
       epsilon.iter <- abs(objfunc.iter[i]-objfunc.iter[i-1]) / pmax(abs(objfunc.iter[i]), 1)
+      ## A NaN here used to reach the if() below as "missing value where
+      ## TRUE/FALSE needed".  It cannot recover -- NaN spreads through every
+      ## update -- so stopping with the cause changes the message, not a result.
+      if (base::is.na(epsilon.iter))
+        base::stop(base::sprintf("nmfkc(): the objective is NaN at iteration %d.  %s",
+                                 i, .nmfkc.nonfinite.reason(Y)), call. = FALSE)
       if(epsilon.iter <= abs(epsilon)){ i_end <- i; break }
     }
   }
+
+  ## With maxit < 10 the check above never runs, and a NaN fit used to be
+  ## returned as if it were a result.
+  if (base::anyNA(objfunc.iter[i]))
+    base::stop(base::sprintf("nmfkc(): the objective is NaN at iteration %d.  %s",
+                             i, .nmfkc.nonfinite.reason(Y)), call. = FALSE)
 
   if (is_gram) {
     ## Rebuild B = C A (Q x N, small) block by block from the object's
@@ -3741,7 +3873,10 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #'   order, \code{objfunc}/\code{sigma} are identical for any \code{cores}.
 #'
 #' @return A list with components:
-#' \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
+#' \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for
+#'   each Q, named \code{"Q=2"}, \code{"Q=3"}, \ldots.  The names travel with
+#'   the values: \code{unname()} them before combining results into a data
+#'   frame or with \code{c()} if they are not wanted.}
 #' \item{sigma}{Numeric vector containing the Residual Standard Error (RMSE) for each Q. Only available if method="EU".}
 #' \item{objfunc.fold}{List of length equal to Q vector. Each element contains the MSE values for the k folds.}
 #' \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}
