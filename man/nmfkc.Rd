@@ -105,6 +105,33 @@ centre is the zero vector -- and \code{X.restriction} cannot normalize
 it, the initialization is rerun on the non-zero columns of \code{Y}
 and a message says so.  The fit itself still uses every column.  A
 user-supplied matrix with a zero column stops with an error instead.
+\code{"spa"} starts from the anchor rows that the successive
+projection algorithm (SPA; Gillis & Vavasis, 2014) finds in \code{Y}:
+\eqn{B} is started at those rows of \code{Y} and \eqn{X} at the
+non-negative least-squares fit to them.  The anchor rows' zeros are
+filled with small positive values, so this is only a starting value
+and does not make the factorization unique; \code{X.anchor} does.  It
+uses no random numbers.
+\item \code{X.anchor}: Anchor rows of \eqn{X}, imposed as constraints
+(default \code{NULL}: none).  An anchor row carries one basis alone,
+\eqn{X_{j_q r} = 0} for \eqn{r \ne q}.  The zeros are kept for the
+whole fit, and they make the factorization unique up to the column
+scale that \code{X.restriction} fixes: another solution \eqn{XR} with
+the same zeros needs a diagonal \eqn{R}.  With covariates this
+identifies \eqn{C} (\eqn{\Theta}) too, provided \code{rank <= nrow(A)}
+and \code{A} has full row rank; a larger \code{rank} is refused,
+because \eqn{B = CA} then has rank below \code{rank}.
+\code{"spa"} chooses the rows by SPA, which recovers them when
+\code{Y} is (nearly) separable -- each basis has a row of \code{Y}
+that it alone loads -- and \eqn{B} has full rank.  SPA returns
+\code{rank} rows even when \code{Y} has no such rows: compare the
+objective with a fit from \code{X.init = "spa"}, which starts from the
+same rows without the constraint, to see what the assumption costs.
+Alternatively give the rows, one per basis, as indices or row names;
+basis \eqn{q} is then the one anchored at the \eqn{q}-th row given, and
+the bases are not reordered after the fit.  The start is built from
+the anchors, so \code{X.init} is not used (a message says so if it
+was given).  The rows used are returned as \code{X.anchor}.
 \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 multi-start evaluation (when \code{X.init = "runif"}).
@@ -158,6 +185,8 @@ A list with components:
 \item{B.cluster}{Hard-clustering labels (argmax over \eqn{B.prob} for each column).}
 \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
 \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
+\item{X.anchor}{Present only when \code{X.anchor} was used: the anchor row
+of each basis, as a named integer vector.}
 \item{X.restriction}{The constraint that was applied to the columns of
 \eqn{X}.  It decides how much of the \eqn{(X,C)\to(XT,T^{-1}C)} freedom is
 pinned down, which inference on the latent parameters needs to know.}
@@ -259,6 +288,12 @@ dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10),
                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
 res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 
+# Example 3. Anchors: in Example 1, rows P1 and P2 of X carry one basis
+# each.  X.anchor imposes such rows (here found by SPA), which makes the
+# factorization unique; X.init = "spa" only starts from them.
+res_a <- nmfkc(Y, rank = 2, X.anchor = "spa", epsilon = 1e-6)
+res_a$X.anchor
+
 # For symmetric NMF (Y approximated by X X^T or X C X^T),
 # use \code{\link{nmfkc.net}()} instead.
 
@@ -286,6 +321,11 @@ In \emph{Proc. 12th ACM SIGKDD} (pp. 126--135).
 Roy, O., & Vetterli, M. (2007). The effective rank: A measure of
 effective dimensionality. In \emph{15th European Signal Processing
 Conference (EUSIPCO)} (pp. 606--610).
+
+Gillis, N., & Vavasis, S. A. (2014). Fast and robust recursive algorithms
+for separable nonnegative matrix factorization. \emph{IEEE Transactions
+on Pattern Analysis and Machine Intelligence}, 36(4), 698--714.
+\doi{10.1109/TPAMI.2013.226}
 }
 \seealso{
 \code{\link{nmfkc.inference}} (standard errors and p-values for

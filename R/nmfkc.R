@@ -708,8 +708,9 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @keywords internal
 #' @noRd
 # Internal helper: initialize basis matrix X
-.nmfkc_init_X <- function(Y, Q, X.init, Y.weights, seed, nstart, maxit, .eps) {
-  # Impute NAs with row means for initialization
+## Y with its missing (zero-weight) entries replaced by row means, for use by
+## the initializations only; the fit itself keeps the weights.
+.nmfkc_impute_init <- function(Y, Y.weights, .eps) {
   Y_init <- Y
   if (is.matrix(Y.weights) && any(Y.weights == 0)) {
     row_means <- rowSums(Y) / (rowSums(Y.weights) + .eps)
@@ -719,6 +720,13 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
       Y_init[idx_missing] <- row_means[idx_missing[, 1]]
     }
   }
+  Y_init
+}
+
+
+.nmfkc_init_X <- function(Y, Q, X.init, Y.weights, seed, nstart, maxit, .eps) {
+  # Impute NAs with row means for initialization
+  Y_init <- .nmfkc_impute_init(Y, Y.weights, .eps)
 
   if (is.matrix(X.init)) {
     X <- X.init
@@ -727,7 +735,15 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     ## runif with nstart > 1 is an nmfkc-specific multi-start feature (10
     ## inner MU iterations per restart to rank the candidate seeds); all
     ## other string methods delegate to the shared .init_X_method().
-    if (X.init == "runif" && nstart > 1) {
+    if (identical(X.init, "spa")) {
+      ## The start that X.anchor = "spa" uses, with its anchor zeros filled:
+      ## the multiplicative updates keep an exact zero, so leaving them would
+      ## turn a starting value into a constraint.
+      X <- .nmfkc_anchor_start(Y_init, .nmfkc_spa_rows(Y_init, Q), .eps)
+      idx_zero <- which(X == 0)
+      if (length(idx_zero) > 0)
+        X[idx_zero] <- stats::runif(length(idx_zero)) * mean(Y_init) / 100
+    } else if (X.init == "runif" && nstart > 1) {
       best_obj <- Inf
       P <- nrow(Y_init); N <- ncol(Y_init)
       for (s in seq_len(nstart)) {
@@ -840,6 +856,129 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
       "; %d basis column(s) filled with small positive values", base::sum(fill)))
   base::message(if (print.dims) "\n" else "", msg, ".")
   X.new
+}
+
+
+#' @title Successive projection algorithm on the rows of Y (Internal)
+#' @description
+#' Algorithm 1 of Gillis & Vavasis (2014) with \eqn{f = \|\cdot\|_2^2}
+#' (the successive projection algorithm, SPA), applied to the rows of
+#' \code{Y}: each row is scaled to unit \eqn{\ell_1} norm, the row of largest
+#' Euclidean norm is taken, and every row is projected onto the orthogonal
+#' complement of it; \code{Q} times.  Under separability -- each basis has a
+#' row of \code{Y} that it alone loads -- and \eqn{\mathrm{rank}(B) = Q}, the
+#' rows found are those anchor rows, and the choice is robust to small noise.
+#' No random numbers are used.  Rows of \code{Y} that are all zero are never
+#' chosen.
+#' @references Gillis, N. and Vavasis, S. A. (2014). Fast and robust recursive
+#'   algorithms for separable nonnegative matrix factorization. \emph{IEEE
+#'   Transactions on Pattern Analysis and Machine Intelligence}, 36(4),
+#'   698--714. \doi{10.1109/TPAMI.2013.226}
+#' @return Integer vector of \code{Q} row indices, in the order chosen.
+#' @keywords internal
+#' @noRd
+.nmfkc_spa_rows <- function(Y, Q) {
+  M <- base::t(Y)                               # one column per row of Y
+  s <- base::colSums(M)
+  M <- base::sweep(M, 2, base::ifelse(s > 0, s, 1), "/")
+  nrm <- base::colSums(M^2)
+  nrm0 <- base::max(nrm)
+  if (!(nrm0 > 0))
+    base::stop("nmfkc(): ", .nmfkc.nonfinite.reason(Y), call. = FALSE)
+  J <- base::integer(Q)
+  for (k in base::seq_len(Q)) {
+    j <- base::which.max(nrm)
+    if (nrm[j] <= 1e-20 * nrm0)
+      base::stop(base::sprintf(base::paste(
+        "nmfkc(): SPA found only %d linearly independent non-zero rows of Y,",
+        "fewer than rank = %d.  Use a smaller rank."), k - 1L, Q),
+        call. = FALSE)
+    u <- M[, j]
+    M <- M - u %*% (base::crossprod(u, M) / base::sum(u^2))
+    nrm <- base::colSums(M^2)
+    J[k] <- j
+  }
+  J
+}
+
+
+## Starting basis built from anchor rows J.  An anchor row carries basis q
+## alone, so Y[J, ] is B up to a row scaling; the other rows of X are the
+## non-negative least-squares fit to it (multiplicative updates with B held
+## fixed), and X[J, ] is set to the anchor pattern: 1 on the basis the row
+## anchors, exact 0 elsewhere.  No random numbers are used.
+.nmfkc_anchor_start <- function(Y, J, .eps, iter = 200L) {
+  Q <- base::length(J)
+  B0 <- Y[J, , drop = FALSE]
+  YBt <- Y %*% base::t(B0)
+  BBt <- B0 %*% base::t(B0)
+  X <- base::matrix(1, base::nrow(Y), Q)
+  for (it in base::seq_len(iter)) X <- X * YBt / (X %*% BBt + .eps)
+  X[J, ] <- 0
+  X[base::cbind(J, base::seq_len(Q))] <- 1
+  X
+}
+
+
+#' @title Resolve and check \code{X.anchor} (Internal)
+#' @description
+#' Turns \code{X.anchor} (\code{"spa"}, row indices, or row names) into
+#' \code{Q} row indices of \code{Y}, and refuses the cases in which anchors
+#' cannot identify the bases: more bases than covariates (with covariates,
+#' \eqn{B = CA} has rank at most \code{nrow(A)}), an anchor row with no
+#' positive entry, or anchor rows that are linearly dependent.
+#' @param Y The response, with missing entries imputed for initialization.
+#' @param D_A \code{nrow(A)}, or \code{NULL} without covariates.
+#' @keywords internal
+#' @noRd
+.nmfkc_anchor_rows <- function(X.anchor, Y, Q, D_A) {
+  P <- base::nrow(Y)
+  if (!base::is.null(D_A) && Q > D_A)
+    base::stop(base::sprintf(base::paste(
+      "nmfkc(): X.anchor needs rank <= nrow(A) = %d.  With covariates",
+      "B = C A has rank at most nrow(A), so anchors cannot identify %d bases."),
+      D_A, Q), call. = FALSE)
+  if (base::identical(X.anchor, "spa")) {
+    J <- .nmfkc_spa_rows(Y, Q)
+  } else {
+    if (base::is.character(X.anchor)) {
+      if (base::is.null(base::rownames(Y)))
+        base::stop("nmfkc(): X.anchor gives row names, but Y has none.  Give row indices instead.",
+                   call. = FALSE)
+      J <- base::match(X.anchor, base::rownames(Y))
+      if (base::anyNA(J))
+        base::stop("nmfkc(): X.anchor names row(s) not in Y: ",
+                   base::paste(X.anchor[base::is.na(J)], collapse = ", "), ".",
+                   call. = FALSE)
+    } else if (base::is.numeric(X.anchor)) {
+      if (base::anyNA(X.anchor) || base::any(X.anchor != base::round(X.anchor)) ||
+          base::any(X.anchor < 1) || base::any(X.anchor > P))
+        base::stop(base::sprintf("nmfkc(): X.anchor must be row indices between 1 and nrow(Y) = %d.", P),
+                   call. = FALSE)
+      J <- base::as.integer(X.anchor)
+    } else {
+      base::stop("nmfkc(): X.anchor must be NULL, \"spa\", or one row of Y per basis (indices or names).",
+                 call. = FALSE)
+    }
+    if (base::length(J) != Q)
+      base::stop(base::sprintf("nmfkc(): X.anchor gives %d row(s), but rank = %d; give one anchor row per basis.",
+                               base::length(J), Q), call. = FALSE)
+    if (base::anyDuplicated(J))
+      base::stop("nmfkc(): X.anchor repeats a row; each basis needs its own anchor row.",
+                 call. = FALSE)
+    empty <- J[base::rowSums(Y[J, , drop = FALSE] > 0) == 0]
+    if (base::length(empty))
+      base::stop(base::sprintf(base::paste(
+        "nmfkc(): anchor row(s) %s of Y have no positive entry.  An anchor row",
+        "carries its basis alone, so that basis would be zero."),
+        base::paste(empty, collapse = ", ")), call. = FALSE)
+  }
+  if (base::qr(Y[J, , drop = FALSE])$rank < Q)
+    base::stop(base::paste(
+      "nmfkc(): the anchor rows of Y are linearly dependent, so they cannot",
+      "identify", Q, "bases.  Choose other rows or a smaller rank."),
+      call. = FALSE)
+  J
 }
 
 
@@ -966,6 +1105,40 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   }
 }
 
+
+
+#' @title Separability of the basis: the purest row of each basis (Internal)
+#' @description
+#' For each basis \eqn{q}, the largest share it takes in any row,
+#' \eqn{\max_j \tilde x_{jq} / \sum_r \tilde x_{jr}}, where \eqn{\tilde X} is
+#' \eqn{X} with its columns scaled to sum to one.  The scaling makes the shares
+#' independent of \code{X.restriction}; an anchor row -- one that carries a
+#' single basis -- has share exactly 1 under any column scaling.  The
+#' separability is the smallest of these: 1 when every basis has a row of its
+#' own (\eqn{X} is separable, which with \eqn{\mathrm{rank}(B) = Q} makes the
+#' factorization unique up to scale), and \eqn{1/Q} when every row mixes all
+#' bases in equal shares.  It looks at \eqn{X} only: zeros in \eqn{B} or
+#' \eqn{\Theta} can pin the factorization too, so a value near 1 indicates a
+#' nearly unique solution, while a low value does not show that it is not.
+#' @param X Basis matrix (P x Q).
+#' @return A list: \code{purity} (per basis), \code{row} (the row where each
+#'   basis is purest), and \code{index} (their minimum; \code{NA} when
+#'   \eqn{Q = 1}, where there is nothing to separate).  A basis whose column
+#'   is all zero has purity 0.
+#' @keywords internal
+#' @noRd
+.nmfkc.separability <- function(X) {
+  cs <- base::colSums(X)
+  Xn <- base::sweep(X, 2, base::ifelse(cs > 0, cs, 1), "/")
+  rs <- base::rowSums(Xn)
+  keep <- base::which(rs > 0)
+  S <- Xn[keep, , drop = FALSE] / rs[keep]
+  purity <- base::apply(S, 2, base::max)
+  row <- keep[base::apply(S, 2, base::which.max)]
+  base::names(purity) <- base::names(row) <- base::colnames(X)
+  base::list(purity = purity, row = row,
+             index = if (base::ncol(X) < 2) NA_real_ else base::min(purity))
+}
 
 
 #' @title Broken-stick-corrected effective-rank index (Internal)
@@ -1277,12 +1450,15 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   \eqn{[0, 1]}; names become the row labels (e.g.\ \code{"Basis (X)"}).
 #' @param eff.rank.index Optional broken-stick effective-rank index in
 #'   \eqn{[0, 1]} (see \code{.effective.rank.index}).
+#' @param separability Optional separability of the basis (see
+#'   \code{.nmfkc.separability}); \code{NULL} or \code{NA} prints nothing.
 #' @param header Section header (default \code{"Structure Diagnostics:"}).
 #' @return \code{NULL}, invisibly.
 #' @keywords internal
 #' @noRd
 .print.structure.diagnostics <- function(sparsity = NULL,
                                          eff.rank.index = NULL,
+                                         separability = NULL,
                                          header = "Structure Diagnostics:") {
   base::cat("\n", header, "\n", sep = "")
   w <- 24L
@@ -1303,6 +1479,10 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
     base::cat(base::sprintf(
       "  %-*s %s (0 = broken-stick null, 1 = variance shared evenly)\n",
       w, "Factor variance share:", base::format(eff.rank.index, digits = 4)))
+  if (!base::is.null(separability) && base::is.finite(separability))
+    base::cat(base::sprintf(
+      "  %-*s %s (1 = every basis has a row of its own)\n",
+      w, "Separability:", base::format(separability, digits = 4)))
   base::invisible(NULL)
 }
 
@@ -2446,6 +2626,33 @@ print.nmf.rank <- function(x, ...) {
 #'       it, the initialization is rerun on the non-zero columns of \code{Y}
 #'       and a message says so.  The fit itself still uses every column.  A
 #'       user-supplied matrix with a zero column stops with an error instead.
+#'       \code{"spa"} starts from the anchor rows that the successive
+#'       projection algorithm (SPA; Gillis & Vavasis, 2014) finds in \code{Y}:
+#'       \eqn{B} is started at those rows of \code{Y} and \eqn{X} at the
+#'       non-negative least-squares fit to them.  The anchor rows' zeros are
+#'       filled with small positive values, so this is only a starting value
+#'       and does not make the factorization unique; \code{X.anchor} does.  It
+#'       uses no random numbers.
+#'     \item \code{X.anchor}: Anchor rows of \eqn{X}, imposed as constraints
+#'       (default \code{NULL}: none).  An anchor row carries one basis alone,
+#'       \eqn{X_{j_q r} = 0} for \eqn{r \ne q}.  The zeros are kept for the
+#'       whole fit, and they make the factorization unique up to the column
+#'       scale that \code{X.restriction} fixes: another solution \eqn{XR} with
+#'       the same zeros needs a diagonal \eqn{R}.  With covariates this
+#'       identifies \eqn{C} (\eqn{\Theta}) too, provided \code{rank <= nrow(A)}
+#'       and \code{A} has full row rank; a larger \code{rank} is refused,
+#'       because \eqn{B = CA} then has rank below \code{rank}.
+#'       \code{"spa"} chooses the rows by SPA, which recovers them when
+#'       \code{Y} is (nearly) separable -- each basis has a row of \code{Y}
+#'       that it alone loads -- and \eqn{B} has full rank.  SPA returns
+#'       \code{rank} rows even when \code{Y} has no such rows: compare the
+#'       objective with a fit from \code{X.init = "spa"}, which starts from the
+#'       same rows without the constraint, to see what the assumption costs.
+#'       Alternatively give the rows, one per basis, as indices or row names;
+#'       basis \eqn{q} is then the one anchored at the \eqn{q}-th row given, and
+#'       the bases are not reordered after the fit.  The start is built from
+#'       the anchors, so \code{X.init} is not used (a message says so if it
+#'       was given).  The rows used are returned as \code{X.anchor}.
 #'     \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 #'       Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 #'       multi-start evaluation (when \code{X.init = "runif"}).
@@ -2497,6 +2704,8 @@ print.nmf.rank <- function(x, ...) {
 #' \item{B.cluster}{Hard-clustering labels (argmax over \eqn{B.prob} for each column).}
 #' \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
 #' \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
+#' \item{X.anchor}{Present only when \code{X.anchor} was used: the anchor row
+#'   of each basis, as a named integer vector.}
 #' \item{X.restriction}{The constraint that was applied to the columns of
 #'   \eqn{X}.  It decides how much of the \eqn{(X,C)\to(XT,T^{-1}C)} freedom is
 #'   pinned down, which inference on the latent parameters needs to know.}
@@ -2595,6 +2804,11 @@ print.nmf.rank <- function(x, ...) {
 #' Roy, O., & Vetterli, M. (2007). The effective rank: A measure of
 #'   effective dimensionality. In \emph{15th European Signal Processing
 #'   Conference (EUSIPCO)} (pp. 606--610).
+#'
+#' Gillis, N., & Vavasis, S. A. (2014). Fast and robust recursive algorithms
+#'   for separable nonnegative matrix factorization. \emph{IEEE Transactions
+#'   on Pattern Analysis and Machine Intelligence}, 36(4), 698--714.
+#'   \doi{10.1109/TPAMI.2013.226}
 #' @examples
 #' # Example 1. Matrix Mode (Existing)
 #' X <- cbind(c(1,0,1),c(0,1,0))
@@ -2612,6 +2826,12 @@ print.nmf.rank <- function(x, ...) {
 #' dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10),
 #'                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
 #' res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
+#'
+#' # Example 3. Anchors: in Example 1, rows P1 and P2 of X carry one basis
+#' # each.  X.anchor imposes such rows (here found by SPA), which makes the
+#' # factorization unique; X.init = "spa" only starts from them.
+#' res_a <- nmfkc(Y, rank = 2, X.anchor = "spa", epsilon = 1e-6)
+#' res_a$X.anchor
 #'
 #' # For symmetric NMF (Y approximated by X X^T or X C X^T),
 #' # use \code{\link{nmfkc.net}()} instead.
@@ -2644,6 +2864,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   method <- if (!base::is.null(extra_args$method)) extra_args$method else "EU"
   X.restriction <- if (!base::is.null(extra_args$X.restriction)) extra_args$X.restriction else "colSums"
   X.init <- if (!base::is.null(extra_args$X.init)) extra_args$X.init else "kmeans"
+  X.anchor <- extra_args$X.anchor              # NULL: no anchors (see ?nmfkc)
   nstart <- if (!base::is.null(extra_args$nstart)) extra_args$nstart else 1
   seed <- if (!base::is.null(extra_args$seed)) extra_args$seed else 123
   ## Keep the self-seeding of this fit out of the caller's random stream.
@@ -2794,15 +3015,52 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   if(print.dims) base::message(base::paste0(dims,"..."),appendLF=FALSE)
   start.time <- base::Sys.time()
 
+  # Anchors: rows of X that carry a single basis, kept as exact zeros
+  # elsewhere in the row for the whole fit (the multiplicative updates keep a
+  # zero).  They make the factorization identified up to the column scale
+  # that X.restriction fixes; see X.anchor in ?nmfkc.
+  anchor.rows <- NULL
+  if (!base::is.null(X.anchor)) {
+    Y_anchor <- .nmfkc_impute_init(Y, Y.weights, .eps)
+    anchor.rows <- .nmfkc_anchor_rows(X.anchor, Y_anchor, Q, D_A)
+    if (!base::is.null(extra_args$X.init) && !base::identical(extra_args$X.init, "spa"))
+      base::message(if (print.dims) "\n" else "",
+                    "nmfkc(): X.anchor builds its own starting basis, so X.init was not used.")
+    if (print.dims) {
+      lab <- if (!base::is.null(base::rownames(Y))) base::rownames(Y)[anchor.rows]
+             else anchor.rows
+      ## SPA's order is not the final basis order (bases are reordered after
+      ## the fit), so only given rows are paired with a basis here.
+      base::message("\nnmfkc(): ", if (base::identical(X.anchor, "spa"))
+        base::paste0("anchors chosen by SPA at rows ", base::paste(lab, collapse = ", "),
+                     " ($X.anchor records the basis each one anchors)")
+      else base::paste0("anchors as given: ",
+                        base::paste(base::sprintf("row %s for %s%d", lab, prefix, base::seq_len(Q)),
+                                    collapse = ", ")),
+        "; X keeps zeros elsewhere in these rows.")
+    }
+  }
+
   # Initialize X
   is.X.scalar <- FALSE
   if(nrow(Y)>=2){
-    X <- .nmfkc_init_X(Y, Q, X.init, Y.weights, seed, nstart, maxit, .eps)
-    ## A zero basis column cannot be normalized; see .nmfkc_repair_init_X()
-    ## for why touching only that case leaves every other fit bit-identical.
-    X <- .nmfkc_repair_init_X(X, xnorm, X.restriction, Y, Q, X.init,
-                              Y.weights, seed, nstart, maxit, .eps,
-                              print.dims = print.dims)
+    if (!base::is.null(anchor.rows)) {
+      ## Only the anchors' zeros are constraints: any other zero in the start
+      ## is filled, so that it stays a starting value.
+      if (!base::is.null(seed)) base::set.seed(seed)
+      X <- .nmfkc_anchor_start(Y_anchor, anchor.rows, .eps)
+      free <- (X == 0)
+      free[anchor.rows, ] <- FALSE
+      if (base::any(free))
+        X[free] <- stats::runif(base::sum(free)) * base::mean(Y_anchor) / 100
+    } else {
+      X <- .nmfkc_init_X(Y, Q, X.init, Y.weights, seed, nstart, maxit, .eps)
+      ## A zero basis column cannot be normalized; see .nmfkc_repair_init_X()
+      ## for why touching only that case leaves every other fit bit-identical.
+      X <- .nmfkc_repair_init_X(X, xnorm, X.restriction, Y, Q, X.init,
+                                Y.weights, seed, nstart, maxit, .eps,
+                                print.dims = print.dims)
+    }
   }else{
     X <- matrix(data=1,nrow=1,ncol=1)
     is.X.scalar <- TRUE
@@ -3047,10 +3305,15 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
   } else if (i >= 10){ objfunc.iter <- objfunc.iter[10:i]
   } else { objfunc.iter <- objfunc.iter[1:i] }
 
-  if(ncol(X) > 1 && X.restriction != "fixed"){
+  ## Bases are put in order of their centre along the rows -- except when the
+  ## anchor rows were given, where basis q is the one anchored at the q-th
+  ## given row and reordering would break that correspondence.
+  anchor.keep.order <- !base::is.null(anchor.rows) && !base::identical(X.anchor, "spa")
+  if(ncol(X) > 1 && X.restriction != "fixed" && !anchor.keep.order){
     index <- order(matrix(1:nrow(X)/nrow(X),nrow=1) %*% X)
     X <- X[,index,drop=FALSE]; B <- B[index,,drop=FALSE]
     C <- C[index,,drop=FALSE]
+    if (!base::is.null(anchor.rows)) anchor.rows <- anchor.rows[index]
   }
   rownames(C) <- paste0(prefix,1:nrow(C))
   if (is_gram) {
@@ -3146,6 +3409,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
                   base::setdiff(base::names(crit_result$criterion),
                                 base::c("silhouette", "CPCC", "dist.cor"))]
   )
+  ## Added only when anchors were used, so every other fit keeps exactly the
+  ## fields it had.
+  if (!base::is.null(anchor.rows))
+    result$X.anchor <- stats::setNames(anchor.rows, base::colnames(X))
   class(result) <- c("nmfkc", "nmf")
   return(result)
 }
@@ -3201,6 +3468,24 @@ plot.nmfkc <- function(x,...){
 #' @param object An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
 #' @param ... Additional arguments (currently unused).
 #' @return An object of class \code{summary.nmfkc}, containing summary statistics.
+#'   Among them, \code{separability}, \code{anchor.purity} and
+#'   \code{anchor.row}; see Details.
+#' @details
+#' \strong{Separability} measures how close the basis is to having an anchor
+#' row for every basis -- a row of \eqn{X} that carries that basis alone.  For
+#' each basis \eqn{q} take the largest share it has in any row,
+#' \eqn{\max_j \tilde x_{jq} / \sum_r \tilde x_{jr}}, with \eqn{\tilde X} the
+#' basis rescaled so that its columns sum to one (so the value does not depend
+#' on \code{X.restriction}); these are \code{anchor.purity}, attained at rows
+#' \code{anchor.row}.  The separability is their minimum: 1 when every basis
+#' has a row of its own, \eqn{1/Q} when every row mixes all bases equally, and
+#' \code{NA} for \code{rank = 1}.
+#'
+#' Anchors for every basis, together with \eqn{\mathrm{rank}(B) = Q}, make the
+#' factorization unique up to scale, so a value near 1 says the solution is
+#' nearly unique.  A fit with \code{X.anchor} scores exactly 1.  The measure
+#' looks at \eqn{X} only, however: zeros in \eqn{B} or in \eqn{\Theta} can pin
+#' the solution as well, so a low value does not show that it is not unique.
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
@@ -3257,6 +3542,12 @@ summary.nmfkc <- function(object, ...) {
   if (!is.null(object$X) && is.matrix(object$X)) {
     # Sparsity: Proportion of elements close to zero (< 1e-4)
     ans$X.sparsity <- mean(object$X < 1e-4)
+    ## How close X is to having an anchor row for every basis; see
+    ## .nmfkc.separability() and the Details of ?summary.nmfkc.
+    sep <- .nmfkc.separability(object$X)
+    ans$separability  <- sep$index
+    ans$anchor.purity <- sep$purity
+    ans$anchor.row    <- sep$row
   }
 
   # 2. Probabilities (B.prob)
@@ -3310,7 +3601,8 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 
   .print.structure.diagnostics(
     sparsity  = c("Basis (X)" = x$X.sparsity, "Coef (B)" = x$B.prob.sparsity),
-    eff.rank.index = x$effective.rank.index)
+    eff.rank.index = x$effective.rank.index,
+    separability = x$separability)
   cat("\n")
   invisible(x)
 }

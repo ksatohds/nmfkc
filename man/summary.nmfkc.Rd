@@ -13,10 +13,29 @@
 }
 \value{
 An object of class \code{summary.nmfkc}, containing summary statistics.
+Among them, \code{separability}, \code{anchor.purity} and
+\code{anchor.row}; see Details.
 }
 \description{
 Produces a summary of an \code{nmfkc} object, including matrix dimensions,
 runtime, fit statistics, and diagnostics.
+}
+\details{
+\strong{Separability} measures how close the basis is to having an anchor
+row for every basis -- a row of \eqn{X} that carries that basis alone.  For
+each basis \eqn{q} take the largest share it has in any row,
+\eqn{\max_j \tilde x_{jq} / \sum_r \tilde x_{jr}}, with \eqn{\tilde X} the
+basis rescaled so that its columns sum to one (so the value does not depend
+on \code{X.restriction}); these are \code{anchor.purity}, attained at rows
+\code{anchor.row}.  The separability is their minimum: 1 when every basis
+has a row of its own, \eqn{1/Q} when every row mixes all bases equally, and
+\code{NA} for \code{rank = 1}.
+
+Anchors for every basis, together with \eqn{\mathrm{rank}(B) = Q}, make the
+factorization unique up to scale, so a value near 1 says the solution is
+nearly unique.  A fit with \code{X.anchor} scores exactly 1.  The measure
+looks at \eqn{X} only, however: zeros in \eqn{B} or in \eqn{\Theta} can pin
+the solution as well, so a low value does not show that it is not unique.
 }
 \examples{
 Y <- matrix(cars$dist, nrow = 1)

@@ -1,5 +1,40 @@
 # nmfkc (development version)
 
+## Anchor rows of X: `X.anchor`, `X.init = "spa"`, and a separability diagnostic
+
+Two options for `nmfkc()`, both passed through `...`.  A fit that uses
+neither is unchanged: checked bit-identical on 167 existing calls.
+
+* **`X.anchor`** imposes anchor rows of X -- rows that carry one basis alone
+  -- as zeros that are kept for the whole fit.  Anchors make the
+  factorization unique up to the column scale that `X.restriction` fixes,
+  and with covariates they identify `C` as well, provided `rank <= nrow(A)`
+  (checked: `B = C A` cannot have a larger rank).  `X.anchor = "spa"` chooses
+  the rows with the successive projection algorithm (Gillis & Vavasis, 2014,
+  IEEE TPAMI); a vector of row indices or names gives them directly, one per
+  basis, and the bases then keep that order.  The rows used are returned as
+  `$X.anchor`.
+* **`X.init = "spa"`** starts from the same anchor rows but fills their
+  zeros, so it is only a starting value and leaves the factorization as
+  (non-)unique as before.  Fitting both ways shows what the assumption of
+  anchors costs:
+  `nmfkc(..., X.anchor = "spa")$objfunc - nmfkc(..., X.init = "spa")$objfunc`.
+
+On data separable by construction, the anchored fit recovered X to 1e-5 and
+the covariate effects to 1e-3, while the default start reached the same
+objective at a rotated solution.
+
+`summary()` now reports the **separability** of the basis: for each basis the
+largest share it takes in any row of X (with the columns of X scaled to sum
+to one, so the value does not depend on `X.restriction`), minimized over the
+bases.  1 means every basis has a row of its own, `1/Q` that every row mixes
+all bases equally; an `X.anchor` fit scores exactly 1, and on the data above
+the default fit scored 0.91.  The per-basis values and the rows attaining them
+are returned as `anchor.purity` and `anchor.row`.  It looks at X only --
+zeros in B or in `C` can also pin the solution -- so a value near 1 says the
+fit is nearly unique, while a low value does not say it is not.  The fitted
+object itself is unchanged.
+
 ## `nmfkc()` no longer stops on data with all-zero columns
 
 With `X.init = "kmeans"` (the default) or `"kmeans++"`, two or more all-zero
