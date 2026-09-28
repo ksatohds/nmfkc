@@ -877,21 +877,25 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @return Integer vector of \code{Q} row indices, in the order chosen.
 #' @keywords internal
 #' @noRd
-.nmfkc_spa_rows <- function(Y, Q) {
+.nmfkc_spa_rows <- function(Y, Q, fun = "nmfkc") {
+  if (base::any(Y < 0, na.rm = TRUE))
+    base::stop(fun, "(): SPA needs a non-negative Y: it compares the rows by ",
+               "their shares, which a negative entry leaves undefined.",
+               call. = FALSE)
   M <- base::t(Y)                               # one column per row of Y
   s <- base::colSums(M)
   M <- base::sweep(M, 2, base::ifelse(s > 0, s, 1), "/")
   nrm <- base::colSums(M^2)
   nrm0 <- base::max(nrm)
   if (!(nrm0 > 0))
-    base::stop("nmfkc(): ", .nmfkc.nonfinite.reason(Y), call. = FALSE)
+    base::stop(fun, "(): ", .nmfkc.nonfinite.reason(Y), call. = FALSE)
   J <- base::integer(Q)
   for (k in base::seq_len(Q)) {
     j <- base::which.max(nrm)
     if (nrm[j] <= 1e-20 * nrm0)
       base::stop(base::sprintf(base::paste(
-        "nmfkc(): SPA found only %d linearly independent non-zero rows of Y,",
-        "fewer than rank = %d.  Use a smaller rank."), k - 1L, Q),
+        "%s(): SPA found only %d linearly independent non-zero rows of Y,",
+        "fewer than rank = %d.  Use a smaller rank."), fun, k - 1L, Q),
         call. = FALSE)
     u <- M[, j]
     M <- M - u %*% (base::crossprod(u, M) / base::sum(u^2))
@@ -931,54 +935,123 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #' @param D_A \code{nrow(A)}, or \code{NULL} without covariates.
 #' @keywords internal
 #' @noRd
-.nmfkc_anchor_rows <- function(X.anchor, Y, Q, D_A) {
+.nmfkc_anchor_rows <- function(X.anchor, Y, Q, D_A, fun = "nmfkc", signed = FALSE) {
   P <- base::nrow(Y)
   if (!base::is.null(D_A) && Q > D_A)
     base::stop(base::sprintf(base::paste(
-      "nmfkc(): X.anchor needs rank <= nrow(A) = %d.  With covariates",
+      "%s(): X.anchor needs rank <= nrow(A) = %d.  With covariates",
       "B = C A has rank at most nrow(A), so anchors cannot identify %d bases."),
-      D_A, Q), call. = FALSE)
+      fun, D_A, Q), call. = FALSE)
   if (base::identical(X.anchor, "spa")) {
-    J <- .nmfkc_spa_rows(Y, Q)
+    J <- .nmfkc_spa_rows(Y, Q, fun)
   } else {
     if (base::is.character(X.anchor)) {
       if (base::is.null(base::rownames(Y)))
-        base::stop("nmfkc(): X.anchor gives row names, but Y has none.  Give row indices instead.",
+        base::stop(fun, "(): X.anchor gives row names, but Y has none.  Give row indices instead.",
                    call. = FALSE)
       J <- base::match(X.anchor, base::rownames(Y))
       if (base::anyNA(J))
-        base::stop("nmfkc(): X.anchor names row(s) not in Y: ",
+        base::stop(fun, "(): X.anchor names row(s) not in Y: ",
                    base::paste(X.anchor[base::is.na(J)], collapse = ", "), ".",
                    call. = FALSE)
     } else if (base::is.numeric(X.anchor)) {
       if (base::anyNA(X.anchor) || base::any(X.anchor != base::round(X.anchor)) ||
           base::any(X.anchor < 1) || base::any(X.anchor > P))
-        base::stop(base::sprintf("nmfkc(): X.anchor must be row indices between 1 and nrow(Y) = %d.", P),
+        base::stop(base::sprintf("%s(): X.anchor must be row indices between 1 and nrow(Y) = %d.", fun, P),
                    call. = FALSE)
       J <- base::as.integer(X.anchor)
     } else {
-      base::stop("nmfkc(): X.anchor must be NULL, \"spa\", or one row of Y per basis (indices or names).",
+      base::stop(fun, "(): X.anchor must be NULL, \"spa\", or one row of Y per basis (indices or names).",
                  call. = FALSE)
     }
     if (base::length(J) != Q)
-      base::stop(base::sprintf("nmfkc(): X.anchor gives %d row(s), but rank = %d; give one anchor row per basis.",
-                               base::length(J), Q), call. = FALSE)
+      base::stop(base::sprintf("%s(): X.anchor gives %d row(s), but rank = %d; give one anchor row per basis.",
+                               fun, base::length(J), Q), call. = FALSE)
     if (base::anyDuplicated(J))
-      base::stop("nmfkc(): X.anchor repeats a row; each basis needs its own anchor row.",
+      base::stop(fun, "(): X.anchor repeats a row; each basis needs its own anchor row.",
                  call. = FALSE)
-    empty <- J[base::rowSums(Y[J, , drop = FALSE] > 0) == 0]
+    ## an anchor row is its basis's score row up to scale: with a signed Y
+    ## (nmfkc.signed) it may be negative, but it may not be all zero
+    YJ <- Y[J, , drop = FALSE]
+    empty <- J[base::rowSums(if (signed) YJ != 0 else YJ > 0) == 0]
     if (base::length(empty))
       base::stop(base::sprintf(base::paste(
-        "nmfkc(): anchor row(s) %s of Y have no positive entry.  An anchor row",
+        "%s(): anchor row(s) %s of Y have no %s entry.  An anchor row",
         "carries its basis alone, so that basis would be zero."),
-        base::paste(empty, collapse = ", ")), call. = FALSE)
+        fun, base::paste(empty, collapse = ", "),
+        if (signed) "non-zero" else "positive"), call. = FALSE)
   }
   if (base::qr(Y[J, , drop = FALSE])$rank < Q)
-    base::stop(base::paste(
-      "nmfkc(): the anchor rows of Y are linearly dependent, so they cannot",
-      "identify", Q, "bases.  Choose other rows or a smaller rank."),
+    base::stop(base::paste0(fun, "(): the anchor rows of Y are linearly dependent, so they cannot ",
+      "identify ", Q, " bases.  Choose other rows or a smaller rank."),
       call. = FALSE)
   J
+}
+
+
+## .nmfkc_anchor_start() for a Y that may be negative (nmfkc.signed).  B0 =
+## Y[J, ] is then signed and Y B0' can be negative, so the plain
+## multiplicative update would leave the non-negative orthant; the semi-NMF
+## X-step of Ding, Li & Jordan (2010) splits both products into positive and
+## negative parts and keeps X >= 0.
+.nmfkc_anchor_start_semi <- function(Y, J, .eps, iter = 200L) {
+  Q <- base::length(J)
+  B0 <- Y[J, , drop = FALSE]
+  YBt <- Y %*% base::t(B0)
+  BBt <- B0 %*% base::t(B0)
+  YBp <- (base::abs(YBt) + YBt) / 2; YBn <- (base::abs(YBt) - YBt) / 2
+  BBp <- (base::abs(BBt) + BBt) / 2; BBn <- (base::abs(BBt) - BBt) / 2
+  X <- base::matrix(1, base::nrow(Y), Q)
+  for (it in base::seq_len(iter))
+    X <- X * base::sqrt((YBp + X %*% BBn) / (YBn + X %*% BBp + .eps))
+  X[J, ] <- 0
+  X[base::cbind(J, base::seq_len(Q))] <- 1
+  X
+}
+
+
+## P x Q logical: TRUE where an anchor row must stay zero (row J[q], every
+## basis but q).  For fitters that floor X, to put those zeros back.
+.nmfkc_anchor_mask <- function(J, P, Q) {
+  M <- base::matrix(FALSE, P, Q)
+  for (q in base::seq_len(Q)) M[J[q], -q] <- TRUE
+  M
+}
+
+
+#' @title Anchored starting basis for the fitters other than nmfkc() (Internal)
+#' @description
+#' Resolves \code{X.anchor} with \code{.nmfkc_anchor_rows()} and builds the
+#' start with \code{.nmfkc_anchor_start()}, keeping only the anchors' zeros
+#' exact.  Any other zero -- an all-zero row of \code{Y} gives one -- is
+#' filled with small positive values so that it stays a starting value; those
+#' draws use \code{seed}, and the caller's random stream is left as it was.
+#' @param D_A Covariate rank bound for the rank check, or \code{NULL} for a
+#'   model whose scores have a random part (then \eqn{B} has full rank anyway).
+#' @param fun Name of the calling function, for its messages.
+#' @param signed \code{TRUE} when \code{Y} may be negative (nmfkc.signed):
+#'   the start then uses the semi-NMF X-step, and an anchor row only has to be
+#'   non-zero.
+#' @return A list: \code{rows} (the anchor row of each basis), \code{X} (the
+#'   start, P x Q), and \code{mask} (the zeros that must be kept).
+#' @keywords internal
+#' @noRd
+.nmfkc_anchor_setup <- function(X.anchor, Y, Q, D_A = NULL, fun,
+                                seed = NULL, .eps = 1e-10, signed = FALSE) {
+  J <- .nmfkc_anchor_rows(X.anchor, Y, Q, D_A, fun = fun, signed = signed)
+  X <- if (signed) .nmfkc_anchor_start_semi(Y, J, .eps)
+       else .nmfkc_anchor_start(Y, J, .eps)
+  free <- (X == 0)
+  free[J, ] <- FALSE
+  if (base::any(free)) {
+    .rng <- .nmfkc.rng.save(seed)
+    base::on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+    if (!base::is.null(seed)) base::set.seed(seed)
+    X[free] <- stats::runif(base::sum(free)) *
+               (if (signed) base::mean(base::abs(Y)) else base::mean(Y)) / 100
+  }
+  base::list(rows = J, X = X,
+             mask = .nmfkc_anchor_mask(J, base::nrow(Y), Q))
 }
 
 

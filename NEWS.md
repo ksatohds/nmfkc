@@ -40,6 +40,33 @@ These three `criterion` elements are the only change to a fitted object:
 every value it held before is unchanged (checked bit-identical on the same
 167 calls, with the new elements set aside).
 
+## The anchor options reach the other fitters
+
+`X.anchor` and `X.init = "spa"` now work in `nmfre()`, `nmf.ffb()`,
+`nmf.rrr()`, `nmf.gmm()` / `nmf.gmm.twostage()` and `nmfkc.signed()`.  All
+but the last used to accept `X.anchor` and **drop it without a word** -- the
+fit came out identical with or without it -- so a caller could believe
+anchors were imposed when they were not.  Each now imposes them and returns
+the rows used as `$X.anchor`; what differs between them is where the basis
+is estimated and what limits the rank.
+
+| function | anchors apply to | rank limit |
+|:--|:--|:--|
+| `nmfre()` | X; kept through its floor on X | none (the random effects give B full rank) |
+| `nmf.ffb()` | the stage-1 basis, then held fixed | `rank <= nrow(Y2)` |
+| `nmf.rrr()` | the response basis X1 | `rank1 <= min(rank2, nrow(Y2))` |
+| `nmf.gmm()`, `nmf.gmm.twostage()` | X (found on Y, not on the residuals) | none (the mixture gives B full rank) |
+| `nmfkc.signed()` | X | `rank <= nrow(A)` |
+
+`"spa"` compares rows of Y by their shares, so it needs a non-negative Y.
+`nmfkc.signed()` documents a signed Y: there the anchor rows can be given
+but not searched for, and the start uses the semi-NMF basis step (Ding, Li
+& Jordan 2010).  `nmfkc.net()` and `nmf.ffb(method = "mu")` cannot use the
+options and now refuse them rather than ignoring them.
+
+Nothing changes for a call that uses neither option: checked bit-identical
+on 22 default calls across the seven fitters.
+
 ## `nmfkc()` no longer stops on data with all-zero columns
 
 With `X.init = "kmeans"` (the default) or `"kmeans++"`, two or more all-zero

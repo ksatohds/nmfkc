@@ -885,6 +885,9 @@ nmfkc.net.DOT <- function(
 #'     \code{abs(rnorm(N * Q)) * 0.1}.  Kept for backward compatibility.
 #'   \item A numeric N x Q matrix supplied by the user (used as-is).
 #' }
+#' The anchor options of \code{\link{nmfkc}} (\code{X.init = "spa"},
+#' \code{X.anchor}) are not available for the symmetric model; passing them
+#' is an error rather than being ignored.
 #' When \code{nstart > 1}, each restart uses a distinct seed so that
 #' k-means / runif / NNDSVDar produce different candidate initial
 #' values across the multi-start loop.
@@ -922,6 +925,11 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   X.restriction <- match.arg(X.restriction,
                              c("colSums", "colSqSums", "none", "fixed"))
   X.init        <- if (!is.null(ex$X.init))        ex$X.init        else "kmeans"
+  ## The anchor options of nmfkc() are not available for the symmetric
+  ## model Y ~ X X^T (or X C X^T).  Refuse rather than let X.anchor be dropped.
+  if (!is.null(ex$X.anchor) || identical(X.init, "spa"))
+    stop("nmfkc.net(): X.anchor and X.init = \"spa\" are not available ",
+         "for the symmetric model.", call. = FALSE)
   C.init        <- ex$C.init       # tri only
   Cp.init       <- ex$Cp.init      # signed only
   Cn.init       <- ex$Cn.init      # signed only

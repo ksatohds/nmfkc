@@ -517,6 +517,17 @@
     method <- if (is.character(X.init)) X.init else "nndsvd"
     if (identical(method, "nmf")) {
       X0 <- pmax(unname(as.matrix(nmfkc(Y, rank = Q, seed = seed, verbose = FALSE)$X)), 1e-8)
+    } else if (identical(method, "spa")) {
+      ## nmfkc()'s X.init = "spa": the anchor rows SPA finds in Y, the
+      ## non-negative least-squares fit to them, and the anchor zeros filled
+      ## -- the EM's multiplicative X-update would otherwise keep them, turning
+      ## a starting value into a constraint (X.anchor is that constraint).
+      X0 <- .nmfkc_anchor_start(Y, .nmfkc_spa_rows(Y, Q, "nmf.gmm"), 1e-10)
+      z <- which(X0 == 0)
+      if (length(z)) {
+        if (!is.null(seed)) set.seed(seed)
+        X0[z] <- stats::runif(length(z)) * mean(Y) / 100
+      }
     } else {
       X0 <- .init_X_method(method, Y, Q, seed = seed, nstart = max(nstart, 1L))
     }
@@ -572,7 +583,16 @@
 #'       seed is 123). The EM restarts (\code{nstart}) all start from this one
 #'       basis and differ only in the seeding of the mixture, so the fit can
 #'       depend on the choice of \code{X.init}; the basis actually used is
-#'       returned as \code{X0}.
+#'       returned as \code{X0}.  \code{"spa"} starts from the anchor rows the
+#'       successive projection algorithm finds in \code{Y} (see
+#'       \code{\link{nmfkc}}; requires a non-negative \code{Y}).
+#'     \item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
+#'       \code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
+#'       of \code{Y} per basis (requires a non-negative \code{Y}).  The EM's
+#'       multiplicative basis update keeps the zeros.  There is no
+#'       \code{rank <= nrow(A)} limit here: the mixture gives the scores full
+#'       rank.  \code{nmf.gmm.twostage()} accepts it too, finding the anchors
+#'       on \code{Y}.  The rows used are returned as \code{X.anchor}.
 #'     \item \code{intercept}: index of the intercept row of \code{A} (default 1);
 #'       the class-mean average is absorbed into that column of \eqn{C}.
 #'     \item \code{nstart}: EM restarts (default 1 for \code{K=1}, else 8).
@@ -708,7 +728,22 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   cores  <- getopt("cores", getOption("mc.cores", 1L))
 
   ## --- initial non-negative, column-normalized basis X0 ---
-  X0 <- .nmfgmm.initX(X.init, Y, Q, seed, nstart)
+  ## X.anchor: anchor rows of X, kept as exact zeros for the whole fit (the
+  ## EM's X-update is multiplicative and the column scaling divides, so a
+  ## zero stays a zero).  No rank check as in nmfkc(): the scores carry the
+  ## mixture means and a Gaussian part, so B has full rank anyway.
+  X.anchor <- extra$X.anchor
+  anchor.rows <- NULL
+  if (!is.null(X.anchor)) {
+    an <- .nmfkc_anchor_setup(X.anchor, Y, Q, D_A = NULL, fun = "nmf.gmm",
+                              seed = seed)
+    anchor.rows <- an$rows
+    X0 <- an$X / rep(pmax(colSums(an$X), 1e-12), each = P)
+    if (!is.null(X.init) && !identical(X.init, "spa"))
+      message("nmf.gmm(): X.anchor builds its own starting basis, so X.init was not used.")
+  } else {
+    X0 <- .nmfgmm.initX(X.init, Y, Q, seed, nstart)
+  }
 
   fit <- .nmfgmm.fit(Y, A, X0, K, cov = cov, intercept = intercept,
                      maxit = maxit, tol = tol, ptol = ptol, nstart = nstart,
@@ -780,6 +815,8 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
     for (k in 1:K) C.class[, , k] <- C[, S, drop = FALSE] + par$Del[[k]]
     out$class.effects <- alab[S]; out$class.rows <- S; out$C.class <- C.class
   }
+  ## Added only when anchors were used, so every other fit keeps its fields.
+  if (!is.null(anchor.rows)) out$X.anchor <- stats::setNames(anchor.rows, blab)
   out
 }
 
@@ -1054,7 +1091,17 @@ nmf.gmm.twostage <- function(Y, A = NULL, rank, K = 1, ...) {
 
   ## stage 0: the same initial basis nmf.gmm would use
   nstart <- getopt("nstart", if (K == 1) 1L else 8L)
-  X0 <- .nmfgmm.initX(extra$X.init, Y, Q, seed, nstart)
+  anchor.rows <- NULL
+  if (!is.null(extra$X.anchor)) {
+    ## anchors are found on Y, not on the shifted residuals, and reach the
+    ## refit as zeros in X.init = X0, which its multiplicative X-update keeps
+    an <- .nmfkc_anchor_setup(extra$X.anchor, Y, Q, D_A = NULL,
+                              fun = "nmf.gmm.twostage", seed = seed)
+    anchor.rows <- an$rows
+    X0 <- an$X / rep(pmax(colSums(an$X), 1e-12), each = nrow(Y))
+  } else {
+    X0 <- .nmfgmm.initX(extra$X.init, Y, Q, seed, nstart)
+  }
 
   ## stage 1: least-squares scores; remove the covariates blind to the class
   B <- solve(crossprod(X0), crossprod(X0, Y))
@@ -1068,8 +1115,11 @@ nmf.gmm.twostage <- function(Y, A = NULL, rank, K = 1, ...) {
   dimnames(Yres) <- dimnames(Y)
   pass <- extra
   pass$data <- NULL; pass$standardize <- NULL; pass$X.init <- NULL
+  pass$X.anchor <- NULL
   fit <- do.call(nmf.gmm, c(list(Y = Yres, A = NULL, rank = rank, K = K,
                                  X.init = X0), pass))
+  if (!is.null(anchor.rows))
+    fit$X.anchor <- stats::setNames(anchor.rows, colnames(fit$X))
   fit$twostage <- list(shift = shift, A = A, A.formula = A.formula, X0 = X0)
   fit$call <- match.call()
   class(fit) <- c("nmf.gmm.twostage", class(fit))

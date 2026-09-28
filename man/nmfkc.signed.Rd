@@ -115,7 +115,15 @@ for the definitions of each method).  For signed \eqn{Y},
 \code{"kmeans"} cluster centers may contain negative entries;
 they are clipped to zero to satisfy \eqn{X \ge 0}, and any
 column that collapses to all-zeros is re-filled with small
-\eqn{\mathrm{Uniform}(0, 0.1)} noise.
+\eqn{\mathrm{Uniform}(0, 0.1)} noise.  \code{"spa"} (see
+\code{\link{nmfkc}}) requires a non-negative \eqn{Y}.
+\item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
+\code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
+of \eqn{Y} per basis.  With a signed \eqn{Y} the rows must be given:
+SPA compares rows by their shares, which a negative entry leaves
+undefined, and the start then uses the semi-NMF basis step.  As in
+\code{nmfkc()}, \eqn{B = CA}, so \code{rank <= nrow(A)} is required.
+The rows used are returned as \code{X.anchor}.
 \item \code{C.init}: explicit initial \eqn{Q \times D} coefficient
 matrix \eqn{\Theta} (signed).  Split internally.
 \item \code{warm.start}: logical (default \code{TRUE}).  If

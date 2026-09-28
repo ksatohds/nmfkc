@@ -146,7 +146,15 @@
 #'       \code{"kmeans"} cluster centers may contain negative entries;
 #'       they are clipped to zero to satisfy \eqn{X \ge 0}, and any
 #'       column that collapses to all-zeros is re-filled with small
-#'       \eqn{\mathrm{Uniform}(0, 0.1)} noise.
+#'       \eqn{\mathrm{Uniform}(0, 0.1)} noise.  \code{"spa"} (see
+#'       \code{\link{nmfkc}}) requires a non-negative \eqn{Y}.
+#'     \item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
+#'       \code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
+#'       of \eqn{Y} per basis.  With a signed \eqn{Y} the rows must be given:
+#'       SPA compares rows by their shares, which a negative entry leaves
+#'       undefined, and the start then uses the semi-NMF basis step.  As in
+#'       \code{nmfkc()}, \eqn{B = CA}, so \code{rank <= nrow(A)} is required.
+#'       The rows used are returned as \code{X.anchor}.
 #'     \item \code{C.init}: explicit initial \eqn{Q \times D} coefficient
 #'       matrix \eqn{\Theta} (signed).  Split internally.
 #'     \item \code{warm.start}: logical (default \code{TRUE}).  If
@@ -301,6 +309,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     c("colSums", "colSqSums", "totalSum", "none", "fixed"))
 
   X.init     <- if (!is.null(extra_args$X.init))     extra_args$X.init     else "kmeans"
+  ## Anchor rows of X, as in nmfkc(); resolved below once Y and A are known.
+  X.anchor     <- extra_args$X.anchor
+  X.init.given <- !is.null(extra_args$X.init)
   C.init     <- if (!is.null(extra_args$C.init))     extra_args$C.init     else NULL
   warm.start <- if (!is.null(extra_args$warm.start)) extra_args$warm.start else TRUE
   seed       <- if (!is.null(extra_args$seed))       extra_args$seed       else 123L
@@ -526,6 +537,20 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   ## 5a. Warm-start via posneg nmfkc() (requires Y >= 0; disabled when weighted
   ## because the warm-start init can produce numerical explosion in the
   ## weighted MU loop — ECV CV callers get random init instead).
+  ## X.anchor: anchor rows of X, kept as exact zeros for the whole fit (the X
+  ## update is multiplicative, the column scaling divides, and backtracking
+  ## only returns to an earlier X).  B = C A, so as in nmfkc() the rank must
+  ## not exceed nrow(A).  With a signed Y the rows can be given but not found:
+  ## SPA compares rows by their shares, which a negative entry leaves undefined.
+  anchor.rows <- NULL
+  if (!is.null(X.anchor)) {
+    if (identical(X.anchor, "spa") && !Y_is_nonneg)
+      stop("nmfkc.signed(): X.anchor = \"spa\" needs a non-negative Y (SPA ",
+           "compares rows by their shares).  Give the anchor rows instead.",
+           call. = FALSE)
+    if (X.init.given && !identical(X.init, "spa"))
+      message("nmfkc.signed(): X.anchor builds its own starting basis, so X.init was not used.")
+  }
   explicit_X_mat <- is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)
   need_warm <- isTRUE(warm.start) && Y_is_nonneg && !has.weights &&
                is.null(C.init) && !explicit_X_mat
@@ -547,22 +572,44 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     ## Forward X.init (accepts the same menu as nmfkc()) so that the user's
     ## chosen initialization propagates into the posneg warm-start.
     warm_args$X.init <- X.init
+    if (!is.null(X.anchor)) {
+      ## the anchors are imposed on the warm start and carried from it; our
+      ## own rank check first, since nmfkc() sees 2D covariate rows here
+      .nmfkc_anchor_rows(X.anchor, Y, Q, D, fun = "nmfkc.signed")
+      warm_args$X.anchor <- X.anchor
+      warm_args$X.init <- NULL      # superseded; reported once, above
+    }
     ## Forward nstart if the user supplied it (nmfkc() default is 1).  Exact
     ## match only: nstart.signed must not leak into the warm start.
     if (!is.null(.arg("nstart"))) warm_args$nstart <- .arg("nstart")
     res0 <- do.call(nmfkc, warm_args)
     X  <- res0$X
+    if (!is.null(X.anchor)) anchor.rows <- unname(res0$X.anchor)
     Cp <- res0$C[, 1:D, drop = FALSE]
     Cn <- res0$C[, (D + 1):(2 * D), drop = FALSE]
   } else {
     ## 5b. No warm-start: delegate to the shared .init_X_method() helper
     ## (same menu as nmfkc() / nmf.ffb(): "kmeans", "kmeansar", "nndsvd",
     ## "runif", or a user-supplied Q_obs x Q matrix).
-    if (explicit_X_mat) {
+    if (!is.null(X.anchor)) {
+      an <- .nmfkc_anchor_setup(X.anchor, Y, Q, D_A = D, fun = "nmfkc.signed",
+                                seed = seed, signed = !Y_is_nonneg)
+      X <- an$X
+      anchor.rows <- an$rows
+    } else if (explicit_X_mat) {
       X <- as.matrix(X.init)
       if (!identical(dim(X), c(Q_obs, Q)))
         stop("X.init must have dimensions (nrow(Y), rank).")
       X[X < 0] <- 0
+    } else if (identical(X.init, "spa")) {
+      ## nmfkc()'s X.init = "spa": a start only, its anchor zeros filled (needs
+      ## a non-negative Y; .nmfkc_spa_rows() says so otherwise)
+      X <- .nmfkc_anchor_start(Y, .nmfkc_spa_rows(Y, Q, "nmfkc.signed"), 1e-10)
+      z <- which(X == 0)
+      if (length(z) > 0) {
+        set.seed(seed)
+        X[z] <- stats::runif(length(z)) * mean(Y) / 100
+      }
     } else if (is.character(X.init)) {
       ## For signed Y, kmeans cluster centers may contain negative values;
       ## clip to non-negative since X must satisfy X >= 0.  .init_X_method's
@@ -824,11 +871,15 @@ nmfkc.signed <- function(Y, A, rank = NULL,
   objfunc.increases <- sum(diff(objfunc.iter) > 0, na.rm = TRUE)
 
   ## --- 7. Post-processing: sort columns of X (nmfkc-style centroid order) ---
-  if (ncol(X) > 1 && X.restriction != "fixed") {
+  ## (not when the anchor rows were given: basis q is the one anchored at the
+  ## q-th row, and reordering would break that)
+  anchor.keep.order <- !is.null(anchor.rows) && !identical(X.anchor, "spa")
+  if (ncol(X) > 1 && X.restriction != "fixed" && !anchor.keep.order) {
     index <- order(as.vector(matrix(1:nrow(X) / nrow(X), nrow = 1) %*% X))
     X  <- X[, index, drop = FALSE]
     Cp <- Cp[index, , drop = FALSE]
     Cn <- Cn[index, , drop = FALSE]
+    if (!is.null(anchor.rows)) anchor.rows <- anchor.rows[index]
   }
 
   ## --- 8. Reconstruction statistics ---
@@ -944,6 +995,9 @@ nmfkc.signed <- function(Y, A, rank = NULL,
     pars          = pars_rff,
     call          = cl
   )
+  ## Added only when anchors were used, so every other fit keeps its fields.
+  if (!is.null(anchor.rows))
+    result$X.anchor <- stats::setNames(anchor.rows, colnames(result$X))
   class(result) <- c("nmfkc.signed", "nmfkc", "nmf")
   result
 }

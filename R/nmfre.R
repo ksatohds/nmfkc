@@ -173,6 +173,14 @@
 #'   \itemize{
 #'     \item \code{X.init}: Initial basis matrix (P x Q), or \code{NULL}.
 #'       When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
+#'       A method name (\code{"kmeans"}, \code{"nndsvd"}, \code{"spa"}, \ldots)
+#'       is forwarded to that \code{nmfkc()} initialization.
+#'     \item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
+#'       \code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
+#'       of \code{Y} per basis.  The zeros are kept for the whole fit, including
+#'       through the floor this function applies to \eqn{X}.  There is no
+#'       \code{rank <= nrow(A)} limit here: the random effects give the scores
+#'       full rank.  The rows used are returned as \code{X.anchor}.
 #'     \item \code{C.init}: Initial coefficient matrix (Q x K), or \code{NULL}.
 #'       When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
 #'     \item \code{U.init}: Initial random effects matrix (Q x N), or \code{NULL} (all zeros).
@@ -449,11 +457,30 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## nmfkc() (e.g. "kmeans", "runif", "nndsvd"), or a numeric basis matrix
   ## used as-is (with C then estimated given that fixed X).  A character
   ## X.init previously fell through unresolved and crashed downstream.
+  ## X.anchor: anchor rows of X, kept as exact zeros for the whole fit.  The
+  ## start built from them goes to the nmfkc() initialisation as a matrix,
+  ## whose multiplicative updates keep the zeros, and the floor pmax(X, .eps)
+  ## below puts them back wherever it would lift them.  No rank check as in
+  ## nmfkc(): with the random effects U the scores have full rank anyway.
+  X.anchor <- extra_args$X.anchor
+  anchor.rows <- NULL; anchor.mask <- NULL
+  if (!is.null(X.anchor)) {
+    an <- .nmfkc_anchor_setup(X.anchor, Y, Q, D_A = NULL, fun = "nmfre",
+                              seed = seed)
+    anchor.rows <- an$rows; anchor.mask <- an$mask
+    if (!is.null(X.init) && !identical(X.init, "spa"))
+      message("nmfre(): X.anchor builds its own starting basis, so X.init was not used.")
+    X.init <- NULL
+  }
+
   if (is.null(X.init) || is.null(C.init)) {
     init_args <- list(Y, A, Q = Q, epsilon = epsilon, seed = seed,
                       nstart = nstart, print.trace = print.trace,
                       print.dims = FALSE)
-    if (is.character(X.init)) {
+    C.from.init <- is.null(C.init)
+    if (!is.null(anchor.rows)) {
+      init_args$X.init <- an$X                    # the anchored start
+    } else if (is.character(X.init)) {
       init_args$X.init <- X.init                  # forward the named method
     } else if (is.matrix(X.init) || is.data.frame(X.init)) {
       init_args$X.init <- as.matrix(X.init)       # fix the supplied basis
@@ -462,6 +489,18 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     res0 <- do.call(nmfkc, init_args)
     if (is.null(X.init) || is.character(X.init)) X.init <- res0$X
     if (is.null(C.init)) C.init <- res0$C
+    if (!is.null(anchor.rows)) {
+      ## nmfkc() reorders its bases: put basis q back on anchor row q
+      k <- apply(X.init[anchor.rows, , drop = FALSE] > 0, 1, which)
+      X.init <- X.init[, k, drop = FALSE]
+      if (C.from.init) C.init <- C.init[k, , drop = FALSE]
+    }
+  }
+  ## pmax(X, .eps), except at the anchors' zeros
+  .floorX <- function(X) {
+    X <- pmax(X, .eps)
+    if (!is.null(anchor.mask)) X[anchor.mask] <- 0
+    X
   }
 
   X <- X.init
@@ -491,7 +530,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## bootstrap), and clipping here would destroy their sign at every refit.
   ## This mirrors the in-loop rule `if (C.mode == "nonneg") pmax(...)`.
   C0 <- if (C.mode == "nonneg") pmax(C_mat, .eps) else C_mat
-  normed <- .nmfre.normalize.X(pmax(X, .eps), C0, U)
+  normed <- .nmfre.normalize.X(.floorX(X), C0, U)
   X <- normed$X
   C_mat <- normed$C
   U <- normed$U
@@ -615,9 +654,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
         denX <- X %*% (B_pos %*% t(B_pos)) + xp$den
         X <- X * .nmfre.safe.div(numX, denX, eps = .eps)
       }
-      X <- pmax(X, .eps)
+      X <- .floorX(X)
       normed <- .nmfre.normalize.X(X, C_mat, U)
-      X     <- pmax(normed$X, .eps)
+      X     <- .floorX(normed$X)
       C_mat <- if (C.mode == "nonneg") pmax(normed$C, .eps) else normed$C
       U     <- normed$U
 
@@ -735,13 +774,17 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     warning(paste0("maximum iterations (", maxit, ") reached..."))
 
   # ---- reorder basis ----
-  if (ncol(X) > 1) {
+  ## (not when the anchor rows were given: basis q is the one anchored at the
+  ## q-th row, and reordering would break that)
+  anchor.keep.order <- !is.null(anchor.rows) && !identical(X.anchor, "spa")
+  if (ncol(X) > 1 && !anchor.keep.order) {
     w_ord <- matrix((1:P) / P, nrow = 1)
     score <- as.numeric(w_ord %*% X)
     index <- order(score)
     X <- X[, index, drop = FALSE]
     C_mat <- C_mat[index, , drop = FALSE]
     U <- U[index, , drop = FALSE]
+    if (!is.null(anchor.rows)) anchor.rows <- anchor.rows[index]
   }
 
   # ---- final fitted matrices ----
@@ -870,6 +913,10 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     C.signed = (C.mode == "signed")
   )
 
+  ## Added only when anchors were used, so every other fit keeps its fields.
+  if (!is.null(anchor.rows))
+    out$X.anchor <- stats::setNames(anchor.rows,
+      if (!is.null(colnames(out$X))) colnames(out$X) else paste0("Basis", seq_len(Q)))
   class(out) <- c("nmfre", "nmf")
   out
 }

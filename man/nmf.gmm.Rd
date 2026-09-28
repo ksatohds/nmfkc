@@ -36,7 +36,16 @@ initializer), or \code{"nmf"}, the basis of an ordinary NMF fitted by
 seed is 123). The EM restarts (\code{nstart}) all start from this one
 basis and differ only in the seeding of the mixture, so the fit can
 depend on the choice of \code{X.init}; the basis actually used is
-returned as \code{X0}.
+returned as \code{X0}.  \code{"spa"} starts from the anchor rows the
+successive projection algorithm finds in \code{Y} (see
+\code{\link{nmfkc}}; requires a non-negative \code{Y}).
+\item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
+\code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
+of \code{Y} per basis (requires a non-negative \code{Y}).  The EM's
+multiplicative basis update keeps the zeros.  There is no
+\code{rank <= nrow(A)} limit here: the mixture gives the scores full
+rank.  \code{nmf.gmm.twostage()} accepts it too, finding the anchors
+on \code{Y}.  The rows used are returned as \code{X.anchor}.
 \item \code{intercept}: index of the intercept row of \code{A} (default 1);
 the class-mean average is absorbed into that column of \eqn{C}.
 \item \code{nstart}: EM restarts (default 1 for \code{K=1}, else 8).

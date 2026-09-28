@@ -128,10 +128,19 @@
 #'       \bar Y_1 / 100)} (NNDSVDar-style additive randomness to
 #'       escape trivial stationary points).
 #'     \item \code{"runif"}: Uniform random entries in \eqn{[0, 1]}.
+#'     \item \code{"spa"}: the anchor rows the successive projection
+#'       algorithm finds in \eqn{Y_1} (see \code{\link{nmfkc}}); a starting
+#'       value only.  \code{method = "fiml"} only.
 #'     \item A numeric \eqn{P_1 \times Q} matrix supplied by the user;
 #'       negative entries are projected to 0.
 #'     \item \code{NULL}: backward-compatible alias for \code{"nndsvd"}.
 #'   }
+#'   To impose anchor rows on the stage-1 basis instead, pass
+#'   \code{X.anchor} (\code{"spa"} or one row of \eqn{Y_1} per basis) through
+#'   \code{...}, as in \code{\link{nmfkc}}: stage 2 holds the basis fixed, so
+#'   the zeros stay.  It needs \code{rank <= nrow(Y2)}, is not available with
+#'   \code{method = "mu"} or a supplied \code{X}, and the rows used are
+#'   returned as \code{X.anchor}.
 #'   In all cases the result is column-normalized to \code{colSums(X) = 1}
 #'   before iteration.  The menu mirrors \code{\link{nmfkc}}'s
 #'   \code{X.init} option for consistency across the package.
@@ -375,6 +384,11 @@ nmf.ffb <- function(
          "`. It would otherwise be dropped silently and the fit would use the default.",
          call. = FALSE)
   if (method == "mu") {
+    ## The anchor options exist for the fiml basis only; the legacy estimator
+    ## would drop X.anchor without a word, so refuse both.
+    if (!is.null(list(...)$X.anchor) || identical(X.init, "spa"))
+      stop("nmf.ffb(): X.anchor and X.init = \"spa\" are available with ",
+           "method = \"fiml\" only.", call. = FALSE)
     ## Legacy estimator: the body is unchanged (bit-identical) and lives in
     ## .nmf.ffb.mu(); only the `method` field is appended.
     out <- .nmf.ffb.mu(Y1, Y2, rank = rank, X.init = X.init, X.L2.ortho = X.L2.ortho,

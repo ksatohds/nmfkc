@@ -82,6 +82,15 @@
 #'       (e.g.\ 10-20) gives a more stable initialisation and is recommended
 #'       before inference.}
 #'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+#'     \item{\code{X.init}}{Initialization method for the two bases, passed to
+#'       the internal \code{\link{nmfkc}} steps: \code{"kmeans"} (default),
+#'       \code{"nndsvd"}, \code{"spa"}, \ldots}
+#'     \item{\code{X.anchor}}{Anchor rows of the response basis \eqn{X_1},
+#'       imposed as in \code{\link{nmfkc}}: \code{NULL} (default),
+#'       \code{"spa"}, or one row of \code{Y1} per basis.  The zeros are kept
+#'       for the whole fit.  The scores of \eqn{X_1} are
+#'       \eqn{\Theta X_2 Y_2}, so \code{rank1 <= min(rank2, nrow(Y2))} is
+#'       required.  The rows used are returned as \code{X.anchor}.}
 #'   }
 #'
 #'   Rank aliases accepted here for backward compatibility:
@@ -237,11 +246,31 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   }
 
   # === Initialization using nmfkc ===
+  ## X.anchor: anchor rows of the response basis X1, kept as exact zeros for
+  ## the whole fit (the X1 update is multiplicative and the column scaling
+  ## divides).  Imposed where X1 is first estimated, in step 1.  The scores
+  ## of X1 are C X2 Y2, of rank at most min(rank2, nrow(Y2)), so a larger
+  ## rank1 cannot be identified by anchors.
+  X.anchor <- extra_args$X.anchor
+  anchor.rows <- NULL
+  if (!is.null(X.anchor) && Q > min(R, P2))
+    stop(sprintf(paste(
+      "nmf.rrr(): X.anchor needs rank1 <= min(rank2, nrow(Y2)) = %d.  The scores",
+      "of X1 are C X2 Y2, whose rank is at most that, so anchors cannot identify %d bases."),
+      min(R, P2), Q), call. = FALSE)
   # Step 1: X1 from nmfkc(Y1, rank=Q)
   if (print.trace) message("  Init step 1: nmfkc(Y1, rank=Q)...")
-  res1 <- nmfkc(Y1, rank = Q, seed = seed, nstart = nstart, print.dims = FALSE,
-                X.init = X.init.method, Y.weights = Y1.weights)
+  res1 <- if (is.null(X.anchor))
+    nmfkc(Y1, rank = Q, seed = seed, nstart = nstart, print.dims = FALSE,
+          X.init = X.init.method, Y.weights = Y1.weights)
+  else
+    nmfkc(Y1, rank = Q, seed = seed, nstart = nstart, print.dims = FALSE,
+          X.anchor = X.anchor, Y.weights = Y1.weights)
+  if (!is.null(X.anchor) && !is.null(extra_args$X.init) &&
+      !identical(extra_args$X.init, "spa"))
+    message("nmf.rrr(): X.anchor builds the starting X1, so X.init is used for X2 only.")
   X1 <- res1$X  # P1 x Q, column sum 1
+  if (!is.null(X.anchor)) anchor.rows <- unname(res1$X.anchor)
 
   # Step 2: CX2 = C X2 with X1 fixed
   if (print.trace) message("  Init step 2: nmfkc(Y1, A=Y2, X.restriction='fixed')...")
@@ -407,10 +436,14 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
   # --- Reorder bases by centroid position (cf. nmfkc) ---
   # X1 (P1 x Q): sort columns by weighted centroid of row indices
-  if (Q > 1) {
+  ## (not when the anchor rows were given: basis q is the one anchored at the
+  ## q-th row, and reordering would break that)
+  anchor.keep.order <- !is.null(anchor.rows) && !identical(X.anchor, "spa")
+  if (Q > 1 && !anchor.keep.order) {
     idx1 <- order(matrix(seq_len(P1) / P1, nrow = 1) %*% X1)
     X1 <- X1[, idx1, drop = FALSE]
     C <- C[idx1, , drop = FALSE]
+    if (!is.null(anchor.rows)) anchor.rows <- anchor.rows[idx1]
   }
   # X2 (R x P2): sort rows by weighted centroid of column indices
   if (R > 1) {
@@ -550,6 +583,9 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     n.missing = n.missing,
     n.total = P1 * N
   )
+  ## Added only when anchors were used, so every other fit keeps its fields.
+  if (!is.null(anchor.rows))
+    result$X.anchor <- stats::setNames(anchor.rows, colnames(result$X1))
   class(result) <- c("nmf.rrr", "nmfae", "nmf")
   return(result)
 }

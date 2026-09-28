@@ -72,6 +72,9 @@ preferable.
 \code{abs(rnorm(N * Q)) * 0.1}.  Kept for backward compatibility.
 \item A numeric N x Q matrix supplied by the user (used as-is).
 }
+The anchor options of \code{\link{nmfkc}} (\code{X.init = "spa"},
+\code{X.anchor}) are not available for the symmetric model; passing them
+is an error rather than being ignored.
 When \code{nstart > 1}, each restart uses a distinct seed so that
 k-means / runif / NNDSVDar produce different candidate initial
 values across the multi-start loop.

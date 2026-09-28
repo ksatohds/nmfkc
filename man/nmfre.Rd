@@ -46,6 +46,14 @@ optimization, and inference settings.
 \itemize{
 \item \code{X.init}: Initial basis matrix (P x Q), or \code{NULL}.
 When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
+A method name (\code{"kmeans"}, \code{"nndsvd"}, \code{"spa"}, \ldots)
+is forwarded to that \code{nmfkc()} initialization.
+\item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
+\code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
+of \code{Y} per basis.  The zeros are kept for the whole fit, including
+through the floor this function applies to \eqn{X}.  There is no
+\code{rank <= nrow(A)} limit here: the random effects give the scores
+full rank.  The rows used are returned as \code{X.anchor}.
 \item \code{C.init}: Initial coefficient matrix (Q x K), or \code{NULL}.
 When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
 \item \code{U.init}: Initial random effects matrix (Q x N), or \code{NULL} (all zeros).
