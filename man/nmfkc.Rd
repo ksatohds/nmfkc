@@ -110,8 +110,10 @@ projection algorithm (SPA; Gillis & Vavasis, 2014) finds in \code{Y}:
 \eqn{B} is started at those rows of \code{Y} and \eqn{X} at the
 non-negative least-squares fit to them.  The anchor rows' zeros are
 filled with small positive values, so this is only a starting value
-and does not make the factorization unique; \code{X.anchor} does.  It
-uses no random numbers.
+and does not make the factorization unique; \code{X.anchor} does.
+Choosing the rows and the least-squares fit involve no randomness;
+the filled values are drawn as for \code{"kmeansar"}, under
+\code{seed}.
 \item \code{X.anchor}: Anchor rows of \eqn{X}, imposed as constraints
 (default \code{NULL}: none).  An anchor row carries one basis alone,
 \eqn{X_{j_q r} = 0} for \eqn{r \ne q}.  The zeros are kept for the
