@@ -22,7 +22,12 @@ Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepte
 rank x fold task grid in parallel; default \code{getOption("mc.cores", 1L)}).
 Parallelism uses a PSOCK cluster on Windows and forking elsewhere; because
 each task is a deterministic self-seeded fit and results are returned in
-order, \code{objfunc}/\code{sigma} are identical for any \code{cores}.}
+order, \code{objfunc}/\code{sigma} are identical for any \code{cores}.
+\code{Y.weights} (as in \code{\link{nmfkc}}: a P x N matrix, one weight
+per column, or a scalar) is kept in every fit; cells of weight 0 are
+never held out, and the held-out loss is the weighted mean.  (Before
+1.0.0 a \code{Y.weights} given here was silently replaced by the fold
+mask.)}
 }
 \value{
 A list with components:

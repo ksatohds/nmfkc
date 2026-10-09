@@ -1584,9 +1584,11 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   vector of linear indices into \code{Y}.
 #' @keywords internal
 #' @noRd
-.ecv.make.folds <- function(Y, nfolds, seed = NULL) {
+.ecv.make.folds <- function(Y, nfolds, seed = NULL, valid = NULL) {
   if (!base::is.null(seed)) base::set.seed(seed)
-  valid_indices <- base::which(!base::is.na(Y))
+  ## `valid`: the cells that may be held out (default: the non-NA ones)
+  valid_indices <- if (base::is.null(valid)) base::which(!base::is.na(Y))
+                   else base::which(valid)
   n_valid <- base::length(valid_indices)
   perm_indices <- base::sample(valid_indices)
   folds <- base::vector("list", nfolds)
@@ -4262,6 +4264,11 @@ nmfkc.cv <- function(Y, A=NULL, rank=2, data, ...){
 #'   Parallelism uses a PSOCK cluster on Windows and forking elsewhere; because
 #'   each task is a deterministic self-seeded fit and results are returned in
 #'   order, \code{objfunc}/\code{sigma} are identical for any \code{cores}.
+#'   \code{Y.weights} (as in \code{\link{nmfkc}}: a P x N matrix, one weight
+#'   per column, or a scalar) is kept in every fit; cells of weight 0 are
+#'   never held out, and the held-out loss is the weighted mean.  (Before
+#'   1.0.0 a \code{Y.weights} given here was silently replaced by the fold
+#'   mask.)
 #'
 #' @return A list with components:
 #' \item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for
@@ -4333,8 +4340,30 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
          "See help(nmfkc.net.ecv).", call. = FALSE)
   }
 
+  # User weights, in the forms nmfkc() takes (P x N matrix, a vector of one
+  # weight per column, or a scalar).  A cell of weight 0 is unobserved: it is
+  # never held out and stays at 0 in every fit, and the held-out loss is the
+  # weighted mean.  Before 1.0.0 the fold mask was spliced in ahead of `...`,
+  # so a Y.weights given here was silently dropped.
+  W.user <- extra_args$Y.weights
+  if (!is.null(W.user)) {
+    if (is.vector(W.user) && !is.list(W.user)) {
+      if (length(W.user) == N) W.user <- matrix(W.user, P, N, byrow = TRUE)
+      else if (length(W.user) == 1) W.user <- matrix(W.user, P, N)
+      else stop("nmfkc.ecv(): a Y.weights vector must have length ncol(Y) (or 1).",
+                call. = FALSE)
+    }
+    W.user <- as.matrix(W.user)
+    if (!identical(dim(W.user), c(P, N)))
+      stop("nmfkc.ecv(): Y.weights must have the same dimensions as Y.", call. = FALSE)
+    storage.mode(W.user) <- "double"
+    W.user[is.na(W.user)] <- 0
+    if (any(W.user < 0)) stop("nmfkc.ecv(): Y.weights must be non-negative.", call. = FALSE)
+  }
+
   # 1. Create Folds (shared element-wise helper)
-  folds <- .ecv.make.folds(Y, div, seed)
+  folds <- if (is.null(W.user)) .ecv.make.folds(Y, div, seed)
+           else .ecv.make.folds(Y, div, seed, valid = !is.na(Y) & W.user > 0)
 
   method <- if(!is.null(extra_args$method)) extra_args$method else "EU"
 
@@ -4347,12 +4376,13 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   nmfkc_clean_args$save.time <- NULL
   nmfkc_clean_args$save.memory <- NULL
   nmfkc_clean_args$cores <- NULL
+  nmfkc_clean_args$Y.weights <- NULL
 
   # Model-specific worker: mask fold k, refit at rank Q[i], held-out loss
   run_one <- function(i, k) {
     q_curr <- Q[i]
     test_idx <- folds[[k]]
-    weights_train <- matrix(1, nrow = P, ncol = N)
+    weights_train <- if (is.null(W.user)) matrix(1, nrow = P, ncol = N) else W.user
     if (any(is.na(Y))) weights_train[is.na(Y)] <- 0
     weights_train[test_idx] <- 0
     nmfkc_args <- c(list(Y = Y, A = A, Q = q_curr, Y.weights = weights_train,
@@ -4360,12 +4390,14 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
                          save.time = TRUE), nmfkc_clean_args)
     fit <- suppressMessages(do.call("nmfkc", nmfkc_args))
     pred <- fit$XB
-    if (method == "KL") {
+    loss <- if (method == "KL") {
       .eps <- 1e-10
-      mean(-Y[test_idx] * log(pred[test_idx] + .eps) + pred[test_idx])
+      -Y[test_idx] * log(pred[test_idx] + .eps) + pred[test_idx]
     } else {
-      mean((Y[test_idx] - pred[test_idx])^2)
+      (Y[test_idx] - pred[test_idx])^2
     }
+    if (is.null(W.user)) mean(loss)
+    else { w <- W.user[test_idx]; sum(w * loss) / sum(w) }
   }
 
   # 2. Loop over Q via shared driver

@@ -100,6 +100,17 @@ Two inputs went wrong before and now work:
   now kept in every fit, its zero entries are not held out, and the
   held-out loss is weighted.
 
+## `nmfkc.ecv()` keeps a `Y.weights`
+
+`nmfkc.ecv()` spliced its fold mask in ahead of `...`, so a `Y.weights`
+given to it was silently dropped.  The result was identical with or without
+the weights.  It is now kept in every fit, in the forms `nmfkc()` takes
+(matrix, one weight per column, or scalar).  Cells of weight 0 are never
+held out, and the held-out loss is the weighted mean.  Calls without
+`Y.weights` are unchanged: checked bit-identical on 10 calls of
+`nmfkc.ecv()`, `nmfkc.rank()` and the ECVs that share its fold helper
+(`nmfkc.signed.ecv()`, `nmf.rrr.ecv()`, `nmf.ffb.cv(method = "fiml")`).
+
 ## `nmfkc()` no longer stops on data with all-zero columns
 
 With `X.init = "kmeans"` (the default) or `"kmeans++"`, two or more all-zero
