@@ -847,7 +847,15 @@ nmfkc.net.DOT <- function(
 #' @param ... Hidden options: \code{nstart} (default 1; see note below),
 #'   \code{seed} (default 123), \code{X.restriction}, \code{X.init},
 #'   \code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
-#'   \code{Y.weights}, \code{C.L1} (tri only), \code{X.L2.ortho}, \code{prefix}.
+#'   \code{Y.weights}, \code{diag.exclude}, \code{C.L1} (tri only),
+#'   \code{X.L2.ortho}, \code{prefix}.
+#'
+#' \strong{\code{diag.exclude}} (default \code{FALSE}): when \code{TRUE} the
+#' diagonal of \eqn{Y} (self-loops) is neither fitted nor counted in the fit
+#' statistics -- for a network without self-loops, whose zero diagonal is not
+#' an observation.  It is the same as a \code{Y.weights} with a zero diagonal
+#' (and is combined with a \code{Y.weights} or an \code{NA} mask when one is
+#' given); the fit then carries \code{diag.exclude = TRUE}.
 #'
 #' \strong{\code{Y.weights}} is an optional non-negative N x N weight
 #' matrix (symmetric, same shape as \code{Y}).  When supplied, the loss
@@ -937,6 +945,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
   C.L1          <- if (!is.null(ex$C.L1))          ex$C.L1          else 0
   X.L2.ortho    <- if (!is.null(ex$X.L2.ortho))    ex$X.L2.ortho    else 0
   prefix        <- if (!is.null(ex$prefix))        ex$prefix        else "Basis"
+  diag.exclude  <- isTRUE(ex$diag.exclude)
 
   Y <- as.matrix(Y); storage.mode(Y) <- "double"
   if (nrow(Y) != ncol(Y)) stop("Y must be square for nmfkc.net.")
@@ -973,6 +982,16 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     Y[is.na(Y) | Y.weights == 0] <- 0
   } else if (anyNA(Y)) {
     stop("Y contains NA; please impute, remove, or supply Y.weights.")
+  }
+  ## diag.exclude: the diagonal is not an observation -- exactly a Y.weights
+  ## with a zero diagonal, combined with any mask already set up above.
+  if (diag.exclude) {
+    if (!has.weights) {
+      Y.weights <- matrix(1, nrow = N, ncol = N)
+      has.weights <- TRUE
+    }
+    diag(Y.weights) <- 0
+    diag(Y) <- 0
   }
   Wmat <- if (has.weights) Y.weights else NULL
 
@@ -1155,6 +1174,8 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
     runtime = as.numeric((proc.time() - t0)[3]),
     X.restriction = X.restriction
   )
+  ## Added only when used, so every other fit keeps its fields.
+  if (diag.exclude) result$diag.exclude <- TRUE
   class(result) <- c(paste0("nmfkc.net.", type), "nmfkc.net", "nmfkc", "nmf")
   result
 }
@@ -1260,9 +1281,11 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 ## ECV: upper-triangle element-wise cross-validation
 ## ==============================================================
 
-.nmfkc.net.make_uppertri_folds <- function(N, div = 5, seed = 123) {
+## `idx`: the entries that may be held out (default: the whole upper
+## triangle, diagonal included -- the original fold set).
+.nmfkc.net.make_uppertri_folds <- function(N, div = 5, seed = 123, idx = NULL) {
   if (!is.null(seed)) set.seed(seed)
-  ut_idx <- which(upper.tri(matrix(0, N, N), diag = TRUE))
+  ut_idx <- if (is.null(idx)) which(upper.tri(matrix(0, N, N), diag = TRUE)) else idx
   perm <- sample(ut_idx)
   n <- length(perm)
   chunk <- n %/% div; rem <- n %% div
@@ -1280,6 +1303,42 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 ## For general (non-binary) weights use (W + t(W))/2 instead.
 .nmfkc.net.mirror_mask <- function(W) W * t(W)
 
+## Folds supplied by the caller (e.g. an earlier $folds, or another
+## implementation's split): linear indices into the N x N matrix.  A
+## lower-triangle index is read as its upper-triangle mirror.  Every entry
+## must be one that can be held out (`cand`), and in one fold only --
+## anything else is refused rather than silently dropped.
+.nmfkc.net.check_folds <- function(folds, N, cand, diag.exclude) {
+  if (!is.list(folds) || length(folds) < 2L)
+    stop("nmfkc.net.ecv(): folds must be a list of two or more index vectors ",
+         "(as returned in $folds).", call. = FALSE)
+  folds <- lapply(folds, function(f) {
+    if (!is.numeric(f) || !length(f) || anyNA(f) || any(f != round(f)) ||
+        any(f < 1) || any(f > N * N))
+      stop("nmfkc.net.ecv(): each fold must hold linear indices between 1 and ",
+           "N^2 = ", N * N, ".", call. = FALSE)
+    f <- as.integer(f)
+    r <- (f - 1L) %% N + 1L; cc <- (f - 1L) %/% N + 1L
+    low <- r > cc
+    f[low] <- (r[low] - 1L) * N + cc[low]
+    unique(f)
+  })
+  all_idx <- unlist(folds)
+  if (anyDuplicated(all_idx))
+    stop("nmfkc.net.ecv(): an entry (or its mirror) appears in more than one fold.",
+         call. = FALSE)
+  bad <- setdiff(all_idx, cand)
+  if (length(bad)) {
+    on_diag <- if (diag.exclude) sum((bad - 1L) %% N == (bad - 1L) %/% N) else 0L
+    stop(sprintf(paste0("nmfkc.net.ecv(): %d fold entr%s cannot be held out",
+                        " (%d on the diagonal, which diag.exclude = TRUE leaves out;",
+                        " %d unobserved: NA or zero weight)."),
+                 length(bad), if (length(bad) == 1L) "y" else "ies", on_diag,
+                 length(bad) - on_diag), call. = FALSE)
+  }
+  folds
+}
+
 #' Element-wise cross-validation for nmfkc.net (upper-triangle folds)
 #'
 #' @description k-fold CV with folds taken over the upper triangle of the
@@ -1295,14 +1354,65 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
 #' @param Y Symmetric N x N non-negative matrix.
 #' @param rank Integer vector of ranks to evaluate. Default \code{1:3}.
 #' @param type Model type: \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.
-#' @param ... Passed to the underlying fitter; also accepts \code{nfolds}
-#'   (default 5; \code{div} alias), \code{seed} (default 123), and \code{cores}
-#'   (\code{getOption("mc.cores", 1L)}) to evaluate the rank x fold grid in
-#'   parallel; results are identical to the sequential run for any \code{cores}
-#'   (PSOCK cluster on Windows, forking elsewhere).
+#' @param ... Passed to the underlying fitter; also accepts:
+#'   \itemize{
+#'     \item \code{nfolds} (default 5; \code{div} alias) and \code{seed}
+#'       (default 123).
+#'     \item \code{diag.exclude} (default \code{FALSE}): leave the diagonal
+#'       out of the folds and out of every fit (see \code{\link{nmfkc.net}}),
+#'       for a network without self-loops.  Otherwise its zeros would be
+#'       scored as edges to predict.
+#'     \item \code{folds}: the folds to use, as a list of linear indices into
+#'       \eqn{Y} -- e.g.\ the \code{$folds} of an earlier run, so that two
+#'       models are compared on the same split.  A lower-triangle index is
+#'       read as its upper-triangle mirror.  An entry in two folds, or one that
+#'       cannot be held out (\code{NA}, zero weight, or the diagonal under
+#'       \code{diag.exclude}), is an error.  \code{nfolds} is then
+#'       \code{length(folds)}.  (Within this function the folds depend only on
+#'       \eqn{N}, \code{nfolds}, \code{seed} and the entries that can be held
+#'       out, so runs that share these already share their folds.)
+#'     \item \code{seeds}: a vector of seeds (overriding \code{seed}), to
+#'       repeat the CV over different splits.  Each split refits with its
+#'       seed, so the results for seed
+#'       \eqn{s} are those of \code{seed = s}.  \code{objfunc}, \code{sigma}
+#'       and \code{r.squared.cv} are then averaged over the seeds, with their
+#'       spread in \code{objfunc.sd} and \code{r.squared.cv.sd}.  Not with
+#'       \code{folds}.
+#'     \item \code{pred} (default \code{FALSE}): also return the held-out
+#'       predictions (an \eqn{N \times N} array per rank; kept optional
+#'       because it is \eqn{N^2} per rank).
+#'     \item \code{Y.weights}: as in \code{\link{nmfkc.net}}.  Entries of
+#'       weight 0 are never held out, every fit keeps the weights, and the
+#'       held-out loss is the weighted mean.  (Before 1.0.0 a
+#'       \code{Y.weights} given here was silently replaced by the fold mask.)
+#'     \item \code{cores} (\code{getOption("mc.cores", 1L)}) to evaluate the
+#'       rank x fold grid in parallel; results are identical to the sequential
+#'       run for any \code{cores} (PSOCK cluster on Windows, forking
+#'       elsewhere).
+#'   }
+#'   \code{NA} entries of \eqn{Y} are never held out and stay masked in every
+#'   fit (before 1.0.0 they were fitted as zeros and made \code{objfunc}
+#'   \code{NA}).
 #'
 #' @return A list with \code{objfunc}, \code{sigma}, \code{objfunc.fold},
-#'   \code{folds}, \code{Q.grid}, \code{type}.
+#'   \code{folds}, \code{Q.grid}, \code{type}, and
+#'   \describe{
+#'     \item{\code{r.squared.cv}}{Held-out \eqn{R^2} per rank, pooled over
+#'       the folds: \eqn{1 - \sum (y - \hat y)^2 / \sum (y - \bar y)^2} over
+#'       all held-out upper-triangle entries (weighted when \code{Y.weights}
+#'       is given).  Unlike the \code{r.squared} of a fit (a squared
+#'       correlation), it can be negative.}
+#'     \item{\code{pred}}{With \code{pred = TRUE}: \eqn{N \times N \times}
+#'       (ranks) array of held-out predictions, mirrored to the lower triangle;
+#'       \code{NA} where an entry was never held out.}
+#'     \item{\code{diag.exclude}}{\code{TRUE}, present only when used.}
+#'     \item{\code{seeds}, \code{objfunc.rep}, \code{objfunc.sd},
+#'       \code{r.squared.cv.rep}, \code{r.squared.cv.sd}, \code{folds.rep}}{
+#'       Present only with two or more \code{seeds}: the per-seed values
+#'       (ranks x seeds), their standard deviations, and each seed's folds.
+#'       \code{objfunc.fold}, \code{folds} and \code{pred} are those of the
+#'       first seed.}
+#'   }
 #' @seealso \code{\link{nmfkc.net}}
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
@@ -1313,55 +1423,169 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
                           type = c("tri", "bi", "signed"), ...) {
   type <- match.arg(type)
   ex <- list(...)
-  nfolds <- if (!is.null(ex$nfolds)) ex$nfolds
-            else if (!is.null(ex$div)) ex$div else 5
   seed <- if (!is.null(ex$seed)) ex$seed else 123
+  seeds <- if (!is.null(ex$seeds)) ex$seeds else seed
+  folds.given  <- ex$folds
+  diag.exclude <- isTRUE(ex$diag.exclude)
+  want.pred    <- isTRUE(ex$pred)
+  if (!is.numeric(seeds) || !length(seeds) || anyNA(seeds))
+    stop("nmfkc.net.ecv(): seeds must be a numeric vector of seeds.", call. = FALSE)
+  if (!is.null(folds.given) && length(seeds) > 1L)
+    stop("nmfkc.net.ecv(): seeds draws a new split per seed, so it cannot be ",
+         "combined with folds.", call. = FALSE)
   ## Keep our own seeding out of the caller's random stream.
-  .rng <- .nmfkc.rng.save(seed)
+  .rng <- .nmfkc.rng.save(seeds[1])
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   cores <- if (!is.null(ex$cores)) ex$cores else getOption("mc.cores", 1L)
   Y <- as.matrix(Y); N <- nrow(Y)
-  folds <- .nmfkc.net.make_uppertri_folds(N, div = nfolds, seed = seed)
 
-  fit_args <- ex; fit_args$nfolds <- NULL; fit_args$div <- NULL
-  fit_args$rank <- NULL; fit_args$type <- NULL; fit_args$cores <- NULL
+  ## Entries that can be held out: on the upper triangle (the diagonal too,
+  ## unless diag.exclude), observed (not NA) and of positive weight.
+  W.user <- ex$Y.weights
+  if (!is.null(W.user)) {
+    W.user <- as.matrix(W.user)
+    if (!all(dim(W.user) == c(N, N))) stop("Y.weights must be N x N.")
+    storage.mode(W.user) <- "double"
+    if (!isSymmetric(W.user, tol = 1e-10)) W.user <- (W.user + t(W.user)) / 2
+    W.user[is.na(W.user)] <- 0
+  }
+  obs <- !is.na(Y) & !is.na(t(Y))
+  if (!is.null(W.user)) obs <- obs & W.user > 0
+  if (diag.exclude) diag(obs) <- FALSE
+  cand <- which(upper.tri(matrix(0, N, N), diag = TRUE) & obs)
+  ## What every fit keeps masked besides its fold: the weights, NA, and the
+  ## diagonal under diag.exclude.  NULL when nothing is -- the original path.
+  W.base <- if (!is.null(W.user)) W.user * obs
+            else if (all(obs)) NULL else obs * 1
 
-  run_one <- function(q, k) {
+  if (!is.null(folds.given)) {
+    folds.given <- .nmfkc.net.check_folds(folds.given, N, cand, diag.exclude)
+    nf <- if (!is.null(ex$nfolds)) ex$nfolds else ex$div
+    if (!is.null(nf) && nf != length(folds.given))
+      stop("nmfkc.net.ecv(): nfolds (", nf, ") differs from length(folds) (",
+           length(folds.given), ").", call. = FALSE)
+    nfolds <- length(folds.given)
+  } else {
+    nfolds <- if (!is.null(ex$nfolds)) ex$nfolds
+              else if (!is.null(ex$div)) ex$div else 5
+  }
+
+  fit_args <- ex
+  for (nm in c("nfolds", "div", "rank", "type", "cores", "seeds", "folds",
+               "pred", "diag.exclude", "Y.weights"))
+    fit_args[[nm]] <- NULL
+
+  ## One (rank, fold) cell: refit without the fold, score the held-out entries.
+  run_one <- function(q, k, folds, fa) {
     test_ut <- folds[[k]]
     W <- matrix(1, N, N); W[test_ut] <- 0
     W <- .nmfkc.net.mirror_mask(W)
+    if (!is.null(W.base)) W <- W.base * W
     fit <- suppressMessages(do.call(nmfkc.net,
              c(list(Y = Y, rank = q, type = type,
-                    Y.weights = W, verbose = FALSE), fit_args)))
+                    Y.weights = W, verbose = FALSE), fa)))
     Yhat <- fit$X %*% fit$C %*% t(fit$X)
-    mean((Y[test_ut] - Yhat[test_ut])^2)
+    e <- Y[test_ut] - Yhat[test_ut]
+    if (is.null(W.user)) {
+      mse <- mean(e^2); sse <- sum(e^2)
+    } else {
+      w <- W.user[test_ut]; sse <- sum(w * e^2); mse <- sse / sum(w)
+    }
+    list(mse = mse, sse = sse, yhat = if (want.pred) Yhat[test_ut])
   }
 
-  message(sprintf("nmfkc.net ECV (type=%s): %d ranks, %d-fold, upper-triangle.",
-                  type, length(rank), nfolds))
-  ## Each (rank, fold) cell is an independent, self-seeded fit. Precompute the
-  ## rank x nfolds grid in input order (i outer, k inner -- matching .ecv.run's
-  ## consumption order) so the per-rank aggregation and progress messages below
-  ## are bit-identical to the sequential run for any `cores`.
+  ## Pooled held-out R^2 over every entry the folds hold out.
+  r2_pooled <- function(folds, sse_total) {
+    idx <- unlist(folds); y <- Y[idx]
+    if (is.null(W.user)) {
+      sst <- sum((y - mean(y))^2)
+    } else {
+      w <- W.user[idx]; sst <- sum(w * (y - sum(w * y) / sum(w))^2)
+    }
+    if (is.finite(sst) && sst > 0) 1 - sse_total / sst else NA_real_
+  }
+
+  ns <- length(seeds)
+  message(sprintf("nmfkc.net ECV (type=%s): %d ranks, %d-fold, upper-triangle%s.",
+                  type, length(rank), nfolds,
+                  if (ns > 1L) sprintf(", %d seeds", ns) else ""))
+  labels <- sprintf("Q=%d", rank)
   ng <- length(rank)
-  grid <- .nmfkc.parlapply(seq_len(ng * nfolds), function(t) {
-    i <- (t - 1L) %/% nfolds + 1L
-    k <- (t - 1L) %%  nfolds + 1L
-    run_one(rank[i], k)
-  }, cores = if (ng * nfolds > 1L) cores else 1L)
-  cv <- .ecv.run(sprintf("Q=%d", rank), nfolds,
-                 run_one = function(i, k) grid[[(i - 1L) * nfolds + k]],
-                 progress = function(i, o, s)
-                   message(sprintf("  Q=%d: MSE=%.6f, sigma=%.4f", rank[i], o, s)))
+  reps <- lapply(seq_len(ns), function(r) {
+    s <- seeds[r]
+    folds <- if (!is.null(folds.given)) folds.given
+             else .nmfkc.net.make_uppertri_folds(N, div = nfolds, seed = s,
+                                                 idx = cand)
+    ## Under `seeds` each split also refits with its own seed, so the results
+    ## for seed s are those of seed = s.
+    fa <- fit_args
+    if (!is.null(ex$seeds)) fa$seed <- s
+    ## Each (rank, fold) cell is an independent, self-seeded fit. Precompute
+    ## the rank x nfolds grid in input order (i outer, k inner -- matching
+    ## .ecv.run's consumption order) so the per-rank aggregation and progress
+    ## messages below are bit-identical to the sequential run for any `cores`.
+    grid <- .nmfkc.parlapply(seq_len(ng * nfolds), function(t) {
+      i <- (t - 1L) %/% nfolds + 1L
+      k <- (t - 1L) %%  nfolds + 1L
+      run_one(rank[i], k, folds, fa)
+    }, cores = if (ng * nfolds > 1L) cores else 1L)
+    cv <- .ecv.run(labels, nfolds,
+                   run_one = function(i, k) grid[[(i - 1L) * nfolds + k]]$mse,
+                   progress = function(i, o, sg)
+                     message(sprintf("  %sQ=%d: MSE=%.6f, sigma=%.4f",
+                                     if (ns > 1L) sprintf("seed=%s ", s) else "",
+                                     rank[i], o, sg)))
+    r2 <- vapply(seq_len(ng), function(i)
+      r2_pooled(folds, sum(vapply(seq_len(nfolds), function(k)
+        grid[[(i - 1L) * nfolds + k]]$sse, numeric(1)))), numeric(1))
+    pred <- NULL
+    if (want.pred) {
+      pred <- array(NA_real_, c(N, N, ng),
+                    dimnames = list(rownames(Y), colnames(Y), labels))
+      for (i in seq_len(ng)) {
+        P <- matrix(NA_real_, N, N)
+        for (k in seq_len(nfolds)) P[folds[[k]]] <- grid[[(i - 1L) * nfolds + k]]$yhat
+        lt <- lower.tri(P); P[lt] <- t(P)[lt]
+        pred[, , i] <- P
+      }
+    }
+    list(cv = cv, folds = folds, r2 = stats::setNames(r2, labels), pred = pred)
+  })
+
+  first <- reps[[1]]
   cls <- if (type == "signed")
            c("nmfkc.net.signed.ecv", "nmfkc.net.ecv", "nmfkc.ecv")
          else
            c("nmfkc.net.ecv", "nmfkc.ecv")
-  structure(list(objfunc = cv$objfunc, sigma = cv$sigma,
-                 rank = rank, nfolds = nfolds,
-                 objfunc.fold = cv$objfunc.fold, folds = folds,
-                 Q.grid = rank, type = type),
-            class = cls)
+  if (ns == 1L) {
+    out <- list(objfunc = first$cv$objfunc, sigma = first$cv$sigma,
+                rank = rank, nfolds = nfolds,
+                objfunc.fold = first$cv$objfunc.fold, folds = first$folds,
+                Q.grid = rank, type = type,
+                r.squared.cv = first$r2)
+  } else {
+    seed_lab <- paste0("seed=", seeds)
+    obj.rep <- matrix(vapply(reps, function(z) z$cv$objfunc, numeric(ng)), ng, ns,
+                      dimnames = list(labels, seed_lab))
+    r2.rep  <- matrix(vapply(reps, function(z) z$r2, numeric(ng)), ng, ns,
+                      dimnames = list(labels, seed_lab))
+    obj <- rowMeans(obj.rep)
+    out <- list(objfunc = obj,
+                sigma = ifelse(is.finite(obj) & obj >= 0, sqrt(obj), NA_real_),
+                rank = rank, nfolds = nfolds,
+                objfunc.fold = first$cv$objfunc.fold, folds = first$folds,
+                Q.grid = rank, type = type,
+                r.squared.cv = rowMeans(r2.rep),
+                seeds = seeds,
+                objfunc.rep = obj.rep,
+                objfunc.sd = apply(obj.rep, 1, stats::sd),
+                r.squared.cv.rep = r2.rep,
+                r.squared.cv.sd = apply(r2.rep, 1, stats::sd),
+                folds.rep = lapply(reps, function(z) z$folds))
+  }
+  if (want.pred) out$pred <- first$pred
+  if (diag.exclude) out$diag.exclude <- TRUE
+  structure(out, class = cls)
 }
 
 

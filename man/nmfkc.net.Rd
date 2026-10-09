@@ -34,7 +34,15 @@ fits reproduce.}
 \item{...}{Hidden options: \code{nstart} (default 1; see note below),
 \code{seed} (default 123), \code{X.restriction}, \code{X.init},
 \code{C.init} (tri only) or \code{Cp.init}/\code{Cn.init} (signed only),
-\code{Y.weights}, \code{C.L1} (tri only), \code{X.L2.ortho}, \code{prefix}.
+\code{Y.weights}, \code{diag.exclude}, \code{C.L1} (tri only),
+\code{X.L2.ortho}, \code{prefix}.
+
+\strong{\code{diag.exclude}} (default \code{FALSE}): when \code{TRUE} the
+diagonal of \eqn{Y} (self-loops) is neither fitted nor counted in the fit
+statistics -- for a network without self-loops, whose zero diagonal is not
+an observation.  It is the same as a \code{Y.weights} with a zero diagonal
+(and is combined with a \code{Y.weights} or an \code{NA} mask when one is
+given); the fit then carries \code{diag.exclude = TRUE}.
 
 \strong{\code{Y.weights}} is an optional non-negative N x N weight
 matrix (symmetric, same shape as \code{Y}).  When supplied, the loss

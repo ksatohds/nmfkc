@@ -67,6 +67,39 @@ options and now refuse them rather than ignoring them.
 Nothing changes for a call that uses neither option: checked bit-identical
 on 22 default calls across the seven fitters.
 
+## `nmfkc.net.ecv()`: a diagonal to leave out, folds to share, repeated splits, held-out predictions
+
+Asked for by the covariate-network study, which compares models on edge-wise
+CV.  Each option is passed through `...` and changes nothing when absent:
+checked bit-identical on 16 existing calls of `nmfkc.net()`,
+`nmfkc.net.ecv()` and `nmfkc.net.rank()`.
+
+* **`diag.exclude = TRUE`**, in `nmfkc.net()` and `nmfkc.net.ecv()` alike.
+  For a network without self-loops the diagonal is not an observation.
+  It is now neither fitted nor counted -- exactly a `Y.weights` with a zero
+  diagonal.  In the CV it is no longer held out either: before, its zeros
+  were scored as edges to predict.
+* **`folds =`** takes a split from outside, e.g. the `$folds` of an earlier
+  run or another implementation's.  This compares two models on the same
+  split.  An entry in two folds, or one that cannot be held out, is an
+  error.
+* **`seeds = c(...)`** repeats the CV over several splits.  It returns the
+  mean and also the spread across seeds (`objfunc.sd`, `r.squared.cv.sd`, and
+  the per-seed `*.rep`).  The results for seed s are those of `seed = s`.
+* **`r.squared.cv`**, always: the held-out R² pooled over the folds,
+  1 - SSE/SST over the held-out entries.  **`pred = TRUE`** also returns
+  the held-out predictions (N x N per rank, so optional).  `print()` shows
+  the new columns.
+
+Two inputs went wrong before and now work:
+* **`NA` in `Y`.** It made `objfunc` `NA` for every rank, and the fits took
+  the `NA` entries as observed zeros.  They are now never held out and stay
+  masked.
+* **A `Y.weights` given to `nmfkc.net.ecv()`.** It was silently replaced
+  by the fold mask: the result was identical with or without it.  It is
+  now kept in every fit, its zero entries are not held out, and the
+  held-out loss is weighted.
+
 ## `nmfkc()` no longer stops on data with all-zero columns
 
 With `X.init = "kmeans"` (the default) or `"kmeans++"`, two or more all-zero

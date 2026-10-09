@@ -254,11 +254,17 @@ nmfkc.bicv <- function(Y, rank = 1:3, ...) {
 #' @export
 print.nmfkc.ecv <- function(x, ...) {
   sc <- .cv.score(x)
-  base::cat(sprintf("nmfkc element-wise CV (%s-fold)\n",
-                    if (!base::is.null(x$nfolds)) x$nfolds else "?"))
-  base::print(base::data.frame(rank = x$rank, sigma = base::as.numeric(x$sigma),
-                               objfunc = base::as.numeric(x$objfunc)),
-              row.names = FALSE)
+  base::cat(sprintf("nmfkc element-wise CV (%s-fold%s)\n",
+                    if (!base::is.null(x$nfolds)) x$nfolds else "?",
+                    if (!base::is.null(x$seeds))
+                      base::sprintf(", %d seeds", base::length(x$seeds)) else ""))
+  tab <- base::data.frame(rank = x$rank, sigma = base::as.numeric(x$sigma),
+                          objfunc = base::as.numeric(x$objfunc))
+  ## Columns only some CV objects carry (nmfkc.net.ecv).
+  if (!base::is.null(x$objfunc.sd)) tab$objfunc.sd <- base::as.numeric(x$objfunc.sd)
+  if (!base::is.null(x$r.squared.cv)) tab$r.squared.cv <- base::as.numeric(x$r.squared.cv)
+  if (!base::is.null(x$r.squared.cv.sd)) tab$r.squared.cv.sd <- base::as.numeric(x$r.squared.cv.sd)
+  base::print(tab, row.names = FALSE)
   best <- x$rank[base::which.min(base::replace(sc$v, !base::is.finite(sc$v), Inf))]
   base::cat(sprintf("Best rank (min %s): %d\n",
                     if (grepl("sigma", sc$lab)) "sigma" else "objfunc", best))
