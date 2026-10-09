@@ -1189,6 +1189,10 @@ nmf.rrr.signed.rename <- function(x, X1.colnames = NULL, X2.rownames = NULL) {
 #'   \describe{
 #'     \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
 #'     \item{\code{seed}}{RNG seed for fold assignment.  Default 123.}
+#'     \item{\code{Y1.weights}}{A matrix, one weight per column, or a scalar;
+#'       kept in every fit.  Cells of weight 0 are never held out, and the
+#'       held-out loss is the weighted mean.  (Before 1.0.0 it was silently
+#'       replaced by the fold mask.)}
 #'     \item{\code{cores}}{Evaluate the \eqn{(Q,R)}-pair \eqn{\times} fold grid
 #'       in parallel.  Default \code{getOption("mc.cores", 1L)} (PSOCK on
 #'       Windows, forking elsewhere).  Each task is an independent self-seeded
@@ -1246,8 +1250,15 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...) {
   }
   num_pairs <- nrow(QR)
 
+  ## A caller's Y1.weights is kept in every fit; cells of weight 0 are never
+  ## held out, and the held-out loss is weighted.  (Before 1.0.0 the fold mask
+  ## was spliced in ahead of `...`, so a Y1.weights given here was dropped.)
+  W.user <- .ecv.user.weights(extra_ecv$Y1.weights, P1, N, "nmf.rrr.signed.ecv",
+                              arg = "Y1.weights", ynm = "Y1")
+
   ## Element-wise folds (shared helper)
-  folds <- .ecv.make.folds(Y1, div, seed)
+  folds <- if (is.null(W.user)) .ecv.make.folds(Y1, div, seed)
+           else .ecv.make.folds(Y1, div, seed, valid = !is.na(Y1) & W.user > 0)
 
   pair_labels <- sprintf("Q=%d,R=%d", QR$Q, QR$R)
   has_na <- any(is.na(Y1))
@@ -1259,10 +1270,11 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...) {
   fit_args$nfolds <- NULL; fit_args$div <- NULL
   fit_args$Q <- NULL; fit_args$R <- NULL
   fit_args$cores <- NULL   # not an nmf.rrr.signed fit argument
+  fit_args$Y1.weights <- NULL
 
   run_one <- function(i, k) {
     test_idx <- folds[[k]]
-    W_train <- matrix(1, nrow = P1, ncol = N)
+    W_train <- if (is.null(W.user)) matrix(1, nrow = P1, ncol = N) else W.user
     if (has_na) W_train[is.na(Y1)] <- 0
     W_train[test_idx] <- 0
     fit <- suppressMessages(
@@ -1270,7 +1282,8 @@ nmf.rrr.signed.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...) {
               c(list(Y1 = Y1, Y2 = Y2, rank1 = QR$Q[i], rank2 = QR$R[i],
                      Y1.weights = W_train), fit_args))
     )
-    mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
+    .ecv.loss.mean((Y1[test_idx] - fit$Y1hat[test_idx])^2,
+                   if (!is.null(W.user)) W.user[test_idx])
   }
 
   ## Opt-in parallelism over the (pair x fold) grid. Each (i, k) task is an

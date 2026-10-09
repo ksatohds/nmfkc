@@ -20,6 +20,10 @@ nmf.rrr.signed.ecv(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...)
 \describe{
 \item{\code{nfolds} / \code{div}}{Number of folds.  Default 5.}
 \item{\code{seed}}{RNG seed for fold assignment.  Default 123.}
+\item{\code{Y1.weights}}{A matrix, one weight per column, or a scalar;
+kept in every fit.  Cells of weight 0 are never held out, and the
+held-out loss is the weighted mean.  (Before 1.0.0 it was silently
+replaced by the fold mask.)}
 \item{\code{cores}}{Evaluate the \eqn{(Q,R)}-pair \eqn{\times} fold grid
 in parallel.  Default \code{getOption("mc.cores", 1L)} (PSOCK on
 Windows, forking elsewhere).  Each task is an independent self-seeded

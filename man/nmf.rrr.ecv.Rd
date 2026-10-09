@@ -25,6 +25,10 @@ Each task is an independent self-seeded fit and results are aggregated in
 order, so the returned object is identical for any \code{cores}.
 For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
 \code{rank} and \code{rank.encoder}.
+\code{Y1.weights} (a matrix, one weight per column, or a scalar) is kept
+in every fit; cells of weight 0 are never held out, and the held-out loss
+is the weighted mean.  (Before 1.0.0 a \code{Y1.weights} given here was
+silently replaced by the fold mask.)
 
 Rank aliases accepted here for backward compatibility:
 \code{Q} for \code{rank1}, \code{R} for \code{rank2}.}

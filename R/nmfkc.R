@@ -1605,6 +1605,48 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 }
 
 
+#' @title A user's weights for an element-wise CV (Internal)
+#' @description
+#' Reads the weights a caller gave an element-wise CV, in the forms the
+#' fitters take: a \code{P x N} matrix, one weight per column, or a scalar.
+#' \code{NA} counts as 0.  A cell of weight 0 is unobserved: the CV never
+#' holds it out (\code{.ecv.make.folds(valid = W > 0)}), keeps it at 0 in
+#' every fit, and scores the held-out cells by the weighted mean
+#' (\code{.ecv.loss.mean}).  Before 1.0.0 every ECV spliced its fold mask in
+#' ahead of \code{...} (or removed the weights), so these were dropped.
+#' @param W The weights, or \code{NULL}.
+#' @param P,N Dimensions of the response.
+#' @param fun Calling function, for messages.
+#' @param arg,ynm Names of the weight argument and of the response.
+#' @return \code{NULL}, or a \code{P x N} double matrix.
+#' @keywords internal
+#' @noRd
+.ecv.user.weights <- function(W, P, N, fun, arg = "Y.weights", ynm = "Y") {
+  if (base::is.null(W)) return(NULL)
+  if (base::is.vector(W) && !base::is.list(W)) {
+    if (base::length(W) == N) W <- base::matrix(W, P, N, byrow = TRUE)
+    else if (base::length(W) == 1) W <- base::matrix(W, P, N)
+    else base::stop(base::sprintf("%s(): a %s vector must have length ncol(%s) (or 1).",
+                                  fun, arg, ynm), call. = FALSE)
+  }
+  W <- base::as.matrix(W)
+  if (!base::identical(base::dim(W), base::c(P, N)))
+    base::stop(base::sprintf("%s(): %s must have the same dimensions as %s.", fun, arg, ynm),
+               call. = FALSE)
+  base::storage.mode(W) <- "double"
+  W[base::is.na(W)] <- 0
+  if (base::any(W < 0))
+    base::stop(base::sprintf("%s(): %s must be non-negative.", fun, arg), call. = FALSE)
+  W
+}
+
+## Held-out loss of one fold: the plain mean without user weights (the
+## original computation, bit for bit), the weighted mean with them.
+.ecv.loss.mean <- function(loss, w = NULL) {
+  if (base::is.null(w)) base::mean(loss) else base::sum(w * loss) / base::sum(w)
+}
+
+
 #' @title Run an element-wise CV loop over a configuration list (Internal)
 #' @description
 #' Shared driver for every element-wise CV function -- the single-rank
@@ -4345,21 +4387,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
   # never held out and stays at 0 in every fit, and the held-out loss is the
   # weighted mean.  Before 1.0.0 the fold mask was spliced in ahead of `...`,
   # so a Y.weights given here was silently dropped.
-  W.user <- extra_args$Y.weights
-  if (!is.null(W.user)) {
-    if (is.vector(W.user) && !is.list(W.user)) {
-      if (length(W.user) == N) W.user <- matrix(W.user, P, N, byrow = TRUE)
-      else if (length(W.user) == 1) W.user <- matrix(W.user, P, N)
-      else stop("nmfkc.ecv(): a Y.weights vector must have length ncol(Y) (or 1).",
-                call. = FALSE)
-    }
-    W.user <- as.matrix(W.user)
-    if (!identical(dim(W.user), c(P, N)))
-      stop("nmfkc.ecv(): Y.weights must have the same dimensions as Y.", call. = FALSE)
-    storage.mode(W.user) <- "double"
-    W.user[is.na(W.user)] <- 0
-    if (any(W.user < 0)) stop("nmfkc.ecv(): Y.weights must be non-negative.", call. = FALSE)
-  }
+  W.user <- .ecv.user.weights(extra_args$Y.weights, P, N, "nmfkc.ecv")
 
   # 1. Create Folds (shared element-wise helper)
   folds <- if (is.null(W.user)) .ecv.make.folds(Y, div, seed)
@@ -4396,8 +4424,7 @@ nmfkc.ecv <- function(Y, A=NULL, rank=1:3, data, ...){
     } else {
       (Y[test_idx] - pred[test_idx])^2
     }
-    if (is.null(W.user)) mean(loss)
-    else { w <- W.user[test_idx]; sum(w * loss) / sum(w) }
+    .ecv.loss.mean(loss, if (!is.null(W.user)) W.user[test_idx])
   }
 
   # 2. Loop over Q via shared driver

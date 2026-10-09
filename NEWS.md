@@ -100,16 +100,21 @@ Two inputs went wrong before and now work:
   now kept in every fit, its zero entries are not held out, and the
   held-out loss is weighted.
 
-## `nmfkc.ecv()` keeps a `Y.weights`
+## The element-wise CVs keep a weights argument
 
-`nmfkc.ecv()` spliced its fold mask in ahead of `...`, so a `Y.weights`
-given to it was silently dropped.  The result was identical with or without
-the weights.  It is now kept in every fit, in the forms `nmfkc()` takes
-(matrix, one weight per column, or scalar).  Cells of weight 0 are never
-held out, and the held-out loss is the weighted mean.  Calls without
-`Y.weights` are unchanged: checked bit-identical on 10 calls of
-`nmfkc.ecv()`, `nmfkc.rank()` and the ECVs that share its fold helper
-(`nmfkc.signed.ecv()`, `nmf.rrr.ecv()`, `nmf.ffb.cv(method = "fiml")`).
+`nmfkc.ecv()`, `nmfkc.signed.ecv()`, `nmf.rrr.ecv()` and
+`nmf.rrr.signed.ecv()` dropped a `Y.weights` (`Y1.weights` for the RRR
+pair) without a word: the result was identical with or without it.  Three
+of them spliced the fold mask in ahead of `...`; `nmfkc.signed.ecv()`
+removed the weights from the fit arguments.  Now, in all four:
+* The weights are kept in every fit, in the forms the fitters take
+  (matrix, one weight per column, or scalar).
+* Cells of weight 0 are never held out.
+* The held-out loss is the weighted mean.
+
+Calls without weights are unchanged: checked bit-identical on 10 + 16
+calls covering the four functions, `nmfkc.rank()`, `nmfkc.signed.rank()`,
+`nmf.rrr.rank()`, `nmf.ffb.cv(method = "fiml")` and `cores = 2`.
 
 ## `nmfkc()` no longer stops on data with all-zero columns
 

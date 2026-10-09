@@ -1390,7 +1390,10 @@ nmfkc.signed.cv <- function(Y, A, rank = 2, ...) {
 #' @param rank Integer vector of candidate ranks (default \code{1:3}).
 #' @param ... Passed to \code{\link{nmfkc.signed}}; also accepts
 #'   \code{nfolds} (default 5; \code{div} alias), \code{seed}
-#'   (default 123).
+#'   (default 123).  \code{Y.weights} (a matrix, one weight per column, or a
+#'   scalar) is kept in every fit; cells of weight 0 are never held out, and
+#'   the held-out loss is the weighted mean.  (Before 1.0.0 a
+#'   \code{Y.weights} given here was dropped.)
 #'
 #' @section Lifecycle:
 #' This function is \strong{experimental}.
@@ -1425,12 +1428,18 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
   fit_args$seed <- NULL; fit_args$Q <- NULL
   fit_args$verbose <- NULL; fit_args$Y.weights <- NULL
 
-  ## Create folds over valid elements (non-NA; shared helper)
-  folds <- .ecv.make.folds(Y, nfolds, seed)
+  ## A caller's Y.weights is kept in every fit; cells of weight 0 are never
+  ## held out, and the held-out loss is weighted (before 1.0.0 it was removed
+  ## from the fit arguments above and dropped without a word).
+  W.user <- .ecv.user.weights(extra$Y.weights, P, N, "nmfkc.signed.ecv")
+
+  ## Create folds over valid elements (non-NA, positive weight; shared helper)
+  folds <- if (is.null(W.user)) .ecv.make.folds(Y, nfolds, seed)
+           else .ecv.make.folds(Y, nfolds, seed, valid = !is.na(Y) & W.user > 0)
 
   run_one <- function(q, k) {
     test_idx <- folds[[k]]
-    W <- matrix(1, nrow = P, ncol = N)
+    W <- if (is.null(W.user)) matrix(1, nrow = P, ncol = N) else W.user
     if (any(is.na(Y))) W[is.na(Y)] <- 0
     W[test_idx] <- 0
     fit <- suppressMessages(do.call(
@@ -1439,7 +1448,8 @@ nmfkc.signed.ecv <- function(Y, A, rank = 1:3, ...) {
              Y.weights = W), fit_args)))
     ## Yhat = X C A on held-out entries
     Yhat <- fit$X %*% fit$C %*% A
-    mean((Y[test_idx] - Yhat[test_idx])^2)
+    .ecv.loss.mean((Y[test_idx] - Yhat[test_idx])^2,
+                   if (!is.null(W.user)) W.user[test_idx])
   }
 
   message(sprintf("nmfkc.signed ECV: %d ranks, %d-fold.",

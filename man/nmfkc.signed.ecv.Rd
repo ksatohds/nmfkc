@@ -16,7 +16,10 @@ nmfkc.signed.ecv(Y, A, rank = 1:3, ...)
 
 \item{...}{Passed to \code{\link{nmfkc.signed}}; also accepts
 \code{nfolds} (default 5; \code{div} alias), \code{seed}
-(default 123).}
+(default 123).  \code{Y.weights} (a matrix, one weight per column, or a
+scalar) is kept in every fit; cells of weight 0 are never held out, and
+the held-out loss is the weighted mean.  (Before 1.0.0 a
+\code{Y.weights} given here was dropped.)}
 }
 \value{
 A list with \code{objfunc} (MSE per rank), \code{sigma}
