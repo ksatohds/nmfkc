@@ -12,7 +12,9 @@ the entries of C describe this representative.  It also requires A of full
 row rank (`identification$A.full.rank`), since otherwise C is not unique even
 given X.  `summary()` prints one line about it.  `sep.tol` and `pin.tol` can
 be passed through `...`; coefficients at or below `boundary.tol` count as
-zero.
+zero.  `nmfkc.net.inference()`, which calls `nmfkc.inference()` with
+`A = t(X)`, does not carry these components: for `Y ~ X C X'` the family of
+equivalent fits is `(X T, T^-1 C T^-T)`, which the diagnostic does not cover.
 
 It is an algebraic check on the point estimate -- no re-fits, nothing random
 -- and takes about a millisecond for Q = 3 with 50 covariates.  Nothing else

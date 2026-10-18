@@ -86,6 +86,13 @@ nmfkc.net.inference <- function(object, Y, wild.bootstrap = TRUE, ...) {
     result$coefficients <- cf
   }
 
+  ## nmfkc.inference() judges identification for Y ~ X C A with A fixed, i.e.
+  ## (X T, T^-1 C).  Here A = X', so the family is (X T, T^-1 C T^-T), which that
+  ## diagnostic does not cover: drop it rather than report a verdict on the
+  ## wrong family.
+  result$identified.approx <- NULL
+  result$identification    <- NULL
+
   class(result) <- c("nmfkc.net.inference", "nmfkc.net",
                       "nmfkc.inference", "nmf.inference", "nmfkc", "nmf")
   result
