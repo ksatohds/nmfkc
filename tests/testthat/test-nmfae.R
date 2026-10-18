@@ -201,3 +201,24 @@ test_that("sample names survive when only Y1 is labelled", {
     expect_identical(rownames(f$B2), rownames(f$X2))   # Cov1..R
   }
 })
+
+test_that("nmf.rrr.inference checks both latent spaces for identification", {
+  skip_unless_full()
+  set.seed(7)
+  P2 <- 5; N <- 40
+  X1 <- rbind(diag(2), matrix(runif(8), 4, 2)); X1 <- sweep(X1, 2, colSums(X1), "/")
+  X2 <- cbind(diag(2), matrix(runif(6), 2, 3)); X2 <- X2 / rowSums(X2)
+  Y2 <- matrix(runif(P2 * N) + 0.5, P2, N)
+  mk <- function(C) structure(list(X1 = X1, C = C, X2 = X2, Y1hat = X1 %*% C %*% X2 %*% Y2,
+                                   rank = c(Q = 2, R = 2)), class = c("nmf.rrr", "nmfae", "nmf"))
+  ## anchors in X1, anchor columns in X2 and a diagonal C: both sides pinned
+  o <- mk(diag(c(2, 3)))
+  inf <- suppressWarnings(nmf.rrr.inference(o, o$Y1hat, Y2, wild.bootstrap = FALSE))
+  expect_true(inf$identified.approx)
+  expect_true(inf$identification$left$ok); expect_true(inf$identification$right$ok)
+  ## a dense C leaves no zero pattern on the left: not shown
+  o2 <- mk(matrix(c(2, 1, 1, 3), 2, 2))
+  inf2 <- suppressWarnings(nmf.rrr.inference(o2, o2$Y1hat, Y2, wild.bootstrap = FALSE))
+  expect_false(inf2$identified.approx)
+  expect_false(inf2$identification$left$ok)
+})

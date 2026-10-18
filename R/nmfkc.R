@@ -5412,13 +5412,11 @@ nmfkc.inference <- function(object, Y, A = NULL,
   ## fixed per-column scale of X.  An algebraic check on the point estimate
   ## (see ?nmfkc.ar.latent.inference): no re-fits, nothing random.
   xr <- object$X.restriction
-  ident <- .nmfvar.identified(X, C_mat, sep.tol = sep.tol, zero.tol = boundary.tol,
-                              pin.tol = pin.tol)
-  ident$A.full.rank <- base::qr(A)$rank == K
-  object$identified.approx <- ident$A.full.rank &&
-    (Q == 1L || isTRUE(xr == "fixed") ||
-     (isTRUE(xr %in% c("colSums", "colSqSums")) && ident$ok))
-  object$identification <- ident
+  v <- .ident.verdict(X, C_mat, A, scale.fixed = isTRUE(xr %in% c("colSums", "colSqSums")),
+                      X.held = isTRUE(xr == "fixed"), sep.tol = sep.tol,
+                      zero.tol = boundary.tol, pin.tol = pin.tol)
+  object$identified.approx <- v$identified.approx
+  object$identification    <- v$identification
   class(object) <- c("nmfkc.inference", "nmf.inference", "nmfkc", "nmf")
   return(object)
 }
@@ -5471,14 +5469,7 @@ print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits"
   cat("Inference (conditional on X):\n")
   cat("  sigma^2:  ", format(x$sigma2.used, digits = digits), "\n")
   ## Objects saved before the diagnostic existed carry no identified.approx.
-  if (!is.null(x$identified.approx) && isTRUE(x$rank.Q > 1L)) {
-    if (isTRUE(x$identified.approx))
-      cat("  Identification: unique up to a permutation (approximate; ",
-          .nmfvar.ident.margins(x$identification), ")\n", sep = "")
-    else
-      cat("  Identification: not shown -- C describes this representative of X;\n",
-          "                  another (X T, T^-1 C) may fit equally well\n", sep = "")
-  }
+  .ident.print.line(x$identified.approx, x$identification, x$rank.Q)
 
   # Coefficients table (formatted like lm summary)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {

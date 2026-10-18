@@ -49,3 +49,26 @@ test_that("nmfre() accepts X.init as NULL, a method name, or a matrix", {
   expect_equal(a$objfunc, a1$objfunc)
   expect_s3_class(nmfre(Y, A = A, rank = Q, seed = 1, nstart = 5, verbose = FALSE), "nmfre")
 })
+
+test_that("nmfre.inference: identification is NA for a signed C, by the data for C >= 0", {
+  skip_unless_full()
+  set.seed(5); P <- 5; N <- 50; Q <- 2
+  A  <- rbind(intercept = 1, male = rbinom(N, 1, 0.5))
+  Xt <- matrix(abs(rnorm(P * Q)), P, Q)
+  Th <- matrix(abs(rnorm(Q * 2)), Q, 2)
+  Y  <- pmax(Xt %*% (Th %*% A + matrix(rnorm(Q * N, 0, 0.4), Q, N)) +
+               matrix(rnorm(P * N, 0, 0.3), P, N), 0)
+  ## C.signed = TRUE (default): non-negativity cannot pin T^-1
+  f <- nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE)
+  inf <- suppressWarnings(nmfre.inference(f, Y, A, wild.B = 5))
+  expect_true(is.na(inf$identified.approx))
+  expect_match(inf$identification$note, "C is signed")
+  ## Q = 2 with tau2 > 0: the isotropic random effects allow only a permutation
+  expect_identical(inf$identification$by.assumption, isTRUE(f$tau2 > 0))
+  expect_output(print(summary(inf)), "Identification:")
+  ## C >= 0: the data diagnostic, exactly the shared check on (X, C)
+  f2 <- nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE, C.signed = FALSE)
+  inf2 <- suppressWarnings(nmfre.inference(f2, Y, A, wild.B = 5))
+  expect_false(is.na(inf2$identified.approx))
+  expect_identical(inf2$identified.approx, nmfkc:::.ident.verdict(f2$X, f2$C, A)$identified.approx)
+})

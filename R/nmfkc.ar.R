@@ -977,6 +977,49 @@ nmfkc.ar.latent <- function(x) {
 }
 
 
+#' @title Identification verdict for Y ~ X Theta A (Internal)
+#' @description Runs \code{.nmfvar.identified()} and adds the rank condition on
+#'   \eqn{A}: without full row rank \eqn{\Theta} is not unique even given
+#'   \eqn{X}.  Shared by the \code{*.inference()} functions whose coefficients
+#'   are conditional on an estimated basis.  \code{A = NULL} skips the rank check.
+#' @param scale.fixed Is the per-column scale of \eqn{X} fixed (column sums or
+#'   squared sums normalised)?  Pinning needs it.
+#' @param X.held Is \eqn{X} given rather than estimated (then \eqn{T = I})?
+#' @return \code{list(identified.approx, identification)}.
+#' @keywords internal
+#' @noRd
+.ident.verdict <- function(X, Theta, A = NULL, scale.fixed = TRUE, X.held = FALSE,
+                           sep.tol = 0.999, zero.tol = 1e-3, pin.tol = 1e-3) {
+  id <- .nmfvar.identified(X, Theta, sep.tol = sep.tol, zero.tol = zero.tol,
+                           pin.tol = pin.tol)
+  id$A.full.rank <- is.null(A) || base::qr(A)$rank == base::nrow(A)
+  ok <- id$A.full.rank && (ncol(X) == 1L || isTRUE(X.held) || (isTRUE(scale.fixed) && id$ok))
+  list(identified.approx = ok, identification = id)
+}
+
+
+#' @title One line on identification for the summary printers (Internal)
+#' @param ok \code{identified.approx}: \code{TRUE}, \code{FALSE}, \code{NA}
+#'   (not applicable; \code{note} says why) or \code{NULL} (older object).
+#' @param id The \code{identification} list.
+#' @param Q Number of bases; nothing is printed for \eqn{Q = 1}.
+#' @param what What the coefficients are, for the FALSE message.
+#' @keywords internal
+#' @noRd
+.ident.print.line <- function(ok, id, Q, what = "C") {
+  if (is.null(ok) || !isTRUE(Q > 1L)) return(invisible(NULL))
+  if (is.na(ok))
+    cat("  Identification: ", if (!is.null(id$note)) id$note else "not assessed", "\n", sep = "")
+  else if (isTRUE(ok))
+    cat("  Identification: unique up to a permutation (approximate; ",
+        if (!is.null(id$left)) "both sides" else .nmfvar.ident.margins(id), ")\n", sep = "")
+  else
+    cat("  Identification: not shown -- ", what, " describes this representative of the\n",
+        "                  basis; another (X T, T^-1 ", what, ") may fit equally well\n", sep = "")
+  invisible(NULL)
+}
+
+
 #' @title Margins of the identification route that passed (Internal)
 #' @param id The list returned by \code{.nmfvar.identified()}.
 #' @return A short string for warnings and print methods.

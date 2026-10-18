@@ -307,3 +307,16 @@ test_that("nmf.ffb.cv(method = 'fiml') delegates to nmfkc.ecv()", {
   expect_length(e$objfunc, 2)
   expect_true(all(is.finite(e$objfunc)))
 })
+
+test_that("nmf.ffb.inference() reports the identification diagnostic (no re-fits)", {
+  skip_unless_full()
+  d <- make_ffb_data()
+  fit <- nmf.ffb(d$Y1, d$Y2, rank = d$Q)
+  inf <- nmf.ffb.inference(fit, d$Y1, d$Y2, B = 5)
+  expect_type(inf$identified.approx, "logical")
+  ## exactly the shared check on (X, [C1 C2]) with A = [Y1; Y2]
+  v <- nmfkc:::.ident.verdict(fit$X, cbind(fit$C1, fit$C2), rbind(d$Y1, d$Y2))
+  expect_identical(inf$identified.approx, v$identified.approx)
+  expect_true(inf$identification$A.full.rank)
+  expect_output(print(summary(inf)), "Identification:")
+})

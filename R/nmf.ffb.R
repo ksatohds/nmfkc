@@ -881,6 +881,13 @@ nmf.ffb <- function(
 #' \item{boot.n.valid, boot.n.invalid}{Validity counts (for \code{"fiml"}:
 #'   of the selected-model bootstrap).}
 #' \item{boot.method}{How the replicates were drawn.}
+#' \item{identified.approx, identification}{Whether \eqn{(X, [C_1\ C_2])} is
+#'   unique up to a permutation of the bases -- the diagnostic of
+#'   \code{\link{nmfkc.inference}} with \eqn{A = [Y_1; Y_2]} (see the Details of
+#'   \code{\link{nmfkc.ar.latent.inference}}).  The inference is conditional on
+#'   \eqn{\hat X}; when \code{TRUE} it concerns the same coefficients whichever
+#'   admissible representative is taken.  The exclusion restriction's zeros in
+#'   \eqn{C_1} count.  An algebraic check on the point estimate: no re-fits.}
 #'
 #' The calibrated test of the feed-forward null -- \code{LR.p.boot},
 #' \code{prob.select.null}, \code{C1.restriction.change.rate} and the null
@@ -932,8 +939,10 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   ## Likelihood-based fits take the parametric-bootstrap branch; objects
   ## without a `method` field predate it and are multiplicative-update fits.
   if (identical(object$method, "fiml"))
-    return(.nmf.ffb.inference.fiml(object, Y1, Y2, B = B, threshold = threshold,
-                                   boot.level = boot.level, seed = seed, what = "ci", ...))
+    return(.ffb.attach.ident(
+      .nmf.ffb.inference.fiml(object, Y1, Y2, B = B, threshold = threshold,
+                              boot.level = boot.level, seed = seed, what = "ci", ...),
+      Y1, Y2, base::list(...)))
 
   extra_args  <- base::list(...)
   ## Keep our own seeding out of the caller's random stream.
@@ -1217,6 +1226,7 @@ nmf.ffb.inference <- function(object, Y1, Y2,
   object$C2.ci.lower          <- C2.ci.lower
   object$C2.ci.upper          <- C2.ci.upper
   object$coefficients         <- coefficients
+  object <- .ffb.attach.ident(object, Y1, Y2, extra_args)
 
   ## Final class vector for a typical input:
   ##   c("nmf.ffb.inference", "nmf.inference", "nmf.ffb", "nmf")
@@ -2790,4 +2800,31 @@ print.nmfkc.DOT <- function(x, ...) {
   cat("# Use plot() to render (requires DiagrammeR),",
       "or write this text to a .dot file.\n")
   invisible(x)
+}
+
+
+#' @title Attach the identification diagnostic to an nmf.ffb.inference result (Internal)
+#' @description \eqn{Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)} is
+#'   \eqn{Y_1 \approx X\Theta A} with \eqn{\Theta = [\Theta_1\ \Theta_2]} and
+#'   \eqn{A = [Y_1; Y_2]}, all of \eqn{X}, \eqn{\Theta_1}, \eqn{\Theta_2} non-negative
+#'   and the columns of \eqn{X} summing to one, so the diagnostic of
+#'   \code{nmfkc.inference()} applies: the bootstrap is conditional on \eqn{\hat X},
+#'   and \code{identified.approx} says whether \eqn{(X, \Theta)} is unique up to a
+#'   permutation.  The exclusion restriction's zeros in \eqn{\Theta_1} help.  The
+#'   full covariance \eqn{\Phi} of the latent errors absorbs any \eqn{T}, so it
+#'   adds nothing.  An algebraic check on the point estimate: no re-fits.
+#' @param object The inference result.
+#' @param Y1,Y2 The data.
+#' @param ex The \code{...} list (reads \code{sep.tol}, \code{pin.tol}).
+#' @keywords internal
+#' @noRd
+.ffb.attach.ident <- function(object, Y1, Y2, ex) {
+  v <- .ident.verdict(object$X, base::cbind(object$C1, object$C2),
+                      base::rbind(base::as.matrix(Y1), base::as.matrix(Y2)),
+                      scale.fixed = TRUE,
+                      sep.tol = if (!is.null(ex$sep.tol)) ex$sep.tol else 0.999,
+                      pin.tol = if (!is.null(ex$pin.tol)) ex$pin.tol else 1e-3)
+  object$identified.approx <- v$identified.approx
+  object$identification    <- v$identification
+  object
 }

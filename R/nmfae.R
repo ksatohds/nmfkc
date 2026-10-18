@@ -623,6 +623,16 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' \item{C.ci.upper}{Upper CI bounds for \eqn{\Theta} (Q x R matrix).}
 #' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{\Theta}.}
 #' \item{C.p.side}{P-value type used.}
+#' \item{identified.approx}{Whether the factorization is unique up to
+#'   permutations of both latent spaces, i.e. under
+#'   \eqn{X_1\to X_1T_1}, \eqn{\Theta\to T_1^{-1}\Theta T_2^{-1}},
+#'   \eqn{X_2\to T_2X_2}.  A sufficient condition: the diagnostic of
+#'   \code{\link{nmfkc.inference}} passes on \eqn{(X_1, \Theta X_2)} (pinning
+#'   \eqn{T_1}) and on \eqn{(X_1\Theta, X_2)} (pinning \eqn{T_2}), and \eqn{Y_2}
+#'   has full row rank.  Zeros are judged relative only (\code{pin.tol},
+#'   \code{sep.tol} through \code{...}).  An algebraic check on the point
+#'   estimate: no re-fits.}
+#' \item{identification}{The two checks, \code{left} and \code{right}.}
 #'
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
@@ -781,6 +791,22 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
+  ## Is the factorization unique up to permutations of both latent spaces?  The
+  ## family is X1 -> X1 T1, C -> T1^-1 C T2^-1, X2 -> T2 X2 (colSums(X1) = 1 and
+  ## rowSums(X2) = 1 fix the scales).  Any admissible T1 keeps X1 T1 >= 0 and
+  ## T1^-1 (C X2) >= 0 (a product of non-negative factors), so the check on
+  ## (X1, C X2) pins T1; likewise (X1 C, X2) pins T2.  Both, plus Y2 of full row
+  ## rank (else X1 C X2 itself is not determined), suffice.  Zeros are judged
+  ## relative only (zero.tol = 0): X2 and C X2 have no natural absolute scale.
+  ## An algebraic check on the point estimate: no re-fits.
+  sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
+  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 1e-3
+  vL <- .ident.verdict(X1, C %*% X2, as.matrix(Y2), scale.fixed = TRUE,
+                       sep.tol = sep.tol, zero.tol = 0, pin.tol = pin.tol)
+  vR <- .ident.verdict(X1 %*% C, X2, NULL, scale.fixed = TRUE,
+                       sep.tol = sep.tol, zero.tol = 0, pin.tol = pin.tol)
+  object$identified.approx <- vL$identified.approx && vR$identified.approx
+  object$identification    <- list(left = vL$identification, right = vR$identification)
   class(object) <- c("nmfae.inference", "nmf.inference", "nmfae", "nmf")
   return(object)
 }
@@ -1116,6 +1142,8 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' @export
 summary.nmfae.inference <- function(object, ...) {
   ans <- summary.nmfae(object, ...)
+  ans$identified.approx <- object$identified.approx
+  ans$identification    <- object$identification
   class(ans) <- "summary.nmfae.inference"
   return(ans)
 }
@@ -1139,6 +1167,11 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
                                           max.coef = 20, by = c("covariate", "basis"), ...) {
   by <- match.arg(by)
   print.summary.nmfae(x, digits = digits, max.coef = max.coef, by = by, ...)
+  if (!is.null(x$identified.approx) && isTRUE(max(x$Q, x$R) > 1L)) {
+    cat("\n")
+    .ident.print.line(x$identified.approx, x$identification, 2L, what = "C")
+  }
+  invisible(x)
 }
 
 

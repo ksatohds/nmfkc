@@ -1,5 +1,35 @@
 # nmfkc (development version)
 
+## The identification diagnostic in `nmf.ffb.inference()`, `nmf.rrr.inference()` and `nmfre.inference()`
+
+The three return `identified.approx` and `identification` as well, built on
+the same check as `nmfkc.inference()` (below), adapted to each model.  Each
+is an algebraic check on the point estimate -- no re-fits -- and `summary()`
+prints one line.  Nothing else changes: every other component is identical
+(checked on six calls).
+
+* **`nmf.ffb.inference()`**: `Y1 ~ X (C1 Y1 + C2 Y2)` is `Y ~ X Theta A`
+  with `Theta = [C1 C2]` and `A = [Y1; Y2]`, all non-negative, so the check
+  applies to `(X, [C1 C2])` (both the `"fiml"` and the `"mu"` paths).  The
+  zeros of the exclusion restriction count; the full latent covariance `Phi`
+  absorbs any rotation and adds nothing.
+* **`nmf.rrr.inference()`**: `Y1 ~ X1 C X2 Y2` has a rotation on each latent
+  space (`X1 T1`, `T1^-1 C T2^-1`, `T2 X2`).  Any admissible `T1` keeps
+  `T1^-1 (C X2) >= 0`, so the check on `(X1, C X2)` pins `T1`, and the check on
+  `(X1 C, X2)` pins `T2`; both, with `Y2` of full row rank, suffice.
+  `identification` holds the two as `left` and `right`.  Zeros are judged
+  relative only, since `X2` and `C X2` have no natural absolute scale.
+* **`nmfre.inference()`**: with `C.signed = FALSE` the check applies to
+  `(X, C)`.  With a signed `C` (the default) non-negativity cannot pin the
+  rotation at all, so `identified.approx` is `NA`.  The working model's
+  isotropic random effects `U ~ N(0, tau2 I)` allow only orthogonal `T`,
+  which with the column sums of `X` fixed is a permutation when `Q = 2` or
+  every basis has an anchor row; `identification$by.assumption` records that
+  -- identification by assumption, not by the data.
+
+Not covered: `nmf.gmm.inference()` and `nmf.rrr.signed.inference()` (signed
+coefficients) and `nmfkc.net.inference()` (the family `(X T, T^-1 C T^-T)`).
+
 ## `nmfkc.inference()` reports whether C is identified
 
 The coefficients and intervals of `nmfkc.inference()` are conditional on the

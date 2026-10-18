@@ -39,6 +39,18 @@ The input \code{object} with additional inference components:
 \item{coefficients}{Data frame with Basis, Covariate, Estimate, SE, BSE,
 z_value, p_value, CI_low, CI_high.}
 \item{C.p.side}{P-value type used.}
+\item{identified.approx}{Whether \eqn{(X, C)} is unique up to a permutation
+of the bases, by the data.  With \code{C.signed = FALSE} it is the
+diagnostic of \code{\link{nmfkc.inference}} on \eqn{(X, C)}.  With a signed
+\eqn{C} (the default) non-negativity cannot pin the rotation, so it is
+\code{NA}: only the working model's isotropic random effects
+\eqn{U\sim N(0,\tau^2 I)} do, by allowing orthogonal \eqn{T} alone, which
+with the column sums of \eqn{X} fixed is a permutation when \eqn{Q=2} or
+every basis has an anchor row.  That is identification by assumption.
+An algebraic check on the point estimate: no re-fits.}
+\item{identification}{The parts of the diagnostic, plus \code{by.assumption}
+(the isotropic argument above holds, with \eqn{\tau^2>0}) and, for a signed
+\eqn{C}, \code{note}.}
 }
 \description{
 \code{nmfre.inference} performs statistical inference on the coefficient

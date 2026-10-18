@@ -1045,7 +1045,9 @@ print.summary.nmfre <- function(x, ...) {
     cat("\nCoefficients (Theta): run nmfre.inference(fit, Y, A) for SE / p-values.\n")
   }
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
-    cat("\nCoefficients:\n")
+    cat("\n")
+    .ident.print.line(x$identified.approx, x$identification, Q, what = "C")
+    cat("Coefficients:\n")
 
     cf <- x$coefficients
     cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
@@ -1230,6 +1232,18 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 #' \item{coefficients}{Data frame with Basis, Covariate, Estimate, SE, BSE,
 #'   z_value, p_value, CI_low, CI_high.}
 #' \item{C.p.side}{P-value type used.}
+#' \item{identified.approx}{Whether \eqn{(X, C)} is unique up to a permutation
+#'   of the bases, by the data.  With \code{C.signed = FALSE} it is the
+#'   diagnostic of \code{\link{nmfkc.inference}} on \eqn{(X, C)}.  With a signed
+#'   \eqn{C} (the default) non-negativity cannot pin the rotation, so it is
+#'   \code{NA}: only the working model's isotropic random effects
+#'   \eqn{U\sim N(0,\tau^2 I)} do, by allowing orthogonal \eqn{T} alone, which
+#'   with the column sums of \eqn{X} fixed is a permutation when \eqn{Q=2} or
+#'   every basis has an anchor row.  That is identification by assumption.
+#'   An algebraic check on the point estimate: no re-fits.}
+#' \item{identification}{The parts of the diagnostic, plus \code{by.assumption}
+#'   (the isotropic argument above holds, with \eqn{\tau^2>0}) and, for a signed
+#'   \eqn{C}, \code{note}.}
 #'
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfkc.DOT}},
 #'   \code{\link{summary.nmfre}}
@@ -1416,6 +1430,28 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
+  ## Is (X, C) unique up to a permutation?  Y ~ X (C A + U): X >= 0 with
+  ## columns summing to one; U and B = C A + U are sign-free.  With C >= 0
+  ## (C.signed = FALSE) the diagnostic of nmfkc.inference() applies to (X, C).
+  ## With a signed C (the default) non-negativity cannot pin T^-1 at all;
+  ## only the working model's isotropic random effects U ~ N(0, tau2 I) do --
+  ## they allow orthogonal T alone, which with 1'T = 1' is a permutation when
+  ## Q = 2 or every basis has an anchor row.  That is identification by
+  ## assumption, not by the data, so identified.approx is NA there and
+  ## identification$by.assumption records it.  No re-fits.
+  sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
+  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 1e-3
+  v <- .ident.verdict(X, C_mat, A, scale.fixed = TRUE, sep.tol = sep.tol, pin.tol = pin.tol)
+  v$identification$by.assumption <- isTRUE(tau2 > 0) && (Q <= 2L || all(v$identification$anchor))
+  if (C.mode == "signed") {
+    v$identified.approx <- NA
+    v$identification$note <- paste0(
+      "not by the data (C is signed); ",
+      if (v$identification$by.assumption) "unique up to a permutation under the isotropic random effects"
+      else "not even under the isotropic random effects")
+  }
+  object$identified.approx <- v$identified.approx
+  object$identification    <- v$identification
   ## Tag it as an inference result, as nmfkc.inference / nmf.rrr.inference do.
   ## Without this the class stayed c("nmfre", "nmf") and print() fell to
   ## print.nmf, showing the ten-line fit header instead of the coefficient

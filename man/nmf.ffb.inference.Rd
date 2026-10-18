@@ -104,6 +104,13 @@ reproducibility.}
 \item{boot.n.valid, boot.n.invalid}{Validity counts (for \code{"fiml"}:
 of the selected-model bootstrap).}
 \item{boot.method}{How the replicates were drawn.}
+\item{identified.approx, identification}{Whether \eqn{(X, [C_1\ C_2])} is
+unique up to a permutation of the bases -- the diagnostic of
+\code{\link{nmfkc.inference}} with \eqn{A = [Y_1; Y_2]} (see the Details of
+\code{\link{nmfkc.ar.latent.inference}}).  The inference is conditional on
+\eqn{\hat X}; when \code{TRUE} it concerns the same coefficients whichever
+admissible representative is taken.  The exclusion restriction's zeros in
+\eqn{C_1} count.  An algebraic check on the point estimate: no re-fits.}
 
 The calibrated test of the feed-forward null -- \code{LR.p.boot},
 \code{prob.select.null}, \code{C1.restriction.change.rate} and the null
