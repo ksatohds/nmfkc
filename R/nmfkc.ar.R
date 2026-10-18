@@ -819,44 +819,82 @@ nmfkc.ar.latent <- function(x) {
 
 #' @title Is the factorization unique up to a permutation? (Internal)
 #' @description
-#' Two one-sided conditions together force \eqn{T} in
-#' \eqn{(X,\Theta)\to(XT,T^{-1}\Theta)} to be a permutation:
+#' Two conditions together force \eqn{T} in
+#' \eqn{(X,\Theta)\to(XT,T^{-1}\Theta)}, with \eqn{\mathbf 1^\top T=\mathbf
+#' 1^\top} (the column scale of \eqn{X} fixed), to be a permutation:
 #' \itemize{
 #'   \item an \strong{anchor row} for every column of \eqn{X} (a variable loading
 #'     on that basis alone) makes \eqn{XT\ge0} imply \eqn{T\ge0}, because the
 #'     anchor row of \eqn{XT} is a row of \eqn{T};
-#'   \item a \strong{pure column} for every row of \eqn{\Theta} (a covariate
-#'     whose coefficient is non-zero for that basis alone) makes
-#'     \eqn{T^{-1}\Theta\ge0} imply \eqn{T^{-1}\ge0}, because that column of
-#'     \eqn{T^{-1}\Theta} is a multiple of a column of \eqn{T^{-1}}.
+#'   \item every row of \eqn{\Theta} is \strong{pinned}, one at a time.  Start
+#'     with \eqn{S=\emptyset}; row \eqn{k} joins \eqn{S} when some column of
+#'     \eqn{\Theta} is non-zero only in rows \eqn{S\cup\{k\}}, with
+#'     \eqn{\Theta_{k\cdot}>0}, and, for every \eqn{q\in S}, such a column has
+#'     \eqn{\Theta_{q\cdot}=0}.
 #' }
-#' A non-negative matrix whose inverse is also non-negative is monomial, and the
-#' column-sum constraint fixes the remaining scale, so \eqn{T} is a permutation.
+#' Why pinning works, given \eqn{T\ge0}: every column of \eqn{\Theta} lies in the
+#' cone of the columns of \eqn{T}.  A column supported on \eqn{S\cup\{k\}} can
+#' only use columns of \eqn{T} supported there; if the columns \eqn{e_q},
+#' \eqn{q\in S}, are already columns of \eqn{T}, at most one other column
+#' \eqn{t} of \eqn{T} fits (linear independence), so
+#' \eqn{t=c\,e_k+\sum_{q\in S}a_q e_q}, and a witness with
+#' \eqn{\Theta_{q\cdot}=0<\Theta_{k\cdot}} forces \eqn{a_q=0}.  The column sum
+#' gives \eqn{c=1}, so \eqn{e_k} is a column of \eqn{T}.  With \eqn{S=\emptyset}
+#' the condition is a \strong{pure column} (non-zero for row \eqn{k} alone), so a
+#' pure column for every row -- the condition this function used to require --
+#' pins every row in one step.  A row that can be pinned stays pinnable as
+#' \eqn{S} grows, so the order does not matter.
 #'
-#' Either side alone is not enough.  With \eqn{X=I_2},
+#' Neither condition alone is enough.  With \eqn{X=I_2},
 #' \eqn{\Theta=[2\ 3;\ 1\ 1]} and \eqn{T=[0.9\ 0.1;\ 0.1\ 0.9]} the anchor
-#' condition holds and \eqn{T\ge0}, but \eqn{\Theta} has no pure column,
+#' condition holds and \eqn{T\ge0}, but no row of \eqn{\Theta} can be pinned,
 #' \eqn{T^{-1}} has negative entries, and both factorizations are admissible.
+#' Pairwise zeros are not enough either: with anchors and the columns
+#' \eqn{(0,1,1),(1,0,1),(1,1,0)} every pair of rows has a separating zero, yet
+#' \eqn{T=(J-I)/2} is admissible -- and no row can be pinned.
+#'
+#' \strong{The mirror route.}  Swapping the roles of the two factors gives a
+#' second sufficient condition: a \strong{pure column} of \eqn{\Theta} for every
+#' basis (forcing \eqn{T^{-1}\ge0}) and the bases pinned one at a time through
+#' the \strong{rows of \eqn{X}} (the first basis needs an anchor row, the later
+#' ones only rows whose zeros separate them from the bases already pinned).  The
+#' proof is the same with \eqn{X=X'T^{-1}}: every row of \eqn{X} lies in the cone
+#' of the rows of \eqn{T^{-1}}, and \eqn{\mathbf 1^\top T^{-1}=\mathbf 1^\top}
+#' fixes the scale at the end.  \code{ok} is \code{TRUE} when either route
+#' passes; \code{route} says which.
 #' @param X Basis matrix (\eqn{P\times Q}).
 #' @param Theta Full coefficient matrix (\eqn{Q\times m}).
 #' @param sep.tol A column of \eqn{X} counts as anchored when the largest
-#'   row-normalised loading reaches \code{sep.tol}.
-#' @param zero.tol Entries of \eqn{\Theta} at or below this are treated as zero
-#'   when looking for pure columns.
+#'   row-normalised loading reaches \code{sep.tol}; in the mirror route an entry
+#'   of \eqn{X} is zero when it is at most \code{1 - sep.tol} times the loading
+#'   of the basis being pinned in that row.
+#' @param zero.tol Entries of \eqn{\Theta} at or below this (absolute) are
+#'   treated as zero.
+#' @param pin.tol Entries of a witness column at or below \code{pin.tol} times
+#'   its entry for the row being pinned are also treated as zero.  This ratio is
+#'   the admissible mixing the witness leaves (the rotation slack), which the
+#'   column maximum would understate when the target entry is small.
+#' @param negl.tol A column whose largest entry is below \code{negl.tol} times
+#'   the largest entry of \eqn{\Theta} is treated as all zero: its entries are
+#'   numerical noise, and their ratios must not pin anything.
 #' \strong{This is an approximate diagnostic, not a certificate.}  The argument
 #' above needs an \emph{exact} anchor row (loading exactly 1 after row
-#' normalisation) and an \emph{exact} pure column (the other entries exactly 0).
-#' Multiplicative updates give small positive leakage instead, so a fit that
-#' clears \code{sep.tol} / \code{zero.tol} is merely close to a configuration the
-#' theorem covers.  The returned margins say how close.
-#' @return List with \code{anchor} (logical, per column of \eqn{X}), \code{pure}
-#'   (logical, per row of \eqn{\Theta}), \code{ok}, and the two margins
-#'   \code{anchor.margin} (largest \eqn{1-} loading among the anchors, 0 when
-#'   exact) and \code{pure.margin} (largest leaked entry in the pure columns,
-#'   0 when exact).
+#' normalisation) and \emph{exact} zeros.  Multiplicative updates give small
+#' positive leakage instead, so a fit that clears the tolerances is merely close
+#' to a configuration the theorem covers.  The returned margins say how close.
+#' @return List with, for the first route, \code{anchor} (logical, per column
+#'   of \eqn{X}), \code{pinned} (logical, per row of \eqn{\Theta}) and
+#'   \code{pin.order}; for the mirror route, \code{pure} (a pure column per row
+#'   of \eqn{\Theta}), \code{x.pinned} (per basis) and \code{x.pin.order};
+#'   \code{ok} and \code{route}; and the margins (0 when exact):
+#'   \code{anchor.margin} (largest \eqn{1-} loading among the anchors),
+#'   \code{pin.margin} and \code{x.pin.margin} (the largest relative entry the
+#'   pinning had to treat as zero: for each pinned pair the best witness, then
+#'   the worst pair) and \code{pure.margin} (the same for the pure columns).
 #' @keywords internal
 #' @noRd
-.nmfvar.identified <- function(X, Theta, sep.tol = 0.999, zero.tol = 1e-3) {
+.nmfvar.identified <- function(X, Theta, sep.tol = 0.999, zero.tol = 1e-3,
+                               pin.tol = 1e-3, negl.tol = 1e-6) {
   Q  <- ncol(X)
   rs <- rowSums(X)
   Xn <- if (all(rs > 0)) X / rs else X
@@ -868,19 +906,91 @@ nmfkc.ar.latent <- function(x) {
   ## How far the best anchor is from an exact one (0 = exact).
   anchor.margin <- if (any(anchor)) max(1 - best[anchor]) else NA_real_
 
-  nz   <- Theta > zero.tol
-  pcol <- lapply(seq_len(nrow(Theta)), function(q)
-    which(nz[q, ] & colSums(nz) == 1L))
-  pure <- vapply(pcol, function(j) length(j) > 0L, logical(1))
-  ## Largest entry that the pure-column test treated as zero (0 = exact).
-  pure.margin <- if (any(pure)) {
-    j <- unlist(pcol)
-    off <- Theta[, j, drop = FALSE][!nz[, j, drop = FALSE]]
-    if (length(off)) max(off) else 0
-  } else NA_real_
+  ## What counts as zero.  A witness for row k bounds the admissible mixing by
+  ## the RATIO of its entries to its row-k entry (a_q / c <= M_qj / M_kj, the
+  ## rotation slack), so every zero is judged relative to that target entry, not
+  ## to the column maximum: a small entry next to a small target still leaves a
+  ## large slack.  An entry at most `zero.abs` in absolute terms (kkt.tol for
+  ## Theta, the rule used before) is zero outright, and the target itself must
+  ## exceed it.  A column (Theta) or row (X) that is noise throughout (largest
+  ## entry < negl.tol times the overall maximum) is dropped: the ratios inside it
+  ## once pinned rows spuriously.
+  ## M: rows = bases, columns = witnesses (covariates of Theta, variables of X).
+  leak.of <- function(M, j, k, rows, zero.abs) {
+    if (!length(rows)) return(0)
+    v <- M[rows, j]; v[v <= zero.abs] <- 0
+    max(v) / M[k, j]
+  }
+  pure.of <- function(M, zero.abs, tol) {      # a column non-zero for one row alone
+    Qr <- nrow(M)
+    best <- vapply(seq_len(Qr), function(k) {
+      cand <- which(M[k, ] > zero.abs)
+      if (!length(cand)) return(Inf)
+      min(vapply(cand, function(j) leak.of(M, j, k, setdiff(seq_len(Qr), k), zero.abs), 0))
+    }, 0)
+    ok <- best <= tol
+    list(ok = ok, margin = if (any(ok)) max(best[ok]) else NA_real_)
+  }
+  pin.of <- function(M, zero.abs, tol) {       # pin the rows one at a time (see above)
+    Qr <- nrow(M); S <- integer(0); leaks <- numeric(0)
+    repeat {
+      added <- FALSE
+      for (k in setdiff(seq_len(Qr), S)) {
+        out  <- setdiff(seq_len(Qr), c(S, k))
+        cand <- which(M[k, ] > zero.abs)
+        if (!length(cand)) next
+        ## the zeros a witness needs: every row outside S u {k}, plus q.  For each
+        ## pinned pair (k, q) keep the best witness; the margin is the worst pair.
+        lq <- if (!length(S))
+                min(vapply(cand, function(j) leak.of(M, j, k, out, zero.abs), 0))
+              else vapply(S, function(q)
+                min(vapply(cand, function(j) leak.of(M, j, k, c(out, q), zero.abs), 0)), 0)
+        if (all(lq <= tol)) { S <- c(S, k); leaks <- c(leaks, lq); added <- TRUE }
+      }
+      if (!added) break
+    }
+    list(ok = seq_len(Qr) %in% S, order = S,
+         margin = if (length(leaks)) max(leaks) else NA_real_)
+  }
+  Th <- Theta; Th[, apply(Th, 2, max) < negl.tol * max(Th)] <- 0
+  Mx <- t(X);  Mx[, apply(X, 1, max) < negl.tol * max(X)] <- 0     # Q x P
 
-  list(anchor = anchor, pure = pure, ok = all(anchor) && all(pure),
-       anchor.margin = anchor.margin, pure.margin = pure.margin)
+  ## Route 1: an anchor row in X for every basis (T >= 0), rows of Theta pinned.
+  pin  <- pin.of(Th, zero.tol, pin.tol)
+  ## Route 2, the mirror image: a pure covariate for every row of Theta
+  ## (T^-1 >= 0), and the bases pinned through the rows of X (an entry of X is
+  ## zero at most 1 - sep.tol times the target entry of its row, the anchor
+  ## test's tolerance).  The proof is the same with X' = X T read as
+  ## X = X' T^-1: every row of X lies in the cone of the rows of T^-1, and
+  ## 1'T^-1 = 1' fixes the scale.
+  pure <- pure.of(Th, zero.tol, pin.tol)
+  xpin <- pin.of(Mx, 0, 1 - sep.tol)
+  ok1 <- all(anchor) && all(pin$ok)
+  ok2 <- all(pure$ok) && all(xpin$ok)
+
+  list(anchor = anchor, pinned = pin$ok, pin.order = pin$order,
+       pure = pure$ok, x.pinned = xpin$ok, x.pin.order = xpin$order,
+       ok = ok1 || ok2,
+       route = c("X anchors + Theta pinned", "Theta pure + X pinned")[c(ok1, ok2)],
+       anchor.margin = anchor.margin, pin.margin = pin$margin,
+       pure.margin = pure$margin, x.pin.margin = xpin$margin)
+}
+
+
+#' @title Margins of the identification route that passed (Internal)
+#' @param id The list returned by \code{.nmfvar.identified()}.
+#' @return A short string for warnings and print methods.
+#' @keywords internal
+#' @noRd
+.nmfvar.ident.margins <- function(id) {
+  r <- id$route
+  if (length(r) && r[1L] == "Theta pure + X pinned")
+    paste0("route: ", r[1L], "; pure margin ", signif(id$pure.margin, 3),
+           ", X pin margin ", signif(id$x.pin.margin, 3))
+  else
+    paste0(if (length(r)) paste0("route: ", r[1L], "; ") else "",
+           "anchor margin ", signif(id$anchor.margin, 3),
+           ", pin margin ", signif(id$pin.margin, 3))
 }
 
 
@@ -1404,17 +1514,39 @@ plot.nmfkc.ar.latent <- function(x,
 #'     \eqn{(G_d)_{qq'}} and the composition \eqn{\bm p^\ast} need \eqn{T} to be
 #'     a permutation, and three conditions together deliver that: the column
 #'     scale fixed (\code{X.restriction = "colSums"}), an \strong{anchor row} for
-#'     every column of \eqn{X}, and a \strong{pure column} for every row of
-#'     \eqn{\Theta}.  The anchor rows force \eqn{T\ge0}, the pure columns force
-#'     \eqn{T^{-1}\ge0}, and a non-negative matrix with a non-negative inverse is
-#'     monomial.  \strong{Either one-sided condition alone is not enough}: with
+#'     every column of \eqn{X}, and every row of \eqn{\Theta} \strong{pinned}.
+#'     The anchor rows force \eqn{T\ge0}.  The rows are then pinned one at a
+#'     time: row \eqn{k} joins the pinned set \eqn{S} when some covariate
+#'     (column of \eqn{\Theta}) is non-zero only for bases in \eqn{S\cup\{k\}},
+#'     including \eqn{k}, and, for every \eqn{q\in S}, such a covariate has a
+#'     zero coefficient for \eqn{q}.  The first row pinned needs a \strong{pure
+#'     column} (a covariate that loads on that basis alone); later rows only need
+#'     zeros that separate them from the rows already pinned, possibly in
+#'     different columns.  Each pinned row makes \eqn{e_k} a column of \eqn{T},
+#'     so pinning every row makes \eqn{T} a permutation.  (This used to require a
+#'     pure column for every row, which is stronger: every fit that passed before
+#'     passes now.)  \strong{Either condition alone is not enough}: with
 #'     \eqn{X=I_2},
 #'     \eqn{\Theta=\left(\begin{smallmatrix}2&3\\1&1\end{smallmatrix}\right)} and
 #'     \eqn{T=\left(\begin{smallmatrix}0.9&0.1\\0.1&0.9\end{smallmatrix}\right)}
 #'     the basis is perfectly separable and column-normalized, yet \eqn{XT\ge0},
 #'     \eqn{T^{-1}\Theta\ge0}, \eqn{X\Theta} is unchanged, \eqn{T} is no
 #'     permutation, and \eqn{G} differs between the two representatives ---
-#'     \eqn{\Theta} has no pure column there.  \code{identified.approx} reports
+#'     no row of \eqn{\Theta} can be pinned there.  Nor are zeros that merely
+#'     separate every pair of rows enough: with anchors and the covariate columns
+#'     \eqn{(0,1,1)}, \eqn{(1,0,1)}, \eqn{(1,1,0)}, \eqn{T=(J-I)/2} is admissible.
+#'     A coefficient counts as zero when it is at most \code{kkt.tol} or at most
+#'     \code{pin.tol} times the coefficient of the same covariate for the basis
+#'     being pinned (that ratio is the mixing the covariate still allows), and a
+#'     covariate whose coefficients are all numerical noise is ignored.
+#'     \strong{The mirror route} swaps the two factors and is checked as well,
+#'     with nothing to choose: a pure covariate for every basis (forcing
+#'     \eqn{T^{-1}\ge0}), and the bases pinned one at a time through the rows of
+#'     \eqn{X} -- the first by an anchor row, the later ones by variables whose
+#'     zero loadings separate them from the bases already pinned (an entry of
+#'     \eqn{X} counts as zero when it is at most \code{1 - sep.tol} times the
+#'     loading of the basis being pinned).  Either route suffices; \code{identification$route}
+#'     names the one that passed.  \code{identified.approx} reports
 #'     the verdict and \code{identification} the two sides plus how far each is
 #'     from exact; the function warns either way, naming the side that fails or
 #'     the margins when it only passes approximately.  \strong{The thresholds
@@ -1519,9 +1651,14 @@ plot.nmfkc.ar.latent <- function(x,
 #'     \item{\code{kkt.tol}, \code{kkt.ratio.min}}{Thresholds of the strict
 #'       complementarity diagnostic (defaults \code{1e-3} and \code{5}).}
 #'     \item{\code{sep.tol}}{Row-normalised loading a column of \eqn{X} must
-#'       reach for that basis to count as anchored.  Default \code{0.999}.  The
-#'       zero threshold for the pure-column test on \eqn{\Theta} is
-#'       \code{kkt.tol}.}
+#'       reach for that basis to count as anchored.  Default \code{0.999}.}
+#'     \item{\code{pin.tol}}{A coefficient of \eqn{\Theta} at most
+#'       \code{pin.tol} times the coefficient of the same covariate for the basis
+#'       being pinned counts as zero when the rows of \eqn{\Theta} are pinned; so
+#'       does one at most \code{kkt.tol}.  Default \code{1e-3}: a mixing of the
+#'       bases of up to 0.1\% per pair is treated as pinned.  \code{identification$pin.margin},
+#'       \code{$pure.margin} and \code{$x.pin.margin} report the largest leak
+#'       that was needed.}
 #'     \item{\code{refit.args}}{Named list of extra arguments for the bootstrap
 #'       re-fits.  \code{method} and \code{X.restriction} are taken from the
 #'       original fit automatically, so the replicates use the same estimator;
@@ -1561,17 +1698,23 @@ plot.nmfkc.ar.latent <- function(x,
 #' \item{identified.approx}{Logical, an \strong{approximate diagnostic}:
 #'   \code{TRUE} for \eqn{Q=1}, for \code{X.restriction = "fixed"} (where
 #'   \eqn{X} is not estimated, so \eqn{T=I}), or when the per-column scale is
-#'   fixed (\code{"colSums"} / \code{"colSqSums"}) and the anchor-row and
-#'   pure-column tests both pass at \code{sep.tol} / \code{kkt.tol}.  It is not a
-#'   certificate --- the uniqueness argument needs \emph{exact} anchors and
-#'   \emph{exact} zeros, and multiplicative updates leak a little.  When
-#'   \code{FALSE} the entry-level summaries and \code{p.star} are descriptive;
-#'   \eqn{\rho}, the eigenvalues and \eqn{\bm\mu_y} remain inferential either
-#'   way.}
-#' \item{identification}{The two sides separately: \code{anchor} (per column of
-#'   \eqn{X}), \code{pure} (per row of \eqn{\Theta}), \code{ok}, and the margins
-#'   \code{anchor.margin} / \code{pure.margin} saying how far the fit is from an
-#'   exact configuration (0 = exact).}
+#'   fixed (\code{"colSums"} / \code{"colSqSums"}) and either every column of
+#'   \eqn{X} has an anchor row at \code{sep.tol} and every row of \eqn{\Theta} is
+#'   pinned at \code{pin.tol} / \code{kkt.tol}, or the mirror condition holds
+#'   (see Details).  It is not a certificate ---
+#'   the uniqueness argument needs \emph{exact} anchors and \emph{exact} zeros,
+#'   and multiplicative updates leak a little.  When \code{FALSE} the
+#'   entry-level summaries and \code{p.star} are descriptive; \eqn{\rho}, the
+#'   eigenvalues and \eqn{\bm\mu_y} remain inferential either way.}
+#' \item{identification}{The parts of the diagnostic: for the first route
+#'   \code{anchor} (per column of \eqn{X}), \code{pinned} (per row of
+#'   \eqn{\Theta}) and \code{pin.order}; for the mirror route \code{pure} (a pure
+#'   covariate per row of \eqn{\Theta}), \code{x.pinned} (per basis) and
+#'   \code{x.pin.order}; \code{ok} and \code{route} (the route(s) that passed);
+#'   and the margins \code{anchor.margin}, \code{pin.margin}, \code{pure.margin}
+#'   and \code{x.pin.margin} saying how far the fit is from an exact
+#'   configuration (0 = exact; the pin margins are the largest relative entry
+#'   the pinning had to treat as zero).}
 #' \item{refit.args}{The arguments the bootstrap re-fits actually used, so the
 #'   replicates can be checked against the original estimator.}
 #'   Plus the bookkeeping entries \code{wild.B}, \code{wild.B.requested},
@@ -1611,6 +1754,7 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
   kkt.tol    <- if (!is.null(ex$kkt.tol))    ex$kkt.tol    else 1e-3
   kkt.ratio.min <- if (!is.null(ex$kkt.ratio.min)) ex$kkt.ratio.min else 5
   sep.tol    <- if (!is.null(ex$sep.tol))    ex$sep.tol    else 0.999
+  pin.tol    <- if (!is.null(ex$pin.tol))    ex$pin.tol    else 1e-3
   ## The re-fits must use the SAME estimator as the original fit, otherwise the
   ## bootstrap describes a different one.  What nmfkc() records (method,
   ## X.restriction) is carried on the object and reused; anything else the
@@ -1673,10 +1817,10 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
 
   ## Can an ENTRY of G_d be given a standard error?  Only if the factorization
   ## is unique up to a permutation, which takes three things: the column scale
-  ## fixed, an anchor row for every column of X (forcing T >= 0) and a pure
-  ## column for every row of Theta (forcing T^-1 >= 0).  See
-  ## .nmfvar.identified() for why either one-sided condition alone is not
-  ## enough -- separability of X on its own admits T = [.9 .1; .1 .9].
+  ## fixed, an anchor row for every column of X (forcing T >= 0) and every row
+  ## of Theta pinned (each pinned row makes e_k a column of T).  See
+  ## .nmfvar.identified() for why either condition alone is not enough --
+  ## separability of X on its own admits T = [.9 .1; .1 .9].
   xr <- object$X.restriction
   ## Which constraints actually fix the PER-COLUMN scale of X?  Only the two
   ## that normalise each column: "colSums" and "colSqSums".  "totalSum"
@@ -1685,12 +1829,13 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
   ## estimated at all, so T = I and there is no rotational freedom to certify.
   scale.fixed <- isTRUE(xr %in% c("colSums", "colSqSums"))
   X.held      <- isTRUE(xr == "fixed")
-  ident <- .nmfvar.identified(X, Theta, sep.tol = sep.tol, zero.tol = kkt.tol)
+  ident <- .nmfvar.identified(X, Theta, sep.tol = sep.tol, zero.tol = kkt.tol,
+                              pin.tol = pin.tol)
   ## APPROXIMATE, not a theorem.  The uniqueness argument needs an EXACT anchor
-  ## row (loading exactly 1 after row normalisation) and an EXACT pure column
-  ## (the other entries exactly 0).  A fit that merely comes within sep.tol and
-  ## kkt.tol is close to such a configuration but does not satisfy its
-  ## hypotheses, so this is evidence about the fit, not a guarantee.
+  ## row (loading exactly 1 after row normalisation) and EXACT zeros.  A fit that
+  ## merely comes within sep.tol and pin.tol / kkt.tol is close to such a
+  ## configuration but does not satisfy its hypotheses, so this is evidence
+  ## about the fit, not a guarantee.
   identified.approx <- (Q == 1L) || X.held || (scale.fixed && ident$ok)
   if (Q > 1L && !X.held && !identified.approx) {
     why <- c(if (!scale.fixed) paste0("X.restriction = \"", xr,
@@ -1698,18 +1843,25 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
              if (!all(ident$anchor)) paste0("basis ",
                paste(which(!ident$anchor), collapse = ", "),
                " has no anchor row in X (so T >= 0 is not forced)"),
-             if (!all(ident$pure)) paste0("basis ",
-               paste(which(!ident$pure), collapse = ", "),
-               " has no pure column in Theta (so T^-1 >= 0 is not forced)"))
+             if (!all(ident$pinned)) paste0("row ",
+               paste(which(!ident$pinned), collapse = ", "),
+               " of Theta cannot be pinned (no covariate separates it from ",
+               "the other bases)"),
+             ## the mirror route, only when the scale is fixed (it needs that too)
+             if (scale.fixed) paste0("nor does the mirror condition hold (",
+               if (!all(ident$pure)) paste0("row ",
+                 paste(which(!ident$pure), collapse = ", "),
+                 " of Theta has no pure covariate") else
+                 paste0("basis ", paste(which(!ident$x.pinned), collapse = ", "),
+                        " cannot be pinned through the rows of X"), ")"))
     warning("The factorization is not even approximately unique up to a ",
             "permutation: ", paste(why, collapse = "; "), ". The entries of ",
             "G_d and p.star are therefore DESCRIPTIVE; rho, the eigenvalues ",
             "and mu.y are invariant under the whole family and remain the ",
             "inferential targets.")
   } else if (Q > 1L && !X.held) {
-    warning("The anchor-row / pure-column diagnostic passes only APPROXIMATELY ",
-            "(anchor margin ", signif(ident$anchor.margin, 3),
-            ", pure margin ", signif(ident$pure.margin, 3), "). The uniqueness ",
+    warning("The identification diagnostic passes only APPROXIMATELY (",
+            .nmfvar.ident.margins(ident), "). The uniqueness ",
             "argument needs exact anchors and exact zeros, so treat the ",
             "entry-level summaries as well-behaved but not certified.")
   }
@@ -1949,13 +2101,12 @@ print.nmfkc.ar.latent.inference <- function(x, digits = 4, ...) {
   cat("\nLatent transition matrices  G_d = Theta_d %*% X",
       "  (row = effect at t, column = cause at t-d)\n")
   if (!isTRUE(x$identified.approx))
-    cat("  NOTE: the anchor-row / pure-column diagnostic FAILS, so these\n",
+    cat("  NOTE: the identification diagnostic FAILS, so these\n",
         "       entries (and p.star) are DESCRIPTIVE. rho, the eigenvalues\n",
         "       and mu.y are invariant and inferential.\n", sep = "")
   else if (x$dims[["Q"]] > 1L)
-    cat("  NOTE: the diagnostic passes only APPROXIMATELY (anchor margin ",
-        signif(x$identification$anchor.margin, 3), ", pure margin ",
-        signif(x$identification$pure.margin, 3), ");\n",
+    cat("  NOTE: the diagnostic passes only APPROXIMATELY (",
+        .nmfvar.ident.margins(x$identification), ");\n",
         "       the uniqueness argument needs exact anchors and exact zeros.\n",
         sep = "")
   for (nm in names(x$G)) {

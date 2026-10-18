@@ -34,9 +34,14 @@ tolerance biases anything that is compared with zero.}
 \item{\code{kkt.tol}, \code{kkt.ratio.min}}{Thresholds of the strict
 complementarity diagnostic (defaults \code{1e-3} and \code{5}).}
 \item{\code{sep.tol}}{Row-normalised loading a column of \eqn{X} must
-reach for that basis to count as anchored.  Default \code{0.999}.  The
-zero threshold for the pure-column test on \eqn{\Theta} is
-\code{kkt.tol}.}
+reach for that basis to count as anchored.  Default \code{0.999}.}
+\item{\code{pin.tol}}{A coefficient of \eqn{\Theta} at most
+\code{pin.tol} times the coefficient of the same covariate for the basis
+being pinned counts as zero when the rows of \eqn{\Theta} are pinned; so
+does one at most \code{kkt.tol}.  Default \code{1e-3}: a mixing of the
+bases of up to 0.1\\% per pair is treated as pinned.  \code{identification$pin.margin},
+\code{$pure.margin} and \code{$x.pin.margin} report the largest leak
+that was needed.}
 \item{\code{refit.args}}{Named list of extra arguments for the bootstrap
 re-fits.  \code{method} and \code{X.restriction} are taken from the
 original fit automatically, so the replicates use the same estimator;
@@ -78,17 +83,23 @@ and \code{delta.prim}.}
 \item{identified.approx}{Logical, an \strong{approximate diagnostic}:
 \code{TRUE} for \eqn{Q=1}, for \code{X.restriction = "fixed"} (where
 \eqn{X} is not estimated, so \eqn{T=I}), or when the per-column scale is
-fixed (\code{"colSums"} / \code{"colSqSums"}) and the anchor-row and
-pure-column tests both pass at \code{sep.tol} / \code{kkt.tol}.  It is not a
-certificate --- the uniqueness argument needs \emph{exact} anchors and
-\emph{exact} zeros, and multiplicative updates leak a little.  When
-\code{FALSE} the entry-level summaries and \code{p.star} are descriptive;
-\eqn{\rho}, the eigenvalues and \eqn{\bm\mu_y} remain inferential either
-way.}
-\item{identification}{The two sides separately: \code{anchor} (per column of
-\eqn{X}), \code{pure} (per row of \eqn{\Theta}), \code{ok}, and the margins
-\code{anchor.margin} / \code{pure.margin} saying how far the fit is from an
-exact configuration (0 = exact).}
+fixed (\code{"colSums"} / \code{"colSqSums"}) and either every column of
+\eqn{X} has an anchor row at \code{sep.tol} and every row of \eqn{\Theta} is
+pinned at \code{pin.tol} / \code{kkt.tol}, or the mirror condition holds
+(see Details).  It is not a certificate ---
+the uniqueness argument needs \emph{exact} anchors and \emph{exact} zeros,
+and multiplicative updates leak a little.  When \code{FALSE} the
+entry-level summaries and \code{p.star} are descriptive; \eqn{\rho}, the
+eigenvalues and \eqn{\bm\mu_y} remain inferential either way.}
+\item{identification}{The parts of the diagnostic: for the first route
+\code{anchor} (per column of \eqn{X}), \code{pinned} (per row of
+\eqn{\Theta}) and \code{pin.order}; for the mirror route \code{pure} (a pure
+covariate per row of \eqn{\Theta}), \code{x.pinned} (per basis) and
+\code{x.pin.order}; \code{ok} and \code{route} (the route(s) that passed);
+and the margins \code{anchor.margin}, \code{pin.margin}, \code{pure.margin}
+and \code{x.pin.margin} saying how far the fit is from an exact
+configuration (0 = exact; the pin margins are the largest relative entry
+the pinning had to treat as zero).}
 \item{refit.args}{The arguments the bootstrap re-fits actually used, so the
 replicates can be checked against the original estimator.}
 Plus the bookkeeping entries \code{wild.B}, \code{wild.B.requested},
@@ -121,17 +132,39 @@ replicates need no alignment and their intervals mean what they say.
 \eqn{(G_d)_{qq'}} and the composition \eqn{\bm p^\ast} need \eqn{T} to be
 a permutation, and three conditions together deliver that: the column
 scale fixed (\code{X.restriction = "colSums"}), an \strong{anchor row} for
-every column of \eqn{X}, and a \strong{pure column} for every row of
-\eqn{\Theta}.  The anchor rows force \eqn{T\ge0}, the pure columns force
-\eqn{T^{-1}\ge0}, and a non-negative matrix with a non-negative inverse is
-monomial.  \strong{Either one-sided condition alone is not enough}: with
+every column of \eqn{X}, and every row of \eqn{\Theta} \strong{pinned}.
+The anchor rows force \eqn{T\ge0}.  The rows are then pinned one at a
+time: row \eqn{k} joins the pinned set \eqn{S} when some covariate
+(column of \eqn{\Theta}) is non-zero only for bases in \eqn{S\cup\{k\}},
+including \eqn{k}, and, for every \eqn{q\in S}, such a covariate has a
+zero coefficient for \eqn{q}.  The first row pinned needs a \strong{pure
+column} (a covariate that loads on that basis alone); later rows only need
+zeros that separate them from the rows already pinned, possibly in
+different columns.  Each pinned row makes \eqn{e_k} a column of \eqn{T},
+so pinning every row makes \eqn{T} a permutation.  (This used to require a
+pure column for every row, which is stronger: every fit that passed before
+passes now.)  \strong{Either condition alone is not enough}: with
 \eqn{X=I_2},
 \eqn{\Theta=\left(\begin{smallmatrix}2&3\\1&1\end{smallmatrix}\right)} and
 \eqn{T=\left(\begin{smallmatrix}0.9&0.1\\0.1&0.9\end{smallmatrix}\right)}
 the basis is perfectly separable and column-normalized, yet \eqn{XT\ge0},
 \eqn{T^{-1}\Theta\ge0}, \eqn{X\Theta} is unchanged, \eqn{T} is no
 permutation, and \eqn{G} differs between the two representatives ---
-\eqn{\Theta} has no pure column there.  \code{identified.approx} reports
+no row of \eqn{\Theta} can be pinned there.  Nor are zeros that merely
+separate every pair of rows enough: with anchors and the covariate columns
+\eqn{(0,1,1)}, \eqn{(1,0,1)}, \eqn{(1,1,0)}, \eqn{T=(J-I)/2} is admissible.
+A coefficient counts as zero when it is at most \code{kkt.tol} or at most
+\code{pin.tol} times the coefficient of the same covariate for the basis
+being pinned (that ratio is the mixing the covariate still allows), and a
+covariate whose coefficients are all numerical noise is ignored.
+\strong{The mirror route} swaps the two factors and is checked as well,
+with nothing to choose: a pure covariate for every basis (forcing
+\eqn{T^{-1}\ge0}), and the bases pinned one at a time through the rows of
+\eqn{X} -- the first by an anchor row, the later ones by variables whose
+zero loadings separate them from the bases already pinned (an entry of
+\eqn{X} counts as zero when it is at most \code{1 - sep.tol} times the
+loading of the basis being pinned).  Either route suffices; \code{identification$route}
+names the one that passed.  \code{identified.approx} reports
 the verdict and \code{identification} the two sides plus how far each is
 from exact; the function warns either way, naming the side that fails or
 the margins when it only passes approximately.  \strong{The thresholds

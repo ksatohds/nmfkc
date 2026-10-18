@@ -1,5 +1,47 @@
 # nmfkc (development version)
 
+## `nmfkc.ar.latent.inference()`: a weaker identification check, with two routes
+
+`identified.approx` says whether the entries of the latent transition
+matrices `G_d` and the composition `p.star` can be inferred, i.e. whether the
+factorization is unique up to a permutation.  It used to require an anchor
+row of X for every basis **and a pure covariate for every basis** (a column
+of Theta that is non-zero for that basis alone).  The second half was more
+than the argument needs, and fits whose Theta is nearly one-basis-per-covariate
+were reported as not identified.  Two sufficient conditions are now checked,
+with nothing for the caller to choose:
+
+* **X anchors + Theta pinned.**  The rows of Theta are pinned one at a time:
+  the first by a pure covariate, each later one by covariates that are
+  non-zero only for bases already pinned and itself, and whose zero
+  coefficients separate it from each of those bases -- possibly in different
+  covariates.
+* **The mirror route.**  A pure covariate for every basis, and the bases
+  pinned one at a time through the rows of X (the first by an anchor row).
+
+Every fit that passed the old check passes the new one.  The Details of
+`?nmfkc.ar.latent.inference` give the argument and two counterexamples:
+separability of X alone is not enough, and neither are zeros that merely
+separate every pair of bases (`T = (J - I)/2` is then admissible).
+
+A coefficient counts as zero when it is at most `kkt.tol` or at most the new
+`pin.tol` (default `1e-3`) times the coefficient of the same covariate for
+the basis being pinned -- that ratio is the mixing of bases the covariate
+still allows.  A covariate whose coefficients are all numerical noise is
+ignored; ratios inside such a column once looked like a pin.  For X the
+tolerance is `1 - sep.tol` times the loading of the basis being pinned.
+
+`identification` gains `pinned`, `pin.order`, `x.pinned`, `x.pin.order`,
+`route` and the margins `pin.margin` and `x.pin.margin`; `pure` and
+`pure.margin` use the new zero rule (the margin is now a ratio, not an
+absolute coefficient).  On the US 49-industry monthly realized volatility
+(Q = 3, D = 1) the check said FALSE and now says TRUE, by the mirror route;
+a direct search over all admissible `T` on configurations of this kind found
+only permutations.
+
+Nothing else changes: estimates, intervals and the other components are
+identical (8 calls checked).
+
 ## A block wild bootstrap for time points: `wild.unit = "block"`
 
 `nmfkc.ar.latent.inference()` and `nmfkc.inference(method = "refit")` accept
