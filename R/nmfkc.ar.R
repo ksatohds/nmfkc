@@ -1451,8 +1451,9 @@ plot.nmfkc.ar.latent <- function(x,
 #' \strong{Bootstrap validity at the boundary.}  A naive nonparametric bootstrap
 #' is inconsistent for a parameter on the boundary.  The scheme used here
 #' resamples the residuals and re-imposes the non-negativity constraint in every
-#' re-fit, which is the practical remedy; a moving-block scheme would in
-#' addition preserve the serial dependence that the fixed design discards.
+#' re-fit, which is the practical remedy.  \code{wild.unit = "block"} in
+#' addition keeps the serial dependence of the residuals within a block; the
+#' lagged design itself stays fixed (see below).
 #'
 #' \strong{Bootstrap p-values invert the centred distribution.}  Every replicate
 #' of a non-negative coefficient is \eqn{\ge 0}, so comparing the raw replicates
@@ -1464,7 +1465,12 @@ plot.nmfkc.ar.latent <- function(x,
 #' \eqn{E=Y-\hat Y}, each replicate forms \eqn{Y^\ast=\hat Y+E\odot W} and
 #' re-fits \code{\link{nmfkc}} at the same rank.  \eqn{W} carries one multiplier
 #' per time point (\code{wild.unit = "column"}, the default, which preserves the
-#' contemporaneous covariance between series) or one per cell.  Negative entries
+#' contemporaneous covariance between series), one per block of
+#' \code{wild.block} consecutive time points (\code{wild.unit = "block"}, a block
+#' wild bootstrap that in addition keeps the serial dependence of the residuals
+#' within a block; the block grid starts at a random offset), or one per cell.
+#' With i.i.d. multipliers over time the intervals ignore residual
+#' autocorrelation and may be too narrow when it is present.  Negative entries
 #' of \eqn{Y^\ast} are truncated at 0 to keep the response non-negative; the
 #' truncation rate is reported, and a large one is a warning sign for the whole
 #' procedure.
@@ -1484,7 +1490,11 @@ plot.nmfkc.ar.latent <- function(x,
 #'     \item{\code{wild.dist}}{Multiplier distribution, \code{"rademacher"}
 #'       (default) or \code{"exp"} (mean-centred).}
 #'     \item{\code{wild.unit}}{\code{"column"} (default, one multiplier per time
-#'       point) or \code{"element"} (one per cell).}
+#'       point), \code{"block"} (one per block of \code{wild.block} consecutive
+#'       time points) or \code{"element"} (one per cell).}
+#'     \item{\code{wild.block}}{Block length for \code{wild.unit = "block"}.
+#'       Default \code{max(1, round(n^(1/3)))} with \code{n} the number of time
+#'       points.  \code{wild.block = 1} reproduces \code{"column"} exactly.}
 #'     \item{\code{wild.level}}{Confidence level.  Default 0.95.}
 #'     \item{\code{wild.seed}}{Seed for the bootstrap.  Default 123.}
 #'     \item{\code{fit}}{The fitted \code{"nmfkc"} object.  Only needed when
@@ -1554,7 +1564,8 @@ plot.nmfkc.ar.latent <- function(x,
 #' \item{refit.args}{The arguments the bootstrap re-fits actually used, so the
 #'   replicates can be checked against the original estimator.}
 #'   Plus the bookkeeping entries \code{wild.B}, \code{wild.B.requested},
-#'   \code{n.fail}, \code{truncate.rate}, \code{wild.unit}, \code{wild.dist},
+#'   \code{n.fail}, \code{truncate.rate}, \code{wild.unit}, \code{wild.block}
+#'   (\code{NULL} unless \code{wild.unit = "block"}), \code{wild.dist},
 #'   \code{wild.level}, \code{dims}.
 #' @seealso \code{\link{nmfkc.ar.latent}}, \code{\link{nmfkc.ar.stationarity}},
 #'   \code{\link{nmfkc.ar}}, \code{\link{nmfkc.inference}}
@@ -1581,7 +1592,7 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
   wild.dist  <- if (!is.null(ex$wild.dist))
                   match.arg(ex$wild.dist, c("rademacher", "exp")) else "rademacher"
   wild.unit  <- if (!is.null(ex$wild.unit))
-                  match.arg(ex$wild.unit, c("column", "element")) else "column"
+                  match.arg(ex$wild.unit, c("column", "element", "block")) else "column"
   wild.level <- if (!is.null(ex$wild.level)) ex$wild.level else 0.95
   wild.seed  <- if (!is.null(ex$wild.seed))  ex$wild.seed  else 123
   truncate   <- if (!is.null(ex$truncate))   ex$truncate   else TRUE
@@ -1765,8 +1776,18 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
   ## them, so that the replicate datasets do not depend on `cores`.  What is
   ## left per replicate is a re-fit that is deterministic given its data (nmfkc
   ## seeds itself), which is what makes the parallel run result-identical.
+  ## wild.unit = "block": one multiplier per block of wild.block consecutive time
+  ## points (shared over the series), so residuals at nearby time points keep
+  ## their serial dependence.  "column" and "element" draw exactly as before.
+  wild.block <- if (wild.unit == "block") {
+    if (!is.null(ex$wild.block)) ex$wild.block else .wild.block.default(n)
+  } else NULL
   m  <- if (wild.unit == "column") n else P * n
   Ys.all <- base::lapply(base::seq_len(wild.B), function(b) {
+    if (wild.unit == "block") {
+      Ws <- base::matrix(.wild.block.multipliers(n, wild.block, wild.dist), P, n, byrow = TRUE)
+      return(Yhat + E * Ws)
+    }
     w <- base::switch(wild.dist,
                       rademacher = base::sample(c(-1, 1), m, TRUE),
                       exp        = stats::rexp(m) - 1)
@@ -1900,7 +1921,8 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
     kkt = kkt,
     wild.B = sum(ok), wild.B.requested = wild.B, n.fail = nfail,
     truncate.rate = trunc / wild.B,
-    wild.unit = wild.unit, wild.dist = wild.dist, wild.level = wild.level,
+    wild.unit = wild.unit, wild.block = wild.block,
+    wild.dist = wild.dist, wild.level = wild.level,
     dims = object$dims),
     class = "nmfkc.ar.latent.inference")
 }
@@ -1914,8 +1936,10 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
 #' @export
 print.nmfkc.ar.latent.inference <- function(x, digits = 4, ...) {
   cat("Bootstrap inference for the latent VAR\n")
-  cat(sprintf("  B = %d (%d failed), unit = \"%s\", dist = \"%s\", truncation rate = %.2f%%\n",
-              x$wild.B, x$n.fail, x$wild.unit, x$wild.dist, 100 * x$truncate.rate))
+  cat(sprintf("  B = %d (%d failed), unit = \"%s\"%s, dist = \"%s\", truncation rate = %.2f%%\n",
+              x$wild.B, x$n.fail, x$wild.unit,
+              if (identical(x$wild.unit, "block")) sprintf(" (length %d)", as.integer(x$wild.block)) else "",
+              x$wild.dist, 100 * x$truncate.rate))
   cat("\nLatent transition matrices  G_d = Theta_d %*% X",
       "  (row = effect at t, column = cause at t-d)\n")
   if (!isTRUE(x$identified.approx))

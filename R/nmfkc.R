@@ -5101,8 +5101,16 @@ nmfkc.residual.plot <- function(Y, result,
 #'       Default \code{"exp"} for \code{method="onestep"} (backward
 #'       compatible), \code{"rademacher"} for \code{"refit"}.}
 #'     \item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
-#'       (default, i.i.d. multiplier per matrix cell) or \code{"column"}
-#'       (one multiplier per sample column, shared over rows).}
+#'       (default, i.i.d. multiplier per matrix cell), \code{"column"}
+#'       (one multiplier per sample column, shared over rows) or
+#'       \code{"block"} (one multiplier per block of \code{wild.block}
+#'       consecutive columns, shared over rows).  Use \code{"block"} when the
+#'       columns are time points with serially dependent residuals, e.g. the
+#'       design of \code{\link{nmfkc.ar}}: residuals at nearby time points then
+#'       share a multiplier.  The block grid starts at a random offset.}
+#'     \item{\code{wild.block}}{Block length for \code{wild.unit = "block"}.
+#'       Default \code{max(1, round(N^(1/3)))}.  \code{wild.block = 1}
+#'       reproduces \code{wild.unit = "column"} exactly.}
 #'     \item{\code{refit.epsilon}, \code{refit.maxit}}{For
 #'       \code{method="refit"}: convergence tolerance and iteration cap of the
 #'       re-fits, defaulting to \code{1e-8} and \code{100000}.  These are
@@ -5177,7 +5185,8 @@ nmfkc.inference <- function(object, Y, A = NULL,
                  base::match.arg(extra_args$wild.dist, c("rademacher", "mammen", "exp"))
                else if (method == "onestep") "exp" else "rademacher"
   wild.unit <- if (!is.null(extra_args$wild.unit))
-                 base::match.arg(extra_args$wild.unit, c("element", "column")) else "element"
+                 base::match.arg(extra_args$wild.unit, c("element", "column", "block")) else "element"
+  wild.block <- if (!is.null(extra_args$wild.block)) extra_args$wild.block else NULL
   ## Convergence control for the method = "refit" bootstrap.  This must be much
   ## tighter than nmfkc()'s own default (1e-4): under multiplicative updates a
   ## coefficient heading for the non-negativity boundary approaches 0 slowly, so
@@ -5282,7 +5291,9 @@ nmfkc.inference <- function(object, Y, A = NULL,
                                       detail = "fast", verbose = FALSE)$C
       C_boot <- .boot.refit(XB, R_C, refit.fun, wild.B,
                             dist = wild.dist, seed = wild.seed,
-                            unit = wild.unit, clipY = TRUE)
+                            unit = wild.unit,
+                            block = if (is.null(wild.block)) .wild.block.default(ncol(XB)) else wild.block,
+                            clipY = TRUE)
     }
     bs <- .boot.summarize(C_boot, est = as.vector(C_mat),
                           level = wild.level, p.side = C.p.side)

@@ -35,8 +35,16 @@ primary and the p-value is a two-sided bootstrap p-value.}
 Default \code{"exp"} for \code{method="onestep"} (backward
 compatible), \code{"rademacher"} for \code{"refit"}.}
 \item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
-(default, i.i.d. multiplier per matrix cell) or \code{"column"}
-(one multiplier per sample column, shared over rows).}
+(default, i.i.d. multiplier per matrix cell), \code{"column"}
+(one multiplier per sample column, shared over rows) or
+\code{"block"} (one multiplier per block of \code{wild.block}
+consecutive columns, shared over rows).  Use \code{"block"} when the
+columns are time points with serially dependent residuals, e.g. the
+design of \code{\link{nmfkc.ar}}: residuals at nearby time points then
+share a multiplier.  The block grid starts at a random offset.}
+\item{\code{wild.block}}{Block length for \code{wild.unit = "block"}.
+Default \code{max(1, round(N^(1/3)))}.  \code{wild.block = 1}
+reproduces \code{wild.unit = "column"} exactly.}
 \item{\code{refit.epsilon}, \code{refit.maxit}}{For
 \code{method="refit"}: convergence tolerance and iteration cap of the
 re-fits, defaulting to \code{1e-8} and \code{100000}.  These are
