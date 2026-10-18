@@ -1,5 +1,23 @@
 # nmfkc (development version)
 
+## `nmfkc.inference()` reports whether C is identified
+
+The coefficients and intervals of `nmfkc.inference()` are conditional on the
+estimated basis X.  It now also returns `identified.approx` and
+`identification`, the diagnostic of `nmfkc.ar.latent.inference()` (below)
+applied to X and C: when `identified.approx` is `TRUE` the factorization is
+unique up to a permutation of the bases, so the intervals concern the same C
+whichever admissible representative `(X T, T^-1 C)` is taken; when `FALSE`
+the entries of C describe this representative.  It also requires A of full
+row rank (`identification$A.full.rank`), since otherwise C is not unique even
+given X.  `summary()` prints one line about it.  `sep.tol` and `pin.tol` can
+be passed through `...`; coefficients at or below `boundary.tol` count as
+zero.
+
+It is an algebraic check on the point estimate -- no re-fits, nothing random
+-- and takes about a millisecond for Q = 3 with 50 covariates.  Nothing else
+changes: the estimates, intervals and other components are identical.
+
 ## `nmfkc.ar.latent.inference()`: a weaker identification check, with two routes
 
 `identified.approx` says whether the entries of the latent transition

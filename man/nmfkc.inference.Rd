@@ -66,6 +66,11 @@ the intervals still contain the estimates.}
 \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
 \item{\code{cov.ridge}}{Ridge stabilization for information matrix inversion. Default is 1e-8.}
 \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+\item{\code{sep.tol}, \code{pin.tol}}{Tolerances of the identification
+diagnostic (defaults \code{0.999} and \code{1e-3}); see
+\code{identified.approx} below and the Details of
+\code{\link{nmfkc.ar.latent.inference}}.  Coefficients at or below
+\code{boundary.tol} also count as zero there.}
 }}
 }
 \value{
@@ -88,6 +93,23 @@ near \eqn{1/2} at the boundary.}
 \item{C.p.side}{P-value type used.}
 \item{wild.unit}{Multiplier unit of the \code{method = "refit"} bootstrap
 (\code{"element"}, \code{"column"} or \code{"block"}); \code{NA} otherwise.}
+\item{identified.approx}{Logical, an approximate diagnostic of whether the
+factorization is unique up to a permutation of the bases.  The intervals
+are conditional on \eqn{\hat X}; when this is \code{TRUE} they concern the
+same \eqn{C} whichever admissible representative
+\eqn{(XT,\,T^{-1}C)} is taken, and when \code{FALSE} the entries of
+\eqn{C} describe this representative.  \code{TRUE} needs \eqn{A} of full
+row rank and either \eqn{Q=1}, \code{X.restriction = "fixed"}, or a fixed
+per-column scale (\code{"colSums"} / \code{"colSqSums"}) with one of two
+zero patterns: an anchor row of \eqn{X} for every basis and the rows of
+\eqn{C} pinned one at a time, or the mirror condition.  The argument is in
+the Details of \code{\link{nmfkc.ar.latent.inference}}.  An algebraic
+check on the point estimate: no re-fits.}
+\item{identification}{Its parts: \code{anchor}, \code{pinned},
+\code{pin.order}, \code{pure}, \code{x.pinned}, \code{x.pin.order},
+\code{ok}, \code{route}, \code{A.full.rank} and the margins
+\code{anchor.margin}, \code{pin.margin}, \code{pure.margin},
+\code{x.pin.margin} (0 = exact).}
 }
 \description{
 \code{nmfkc.inference} performs statistical inference on the parameter matrix

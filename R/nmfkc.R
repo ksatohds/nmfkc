@@ -5132,6 +5132,11 @@ nmfkc.residual.plot <- function(Y, result,
 #'     \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
 #'     \item{\code{cov.ridge}}{Ridge stabilization for information matrix inversion. Default is 1e-8.}
 #'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+#'     \item{\code{sep.tol}, \code{pin.tol}}{Tolerances of the identification
+#'       diagnostic (defaults \code{0.999} and \code{1e-3}); see
+#'       \code{identified.approx} below and the Details of
+#'       \code{\link{nmfkc.ar.latent.inference}}.  Coefficients at or below
+#'       \code{boundary.tol} also count as zero there.}
 #'   }
 #'
 #' @return An object of class \code{c("nmfkc.inference", "nmfkc")}, inheriting all
@@ -5153,6 +5158,23 @@ nmfkc.residual.plot <- function(Y, result,
 #' \item{C.p.side}{P-value type used.}
 #' \item{wild.unit}{Multiplier unit of the \code{method = "refit"} bootstrap
 #'   (\code{"element"}, \code{"column"} or \code{"block"}); \code{NA} otherwise.}
+#' \item{identified.approx}{Logical, an approximate diagnostic of whether the
+#'   factorization is unique up to a permutation of the bases.  The intervals
+#'   are conditional on \eqn{\hat X}; when this is \code{TRUE} they concern the
+#'   same \eqn{C} whichever admissible representative
+#'   \eqn{(XT,\,T^{-1}C)} is taken, and when \code{FALSE} the entries of
+#'   \eqn{C} describe this representative.  \code{TRUE} needs \eqn{A} of full
+#'   row rank and either \eqn{Q=1}, \code{X.restriction = "fixed"}, or a fixed
+#'   per-column scale (\code{"colSums"} / \code{"colSqSums"}) with one of two
+#'   zero patterns: an anchor row of \eqn{X} for every basis and the rows of
+#'   \eqn{C} pinned one at a time, or the mirror condition.  The argument is in
+#'   the Details of \code{\link{nmfkc.ar.latent.inference}}.  An algebraic
+#'   check on the point estimate: no re-fits.}
+#' \item{identification}{Its parts: \code{anchor}, \code{pinned},
+#'   \code{pin.order}, \code{pure}, \code{x.pinned}, \code{x.pin.order},
+#'   \code{ok}, \code{route}, \code{A.full.rank} and the margins
+#'   \code{anchor.margin}, \code{pin.margin}, \code{pure.margin},
+#'   \code{x.pin.margin} (0 = exact).}
 #'
 #' @seealso \code{\link{nmfkc}}, \code{\link{summary.nmfkc.inference}}
 #' @references
@@ -5204,6 +5226,9 @@ nmfkc.inference <- function(object, Y, A = NULL,
   ## A coefficient at or below this counts as sitting on the boundary, which is
   ## flagged in the coefficients table (see on.boundary there).
   boundary.tol  <- if (!is.null(extra_args$boundary.tol))  extra_args$boundary.tol  else 1e-3
+  ## Tolerances of the identification diagnostic (as in nmfkc.ar.latent.inference).
+  sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
+  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 1e-3
 
   X <- object$X   # P x Q
   C_mat <- object$C   # Q x K (or Q x N if A is NULL)
@@ -5380,6 +5405,20 @@ nmfkc.inference <- function(object, Y, A = NULL,
   ## Raw QK x B bootstrap draws of vec(C): lets callers form any functional
   ## (e.g. an identifiable contrast / fitted curve) and its percentile band.
   object$C.boot.draws <- C_boot
+  ## Is the factorization unique up to a permutation of the bases?  The
+  ## intervals above are conditional on X; when this passes they concern the
+  ## same C whichever admissible representative (X T, T^-1 C) is taken.  It
+  ## also needs A of full row rank (else C is not unique even given X) and a
+  ## fixed per-column scale of X.  An algebraic check on the point estimate
+  ## (see ?nmfkc.ar.latent.inference): no re-fits, nothing random.
+  xr <- object$X.restriction
+  ident <- .nmfvar.identified(X, C_mat, sep.tol = sep.tol, zero.tol = boundary.tol,
+                              pin.tol = pin.tol)
+  ident$A.full.rank <- base::qr(A)$rank == K
+  object$identified.approx <- ident$A.full.rank &&
+    (Q == 1L || isTRUE(xr == "fixed") ||
+     (isTRUE(xr %in% c("colSums", "colSqSums")) && ident$ok))
+  object$identification <- ident
   class(object) <- c("nmfkc.inference", "nmf.inference", "nmfkc", "nmf")
   return(object)
 }
@@ -5400,6 +5439,9 @@ summary.nmfkc.inference <- function(object, ...) {
   ans$sigma2.used  <- object$sigma2.used
   ans$coefficients <- object$coefficients
   ans$C.p.side     <- object$C.p.side
+  ans$identified.approx <- object$identified.approx
+  ans$identification    <- object$identification
+  ans$rank.Q            <- ncol(object$X)
   class(ans) <- "summary.nmfkc.inference"
   return(ans)
 }
@@ -5428,6 +5470,15 @@ print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits"
   # Print inference section
   cat("Inference (conditional on X):\n")
   cat("  sigma^2:  ", format(x$sigma2.used, digits = digits), "\n")
+  ## Objects saved before the diagnostic existed carry no identified.approx.
+  if (!is.null(x$identified.approx) && isTRUE(x$rank.Q > 1L)) {
+    if (isTRUE(x$identified.approx))
+      cat("  Identification: unique up to a permutation (approximate; ",
+          .nmfvar.ident.margins(x$identification), ")\n", sep = "")
+    else
+      cat("  Identification: not shown -- C describes this representative of X;\n",
+          "                  another (X T, T^-1 C) may fit equally well\n", sep = "")
+  }
 
   # Coefficients table (formatted like lm summary)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {

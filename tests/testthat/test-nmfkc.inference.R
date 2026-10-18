@@ -152,3 +152,47 @@ test_that("the broken-stick index measures variance share, not usefulness", {
   ## undefined at Q = 1, where the broken-stick expectation equals Q
   expect_true(is.na(eri(er(matrix(runif(N), 1, N)), 1)))
 })
+
+## ---- identification diagnostic (2026-10-18) ---------------------------------
+## The same algebraic check as nmfkc.ar.latent.inference(): is (X, C) unique up
+## to a permutation?  No re-fits; the estimates and intervals are untouched.
+
+id_fixture <- function() {
+  set.seed(5)
+  X <- rbind(diag(3), matrix(runif(12), 4, 3)); X <- sweep(X, 2, colSums(X), "/")
+  C <- cbind(c(1, 0, 0), c(0, 1, 0), c(0, 0.5, 1), c(0.7, 0, 1), c(0.3, 0.2, 0.4))
+  A <- matrix(runif(5 * 30) + 0.5, 5, 30)
+  list(X = X, C = C, A = A, Y = X %*% C %*% A + matrix(runif(7 * 30, 0, 0.01), 7, 30))
+}
+
+test_that("nmfkc.inference reports identified.approx from the point estimate", {
+  skip_unless_full()
+  d <- id_fixture()
+  obj <- structure(list(X = d$X, C = d$C, X.restriction = "colSums"), class = c("nmfkc", "nmf"))
+  inf <- nmfkc.inference(obj, d$Y, d$A, wild.bootstrap = FALSE)
+  expect_true(inf$identified.approx)
+  expect_identical(inf$identification$pure, c(TRUE, TRUE, FALSE))   # no pure column for row 3
+  expect_true(all(inf$identification$pinned))                       # but pinned
+  expect_true(inf$identification$A.full.rank)
+  ## a covariate matrix without full row rank leaves C non-unique even given X
+  A2 <- rbind(d$A, d$A[1, ])
+  obj2 <- structure(list(X = d$X, C = cbind(d$C, 0), X.restriction = "colSums"),
+                    class = c("nmfkc", "nmf"))
+  inf2 <- suppressWarnings(nmfkc.inference(obj2, d$Y, A2, wild.bootstrap = FALSE))
+  expect_false(inf2$identification$A.full.rank)
+  expect_false(inf2$identified.approx)
+  ## a per-column scale that is not fixed
+  obj3 <- obj; obj3$X.restriction <- "none"
+  expect_false(nmfkc.inference(obj3, d$Y, d$A, wild.bootstrap = FALSE)$identified.approx)
+})
+
+test_that("the identification line in summary(), and nothing else changes", {
+  skip_unless_full()
+  set.seed(4)
+  Y <- matrix(abs(rnorm(5 * 40)) + 1, 5, 40)
+  A <- rbind(1, abs(rnorm(40)))
+  f <- suppressWarnings(nmfkc(Y, A, rank = 2, epsilon = 1e-8, verbose = FALSE))
+  inf <- suppressWarnings(nmfkc.inference(f, Y, A, wild.B = 20))
+  expect_type(inf$identified.approx, "logical")
+  expect_output(print(summary(inf)), "Identification:")
+})
