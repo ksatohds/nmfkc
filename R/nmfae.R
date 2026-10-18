@@ -800,7 +800,7 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
   ## relative only (zero.tol = 0): X2 and C X2 have no natural absolute scale.
   ## An algebraic check on the point estimate: no re-fits.
   sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
-  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 1e-3
+  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 0.01
   vL <- .ident.verdict(X1, C %*% X2, as.matrix(Y2), scale.fixed = TRUE,
                        sep.tol = sep.tol, zero.tol = 0, pin.tol = pin.tol)
   vR <- .ident.verdict(X1 %*% C, X2, NULL, scale.fixed = TRUE,

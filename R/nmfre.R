@@ -1440,7 +1440,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   ## assumption, not by the data, so identified.approx is NA there and
   ## identification$by.assumption records it.  No re-fits.
   sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
-  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 1e-3
+  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 0.01
   v <- .ident.verdict(X, C_mat, A, scale.fixed = TRUE, sep.tol = sep.tol, pin.tol = pin.tol)
   v$identification$by.assumption <- isTRUE(tau2 > 0) && (Q <= 2L || all(v$identification$anchor))
   if (C.mode == "signed") {

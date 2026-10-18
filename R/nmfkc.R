@@ -5133,7 +5133,7 @@ nmfkc.residual.plot <- function(Y, result,
 #'     \item{\code{cov.ridge}}{Ridge stabilization for information matrix inversion. Default is 1e-8.}
 #'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
 #'     \item{\code{sep.tol}, \code{pin.tol}}{Tolerances of the identification
-#'       diagnostic (defaults \code{0.999} and \code{1e-3}); see
+#'       diagnostic (defaults \code{0.999} and \code{0.01}); see
 #'       \code{identified.approx} below and the Details of
 #'       \code{\link{nmfkc.ar.latent.inference}}.  Coefficients at or below
 #'       \code{boundary.tol} also count as zero there.}
@@ -5228,7 +5228,7 @@ nmfkc.inference <- function(object, Y, A = NULL,
   boundary.tol  <- if (!is.null(extra_args$boundary.tol))  extra_args$boundary.tol  else 1e-3
   ## Tolerances of the identification diagnostic (as in nmfkc.ar.latent.inference).
   sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
-  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 1e-3
+  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 0.01
 
   X <- object$X   # P x Q
   C_mat <- object$C   # Q x K (or Q x N if A is NULL)

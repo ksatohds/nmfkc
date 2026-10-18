@@ -67,7 +67,7 @@ the intervals still contain the estimates.}
 \item{\code{cov.ridge}}{Ridge stabilization for information matrix inversion. Default is 1e-8.}
 \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
 \item{\code{sep.tol}, \code{pin.tol}}{Tolerances of the identification
-diagnostic (defaults \code{0.999} and \code{1e-3}); see
+diagnostic (defaults \code{0.999} and \code{0.01}); see
 \code{identified.approx} below and the Details of
 \code{\link{nmfkc.ar.latent.inference}}.  Coefficients at or below
 \code{boundary.tol} also count as zero there.}

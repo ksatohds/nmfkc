@@ -2823,7 +2823,7 @@ print.nmfkc.DOT <- function(x, ...) {
                       base::rbind(base::as.matrix(Y1), base::as.matrix(Y2)),
                       scale.fixed = TRUE,
                       sep.tol = if (!is.null(ex$sep.tol)) ex$sep.tol else 0.999,
-                      pin.tol = if (!is.null(ex$pin.tol)) ex$pin.tol else 1e-3)
+                      pin.tol = if (!is.null(ex$pin.tol)) ex$pin.tol else 0.01)
   object$identified.approx <- v$identified.approx
   object$identification    <- v$identification
   object

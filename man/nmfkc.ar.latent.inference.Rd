@@ -38,10 +38,11 @@ reach for that basis to count as anchored.  Default \code{0.999}.}
 \item{\code{pin.tol}}{A coefficient of \eqn{\Theta} at most
 \code{pin.tol} times the coefficient of the same covariate for the basis
 being pinned counts as zero when the rows of \eqn{\Theta} are pinned; so
-does one at most \code{kkt.tol}.  Default \code{1e-3}: a mixing of the
-bases of up to 0.1\\% per pair is treated as pinned.  \code{identification$pin.margin},
-\code{$pure.margin} and \code{$x.pin.margin} report the largest leak
-that was needed.}
+does one at most \code{kkt.tol}.  Default \code{0.01}: a mixing of the
+bases of up to 1\\% per pair is treated as pinned.  The precision
+actually reached is reported -- \code{print()} states it, and
+\code{identification$pin.margin}, \code{$pure.margin} and
+\code{$x.pin.margin} hold the largest leaks that were needed.}
 \item{\code{refit.args}}{Named list of extra arguments for the bootstrap
 re-fits.  \code{method} and \code{X.restriction} are taken from the
 original fit automatically, so the replicates use the same estimator;
@@ -80,17 +81,18 @@ inferential.}
 \item{kkt}{Strict-complementarity diagnostic: \code{n.boundary},
 \code{all.positive}, \code{ratio}, and the two margins \code{delta.dual}
 and \code{delta.prim}.}
-\item{identified.approx}{Logical, an \strong{approximate diagnostic}:
-\code{TRUE} for \eqn{Q=1}, for \code{X.restriction = "fixed"} (where
-\eqn{X} is not estimated, so \eqn{T=I}), or when the per-column scale is
-fixed (\code{"colSums"} / \code{"colSqSums"}) and either every column of
+\item{identified.approx}{Logical: is the factorization unique up to a
+permutation of the bases, to the precision of the fit?  \code{TRUE} for
+\eqn{Q=1}, for \code{X.restriction = "fixed"} (where \eqn{X} is not
+estimated, so \eqn{T=I}), or when the per-column scale is fixed
+(\code{"colSums"} / \code{"colSqSums"}) and either every column of
 \eqn{X} has an anchor row at \code{sep.tol} and every row of \eqn{\Theta} is
 pinned at \code{pin.tol} / \code{kkt.tol}, or the mirror condition holds
-(see Details).  It is not a certificate ---
-the uniqueness argument needs \emph{exact} anchors and \emph{exact} zeros,
-and multiplicative updates leak a little.  When \code{FALSE} the
-entry-level summaries and \code{p.star} are descriptive; \eqn{\rho}, the
-eigenvalues and \eqn{\bm\mu_y} remain inferential either way.}
+(see Details).  The precision is the margin of the route that passed: an
+equivalent fit mixes the bases by at most about that much, and
+\code{print()} states it.  When \code{FALSE} the entry-level summaries and
+\code{p.star} are descriptive; \eqn{\rho}, the eigenvalues and
+\eqn{\bm\mu_y} remain inferential either way.}
 \item{identification}{The parts of the diagnostic: for the first route
 \code{anchor} (per column of \eqn{X}), \code{pinned} (per row of
 \eqn{\Theta}) and \code{pin.order}; for the mirror route \code{pure} (a pure
@@ -165,12 +167,22 @@ zero loadings separate them from the bases already pinned (an entry of
 \eqn{X} counts as zero when it is at most \code{1 - sep.tol} times the
 loading of the basis being pinned).  Either route suffices; \code{identification$route}
 names the one that passed.  \code{identified.approx} reports
-the verdict and \code{identification} the two sides plus how far each is
-from exact; the function warns either way, naming the side that fails or
-the margins when it only passes approximately.  \strong{The thresholds
-make this a diagnostic, not a certificate}: the argument needs exact
-anchors and exact zeros, which multiplicative updates do not deliver.
-Replicates are permutation-aligned to the original basis regardless.
+the verdict and \code{identification} its parts.  \strong{What a pass
+means, to the precision of the fit}: multiplicative updates leave small
+positive values where the argument wants exact zeros, so the check
+treats values within the tolerances as zero and reports how exact they
+are.  The margin of the route that passed is the largest such value
+relative to the entry it was compared with, i.e. the rotation slack:
+every equivalent fit \eqn{(XT, T^{-1}\Theta)} mixes one basis into
+another by at most about that much, so the entries of \eqn{G_d} are
+determined to about that relative precision.  \code{print()} states it
+(e.g. "the zeros it rests on hold to 0.0024, so an equivalent fit mixes
+the bases by at most about 0.24\\%").  A failure is a warning naming the
+part that fails.  Two things lie outside the check: whether the
+estimated zeros are zeros in the population (a question for their
+intervals), and other fits that are only nearly as good (different
+starting values can reach one).  Replicates are permutation-aligned to
+the original basis regardless.
 \code{X.restriction = "fixed"} is the one clean case for \eqn{Q>1} --- the
 basis is not estimated, so \eqn{T=I}.
 }

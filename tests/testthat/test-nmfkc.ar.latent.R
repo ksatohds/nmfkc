@@ -404,21 +404,23 @@ test_that("rank 1 has no rotation, and Q > 1 is only ever APPROXIMATE", {
     suppressWarnings(nmfkc.ar.latent(f)), a$Y, a$A, wild.B = 5))
   expect_true(inf$identified.approx)                 # no rotation at Q = 1
 
-  ## Q = 2: the anchor / pure tests can pass, but only up to the thresholds, so
-  ## the function still warns that this is not a certificate.
+  ## Q = 2: a pass is not a warning; print() states it with its precision.
+  ## A failure warns.
   set.seed(3)
   Y <- matrix(abs(rnorm(4 * 30)) + 1, 4, 30)
   a2 <- nmfkc.ar(Y, degree = 1, intercept = TRUE)
   f2 <- suppressWarnings(nmfkc(a2$Y, a2$A, rank = 2, verbose = FALSE))
   lat2 <- suppressWarnings(nmfkc.ar.latent(f2))
   expect_identical(f2$X.restriction, "colSums")
-  i2 <- quietly(nmfkc.ar.latent.inference(lat2, a2$Y, a2$A, wild.B = 10),
-                "APPROXIMATELY|not even approximately")
+  w <- character(0)
+  i2 <- withCallingHandlers(nmfkc.ar.latent.inference(lat2, a2$Y, a2$A, wild.B = 10),
+          warning = function(c) { w <<- c(w, conditionMessage(c)); invokeRestart("muffleWarning") })
   if (i2$identified.approx) {
-    ## passing means it is approximate, and the print-out says so
-    expect_output(print(i2), "APPROXIMATELY")
+    expect_false(any(grepl("unique up to a permutation", w)))   # no warning on a pass
+    expect_output(print(i2), "Identified: unique up to a permutation")
     expect_true(length(i2$identification$route) >= 1)   # the route that passed
   } else {
+    expect_true(any(grepl("not even approximately", w)))
     expect_output(print(i2), "DESCRIPTIVE")
   }
   ## a scale that is not per-column normalised is called out by name
@@ -650,14 +652,14 @@ test_that("a leak below pin.tol still pins, and noise columns pin nothing", {
   skip_unless_full()
   X <- rbind(diag(3), c(0.2, 0.3, 0.5)); X <- sweep(X, 2, colSums(X), "/")
   ## row 3 is separated from row 1 only by a column whose basis-1 coefficient
-  ## leaks a share of the column maximum (and is > kkt.tol in absolute terms):
-  ## 0.05% pins at the default pin.tol = 1e-3, 0.24% does not (but does at 0.01)
+  ## leaks a share of its target (and is > kkt.tol in absolute terms):
+  ## 0.24% pins at the default pin.tol = 0.01 (not at 1e-3), 2% does not
   mk <- function(leak) cbind(c(2, 0, 0), c(0, 3, 0), c(leak * 4, 0.7, 4), c(0.8, 0, 2), c(1, 1, 4))
-  id <- nmfkc:::.nmfvar.identified(X, mk(0.0005))
+  id <- nmfkc:::.nmfvar.identified(X, mk(0.0024))
   expect_true(all(id$pinned))
-  expect_equal(id$pin.margin, 0.0005, tolerance = 1e-12)
-  expect_false(nmfkc:::.nmfvar.identified(X, mk(0.0024))$pinned[3])
-  expect_true(nmfkc:::.nmfvar.identified(X, mk(0.0024), pin.tol = 0.01)$pinned[3])
+  expect_equal(id$pin.margin, 0.0024, tolerance = 1e-12)
+  expect_false(nmfkc:::.nmfvar.identified(X, mk(0.0024), pin.tol = 1e-3)$pinned[3])
+  expect_false(nmfkc:::.nmfvar.identified(X, mk(0.02))$pinned[3])
 
   ## a column of numerical noise (all coefficients < 1e-6 * max) must not pin
   ## row 3 against row 2, even when the absolute rule is switched off
@@ -698,11 +700,26 @@ test_that("identified.approx uses the pinning", {
                                    class = "nmfkc"))
   A <- rbind(matrix(runif(10 * 40) + 1, 10, 40), 1)
   Y <- X %*% Th %*% A
-  inf <- quietly(nmfkc.ar.latent.inference(lat, Y, A, wild.B = 3),
-                 "APPROXIMATELY|Strict complementarity")
+  inf <- suppressWarnings(nmfkc.ar.latent.inference(lat, Y, A, wild.B = 3))
   expect_identical(inf$identification$pure, c(TRUE, TRUE, FALSE))
   expect_true(all(inf$identification$pinned))
   expect_true(inf$identified.approx)
+  ## the print-out says what was found and how exactly (exact zeros here)
+  expect_output(print(inf), "Identified: unique up to a permutation of the bases; the zeros it rests on are exact")
+})
+
+test_that("a pass is stated with its precision", {
+  skip_unless_full()
+  X <- rbind(diag(3), c(0.2, 0.3, 0.5)); X <- sweep(X, 2, colSums(X), "/")
+  Th <- cbind(c(2, 0, 0), c(0, 3, 0), c(0.0005 * 4, 0.7, 4), c(0.8, 0, 2), c(1, 1, 4))
+  id <- nmfkc:::.nmfvar.identified(X, Th)
+  expect_equal(nmfkc:::.ident.precision(id), 5e-4)
+  expect_match(nmfkc:::.ident.text(id),
+               "hold to 0.0005, so an equivalent fit mixes the bases by at most about 0.05%", fixed = TRUE)
+  ## the two-sided check reports its worse side
+  Th2 <- Th; Th2[1, 3] <- 0.002 * 4
+  expect_equal(nmfkc:::.ident.precision(list(left = id, right = nmfkc:::.nmfvar.identified(X, Th2))),
+               0.002)
 })
 
 test_that("the monomial step is what makes T a permutation", {

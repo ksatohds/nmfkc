@@ -75,9 +75,12 @@ separability of X alone is not enough, and neither are zeros that merely
 separate every pair of bases (`T = (J - I)/2` is then admissible).
 
 A coefficient counts as zero when it is at most `kkt.tol` or at most the new
-`pin.tol` (default `1e-3`) times the coefficient of the same covariate for
+`pin.tol` (default `0.01`) times the coefficient of the same covariate for
 the basis being pinned -- that ratio is the mixing of bases the covariate
-still allows.  A covariate whose coefficients are all numerical noise is
+still allows.  A pass is no longer a warning: `print()` states it with the
+precision reached, e.g. "unique up to a permutation of the bases; the zeros
+it rests on hold to 0.0024, so an equivalent fit mixes the bases by at most
+about 0.24%".  A failure still warns, naming the part that fails.  A covariate whose coefficients are all numerical noise is
 ignored; ratios inside such a column once looked like a pin.  For X the
 tolerance is `1 - sep.tol` times the loading of the basis being pinned.
 

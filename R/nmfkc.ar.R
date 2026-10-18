@@ -894,7 +894,7 @@ nmfkc.ar.latent <- function(x) {
 #' @keywords internal
 #' @noRd
 .nmfvar.identified <- function(X, Theta, sep.tol = 0.999, zero.tol = 1e-3,
-                               pin.tol = 1e-3, negl.tol = 1e-6) {
+                               pin.tol = 0.01, negl.tol = 1e-6) {
   Q  <- ncol(X)
   rs <- rowSums(X)
   Xn <- if (all(rs > 0)) X / rs else X
@@ -916,20 +916,29 @@ nmfkc.ar.latent <- function(x) {
   ## entry < negl.tol times the overall maximum) is dropped: the ratios inside it
   ## once pinned rows spuriously.
   ## M: rows = bases, columns = witnesses (covariates of Theta, variables of X).
-  leak.of <- function(M, j, k, rows, zero.abs) {
+  ## The decision zeroes entries at most zero.abs; the margin reports the raw
+  ## ratio of the entries treated as zero, so it says how exact they really are.
+  leak.of <- function(M, j, k, rows, zero.abs, raw = FALSE) {
     if (!length(rows)) return(0)
-    v <- M[rows, j]; v[v <= zero.abs] <- 0
+    v <- M[rows, j]; if (!raw) v[v <= zero.abs] <- 0
     max(v) / M[k, j]
+  }
+  ## best witness among `cand` for row k with zeros required in `rows`:
+  ## c(decision leak, raw leak of the passing witnesses)
+  best.of <- function(M, cand, k, rows, zero.abs, tol) {
+    d <- vapply(cand, function(j) leak.of(M, j, k, rows, zero.abs), 0)
+    r <- vapply(cand, function(j) leak.of(M, j, k, rows, zero.abs, raw = TRUE), 0)
+    c(min(d), if (any(d <= tol)) min(r[d <= tol]) else NA_real_)
   }
   pure.of <- function(M, zero.abs, tol) {      # a column non-zero for one row alone
     Qr <- nrow(M)
-    best <- vapply(seq_len(Qr), function(k) {
+    b <- vapply(seq_len(Qr), function(k) {
       cand <- which(M[k, ] > zero.abs)
-      if (!length(cand)) return(Inf)
-      min(vapply(cand, function(j) leak.of(M, j, k, setdiff(seq_len(Qr), k), zero.abs), 0))
-    }, 0)
-    ok <- best <= tol
-    list(ok = ok, margin = if (any(ok)) max(best[ok]) else NA_real_)
+      if (!length(cand)) return(c(Inf, NA_real_))
+      best.of(M, cand, k, setdiff(seq_len(Qr), k), zero.abs, tol)
+    }, numeric(2))
+    ok <- b[1, ] <= tol
+    list(ok = ok, margin = if (any(ok)) max(b[2, ok]) else NA_real_)
   }
   pin.of <- function(M, zero.abs, tol) {       # pin the rows one at a time (see above)
     Qr <- nrow(M); S <- integer(0); leaks <- numeric(0)
@@ -941,11 +950,9 @@ nmfkc.ar.latent <- function(x) {
         if (!length(cand)) next
         ## the zeros a witness needs: every row outside S u {k}, plus q.  For each
         ## pinned pair (k, q) keep the best witness; the margin is the worst pair.
-        lq <- if (!length(S))
-                min(vapply(cand, function(j) leak.of(M, j, k, out, zero.abs), 0))
-              else vapply(S, function(q)
-                min(vapply(cand, function(j) leak.of(M, j, k, c(out, q), zero.abs), 0)), 0)
-        if (all(lq <= tol)) { S <- c(S, k); leaks <- c(leaks, lq); added <- TRUE }
+        lq <- if (!length(S)) matrix(best.of(M, cand, k, out, zero.abs, tol), 2)
+              else vapply(S, function(q) best.of(M, cand, k, c(out, q), zero.abs, tol), numeric(2))
+        if (all(lq[1, ] <= tol)) { S <- c(S, k); leaks <- c(leaks, lq[2, ]); added <- TRUE }
       }
       if (!added) break
     }
@@ -989,7 +996,7 @@ nmfkc.ar.latent <- function(x) {
 #' @keywords internal
 #' @noRd
 .ident.verdict <- function(X, Theta, A = NULL, scale.fixed = TRUE, X.held = FALSE,
-                           sep.tol = 0.999, zero.tol = 1e-3, pin.tol = 1e-3) {
+                           sep.tol = 0.999, zero.tol = 1e-3, pin.tol = 0.01) {
   id <- .nmfvar.identified(X, Theta, sep.tol = sep.tol, zero.tol = zero.tol,
                            pin.tol = pin.tol)
   id$A.full.rank <- is.null(A) || base::qr(A)$rank == base::nrow(A)
@@ -1011,8 +1018,10 @@ nmfkc.ar.latent <- function(x) {
   if (is.na(ok))
     cat("  Identification: ", if (!is.null(id$note)) id$note else "not assessed", "\n", sep = "")
   else if (isTRUE(ok))
-    cat("  Identification: unique up to a permutation (approximate; ",
-        if (!is.null(id$left)) "both sides" else .nmfvar.ident.margins(id), ")\n", sep = "")
+    cat("  Identification: ",
+        if (length(id$route) || !is.null(id$left)) .ident.text(id)
+        else "unique up to a permutation of the bases (Q = 1 or X held fixed)",
+        if (!is.null(id$left)) " (both latent spaces)", "\n", sep = "")
   else
     cat("  Identification: not shown -- ", what, " describes this representative of the\n",
         "                  basis; another (X T, T^-1 ", what, ") may fit equally well\n", sep = "")
@@ -1034,6 +1043,39 @@ nmfkc.ar.latent <- function(x) {
     paste0(if (length(r)) paste0("route: ", r[1L], "; ") else "",
            "anchor margin ", signif(id$anchor.margin, 3),
            ", pin margin ", signif(id$pin.margin, 3))
+}
+
+
+#' @title How exactly a passing identification holds (Internal)
+#' @description The largest margin of the route that passed (the better route
+#'   when both did; the worse side for the two-sided \code{left}/\code{right}
+#'   check).  A margin is the largest entry the check treated as zero, relative
+#'   to the entry it was compared with -- the rotation slack -- so an equivalent
+#'   fit \eqn{(XT, T^{-1}\Theta)} can mix one basis into another by at most about
+#'   this much.
+#' @return A number (\code{NA} if no route passed).
+#' @keywords internal
+#' @noRd
+.ident.precision <- function(id) {
+  if (!is.null(id$left))
+    return(max(.ident.precision(id$left), .ident.precision(id$right)))
+  mx <- function(v) { v <- v[is.finite(v)]; if (length(v)) max(v) else 0 }
+  m <- c("X anchors + Theta pinned" = mx(c(id$anchor.margin, id$pin.margin)),
+         "Theta pure + X pinned"    = mx(c(id$pure.margin, id$x.pin.margin)))
+  if (!length(id$route)) NA_real_ else min(m[id$route])
+}
+
+
+#' @title What a passing identification says, in one sentence (Internal)
+#' @keywords internal
+#' @noRd
+.ident.text <- function(id) {
+  m <- .ident.precision(id)
+  paste0("unique up to a permutation of the bases",
+         if (!is.finite(m)) ""
+         else if (m < 1e-12) "; the zeros it rests on are exact to machine precision"
+         else sprintf(paste0("; the zeros it rests on hold to %.2g, so an equivalent fit ",
+                             "mixes the bases by at most about %.2g%%"), m, 100 * m))
 }
 
 
@@ -1590,12 +1632,22 @@ plot.nmfkc.ar.latent <- function(x,
 #'     \eqn{X} counts as zero when it is at most \code{1 - sep.tol} times the
 #'     loading of the basis being pinned).  Either route suffices; \code{identification$route}
 #'     names the one that passed.  \code{identified.approx} reports
-#'     the verdict and \code{identification} the two sides plus how far each is
-#'     from exact; the function warns either way, naming the side that fails or
-#'     the margins when it only passes approximately.  \strong{The thresholds
-#'     make this a diagnostic, not a certificate}: the argument needs exact
-#'     anchors and exact zeros, which multiplicative updates do not deliver.
-#'     Replicates are permutation-aligned to the original basis regardless.
+#'     the verdict and \code{identification} its parts.  \strong{What a pass
+#'     means, to the precision of the fit}: multiplicative updates leave small
+#'     positive values where the argument wants exact zeros, so the check
+#'     treats values within the tolerances as zero and reports how exact they
+#'     are.  The margin of the route that passed is the largest such value
+#'     relative to the entry it was compared with, i.e. the rotation slack:
+#'     every equivalent fit \eqn{(XT, T^{-1}\Theta)} mixes one basis into
+#'     another by at most about that much, so the entries of \eqn{G_d} are
+#'     determined to about that relative precision.  \code{print()} states it
+#'     (e.g. "the zeros it rests on hold to 0.0024, so an equivalent fit mixes
+#'     the bases by at most about 0.24\%").  A failure is a warning naming the
+#'     part that fails.  Two things lie outside the check: whether the
+#'     estimated zeros are zeros in the population (a question for their
+#'     intervals), and other fits that are only nearly as good (different
+#'     starting values can reach one).  Replicates are permutation-aligned to
+#'     the original basis regardless.
 #'     \code{X.restriction = "fixed"} is the one clean case for \eqn{Q>1} --- the
 #'     basis is not estimated, so \eqn{T=I}.
 #' }
@@ -1698,10 +1750,11 @@ plot.nmfkc.ar.latent <- function(x,
 #'     \item{\code{pin.tol}}{A coefficient of \eqn{\Theta} at most
 #'       \code{pin.tol} times the coefficient of the same covariate for the basis
 #'       being pinned counts as zero when the rows of \eqn{\Theta} are pinned; so
-#'       does one at most \code{kkt.tol}.  Default \code{1e-3}: a mixing of the
-#'       bases of up to 0.1\% per pair is treated as pinned.  \code{identification$pin.margin},
-#'       \code{$pure.margin} and \code{$x.pin.margin} report the largest leak
-#'       that was needed.}
+#'       does one at most \code{kkt.tol}.  Default \code{0.01}: a mixing of the
+#'       bases of up to 1\% per pair is treated as pinned.  The precision
+#'       actually reached is reported -- \code{print()} states it, and
+#'       \code{identification$pin.margin}, \code{$pure.margin} and
+#'       \code{$x.pin.margin} hold the largest leaks that were needed.}
 #'     \item{\code{refit.args}}{Named list of extra arguments for the bootstrap
 #'       re-fits.  \code{method} and \code{X.restriction} are taken from the
 #'       original fit automatically, so the replicates use the same estimator;
@@ -1738,17 +1791,18 @@ plot.nmfkc.ar.latent <- function(x,
 #' \item{kkt}{Strict-complementarity diagnostic: \code{n.boundary},
 #'   \code{all.positive}, \code{ratio}, and the two margins \code{delta.dual}
 #'   and \code{delta.prim}.}
-#' \item{identified.approx}{Logical, an \strong{approximate diagnostic}:
-#'   \code{TRUE} for \eqn{Q=1}, for \code{X.restriction = "fixed"} (where
-#'   \eqn{X} is not estimated, so \eqn{T=I}), or when the per-column scale is
-#'   fixed (\code{"colSums"} / \code{"colSqSums"}) and either every column of
+#' \item{identified.approx}{Logical: is the factorization unique up to a
+#'   permutation of the bases, to the precision of the fit?  \code{TRUE} for
+#'   \eqn{Q=1}, for \code{X.restriction = "fixed"} (where \eqn{X} is not
+#'   estimated, so \eqn{T=I}), or when the per-column scale is fixed
+#'   (\code{"colSums"} / \code{"colSqSums"}) and either every column of
 #'   \eqn{X} has an anchor row at \code{sep.tol} and every row of \eqn{\Theta} is
 #'   pinned at \code{pin.tol} / \code{kkt.tol}, or the mirror condition holds
-#'   (see Details).  It is not a certificate ---
-#'   the uniqueness argument needs \emph{exact} anchors and \emph{exact} zeros,
-#'   and multiplicative updates leak a little.  When \code{FALSE} the
-#'   entry-level summaries and \code{p.star} are descriptive; \eqn{\rho}, the
-#'   eigenvalues and \eqn{\bm\mu_y} remain inferential either way.}
+#'   (see Details).  The precision is the margin of the route that passed: an
+#'   equivalent fit mixes the bases by at most about that much, and
+#'   \code{print()} states it.  When \code{FALSE} the entry-level summaries and
+#'   \code{p.star} are descriptive; \eqn{\rho}, the eigenvalues and
+#'   \eqn{\bm\mu_y} remain inferential either way.}
 #' \item{identification}{The parts of the diagnostic: for the first route
 #'   \code{anchor} (per column of \eqn{X}), \code{pinned} (per row of
 #'   \eqn{\Theta}) and \code{pin.order}; for the mirror route \code{pure} (a pure
@@ -1797,7 +1851,7 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
   kkt.tol    <- if (!is.null(ex$kkt.tol))    ex$kkt.tol    else 1e-3
   kkt.ratio.min <- if (!is.null(ex$kkt.ratio.min)) ex$kkt.ratio.min else 5
   sep.tol    <- if (!is.null(ex$sep.tol))    ex$sep.tol    else 0.999
-  pin.tol    <- if (!is.null(ex$pin.tol))    ex$pin.tol    else 1e-3
+  pin.tol    <- if (!is.null(ex$pin.tol))    ex$pin.tol    else 0.01
   ## The re-fits must use the SAME estimator as the original fit, otherwise the
   ## bootstrap describes a different one.  What nmfkc() records (method,
   ## X.restriction) is carried on the object and reused; anything else the
@@ -1902,12 +1956,8 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
             "G_d and p.star are therefore DESCRIPTIVE; rho, the eigenvalues ",
             "and mu.y are invariant under the whole family and remain the ",
             "inferential targets.")
-  } else if (Q > 1L && !X.held) {
-    warning("The identification diagnostic passes only APPROXIMATELY (",
-            .nmfvar.ident.margins(ident), "). The uniqueness ",
-            "argument needs exact anchors and exact zeros, so treat the ",
-            "entry-level summaries as well-behaved but not certified.")
   }
+  ## A pass is reported by print(), with its precision; it is not a warning.
 
   ## Strict-complementarity (oracle) diagnostic.  In the population,
   ##   Lambda* = X'(Xi_0 - X Theta) Sigma_A,
@@ -2148,10 +2198,9 @@ print.nmfkc.ar.latent.inference <- function(x, digits = 4, ...) {
         "       entries (and p.star) are DESCRIPTIVE. rho, the eigenvalues\n",
         "       and mu.y are invariant and inferential.\n", sep = "")
   else if (x$dims[["Q"]] > 1L)
-    cat("  NOTE: the diagnostic passes only APPROXIMATELY (",
-        .nmfvar.ident.margins(x$identification), ");\n",
-        "       the uniqueness argument needs exact anchors and exact zeros.\n",
-        sep = "")
+    cat("  Identified: ",
+        if (length(x$identification$route)) .ident.text(x$identification)
+        else "X is held fixed, so there is no rotation", ".\n", sep = "")
   for (nm in names(x$G)) {
     cat("\n", nm, ":\n", sep = "")
     print(round(x$G[[nm]], 3))
