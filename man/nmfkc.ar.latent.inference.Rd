@@ -18,11 +18,9 @@ i.e. the \code{Y} and \code{A} returned by \code{\link{nmfkc.ar}}.}
 \item{\code{wild.dist}}{Multiplier distribution, \code{"rademacher"}
 (default) or \code{"exp"} (mean-centred).}
 \item{\code{wild.unit}}{\code{"column"} (default, one multiplier per time
-point), \code{"block"} (one per block of \code{wild.block} consecutive
-time points) or \code{"element"} (one per cell).}
-\item{\code{wild.block}}{Block length for \code{wild.unit = "block"}.
-Default \code{max(1, round(n^(1/3)))} with \code{n} the number of time
-points.  \code{wild.block = 1} reproduces \code{"column"} exactly.}
+point), \code{"block"} (one per block of \code{max(1, round(n^(1/3)))}
+consecutive time points, \code{n} the number of time points) or
+\code{"element"} (one per cell).}
 \item{\code{wild.level}}{Confidence level.  Default 0.95.}
 \item{\code{wild.seed}}{Seed for the bootstrap.  Default 123.}
 \item{\code{fit}}{The fitted \code{"nmfkc"} object.  Only needed when
@@ -94,8 +92,7 @@ exact configuration (0 = exact).}
 \item{refit.args}{The arguments the bootstrap re-fits actually used, so the
 replicates can be checked against the original estimator.}
 Plus the bookkeeping entries \code{wild.B}, \code{wild.B.requested},
-\code{n.fail}, \code{truncate.rate}, \code{wild.unit}, \code{wild.block}
-(\code{NULL} unless \code{wild.unit = "block"}), \code{wild.dist},
+\code{n.fail}, \code{truncate.rate}, \code{wild.unit}, \code{wild.dist},
 \code{wild.level}, \code{dims}.
 }
 \description{
@@ -185,15 +182,28 @@ with zero would return \eqn{p = 0} for every entry.  The reported
 \eqn{E=Y-\hat Y}, each replicate forms \eqn{Y^\ast=\hat Y+E\odot W} and
 re-fits \code{\link{nmfkc}} at the same rank.  \eqn{W} carries one multiplier
 per time point (\code{wild.unit = "column"}, the default, which preserves the
-contemporaneous covariance between series), one per block of
-\code{wild.block} consecutive time points (\code{wild.unit = "block"}, a block
-wild bootstrap that in addition keeps the serial dependence of the residuals
-within a block; the block grid starts at a random offset), or one per cell.
+contemporaneous covariance between series), one per block of consecutive
+time points (\code{wild.unit = "block"}, below), or one per cell.
 With i.i.d. multipliers over time the intervals ignore residual
 autocorrelation and may be too narrow when it is present.  Negative entries
 of \eqn{Y^\ast} are truncated at 0 to keep the response non-negative; the
 truncation rate is reported, and a large one is a warning sign for the whole
 procedure.
+
+\strong{Block wild bootstrap (\code{wild.unit = "block"}).}  One multiplier
+is drawn per block of \eqn{L = \max(1, \mathrm{round}(n^{1/3}))}{L = max(1,
+round(n^(1/3)))} consecutive time points and shared by all series, where
+\eqn{n} is the number of time points, \code{ncol(Y)} (after the lags are
+removed): \eqn{L = 3} for \eqn{n = 27}, 5 for 100, 8 for 500, 10 for 1000,
+and \eqn{L = 1} (the same draws as \code{"column"}) for \eqn{n \le 3}.  The
+block grid starts at a random offset in \eqn{0, \dots, L-1}{0, ..., L-1},
+drawn anew in each replicate, so the first and last blocks may be shorter
+and no time point is always at a block edge.  Residuals within a block keep
+their serial dependence, which matters when the residuals are autocorrelated
+(for example when the lag order is too small); for a correctly specified VAR
+the default \code{"column"} suffices.  \eqn{n^{1/3}}{n^(1/3)} is the usual rate
+for the block length of block resampling.  The length is fixed by \eqn{n}; it
+cannot be set and is not stored in the result.
 
 \strong{This is a fixed-design bootstrap}: the covariate matrix \eqn{A} is
 held at the observed lags rather than rebuilt from \eqn{Y^\ast}, so the

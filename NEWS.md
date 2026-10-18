@@ -1,5 +1,29 @@
 # nmfkc (development version)
 
+## A block wild bootstrap for time points: `wild.unit = "block"`
+
+`nmfkc.ar.latent.inference()` and `nmfkc.inference(method = "refit")` accept
+`wild.unit = "block"`.  One multiplier is drawn per block of
+`L = max(1, round(n^(1/3)))` consecutive columns (time points, `n = ncol(Y)`)
+and shared by all rows (series), so residuals within a block keep their
+serial dependence.  The block grid starts at a random offset in
+`0, ..., L-1`, drawn anew in each replicate.  `L` is 3 for `n = 27`, 5 for
+100 and 8 for 500; for `n <= 3` it is 1 and the draws are those of
+`"column"`.  The length is fixed by `n`: it cannot be set and is not stored.
+Use it when the residuals are autocorrelated (for example with too few
+lags); for a correctly specified VAR the default of
+`nmfkc.ar.latent.inference()` -- one Rademacher multiplier per time point
+(`"column"`), `wild.B = 500` -- suffices.  The Details of
+`?nmfkc.ar.latent.inference` describe the scheme.
+
+`nmfkc.inference()` now also returns `wild.unit`, the multiplier unit of the
+`"refit"` bootstrap (`NA` otherwise).
+
+Nothing else changes: the default bootstrap of
+`nmfkc.ar.latent.inference()`, its `"element"` and `"exp"` modes, and the
+onestep and refit (element, column) modes of `nmfkc.inference()` give
+bit-identical results (8 calls checked).
+
 ## Anchor rows of X: `X.anchor`, `X.init = "spa"`, and a separability diagnostic
 
 Two options for `nmfkc()`, both passed through `...`.  A fit that uses

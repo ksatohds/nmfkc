@@ -59,7 +59,7 @@
   dist <- base::match.arg(dist)
   L <- base::suppressWarnings(base::as.integer(L))
   if (base::length(L) != 1L || base::is.na(L) || L < 1L)
-    base::stop("'wild.block' must be a single positive integer.")
+    base::stop("The block length must be a single positive integer.")
   if (L == 1L) return(.wild.multipliers(n, dist))
   s  <- base::sample.int(L, 1L) - 1L                    # offset in 0..(L-1)
   id <- (base::seq_len(n) - 1L + s) %/% L + 1L           # block of each column
