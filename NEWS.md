@@ -1,4 +1,4 @@
-# nmfkc (development version)
+# nmfkc 1.0.1 (2026-10-20)
 
 ## The identification diagnostic in `nmf.ffb.inference()`, `nmf.rrr.inference()` and `nmfre.inference()`
 
@@ -80,8 +80,9 @@ the basis being pinned -- that ratio is the mixing of bases the covariate
 still allows.  A pass is no longer a warning: `print()` states it with the
 precision reached, e.g. "unique up to a permutation of the bases; the zeros
 it rests on hold to 0.0024, so an equivalent fit mixes the bases by at most
-about 0.24%".  A failure still warns, naming the part that fails.  A covariate whose coefficients are all numerical noise is
-ignored; ratios inside such a column once looked like a pin.  For X the
+about 0.24%".  A failure still warns, naming the part that fails.  A
+covariate whose coefficients are all numerical noise is ignored; ratios
+inside such a column once looked like a pin.  For X the
 tolerance is `1 - sep.tol` times the loading of the basis being pinned.
 
 `identification` gains `pinned`, `pin.order`, `X.pinned`, `X.pin.order`,
@@ -153,7 +154,7 @@ all bases equally; an `X.anchor` fit scores exactly 1, and on the data above
 the default fit scored 0.91.  The per-basis values and the rows attaining them
 are `anchor.purity` and `anchor.row`.  All three are stored on the fit, in
 `fit$criterion`; `summary()` reads them there (and recomputes them for
-objects saved before 1.0.0).  It looks at X only -- zeros in B or in `C` can
+objects saved by earlier versions).  It looks at X only -- zeros in B or in `C` can
 also pin the solution -- so a value near 1 says the fit is nearly unique,
 while a low value does not say it is not.
 
