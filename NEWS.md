@@ -84,13 +84,15 @@ about 0.24%".  A failure still warns, naming the part that fails.  A covariate w
 ignored; ratios inside such a column once looked like a pin.  For X the
 tolerance is `1 - sep.tol` times the loading of the basis being pinned.
 
-`identification` gains `pinned`, `pin.order`, `x.pinned`, `x.pin.order`,
-`route` and the margins `pin.margin` and `x.pin.margin`; `pure` and
+`identification` gains `pinned`, `pin.order`, `X.pinned`, `X.pin.order`,
+`route` and the margins `pin.margin` and `X.pin.margin`; `pure` and
 `pure.margin` use the new zero rule (the margin is now a ratio, not an
 absolute coefficient).  On the US 49-industry monthly realized volatility
 (Q = 3, D = 1) the check said FALSE and now says TRUE, by the mirror route;
 a direct search over all admissible `T` on configurations of this kind found
-only permutations.
+only permutations.  The fields about X carry a capital `X.`, like `X.anchor`
+and `A.full.rank`; development builds of 2026-10-18 spelled them `x.pinned`,
+`x.pin.order` and `x.pin.margin`.
 
 Nothing else changes: estimates, intervals and the other components are
 identical (8 calls checked).

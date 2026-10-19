@@ -106,10 +106,10 @@ zero patterns: an anchor row of \eqn{X} for every basis and the rows of
 the Details of \code{\link{nmfkc.ar.latent.inference}}.  An algebraic
 check on the point estimate: no re-fits.}
 \item{identification}{Its parts: \code{anchor}, \code{pinned},
-\code{pin.order}, \code{pure}, \code{x.pinned}, \code{x.pin.order},
+\code{pin.order}, \code{pure}, \code{X.pinned}, \code{X.pin.order},
 \code{ok}, \code{route}, \code{A.full.rank} and the margins
 \code{anchor.margin}, \code{pin.margin}, \code{pure.margin},
-\code{x.pin.margin} (0 = exact).}
+\code{X.pin.margin} (0 = exact).}
 }
 \description{
 \code{nmfkc.inference} performs statistical inference on the parameter matrix

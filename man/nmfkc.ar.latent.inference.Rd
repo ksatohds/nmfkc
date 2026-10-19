@@ -42,7 +42,7 @@ does one at most \code{kkt.tol}.  Default \code{0.01}: a mixing of the
 bases of up to 1\\% per pair is treated as pinned.  The precision
 actually reached is reported -- \code{print()} states it, and
 \code{identification$pin.margin}, \code{$pure.margin} and
-\code{$x.pin.margin} hold the largest leaks that were needed.}
+\code{$X.pin.margin} hold the largest leaks that were needed.}
 \item{\code{refit.args}}{Named list of extra arguments for the bootstrap
 re-fits.  \code{method} and \code{X.restriction} are taken from the
 original fit automatically, so the replicates use the same estimator;
@@ -96,10 +96,10 @@ equivalent fit mixes the bases by at most about that much, and
 \item{identification}{The parts of the diagnostic: for the first route
 \code{anchor} (per column of \eqn{X}), \code{pinned} (per row of
 \eqn{\Theta}) and \code{pin.order}; for the mirror route \code{pure} (a pure
-covariate per row of \eqn{\Theta}), \code{x.pinned} (per basis) and
-\code{x.pin.order}; \code{ok} and \code{route} (the route(s) that passed);
+covariate per row of \eqn{\Theta}), \code{X.pinned} (per basis) and
+\code{X.pin.order}; \code{ok} and \code{route} (the route(s) that passed);
 and the margins \code{anchor.margin}, \code{pin.margin}, \code{pure.margin}
-and \code{x.pin.margin} saying how far the fit is from an exact
+and \code{X.pin.margin} saying how far the fit is from an exact
 configuration (0 = exact; the pin margins are the largest relative entry
 the pinning had to treat as zero).}
 \item{refit.args}{The arguments the bootstrap re-fits actually used, so the

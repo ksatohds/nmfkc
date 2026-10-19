@@ -5171,10 +5171,10 @@ nmfkc.residual.plot <- function(Y, result,
 #'   the Details of \code{\link{nmfkc.ar.latent.inference}}.  An algebraic
 #'   check on the point estimate: no re-fits.}
 #' \item{identification}{Its parts: \code{anchor}, \code{pinned},
-#'   \code{pin.order}, \code{pure}, \code{x.pinned}, \code{x.pin.order},
+#'   \code{pin.order}, \code{pure}, \code{X.pinned}, \code{X.pin.order},
 #'   \code{ok}, \code{route}, \code{A.full.rank} and the margins
 #'   \code{anchor.margin}, \code{pin.margin}, \code{pure.margin},
-#'   \code{x.pin.margin} (0 = exact).}
+#'   \code{X.pin.margin} (0 = exact).}
 #'
 #' @seealso \code{\link{nmfkc}}, \code{\link{summary.nmfkc.inference}}
 #' @references
@@ -5439,7 +5439,7 @@ summary.nmfkc.inference <- function(object, ...) {
   ans$C.p.side     <- object$C.p.side
   ans$identified.approx <- object$identified.approx
   ans$identification    <- object$identification
-  ans$rank.Q            <- ncol(object$X)
+  ans$rank              <- ncol(object$X)
   class(ans) <- "summary.nmfkc.inference"
   return(ans)
 }
@@ -5469,7 +5469,7 @@ print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits"
   cat("Inference (conditional on X):\n")
   cat("  sigma^2:  ", format(x$sigma2.used, digits = digits), "\n")
   ## Objects saved before the diagnostic existed carry no identified.approx.
-  .ident.print.line(x$identified.approx, x$identification, x$rank.Q)
+  .ident.print.line(x$identified.approx, x$identification, x$rank)
 
   # Coefficients table (formatted like lm summary)
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {

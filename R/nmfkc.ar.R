@@ -885,10 +885,10 @@ nmfkc.ar.latent <- function(x) {
 #' @return List with, for the first route, \code{anchor} (logical, per column
 #'   of \eqn{X}), \code{pinned} (logical, per row of \eqn{\Theta}) and
 #'   \code{pin.order}; for the mirror route, \code{pure} (a pure column per row
-#'   of \eqn{\Theta}), \code{x.pinned} (per basis) and \code{x.pin.order};
+#'   of \eqn{\Theta}), \code{X.pinned} (per basis) and \code{X.pin.order};
 #'   \code{ok} and \code{route}; and the margins (0 when exact):
 #'   \code{anchor.margin} (largest \eqn{1-} loading among the anchors),
-#'   \code{pin.margin} and \code{x.pin.margin} (the largest relative entry the
+#'   \code{pin.margin} and \code{X.pin.margin} (the largest relative entry the
 #'   pinning had to treat as zero: for each pinned pair the best witness, then
 #'   the worst pair) and \code{pure.margin} (the same for the pure columns).
 #' @keywords internal
@@ -976,11 +976,11 @@ nmfkc.ar.latent <- function(x) {
   ok2 <- all(pure$ok) && all(xpin$ok)
 
   list(anchor = anchor, pinned = pin$ok, pin.order = pin$order,
-       pure = pure$ok, x.pinned = xpin$ok, x.pin.order = xpin$order,
+       pure = pure$ok, X.pinned = xpin$ok, X.pin.order = xpin$order,
        ok = ok1 || ok2,
        route = c("X anchors + Theta pinned", "Theta pure + X pinned")[c(ok1, ok2)],
        anchor.margin = anchor.margin, pin.margin = pin$margin,
-       pure.margin = pure$margin, x.pin.margin = xpin$margin)
+       pure.margin = pure$margin, X.pin.margin = xpin$margin)
 }
 
 
@@ -1038,7 +1038,7 @@ nmfkc.ar.latent <- function(x) {
   r <- id$route
   if (length(r) && r[1L] == "Theta pure + X pinned")
     paste0("route: ", r[1L], "; pure margin ", signif(id$pure.margin, 3),
-           ", X pin margin ", signif(id$x.pin.margin, 3))
+           ", X pin margin ", signif(id$X.pin.margin, 3))
   else
     paste0(if (length(r)) paste0("route: ", r[1L], "; ") else "",
            "anchor margin ", signif(id$anchor.margin, 3),
@@ -1061,7 +1061,7 @@ nmfkc.ar.latent <- function(x) {
     return(max(.ident.precision(id$left), .ident.precision(id$right)))
   mx <- function(v) { v <- v[is.finite(v)]; if (length(v)) max(v) else 0 }
   m <- c("X anchors + Theta pinned" = mx(c(id$anchor.margin, id$pin.margin)),
-         "Theta pure + X pinned"    = mx(c(id$pure.margin, id$x.pin.margin)))
+         "Theta pure + X pinned"    = mx(c(id$pure.margin, id$X.pin.margin)))
   if (!length(id$route)) NA_real_ else min(m[id$route])
 }
 
@@ -1754,7 +1754,7 @@ plot.nmfkc.ar.latent <- function(x,
 #'       bases of up to 1\% per pair is treated as pinned.  The precision
 #'       actually reached is reported -- \code{print()} states it, and
 #'       \code{identification$pin.margin}, \code{$pure.margin} and
-#'       \code{$x.pin.margin} hold the largest leaks that were needed.}
+#'       \code{$X.pin.margin} hold the largest leaks that were needed.}
 #'     \item{\code{refit.args}}{Named list of extra arguments for the bootstrap
 #'       re-fits.  \code{method} and \code{X.restriction} are taken from the
 #'       original fit automatically, so the replicates use the same estimator;
@@ -1806,10 +1806,10 @@ plot.nmfkc.ar.latent <- function(x,
 #' \item{identification}{The parts of the diagnostic: for the first route
 #'   \code{anchor} (per column of \eqn{X}), \code{pinned} (per row of
 #'   \eqn{\Theta}) and \code{pin.order}; for the mirror route \code{pure} (a pure
-#'   covariate per row of \eqn{\Theta}), \code{x.pinned} (per basis) and
-#'   \code{x.pin.order}; \code{ok} and \code{route} (the route(s) that passed);
+#'   covariate per row of \eqn{\Theta}), \code{X.pinned} (per basis) and
+#'   \code{X.pin.order}; \code{ok} and \code{route} (the route(s) that passed);
 #'   and the margins \code{anchor.margin}, \code{pin.margin}, \code{pure.margin}
-#'   and \code{x.pin.margin} saying how far the fit is from an exact
+#'   and \code{X.pin.margin} saying how far the fit is from an exact
 #'   configuration (0 = exact; the pin margins are the largest relative entry
 #'   the pinning had to treat as zero).}
 #' \item{refit.args}{The arguments the bootstrap re-fits actually used, so the
@@ -1949,7 +1949,7 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
                if (!all(ident$pure)) paste0("row ",
                  paste(which(!ident$pure), collapse = ", "),
                  " of Theta has no pure covariate") else
-                 paste0("basis ", paste(which(!ident$x.pinned), collapse = ", "),
+                 paste0("basis ", paste(which(!ident$X.pinned), collapse = ", "),
                         " cannot be pinned through the rows of X"), ")"))
     warning("The factorization is not even approximately unique up to a ",
             "permutation: ", paste(why, collapse = "; "), ". The entries of ",

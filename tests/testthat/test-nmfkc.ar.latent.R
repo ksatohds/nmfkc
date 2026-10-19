@@ -678,17 +678,17 @@ test_that("the mirror route: pure covariates for every basis and X pinned throug
   Th <- cbind(diag(3), c(1, 1, 1), c(0.5, 0.2, 0.9))
   id <- nmfkc:::.nmfvar.identified(X, Th)
   expect_identical(id$anchor, c(FALSE, TRUE, TRUE))
-  expect_true(all(id$pure)); expect_true(all(id$x.pinned))
+  expect_true(all(id$pure)); expect_true(all(id$X.pinned))
   expect_true(id$ok)
   expect_identical(id$route, "Theta pure + X pinned")
-  expect_equal(id$x.pin.margin, 0)
+  expect_equal(id$X.pin.margin, 0)
   ## the move it excludes: T^-1 >= 0 mixing basis 1 into basis 2 makes a row of
   ## X T negative (the variable with X_2 = 0)
   S <- cbind(c(1, 0, 0), c(0.1, 0.9, 0), c(0, 0, 1))
   expect_lt(min(X %*% solve(S)), 0)
   ## without the separating variable the mirror route fails too
   idn <- nmfkc:::.nmfvar.identified(X[-3, ], Th)
-  expect_false(idn$ok); expect_false(idn$x.pinned[1])
+  expect_false(idn$ok); expect_false(idn$X.pinned[1])
 })
 
 test_that("identified.approx uses the pinning", {
