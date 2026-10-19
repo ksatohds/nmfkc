@@ -42,12 +42,18 @@ The `Description` field no longer names `nmf.sem()`, which v0.9.8 removed.
 
 ## Test environments
 
-* win-builder, R-devel: <!-- fill in -->
-* win-builder, R-release: <!-- fill in -->
-* Ubuntu 26.04.1 LTS, R 4.6.1, `--as-cran --no-manual` (no LaTeX on that
-  machine; the manual is checked on win-builder): Status OK, 258 s
+* win-builder, R-devel (2026-10-18 r90707 ucrt): Status OK, install 24 s,
+  check 210 s
+* win-builder, R-release (4.6.1 ucrt): Status OK, install 23 s, check 234 s
+* Ubuntu 26.04.1 LTS, R 4.6.1, `--as-cran` with
+  `_R_CHECK_CRAN_INCOMING_USE_ASPELL_=true`: Status OK, 262 s
 * the same with `_R_CHECK_DEPENDS_ONLY_=true` (no Suggests, as CRAN's
-  noSuggests flavour): Status OK, 248 s
+  noSuggests flavour): Status OK, 252 s
+
+An earlier build of this version drew "Possibly misspelled words in
+DESCRIPTION: FFB" (feed-forward + feedback, the model fitted by `nmf.ffb()`);
+the word is now in the package dictionary `.aspell/nmfkc.rds`, and the
+submitted tarball gives no note.
 
 ## On the check time
 
@@ -57,8 +63,8 @@ and run when `NMFKC_FULL_TESTS` is set, which is what we run before every
 release (4501 assertions, no failures).  Nothing was deleted to achieve
 this.
 
-win-builder reports <!-- N --> seconds for this submission, against 126 for
-v0.9.8.
+win-builder reports 210 s (R-devel) and 234 s (R-release) for this
+submission, against 126 s for v0.9.8.
 
 ## Additional checks
 
