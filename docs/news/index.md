@@ -1,0 +1,2647 @@
+# Changelog
+
+## nmfkc 1.0.1 (2026-10-20)
+
+### The identification diagnostic in `nmf.ffb.inference()`, `nmf.rrr.inference()` and `nmfre.inference()`
+
+The three return `identified.approx` and `identification` as well, built
+on the same check as
+[`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md)
+(below), adapted to each model. Each is an algebraic check on the point
+estimate – no re-fits – and
+[`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) prints
+one line. Nothing else changes: every other component is identical
+(checked on six calls).
+
+- **[`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md)**:
+  `Y1 ~ X (C1 Y1 + C2 Y2)` is `Y ~ X Theta A` with `Theta = [C1 C2]` and
+  `A = [Y1; Y2]`, all non-negative, so the check applies to
+  `(X, [C1 C2])` (both the `"fiml"` and the `"mu"` paths). The zeros of
+  the exclusion restriction count; the full latent covariance `Phi`
+  absorbs any rotation and adds nothing.
+- **[`nmf.rrr.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.inference.md)**:
+  `Y1 ~ X1 C X2 Y2` has a rotation on each latent space (`X1 T1`,
+  `T1^-1 C T2^-1`, `T2 X2`). Any admissible `T1` keeps
+  `T1^-1 (C X2) >= 0`, so the check on `(X1, C X2)` pins `T1`, and the
+  check on `(X1 C, X2)` pins `T2`; both, with `Y2` of full row rank,
+  suffice. `identification` holds the two as `left` and `right`. Zeros
+  are judged relative only, since `X2` and `C X2` have no natural
+  absolute scale.
+- **[`nmfre.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfre.inference.md)**:
+  with `C.signed = FALSE` the check applies to `(X, C)`. With a signed
+  `C` (the default) non-negativity cannot pin the rotation at all, so
+  `identified.approx` is `NA`. The working model’s isotropic random
+  effects `U ~ N(0, tau2 I)` allow only orthogonal `T`, which with the
+  column sums of `X` fixed is a permutation when `Q = 2` or every basis
+  has an anchor row; `identification$by.assumption` records that –
+  identification by assumption, not by the data.
+
+Not covered:
+[`nmf.gmm.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.inference.md)
+and
+[`nmf.rrr.signed.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.inference.md)
+(signed coefficients) and
+[`nmfkc.net.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.inference.md)
+(the family `(X T, T^-1 C T^-T)`).
+
+### `nmfkc.inference()` reports whether C is identified
+
+The coefficients and intervals of
+[`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md)
+are conditional on the estimated basis X. It now also returns
+`identified.approx` and `identification`, the diagnostic of
+[`nmfkc.ar.latent.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.inference.md)
+(below) applied to X and C: when `identified.approx` is `TRUE` the
+factorization is unique up to a permutation of the bases, so the
+intervals concern the same C whichever admissible representative
+`(X T, T^-1 C)` is taken; when `FALSE` the entries of C describe this
+representative. It also requires A of full row rank
+(`identification$A.full.rank`), since otherwise C is not unique even
+given X.
+[`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) prints
+one line about it. `sep.tol` and `pin.tol` can be passed through `...`;
+coefficients at or below `boundary.tol` count as zero.
+[`nmfkc.net.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.inference.md),
+which calls
+[`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md)
+with `A = t(X)`, does not carry these components: for `Y ~ X C X'` the
+family of equivalent fits is `(X T, T^-1 C T^-T)`, which the diagnostic
+does not cover.
+
+It is an algebraic check on the point estimate – no re-fits, nothing
+random – and takes about a millisecond for Q = 3 with 50 covariates.
+Nothing else changes: the estimates, intervals and other components are
+identical.
+
+### `nmfkc.ar.latent.inference()`: a weaker identification check, with two routes
+
+`identified.approx` says whether the entries of the latent transition
+matrices `G_d` and the composition `p.star` can be inferred,
+i.e. whether the factorization is unique up to a permutation. It used to
+require an anchor row of X for every basis **and a pure covariate for
+every basis** (a column of Theta that is non-zero for that basis alone).
+The second half was more than the argument needs, and fits whose Theta
+is nearly one-basis-per-covariate were reported as not identified. Two
+sufficient conditions are now checked, with nothing for the caller to
+choose:
+
+- **X anchors + Theta pinned.** The rows of Theta are pinned one at a
+  time: the first by a pure covariate, each later one by covariates that
+  are non-zero only for bases already pinned and itself, and whose zero
+  coefficients separate it from each of those bases – possibly in
+  different covariates.
+- **The mirror route.** A pure covariate for every basis, and the bases
+  pinned one at a time through the rows of X (the first by an anchor
+  row).
+
+Every fit that passed the old check passes the new one. The Details of
+[`?nmfkc.ar.latent.inference`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.inference.md)
+give the argument and two counterexamples: separability of X alone is
+not enough, and neither are zeros that merely separate every pair of
+bases (`T = (J - I)/2` is then admissible).
+
+A coefficient counts as zero when it is at most `kkt.tol` or at most the
+new `pin.tol` (default `0.01`) times the coefficient of the same
+covariate for the basis being pinned – that ratio is the mixing of bases
+the covariate still allows. A pass is no longer a warning:
+[`print()`](https://rdrr.io/r/base/print.html) states it with the
+precision reached, e.g. “unique up to a permutation of the bases; the
+zeros it rests on hold to 0.0024, so an equivalent fit mixes the bases
+by at most about 0.24%”. A failure still warns, naming the part that
+fails. A covariate whose coefficients are all numerical noise is
+ignored; ratios inside such a column once looked like a pin. For X the
+tolerance is `1 - sep.tol` times the loading of the basis being pinned.
+
+`identification` gains `pinned`, `pin.order`, `X.pinned`, `X.pin.order`,
+`route` and the margins `pin.margin` and `X.pin.margin`; `pure` and
+`pure.margin` use the new zero rule (the margin is now a ratio, not an
+absolute coefficient). On the US 49-industry monthly realized volatility
+(Q = 3, D = 1) the check said FALSE and now says TRUE, by the mirror
+route; a direct search over all admissible `T` on configurations of this
+kind found only permutations. The fields about X carry a capital `X.`,
+like `X.anchor` and `A.full.rank`; development builds of 2026-10-18
+spelled them `x.pinned`, `x.pin.order` and `x.pin.margin`.
+
+Nothing else changes: estimates, intervals and the other components are
+identical (8 calls checked).
+
+### A block wild bootstrap for time points: `wild.unit = "block"`
+
+[`nmfkc.ar.latent.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.inference.md)
+and `nmfkc.inference(method = "refit")` accept `wild.unit = "block"`.
+One multiplier is drawn per block of `L = max(1, round(n^(1/3)))`
+consecutive columns (time points, `n = ncol(Y)`) and shared by all rows
+(series), so residuals within a block keep their serial dependence. The
+block grid starts at a random offset in `0, ..., L-1`, drawn anew in
+each replicate. `L` is 3 for `n = 27`, 5 for 100 and 8 for 500; for
+`n <= 3` it is 1 and the draws are those of `"column"`. The length is
+fixed by `n`: it cannot be set and is not stored. Use it when the
+residuals are autocorrelated (for example with too few lags); for a
+correctly specified VAR the default of
+[`nmfkc.ar.latent.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.inference.md)
+– one Rademacher multiplier per time point (`"column"`), `wild.B = 500`
+– suffices. The Details of
+[`?nmfkc.ar.latent.inference`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.inference.md)
+describe the scheme.
+
+[`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md)
+now also returns `wild.unit`, the multiplier unit of the `"refit"`
+bootstrap (`NA` otherwise).
+
+Nothing else changes: the default bootstrap of
+[`nmfkc.ar.latent.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.inference.md),
+its `"element"` and `"exp"` modes, and the onestep and refit (element,
+column) modes of
+[`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md)
+give bit-identical results (8 calls checked).
+
+### Anchor rows of X: `X.anchor`, `X.init = "spa"`, and a separability diagnostic
+
+Two options for
+[`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md), both
+passed through `...`. A fit that uses neither is unchanged: checked
+bit-identical on 167 existing calls.
+
+- **`X.anchor`** imposes anchor rows of X – rows that carry one basis
+  alone – as zeros that are kept for the whole fit. Anchors make the
+  factorization unique up to the column scale that `X.restriction`
+  fixes, and with covariates they identify `C` as well, provided
+  `rank <= nrow(A)` (checked: `B = C A` cannot have a larger rank).
+  `X.anchor = "spa"` chooses the rows with the successive projection
+  algorithm (Gillis & Vavasis, 2014, IEEE TPAMI); a vector of row
+  indices or names gives them directly, one per basis, and the bases
+  then keep that order. The rows used are returned as `$X.anchor`.
+- **`X.init = "spa"`** starts from the same anchor rows but fills their
+  zeros, so it is only a starting value and leaves the factorization as
+  (non-)unique as before. Fitting both ways shows what the assumption of
+  anchors costs:
+  `nmfkc(..., X.anchor = "spa")$objfunc - nmfkc(..., X.init = "spa")$objfunc`.
+
+On data separable by construction, the anchored fit recovered X to 1e-5
+and the covariate effects to 1e-3, while the default start reached the
+same objective at a rotated solution.
+
+[`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) now
+reports the **separability** of the basis: for each basis the largest
+share it takes in any row of X (with the columns of X scaled to sum to
+one, so the value does not depend on `X.restriction`), minimized over
+the bases. 1 means every basis has a row of its own, `1/Q` that every
+row mixes all bases equally; an `X.anchor` fit scores exactly 1, and on
+the data above the default fit scored 0.91. The per-basis values and the
+rows attaining them are `anchor.purity` and `anchor.row`. All three are
+stored on the fit, in `fit$criterion`;
+[`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) reads
+them there (and recomputes them for objects saved by earlier versions).
+It looks at X only – zeros in B or in `C` can also pin the solution – so
+a value near 1 says the fit is nearly unique, while a low value does not
+say it is not.
+
+These three `criterion` elements are the only change to a fitted object:
+every value it held before is unchanged (checked bit-identical on the
+same 167 calls, with the new elements set aside).
+
+### The anchor options reach the other fitters
+
+`X.anchor` and `X.init = "spa"` now work in
+[`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md),
+[`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md),
+[`nmf.rrr()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.md),
+[`nmf.gmm()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.md) /
+[`nmf.gmm.twostage()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.twostage.md)
+and
+[`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md).
+All but the last used to accept `X.anchor` and **drop it without a
+word** – the fit came out identical with or without it – so a caller
+could believe anchors were imposed when they were not. Each now imposes
+them and returns the rows used as `$X.anchor`; what differs between them
+is where the basis is estimated and what limits the rank.
+
+| function | anchors apply to | rank limit |
+|:---|:---|:---|
+| [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) | X; kept through its floor on X | none (the random effects give B full rank) |
+| [`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md) | the stage-1 basis, then held fixed | `rank <= nrow(Y2)` |
+| [`nmf.rrr()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.md) | the response basis X1 | `rank1 <= min(rank2, nrow(Y2))` |
+| [`nmf.gmm()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.md), [`nmf.gmm.twostage()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.twostage.md) | X (found on Y, not on the residuals) | none (the mixture gives B full rank) |
+| [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md) | X | `rank <= nrow(A)` |
+
+`"spa"` compares rows of Y by their shares, so it needs a non-negative
+Y.
+[`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)
+documents a signed Y: there the anchor rows can be given but not
+searched for, and the start uses the semi-NMF basis step (Ding, Li &
+Jordan 2010).
+[`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md)
+and `nmf.ffb(method = "mu")` cannot use the options and now refuse them
+rather than ignoring them.
+
+Nothing changes for a call that uses neither option: checked
+bit-identical on 22 default calls across the seven fitters.
+
+### `nmfkc.net.ecv()`: a diagonal to leave out, folds to share, repeated splits, held-out predictions
+
+Asked for by the covariate-network study, which compares models on
+edge-wise CV. Each option is passed through `...` and changes nothing
+when absent: checked bit-identical on 16 existing calls of
+[`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md),
+[`nmfkc.net.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.ecv.md)
+and
+[`nmfkc.net.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.rank.md).
+
+- **`diag.exclude = TRUE`**, in
+  [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md)
+  and
+  [`nmfkc.net.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.ecv.md)
+  alike. For a network without self-loops the diagonal is not an
+  observation. It is now neither fitted nor counted – exactly a
+  `Y.weights` with a zero diagonal. In the CV it is no longer held out
+  either: before, its zeros were scored as edges to predict.
+- **`folds =`** takes a split from outside, e.g. the `$folds` of an
+  earlier run or another implementation’s. This compares two models on
+  the same split. An entry in two folds, or one that cannot be held out,
+  is an error.
+- **`seeds = c(...)`** repeats the CV over several splits. It returns
+  the mean and also the spread across seeds (`objfunc.sd`,
+  `r.squared.cv.sd`, and the per-seed `*.rep`). The results for seed s
+  are those of `seed = s`.
+- **`r.squared.cv`**, always: the held-out R² pooled over the folds, 1 -
+  SSE/SST over the held-out entries. **`pred = TRUE`** also returns the
+  held-out predictions (N x N per rank, so optional).
+  [`print()`](https://rdrr.io/r/base/print.html) shows the new columns.
+
+Two inputs went wrong before and now work: \* **`NA` in `Y`.** It made
+`objfunc` `NA` for every rank, and the fits took the `NA` entries as
+observed zeros. They are now never held out and stay masked. \* **A
+`Y.weights` given to
+[`nmfkc.net.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.ecv.md).**
+It was silently replaced by the fold mask: the result was identical with
+or without it. It is now kept in every fit, its zero entries are not
+held out, and the held-out loss is weighted.
+
+### The element-wise CVs keep a weights argument
+
+[`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md),
+[`nmfkc.signed.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.ecv.md),
+[`nmf.rrr.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.ecv.md)
+and
+[`nmf.rrr.signed.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.ecv.md)
+dropped a `Y.weights` (`Y1.weights` for the RRR pair) without a word:
+the result was identical with or without it. Three of them spliced the
+fold mask in ahead of `...`;
+[`nmfkc.signed.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.ecv.md)
+removed the weights from the fit arguments. Now, in all four: \* The
+weights are kept in every fit, in the forms the fitters take (matrix,
+one weight per column, or scalar). \* Cells of weight 0 are never held
+out. \* The held-out loss is the weighted mean.
+
+Calls without weights are unchanged: checked bit-identical on 10 + 16
+calls covering the four functions,
+[`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md),
+[`nmfkc.signed.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.rank.md),
+[`nmf.rrr.rank()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.rank.md),
+`nmf.ffb.cv(method = "fiml")` and `cores = 2`.
+
+### `nmfkc()` no longer stops on data with all-zero columns
+
+With `X.init = "kmeans"` (the default) or `"kmeans++"`, two or more
+all-zero observation columns could make k-means return the zero vector
+as a cluster centre. Normalizing that basis column gave 0/0, and the fit
+stopped with “missing value where TRUE/FALSE needed” – or, with
+`maxit < 10`, returned an all-NaN object as if it were a fit. The
+initialization is now rerun on the non-zero columns, with a message
+saying so; the fit itself still uses every column, since with covariates
+a zero column is informative about `C`.
+
+A fit whose objective becomes NaN now stops with the cause rather than
+R’s generic message, and a `Y` with no positive entries is named as
+such. A user-supplied `X.init` with a zero column is reported, not
+altered.
+
+**No fit that succeeded before changes.** The repair acts only on a
+start that normalizes to a non-finite value, and such a start could not
+produce a result. Checked bit-identical
+([`identical()`](https://rdrr.io/r/base/identical.html) and
+`all.equal(tolerance = 0)`) on 143 previously successful calls, among
+them data with zero columns that k-means happened not to isolate, and
+`X.restriction = "none"`, where a zero basis column never failed and
+still stays zero.
+
+### Documentation that answers questions raised in use
+
+None of these change a result.
+
+- `epsilon` spells out the stopping rule: relative while the objective
+  exceeds 1, absolute below it, so small-magnitude data need a smaller
+  `epsilon` or rescaling.
+- `X.L2.ortho` explains why its strength depends on the scale of `Y`
+  (and is of order \\1/P^2\\ per pair under column-sum normalization),
+  and how to state it relative to the fit:
+  `X.L2.ortho = lambda0 * sum(Y^2)`.
+- `C.init` explains that an exact zero in the initial value is kept
+  throughout, while a zero on the boundary is approached only slowly –
+  so a structural zero belongs in the initial value.
+- [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md)
+  documents that `objfunc` is named `"Q=2"`, `"Q=3"`, …
+
+### `nmf.gmm()`: covariate effects that differ by class (`class.effects`)
+
+[`nmf.gmm()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.md)
+gains `class.effects`, which names the covariates whose coefficients may
+differ between classes. The class-`k` mean of the scores becomes
+`C a_n + Delta_k a_n[S] + mu_k` with `sum_k xi_k Delta_k = 0`, so the
+columns `S` of `C` keep their meaning as the (xi-weighted) average
+effect and the class-specific coefficients are returned in `C.class`.
+Before, every covariate had one coefficient shared by all classes, so a
+covariate whose effect differs between classes could only be absorbed by
+extra components. Covariates are named by row of `A` or, with a formula,
+by term, so `class.effects = "diet"` frees every indicator row of a
+factor. The default (`NULL`) fits the common-effect model exactly as
+before. The M-step solves the class-specific coefficients, the common
+ones and the class means jointly by weighted least squares; BIC and ICL
+count the `(K - 1) Q |S|` extra parameters. With a categorical
+covariate, freeing all of its levels gives each level its own class
+means, and the likelihood then no longer ties the classes of one level
+to those of another; the help page says so.
+[`nmf.gmm.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.inference.md)
+and
+[`nmf.gmm.twostage()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.twostage.md)
+refuse such fits for now.
+
+### `nmf.gmm()`: an ordinary-NMF starting basis, and the basis it started from
+
+[`nmf.gmm()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.md) and
+[`nmf.gmm.twostage()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.twostage.md)
+accept `X.init = "nmf"`: the basis of an ordinary NMF,
+`nmfkc(Y, rank = rank, seed = seed)` without covariates. Before, the
+only named choices were the one-step initializers (`"nndsvd"`, the
+default, `"kmeans++"`, `"kmeans"`, …), so reproducing a fit started from
+a fitted NMF basis meant building that basis by hand. The default is
+unchanged.
+
+The fit now returns `X0`, the column-normalized basis the EM started
+from. All `nstart` restarts share this one basis and differ only in the
+seeding of the mixture, so the partition can depend on the basis;
+returning it makes a fit reproducible from the object alone. Both
+functions now build the basis through one internal helper, so the
+two-stage baseline cannot drift from the joint fit.
+
+### `nmf.gmm.twostage()`: the help no longer says “only the order differs”
+
+The help page, the `fixX` entry of
+[`nmf.gmm()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.md) and
+the vignette said that the two-stage baseline differs from the joint fit
+“only in the order of adjustment and clustering”. It does not: unless
+`fixX = TRUE`, the two-stage route refits the basis to the
+reconstituted, shifted residuals, and even with `fixX = TRUE` it fits
+different data. The text now says what is held equal (the initial basis,
+the mixture family, the settings) and what is not. It also no longer
+promises that the two routes “agree” when the covariate is
+mean-independent of the class: the class-mean displacement vanishes in
+the population, but the fitted partitions need not coincide in a finite
+sample. The reference to the accompanying paper names its oracle
+proposition instead of a proposition number, which has changed between
+drafts.
+
+### The package description names `nmf.ffb()`, not the removed `nmf.sem()`
+
+The `Description` field of `DESCRIPTION` still told readers to reach the
+feed-forward + feedback model through `nmf.sem()` – the very name 0.9.8
+removed – and called the model “NMF-based Structural Equation Modeling
+(NMF-SEM)”, a label the package retired when `nmf.sem()` was renamed in
+0.8.8. It now names
+[`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md) and
+NMF-FFB. The 0.9.8 release on CRAN still carries the old sentence;
+nothing else in it refers to the removed functions.
+
+## nmfkc 0.9.8 (2026-09-23)
+
+CRAN release: 2026-09-22
+
+### The deprecated `nmfae*` names are removed
+
+The fifteen `nmfae*` / `nmfae.signed*` forwarders are gone: `nmfae()`,
+`nmfae.inference()`, `nmfae.ecv()`, `nmfae.cv()`, `nmfae.rank()`,
+`nmfae.DOT()`, `nmfae.heatmap()`, `nmfae.kernel.beta.cv()`,
+`nmfae.rename()` and their six `nmfae.signed*` counterparts. Use the
+`nmf.rrr*` / `nmf.rrr.signed*` names, which they forwarded to.
+Deprecated in 0.8.8, carried through two CRAN releases with a
+[`.Deprecated()`](https://rdrr.io/r/base/Deprecated.html) note.
+
+**The `nmfae` S3 classes stay.** They are where this family’s methods
+are defined,
+[`nmf.rrr()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.md)
+still returns `c("nmf.rrr", "nmfae", "nmf")`, and
+[`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) still
+returns `"summary.nmfae"`. Nothing about dispatch changes, so code that
+inspects the class of a fit, and objects saved by an earlier version,
+keep working. Renaming that layer to `nmf.rrr` is a separate change, for
+a release that is not three days from a submission.
+
+### The deprecated `nmf.sem*` names are removed
+
+`nmf.sem()`, `nmf.sem.inference()`, `nmf.sem.cv()`, `nmf.sem.split()`
+and `nmf.sem.DOT()` are gone, together with the six S3 methods
+registered on the `nmf.sem` classes. Use
+[`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md) and
+its family; the names map one to one and nothing else changes, because
+the removed functions were pure forwarders
+(`nmf.sem <- function(...) { .Deprecated("nmf.ffb"); nmf.ffb(...) }`).
+
+They were deprecated in 0.8.8 (2026-07-14) and have emitted a
+[`.Deprecated()`](https://rdrr.io/r/base/Deprecated.html) note through
+two CRAN releases, 0.8.8 and 0.9.6. No package on CRAN depends on
+`nmfkc`, so nothing else is affected.
+
+Fitted objects no longer carry the legacy class:
+[`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md) now
+returns `c("nmf.ffb", "nmf")` rather than
+`c("nmf.ffb", "nmf.sem", "nmf")`, inference results drop
+`"nmf.sem.inference"`,
+[`nmf.ffb.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.DOT.md)
+drops `"nmf.sem.DOT"`, and
+[`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) returns
+`"summary.nmf.ffb"` alone. **Code that tests for those class strings,
+and objects saved by an earlier version, will no longer dispatch to the
+`nmf.sem` methods** – which is the point of removing them, but it is
+worth knowing before loading an old `.rds`.
+
+### NMF-FFB: the help pages no longer describe options that were removed
+
+`C1.restriction` accepted `"block"` and `"cross"` while the exclusion
+restriction was being settled; both were dropped in 0.9.8 in favour of
+`"union"`, but the help pages and the vignette still described them and
+still listed them as admissible values. They now describe only what the
+code accepts, `"union"` and `"none"` (or a user matrix).
+
+The wording of the restriction itself is also corrected. It was “an
+outcome may not feed back into a factor on which it loads”, which reads
+as if any non-zero loading blocked the entry; the rule is “a factor on
+which it has more than a negligible loading” – the dominant factor of
+the outcome, plus every factor whose loading reaches
+`C1.restriction.threshold`. Neither half alone is the rule, and the help
+now says why. The vignette adds the reference for reading a BIC
+difference as evidence (Kass and Raftery 1995, p. 777).
+
+### The NMF-GMM family is marked experimental again
+
+[`nmf.gmm()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.md),
+[`nmf.gmm.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.inference.md),
+[`nmf.gmm.select()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.select.md),
+[`nmf.gmm.twostage()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.twostage.md)
+and the S3 methods on their classes say on their help pages that they
+are experimental and still under development: argument names, defaults
+and the contents of the returned objects are not yet stable. The
+vignette says so too.
+
+The notice was removed in 0.9.7 on the reasoning that publishing on CRAN
+is a commitment to a fixed interface. That reasoning was premature — the
+family is still being developed alongside the paper — so the notice is
+back, and now covers
+[`nmf.gmm.twostage()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.twostage.md)
+and the S3 methods, which it had missed. Nothing else in the package
+carries the caveat.
+
+### Every restriction on `X` that is not a gauge fix is removed
+
+`X.rowSums.min` (both fitters) and `X.restriction = "rowSums"`
+([`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md))
+are gone. Both acted on the **rows** of `X`, which changes
+`X %*% C %*% A`, so neither was a gauge fix: the scale they removed
+could not be handed to `C`, they sat outside the multiplicative form,
+and the objective was no longer monotone.
+
+- The row-sum floor pushed the pinned rows below the floor and the
+  projection lifted them back, so the objective alternated between two
+  values until `maxit` (observed on Covertype at rank 6, 200,000
+  iterations).
+- `"rowSums"` has the same defect in a milder form: on a 10x30 example
+  the objective rose at 45 steps, every second step from the 49th on.
+  The oscillation is small enough that the fit still meets `epsilon` and
+  stops, but it descends by luck rather than by construction.
+
+Both were added after the last CRAN release, so nothing on CRAN is
+affected. `"rowSums"` is refused with a message rather than silently
+re-mapped to `"colSums"`, which would change results without saying so.
+The remaining restrictions – `"colSums"` (default), `"colSqSums"`,
+`"totalSum"`, `"none"`, `"fixed"` – are all gauge fixes and leave the
+updates monotone.
+
+Both fitters now return `epsilon.iter` (relative change at the last
+step) and `objfunc.increases` (steps at which the objective rose), and
+[`print()`](https://rdrr.io/r/base/print.html) /
+[`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) show
+them, so a fit that is oscillating rather than descending is visible.
+[`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)’s
+`converged` is now the stopping rule’s own test rather than
+`iter < maxit`, so a run that stopped early on a non-finite objective is
+no longer reported as converged.
+
+The two `epsilon.iter` are not the same quantity and should not be
+compared across the two fitters:
+[`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) divides
+by `max(|f_i|, 1)` and
+[`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)
+by `|f_{i-1}|`. Each matches the stopping rule of its own fitter, and
+they agree while the objective exceeds 1; below 1
+[`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)’s test
+is effectively an absolute one. Both are documented on the respective
+help pages.
+
+### NMF-FFB: names brought into line with the rest of the package
+
+[`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md)
+grew its own vocabulary while the likelihood estimator was being built,
+and of the 55 fields on a fit only nine shared a name with an
+[`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) fit –
+two of those meaning something different. The names are now the
+package’s. **This is a breaking change**, confined to the likelihood
+branch and its inference, all of which was added after the last CRAN
+release.
+
+| was | is | why |
+|:---|:---|:---|
+| `fit$Q` | `fit$rank` | `rank` is the field on every other fitter |
+| `fit$MAE` | `fit$mae` | likewise (the `path` / `candidates` **columns** stay `MAE`, beside `BIC`) |
+| `fit$objfunc` (`NULL`) | `fit$objfunc` = the minimized negative log-likelihood | it was the one house field the fiml path left empty |
+| `fit$objfunc.full` | `fit$objfunc.penalized` | it is the penalized objective, unrelated to the `full` fit |
+| `mask =` (argument) | `C1.restriction =` | mirrors `X.restriction`; the argument and the field of the same name held different things |
+| `fit$mask` (matrix) | `fit$C1.free` | it marks the entries left **free**, and the argument `mask` was a rule string |
+| `fit$mask.rule` | `fit$C1.restriction` | the field now means what the argument means |
+| `cross.threshold` | `C1.restriction.threshold` | it parameterizes the restriction, so it shares its prefix |
+| `phi =`, `fit$phi` | `Phi.restriction` | `phi` and `Phi` differed only in case |
+| `lambda1` | `C1.L1.path` | the L1 penalty on `C1`, as a path; `fit$path$C1.L1` is one value of it |
+| `lambda1.selected` | `C1.L1.selected` |  |
+| `ci.level` | `boot.level` | the confidence level of the bootstrap, as `wild.level` elsewhere |
+| `bootstrap.B`, `.threshold`, `.ci.level`, `.n.valid`, `.n.invalid`, `.type` | `boot.B`, `boot.threshold`, `boot.level`, `boot.n.valid`, `boot.n.invalid`, `boot.method` | `boot.method` is the house name |
+| `C1.array`, `C2.array` | `C1.boot.draws`, `C2.boot.draws` | as `C.boot.draws` in [`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md) |
+| `rho.boot` | `rho.boot.draws` |  |
+| `mask.change.rate` | `C1.restriction.change.rate` |  |
+| `calibration = "full"` | `calibration = "procedure"` | `"full"` already named the unrestricted feedback fit |
+| `plot(fit, which = "full")` | `which = "penalized"` | same reason |
+| `coefficients$p_value` | (removed; use `prob.unsupported`) | it held `1 - support_rate`, which is not a p-value |
+| `nmf.ffb.diagnostics()$top$rank` | `$top$order` | `rank` now means the number of factors |
+
+Three defects surfaced while doing this, all of them silent until now.
+
+- `nmf.ffb(C1.L1 = , C2.L1 = )` had **no effect at all** under the
+  default `method = "fiml"`: the arguments were accepted and never
+  forwarded. They belong to the multiplicative updates; the likelihood
+  path penalizes `C1` along `C1.L1.path` and leaves `C2` unpenalized.
+  Passing them to a fiml fit now warns. Same in
+  [`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md).
+- `fit$maxit` held the **stage-2** cap while the `maxit` argument set
+  the **stage-1** one, and
+  [`print()`](https://rdrr.io/r/base/print.html) paired stage 2’s
+  iteration count with stage 1’s `epsilon` (`87 / 3000 epsilon = 1e-06`
+  – three numbers from two different optimizers). `iter`, `maxit`,
+  `epsilon` now describe stage 1, as the arguments of those names do;
+  stage 2 is `fiml.iter`, `fiml.maxit`, `factr`, `fiml.converged`; and
+  `converged` is `TRUE` only if both stages converged.
+  [`print()`](https://rdrr.io/r/base/print.html) shows both.
+- [`plot()`](https://rdrr.io/r/base/plot.html) on a `method = "fiml"`
+  fit failed inside [`sprintf()`](https://rdrr.io/r/base/sprintf.html).
+  A fiml fit has no iteration trace to draw (its optimizer is L-BFGS-B),
+  so it now says so and names what to use instead.
+
+Options withdrawn in 0.9.8 (`starts`, `nsplit`, `calibration` as an
+argument of the fit) reached `...` and were dropped without a word; they
+now warn. A **renamed** argument is worse than a withdrawn one –
+`mask = "none"` would be dropped and the fit would silently use the
+default restriction, the opposite of the request – so the four renamed
+arguments stop with the new name instead.
+
+#### NMF-FFB is the canonical name everywhere, NMF-SEM the alias
+
+The `nmf.sem*` functions have been deprecated aliases of `nmf.ffb*` for
+some time, but the rest of the package had not followed:
+
+- the tutorial was `vignettes/nmf-sem-with-nmfkc.Rmd` and the engine
+  file `R/nmf.sem.R`; they are now `nmf-ffb-with-nmfkc.Rmd` and
+  `R/nmf.ffb.R`;
+- **the six S3 methods were registered on `nmf.sem`, not on `nmf.ffb`**
+  – [`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html),
+  [`plot()`](https://rdrr.io/r/base/plot.html),
+  [`coef()`](https://rdrr.io/r/stats/coef.html),
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html),
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html) and
+  `print.summary()` – so the deprecated name was the one dispatch
+  resolved against and `?summary.nmf.sem` was the page a user landed on.
+  They are now defined on `nmf.ffb`, and the `nmf.sem` methods are
+  one-line aliases collected at the end of `R/nmf.sem-deprecated.R`, so
+  that removing `nmf.sem` later means removing one file. An object saved
+  by a version that wrote only `c("nmf.sem", "nmf")`, and a summary
+  object of class `"summary.nmf.sem"`, still dispatch;
+- [`nmf.ffb.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.DOT.md)
+  tagged its result `c("nmf.sem.DOT", "nmfkc.DOT")`; the leading class
+  is now `"nmf.ffb.DOT"`.
+
+The fitted object still carries `c("nmf.ffb", "nmf.sem", "nmf")`, and
+the deprecated functions still work and still say so. The tutorial now
+also shows the exclusion restriction (`fit$C1.restriction`,
+`fit$C1.free`), the BIC path that
+[`plot()`](https://rdrr.io/r/base/plot.html) draws, and the two-stage
+convergence line.
+
+### NMF-FFB: one function per step of the procedure
+
+The feedback model is now driven by four functions, one for each step,
+instead of two that each did several things:
+
+``` r
+ecv <- nmf.ffb.ecv(Y1, Y2, rank = 1:5)   # 1. choose Q by element-wise CV
+fit <- nmf.ffb(Y1, Y2, rank = Q)         # 2. estimate; BIC selects the support
+tst <- nmf.ffb.test(fit, Y1, Y2)         # 3. test the feed-forward null
+dgn <- nmf.ffb.diagnostics(fit)          # 4. cycles, spectral radius, best supports
+inf <- nmf.ffb.inference(fit, Y1, Y2)    # 5. intervals for the retained entries
+```
+
+- **New**
+  [`nmf.ffb.test()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.test.md):
+  the calibrated test of the feed-forward null. It runs the null
+  bootstrap only, and returns `LR.p.boot`, the null quantiles, the null
+  false-selection rate `prob.select.null` and, for the default
+  calibration, `C1.restriction.change.rate`. Replicates run in parallel
+  with `cores =` as elsewhere in the package.
+- **New**
+  [`nmf.ffb.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.ecv.md):
+  choosing *Q* under the name that says what it does.
+  `nmf.ffb.cv(method = "fiml")` has delegated to element-wise CV since
+  0.9.8; the old name still works and is kept for the
+  multiplicative-update path.
+- **Breaking**
+  [`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md)
+  no longer runs the null bootstrap and no longer returns `LR.boot`,
+  `LR.p.boot`, `LR.null.quantile`, `prob.select.null`, `LR.boot.*`,
+  `C1.restriction.change.rate`, `split.table` or
+  `bootstrap.calibration`; its `calibration` and `nsplit` arguments are
+  gone. Use
+  [`nmf.ffb.test()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.test.md).
+  An intervals object that also carried a *p*-value for the presence of
+  feedback invited the reader to treat an interval that excludes zero as
+  evidence for the entry, which it is not. This affects only the
+  likelihood branch (`method = "fiml"`), which was added after the last
+  release.
+- [`nmf.ffb.diagnostics()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.diagnostics.md)
+  now also reports the three best distinct supports with their
+  differences in BIC, the entries common to all of them, their envelope,
+  and whether they form a chain under inclusion. A difference in BIC
+  below about 2 is not evidence for one support over another (Kass and
+  Raftery 1995), so the presence of feedback can be settled while its
+  composition is not.
+
+### Options removed
+
+Measurement, not taste, decided each of these; keeping them invited the
+reader to compare procedures as if they were equally valid.
+
+- `nmf.ffb(starts = )` is gone. Every penalized fit is warm-started from
+  the unpenalized full-feedback fit. The three alternative starting
+  points measured on six data sets never uniquely attained the minimum
+  BIC.
+- `calibration` (now an argument of
+  [`nmf.ffb.test()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.test.md))
+  keeps `"procedure"` (the default: stage 1 and the exclusion
+  restriction re-estimated in every null replicate) and `"conditional"`
+  (valid only when the basis and the restriction come from outside the
+  data being tested, and selected automatically in that case). The two
+  sample-splitting levels are gone: `"split"` fixes the basis of the
+  estimation half and is anti-conservative, and `"split-full"` is valid
+  but strictly dominated by `"procedure"` – same size, lower power, and
+  it needs a large *N*.
+- `C1.restriction` keeps `"union"` (an outcome may not feed back into a
+  factor on which it loads) and `"none"`, plus a user-supplied matrix.
+  The partial rules `"block"` and `"cross"` were kept for comparison and
+  are neither the rule of the paper nor useful on their own.
+
+### The feedback test: what the bootstrap conditions on, and two fixes
+
+The parametric bootstrap that calibrates the feedback LR statistics used
+to hold the estimated basis `X` and the exclusion restriction fixed at
+their observed values while regenerating `Y1*`. Both are functions of
+`Y1`, so the null distribution omitted the adaptivity of that selection
+and the p-values were anti-conservative: on the two positive examples of
+the NMF-FFB paper the fixed-basis bootstrap gives `p < 0.001`,
+re-running stage 1 on every replicate gives `p = 0.05` and `0.35`, and
+the exclusion restriction turns out to move in 40% and 95% of the null
+replicates.
+[`nmf.ffb.test()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.test.md)
+therefore has a `calibration` argument with two levels:
+
+- `"procedure"` (default): stage 1 and the restriction are re-estimated
+  on every replicate (one
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) fit
+  per replicate), so the p-value is the operating characteristic of the
+  whole exploratory procedure. Returns `C1.restriction.change.rate`, the
+  share of replicates whose restriction moved, and `LR.boot.df`.
+- `"conditional"`: stage 2 only, basis and restriction fixed (the
+  pre-0.9.8 behaviour). Valid only if they came from data independent of
+  `Y1`; labelled as conditional in
+  [`print()`](https://rdrr.io/r/base/print.html), and selected
+  automatically when the fit used a basis or a restriction supplied by
+  the caller.
+
+Two fixes in the same code. `LR.p.boot` is now `(1 + #)/(1 + B_ok)`
+instead of the raw proportion, which was exactly 0 whenever no replicate
+reached the observed statistic (the normal case for a strongly
+significant fit, and not a valid p-value); the floor `1/(1 + B_ok)` is
+printed as `< floor`. And the L-BFGS-B convergence codes of the null
+replicates are no longer discarded: `LR.boot.n.nonconv` reports how many
+missed the tolerance and a warning is raised above 10%, because on a
+flat null likelihood (small `N`, full `Phi`) the share can reach 40% and
+must be visible to the user.
+
+### `nmf.ffb()`: exclusion restriction `"union"` (new default)
+
+`C1.restriction = "block"` excluded only the dominant factor of each
+outcome, and `"cross"` only the factors with loading at or above
+`C1.restriction.threshold`. Neither is a superset of the other: an
+outcome with a substantial second loading could still feed that factor
+under `"block"`, and an outcome whose largest loading is below the
+threshold kept its own factor free under `"cross"`. The new default
+`"union"` excludes both, which is the rule “an outcome may not feed back
+into a factor on which it loads”. On the NHANES data of the paper this
+removes four selected paths (including BMI -\> physical factor,
+coefficient 0.58) that were items feeding a factor on which they load.
+The fit records `C1.restriction` and `stage1.args` so that
+[`nmf.ffb.test()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.test.md)
+can re-derive the restriction and re-run stage 1.
+
+### `nmf.ffb()`: likelihood-based estimator (`method = "fiml"`, new default)
+
+The joint multiplicative-update estimator that
+[`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md)
+used until now minimizes the structural-form squared error . Once is
+free that objective cannot separate from : the structural and reduced
+forms fit equally well, so the recovered feedback is an artefact of the
+initialization and the penalties.
+[`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md)
+therefore gains a two-stage likelihood-based estimator, now the default:
+
+1.  the basis is estimated by the feed-forward fit `nmfkc(Y1, A = Y2)`
+    (or supplied through the new `X` argument);
+2.  conditional on , the Gaussian working model `Y1 = X B + E`,
+    `B = Theta1 Y1 + Theta2 Y2 + U`, `U ~ N(0, Phi)`,
+    `E ~ N(0, diag(psi))` is fitted by FIML (L-BFGS-B, analytic
+    gradient) under the non-negativity of `Theta1`, `Theta2` and an
+    exclusion restriction on `Theta1` (`C1.restriction`, default
+    `"union"`, see above: no outcome may feed back into a factor on
+    which it loads). The feed-forward null (`Theta1 = 0`, a non-negative
+    MIMIC factor model with correlated factors), the unpenalized
+    feedback fit and an L1 path on `Theta1` with re-estimation on each
+    support are fitted; the support with the smallest BIC is the
+    reported model.
+
+The penalized problem of the L1 path is non-convex, and a single
+starting point can miss the support with the smallest BIC: on the
+Holzinger-Swineford data the start from the unpenalized fit alone
+proposes a one-path model (BIC -1968.9) while the six-path model (BIC
+-1971.0) is proposed only from other starts. Every point of the path was
+therefore fitted from several starts (argument `starts`) while this
+release was being prepared – and the alternatives were then measured on
+six data sets and **removed** (see *Options removed*): only the warm
+start from the unpenalized fit survives. What remains of the idea is the
+registry it needed: every distinct support proposed anywhere on the path
+is re-estimated without penalty, and BIC is minimized over all distinct
+candidates together with the null and the unpenalized model. `path` has
+one row per penalty with `C1.L1`, `start`, `support_id`, `pen.value` and
+`duplicate` columns; `candidates` (one row per distinct support),
+`supports` and `support.selected` are new fields, and
+[`nmf.ffb.test()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.test.md)
+re-runs the same pipeline in its null bootstrap.
+
+The returned object keeps every legacy field (`X`, `C1`, `C2`, `XC1`,
+`Leontief.inv`, `M.model`, `mae`, …; `SC.map` and `SC.cov` are `NULL`)
+and adds `method`, `Phi`, `psi`, `loglik`, `npar`, `null`, `full`,
+`path`, `C1.free`, `C1.L1.selected`, `support`, `LR` (with `LR.df`),
+`BIC`, `AIC`, `call`. The likelihood-ratio statistics are returned
+**without p-values**: `Theta1 >= 0` puts the null on the boundary of the
+parameter space and the BIC refit is a post-selection statistic, so a
+chi-square reference is invalid.
+
+Two parametric bootstraps run with `X` fixed, and they are now two
+functions.
+[`nmf.ffb.test()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.test.md)
+draws from the fitted null, re-running the whole selection pipeline on
+each replicate, and returns `LR.boot`, `LR.p.boot`, `LR.null.quantile`
+and `prob.select.null` (the false-selection rate of BIC under the null).
+[`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md)
+draws from the selected model with the support fixed and returns the
+`coefficients` table (centred percentile intervals, support rates) that
+[`nmf.ffb.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.DOT.md)
+and [`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html)
+read.
+[`nmf.ffb.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.DOT.md)
+gains `model = c("selected", "null", "full")` to draw the feed-forward
+null or the unpenalized fit side by side with the selected model.
+[`nmf.ffb.cv()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.cv.md)
+with `method = "fiml"` delegates to
+[`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md):
+column-wise CV of the equilibrium mapping cannot select `Theta1` (the
+reduced form is the same with and without feedback), so the only tunable
+quantity is the stage-1 rank.
+[`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) reports
+the log-likelihoods, LR statistics and BIC of the three fits.
+[`plot()`](https://rdrr.io/r/base/plot.html) does not apply to a fiml
+fit (L-BFGS-B leaves no objective trace) and says so.
+
+`method = "mu"` is the previous estimator, moved verbatim into an
+internal function and verified bit-identical
+([`identical()`](https://rdrr.io/r/base/identical.html) on a battery of
+fits, inference runs and CV scores before and after the change); its
+objects now carry `method = "mu"` as an additional last field. It is
+kept so that published analyses reproduce and will be deprecated in a
+later release.
+[`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md),
+[`nmf.ffb.cv()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.cv.md)
+and
+[`nmf.ffb.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.DOT.md)
+are unchanged for it.
+
+### `nmfkc.signed()`: multi-start (`nstart.signed`)
+
+Signed models have many more local minima than non-negative ones,
+because takes both signs. Until now
+[`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)
+only forwarded `nstart` to the non-negative warm-start fit, and the
+documentation asked the caller to loop over seeds. It now does the loop:
+with `nstart.signed > 1` the whole fit is repeated from that many
+consecutive seeds (`seed`, `seed + 1`, …) and the fit with the smallest
+`$objfunc` is returned, with `$restarts` recording the seed, objective,
+iteration count and convergence flag of every start. `cores`
+parallelizes the restarts. The default `nstart.signed = 1` leaves the
+previous behaviour untouched.
+
+`nstart` keeps its old meaning – initialization of inside the
+non-negative warm start – so the two are independent. Since `$` on a
+list partial-matches, both are now read with `[[name, exact = TRUE]]`;
+without that, passing `nstart.signed` alone would also have set
+`nstart`.
+
+Restarts are cheap for Gram input, where and are already accumulated. A
+budget of 10-50 is recommended for publication-grade runs, especially
+when the number of classes is large. A start that stops after far fewer
+iterations than the others has usually failed, which is a cheap warning
+sign; note however that on ISOLET most of the apparent spread across
+starts turned out to come from stopping at `epsilon = 1e-4` rather than
+from local minima (the signed MU there is still improving after 20,000
+iterations).
+
+### Bug fix: `lambda.ortho` no longer leaks into `C.L1`
+
+[`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) accepts
+the deprecated names `lambda` (now `C.L1`) and `lambda.ortho` (now
+`X.L2.ortho`) by reading them out of `...`. Because `$` partial-matches
+on lists, calling `nmfkc(..., lambda.ortho = x)` without `lambda` also
+set `C.L1 <- x`, so an orthogonality penalty silently became an L1
+penalty of the same size. Both names are now matched exactly.
+
+### `nmfkc.rff.beta.cv()`: bandwidth selection for random-feature covariates
+
+The counterpart of
+[`nmfkc.kernel.beta.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.beta.cv.md)
+for Random Fourier Features: for each candidate (default: the
+seven-point median-heuristic grid) and each candidate , the features are
+regenerated with a fixed seed and the fit is cross-validated column-wise
+–
+[`nmfkc.signed.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.cv.md)
+for signed cosine features (`type = "signed"`),
+[`nmfkc.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.md)
+for positive random features (`type = "positive"`). Returns the selected
+`beta`, `D` and the `objfunc` matrix. `sample.size` runs the selection
+on a random subsample of the columns, so that for large the choice is
+made cheaply and the final fit goes through the Gram route on all .
+`cores` parallelizes over candidates with identical results. (Nyström
+covariates need no new function:
+`nmfkc.kernel.beta.cv(Y, rank, U = landmarks, V = data)` already
+cross-validates for them.)
+
+### Positive random features: `nmfkc.rff.positive()` and `nmfkc.rff.positive.gram()`
+
+Cosine Random Fourier Features take both signs, which forces the signed
+solver and breaks the NMF-LAB reading of as memberships. Positive random
+features (Choromanski et al. 2021, the FAVOR+ construction, transported
+from the softmax to the Gaussian kernel) are a non-negative, unbiased
+feature map for the same kernel: with , gives .
+
+- **`nmfkc.rff.positive(U, beta, D, seed, pars=, hyperbolic=)`** returns
+  the non-negative feature matrix and the generating `pars` (reuse them
+  for new data). A constant (minus the largest exponent on the training
+  data) is added to every exponent so that
+  [`exp()`](https://rdrr.io/r/base/Log.html) cannot overflow; it scales
+  the kernel by , which absorbs. `hyperbolic = TRUE` pairs each with
+  (the antithetic variant of Choromanski et al.).
+- **`nmfkc.rff.positive.gram(Y, U, beta, D, seed, block.size)`** is the
+  block-wise Gram constructor (`type = "prf"`, `signed = FALSE`); the
+  object goes to
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) –
+  standard NMF-LAB with the membership interpretation intact – or to
+  [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md).
+- Caveat, documented: the estimator is heavy-tailed for far-apart
+  points, so positive features need a larger than cosine features and
+  centred, scaled inputs.
+- [`print.nmfkc.gram()`](https://ksatohds.github.io/nmfkc/reference/print.nmfkc.gram.md)
+  now distinguishes the three feature types (RFF, positive RFF,
+  Nyström).
+
+### `predict.nmfkc.signed(type = "prob")`: Euclidean projection onto the simplex
+
+With signed covariates (Random Fourier Features) the scores can be
+negative, so NMF-LAB’s membership rule – normalize to sum one – is not
+available. `type = "prob"` now maps the least-squares prediction (whose
+entries sum to , close to one for one-hot targets) to the probability
+simplex by Euclidean projection, with from the sorted coordinates
+(Duchi, Shalev-Shwartz, Singer & Chandra 2008; Wang & Carreira-Perpiñán
+2013): the closest probability vector in the Frobenius geometry the fit
+minimizes, per column. The previous clip-and-renormalize rule is kept as
+`prob.method = "clip"`. `type = "class"` is unchanged (the argmax of ,
+which both rules preserve), so no reported accuracy moves; only
+`type = "prob"` values change.
+
+### Large N without the D x N covariate matrix: Gram input for `nmfkc()` and `nmfkc.signed()`
+
+The kernel designs of NMF-LAB (Satoh 2026, JJSD) so far needed the whole
+covariate matrix in memory – Nystr"om covariates () or Random Fourier
+Features (, which is times the size of the data: a low-dimensional input
+with , is a 16 GB matrix). The Euclidean multiplicative updates never
+needed it: they only use () and (). Two constructors now accumulate
+those two matrices over column blocks and return a `"nmfkc.gram"` object
+that the fitters accept in place of `A`.
+
+- **New `nmfkc.kernel.gram(Y, U, V, beta, block.size)`** – Nystr"om
+  kernel covariates for
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md). `V`
+  is a landmark matrix or an integer , in which case landmarks are
+  chosen on a random subsample (default 10,000 columns) by k-means++
+  seeding plus Lloyd refinement (the package’s existing
+  `.kmeanspp.seed()`; `landmarks = "kmeans"` / `"random"` are the
+  alternatives). `beta = NULL` takes the nearest-landmark median
+  heuristic on the same subsample. Each block comes from
+  [`nmfkc.kernel()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.md).
+  The object records `landmarks`, `beta` and `kernel`, so covariates for
+  new data are `nmfkc.kernel(g$landmarks, U.new, beta = g$beta)`.
+- **New `nmfkc.signed.rff.gram(Y, U, beta, D, seed, block.size)`** –
+  signed Random Fourier Features for
+  [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md).
+  Regenerates each RFF block with
+  [`nmfkc.signed.rff()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.rff.md);
+  `D` is a required argument (the `N/2` default of
+  [`nmfkc.signed.rff()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.rff.md)
+  would be enormous here). The RFF `pars` are stored on the object and
+  inherited by the fit.
+- **[`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  accepts a non-negative Gram object as `A`** (`method = "EU"`, no
+  `Y.weights`, no `NA` in `Y`). Inside the loop the updates are written
+  as , , , , with the loss in closed form; nothing of size is touched
+  per iteration, which is also faster than the matrix path once . `B`,
+  `XB` and every fit statistic are rebuilt block by block afterwards, so
+  the returned object is a regular `nmfkc` fit (all S3 methods apply;
+  `A.attr` records `function.name = "nmfkc.gram"`). The fit equals the
+  explicit-matrix fit up to summation order (tested with and without the
+  X / C penalties).
+- **[`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)
+  accepts either kind of Gram object as `A`.** The MU loop is untouched.
+  With Gram input the posneg `warm.start` is unavailable (it needs the
+  split matrix) and the direct initialization is used with a message;
+  `Y.weights` and `NA` in `Y` are errors.
+- Signed (RFF) objects are refused by
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) with
+  a pointer to
+  [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md).
+  The fold-based helpers
+  ([`nmfkc.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.md)
+  / `.ecv()` / `.rank()` and their `.signed` counterparts) refuse Gram
+  objects with a pointer to validation-set selection, which is the
+  paper’s protocol anyway.
+- **Existing calls are unaffected.** A matrix `A` follows exactly the
+  old code path in both fitters; the new branch is entered only for the
+  new class, which no existing call can have been passing (it would have
+  failed in [`as.matrix()`](https://rdrr.io/r/base/matrix.html)).
+- Measured on MNIST (, RFF, same servers as the paper’s Table): the Gram
+  and matrix routes give identical accuracy and iteration counts; peak
+  RSS 2.2 GB vs 3.5 GB at and 3.2 GB vs 6.0 GB at . With RFF features
+  [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)
+  reaches 96.4% test accuracy, above the paper’s full kernel (96.1%), in
+  under two minutes.
+
+### NMF-GMM family reinstated, with a formula interface and a two-stage baseline
+
+The `nmf.gmm*` family returns to `develop` (it was removed on 2026-08-26
+while the accompanying paper’s publication was undecided; the paper is
+now being submitted, so the family comes back unchanged – the removal
+commit was reverted and the restored sources are byte-identical to the
+archived copies). Two additions on top of the reinstated family:
+
+- **Formula covariates.** `A` may now be a one-sided formula evaluated
+  in a new `data` argument:
+  `nmf.gmm(Y, ~ size + diet, rank = 3, K = 4, data = df)`. The design
+  matrix is built by
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html), its
+  intercept column is replaced by the package’s intercept row, and the
+  remaining columns are centered and scaled by default
+  (`standardize = FALSE` to keep them raw). Factors expand to treatment
+  indicators before standardization. The constructed numeric `A` and the
+  transform are returned in the fit (`A`, `A.formula`, `A.center`,
+  `A.scale`), so
+  [`nmf.gmm.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.inference.md)
+  works unchanged. This removes the hand-rolled `rbind(1, scale(...))`
+  boilerplate that every analysis script used to repeat, and with it a
+  documented class of centered-vs-scaled description mismatches.
+- **[`nmf.gmm.twostage()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.twostage.md).**
+  The adjust-then-cluster baseline that the joint fit is designed to
+  improve on, packaged as the matched recipe used in the paper:
+  least-squares scores on the shared basis initialization, covariates
+  regressed out blind to the class, residuals reconstituted in
+  observation space, shifted to non-negativity, and refitted with an
+  intercept-only `nmf.gmm` from the same `X0`. Only the order of
+  adjustment and clustering differs from the joint fit. Returns a
+  regular `nmf.gmm` object (all S3 methods apply) plus a `twostage` list
+  with the shift, the removed `A` and the shared `X0`. Previously this
+  recipe lived in three analysis scripts with two slightly different
+  non-negativity shifts; now there is one.
+
+#### **New: NMF-GMM family (`nmf.gmm*`)**
+
+- [`nmf.gmm()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.md)
+  fits NMF-GMM (Satoh 2026): a -component Gaussian mixture on the latent
+  NMF scores, , , with a shared non-negative, column-normalized basis .
+  Clustering is model based, through the posterior responsibilities. ()
+  is the covariate coefficient matrix and `mu` the class means. Fitted
+  by a generalized EM (auto Woodbury E-step for large ); returns `X`,
+  `C`, `mu`, `tau2`, `sigma2`, `xi`, `gamma` (responsibilities),
+  `cluster`, `BIC`, `ICL`, and the usual house fields. The score
+  covariance is set by `cov`: `"tied"` (shared diagonal, variances;
+  default), `"free"` (per-class diagonal), or `"scalar"` (isotropic , a
+  single variance — the most parsimonious variant, and the
+  `\link{nmfre}` model at ).
+- Optimization / inference split:
+  [`nmf.gmm.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.inference.md)
+  gives a Basis/Covariate coefficients table for `C` with the
+  outer-product mixture-information SE and a wild-bootstrap SE / CI
+  (tied covariance);
+  [`nmf.gmm.select()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.select.md)
+  chooses by BIC / ICL (optional adjusted Rand index against known
+  labels).
+- S3: `coef`, `fitted`, `predict` (hard class / responsibilities),
+  `print`, `summary`, `plot`. New dependency: none (base/stats only).
+- Verified numerically identical to the standalone research engine on
+  the Leptograpsus crabs data (log-likelihood, `X`, `C` exact;
+  `mu`/`gamma` equal up to the mixture’s label permutation; ARI 0.86 vs
+  the four species-sex groups). Note on the `\link{nmfre}` nesting:
+  `cov = "scalar"` at gives the same (isotropic) model as `nmfre`; the
+  default `cov = "tied"` generalizes it to a diagonal (per-basis) score
+  covariance. In either case the two use different EM algorithms, so the
+  fitted values need not coincide numerically.
+
+## nmfkc 0.9.6 (2026-08-23)
+
+CRAN release: 2026-08-25
+
+### Check time only – no change to any computed value
+
+CRAN’s incoming pretest still reported “Overall checktime 11 min \> 10
+min” for 0.9.5, almost all of it `checking tests ... [442s]`. Uwe Ligges
+suggested running the less important tests conditionally on an
+environment variable set only on the maintainer’s machine, and that is
+what this release does.
+
+- **`tests/testthat/test-cran-smoke.R`** is new and is the only test
+  file that runs by default. It exercises every exported fitter and its
+  S3 methods on toy data (6 x 20 matrices) in under a second: 35
+  assertions, no bootstrap, no cross-validation, no restarts.
+
+- Every other block – 145 of them – now begins with
+  `skip_unless_full()`, defined in `tests/testthat/helper-nmfkc.R`. The
+  full suite runs when `NMFKC_FULL_TESTS` is set:
+
+  ``` r
+  Sys.setenv(NMFKC_FULL_TESTS = "true"); devtools::test()
+  ```
+
+  3173 assertions, 144 seconds locally, and it is what the maintainer
+  and CI run before every release. Nothing was deleted: the regression
+  tests for the always-zero refit p-values, the RNG-stream pollution,
+  the convergence tolerances and the identification conditions are all
+  still there.
+
+- The earlier `skip_on_cran()` guards are gone, subsumed by the new one.
+
+Measured: 1.7 s in CRAN mode against 144 s in full mode, both with zero
+failures.
+
+## nmfkc 0.9.5 (2026-08-20)
+
+### Check time only – no change to any computed value
+
+CRAN’s incoming pretest rejected 0.9.4 for its overall check time (48
+minutes on the pretest Windows machine against a 10-minute budget; 34 of
+those were the tests and 11 the vignettes).
+
+- The expensive regression tests – the refit-bootstrap blocks and the
+  latent VAR bootstrap blocks – now carry `skip_on_cran()` and keep
+  running locally at full size. Each has a CRAN-sized copy (smaller
+  fixture, fewer replicates), so the defects they guard, in particular
+  the always-zero refit p-values fixed in 0.9.4, remain covered on CRAN
+  itself.
+- The timeseries vignette sweeps six candidate lag orders instead of
+  fourteen (the winner, D = 12, is unchanged) and uses `wild.B = 50` in
+  its inference example.
+- Five vignettes leave the package tarball and remain on the website
+  (<https://ksatohds.github.io/nmfkc/articles/>): classification,
+  network-community, rank-selection, timeseries and topic-modeling. The
+  tarball keeps introduction, nmf-rrr, nmf-re and nmf-sem.
+
+## nmfkc 0.9.4
+
+#### **Breaking: the `nmf.rrr` family drops the `rank` / `rank.encoder` aliases**
+
+- `rank` and `rank.encoder` are removed from
+  [`nmf.rrr()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.md),
+  [`nmf.rrr.cv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.cv.md),
+  [`nmf.rrr.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.ecv.md),
+  [`nmf.rrr.kernel.beta.cv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.kernel.beta.cv.md),
+  [`nmf.rrr.rank()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.rank.md),
+  [`nmf.rrr.signed()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.md),
+  [`nmf.rrr.signed.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.ecv.md)
+  and
+  [`nmf.rrr.signed.rank()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.rank.md).
+  Use **`rank1`** and **`rank2`**. `Q` and `R` still work, via `...`.
+- They were declared as formals *after* `...`, which put deprecated
+  names in every signature and made the help page read as though they
+  were worth using. They cannot simply move into `...`: `rank` is a
+  prefix of both `rank1` and `rank2`, so R’s partial matching turns
+  `nmf.rrr(Y, rank = 3)` into “argument matches multiple formal
+  arguments” before the body runs. Declaring them after `...` was the
+  only way to suppress that – so the choice was to keep the odd
+  signature or drop the aliases, and they are dropped.
+- `rank.encoder` is not a prefix of any remaining formal, so it would
+  otherwise have been swallowed by `...` and **silently ignored**.
+  Passing either name now raises a clear error naming its replacement.
+
+#### **Breaking: `nmf.rrr()` renames `B.prob` / `B.cluster` to `B1.prob` / `B1.cluster`**
+
+- [`nmf.rrr()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.md)
+  now returns **two** score matrices instead of one. `B1 = C X2 Y2` (Q
+  x N) is the decoder-side score, with ; the new `B2 = X2 Y2` (R x N) is
+  the encoder-side score, i.e. `B1` before the `C` map. Each gets
+  column-normalized memberships and hard labels: **`B1.prob`,
+  `B1.cluster`, `B2.prob`, `B2.cluster`**.
+- **`B.prob` and `B.cluster` are gone**; they shipped in 0.8.8, so code
+  reading them must be updated to `B1.prob` / `B1.cluster`. The name `B`
+  alone became ambiguous once both scores were exposed, and keeping it
+  as an alias would reintroduce exactly the one-object-two-names problem
+  this release removes elsewhere. The undocumented `B` component added
+  during development is also removed.
+- **`H` is retained but deprecated.** It is identical to `B1`.
+  Package-internal code now reads `B1` (through an accessor that still
+  falls back to `H`, so objects saved by earlier releases keep working).
+  Use `B1` in new code.
+
+#### **Breaking: `nmfkc()` stops computing criteria nothing consumed**
+
+- **`detail` now defaults to `"fast"`.** The only thing `"full"` adds is
+  the sample-clustering criteria `silhouette`, `CPCC` and `dist.cor`,
+  which cost (two distance matrices plus a cophenetic correlation) and
+  had no consumer: they left rank selection,
+  [`summary.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.md)
+  never printed them, and
+  [`nmf.cluster.criteria()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.criteria.md)
+  recomputes them from the fits it is given. At they were 26x the cost
+  of the rest of the call; over a 500-replicate bootstrap, 83s against
+  9s. They are **absent** from `fit$criterion` unless `detail = "full"`
+  is asked for – absent rather than `NA`, because `CPCC` is legitimately
+  `NA` at and the two meanings must not collide.
+- **`criterion$B.prob.max.mean` is removed.** Nothing in the package
+  read it except the summary line that printed it, and that line is now
+  the effective-rank index (below).
+- The bootstrap re-fits in `nmfkc.inference(method = "refit")` and
+  [`nmfkc.ar.latent.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.inference.md)
+  pass `detail = "fast"` explicitly, so this holds even if the default
+  moves back.
+
+#### **`summary()` reports a factor diagnostic**
+
+- `criterion$effective.rank.index` is new on a single fit: the
+  broken-stick correction , , that
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  already plotted. It is verified to agree bit-for-bit with the
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  column at matched settings, and both now call one helper.
+- [`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html)
+  prints it as `Factor variance share` in place of the old
+  `Clustering Crispness`. Unlike the crispness (range , monotone in )
+  this is a genuine index. Read it as **how evenly the across-sample
+  coefficient variance is shared**, which is not the same as how useful
+  the factors are: two duplicated factors split the variance evenly and
+  score near 1.
+
+#### **`nmfre()` correctness fixes (identification + signed warm start)**
+
+- Removed the row-centering of the random-effect matrix `U` inside the
+  U-step. The (U, Theta) indeterminacy is `U -> U + Delta A`,
+  `Theta -> Theta - Delta`, so the identification condition is
+  `U A' = 0`, not `U 1 = 0`; the alternating fixed point satisfies
+  `U A' = 0` automatically, and imposing row-centering on top broke it
+  whenever `1'` is not in the row space of `A`. (Verified: after the fix
+  `||U A'||` is ~1e-6 at convergence.)
+- The initialization no longer clips `C.init` to `+eps` when
+  `C.signed = TRUE`: a warm-start `C.init` may legitimately carry
+  negative entries (e.g. a full-refit bootstrap restarting from the
+  previous estimate), and the unconditional
+  [`pmax()`](https://rdrr.io/r/base/Extremes.html) destroyed their sign
+  at every refit. Clipping now applies only in the non-negative mode,
+  mirroring the in-loop update rule.
+
+## nmfkc 0.8.8
+
+CRAN release: 2026-07-13
+
+#### **Removed the `B.L1` penalty (and its `gamma` alias)**
+
+- `B.L1` placed an L1 penalty on the fitted coefficient field . Because
+  is dense and tracks the overall reconstruction magnitude, `B.L1` acted
+  as a crude global shrinkage that pulls the fit toward zero and
+  degrades prediction, without producing useful structural sparsity. It
+  has been removed from
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) and
+  from the test-set B refit inside
+  [`nmfkc.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.md).
+  Use `C.L1` for sparsity / variable selection on the parameter matrix
+  (individual entries are driven to exactly zero). Passing
+  `B.L1`/`gamma` now has no effect (silently ignored via `...`).
+
+#### **MAP penalties for `nmfre()`**
+
+- [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) gains
+  three optional penalties (default 0, via `...`), acting as Gaussian
+  priors on the basis/coefficients and orthogonal to the random-effect
+  machinery (`U`, `lambda`, `sigma2`, `tau2` are unchanged):
+  - `X.L2.smooth`: path-graph row smoothness of the basis `X` — well
+    suited to longitudinal / ordered-row models.
+  - `X.L2.ortho`: column orthogonality of `X`.
+  - `C.L2`: ridge on `Theta = C`. For `C.signed = TRUE` the C-step stays
+    a closed-form solve (a Sylvester ridge-least-squares via the
+    eigenbases of `X'X` and `AA'`); for `C.signed = FALSE` it is added
+    to the MU denominator. Penalties enter the fixed-lambda inner
+    objective; the EM variance updates are untouched. (L1 sparsity on
+    `Theta` is intentionally not offered: it would break the signed
+    closed-form step and conflicts with the random-effect shrinkage that
+    already regularizes the model.)
+
+#### **`nmfae*` deprecated in favour of `nmf.rrr*`**
+
+- The canonical implementation of the three-layer NMF-RRR model now
+  lives under the `nmf.rrr*` / `nmf.rrr.signed*` names (`nmf.rrr`,
+  `.inference`, `.ecv`, `.cv`, `.rank`, `.DOT`, `.heatmap`,
+  `.kernel.beta.cv`, `.rename`, and the six signed variants). The former
+  `nmfae*` / `nmfae.signed*` names are now thin deprecated wrappers that
+  emit [`.Deprecated()`](https://rdrr.io/r/base/Deprecated.html) and
+  forward to their `nmf.rrr*` counterpart. Fitted objects keep the
+  legacy S3 classes (e.g. `class = c("nmf.rrr", "nmfae", "nmf")`), so
+  all S3 methods and saved objects continue to work unchanged.
+
+#### **`nmf.sem*` deprecated in favour of `nmf.ffb*`**
+
+- The canonical implementation of the NMF-FFB (feed-forward + feedback)
+  model now lives under the `nmf.ffb*` names (`nmf.ffb`,
+  `nmf.ffb.inference`, `nmf.ffb.cv`, `nmf.ffb.split`, `nmf.ffb.DOT`).
+  The former `nmf.sem*` names are now thin deprecated wrappers that emit
+  [`.Deprecated()`](https://rdrr.io/r/base/Deprecated.html) and forward
+  to their `nmf.ffb*` counterpart. Fitted objects keep
+  `class = c("nmf.ffb", "nmf.sem", "nmf")`, so all S3 methods and
+  existing saved objects continue to work unchanged.
+
+#### **`C.L2` ridge for the signed families**
+
+- [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)
+  and
+  [`nmf.rrr.signed()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.md)
+  gain a `C.L2` ridge (default 0, via `...`) on the signed coefficient
+  matrix , penalizing `C.L2 * ||Cp - Cn||^2`. Because only the
+  difference (= ) enters the model, the penalty has zero gradient on the
+  unidentified common mode ; it is injected symmetrically into the
+  `Cp`/`Cn` multiplicative updates (`num_Cp += C.L2*Cn`,
+  `den_Cp += C.L2*Cp`) across both the unweighted and weighted paths,
+  and added to the tracked objective.
+
+#### **Basis penalties extended to the signed families**
+
+- [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)
+  now accepts `X.L2.ortho` (column orthogonality) and `X.L2.smooth`
+  (path-graph row smoothness), matching
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md). Both
+  default to 0 (off), are passed via `...`, and are skipped when
+  `X.restriction = "fixed"`. The penalties are folded into both the fast
+  unweighted and the weighted MU paths and into the tracked objective.
+- `nmfae.signed()` now accepts `X1.L2.ortho` / `X2.L2.ortho`
+  (orthogonality of the response-basis columns and covariate-basis
+  rows), matching `nmfae()`. Default 0, via `...`, wired into both MU
+  paths and the objective.
+
+#### **`by` option: grouping order of coefficient tables**
+
+- The [`print()`](https://rdrr.io/r/base/print.html) methods for the
+  inference summaries (`nmfkc.inference`, `nmfae`/`nmfae.inference`,
+  `nmfae.signed.inference`, `nmfkc.net.inference`) and
+  [`summary.nmfre()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfre.md)
+  gain a `by` argument controlling how the significance table is
+  grouped: `by = "covariate"` (default, unchanged behaviour) lists all
+  bases within each covariate (1-1, 1-2, …), while `by = "basis"` lists
+  all covariates within each basis (1-1, 2-1, …). The default reproduces
+  the previous ordering exactly.
+- The symmetric-network model (`nmfkc.net`, tri-type) follows the **same
+  rule**: since it sets , the parameter matrix ’s column factor
+  (`Basis.col`) is the covariate slot and its row factor (`Basis.row`)
+  is the basis slot, so `by` groups by `Basis.col` / `Basis.row`
+  respectively. (The bi-type has no free , only , so no coefficient
+  table.)
+
+#### **Classed CV objects with `print` / `plot`**
+
+- [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md),
+  [`nmfkc.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.md)
+  and
+  [`nmfkc.bicv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.bicv.md)
+  now return classed objects (`"nmfkc.ecv"` / `"nmfkc.cv"` /
+  `"nmfkc.bicv"`) with [`print()`](https://rdrr.io/r/base/print.html)
+  and [`plot()`](https://rdrr.io/r/base/plot.html) methods — the rank
+  sweeps (`ecv`, `bicv`) plot a score-vs-rank curve with a marker,
+  matching `nmfae.ecv()` /
+  [`nmfre.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfre.ecv.md).
+  Field access (`cv$sigma`, etc.) is unchanged;
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md)
+  also now returns the swept `rank` vector.
+
+#### **Naming / API consistency pass (aligned to the nmfkc house style)**
+
+- Fit objects now report `runtime` as **numeric seconds** everywhere
+  (was a preformatted string in
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md));
+  [`print()`](https://rdrr.io/r/base/print.html) formats it for display.
+- [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md)
+  fit objects now return `sigma` (RMSE), for parity with
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) /
+  [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md).
+- [`nmfre.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfre.ecv.md)
+  returns the held-out RMSE as `$sigma` (was `$sigma.ecv`) to match
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md).
+- New
+  [`predict.nmfre()`](https://ksatohds.github.io/nmfkc/reference/predict.nmfre.md):
+  fixed-effect prediction for new covariates, or the in-sample BLUP fit
+  when `newA` is omitted.
+- `nmf.sem`/`nmf.ffb` fit objects now carry the shared `"nmf"` class, so
+  the common `coef`/`fitted`/`residuals` fallbacks apply.
+- Fold-count argument unified to `nfolds` (`nmfre.ecv` was `nfold`;
+  legacy names accepted via `...`);
+  [`summary.nmfre()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfre.md)
+  CI toggle is `ci.show` (object-first); `nmfae`/`nmfae.signed` fit
+  objects gained an `iter` alias of `niter`.
+
+#### **`X.L2.smooth`: row-smoothness penalty on the basis**
+
+- New penalty `X.L2.smooth` (nonnegative, default 0) adds with the
+  path-graph Laplacian over the rows, i.e. it penalizes squared
+  differences between adjacent rows and yields gently-varying (smooth)
+  bases — useful when the rows of have a natural order (e.g. time
+  points). Like `X.L2.ortho`, it slots into the multiplicative -step (),
+  preserving non-negativity and monotone descent. Default 0 reproduces
+  prior results exactly.
+
+#### **Public API: `nmf.rrr` and `nmf.ffb` are the documented names**
+
+- The legacy `nmfae*` and `nmf.sem*` families are now marked internal
+  (`@keywords internal`): they remain exported and fully functional for
+  backward compatibility, but no longer appear in the reference index /
+  pkgdown site. Their documented, user-facing names are the NMF-RRR
+  aliases (`nmf.rrr*`) and the NMF-FFB aliases (`nmf.ffb*`), which now
+  each have their own self-contained help page (previously `nmf.ffb*`
+  shared the `nmf.sem*` pages).
+
+#### **`X.init = "kmeans++"` basis initialization**
+
+- New basis-initialization option `X.init = "kmeans++"` (alias
+  `"kmeanspp"`) seeds the -means centres by weighting (Arthur &
+  Vassilvitskii, 2007, SODA) before Lloyd refinement, giving a more
+  careful, -competitive initialization than uniform-random seeding.
+  Available in every optimizer: `nmfkc`, `nmfre`, `nmf.sem`,
+  `nmfkc.net`, `nmfkc.signed` (shared initializer), and `nmfae` /
+  `nmfae.signed`, which now forward `X.init` to their internal
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  basis-init steps. The default remains `"kmeans"` (unchanged results);
+  `nstart` is not used for `"kmeans++"` (one careful seeding replaces
+  random restarts).
+
+#### **`nmf.rrr` / `nmfae` family: `rank1` / `rank2` arguments**
+
+- The two basis ranks of the NMF-RRR (tri-factorized) family are now the
+  symmetric `rank1` (response basis ) and `rank2` (covariate basis ,
+  default `rank1`), replacing the asymmetric `rank` / `rank.encoder`.
+  Applies across the whole family: `nmfae`/`nmfae.signed` and their
+  `.ecv`/`.cv`/`.rank`/`.kernel.beta.cv` helpers (and the `nmf.rrr*`
+  aliases). The legacy `rank` / `rank.encoder` (and `Q` / `R`) remain
+  accepted for backward compatibility, so existing calls keep working.
+
+#### **`nmfre.ecv`: rank selection for NMF-RE**
+
+- New
+  [`nmfre.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfre.ecv.md)
+  selects the basis rank by Wold-style element-wise (entry-holdout)
+  cross-validation with iterative imputation, scoring the held-out
+  prediction RMSE (`sigma.ecv`). The held-out entries of a column are
+  predicted from that column’s retained entries via the BLUP , so —
+  unlike
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md)
+  (zero-weight mask, fixed-effect prediction) — it evaluates the full
+  NMF-RE model including the random effects. Returns a `"nmfre.ecv"`
+  object with `print`/`plot` methods (the plot marks the minimizing
+  rank). Sign convention follows `C.signed`; CV tolerances are loosened
+  by default and overridable via `...`.
+
+#### **`nmfkc.DOT`: signed-coefficient graphs**
+
+- New argument `C.signed` lets
+  [`nmfkc.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.DOT.md)
+  draw graphs when () is signed (real-valued), e.g. from
+  `nmfre(C.signed = TRUE)` or the `*.signed` fits. In signed mode
+  `threshold` is an **absolute-value** cut ( `threshold`), edge widths
+  scale by , and **negative edges are drawn as black dashed lines**
+  (positive edges solid) with their signed numeric labels. Default
+  `C.signed = NULL` auto-detects from `result$C.signed` or negative
+  entries in / ; `FALSE` restores the historical non-negative behaviour.
+  The basis is always non-negative, so edges are unaffected.
+
+#### **`nmfre`: marginal-NLL convergence trace**
+
+- [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) now
+  records `nll.trace`, the marginal negative log-likelihood (random
+  effects integrated out), which the ECM algorithm decreases
+  monotonically.
+  [`plot.nmfre()`](https://ksatohds.github.io/nmfkc/reference/plot.nmfre.md)
+  displays this instead of the fixed- penalized objective
+  (`objfunc.iter`), which is *not* monotone across outer iterations
+  because it jumps when is updated.
+
+#### **`nmfre`: optimization and inference fully separated**
+
+- [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) now
+  performs **optimization only**, mirroring the
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) /
+  [`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md)
+  split. The `wild.bootstrap` argument and all inference outputs
+  (`coefficients`, `C.se`, `C.se.boot`, `C.ci.*`, `C.p.side`,
+  `sigma2.used`, …) are removed from
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md); the
+  inline inference block is gone, making the function lighter and easier
+  to maintain. Obtain standard errors, z-values, p-values, and
+  confidence intervals for by passing the fit to
+  `nmfre.inference(fit, Y, A)`.
+  [`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html)
+  prints the coefficient table only after inference has been run.
+
+#### **`nmfre`: EM/ECM algorithm and sign-free fixed effects (paper port)**
+
+- [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) is
+  re-implemented to follow the Psychometrika manuscript’s NMF-RE mixed
+  model . The optimizer is now an **outer-inner ECM**: the inner loop is
+  a fixed- block-coordinate descent (random-effect ridge BLUP for ,
+  complete-EM semi-NMF step for the basis including the posterior
+  variance , and a fixed-effect update for ); the outer loop runs the EM
+  M-steps for and until stabilizes.
+- New **formal** argument **`C.signed`** (logical, default `TRUE`,
+  recommended, matches the paper). `TRUE` makes the fixed-effect
+  coefficients () **real-valued**, updated by exact least squares, with
+  a two-sided test (interior null) and no projection of the bootstrap
+  replicates. `FALSE` restores the historical non-negative variant
+  (multiplicative update, one-sided/boundary test). A character value
+  (`"signed"` / `"nonneg"`) is also accepted for backward compatibility.
+- `C.signed` is the single switch for the whole estimation scheme: it
+  also selects the basis () update rule (`TRUE` → complete-EM semi-NMF,
+  `FALSE` → positive-part multiplicative update), reproducing the
+  paper’s pairing. is non-negative in both cases. (`x.postvar` remains
+  an advanced toggle for the posterior-variance term of the semi-NMF
+  step.)
+- **No cap is imposed on** ; it is reported as a diagnostic only.
+  `dfU.control` is now deprecated and inert. Output gains the logical
+  `C.signed`;
+  [`summary.nmfre()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfre.md)
+  reports the sign convention and p-value side.
+- **Removed** the exported helper `nmfre.dfU.scan()` (and its `print`
+  method): it scanned `df_U` cap rates, which no longer exist now that
+  the variance components are estimated. The `df.rate` argument is
+  retained but inert.
+
+#### **`nmf.rrr`: NMF-RRR names for the `nmfae` family**
+
+- New `nmf.rrr` / `nmf.rrr.signed` (and `.inference`, `.ecv`, `.cv`,
+  `.rank`, `.DOT`, `.heatmap`, `.kernel.beta.cv`, `.rename`) are thin
+  aliases of the corresponding `nmfae*` / `nmfae.signed*` functions,
+  matching the (tri-factorized non-negative reduced-rank regression)
+  name used in Satoh & Tokuda. The legacy `nmfae*` names remain fully
+  functional (no deprecation).
+  [`nmf.rrr()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.md) /
+  [`nmf.rrr.signed()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.md)
+  prepend the NMF-RRR class to the fit; all existing S3 methods are
+  reused by inheritance.
+- The fitted bases are now labelled **`Resp`** (response basis ) and
+  **`Cov`** (covariate basis ) instead of `Dec`/`Enc`, in both
+  `nmfae()`/`nmfae.signed()` (and so `nmf.rrr*`), matching the
+  response/covariate co-clustering reading.
+
+#### **`nmfae()`: Kullback-Leibler divergence objective**
+
+- `nmfae()` gains `method = c("EU", "KL")` (mirroring
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)).
+  (default, unchanged) minimises the Frobenius distance; minimises the
+  generalised Kullback-Leibler divergence via Lee-Seung multiplicative
+  updates for all three factors of (numerator carries the ratio ,
+  denominator the column/weight sums). Weights, L1/L2 penalties and the
+  encoder structure are supported in both modes. For the residual SE is
+  (not on the data scale); records the objective used.
+- `nmfae()` and
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) now
+  honour `nstart` (previously silently ignored): it is forwarded to the
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  initialisation step(s) (k-means multi-start). Default keeps the
+  historical single-start behaviour; a larger value gives a more stable
+  initialisation and is recommended before inference.
+  ([`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md),
+  `nmfae.signed()`,
+  [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md)
+  and
+  [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)
+  already supported `nstart`; all expose it via `...`.)
+- Bug fix in
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md): a
+  character `X.init` (e.g. `"runif"`, `"nndsvd"`, `"kmeans"`) previously
+  fell through unresolved and crashed in `.nmfre.normalize.X()` (“‘x’
+  must be an array of at least two dimensions”). `X.init` now accepts
+  (default), a named init method forwarded to
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) (so
+  random-init multi-start works), or a numeric basis matrix (used as-is,
+  with estimated given that fixed ).
+
+#### **`nmfkc.inference()`: re-fit wild bootstrap for singular information**
+
+- New `method = "refit"` (alongside the default backward-compatible
+  `"onestep"`) performs a residual wild (multiplier) bootstrap that
+  re-estimates () to convergence with the basis held FIXED, using **no
+  information matrix**. It stays valid when the Fisher information is
+  singular (over-parameterised / kernel covariates) or lies on the
+  boundary, where the one-step / sandwich SE is unreliable. With fixed
+  there is no label switching or scale ambiguity, so element-wise SE/CI
+  of are valid even for . The bootstrap SE/CI become primary and the
+  p-value is a two-sided bootstrap p-value.
+- `wild.dist` selects the multiplier distribution (`"rademacher"`,
+  `"mammen"`, `"exp"`), orthogonal to `method`; `wild.unit` (`"element"`
+  / `"column"`) the granularity. Raw draws are returned in
+  `$C.boot.draws` so any identifiable functional (e.g. a contrast or
+  fitted curve) and its percentile band can be formed.
+  [`nmfkc.net.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.inference.md)
+  inherits the mode by delegation.
+- Internal: the wild-bootstrap engine is factored into shared helpers in
+  `R/inference-boot.R` (`.wild.multipliers`, `.boot.onestep`,
+  `.boot.refit`, `.refit.C.MU`, `.boot.summarize`). The previously
+  duplicated one-step loop in
+  [`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md),
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) /
+  [`nmfre.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfre.inference.md),
+  `nmfae.inference()` and `nmfae.signed.inference()` now all call the
+  shared `.boot.onestep()` (behaviour unchanged; `nmfae.signed` uses
+  `project = FALSE` for signed ).
+
+## nmfkc 0.8.2
+
+CRAN release: 2026-06-14
+
+#### **`nmfkc.net.DOT()`: default layout is now `"neato"`**
+
+- The `layout` choices are reordered by recommendation (`neato`, `fdp`,
+  `twopi`, `circo`, `dot`), so the default changes from `"fdp"` to
+  `"neato"`, which separates community graphs more clearly. Raising
+  `threshold` (e.g. 0.2–0.3) further declutters weak membership edges.
+
+#### **Bug fix: `nmfkc.net.DOT()` mis-detected `type = "bi"` as `"tri"`**
+
+- The bi-vs-tri auto-detection ignored the result’s `$type` field and
+  fell back to `all.equal(C, diag(Q))`, which fails when `C` carries
+  dimnames (it reports a names mismatch). A `type = "bi"` fit was
+  therefore treated as `"tri"`, drawing the inter-class interaction
+  layer that the bi model (with ) should not have. Detection now uses
+  `$type` first (falling back to the dimnames-safe identity check), so
+  `"bi"` correctly draws no inter-class edges.
+
+#### **`nmfkc.bicv()` / `nmfkc.consensus()`: leaner signatures**
+
+- Fine-tuning arguments move into `...` (same safe defaults):
+  [`nmfkc.bicv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.bicv.md)
+  is now `nmfkc.bicv(Y, rank, ...)` (`nfolds` = 2 per Owen & Perry, plus
+  `seed`, `nnls.maxit`, via `...`), and
+  [`nmfkc.consensus()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.consensus.md)
+  is `nmfkc.consensus(Y, A, rank, nrun, keep.consensus, ...)` (`seed`,
+  `pac.range` via `...`). Existing named-argument calls are unaffected.
+
+#### **`nmfkc.ard()`: simpler, safer interface**
+
+- The signature is trimmed to the essentials
+  `nmfkc.ard(Y, rank, nrun, plot, ...)`; everything else (`prior`,
+  `seed`, `a`, `b`, `maxit`, `epsilon`, `tol`) moves into `...` with the
+  same safe defaults, so a typical call is just
+  `nmfkc.ard(Y, rank = K)`.
+- `nrun` now defaults to `10` (was `1`): ARD is a sensitive point
+  estimate, and several restarts give a stable modal rank by default.
+- The help now states explicitly that the implementation is the
+  Euclidean () case of Tan & Fevotte (2013) and that the default `b` is
+  an empirical energy scale, not the paper’s method-of-moments value
+  (Eq. 38).
+
+#### **`nmfkc.ard()`: better default prior scale**
+
+- The default `b` is now the initial per-component energy scale
+  `(nrow(Y) + ncol(Y)) / K * mean(Y)` instead of a fixed
+  `0.001 * mean(Y)`. The old fixed fraction over-pruned (winner-take-all
+  collapse onto one dominant component) when `(F + N)/K` was large; the
+  new scale-aware default recovers genuine low-rank structure stably
+  (e.g. a clean rank-3 signal: relevance `1, 0.99, 0.87, 0, ...`, all
+  restarts agree).
+
+#### **New `nmfkc.ard()`: ARD rank determination (Tan & Fevotte 2013, prototype)**
+
+- Automatic Relevance Determination for the NMF rank (Euclidean). Fits
+  NMF *once* at an over-complete rank and prunes automatically: each
+  component carries a relevance weight with an inverse-gamma prior and
+  the multiplicative updates gain a penalty (`L2` half-normal / `L1`
+  exponential) that drives unsupported components to zero. The number of
+  surviving components is the estimated rank – no rank scan. Returns an
+  `"nmfkc.ard"` object with `print` and a relevance-bar `plot`. Plain
+  NMF only; a sensitive point estimate (depends on prior / start /
+  init), so a complement to the CV / consensus engines, not a sole
+  criterion.
+
+#### **New `nmfkc.consensus()`: consensus-clustering rank selection (Brunet 2004)**
+
+- The bioinformatics-standard stability approach, as a lightweight
+  engine like `nmfkc.ecv` / `nmfkc.bicv`. For each rank it runs NMF
+  `nrun` times from random initializations (`X.init = "runif"`), builds
+  the consensus matrix from the per-run hard clusterings, and returns
+  two stability scores per rank: `cophenetic` (cophenetic correlation
+  coefficient, Brunet et al. 2004) and `dispersion` (Kim & Park 2007, in
+  `[0,1]`). Unlike the CV engines, a good rank *maximizes* stability.
+  Optional `keep.consensus = TRUE` returns the consensus matrices.
+- Also reports `pac`, the Proportion of Ambiguous Clustering
+  (Senbabaoglu et al. 2014; fraction of consensus entries in the
+  ambiguous interval `pac.range`, default `(0.1, 0.9)`). Lower is better
+  and it is more sensitive than the often-saturated `cophenetic`. The
+  `print`/criteria-`plot` show all three metrics.
+- Returns an `"nmfkc.consensus"` object with `print` and `plot` methods:
+  `plot(cs)` (`type = "criteria"`) draws the stability curves;
+  `plot(cs, type = "heatmap", rank = ...)` draws the consensus matrix
+  heatmap(s) reordered by hierarchical clustering (default = all ranks
+  in a `n2mfrow` grid; `mfrow` overridable).
+
+#### **New `nmfkc.bicv()`: bi-cross-validation for rank selection**
+
+- Owen & Perry’s (2009) bi-cross-validation (BCV), a **lightweight CV
+  engine in the spirit of `nmfkc.ecv`**: it returns the held-out error
+  per rank (`objfunc`, `sigma`) and nothing more. Holds out a row-block
+  *and* a column-block at once, fits NMF only on the retained block, and
+  predicts the held-out block by folding the held-out rows/columns onto
+  the fixed factors via non-negative regression (no information leakage,
+  unlike element-wise `nmfkc.ecv`). `nfolds = 2` (leave out half rows /
+  half columns) per Owen & Perry’s recommendation.
+
+#### **`*.rank`: eff.rank.idx shown for context (no best marker)**
+
+- The broken-stick-corrected effective-rank index (`eff.rank.idx`,
+  green) is drawn for context only and no longer carries a “Best (Max)”
+  marker: it is a factor-utilization diagnostic (most even relative to
+  the random null), not a predictive rank optimum. The recommended rank
+  is driven solely by the ECV minimum and the R-squared elbow.
+
+#### **`*.rank`: broken-stick-corrected effective-rank index**
+
+- The `*.rank` criteria table gains `effective.rank.expected` (the
+  broken-stick / uniform-Dirichlet null `exp(H_Q - 1)`, `H_Q` = the
+  `Q`-th harmonic number) and `effective.rank.index`, the \[0, 1\] index
+  `(effective.rank - expected) / (Q - expected)` (clamped). The index
+  anchors 0 at the random null and 1 at perfect evenness, removing the
+  small-rank inflation of the raw `effective.rank / Q`. Its maximum is a
+  meaningful rank, so the diagnostics plot now draws this corrected
+  index (green, `eff.rank.idx`) with a restored “Best (Max)” marker in
+  place of the raw ratio.
+
+#### **`*.rank` results gain `plot()` / `print()` methods**
+
+- The rank-selection functions
+  ([`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md),
+  [`nmfkc.net.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.rank.md),
+  [`nmfkc.signed.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.rank.md),
+  `nmfae.rank()`, `nmfae.signed.rank()`) now return a classed object
+  (`"nmf.rank"`). [`plot()`](https://rdrr.io/r/base/plot.html) redraws
+  the three-criterion diagnostics plot (honouring `main`, `xlab`,
+  `ylab`, `lwd`) and [`print()`](https://rdrr.io/r/base/print.html)
+  shows the recommended rank, the per-criterion best ranks, and the
+  criteria table. As before the constructor draws immediately when
+  `plot = TRUE`; the `$rank.best` and `$criteria` fields are unchanged,
+  so existing code keeps working.
+
+#### **New `nmf.cluster.flow()`: cluster-flow diagram across ranks**
+
+- [`nmf.cluster.flow()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.flow.md)
+  and
+  [`nmf.cluster.criteria()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.criteria.md)
+  now treat the supplied `fits` as a generic (kept in the given order,
+  sorted by rank), so the same rank fitted as different models is also
+  supported. Both gain a `names` argument for the x-axis tick labels
+  (default: each result’s `$rank`), and in
+  [`nmf.cluster.flow()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.flow.md)
+  the `reference` argument is now the (1-based position) of the result
+  that defines the colours – not a rank value – defaulting to the
+  central result `floor(length(fits) / 2) + 1` (e.g. the 2nd of 2 or 3
+  results).
+- The adjusted Rand index (ARI) between each pair of adjacent ranks is
+  now computed and printed along the top of the figure (and returned in
+  `$ARI`, length ), summarizing how much the hard clustering changes
+  from one rank to the next.
+- Each cluster box is now tinted by the reference colour among the
+  individuals it contains (the colour shared by the most member lines);
+  ties are broken in favour of the earliest palette entry (the smallest
+  reference-cluster id). This shows at a glance which reference cluster
+  dominates each box at each rank.
+- [`nmf.cluster.flow()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.flow.md)
+  now inserts a gap of one average cluster () between clusters in the
+  per-rank layout and sizes each grey box exactly to the minimum/maximum
+  position of its members, so the cluster boxes are clearly separated
+  with the gaps maximized. Each rank is normalized to the full height
+  independently.
+- The cluster number is the dominant-factor index (argmax of the
+  coefficient) of each fit, kept as-is so it matches the factor/basis
+  numbering of the supplied models. A factor that never dominates any
+  individual leaves an empty, unused cluster number (a gap, e.g. labels
+  `2, 3` with no `1`) – this is correct and consistent with the fit, and
+  the labels are not renumbered.
+- [`nmf.cluster.flow()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.flow.md)
+  now returns a classed object with a dedicated
+  [`plot()`](https://rdrr.io/r/base/plot.html) method, so the diagram
+  can be (re)drawn with
+  `plot(fl, col = , lwd = , xlab = , ylab = , main = )` – the colour
+  vector (indexed by reference cluster), line width, axis labels and
+  title are all honoured. The constructor still draws immediately by
+  default (`plot = TRUE`) and forwards graphical arguments to the plot
+  method; use `plot = FALSE` to build the object and plot it later. Its
+  [`print()`](https://rdrr.io/r/base/print.html) method shows the
+  adjacent-rank ARI and the full cluster table.
+- `nmf.cluster.flow(fits, reference = )` takes a list of models fitted
+  at different ranks (any non-negative MU family) and draws an alluvial
+  / Sankey-style diagram of how the hard sample clustering changes with
+  the rank : each individual flows left-to-right across the ranks
+  (x-axis), its vertical position is set by its cluster (clusters
+  reordered per rank by a barycenter heuristic to reduce crossings), and
+  lines are coloured by the cluster at the rank – so one can watch the
+  reference clusters split or merge. At every rank a translucent grey
+  box is drawn of each cluster’s members with the cluster number centred
+  inside, so the grouping and labels are visible at all ranks (not only
+  the reference). The default line palette is now a strong,
+  well-separated qualitative set (ColorBrewer , no pale colours) and can
+  be overridden with . Returns (invisibly) the table with rows =
+  individuals, columns = rank, entries = cluster number.
+
+#### **New `nmf.cluster.criteria()`: sample-clustering quality across ranks**
+
+- `nmf.cluster.criteria(fits, Y)` takes a (one per rank; a single fit is
+  also accepted) and reports the clustering-quality criteria
+  `silhouette`, `CPCC`, and `dist.cor` for each rank, returning a
+  per-rank `$criteria` table (mirroring
+  [`nmf.cluster.flow()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.flow.md)).
+  It has [`plot()`](https://rdrr.io/r/base/plot.html) (line plot of the
+  three criteria vs rank) and
+  [`print()`](https://rdrr.io/r/base/print.html) (the table) methods,
+  and draws immediately when `plot = TRUE`. Works for any family
+  (`nmfkc`, `nmfkc.signed`, `nmfae`, `nmfae.signed`, `nmfkc.net`,
+  `nmfre`, `nmf.sem`/`nmf.ffb`; the last needs the exogenous block via
+  `Y2`). These are **clustering-stability** diagnostics, deliberately
+  separate from the rank-selection `*.rank` functions (r.squared /
+  effective rank / ECV).
+- Hard sample clustering needs a non-negative coefficient/score matrix
+  (a valid membership simplex).
+  [`nmf.cluster.criteria()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.criteria.md)
+  detects this from the actual coefficient: when it is non-negative the
+  hard-label `silhouette` (and cluster sizes) are returned; when it is
+  signed `silhouette` is `NA` while the distance-based `CPCC` and
+  `dist.cor` are still computed. (ARI is not reported here – it compares
+  two clusterings, e.g. across ranks or resamples, so it is not a
+  single-fit quantity.)
+- [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  no longer carries `ARI`, `silhouette`, `CPCC`, or `dist.cor` in its
+  `criteria` table – those clustering-stability metrics now live in
+  [`nmf.cluster.criteria()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.criteria.md).
+  All five `*.rank` functions return the **same five columns** (`rank`,
+  `effective.rank`, `effective.rank.ratio`, `r.squared`, `sigma.ecv`).
+  Per-rank fits use `detail = "fast"`, so the expensive O(N^2) distance
+  computations are skipped during rank selection. `rank.best` is
+  unchanged. The `*.rank` functions now emit a one-line message pointing
+  to
+  [`nmf.cluster.criteria()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.criteria.md)
+  for clustering quality.
+
+#### **Rank-selection functions for the other NMF families**
+
+- New
+  [`nmfkc.net.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.rank.md),
+  [`nmfkc.signed.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.rank.md),
+  `nmfae.rank()` (paired ) and `nmfae.signed.rank()` (paired) bring
+  `nmfkc.rank`-style rank selection to the other multiplicative-update
+  models. Each reports the three criteria that are well defined for
+  every family – `r.squared`, the effective rank (utilization), and the
+  element-wise CV error `sigma.ecv` – and returns
+  `list(rank.best, criteria)`. (`nmf.ffb` / `nmfre` are not covered:
+  they do not support the element masking that ECV needs.)
+- **[`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  plot simplified and unified.** All `*.rank` functions now share one
+  back-end `.rank.finish()` and draw the same concise three-criterion
+  figure: `r.squared` (red), `eff.rank` (green), and `sigma.ecv` (blue,
+  right axis), each as a line with points, rank-number labels, and a
+  highlighted best marker – “Best (Elbow)” for the R-squared knee, “Best
+  (Peak)” for the effective-rank utilization, and “Best (Min)” for the
+  CV minimum.
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  still computes `ARI`, `silhouette`, `CPCC`, and `dist.cor` into its
+  `criteria` table, but no longer plots them.
+- The four new `*.rank` functions gain a `detail` argument matching
+  `nmfkc.rank`: `"full"` (default) runs the element-wise CV and reports
+  `sigma.ecv`; `"fast"` skips the (expensive) CV, so the plot shows only
+  `r.squared` and `eff.rank` and the recommended rank falls back to the
+  R-squared elbow.
+
+#### **Internal: shared element-wise CV helpers**
+
+- The four element-wise cross-validation functions
+  ([`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md),
+  `nmfae.ecv()`,
+  [`nmfkc.signed.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.ecv.md),
+  `nmfae.signed.ecv()`) now build their folds through a single internal
+  helper `.ecv.make.folds()`, removing four near-identical copies of the
+  fold-partitioning loop.
+  [`nmfkc.net.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.ecv.md)
+  keeps its symmetric upper-triangle folds.
+- element-wise CV functions now share one config-indexed loop driver
+  `.ecv.run(labels, nfolds, run_one, progress)`: the single-rank ones
+  ([`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md),
+  [`nmfkc.net.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.ecv.md),
+  [`nmfkc.signed.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.ecv.md))
+  and the -grid ones (`nmfae.ecv()`, `nmfae.signed.ecv()`). Each
+  supplies a model-specific `run_one(i, k)` closure (mask fold, refit
+  config `i`, return held-out loss) and an optional progress callback;
+  `.ecv.run()` handles the config-by-fold loop, the
+  `objfunc`/`sigma`/`objfunc.fold` aggregation, and naming. This removes
+  the last copies of the CV-loop machinery, including the per-grid
+  reshaping in `nmfae.ecv()`.
+- The refactor is behaviour-preserving: for the same seed the folds and
+  all CV values (`objfunc`, `sigma`, `objfunc.fold`, names/labels) are
+  byte-for-byte identical to before, verified across EU and KL losses,
+  the symmetric (upper-triangle) case, and both paired and full grids.
+
+#### **Unified summary print blocks**
+
+- New shared internal helpers `.print.fit.statistics()` and
+  `.print.structure.diagnostics()` render the “Statistics” / “Goodness
+  of fit” and “Structure Diagnostics” blocks for
+  [`summary.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.md),
+  [`summary.nmfae()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfae.md),
+  and
+  [`summary.nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.net.md)
+  (incl. the signed variant). Labels are padded to a common width so
+  values are column-aligned, fields absent from a given model are
+  skipped automatically (e.g. `nmfkc.net` has no residual SE), and any
+  future fit statistic or sparsity row is now added in one place instead
+  of per-summary.
+
+#### **Effective Rank in all five MU-family summaries**
+
+- [`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) now
+  reports the **Effective Rank** as `x.xx / Q (NN.N%)` – the absolute
+  value, the nominal rank, and the utilization ratio
+  `effective.rank / Q` as a percentage – for
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md),
+  [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md),
+  `nmfae()`,
+  [`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md) /
+  `nmf.sem()`, and
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) —
+  previously only
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  showed it. Each is computed by the new shared internal helper
+  `.effective.rank(B)` from the model’s natural coefficient/score
+  matrix: the coefficients (`nmfkc`), the latent encoding (`nmfae`), the
+  node membership (`nmfkc.net`), the latent scores (`nmf.ffb`), and the
+  BLUP scores (`nmfre`). `NA` at .
+
+#### **Rank-selection diagnostics: silhouette / CPCC fixed, IC removed**
+
+- **`silhouette` is now computed in the original data space.** It used
+  to be evaluated on the rank- `B.prob` simplex, whose dimension changes
+  with ; that made it monotone in (always favouring the smallest rank)
+  and hid genuine cluster structure. It is now the standard mean
+  silhouette width over `dist(t(Y))` (the fixed original-data sample
+  distances) with the per-sample hard labels — the k-means convention.
+  On data with real clusters it now shows an interior optimum (e.g. the
+  road-OD network peaks at the same rank as the cross-validation
+  minimum).
+- **`CPCC` is now the classic cophenetic correlation of `dist(t(B))`.**
+  It used to be computed from the soft co-membership
+  `t(B.prob) %*% B.prob`, which was nearly flat across . It is now
+  `cor(dist(t(B)), cophenetic(hclust(dist(t(B)))))` — how well a
+  hierarchical clustering of the rank- coefficient distances reproduces
+  those distances (Sokal & Rohlf). It now varies with and recovers an
+  interior optimum.
+- **Removed `ICp`, `AIC`, and `BIC`** from
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)’s
+  `criterion` list, from
+  [`summary.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.md),
+  and from
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)’s
+  table. Empirically (across three real datasets) `ICp` was monotone
+  increasing (always selecting ) and `AIC` monotone decreasing (always
+  selecting the largest ); for NMF, where the parameter count grows as ,
+  these information criteria do not have a usable interior optimum, so
+  they were misleading rather than informative.
+- The internal helper `.silhouette.simple()` (centroid-approximate, took
+  a `B.prob` matrix) was replaced by `.silhouette.mean(D, labels)`,
+  which returns the exact mean silhouette width from a distance matrix
+  and labels.
+
+#### **Breaking change: symmetric NMF removed from `nmfkc()`**
+
+- The `Y.symmetric = "bi" / "tri"` option (deprecated in v0.7.x) has
+  been **removed** from
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) and
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md).
+  Symmetric NMF of network data now lives exclusively in the dedicated
+  [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md)
+  /
+  [`nmfkc.net.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.ecv.md)
+  functions, which use the correct Frobenius bilateral-gradient updates.
+  Passing `Y.symmetric` to
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) or
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md)
+  now stops with a message pointing to the replacement:
+  `nmfkc.net(Y, rank, type = "tri")` (types `"tri"`, `"bi"`,
+  `"signed"`). This also removes the bi/tri code branches (cube-root
+  damping, fixed `C = I`, tri C-update, upper-triangle CV folds) from
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md),
+  simplifying the core function.
+
+#### **New diagnostic: effective rank**
+
+- [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) now
+  reports `criterion$effective.rank`, the **effective rank** of the fit:
+  `exp` of the Shannon entropy of the explained-variance distribution
+  `p_k = var(B[k, ]) / sum_j var(B[j, ])`. By the trace identity
+  `sum_k var(B[k, ]) = tr(Cov(B))`, each `p_k` is the exact fraction of
+  the total coefficient variance carried by factor `k`, so the entropy
+  is a genuine additive decomposition (variances add; standard
+  deviations do not, which is why variance — not sd — is the natural
+  partner for the entropy here). It ranges in `[1, Q]` and counts how
+  many latent factors actively shape across-sample variation (dead,
+  zero-variance factors drop out). This is the PCA-style
+  explained-variance / effective-dimensionality measure and reuses the
+  `exp(entropy)` functional form of Roy & Vetterli (2007).
+- [`summary.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.md)
+  prints `Effective Rank: x.xx / Q`.
+- [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  adds an `effective.rank` column to its criteria table. When effective
+  rank plateaus well below the nominal rank, the extra factors are not
+  carrying additional coefficient variance — a signal that the rank is
+  over-specified.
+- `nmfkc.rank(plot = TRUE)` overlays an `eff.rank` curve (effective rank
+  divided by nominal rank, in `[0, 1]`, solid green line) on the
+  diagnostics plot. A peak in this utilization curve marks the rank at
+  which the latent factors carry the most evenly distributed variance.
+
+#### **Diagnostics cleanup: B.prob crispness metrics**
+
+- Removed `B.prob.sd.min` and `B.prob.entropy.mean` from
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)’s
+  `criterion` list, from
+  [`summary.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.md),
+  and from
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)’s
+  criteria table and plot. All three `B.prob.*` peakedness metrics are
+  monotone in the rank `Q`, so they carry no peak/elbow signal for rank
+  selection (verified empirically); the principled rank signals are ECV,
+  the R-squared elbow, and the new `effective.rank` utilization.
+- `B.prob.max.mean` (clustering crispness) is retained, but only in
+  [`summary.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.md)
+  (“Clustering Crispness”) and the `criterion` list. At a fixed `Q` it
+  remains a useful confidence check — the mean dominant-cluster
+  membership — before treating `B.cluster` as hard labels. It is no
+  longer shown in
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  (cross-`Q`), where its `1/Q` baseline shift makes it misleading.
+- [`summary.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.md)
+  no longer prints “Clustering Entropy” (it duplicated the crispness
+  information).
+
+#### **Improvements**
+
+- **Unified three-variant R² across all NMF functions.** Every NMF
+  variant
+  ([`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md),
+  `nmfae()`, `nmfae.signed()`,
+  [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md),
+  [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md),
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md)) now
+  returns three goodness-of-fit summaries on the same scale, computed by
+  the new internal helper `.r.squared.all()`:
+  - `r.squared`: Pearson (scale-invariant, in ). Unchanged from before.
+  - `r.squared.uncentered`: . Baseline = the zero matrix (natural for
+    non-negative factorizations without an intercept); matches the
+    “uncentered R²” of intercept-free regression.
+  - `r.squared.centered`: . Baseline = per-row mean; the standard
+    (“centered”) multivariate- regression ; equals 0 when the model
+    predicts the row mean.
+
+  The two suffixed variants differ only in their baseline (denominator);
+  both use the Frobenius norm in the numerator. Naming follows the
+  centered/uncentered distinction used by statistics software
+  (e.g. statsmodels). All three respect `Y.weights == 0` masking (the
+  standard NA-hold-out convention). For
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) the
+  same three variants are also reported on the fixed-only prediction as
+  `r.squared.fixed.*`. Displayed by all `summary.*` methods.
+
+#### **Bug Fixes**
+
+- [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md):
+  `r.squared` now correctly excludes weight-zero (NA-masked) entries
+  when `Y.weights` is supplied or auto-masking is in effect, matching
+  the convention used by
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md),
+  `nmfae()`, `nmfae.signed()`, and
+  [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md).
+  Previously the correlation was computed over the full matrix including
+  replaced-NA cells, giving a distorted r.squared.
+
+#### **Documentation**
+
+- [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md):
+  removed Examples 3 & 4 (deprecated `Y.symmetric = "bi"/"tri"`); the
+  documentation now points users to `\link{nmfkc.net}()` for symmetric
+  NMF.
+- `summary.nmf.sem()`: example code, `@param`, and `@seealso` updated to
+  use the canonical `nmf.ffb` name (the S3 method continues to dispatch
+  correctly via `c("nmf.ffb", "nmf.sem")` inheritance).
+
+## nmfkc 0.7.3
+
+CRAN release: 2026-05-13
+
+#### **Documentation**
+
+- README and `nmf-sem-with-nmfkc.Rmd` vignette code now reference the
+  canonical `nmf.ffb.*` aliases
+  ([`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md),
+  [`nmf.ffb.cv()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.cv.md),
+  [`nmf.ffb.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.DOT.md))
+  instead of the legacy `nmf.sem.*` names. Both names continue to work;
+  the change only affects what users see on the GitHub Pages homepage
+  and in the vignette source.
+
+## nmfkc 0.7.2
+
+#### **Headline: NMF-FFB rebrand and full bootstrap inference**
+
+- `nmf.ffb*` family added as the canonical alias for `nmf.sem*` (Satoh
+  2025, arXiv:2512.18250 adopts “NMF-FFB” — Non-negative Matrix
+  Factorization with Feed-Forward + Feedback — as the model’s canonical
+  name). `nmf.sem*` continues to work and shares the same return classes
+  (`c("nmf.ffb", "nmf.sem")` and
+  `c("nmf.ffb.inference", "nmf.sem.inference", ...)`), so existing
+  scripts are unaffected.
+- `nmf.sem.inference()` /
+  [`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md):
+  replaced the legacy 1-step Newton wild bootstrap with a **full X-fixed
+  pair bootstrap**. Resamples columns of (Y1, Y2), refits (C1, C2) with
+  X held at the original fit, and reports per-element
+  `support_rate = mean(|c_b| > threshold)` together with percentile CIs.
+  Significance markers (`*` / `**` / `***` at sup \> 0.95 / 0.99 /
+  0.999) follow the lavaan convention. Both Theta_1 (feedback) and
+  Theta_2 (exogenous) are inference targets (previous version covered
+  only Theta_2).
+- `nmf.sem()` /
+  [`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md):
+  now runs `nmfkc(Y1, A = Y2)` **internally by default** when `X.init`
+  is a string method, forwarding `X.init`, `X.L2.ortho`, `epsilon`,
+  `maxit`, `seed`. The feedforward fit is used both as the X warm-start
+  and as the baseline for `SC.map`. `nmfkc.baseline = FALSE` opts out.
+
+#### **Bug Fixes**
+
+- `nmf.sem.inference()`: fixed dimension bug in the Leontief identity
+  matrix (`I_mat <- diag(Q)` should have been `diag(P1)`); previously
+  every replicate was silently marked invalid when `P1 != Q`.
+- [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md):
+  now auto-masks NA entries of `Y` (parity with the other four NMF
+  variants); previously errored at the `min(Y) < 0` check when `Y`
+  contained NA.
+- [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md):
+  Fixed C matrix asymmetry in tri-symmetric NMF (`Y.symmetric = "tri"`).
+  The C update was using stale B and XB computed from the old X; now B
+  and XB are recomputed after X is updated. Also fixed column reordering
+  to permute both rows and columns of C. Previously the relative
+  asymmetry could reach ~46%; now it is at machine precision (~1e-14).
+
+#### **Improvements**
+
+- `Y.weights` semantics unified to
+  [`lm()`](https://rdrr.io/r/stats/lm.html)-style weighted least squares
+  across
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md),
+  `nmfae()`,
+  [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md),
+  [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md),
+  `nmfae.signed()`: loss is now `sum(W * (Y - Yhat)^2)` (linear in W,
+  matching [`lm()`](https://rdrr.io/r/stats/lm.html)’s `weights`
+  argument). Binary masks (W ∈ {0, 1}; the standard ECV / NA-mask case)
+  are unaffected since W = W^2.
+- All MU functions now emit a `"maximum iterations (N) reached..."`
+  warning when `maxit` is exhausted without meeting the relative-
+  tolerance criterion (previously silent in `nmfae`, `nmfae.signed`,
+  `nmfkc.net`, `nmfkc.signed`, `nmfre`, and `nmf.sem`).
+- All MU functions now share `maxit = 5000` as the default (was 5000 /
+  20000 / 50000 inconsistently). Together with the maxit warning above,
+  users see explicit feedback when 5000 is insufficient and can opt into
+  a larger cap.
+- New shared internal helper `.init_X_method()` for X initialization via
+  `"nndsvd"` / `"kmeans"` / `"kmeansar"` / `"runif"` / numeric matrix.
+  All NMF families now use the same dispatch logic; previous ad-hoc
+  inline implementations are removed.
+- `nmf.sem()` returns `SC.map` (input-output structural fidelity:
+  correlation between the equilibrium operator and the feedforward
+  baseline mapping; Satoh 2025 §4.SC.map) automatically when
+  `nmfkc.baseline` is supplied or computed internally.
+- `summary.nmf.sem()`: rewritten to display the full-bootstrap inference
+  output — separate Theta_1 / Theta_2 blocks with
+  `Estimate | CI_low | CI_high | support | Pr(>0) | sig`, plus a
+  bootstrap meta-info header.
+- `coef.nmf.sem()`: now returns a long-format data frame with rows for
+  every entry of both C1 and C2 (`Type | Basis | Covariate | Estimate`);
+  previously returned only the C2 matrix when no inference had been run.
+  Schema matches the inference-augmented output for uniformity.
+- `plot.nmf.sem()`: default trace is now `objfunc.full` (loss +
+  penalties — the actual monotonically-decreasing quantity that the
+  multiplicative updates minimize) instead of `objfunc` (reconstruction
+  only). New argument `which = "full" | "reconstruction" | "both"`.
+- `nmf.sem.DOT()`: significance stars now appear on Theta_1 (feedback Y1
+  → F) edges in addition to Theta_2 (exogenous Y2 → F); X (F → Y1) edges
+  remain unstarred since the basis is not the inference target.
+- [`plot.nmfae.ecv()`](https://ksatohds.github.io/nmfkc/reference/plot.nmfae.ecv.md):
+  Heatmap cell text color is now always black for better readability on
+  light-colored cells.
+- [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md):
+  `X.init = "runif"` now supports `nstart > 1` for multi-start
+  initialization. Multiple random starting points are evaluated with 10
+  standard NMF iterations, and the best (lowest Frobenius error) is
+  selected.
+- `nmfae()`,
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md):
+  `r.squared` is now computed as `cor(Y, fitted)^2` (squared correlation
+  between observed and fitted values), consistent with
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md).
+  Previously `nmfae()` used `1 - SS_res/SS_tot` and
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) used
+  the same regression-style R-squared, which can behave unexpectedly for
+  intercept-free non-negative models.
+- [`nmfkc.kernel.beta.nearest.med()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.beta.nearest.med.md):
+  added a `candidates` argument controlling the bandwidth grid. Options:
+  `"7points"` (new default, `t = {-1,-2/3,-1/3,0,1/3,2/3,1}`),
+  `"4points"` (`t = {-1/2, 0, 1/2, 1}`), or a user-supplied numeric
+  vector of values. Previously the grid silently differed between the
+  no-landmark (`Uk = NULL`; 4 points) and landmark (7 points) branches.
+
+#### **New Functions (Signed NMF family)**
+
+- [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md):
+  NMF-KC with signed covariate/coefficient. Model with , (signed),
+  real-valued. Uses Ding et al. (2010) sign-splitting + Direct MU; may
+  also contain negative entries (semi-NMF regression). Supports
+  `Y.weights` for element-wise masking.
+- [`nmfkc.signed.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.cv.md),
+  [`nmfkc.signed.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.ecv.md):
+  column-wise and element-wise k-fold CV for rank selection on signed
+  data.
+- `nmfae.signed()`: Three-layer autoencoder with . preserve soft
+  clustering on both decoder and encoder sides while the bottleneck can
+  carry negative weights (e.g., anti-correlated properties). Hybrid
+  warm-start (from `nmfae()`) + Direct MU with multi-restart.
+- `nmfae.signed.ecv()`: element-wise CV for (decoder-rank, encoder-rank)
+  selection.
+- `nmfae.signed.inference()`: sandwich SE + wild bootstrap for (no
+  non-negativity projection on since it is signed).
+- S3 methods `predict.*.signed()`, `plot.*.signed()`,
+  `summary.*.signed()`, and `nmfae.signed.rename()` helper.
+
+#### **New Functions (Network NMF family)**
+
+- [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md):
+  Single unified entry point for symmetric NMF of network data, with
+  `type = "tri" | "bi" | "signed"`. All three variants use the
+  Frobenius-full bilateral gradient (supersedes the one-sided
+  approximation in `nmfkc(Y.symmetric = ...)`). `type = "signed"`
+  supports signed via Ding et al. (2010) sign-splitting, preserving for
+  soft clustering while allowing inter-cluster repulsion. The returned
+  object’s fields are uniform across types: and are for tri/bi, and
+  populated matrices for signed. is always populated (identity for bi,
+  non-negative for tri, signed for signed).
+- [`nmfkc.net.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.ecv.md):
+  Element-wise cross-validation with upper-triangle folds (mirrored to
+  the lower triangle to prevent symmetry leakage). Unified entry point
+  for `type = "tri" | "bi" | "signed"` (calls
+  [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md)
+  with the matching `type` for each fold).
+- [`nmfkc.net.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.DOT.md):
+  Graphviz DOT visualization for symmetric NMF networks. Displays
+  basis-to-node membership edges and inter-basis interaction edges (C
+  matrix) with significance stars. Now has `signed` parameter
+  (auto-detected from class) to render negative `C` entries as dashed
+  edges.
+- [`nmfkc.net.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.inference.md):
+  Statistical inference for symmetric NMF. Wrapper around
+  [`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md)
+  with `A = t(X)`. Returns off-diagonal C coefficients with sandwich SE
+  and wild bootstrap.
+
+#### **Deprecations**
+
+- `nmfkc(Y, Y.symmetric = "bi"|"tri")`: **Deprecated** in favor of
+  `nmfkc.net(Y, type = "bi"|"tri")`. The old implementation uses a
+  one-sided gradient approximation that empirically converges for but is
+  theoretically incorrect and does not extend to signed . The deprecated
+  branch still works in v0.6.8 (with a deprecation warning) and will be
+  removed in a future release.
+
+#### **Parameter Renames** (old names remain usable for backward compatibility)
+
+- `nmf.sem.DOT()`: `weight_scale_y2f` → `weight_scale_c2`,
+  `weight_scale_fy1` → `weight_scale_x1` (matrix-name-based naming,
+  consistent with `nmfae.DOT()` and
+  [`nmfkc.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.DOT.md)).
+- `nmf.sem.DOT()`: `sig.level` moved to after `threshold` for
+  consistency with other `.DOT` functions.
+
+#### **Documentation**
+
+- README, vignettes, and roxygen `@title` / `@description` updated to
+  use **NMF-FFB** as the canonical model name (with “(formerly NMF-SEM)”
+  attached on first mention for discoverability of the legacy term).
+  File names (`R/nmf.sem.R`, `vignettes/nmf-sem-with- nmfkc.Rmd`,
+  `man/nmf.sem.Rd`), function names (`nmf.sem*`), and S3 classes
+  (`"nmf.sem"`) are unchanged so URLs and existing scripts continue to
+  work.
+
+## nmfkc 0.6.7
+
+CRAN release: 2026-04-15
+
+#### **Bug Fixes**
+
+- Added
+  [`fitted.nmfae()`](https://ksatohds.github.io/nmfkc/reference/fitted.nmf.md)
+  and
+  [`residuals.nmfae()`](https://ksatohds.github.io/nmfkc/reference/residuals.nmf.md)
+  S3 methods; previously
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html) on an `nmfae`
+  object silently returned `NULL` because the wrong field name (`$XB`
+  instead of `$Y1hat`) was used.
+
+#### **Naming Unification** (old names remain usable for backward compatibility)
+
+- Coefficient tables: all inference functions now use `Basis` /
+  `Covariate` columns (was `Factor`/`Exogenous` in
+  `nmf.sem.inference()`, `Decoder`/`Encoder` in `nmfae.inference()`).
+- Wild bootstrap defaults unified: `wild.B = 500`, `wild.seed = 123`
+  across all inference functions.
+- First argument of all `.DOT` functions renamed to `result` for
+  consistency.
+- CV tuning parameters (`nfolds`, `seed`, `shuffle`) moved to `...` in
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md),
+  `nmfae.ecv()`, `nmfae.cv()`, `nmf.sem.cv()`; `div` also accepted for
+  backward compatibility.
+
+## nmfkc 0.6.6
+
+#### **New Functions**
+
+- [`nmfkc.criterion()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.criterion.md):
+  Extracted criterion computation from
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) as a
+  standalone exported function. Supports `detail = "full"` / `"fast"` /
+  `"minimal"` to control computation cost.
+- [`nmfre.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfre.inference.md):
+  Separated statistical inference from
+  [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md)
+  optimization. Returns coefficient table with SE, z-values, and
+  p-values via wild bootstrap.
+- `nmf.sem.inference()`: Statistical inference for the C2 parameter
+  matrix in NMF-SEM. Uses sandwich SE and wild bootstrap.
+- S3 methods [`coef()`](https://rdrr.io/r/stats/coef.html),
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html),
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html) for all model
+  classes (`nmfkc`, `nmfae`, `nmfre`, `nmf.sem`).
+- S3 methods [`plot()`](https://rdrr.io/r/base/plot.html) for `nmfre`
+  and `nmf.sem` (convergence diagnostics).
+- `summary.nmf.sem()`: Stability diagnostics, fit statistics, and C2
+  coefficient table.
+
+#### **Parameter Renames** (old names remain usable for backward compatibility)
+
+- [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md),
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md):
+  `save.time` / `save.memory` → `detail`
+- `nmfae()`: `Q` → `rank`, `R` → `rank.encoder`
+- [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md): `Q`
+  → `rank`, `dfU.cap.rate` → `df.rate`
+- `nmfre.dfU.scan()`,
+  [`nmfkc.ar.degree.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.degree.cv.md):
+  `Q` → `rank`
+- [`nmfkc.residual.plot()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.residual.plot.md):
+  `Y_XB_palette` → `fitted.palette`, `E_palette` → `residual.palette`
+- [`nmfkc.kernel.beta.nearest.med()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.beta.nearest.med.md):
+  `block_size` → `block.size`, `sample_size` → `sample.size`
+
+#### **Other Improvements**
+
+- `hide.isolated` option added to all `.DOT` functions (default `TRUE`).
+- `nmf.sem.DOT()`: Added `sig.level` parameter; C2 edges decorated with
+  significance stars.
+- [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md):
+  Added `X.restriction = "none"` option and `X.init = "kmeansar"`
+  initialization.
+- Added arXiv/DOI references to roxygen documentation for all main
+  functions.
+- `@section Lifecycle: Experimental` added to `nmfae()`.
+- Removed `mc.cores` parallel option from `nmfae.ecv()` for CRAN
+  compliance.
+
+## nmfkc 0.6.0
+
+#### **Bug Fixes**
+
+- Fixed variable `T` shadowing `TRUE` in information criterion
+  computation.
+- Fixed
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md)
+  to use KL divergence for evaluation when `method="KL"`.
+- Added performance flags (`save.time=TRUE`) to
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md)
+  inner calls.
+- Fixed zero-division in
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  elbow normalization when R-squared values are identical.
+- Fixed parameter name mismatch (`rank` → `Q`) in
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  call to
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md).
+- Fixed descending loop in `nmf.sem.split()` when P=2.
+- Added input validation for `n.exogenous` in `nmf.sem.split()`.
+
+#### **Documentation**
+
+- Added roxygen documentation for
+  [`summary.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.md)
+  and
+  [`print.summary.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.md).
+- Added `@return` for
+  [`plot.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/plot.nmfkc.md)
+  and
+  [`predict.nmfkc()`](https://ksatohds.github.io/nmfkc/reference/predict.nmfkc.md).
+- Added missing `@return` items (`method`, `n.missing`, `n.total`,
+  `rank`, `mae`) to
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md).
+
+#### **Code Quality**
+
+- Replaced `T`/`F` with `TRUE`/`FALSE`.
+- Replaced `1:length()` with
+  [`seq_along()`](https://rdrr.io/r/base/seq.html).
+- Changed default font from Meiryo to Arial in DOT functions.
+- Aligned `nmf.sem.cv()` defaults with `nmf.sem()`.
+
+## nmfkc 0.5.8
+
+#### **Graphviz DOT Output Consolidation and Cleanup**
+
+- Harmonized all DOT-generating functions (`nmf.sem.DOT`, `nmfkc.DOT`,
+  `nmfkc.ar.DOT`) for consistent structure, naming conventions, and
+  visualization logic.
+
+- Standardized node and edge formatting rules, including unified cluster
+  behavior, color schemes, and edge-scaling conventions.
+
+- Implemented threshold-aware coefficient labeling so that displayed
+  numerical precision aligns with the visualization threshold,
+  preventing misleadingly detailed labels.
+
+- Removed unused or redundant DOT fragments and improved compatibility
+  across Graphviz engines.
+
+- Enhanced layout readability through consistent indentation, node
+  grouping, and suppression of isolated nodes in specific visualization
+  modes (e.g., `type = "YA"` in `nmfkc.DOT`).
+
+- Refactored and expanded internal DOT helper functions
+  (`.nmfkc_dot_format_coef`, `.nmfkc_dot_digits_from_threshold`,
+  `.nmfkc_dot_cluster_nodes`, etc.) for better maintainability and
+  uniform behavior.
+
+- **New Function:** Implemented
+  [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md)
+  for Element-wise Cross-Validation (Wold’s CV).
+
+  - This function randomly masks elements of the observation matrix to
+    evaluate structural reconstruction error.
+  - It provides a statistically robust criterion for rank selection,
+    avoiding the monotonic error decrease often seen in standard
+    column-wise CV.
+  - Supports vector input for `rank` to evaluate multiple ranks
+    simultaneously.
+
+- **Missing Value & Weight Support:**
+
+  - [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) and
+    [`nmfkc.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.md)
+    now fully support missing values (`NA`) and observation weights via
+    the hidden argument `Y.weights` (passed through `...`).
+  - If `Y` contains `NA`s, they are automatically detected and masked
+    (assigned a weight of 0) during optimization.
+
+- **Rank Selection Diagnostics (`nmfkc.rank`):**
+
+  - **Dual-Axis Visualization:** The plot now displays fitting metrics
+    (\\R^2\\, etc.) on the left axis and ECV Sigma (RMSE) on the right
+    axis (blue line).
+  - **Automatic Best Rank labeling:** The plot explicitly marks the
+    “Best” rank based on two criteria:
+    - **Elbow:** Geometric elbow point of the \\R^2\\ curve.
+    - **Min:** Minimum error point of the Element-wise CV.
+  - `save.time` defaults to `FALSE`, enabling the robust Element-wise CV
+    calculation by default.
+
+- **Argument Standardization:**
+
+  - Unified the rank argument name to `rank` across all functions
+    (`nmfkc`, `nmfkc.cv`, `nmfkc.ecv`, `nmfkc.rank`).
+  - The legacy argument `Q` is still supported for backward
+    compatibility but internally mapped to `rank`.
+
+- **Summary Improvements:**
+
+  - Updated
+    [`summary()`](https://rdrr.io/pkg/urca/man/summary-methods.html) and
+    [`print()`](https://rdrr.io/r/base/print.html) methods to report:
+    - Sparsity of Basis (\\X\\) and Coefficients (\\B\\).
+    - Clustering Entropy (indicating “Crisp” vs “Ambiguous” clustering).
+    - Clustering Crispness (Mean Max Probability).
+    - Number and percentage of missing values in \\Y\\.
+
+- **Other Improvements:**
+
+  - Added a validation check in
+    [`nmfkc.ar()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.md)
+    to ensure the input `Y` has no missing values (as they cannot be
+    propagated to the covariate matrix `A` in VAR models).
+  - Refined
+    [`nmfkc.residual.plot()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.residual.plot.md)
+    layout margins for better visibility of titles.
+  - Updated documentation to reflect all changes.
+
+- Regularization Update:  
+  The regularization scheme has been revised from **L2 (ridge)** to **L1
+  (lasso-type)** penalties.
+
+  - `gamma` now controls the **L1 penalty on the coefficient matrix** (
+    B = C A ), promoting sparsity in sample-wise coefficients.  
+  - A new argument `lambda` has been added to control the **L1 penalty
+    on the parameter matrix** ( C ), encouraging sparsity in the shared
+    template structure.  
+    Both parameters can be passed through the ellipsis (`...`) to
+    [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) and
+    related functions.  
+
+- Function Signature Simplification:\*\* Many less-frequently used
+  arguments in
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  (e.g., `gamma`, `X.restriction`, `X.init`) and in
+  [`nmfkc.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.md)
+  (e.g., `div`, `seed`) have been moved into the ellipsis (`...`) for a
+  cleaner function signature.
+
+- Performance Improvement: The internal function `.silhouette.simple`
+  was vectorized and optimized to reduce computational cost,
+  particularly for the calculation of `a(i)` and `b(i)`.
+
+- Removed the `fast.calc` option from the
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  function.
+
+- Added the `X.init` argument to the
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  function, allowing selection between `'kmeans'` and `'nndsvd'`
+  initialization methods.
+
+- The penalty term has been changed from `tr(CC')` to `tr(BB')` =
+  `tr(CAA'C')`.
+
+- Implemented the internal `.z` and `xnorm` functions.
+
+- Added the fast.calc option to the
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  function.
+
+- Optimized internal calculations for improved performance.
+
+- Updated `citation("nmfkc")` and added AIC/BIC to the output.
+
+- Implemented the
+  [`nmfkc.ar.stationarity()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.stationarity.md)
+  function.
+
+- Modified the `z()` function.
+
+- Used [`crossprod()`](https://rdrr.io/r/base/crossprod.html) for faster
+  matrix multiplication.
+
+- Implemented the
+  [`nmfkc.ar.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.DOT.md)
+  function.
+
+- Added logic to sort the columns of `X` to form a unit matrix in
+  special cases.
+
+- Implemented
+  [`nmfkc.kernel.beta.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.beta.cv.md)
+  and
+  [`nmfkc.ar.degree.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.degree.cv.md)
+  functions.
+
+- Set the default column names of `X` to `Basis1`, `Basis2`, etc.
+
+- Added `X.prob` and `X.cluster` to the return object.
+
+- Skipped CPCC and silhouette calculations when `save.time = TRUE`.
+
+- Added a prototype for the
+  [`nmfkc.ar()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.md)
+  function.
+
+- Added the `criterion` argument to the
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  function to support multiple criteria.
+
+- Updated the
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  function.
+
+- Added the `criterion` argument to the
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  function.
+
+- Implemented the `save.time` argument.
+
+- Implemented the
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  function.
+
+- Implemented the `nstart` option from the
+  [`kmeans()`](https://rdrr.io/r/stats/kmeans.html) function.
+
+- Added an experimental implementation of the
+  [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  function.
+
+- Removed zero-variance columns and rows with a warning.
+
+- Added source and references to the documentation.
+
+- Renamed several components for clarity:
+
+  - `nmfkcreg` to `nmfkc`
+  - `create.kernel` to `nmfkc.kernel`
+  - `nmfkcreg.cv` to `nmfkc.cv`
+  - `P` to `B.prob`
+  - `cluster` to `B.cluster`
+  - `unit` to `X.column`
+  - `trace` to `print.trace`
+  - `dims` to `print.dims`
+
+- Added the `r.squared` argument to the `nmfkcreg.cv()` function.
+
+- In `nmfkcreg()`:
+
+  - Added the `dims` argument to check matrix sizes.
+  - Added the `unit` argument to normalize the basis matrix columns.
+
+- Modified the `create.kernel()` function to support prediction.
+
+- Updated examples on GitHub.
+
+- Removed the `YHAT` return value; use `XB` instead.
+
+- Added the `cluster` return value for hard clustering.

@@ -1,0 +1,641 @@
+# nmfkc: Non-negative Matrix Factorization with Kernel Covariates
+
+[![Lifecycle:
+experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![GitHub
+version](https://img.shields.io/github/r-package/v/ksatohds/nmfkc)](https://github.com/ksatohds/nmfkc)
+
+**nmfkc** is an R package that extends Non-negative Matrix Factorization
+(NMF) by incorporating **covariates** using kernel methods. It supports
+advanced features like rank selection via cross-validation, time-series
+modeling (NMF-VAR), supervised classification (NMF-LAB),
+**feed-forward + feedback structural modeling with equilibrium
+interpretation (NMF-FFB; formerly NMF-SEM)**, and **mixed-effects
+modeling with random effects (NMF-RE)**.
+
+# Installation
+
+``` r
+# Stable version (CRAN)
+install.packages("nmfkc")
+
+# Development version (GitHub, may be unstable)
+# install.packages("remotes")
+remotes::install_github("ksatohds/nmfkc@develop")
+
+library(nmfkc)
+```
+
+# Help and Usage
+
+``` r
+browseVignettes("nmfkc")
+ls("package:nmfkc")
+?nmfkc
+```
+
+# Citation
+
+``` r
+citation("nmfkc")
+```
+
+# Quick Example
+
+``` r
+library(nmfkc)
+
+# Decompose a matrix Y into basis X and coefficient B with rank = 2
+X_true <- cbind(c(1, 0, 1), c(0, 1, 0))
+B_true <- cbind(c(1, 0), c(0, 1), c(1, 1))
+Y <- X_true %*% B_true
+
+res <- nmfkc(Y, rank = 2, epsilon = 1e-6)
+plot(res)     # Convergence plot
+summary(res)  # Summary statistics
+```
+
+See `browseVignettes("nmfkc")` for detailed examples covering rank
+selection, kernel NMF, time-series, classification, NMF-FFB, and NMF-RE.
+
+# Comparison with Standard NMF
+
+| Feature | Standard NMF | nmfkc |
+|:---|:---|:---|
+| **Handles covariates** | No | **Yes** (Linear / Kernel) |
+| **Feed-forward + feedback modeling** | No | **Yes** (NMF-FFB) |
+| **Mixed-effects / Random effects** | No | **Yes** (NMF-RE) |
+| **Classification** | No | **Yes** (NMF-LAB) |
+| **Time series modeling** | No | **Yes** (NMF-VAR) |
+| **Nonlinearity** | No | **Yes** (Kernel) |
+| **Clustering support** | Limited | **Yes** (Hard/Soft) |
+| **Rank selection / CV** | Limited (ad hoc) | **Yes** (Element-wise CV, Column-wise CV) |
+
+# Statistical Model
+
+The **nmfkc** package builds upon the standard NMF framework by
+incorporating external information (covariates):
+
+\\Y(P,N) \approx X(P,Q) \times C(Q,R) \times A(R,N)\\
+
+- **\\Y\\**: Observation matrix (\\P\\ features × \\N\\ samples)
+- **\\A\\**: Covariate matrix (\\R\\ covariates × \\N\\ samples);
+  defaults to identity (standard NMF)
+- **\\X\\**: Basis matrix — learned latent patterns
+- **\\C\\**: Parameter matrix — links covariates to latent structure
+
+### Extensions
+
+- **NMF-RE**: Adds unit-specific random effects \\U\\: \\Y = X(\Theta
+  A + U) + \mathcal{E}\\, estimated via ridge-type BLUP with wild
+  bootstrap inference.
+- **NMF-FFB** (formerly NMF-SEM): Models feed-forward + feedback
+  structure \\Y_1 \approx X(\Theta_1 Y_1 + \Theta_2 Y_2)\\, with
+  equilibrium mapping \\(I - X\Theta_1)^{-1} X\Theta_2\\.
+
+# Main Functions
+
+| Function | Description |
+|:---|:---|
+| [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) | Core NMF with covariates (\\Y \approx XCA\\); supports kernel matrices and formula interface |
+| [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) / [`nmfre.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfre.inference.md) | NMF with Random Effects + wild bootstrap inference |
+| [`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md) / [`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md) | NMF Feed-Forward + Feedback model (formerly `nmf.sem*`; those aliases were removed in 0.9.8): basis from [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md), then FIML with an exclusion restriction, L1 path and BIC selection of the feedback (`method = "fiml"`, default; legacy `method = "mu"`) + parametric-bootstrap calibration of the LR test and coefficient intervals |
+| [`nmf.rrr()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.md) / [`nmf.rrr.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.inference.md) | Non-negative reduced-rank regression + inference (formerly `nmfae*`; those aliases were removed in 0.9.8) |
+| [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md) | Rank selection via elbow, cross-validation, ECV, and CPCC |
+| [`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md) | Sandwich SE and wild bootstrap p-values for `nmfkc` |
+| [`nmfkc.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.DOT.md) / [`nmfkc.ar.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.DOT.md) / [`nmf.ffb.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.DOT.md) / [`nmf.rrr.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.DOT.md) | Graphviz path diagrams; render with [`plot()`](https://rdrr.io/r/graphics/plot.default.html) |
+
+S3 methods [`coef()`](https://rdrr.io/r/stats/coef.html),
+[`fitted()`](https://rdrr.io/r/stats/fitted.values.html),
+[`residuals()`](https://rdrr.io/r/stats/residuals.html),
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html),
+[`summary()`](https://rdrr.io/r/base/summary.html),
+[`predict()`](https://rdrr.io/r/stats/predict.html) are available for
+all model classes. See
+[`?nmfkc`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) or
+`browseVignettes("nmfkc")` for the full function list.
+
+# A note on numerical precision in inference
+
+Under the non-negativity constraint, a coefficient whose true value is
+zero is approached from above, and multiplicative updates approach it
+**slowly**. How far down such a coefficient has travelled therefore
+depends on the convergence tolerance, and any quantity that compares it
+with zero — a bootstrap standard error, a percentile interval, a support
+rate, a p-value — inherits that dependence. A loose tolerance stops
+while the coefficient is still spuriously positive, which
+**over-declares significance**.
+
+The inference functions that re-fit the model on each bootstrap
+replicate therefore converge much more tightly than an ordinary fit:
+
+| Function | Setting | Default |
+|:---|:---|:---|
+| `nmfkc.inference(method = "refit")` | `refit.epsilon`, `refit.maxit` | `1e-8`, `1e5` |
+| [`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md) | `epsilon`, `maxit` | `1e-8`, `1e5` |
+
+The number of bootstrap replicates is `wild.B = 500` throughout, except
+[`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md),
+whose `B` stays at `1000` — the value its published analysis used, so
+those results reproduce out of the box. Since that function re-fits on
+every replicate, its cost is linear in `B`.
+
+Two consequences worth knowing:
+
+- **Fit the model tightly as well.**
+  [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md)
+  defaults to `epsilon = 1e-4`, which is fine for reconstruction but
+  leaves near-zero coefficients well short of the boundary. For
+  inference, fit with `epsilon = 1e-8` (and a `maxit` to match); a
+  multistart (`nstart`) also helps, since boundary problems have flatter
+  optima.
+- **Near-threshold entries stay tolerance-sensitive even at `1e-8`.**
+  Treat a coefficient sitting near the significance boundary as
+  provisional, and check that the conclusion survives a tighter
+  tolerance before relying on it.
+
+`method = "onestep"` and the other inference functions
+([`nmfre.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfre.inference.md),
+[`nmf.rrr.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.inference.md),
+[`nmf.gmm.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.inference.md))
+linearize instead of re-fitting and are not affected.
+
+# References
+
+- Satoh, K. (2026). Applying Non-negative Matrix Factorization with
+  Covariates to the Longitudinal Data as Growth Curve Model. *American
+  Journal of Mathematical and Management Sciences*. In press. Preprint
+  arXiv:2403.05359. <https://arxiv.org/abs/2403.05359>
+- Satoh, K. (2025). Applying non-negative Matrix Factorization with
+  Covariates to Multivariate Time Series Data as a Vector Autoregression
+  Model. *Japanese Journal of Statistics and Data Science*.
+  <https://doi.org/10.1007/s42081-025-00314-0>
+- Satoh, K. (2026). Applying non-negative matrix factorization with
+  covariates to label matrix for classification. *Japanese Journal of
+  Statistics and Data Science*.
+  <https://doi.org/10.1007/s42081-026-00349-x>
+- Satoh, K. (2025). Applying non-negative matrix factorization with
+  covariates to structural equation modeling for blind input-output
+  analysis. arXiv:2512.18250. <https://arxiv.org/abs/2512.18250>
+- Satoh, K. (2026). Wild Bootstrap Inference for Non-Negative Matrix
+  Factorization with Random Effects. arXiv:2603.01468.
+  <https://arxiv.org/abs/2603.01468>
+
+# Package index
+
+## All functions
+
+- [`coef(`*`<nmf>`*`)`](https://ksatohds.github.io/nmfkc/reference/coef.nmf.md)
+  [`coef(`*`<nmf.ffb>`*`)`](https://ksatohds.github.io/nmfkc/reference/coef.nmf.md)
+  : Extract coefficients from NMF models
+
+- [`coef(`*`<nmf.gmm>`*`)`](https://ksatohds.github.io/nmfkc/reference/coef.nmf.gmm.md)
+  : Extract the covariate-coefficient matrix from an NMF-GMM fit
+
+- [`fitted(`*`<nmf>`*`)`](https://ksatohds.github.io/nmfkc/reference/fitted.nmf.md)
+  [`fitted(`*`<nmfae>`*`)`](https://ksatohds.github.io/nmfkc/reference/fitted.nmf.md)
+  [`fitted(`*`<nmfre>`*`)`](https://ksatohds.github.io/nmfkc/reference/fitted.nmf.md)
+  [`fitted(`*`<nmf.ffb>`*`)`](https://ksatohds.github.io/nmfkc/reference/fitted.nmf.md)
+  : Extract fitted values from NMF models
+
+- [`fitted(`*`<nmf.gmm>`*`)`](https://ksatohds.github.io/nmfkc/reference/fitted.nmf.gmm.md)
+  : Fitted (responsibility-averaged) reconstruction of an NMF-GMM fit
+
+- [`nmf.cluster.criteria()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.criteria.md)
+  : Sample-clustering quality across ranks
+
+- [`nmf.cluster.flow()`](https://ksatohds.github.io/nmfkc/reference/nmf.cluster.flow.md)
+  : Cluster-flow (alluvial) diagram across a sequence of fits
+
+- [`nmf.ffb.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.DOT.md)
+  : Generate a Graphviz DOT Diagram for an NMF-FFB Model
+
+- [`nmf.ffb()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.md) :
+  NMF-FFB: non-negative matrix factorization with latent feedback
+
+- [`nmf.ffb.cv()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.cv.md)
+  : Cross-Validation for NMF-FFB
+
+- [`nmf.ffb.diagnostics()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.diagnostics.md)
+  : Structural Diagnostics of a Fitted NMF-FFB Feedback Matrix
+
+- [`nmf.ffb.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.ecv.md)
+  : Choose the number of factors for NMF-FFB by element-wise
+  cross-validation
+
+- [`nmf.ffb.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.inference.md)
+  : Bootstrap inference for NMF-FFB (X held fixed)
+
+- [`nmf.ffb.split()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.split.md)
+  : Heuristic Variable Splitting for NMF-FFB
+
+- [`nmf.ffb.test()`](https://ksatohds.github.io/nmfkc/reference/nmf.ffb.test.md)
+  : Test the feed-forward null of an NMF-FFB fit
+
+- [`nmf.gmm()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.md) :
+  Fit NMF-GMM: a Gaussian-mixture latent-class extension of NMF with
+  covariates
+
+- [`nmf.gmm.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.inference.md)
+  : Statistical inference for an NMF-GMM fit (given basis)
+
+- [`nmf.gmm.select()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.select.md)
+  : Choose the number of mixture components K for NMF-GMM
+
+- [`nmf.gmm.twostage()`](https://ksatohds.github.io/nmfkc/reference/nmf.gmm.twostage.md)
+  : Two-stage (adjust-then-cluster) baseline for NMF-GMM
+
+- [`nmf.rrr.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.DOT.md)
+  : DOT graph visualization for nmfae objects
+
+- [`nmf.rrr()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.md) :
+  Three-Layer Non-negative Matrix Factorization (NMF-AE)
+
+- [`nmf.rrr.cv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.cv.md)
+  : Sample-wise k-fold Cross-Validation for nmfae
+
+- [`nmf.rrr.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.ecv.md)
+  : Element-wise Cross-Validation for nmfae (Wold's CV)
+
+- [`nmf.rrr.heatmap()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.heatmap.md)
+  : Heatmap visualization of nmfae factor matrices
+
+- [`nmf.rrr.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.inference.md)
+  : Statistical Inference for NMF-AE Parameter Matrix
+
+- [`nmf.rrr.kernel.beta.cv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.kernel.beta.cv.md)
+  : Optimize kernel beta for nmfae by cross-validation
+
+- [`nmf.rrr.rank()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.rank.md)
+  : Rank selection for nmfae (paired rank, concise diagnostics)
+
+- [`nmf.rrr.rename()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.rename.md)
+  : Rename decoder and encoder bases
+
+- [`nmf.rrr.signed()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.md)
+  : Signed-Bottleneck NMF-AE: Three-Layer NMF-AE with Signed Bottleneck
+
+- [`nmf.rrr.signed.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.ecv.md)
+  : Element-wise Cross-Validation for Signed-Bottleneck NMF-AE
+
+- [`nmf.rrr.signed.heatmap()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.heatmap.md)
+  : Heatmap visualization of nmfae.signed factor matrices
+
+- [`nmf.rrr.signed.inference()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.inference.md)
+  : Statistical Inference for Signed-Bottleneck NMF-AE Signed Bottleneck
+
+- [`nmf.rrr.signed.rank()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.rank.md)
+  : Rank selection for nmfae.signed (paired rank, concise diagnostics)
+
+- [`nmf.rrr.signed.rename()`](https://ksatohds.github.io/nmfkc/reference/nmf.rrr.signed.rename.md)
+  : Rename Resp/Cov labels on nmfae.signed objects
+
+- [`nmfkc.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.DOT.md)
+  : Generate Graphviz DOT Scripts for NMF or NMF-with-Covariates Models
+
+- [`nmfkc()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.md) :
+  Optimize NMF with kernel covariates (Full Support for Missing Values)
+
+- [`nmfkc.ar.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.DOT.md)
+  : Generate a Graphviz DOT Diagram for NMF-AR / NMF-VAR Models
+
+- [`nmfkc.ar()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.md)
+  : Construct observation and covariate matrices for a vector
+  autoregressive model
+
+- [`nmfkc.ar.degree.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.degree.cv.md)
+  : Optimize lag order for the autoregressive model
+
+- [`nmfkc.ar.latent()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.md)
+  : Latent transition matrices of an NMF-VAR model
+
+- [`nmfkc.ar.latent.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.inference.md)
+  : Bootstrap inference for the latent VAR of an NMF-VAR model
+
+- [`nmfkc.ar.predict()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.predict.md)
+  : Forecast future values for NMF-VAR model
+
+- [`nmfkc.ar.stationarity()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.stationarity.md)
+  : Stationarity of an NMF-VAR model
+
+- [`nmfkc.ard()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ard.md)
+  : Automatic relevance determination for NMF rank (experimental)
+
+- [`nmfkc.bicv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.bicv.md)
+  : Bi-cross-validation for NMF rank selection
+
+- [`nmfkc.class()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.class.md)
+  : Create a class (one-hot) matrix from a categorical vector
+
+- [`nmfkc.consensus()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.consensus.md)
+  : Consensus-clustering rank selection for NMF (Brunet 2004)
+
+- [`nmfkc.criterion()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.criterion.md)
+  : Compute model selection criteria for a fitted nmfkc model
+
+- [`nmfkc.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.md)
+  : Perform k-fold cross-validation for NMF with kernel covariates
+
+- [`print(`*`<nmfkc.ecv>`*`)`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.methods.md)
+  [`plot(`*`<nmfkc.ecv>`*`)`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.methods.md)
+  [`print(`*`<nmfkc.bicv>`*`)`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.methods.md)
+  [`plot(`*`<nmfkc.bicv>`*`)`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.methods.md)
+  [`print(`*`<nmfkc.cv>`*`)`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.methods.md)
+  [`plot(`*`<nmfkc.cv>`*`)`](https://ksatohds.github.io/nmfkc/reference/nmfkc.cv.methods.md)
+  : Print/plot methods for nmfkc cross-validation objects
+
+- [`nmfkc.denormalize()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.denormalize.md)
+  : Denormalize a matrix from \\\[0,1\]\\ back to its original scale
+
+- [`nmfkc.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ecv.md)
+  : Perform Element-wise Cross-Validation (Wold's CV)
+
+- [`nmfkc.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.inference.md)
+  : Statistical inference for the parameter matrix C (Theta)
+
+- [`nmfkc.kernel()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.md)
+  : Create a kernel matrix from covariates
+
+- [`nmfkc.kernel.beta.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.beta.cv.md)
+  : Optimize beta of the Gaussian kernel function by cross-validation
+
+- [`nmfkc.kernel.beta.nearest.med()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.beta.nearest.med.md)
+  : Estimate Gaussian/RBF kernel parameter beta from covariates
+  (supports landmarks)
+
+- [`nmfkc.kernel.gaussian()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.gaussian.md)
+  : Create a Gaussian kernel matrix from covariates
+
+- [`nmfkc.kernel.gram()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.kernel.gram.md)
+  : Block-wise Gram accumulation of Nystroem kernel covariates for large
+  N
+
+- [`nmfkc.net.DOT()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.DOT.md)
+  : Generate a Graphviz DOT Diagram for a Symmetric NMF Network
+
+- [`nmfkc.net()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.md)
+  : Symmetric NMF for networks (tri / bi / signed)
+
+- [`nmfkc.net.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.ecv.md)
+  : Element-wise cross-validation for nmfkc.net (upper-triangle folds)
+
+- [`nmfkc.net.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.inference.md)
+  : Statistical Inference for Symmetric NMF Parameters
+
+- [`nmfkc.net.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.net.rank.md)
+  : Rank selection for nmfkc.net (concise diagnostics)
+
+- [`nmfkc.normalize()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.normalize.md)
+  : Normalize a matrix to the range \\\[0,1\]\\
+
+- [`nmfkc.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rank.md)
+  : Rank selection diagnostics with graphical output
+
+- [`nmfkc.residual.plot()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.residual.plot.md)
+  : Plot Diagnostics: Original, Fitted, and Residual Matrices as
+  Heatmaps
+
+- [`nmfkc.rff.beta.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rff.beta.cv.md)
+  : Select the bandwidth of random-feature covariates by
+  cross-validation
+
+- [`nmfkc.rff.positive()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rff.positive.md)
+  : Positive (non-negative) random features for the Gaussian kernel
+
+- [`nmfkc.rff.positive.gram()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.rff.positive.gram.md)
+  : Block-wise Gram accumulation of positive random features for large N
+
+- [`nmfkc.signed()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.md)
+  : NMF-KC with signed covariate matrix
+
+- [`nmfkc.signed.cv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.cv.md)
+  : Column-wise k-fold cross-validation for nmfkc.signed
+
+- [`nmfkc.signed.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.ecv.md)
+  : Element-wise cross-validation for nmfkc.signed
+
+- [`nmfkc.signed.rank()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.rank.md)
+  : Rank selection for nmfkc.signed (concise diagnostics)
+
+- [`nmfkc.signed.rff()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.rff.md)
+  : Random Fourier Features for nmfkc.signed()
+
+- [`nmfkc.signed.rff.gram()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.signed.rff.gram.md)
+  : Block-wise Gram accumulation of Random Fourier Features for large N
+
+- [`nmfre()`](https://ksatohds.github.io/nmfkc/reference/nmfre.md) :
+  Non-negative Matrix Factorization with Random Effects
+
+- [`nmfre.ecv()`](https://ksatohds.github.io/nmfkc/reference/nmfre.ecv.md)
+  : NMF-RE element-wise cross-validation for rank selection
+
+- [`nmfre.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfre.inference.md)
+  : Statistical inference for the coefficient matrix C from NMF-RE
+
+- [`plot(`*`<nmf.cluster.criteria>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmf.cluster.criteria.md)
+  : Plot clustering-quality criteria across a sequence of fits
+
+- [`plot(`*`<nmf.cluster.flow>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmf.cluster.flow.md)
+  : Plot a cluster-flow (alluvial) diagram
+
+- [`plot(`*`<nmf.gmm>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmf.gmm.md)
+  : Plot method for nmf.gmm objects
+
+- [`plot(`*`<nmf.gmm.select>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmf.gmm.select.md)
+  : Plot method for nmf.gmm.select objects
+
+- [`plot(`*`<nmf.rank>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmf.rank.md)
+  : Plot a rank-selection (nmf.rank) object
+
+- [`plot(`*`<nmfae>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfae.md)
+  :
+
+  `plot.nmfae` displays the convergence trajectory of the objective
+  function across iterations. The title shows the achieved \\R^2\\.
+
+- [`plot(`*`<nmfkc.DOT>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfkc.DOT.md)
+  : Plot method for nmfkc.DOT objects
+
+- [`plot(`*`<nmfkc>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfkc.md)
+  :
+
+  Plot method for objects of class `nmfkc`
+
+- [`plot(`*`<nmfkc.ar.latent>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfkc.ar.latent.md)
+  : Plot the latent dynamics of an NMF-VAR model
+
+- [`plot(`*`<nmfkc.ar.stationarity>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfkc.ar.stationarity.md)
+  : Plot the stationarity bracket of an NMF-VAR model
+
+- [`plot(`*`<nmfkc.ard>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfkc.ard.md)
+  : Plot method for nmfkc.ard objects
+
+- [`plot(`*`<nmfkc.consensus>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfkc.consensus.md)
+  : Plot a consensus rank-selection (nmfkc.consensus) object
+
+- [`plot(`*`<nmfkc.signed>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfkc.signed.md)
+  : Plot method for nmfkc.signed (convergence)
+
+- [`plot(`*`<nmfre>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfre.md)
+  [`plot(`*`<nmf.ffb>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfre.md)
+  : Plot convergence diagnostics for NMF models
+
+- [`plot(`*`<nmfre.ecv>`*`)`](https://ksatohds.github.io/nmfkc/reference/plot.nmfre.ecv.md)
+  : Plot method for nmfre.ecv objects
+
+- [`predict(`*`<nmf.gmm>`*`)`](https://ksatohds.github.io/nmfkc/reference/predict.nmf.gmm.md)
+  : Class assignments / responsibilities from an NMF-GMM fit
+
+- [`predict(`*`<nmfkc>`*`)`](https://ksatohds.github.io/nmfkc/reference/predict.nmfkc.md)
+  :
+
+  Prediction method for objects of class `nmfkc`
+
+- [`predict(`*`<nmfkc.signed>`*`)`](https://ksatohds.github.io/nmfkc/reference/predict.nmfkc.signed.md)
+  : Predict method for nmfkc.signed
+
+- [`predict(`*`<nmfre>`*`)`](https://ksatohds.github.io/nmfkc/reference/predict.nmfre.md)
+  : Predict method for nmfre objects
+
+- [`print(`*`<nmf>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmf.md)
+  : Print method for fitted NMF models
+
+- [`print(`*`<nmf.cluster.criteria>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmf.cluster.criteria.md)
+  : Print method for nmf.cluster.criteria objects
+
+- [`print(`*`<nmf.cluster.flow>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmf.cluster.flow.md)
+  : Print method for nmf.cluster.flow objects
+
+- [`print(`*`<nmf.ffb.test>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmf.ffb.test.md)
+  : Print a calibrated test of the feed-forward null
+
+- [`print(`*`<nmf.gmm>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmf.gmm.md)
+  : Print an NMF-GMM fit
+
+- [`print(`*`<nmf.gmm.select>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmf.gmm.select.md)
+  : Print method for nmf.gmm.select objects
+
+- [`print(`*`<nmf.inference>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmf.inference.md)
+  : Print method for NMF inference objects
+
+- [`print(`*`<nmf.rank>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmf.rank.md)
+  : Print method for rank-selection (nmf.rank) objects
+
+- [`print(`*`<nmfae.ecv>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmfae.ecv.md)
+  : Print method for nmf.rrr element-wise CV results
+
+- [`print(`*`<nmfkc.DOT>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmfkc.DOT.md)
+  : Print method for nmfkc.DOT objects
+
+- [`print(`*`<nmfkc.ar.latent>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmfkc.ar.latent.md)
+  : Print method for nmfkc.ar.latent objects
+
+- [`print(`*`<nmfkc.ar.latent.inference>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmfkc.ar.latent.inference.md)
+  : Print method for nmfkc.ar.latent.inference objects
+
+- [`print(`*`<nmfkc.ar.stationarity>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmfkc.ar.stationarity.md)
+  : Print method for nmfkc.ar.stationarity objects
+
+- [`print(`*`<nmfkc.ard>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmfkc.ard.md)
+  : Print method for nmfkc.ard objects
+
+- [`print(`*`<nmfkc.consensus>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmfkc.consensus.md)
+  : Print method for nmfkc.consensus objects
+
+- [`print(`*`<nmfkc.gram>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmfkc.gram.md)
+  : Print method for nmfkc.gram
+
+- [`print(`*`<nmfre.ecv>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.nmfre.ecv.md)
+  : Print method for nmfre.ecv objects
+
+- [`print(`*`<summary.nmf.ffb>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.summary.nmf.ffb.md)
+  : Print method for summary.nmf.ffb objects
+
+- [`print(`*`<summary.nmf.gmm>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.summary.nmf.gmm.md)
+  : Print method for summary.nmf.gmm objects
+
+- [`print(`*`<summary.nmfkc>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.md)
+  :
+
+  Print method for `summary.nmfkc` objects
+
+- [`print(`*`<summary.nmfkc.inference>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.inference.md)
+  : Print method for summary.nmfkc.inference objects
+
+- [`print(`*`<summary.nmfkc.net>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.net.md)
+  : Print method for summary.nmfkc.net objects
+
+- [`print(`*`<summary.nmfkc.net.inference>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.net.inference.md)
+  : Print method for summary.nmfkc.net.inference objects
+
+- [`print(`*`<summary.nmfkc.net.signed>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.net.signed.md)
+  : Print method for summary.nmfkc.net.signed objects
+
+- [`print(`*`<summary.nmfkc.signed>`*`)`](https://ksatohds.github.io/nmfkc/reference/print.summary.nmfkc.signed.md)
+  : Print method for summary.nmfkc.signed
+
+- [`residuals(`*`<nmf>`*`)`](https://ksatohds.github.io/nmfkc/reference/residuals.nmf.md)
+  [`residuals(`*`<nmfae>`*`)`](https://ksatohds.github.io/nmfkc/reference/residuals.nmf.md)
+  [`residuals(`*`<nmfre>`*`)`](https://ksatohds.github.io/nmfkc/reference/residuals.nmf.md)
+  [`residuals(`*`<nmf.ffb>`*`)`](https://ksatohds.github.io/nmfkc/reference/residuals.nmf.md)
+  : Extract residuals from NMF models
+
+- [`residuals(`*`<nmf.gmm>`*`)`](https://ksatohds.github.io/nmfkc/reference/residuals.nmf.gmm.md)
+  : Residuals from an NMF-GMM fit
+
+- [`summary(`*`<nmf.ffb>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmf.ffb.md)
+  : Summary method for nmf.ffb objects
+
+- [`summary(`*`<nmf.gmm>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmf.gmm.md)
+  : Summary of an NMF-GMM fit
+
+- [`summary(`*`<nmfkc>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.md)
+  :
+
+  Summary method for objects of class `nmfkc`
+
+- [`summary(`*`<nmfkc.inference>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.inference.md)
+  : Summary method for nmfkc.inference objects
+
+- [`summary(`*`<nmfkc.net>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.net.md)
+  : Summary method for nmfkc.net objects
+
+- [`summary(`*`<nmfkc.net.inference>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.net.inference.md)
+  : Summary method for nmfkc.net.inference objects
+
+- [`summary(`*`<nmfkc.net.signed>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.net.signed.md)
+  : Summary method for nmfkc.net.signed objects
+
+- [`summary(`*`<nmfkc.signed>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmfkc.signed.md)
+  : Summary method for nmfkc.signed
+
+- [`summary(`*`<nmfre>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmfre.md)
+  [`print(`*`<summary.nmfre>`*`)`](https://ksatohds.github.io/nmfkc/reference/summary.nmfre.md)
+  :
+
+  Summary method for objects of class `nmfre`
+
+# Articles
+
+### All vignettes
+
+- [Classification with
+  NMF-LAB](https://ksatohds.github.io/nmfkc/articles/classification-with-nmfkc.md):
+- [Introduction to
+  nmfkc](https://ksatohds.github.io/nmfkc/articles/introduction-to-nmfkc.md):
+- [Soft community detection in networks with
+  nmfkc.net](https://ksatohds.github.io/nmfkc/articles/network-community-with-nmfkc.md):
+- [NMF-FFB with
+  nmfkc](https://ksatohds.github.io/nmfkc/articles/nmf-ffb-with-nmfkc.md):
+- [NMF-GMM: Covariate-Adjusted Model-Based Clustering with
+  nmfkc](https://ksatohds.github.io/nmfkc/articles/nmf-gmm-with-nmfkc.md):
+- [NMF-RE: Mixed-Effects Modeling with
+  nmfkc](https://ksatohds.github.io/nmfkc/articles/nmf-re-with-nmfkc.md):
+- [Co-clustering two variable blocks with NMF-RRR
+  (nmf.rrr)](https://ksatohds.github.io/nmfkc/articles/nmf-rrr-with-nmfkc.md):
+- [Choosing the NMF rank on data with a known true
+  rank](https://ksatohds.github.io/nmfkc/articles/rank-selection-with-nmfkc.md):
+- [Time Series Analysis with
+  NMF-VAR](https://ksatohds.github.io/nmfkc/articles/timeseries-with-nmfkc.md):
+- [Topic Modeling with
+  nmfkc](https://ksatohds.github.io/nmfkc/articles/topic-modeling-with-nmfkc.md):
