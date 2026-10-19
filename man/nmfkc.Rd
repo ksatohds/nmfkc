@@ -43,7 +43,15 @@ Ignored when \code{Y} is a formula.}
 
 \item{data}{Optional. A data frame from which variables in the formula should be taken.}
 
-\item{epsilon}{Positive convergence tolerance.}
+\item{epsilon}{Positive convergence tolerance.  From the 10th iteration
+the fit stops when \eqn{|f_i - f_{i-1}| / \max(|f_i|, 1) \le}
+\code{epsilon}, where \eqn{f_i} is the objective at iteration \eqn{i}.
+The rule is relative while the objective exceeds 1 and \emph{absolute}
+below it, so on data of small magnitude (an objective well below 1) the
+default \code{1e-4} can stop early, far from the minimum.  Rescale
+\code{Y} or lower \code{epsilon} (e.g.\ \code{1e-8}) in that case.
+Coefficients that sit on the non-negativity boundary also need a tight
+\code{epsilon}; see \code{C.init} under \code{...}.}
 
 \item{maxit}{Maximum number of iterations.}
 
@@ -69,6 +77,12 @@ otherwise no weighting.
 It minimizes the off-diagonal elements of the Gram matrix \eqn{X^\top X}, reducing the correlation
 between basis vectors (conceptually minimizing \eqn{\| X^\top X - \mathrm{diag}(X^\top X) \|_F^2}).
 (Formerly \code{lambda.ortho}).
+The penalty \eqn{(\lambda/2)\sum_{q \ne r} (x_q^\top x_r)^2} is added to
+the objective as it stands, so how strongly a given \eqn{\lambda} acts
+depends on the scale of \code{Y}; with column-sum-normalized \eqn{X}
+each term is also of order \eqn{1/P^2}, so small values such as
+\eqn{\lambda \le 0.1} usually do nothing.  To state \eqn{\lambda}
+relative to the fit, pass \code{X.L2.ortho = lambda0 * sum(Y^2)}.
 \item \code{X.L2.smooth}: Nonnegative penalty parameter for row-smoothness of
 \eqn{X} (default: 0). Adds \eqn{\lambda\,\mathrm{tr}(X^\top L X)} with \eqn{L}
 the path-graph Laplacian over the \eqn{P} rows, i.e.\ it penalizes squared
@@ -84,6 +98,42 @@ selection over basis-covariate links). (Formerly \code{lambda}).
 \item \code{X.restriction}: Constraint for columns of \eqn{X}. Options: \code{"colSums"} (default), \code{"colSqSums"}, \code{"totalSum"}, \code{"none"}, or \code{"fixed"}.
 \code{"none"} applies no normalization to \eqn{X} after each update, allowing it to absorb the scale freely.
 \item \code{X.init}: Method for initializing the basis matrix \eqn{X}. Options: \code{"kmeans"} (default), \code{"kmeansar"}, \code{"kmeans++"}, \code{"runif"}, \code{"nndsvd"}, or a user-specified matrix. \code{"kmeansar"} applies \eqn{k}-means initialization and then fills zero entries with \code{Uniform(0, mean(Y)/100)}, analogous to NNDSVDar. \code{"kmeans++"} seeds the \eqn{k}-means centres by \eqn{D^2} weighting (Arthur & Vassilvitskii, 2007) before Lloyd refinement, giving a more careful, stable initialization (\code{nstart} is not used in this case).
+If the initialization produces a zero basis column -- typically
+\code{"kmeans"} or \code{"kmeans++"} on data with two or more all-zero
+observation columns, which k-means may gather into a cluster whose
+centre is the zero vector -- and \code{X.restriction} cannot normalize
+it, the initialization is rerun on the non-zero columns of \code{Y}
+and a message says so.  The fit itself still uses every column.  A
+user-supplied matrix with a zero column stops with an error instead.
+\code{"spa"} starts from the anchor rows that the successive
+projection algorithm (SPA; Gillis & Vavasis, 2014) finds in \code{Y}:
+\eqn{B} is started at those rows of \code{Y} and \eqn{X} at the
+non-negative least-squares fit to them.  The anchor rows' zeros are
+filled with small positive values, so this is only a starting value
+and does not make the factorization unique; \code{X.anchor} does.
+Choosing the rows and the least-squares fit involve no randomness;
+the filled values are drawn as for \code{"kmeansar"}, under
+\code{seed}.
+\item \code{X.anchor}: Anchor rows of \eqn{X}, imposed as constraints
+(default \code{NULL}: none).  An anchor row carries one basis alone,
+\eqn{X_{j_q r} = 0} for \eqn{r \ne q}.  The zeros are kept for the
+whole fit, and they make the factorization unique up to the column
+scale that \code{X.restriction} fixes: another solution \eqn{XR} with
+the same zeros needs a diagonal \eqn{R}.  With covariates this
+identifies \eqn{C} (\eqn{\Theta}) too, provided \code{rank <= nrow(A)}
+and \code{A} has full row rank; a larger \code{rank} is refused,
+because \eqn{B = CA} then has rank below \code{rank}.
+\code{"spa"} chooses the rows by SPA, which recovers them when
+\code{Y} is (nearly) separable -- each basis has a row of \code{Y}
+that it alone loads -- and \eqn{B} has full rank.  SPA returns
+\code{rank} rows even when \code{Y} has no such rows: compare the
+objective with a fit from \code{X.init = "spa"}, which starts from the
+same rows without the constraint, to see what the assumption costs.
+Alternatively give the rows, one per basis, as indices or row names;
+basis \eqn{q} is then the one anchored at the \eqn{q}-th row given, and
+the bases are not reordered after the fit.  The start is built from
+the anchors, so \code{X.init} is not used (a message says so if it
+was given).  The rows used are returned as \code{X.anchor}.
 \item \code{nstart}: Number of random starts for initialization of \eqn{X} (default: 1).
 Used by \code{kmeans} (when \code{X.init = "kmeans"} or \code{"kmeansar"}) and by the
 multi-start evaluation (when \code{X.init = "runif"}).
@@ -91,6 +141,13 @@ multi-start evaluation (when \code{X.init = "runif"}).
 \item \code{C.init}: Optional numeric matrix giving the initial value of the parameter matrix \eqn{C}
 (i.e., \eqn{\Theta}). If \code{A} is \code{NULL}, \code{C} has dimension \eqn{Q \times N} (equivalently \eqn{B});
 otherwise, \code{C} has dimension \eqn{Q \times K} where \eqn{K = nrow(A)}. Default initializes all entries to 1.
+The multiplicative updates keep an exact zero at zero, so a zero in
+\code{C.init} (or in a user-supplied \code{X.init}) is a structural
+zero that holds throughout the fit.  A coefficient whose optimum lies
+on the boundary, by contrast, is approached only slowly and may remain
+visibly positive at the default \code{epsilon}.  To impose a zero,
+put it in the initial value rather than relying on the updates to
+reach it.
 \item \code{Y.symmetric}: \strong{Removed.} Symmetric NMF
 (\eqn{Y \approx X X^\top} or \eqn{X C X^\top}) has moved to the
 dedicated \code{\link{nmfkc.net}} function (types \code{"tri"},
@@ -130,6 +187,8 @@ A list with components:
 \item{B.cluster}{Hard-clustering labels (argmax over \eqn{B.prob} for each column).}
 \item{X.prob}{Row-wise soft-clustering probabilities derived from \eqn{X}.}
 \item{X.cluster}{Hard-clustering labels (argmax over \eqn{X.prob} for each row).}
+\item{X.anchor}{Present only when \code{X.anchor} was used: the anchor row
+of each basis, as a named integer vector.}
 \item{X.restriction}{The constraint that was applied to the columns of
 \eqn{X}.  It decides how much of the \eqn{(X,C)\to(XT,T^{-1}C)} freedom is
 pinned down, which inference on the latent parameters needs to know.}
@@ -169,8 +228,12 @@ before \code{maxit}.  A run that merely exhausted \code{maxit} is
 \item{rank}{The rank \eqn{Q} used in the factorization.}
 \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
-\item{criterion}{A list with \code{effective.rank} and
-\code{effective.rank.index}.
+\item{criterion}{A list with \code{effective.rank},
+\code{effective.rank.index}, and the separability of the basis:
+\code{separability} (one value; 1 = every basis has a row of its own),
+\code{anchor.purity} (per basis) and \code{anchor.row} (where each basis
+is purest).  See the Details of \code{\link{summary.nmfkc}} for their
+definition and reading.
 
 \code{effective.rank.index} is \code{effective.rank} rescaled onto
 \eqn{[0,1]} by the broken-stick correction
@@ -231,6 +294,12 @@ dummy_data <- data.frame(Y1=rpois(10,5), Y2=rpois(10,10),
                          A1=abs(rnorm(10,5)), A2=abs(rnorm(10,3)))
 res_f <- nmfkc(Y1 + Y2 ~ A1 + A2, data=dummy_data, rank=2)
 
+# Example 3. Anchors: in Example 1, rows P1 and P2 of X carry one basis
+# each.  X.anchor imposes such rows (here found by SPA), which makes the
+# factorization unique; X.init = "spa" only starts from them.
+res_a <- nmfkc(Y, rank = 2, X.anchor = "spa", epsilon = 1e-6)
+res_a$X.anchor
+
 # For symmetric NMF (Y approximated by X X^T or X C X^T),
 # use \code{\link{nmfkc.net}()} instead.
 
@@ -258,6 +327,11 @@ In \emph{Proc. 12th ACM SIGKDD} (pp. 126--135).
 Roy, O., & Vetterli, M. (2007). The effective rank: A measure of
 effective dimensionality. In \emph{15th European Signal Processing
 Conference (EUSIPCO)} (pp. 606--610).
+
+Gillis, N., & Vavasis, S. A. (2014). Fast and robust recursive algorithms
+for separable nonnegative matrix factorization. \emph{IEEE Transactions
+on Pattern Analysis and Machine Intelligence}, 36(4), 698--714.
+\doi{10.1109/TPAMI.2013.226}
 }
 \seealso{
 \code{\link{nmfkc.inference}} (standard errors and p-values for

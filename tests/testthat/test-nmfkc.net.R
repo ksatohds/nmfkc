@@ -255,3 +255,14 @@ test_that("summary of nmfkc.net.inference reports the model type, not 'unknown'"
     expect_false(any(grepl("Symmetric NMF type: unknown", out, fixed = TRUE)))
   }
 })
+
+test_that("nmfkc.net.inference does not carry nmfkc.inference's identification verdict", {
+  skip_unless_full()
+  ## nmfkc.inference() judges the family (X T, T^-1 C) with A fixed; with A = X'
+  ## the family is (X T, T^-1 C T^-T), which that diagnostic does not cover.
+  Y <- make_test_network()
+  fit <- nmfkc.net(Y, rank = 2, type = "tri", nstart = 3, maxit = 100)
+  inf <- suppressWarnings(nmfkc.net.inference(fit, Y))
+  expect_null(inf$identified.approx)
+  expect_null(inf$identification)
+})

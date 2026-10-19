@@ -496,6 +496,7 @@ print.summary.nmf.ffb <- function(x, ...) {
                   if (!is.null(object$bootstrap.threshold)) object$bootstrap.threshold else NA_real_,
                   if (!is.null(object$bootstrap.ci.level)) object$bootstrap.ci.level else NA_real_))
     }
+    .ident.print.line(object$identified.approx, object$identification, Q, what = "[C1 C2]")
 
     ## Print one block per Type ("C1" feedback / "C2" exogenous) when
     ## present.  Falls back to a single block for legacy inference output

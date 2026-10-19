@@ -173,6 +173,14 @@
 #'   \itemize{
 #'     \item \code{X.init}: Initial basis matrix (P x Q), or \code{NULL}.
 #'       When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
+#'       A method name (\code{"kmeans"}, \code{"nndsvd"}, \code{"spa"}, \ldots)
+#'       is forwarded to that \code{nmfkc()} initialization.
+#'     \item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
+#'       \code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
+#'       of \code{Y} per basis.  The zeros are kept for the whole fit, including
+#'       through the floor this function applies to \eqn{X}.  There is no
+#'       \code{rank <= nrow(A)} limit here: the random effects give the scores
+#'       full rank.  The rows used are returned as \code{X.anchor}.
 #'     \item \code{C.init}: Initial coefficient matrix (Q x K), or \code{NULL}.
 #'       When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
 #'     \item \code{U.init}: Initial random effects matrix (Q x N), or \code{NULL} (all zeros).
@@ -449,11 +457,30 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## nmfkc() (e.g. "kmeans", "runif", "nndsvd"), or a numeric basis matrix
   ## used as-is (with C then estimated given that fixed X).  A character
   ## X.init previously fell through unresolved and crashed downstream.
+  ## X.anchor: anchor rows of X, kept as exact zeros for the whole fit.  The
+  ## start built from them goes to the nmfkc() initialisation as a matrix,
+  ## whose multiplicative updates keep the zeros, and the floor pmax(X, .eps)
+  ## below puts them back wherever it would lift them.  No rank check as in
+  ## nmfkc(): with the random effects U the scores have full rank anyway.
+  X.anchor <- extra_args$X.anchor
+  anchor.rows <- NULL; anchor.mask <- NULL
+  if (!is.null(X.anchor)) {
+    an <- .nmfkc_anchor_setup(X.anchor, Y, Q, D_A = NULL, fun = "nmfre",
+                              seed = seed)
+    anchor.rows <- an$rows; anchor.mask <- an$mask
+    if (!is.null(X.init) && !identical(X.init, "spa"))
+      message("nmfre(): X.anchor builds its own starting basis, so X.init was not used.")
+    X.init <- NULL
+  }
+
   if (is.null(X.init) || is.null(C.init)) {
     init_args <- list(Y, A, Q = Q, epsilon = epsilon, seed = seed,
                       nstart = nstart, print.trace = print.trace,
                       print.dims = FALSE)
-    if (is.character(X.init)) {
+    C.from.init <- is.null(C.init)
+    if (!is.null(anchor.rows)) {
+      init_args$X.init <- an$X                    # the anchored start
+    } else if (is.character(X.init)) {
       init_args$X.init <- X.init                  # forward the named method
     } else if (is.matrix(X.init) || is.data.frame(X.init)) {
       init_args$X.init <- as.matrix(X.init)       # fix the supplied basis
@@ -462,6 +489,18 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     res0 <- do.call(nmfkc, init_args)
     if (is.null(X.init) || is.character(X.init)) X.init <- res0$X
     if (is.null(C.init)) C.init <- res0$C
+    if (!is.null(anchor.rows)) {
+      ## nmfkc() reorders its bases: put basis q back on anchor row q
+      k <- apply(X.init[anchor.rows, , drop = FALSE] > 0, 1, which)
+      X.init <- X.init[, k, drop = FALSE]
+      if (C.from.init) C.init <- C.init[k, , drop = FALSE]
+    }
+  }
+  ## pmax(X, .eps), except at the anchors' zeros
+  .floorX <- function(X) {
+    X <- pmax(X, .eps)
+    if (!is.null(anchor.mask)) X[anchor.mask] <- 0
+    X
   }
 
   X <- X.init
@@ -491,7 +530,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## bootstrap), and clipping here would destroy their sign at every refit.
   ## This mirrors the in-loop rule `if (C.mode == "nonneg") pmax(...)`.
   C0 <- if (C.mode == "nonneg") pmax(C_mat, .eps) else C_mat
-  normed <- .nmfre.normalize.X(pmax(X, .eps), C0, U)
+  normed <- .nmfre.normalize.X(.floorX(X), C0, U)
   X <- normed$X
   C_mat <- normed$C
   U <- normed$U
@@ -615,9 +654,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
         denX <- X %*% (B_pos %*% t(B_pos)) + xp$den
         X <- X * .nmfre.safe.div(numX, denX, eps = .eps)
       }
-      X <- pmax(X, .eps)
+      X <- .floorX(X)
       normed <- .nmfre.normalize.X(X, C_mat, U)
-      X     <- pmax(normed$X, .eps)
+      X     <- .floorX(normed$X)
       C_mat <- if (C.mode == "nonneg") pmax(normed$C, .eps) else normed$C
       U     <- normed$U
 
@@ -735,13 +774,17 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     warning(paste0("maximum iterations (", maxit, ") reached..."))
 
   # ---- reorder basis ----
-  if (ncol(X) > 1) {
+  ## (not when the anchor rows were given: basis q is the one anchored at the
+  ## q-th row, and reordering would break that)
+  anchor.keep.order <- !is.null(anchor.rows) && !identical(X.anchor, "spa")
+  if (ncol(X) > 1 && !anchor.keep.order) {
     w_ord <- matrix((1:P) / P, nrow = 1)
     score <- as.numeric(w_ord %*% X)
     index <- order(score)
     X <- X[, index, drop = FALSE]
     C_mat <- C_mat[index, , drop = FALSE]
     U <- U[index, , drop = FALSE]
+    if (!is.null(anchor.rows)) anchor.rows <- anchor.rows[index]
   }
 
   # ---- final fitted matrices ----
@@ -870,6 +913,10 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     C.signed = (C.mode == "signed")
   )
 
+  ## Added only when anchors were used, so every other fit keeps its fields.
+  if (!is.null(anchor.rows))
+    out$X.anchor <- stats::setNames(anchor.rows,
+      if (!is.null(colnames(out$X))) colnames(out$X) else paste0("Basis", seq_len(Q)))
   class(out) <- c("nmfre", "nmf")
   out
 }
@@ -998,7 +1045,9 @@ print.summary.nmfre <- function(x, ...) {
     cat("\nCoefficients (Theta): run nmfre.inference(fit, Y, A) for SE / p-values.\n")
   }
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
-    cat("\nCoefficients:\n")
+    cat("\n")
+    .ident.print.line(x$identified.approx, x$identification, Q, what = "C")
+    cat("Coefficients:\n")
 
     cf <- x$coefficients
     cf <- cf[.coef.order.by(cf, by), , drop = FALSE]   # grouping order (by)
@@ -1183,6 +1232,18 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 #' \item{coefficients}{Data frame with Basis, Covariate, Estimate, SE, BSE,
 #'   z_value, p_value, CI_low, CI_high.}
 #' \item{C.p.side}{P-value type used.}
+#' \item{identified.approx}{Whether \eqn{(X, C)} is unique up to a permutation
+#'   of the bases, by the data.  With \code{C.signed = FALSE} it is the
+#'   diagnostic of \code{\link{nmfkc.inference}} on \eqn{(X, C)}.  With a signed
+#'   \eqn{C} (the default) non-negativity cannot pin the rotation, so it is
+#'   \code{NA}: only the working model's isotropic random effects
+#'   \eqn{U\sim N(0,\tau^2 I)} do, by allowing orthogonal \eqn{T} alone, which
+#'   with the column sums of \eqn{X} fixed is a permutation when \eqn{Q=2} or
+#'   every basis has an anchor row.  That is identification by assumption.
+#'   An algebraic check on the point estimate: no re-fits.}
+#' \item{identification}{The parts of the diagnostic, plus \code{by.assumption}
+#'   (the isotropic argument above holds, with \eqn{\tau^2>0}) and, for a signed
+#'   \eqn{C}, \code{note}.}
 #'
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfkc.DOT}},
 #'   \code{\link{summary.nmfre}}
@@ -1369,6 +1430,28 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
+  ## Is (X, C) unique up to a permutation?  Y ~ X (C A + U): X >= 0 with
+  ## columns summing to one; U and B = C A + U are sign-free.  With C >= 0
+  ## (C.signed = FALSE) the diagnostic of nmfkc.inference() applies to (X, C).
+  ## With a signed C (the default) non-negativity cannot pin T^-1 at all;
+  ## only the working model's isotropic random effects U ~ N(0, tau2 I) do --
+  ## they allow orthogonal T alone, which with 1'T = 1' is a permutation when
+  ## Q = 2 or every basis has an anchor row.  That is identification by
+  ## assumption, not by the data, so identified.approx is NA there and
+  ## identification$by.assumption records it.  No re-fits.
+  sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
+  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 0.01
+  v <- .ident.verdict(X, C_mat, A, scale.fixed = TRUE, sep.tol = sep.tol, pin.tol = pin.tol)
+  v$identification$by.assumption <- isTRUE(tau2 > 0) && (Q <= 2L || all(v$identification$anchor))
+  if (C.mode == "signed") {
+    v$identified.approx <- NA
+    v$identification$note <- paste0(
+      "not by the data (C is signed); ",
+      if (v$identification$by.assumption) "unique up to a permutation under the isotropic random effects"
+      else "not even under the isotropic random effects")
+  }
+  object$identified.approx <- v$identified.approx
+  object$identification    <- v$identification
   ## Tag it as an inference result, as nmfkc.inference / nmf.rrr.inference do.
   ## Without this the class stayed c("nmfre", "nmf") and print() fell to
   ## print.nmf, showing the ten-line fit header instead of the coefficient

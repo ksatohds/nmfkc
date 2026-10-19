@@ -1,88 +1,68 @@
 ## This is an update
 
-An update from v0.9.6 (currently on CRAN, published 2026-08-25) to v0.9.8.
-All changes are listed in NEWS.md.  Two of them are worth naming here because
-they are visible from outside the package.
+An update from v0.9.8 (currently on CRAN, published 2026-09-23) to v1.0.1.
+All changes are listed in NEWS.md.
 
-### Twenty exported functions were removed
+### No exported function was added or removed
 
-| removed (20) | use instead |
-|:--|:--|
-| `nmf.sem()`, `nmf.sem.inference()`, `nmf.sem.cv()`, `nmf.sem.split()`, `nmf.sem.DOT()` | `nmf.ffb*` |
-| `nmfae()`, `nmfae.inference()`, `nmfae.ecv()`, `nmfae.cv()`, `nmfae.rank()`, `nmfae.DOT()`, `nmfae.heatmap()`, `nmfae.kernel.beta.cv()`, `nmfae.rename()` and the six `nmfae.signed*` counterparts | `nmf.rrr*` / `nmf.rrr.signed*` |
+The 72 exports, the S3 methods and the data sets are those of v0.9.8, and no
+formal argument was added or removed.  The new controls are optional and
+passed through `...`; with them absent a call gives the result it gave
+before, checked bit-identical on several hundred existing calls.  The main
+additions:
 
-Every one of them was a pure forwarder, e.g.
+* `X.anchor` and `X.init = "spa"` (anchor rows of the basis, chosen by the
+  successive projection algorithm or given) in `nmfkc()` and the other
+  fitters, and a separability diagnostic in `summary()`;
+* an identification diagnostic (`identified.approx`, `identification`) in
+  the five inference functions: an algebraic check on the point estimate,
+  no re-fitting;
+* `wild.unit = "block"`, a block wild bootstrap over time points, in
+  `nmfkc.ar.latent.inference()` and `nmfkc.inference()`;
+* `class.effects` and `X.init = "nmf"` in `nmf.gmm()`;
+* `diag.exclude`, `folds`, `seeds` and `pred` in `nmfkc.net.ecv()`.
 
-```r
-nmf.sem <- function(...) { .Deprecated("nmf.ffb"); nmf.ffb(...) }
-```
+### Calls whose result changes
 
-They were deprecated in v0.8.8, announced in that release's NEWS, and have
-emitted a `.Deprecated()` note through two CRAN releases (0.8.8 on 2026-07-14
-and 0.9.6 on 2026-08-25).  The replacement names have been exported since
-v0.8.8, so code that moved to them works on the currently published version as
-well.  There are no reverse dependencies on CRAN.
+Only calls that previously failed or silently ignored an argument:
 
-### Twelve functions were added
+* `nmfkc()` with two or more all-zero columns of `Y` stopped with "missing
+  value where TRUE/FALSE needed"; the initialization is now repaired.
+* A `Y.weights` given to `nmfkc.ecv()`, `nmfkc.signed.ecv()`,
+  `nmf.rrr.ecv()`, `nmf.rrr.signed.ecv()` or `nmfkc.net.ecv()` was dropped
+  without a word; it is now used.
+* `X.anchor` given to `nmfre()`, `nmf.ffb()`, `nmf.rrr()` or `nmf.gmm()` was
+  dropped without a word; it is now imposed.
 
-`nmf.gmm()`, `nmf.gmm.inference()`, `nmf.gmm.select()`, `nmf.gmm.twostage()`
-(a Gaussian-mixture latent-class extension, new to CRAN with this release and
-documented as experimental on every one of its help pages: its interface is
-still settling);
-`nmf.ffb.ecv()`, `nmf.ffb.test()`, `nmf.ffb.diagnostics()`;
-`nmfkc.kernel.gram()`, `nmfkc.rff.beta.cv()`, `nmfkc.rff.positive()`,
-`nmfkc.rff.positive.gram()`, `nmfkc.signed.rff.gram()`.
-
-### Other changes a user could notice
-
-* `nmf.ffb()` was renamed internally to the package's house field names.  This
-  is a breaking change confined to the likelihood branch, which was added
-  after v0.9.6 and has never been on CRAN.
-* `X.rowSums.min` and `X.restriction = "rowSums"` are removed from `nmfkc()` /
-  `nmfkc.signed()`.  Both acted on the rows of the basis, which is not a gauge
-  fix, so the objective was not monotone and a fit could oscillate to `maxit`.
-  Both options were added after v0.9.6 and have never been on CRAN.
-* Both fitters now report `epsilon.iter` and `objfunc.increases`, so a fit that
-  is oscillating rather than descending is visible in `print()` / `summary()`.
+The `Description` field no longer names `nmf.sem()`, which v0.9.8 removed.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0-1 notes (the one note is environmental; see below)
+0 errors | 0 warnings | 0 notes
 
 ## Test environments
 
-* win-builder, R-devel (2026-09-21 r90579 ucrt): **Status OK**, install 13 s,
-  check 126 s
-* Windows 11 (local), R 4.4.1, `--as-cran`: 1 note (see below)
-* Windows 11 (local), `_R_CHECK_DEPENDS_ONLY_=true` (no Suggests): 1 note (the
-  same one)
-
-## Notes
-
-* "checking for future file timestamps ... NOTE" — appears on environments that
-  cannot reach the CRAN time server to verify the current time; not a package
-  issue.  win-builder reports Status OK with no note at all.
+* win-builder, R-devel: <!-- fill in -->
+* win-builder, R-release: <!-- fill in -->
+* Ubuntu 26.04.1 LTS, R 4.6.1, `--as-cran --no-manual` (no LaTeX on that
+  machine; the manual is checked on win-builder): Status OK, 258 s
+* the same with `_R_CHECK_DEPENDS_ONLY_=true` (no Suggests, as CRAN's
+  noSuggests flavour): Status OK, 248 s
 
 ## On the check time
 
-0.9.4 and 0.9.5 were archived by the pretest for exceeding the ten-minute
-budget.  The environment-variable arrangement introduced for 0.9.6 is
-unchanged: only `tests/testthat/test-cran-smoke.R` runs by default (55
-assertions, about 3 seconds), and the remaining blocks begin with
-`skip_unless_full()` and run when `NMFKC_FULL_TESTS` is set, which is what we
-run before every release (4140 assertions, 566 seconds locally, no failures).
-Nothing was deleted to achieve this.
+Unchanged since v0.9.6: only `tests/testthat/test-cran-smoke.R` and a few
+toy-sized tests run by default; the remaining blocks begin with `skip_unless_full()`
+and run when `NMFKC_FULL_TESTS` is set, which is what we run before every
+release (4501 assertions, no failures).  Nothing was deleted to achieve
+this.
 
-win-builder reports 126 seconds for this submission, against 232 for 0.9.6.
+win-builder reports <!-- N --> seconds for this submission, against 126 for
+v0.9.8.
 
 ## Additional checks
 
-* All tests pass (testthat): 55 in the default smoke suite, 4140 with
-  `NMFKC_FULL_TESTS` set.
+* All tests pass (testthat), with and without `NMFKC_FULL_TESTS`.
 * All examples run without errors, including `--run-donttest`.
 * All vignettes build without errors.
 * No reverse dependencies on CRAN.
-
-## On the submission interval
-
-v0.9.6 was published on 2026-08-25.

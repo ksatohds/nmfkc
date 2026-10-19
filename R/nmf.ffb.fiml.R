@@ -486,15 +486,36 @@
   base::on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
 
   ## ---- stage 1: basis ----
+  ## X.anchor: anchor rows of the basis, imposed where it is estimated -- the
+  ## stage-1 nmfkc(Y1, A = Y2) -- whose zeros then stay, since stage 2 holds X
+  ## fixed.  nmfkc()'s own check applies: rank <= nrow(Y2).
+  X.anchor <- extra_args$X.anchor
+  X.init.given <- !base::is.null(cl) && "X.init" %in% base::names(cl)
+  if (!base::is.null(X.anchor) && !base::is.null(X))
+    base::stop("nmf.ffb(): X.anchor applies to the basis estimated in stage 1, ",
+               "so it cannot be combined with a supplied X.", call. = FALSE)
+  if (!base::is.null(X.anchor) && X.init.given && !base::identical(X.init, "spa"))
+    base::message("nmf.ffb(): X.anchor builds its own starting basis, so X.init was not used.")
   stage1 <- NULL; C.init <- NULL
   if (base::is.null(X)) {
     Q_hidden <- if (!base::is.null(extra_args$Q)) extra_args$Q else NULL
     Q <- if (!base::is.null(rank)) rank else if (!base::is.null(Q_hidden)) Q_hidden else P2
     if (Q < 1) base::stop("Rank Q must be >= 1.")
+    ## stage 1 is nmfkc(Y1, A = Y2): its scores C Y2 have rank <= nrow(Y2)
+    if (!base::is.null(X.anchor) && Q > P2)
+      base::stop(base::sprintf(base::paste(
+        "nmf.ffb(): X.anchor needs rank <= nrow(Y2) = %d.  The stage-1 scores",
+        "are C Y2, whose rank is at most that, so anchors cannot identify %d bases."),
+        P2, Q), call. = FALSE)
     if (base::is.null(X.init)) X.init <- "nndsvd"
-    stage1 <- nmfkc(Y = Y1, A = Y2, Q = Q, X.init = X.init, X.L2.ortho = X.L2.ortho,
-                    epsilon = epsilon, maxit = maxit, seed = seed,
-                    verbose = FALSE, print.dims = FALSE)
+    stage1 <- if (base::is.null(X.anchor))
+      nmfkc(Y = Y1, A = Y2, Q = Q, X.init = X.init, X.L2.ortho = X.L2.ortho,
+            epsilon = epsilon, maxit = maxit, seed = seed,
+            verbose = FALSE, print.dims = FALSE)
+    else
+      nmfkc(Y = Y1, A = Y2, Q = Q, X.anchor = X.anchor, X.L2.ortho = X.L2.ortho,
+            epsilon = epsilon, maxit = maxit, seed = seed,
+            verbose = FALSE, print.dims = FALSE)
     Xb <- stage1$X; C.init <- stage1$C
   } else {
     Xb <- if (base::is.list(X) && !base::is.null(X$X)) X$X else base::as.matrix(X)
@@ -594,6 +615,11 @@
   ## the fit lies in the unidentified factor-level family (see nmf.ffb.diagnostics()).
   out$cycles <- .ffb.fiml.cycles(Xb, fs$T1)      # Xb, not the (possibly NULL) X argument
   out$omega <- .ffb.fiml.omega(Xb, fs$T1, fs$psi, M1)
+  ## Added only when anchors were used, so every other fit keeps its fields.
+  if (!base::is.null(X.anchor)) {
+    out$X.anchor <- stats::setNames(base::unname(stage1$X.anchor), Basis_labels)
+    out$stage1.args$X.anchor <- X.anchor
+  }
   base::class(out) <- c("nmf.ffb", "nmf")
   out
 }
@@ -711,9 +737,16 @@
 ## Stage 1 on a data matrix, as nmf.ffb() runs it, returning the column-normalised
 ## basis and the nmfkc coefficient matrix (the Theta2 start for stage 2).
 .ffb.fiml.stage1 <- function(Y1, Y2, Q, args, seed) {
-  s1 <- nmfkc(Y = Y1, A = Y2, Q = Q, X.init = args$X.init, X.L2.ortho = args$X.L2.ortho,
-              epsilon = args$epsilon, maxit = args$maxit, seed = seed,
-              verbose = FALSE, print.dims = FALSE)
+  s1 <- if (base::is.null(args$X.anchor))
+    nmfkc(Y = Y1, A = Y2, Q = Q, X.init = args$X.init, X.L2.ortho = args$X.L2.ortho,
+          epsilon = args$epsilon, maxit = args$maxit, seed = seed,
+          verbose = FALSE, print.dims = FALSE)
+  else
+    ## the fit had anchors: repeat them ("spa" re-selects on the replicate,
+    ## given rows are reused)
+    nmfkc(Y = Y1, A = Y2, Q = Q, X.anchor = args$X.anchor, X.L2.ortho = args$X.L2.ortho,
+          epsilon = args$epsilon, maxit = args$maxit, seed = seed,
+          verbose = FALSE, print.dims = FALSE)
   Xb <- s1$X; Xb[Xb < 0] <- 0
   Xb <- base::sweep(Xb, 2, base::pmax(base::colSums(Xb), 1e-10), "/")
   base::dimnames(Xb) <- base::list(base::rownames(Y1), base::paste0("Factor", 1:Q))

@@ -8,6 +8,8 @@
 #  (Q x K) are the class means; the mixture on the scores turns NMF-RE's
 #  arg-max hard clustering into model-based soft clustering via the posterior
 #  responsibilities. K = 1 (tied) reduces exactly to NMF-RE (nmfre()).
+#  Optionally (class.effects) chosen rows S of A get a coefficient that
+#  differs by class: C a_n + Del_k a_n[S], with sum_k xi_k Del_k = 0.
 #
 #  House-style API (optimization / inference split):
 #    nmf.gmm           EM fit (optimization only)
@@ -48,11 +50,12 @@
 ## ---------------------------------------------------------------------
 ## E-step
 ## ---------------------------------------------------------------------
-.nmfgmm.estep <- function(par, Y, A, cov = "tied") {
+.nmfgmm.estep <- function(par, Y, A, cov = "tied", S = NULL) {
   X <- par$X; Theta <- par$Theta; mu <- par$mu; tau2 <- par$tau2
   sigma2 <- par$sigma2; xi <- par$xi
   P <- nrow(Y); N <- ncol(Y); Q <- ncol(X); K <- length(xi)
   XtX <- crossprod(X); M <- Theta %*% A; XtY <- crossprod(X, Y)
+  AS <- if (length(S)) A[S, , drop = FALSE] else NULL   # class-specific rows
 
   if (cov != "free") {                             # "tied" or "scalar": shared diagonal
     tau2 <- as.numeric(tau2)                       # length-Q vector (all equal if scalar)
@@ -72,6 +75,7 @@
     logcomp <- matrix(0, N, K); bhat <- vector("list", K)
     for (k in 1:K) {
       prior <- M + matrix(mu[, k], Q, N)
+      if (length(S)) prior <- prior + par$Del[[k]] %*% AS
       if (use_wood) {
         Xprior <- X %*% prior; Xtr <- XtY - XtX %*% prior
         r_sq <- YtY - 2 * colSums(Y * Xprior) + colSums(Xprior^2)
@@ -92,6 +96,7 @@
       Vk <- X %*% (tau2[, k] * t(X)) + sigma2 * diag(P)
       Lk <- chol(Vk); logdetV <- 2 * sum(log(diag(Lk))); Vinv <- chol2inv(Lk)
       prior <- M + matrix(mu[, k], Q, N)
+      if (length(S)) prior <- prior + par$Del[[k]] %*% AS
       Resid <- Y - X %*% prior; quad <- colSums(Resid * (Vinv %*% Resid))
       logcomp[, k] <- log(xi[k]) - 0.5 * (P * log(2 * pi) + logdetV + quad)
       bhat[[k]] <- Ok %*% (Dinv %*% prior + XtY / sigma2)
@@ -158,11 +163,73 @@
 }
 
 ## ---------------------------------------------------------------------
+## Class-specific covariate effects (class.effects).  The rows S of A get a
+## coefficient that differs by class,
+##   b_n | z_n = k  ~  N(Theta a_n + Del_k a_n[S] + mu_k, Sigma),
+##   sum_k xi_k mu_k = 0,   sum_k xi_k Del_k = 0,
+## so Theta[, S] is the xi-weighted average of the class-specific coefficients
+## Theta[, S] + Del_k.  The update of (Theta, Del, mu) is still least squares,
+## part by part because Sigma is diagonal, and is solved exactly here instead
+## of by the alternation above.  The freed coefficients are parametrized as a
+## common slope plus deviations for classes 2..K; a relative ridge (1e-8) on
+## the deviation block keeps the system solvable when a class has no
+## within-class variation in a freed covariate, and is numerically invisible
+## otherwise.  With cov = "free" each part is weighted by 1 / tau2[q, k].
+## An empty S never reaches this function: the fit then keeps the alternation.
+## ---------------------------------------------------------------------
+.nmfgmm.solve_classwise <- function(bhat, gamma, Nj, A, intercept, S,
+                                    cov = "tied", tau2 = NULL, ridge = 1e-8) {
+  K <- ncol(gamma); N <- ncol(A); R <- nrow(A); Q <- nrow(bhat[[1]])
+  xi <- Nj / sum(Nj)
+  cm <- setdiff(seq_len(R), c(intercept, S))     # shared covariates
+  nc <- length(cm); nf <- length(S)
+  p <- nc + nf + (K - 1) * nf + K
+  idev <- nc + nf + seq_len((K - 1) * nf)        # deviation block
+  icls <- nc + nf + (K - 1) * nf + seq_len(K)    # class intercepts
+  Dl <- lapply(seq_len(K), function(k) {          # design of class k: N x p
+    Dk <- matrix(0, N, p)
+    if (nc) Dk[, seq_len(nc)] <- t(A[cm, , drop = FALSE])
+    Dk[, nc + seq_len(nf)] <- t(A[S, , drop = FALSE])
+    if (k > 1) Dk[, nc + nf + (k - 2) * nf + seq_len(nf)] <- t(A[S, , drop = FALSE])
+    Dk[, icls[k]] <- 1
+    Dk
+  })
+  fitq <- function(w, qs) {                       # w[[k]]: weights, length N
+    G <- matrix(0, p, p); H <- matrix(0, p, length(qs))
+    for (k in seq_len(K)) {
+      G <- G + crossprod(Dl[[k]], w[[k]] * Dl[[k]])
+      H <- H + crossprod(Dl[[k]], w[[k]] * t(bhat[[k]][qs, , drop = FALSE]))
+    }
+    sc <- mean(diag(G)); diag(G) <- diag(G) + 1e-12 * sc
+    diag(G)[idev] <- diag(G)[idev] + ridge * sc
+    solve(G, H)
+  }
+  if (cov == "free" && !is.null(tau2)) {
+    B <- matrix(vapply(seq_len(Q), function(q)
+      fitq(lapply(seq_len(K), function(k) gamma[, k] / tau2[q, k]), q),
+      numeric(p)), p, Q)
+  } else {
+    B <- fitq(lapply(seq_len(K), function(k) gamma[, k]), seq_len(Q))
+  }
+  Theta <- matrix(0, Q, R)
+  if (nc) Theta[, cm] <- t(B[seq_len(nc), , drop = FALSE])
+  ci <- t(B[icls, , drop = FALSE])                # Q x K class intercepts
+  Theta[, intercept] <- as.numeric(ci %*% xi)
+  mu <- ci - Theta[, intercept]
+  com <- t(B[nc + seq_len(nf), , drop = FALSE])   # Q x nf
+  Gam <- lapply(seq_len(K), function(k)
+    if (k == 1) com else com + t(B[nc + nf + (k - 2) * nf + seq_len(nf), , drop = FALSE]))
+  gb <- Reduce(`+`, Map(`*`, Gam, xi))
+  Theta[, S] <- gb
+  list(Theta = Theta, mu = mu, Del = lapply(Gam, function(g) g - gb))
+}
+
+## ---------------------------------------------------------------------
 ## M-step
 ## ---------------------------------------------------------------------
 .nmfgmm.mstep <- function(par, es, Y, A, intercept = 1, cov = "tied",
                   inner_tol = 1e-12, inner_max = 50, fixX = FALSE,
-                  vfloor = NULL) {
+                  vfloor = NULL, S = NULL) {
   ## vfloor: lower bound on the variance parameters.  NULL (default) makes it
   ## SCALE-RELATIVE, 1e-12 * mean(Y^2), so the fit is equivariant under
   ## Y -> cY.  The old fixed 1e-6 bound was absolute and could bind on
@@ -174,9 +241,16 @@
   if (is.null(vfloor)) vfloor <- 1e-12 * mean(Y^2)
   xi <- Nj / N
 
-  ## --- inner Theta/mu alternation (ANCOVA normal equations) ---
-  tm <- .nmfgmm.solve_theta_mu(par$Theta, par$mu, bhat, gamma, Nj, A, intercept,
-                       inner_tol, inner_max, cov = cov, tau2 = par$tau2)
+  ## --- inner Theta/mu alternation (ANCOVA normal equations); with
+  ##     class-specific rows S, the exact joint least-squares solve instead ---
+  if (length(S)) {
+    tm <- .nmfgmm.solve_classwise(bhat, gamma, Nj, A, intercept, S,
+                                  cov = cov, tau2 = par$tau2)
+    Del <- tm$Del; AS <- A[S, , drop = FALSE]
+  } else {
+    tm <- .nmfgmm.solve_theta_mu(par$Theta, par$mu, bhat, gamma, Nj, A, intercept,
+                         inner_tol, inner_max, cov = cov, tau2 = par$tau2)
+  }
   Theta <- tm$Theta; mu <- tm$mu
 
   ## --- variances ---
@@ -185,6 +259,7 @@
     num <- rep(0, Q)
     for (k in 1:K) {
       resid <- sweep(bhat[[k]] - M, 1, mu[, k], "-")
+      if (length(S)) resid <- resid - Del[[k]] %*% AS
       num <- num + rowSums(sweep(resid^2, 2, gamma[, k], "*"))
     }
     tau2 <- pmax((num + N * diag(Omega)) / N, vfloor)
@@ -192,6 +267,7 @@
   } else {
     for (k in 1:K) {
       resid <- sweep(bhat[[k]] - M, 1, mu[, k], "-")
+      if (length(S)) resid <- resid - Del[[k]] %*% AS
       tau2[, k] <- pmax((rowSums(sweep(resid^2, 2, gamma[, k], "*")) +
                          Nj[k] * diag(Omega[[k]])) / Nj[k], vfloor)
     }
@@ -206,8 +282,9 @@
   }
   if (cov != "free") Gstat <- Gstat + N * Omega
   ## fixX = TRUE (2026-08-28): hold the basis at its current value -- used for
-  ## the fixed-basis two-stage-vs-joint comparison, where BOTH routes must run
-  ## on the SAME X so that only the order of adjustment and clustering differs.
+  ## the fixed-basis two-stage-vs-joint comparison, where BOTH routes run on the
+  ## SAME X (they still fit different data: the two-stage route fits the
+  ## reconstituted, shifted residuals).
   Xn <- if (fixX) X else
         X * sqrt((.nmfgmm.pos(Cstat) + X %*% .nmfgmm.neg(Gstat)) /
                  (.nmfgmm.neg(Cstat) + X %*% .nmfgmm.pos(Gstat) + 1e-12))
@@ -227,7 +304,9 @@
   if (cov != "free") tau2 <- tau2 * D^2 else tau2 <- sweep(tau2, 1, D^2, "*")
   if (cov == "scalar") tau2 <- rep(mean(tau2), Q)     # rescaling breaks isotropy
 
-  list(X = Xn, Theta = Theta, mu = mu, tau2 = tau2, sigma2 = sigma2, xi = xi)
+  out <- list(X = Xn, Theta = Theta, mu = mu, tau2 = tau2, sigma2 = sigma2, xi = xi)
+  if (length(S)) out$Del <- lapply(Del, function(d) sweep(d, 1, D, "*"))
+  out
 }
 
 ## ---------------------------------------------------------------------
@@ -271,7 +350,9 @@
                        maxit = 200000, tol = 1e-7, ptol = 1e-9,
                        nstart = if (K == 1) 1 else 8,
                        inner_tol = 1e-12, inner_max = 50, cores = 1L, fixX = FALSE,
-                       vfloor = NULL) {
+                       vfloor = NULL, S = NULL) {
+  ## S     : rows of A whose coefficients are class-specific (class.effects);
+  ##         NULL / empty is the common-effect model, computed exactly as before.
   ## tol   : relative change of the marginal log-likelihood (the usual EM rule).
   ## ptol  : relative change of the REPORTED parameters (X, Theta, mu); NULL
   ##         keeps the objective-only rule.  The objective rule cannot fire when
@@ -287,19 +368,20 @@
   ## -- independent of the other starts and of execution order.
   run_start <- function(s) {
     par <- .nmfgmm.init_par(Y, A, X0, K, s2_0, intercept, seed = s, cov = cov)
+    if (length(S)) par$Del <- lapply(seq_len(K), function(k) matrix(0, ncol(X0), length(S)))
     ll_old <- -Inf; hist <- numeric(0)
-    rep_old <- c(par$X, par$Theta, par$mu); stop_by <- "maxit"
+    rep_old <- c(par$X, par$Theta, par$mu, unlist(par$Del)); stop_by <- "maxit"
     for (it in 1:maxit) {
-      es <- .nmfgmm.estep(par, Y, A, cov = cov); hist <- c(hist, es$loglik)
+      es <- .nmfgmm.estep(par, Y, A, cov = cov, S = S); hist <- c(hist, es$loglik)
       if (abs(es$loglik - ll_old) / (abs(es$loglik) + 1) < tol) {
         stop_by <- "loglik"; break
       }
       ll_old <- es$loglik
       par <- .nmfgmm.mstep(par, es, Y, A, intercept, cov = cov,
                    inner_tol = inner_tol, inner_max = inner_max, fixX = fixX,
-                   vfloor = vfloor)
+                   vfloor = vfloor, S = S)
       if (!is.null(ptol)) {
-        rep_new <- c(par$X, par$Theta, par$mu)
+        rep_new <- c(par$X, par$Theta, par$mu, unlist(par$Del))
         if (sqrt(sum((rep_new - rep_old)^2)) /
             (sqrt(sum(rep_new^2)) + 1e-12) < ptol) {
           ## The E-step just after the loop recomputes this on the same `par`,
@@ -311,15 +393,21 @@
         rep_old <- rep_new
       }
     }
-    es <- .nmfgmm.estep(par, Y, A, cov = cov)
+    es <- .nmfgmm.estep(par, Y, A, cov = cov, S = S)
     if (stop_by == "parameters") hist <- c(hist, es$loglik)
     ## polish: re-solve Theta/mu at the final responsibilities so the returned
     ## pair satisfies the ANCOVA normal equations (rem:ancova) to machine
     ## precision, removing the one-step outer-loop lag.  Holds X, variances,
     ## and the loglik fixed to outer-tol; .nmfgmm.ARI/BIC unaffected.
-    tm <- .nmfgmm.solve_theta_mu(par$Theta, par$mu, es$bhat, es$gamma, es$Nj, A,
-                         intercept, inner_tol, inner_max,
-                         cov = cov, tau2 = par$tau2)
+    if (length(S)) {
+      tm <- .nmfgmm.solve_classwise(es$bhat, es$gamma, es$Nj, A, intercept, S,
+                                    cov = cov, tau2 = par$tau2)
+      par$Del <- tm$Del
+    } else {
+      tm <- .nmfgmm.solve_theta_mu(par$Theta, par$mu, es$bhat, es$gamma, es$Nj, A,
+                           intercept, inner_tol, inner_max,
+                           cov = cov, tau2 = par$tau2)
+    }
     par$Theta <- tm$Theta; par$mu <- tm$mu
     list(par = par, es = es, loglik = es$loglik, iter = it, hist = hist,
          stop_by = stop_by)
@@ -336,9 +424,41 @@
 ## Utilities
 ## ---------------------------------------------------------------------
 ## free (per-class) parameter count uses Q*K variances; tied uses Q.
-.nmfgmm.pcount <- function(Q, P, R, K, cov = "tied") {
+## nS class-specific covariate rows add (K - 1) * Q * nS deviations.
+.nmfgmm.pcount <- function(Q, P, R, K, cov = "tied", nS = 0L) {
   vars <- switch(cov, scalar = 1L, tied = Q, free = Q * K)
-  Q * (P - 1) + Q * R + Q * (K - 1) + vars + (K - 1) + 1
+  Q * (P - 1) + Q * R + Q * (K - 1) + vars + (K - 1) + 1 + (K - 1) * Q * nS
+}
+
+## Resolve class.effects to row indices S of A.  Accepts row indices, a
+## logical vector over the rows, or names; a name matches a row name of A or,
+## when A was built from a formula, every row of that formula term, so
+## class.effects = "diet" frees all indicator rows of a factor `diet`.
+.nmfgmm.classrows <- function(spec, A, A.term, intercept) {
+  if (is.null(spec) || length(spec) == 0) return(integer(0))
+  R <- nrow(A)
+  if (is.logical(spec)) {
+    if (length(spec) != R) stop("a logical class.effects needs one entry per row of A.")
+    S <- which(spec)
+  } else if (is.numeric(spec)) {
+    S <- as.integer(spec)
+    if (any(S < 1L | S > R)) stop("class.effects indexes a row outside A.")
+  } else {
+    rn <- rownames(A); S <- integer(0)
+    for (s in as.character(spec)) {
+      hit <- integer(0)
+      if (!is.null(rn)) hit <- which(rn == s)
+      if (!is.null(A.term)) hit <- union(hit, which(A.term == s))
+      if (!length(hit))
+        stop(sprintf("class.effects: no row of A, and no formula term, is named '%s'.", s))
+      S <- c(S, hit)
+    }
+  }
+  S <- sort(unique(S))
+  if (intercept %in% S)
+    stop("class.effects must not include the intercept row: the class means mu ",
+         "already make the intercept class-specific.")
+  S
 }
 
 .nmfgmm.ARI <- function(a, b) {
@@ -361,7 +481,11 @@
 .nmfgmm.buildA <- function(formula, data, N, standardize = TRUE) {
   if (is.null(data)) stop("A is a formula; supply `data` (one row per column of Y).")
   mm <- stats::model.matrix(formula, data = data)
-  mm <- mm[, colnames(mm) != "(Intercept)", drop = FALSE]
+  ## the formula term behind each column, so class.effects can name a term
+  tl <- attr(stats::terms(formula, data = data), "term.labels")
+  keep <- colnames(mm) != "(Intercept)"
+  term <- tl[attr(mm, "assign")[keep]]
+  mm <- mm[, keep, drop = FALSE]
   if (nrow(mm) != N) stop("`data` must have one row per column of Y.")
   ctr <- scl <- NULL
   if (standardize && ncol(mm) > 0) {
@@ -370,7 +494,45 @@
   }
   A <- rbind(Intercept = rep(1, N), t(mm))
   attr(A, "A.center") <- ctr; attr(A, "A.scale") <- scl
+  attr(A, "A.term") <- c("(Intercept)", term)
   A
+}
+
+## Initial non-negative, column-normalized basis, shared by nmf.gmm() and
+## nmf.gmm.twostage() so that both routes start from the same X0.  X.init is a
+## P x Q matrix or a method name:
+##   "nmf"      the basis of an ordinary NMF, nmfkc(Y, rank = Q, seed = seed)
+##              with no covariates, i.e. the basis a user gets by calling
+##              nmfkc() directly with the same seed (nmfkc()'s own default
+##              seed is 123).  Entries are floored at 1e-8 before normalizing,
+##              because the multiplicative X-update of the EM cannot move an
+##              exact zero.  Needs a non-negative Y.
+##   otherwise  passed to the shared initializer .init_X_method() ("nndsvd",
+##              the default, "kmeans++", "kmeans", ...).
+#' @noRd
+.nmfgmm.initX <- function(X.init, Y, Q, seed, nstart) {
+  if (is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)) {
+    X0 <- as.matrix(X.init)
+  } else {
+    method <- if (is.character(X.init)) X.init else "nndsvd"
+    if (identical(method, "nmf")) {
+      X0 <- pmax(unname(as.matrix(nmfkc(Y, rank = Q, seed = seed, verbose = FALSE)$X)), 1e-8)
+    } else if (identical(method, "spa")) {
+      ## nmfkc()'s X.init = "spa": the anchor rows SPA finds in Y, the
+      ## non-negative least-squares fit to them, and the anchor zeros filled
+      ## -- the EM's multiplicative X-update would otherwise keep them, turning
+      ## a starting value into a constraint (X.anchor is that constraint).
+      X0 <- .nmfkc_anchor_start(Y, .nmfkc_spa_rows(Y, Q, "nmf.gmm"), 1e-10)
+      z <- which(X0 == 0)
+      if (length(z)) {
+        if (!is.null(seed)) set.seed(seed)
+        X0[z] <- stats::runif(length(z)) * mean(Y) / 100
+      }
+    } else {
+      X0 <- .init_X_method(method, Y, Q, seed = seed, nstart = max(nstart, 1L))
+    }
+  }
+  X0 / rep(pmax(colSums(X0), 1e-12), each = nrow(X0))
 }
 
 #' @title Fit NMF-GMM: a Gaussian-mixture latent-class extension of NMF with covariates
@@ -413,8 +575,24 @@
 #'       variance --- the most parsimonious variant; at \eqn{K=1} it is the
 #'       \code{\link{nmfre}} model, and \code{tau2} is returned as one number).
 #'     \item \code{X.init}: initial basis. A \eqn{P\times Q} non-negative matrix,
-#'       or an initialization method name passed to the shared initializer
-#'       (\code{"nndsvd"} default, \code{"kmeans++"}, \code{"kmeans"}, ...).
+#'       or an initialization method name: \code{"nndsvd"} (default),
+#'       \code{"kmeans++"}, \code{"kmeans"}, ... (passed to the shared
+#'       initializer), or \code{"nmf"}, the basis of an ordinary NMF fitted by
+#'       \code{nmfkc(Y, rank = rank, seed = seed)} without covariates
+#'       (requires a non-negative \code{Y}; \code{\link{nmfkc}}'s own default
+#'       seed is 123). The EM restarts (\code{nstart}) all start from this one
+#'       basis and differ only in the seeding of the mixture, so the fit can
+#'       depend on the choice of \code{X.init}; the basis actually used is
+#'       returned as \code{X0}.  \code{"spa"} starts from the anchor rows the
+#'       successive projection algorithm finds in \code{Y} (see
+#'       \code{\link{nmfkc}}; requires a non-negative \code{Y}).
+#'     \item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
+#'       \code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
+#'       of \code{Y} per basis (requires a non-negative \code{Y}).  The EM's
+#'       multiplicative basis update keeps the zeros.  There is no
+#'       \code{rank <= nrow(A)} limit here: the mixture gives the scores full
+#'       rank.  \code{nmf.gmm.twostage()} accepts it too, finding the anchors
+#'       on \code{Y}.  The rows used are returned as \code{X.anchor}.
 #'     \item \code{intercept}: index of the intercept row of \code{A} (default 1);
 #'       the class-mean average is absorbed into that column of \eqn{C}.
 #'     \item \code{nstart}: EM restarts (default 1 for \code{K=1}, else 8).
@@ -441,8 +619,27 @@
 #'       on small-scale data.
 #'     \item \code{fixX}: hold the basis at its initial value instead of
 #'       updating it (default \code{FALSE}). Used to compare the joint fit with
-#'       \code{\link{nmf.gmm.twostage}} on the \emph{same} \eqn{X}, so that only
-#'       the order of adjustment and clustering differs.
+#'       \code{\link{nmf.gmm.twostage}} on the \emph{same} \eqn{X}, so that the
+#'       two routes share the basis. They still fit different data: the
+#'       two-stage route fits the reconstituted, shifted residuals.
+#'     \item \code{class.effects}: covariates whose coefficients differ by
+#'       class (default \code{NULL}: every covariate has one coefficient shared
+#'       by all classes). Row indices of \code{A}, row names, or --- when
+#'       \code{A} is a formula --- term names, so \code{class.effects = "diet"}
+#'       frees every indicator row of a factor \code{diet}. The class-\eqn{k}
+#'       mean becomes \eqn{C\bm a_n+\Delta_k\bm a_{n,S}+\bm\mu_k} with
+#'       \eqn{\sum_k\xi_k\Delta_k=0}, so the columns \eqn{S} of \code{C} hold
+#'       the \eqn{\xi}-weighted average of the class-specific coefficients,
+#'       which are returned in \code{C.class}. The intercept row cannot be
+#'       freed: \eqn{\bm\mu_k} already makes it class-specific. With a
+#'       continuous covariate, the class-specific coefficients are identified
+#'       when the covariate varies within every class. With a categorical
+#'       covariate, freeing all of its indicator rows gives every level its own
+#'       class means, so the likelihood no longer ties the classes of one level
+#'       to those of another: which class of one level corresponds to which
+#'       class of another is then carried by the starting values rather than by
+#'       the data. Not supported by \code{\link{nmf.gmm.inference}} or
+#'       \code{\link{nmf.gmm.twostage}}.
 #'     \item \code{seed}: RNG seed (default 1). \code{prefix}: basis-name prefix
 #'       (default \code{"Basis"}).
 #'     \item \code{data}: a data frame with one row per column of \code{Y},
@@ -462,13 +659,18 @@
 #'   \code{\link{nmf.gmm.inference}} works unchanged.
 #'
 #' @return An object of class \code{"nmf.gmm"}: a list with \code{X}
-#'   (basis), \code{C} (\eqn{=\Theta}, Q x R), \code{mu} (class means, Q x K),
+#'   (basis), \code{X0} (the column-normalized initial basis the EM started
+#'   from), \code{C} (\eqn{=\Theta}, Q x R), \code{mu} (class means, Q x K),
 #'   \code{tau2}, \code{sigma2}, \code{xi} (mixing proportions), \code{gamma}
 #'   (responsibilities, N x K), \code{cluster} (hard labels), \code{loglik},
 #'   \code{BIC}, \code{ICL}, \code{n.params}, \code{entropy}, \code{Yhat},
 #'   \code{objfunc(.iter)}, \code{iter}, \code{converged}, \code{stop_by},
 #'   \code{K},
-#'   \code{rank}, \code{cov}, \code{dims} and \code{runtime}.
+#'   \code{rank}, \code{cov}, \code{dims} and \code{runtime}. With
+#'   \code{class.effects}, also \code{class.effects} (the freed rows of
+#'   \code{A}, by name), \code{class.rows} (their indices) and \code{C.class}
+#'   (a Q x |S| x K array of class-specific coefficients; the class-specific
+#'   effect in observation space is \code{X \%*\% C.class[, , k]}).
 #'
 #' @seealso \code{\link{nmf.gmm.inference}}, \code{\link{nmf.gmm.select}},
 #'   \code{\link{nmfre}} (the \eqn{K=1} special case).
@@ -510,32 +712,43 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
 
   t0 <- proc.time()
   Y <- as.matrix(Y); P <- nrow(Y); N <- ncol(Y); Q <- as.integer(rank)
-  A.formula <- NULL; A.center <- NULL; A.scale <- NULL
+  A.formula <- NULL; A.center <- NULL; A.scale <- NULL; A.term <- NULL
   if (inherits(A, "formula")) {
     A.formula <- A
     A <- .nmfgmm.buildA(A, extra$data, N, getopt("standardize", TRUE))
     A.center <- attr(A, "A.center"); A.scale <- attr(A, "A.scale")
+    A.term <- attr(A, "A.term"); attr(A, "A.term") <- NULL
   }
   if (is.null(A)) A <- matrix(1, 1, N)
   A <- as.matrix(A); if (ncol(A) != N && nrow(A) == N) A <- t(A)
   if (ncol(A) != N) stop("A must have N columns (R x N).")
   R <- nrow(A)
+  S <- .nmfgmm.classrows(extra$class.effects, A, A.term, intercept)
   nstart <- getopt("nstart", if (K == 1) 1L else 8L)
   cores  <- getopt("cores", getOption("mc.cores", 1L))
 
   ## --- initial non-negative, column-normalized basis X0 ---
-  if (is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)) {
-    X0 <- as.matrix(X.init)
+  ## X.anchor: anchor rows of X, kept as exact zeros for the whole fit (the
+  ## EM's X-update is multiplicative and the column scaling divides, so a
+  ## zero stays a zero).  No rank check as in nmfkc(): the scores carry the
+  ## mixture means and a Gaussian part, so B has full rank anyway.
+  X.anchor <- extra$X.anchor
+  anchor.rows <- NULL
+  if (!is.null(X.anchor)) {
+    an <- .nmfkc_anchor_setup(X.anchor, Y, Q, D_A = NULL, fun = "nmf.gmm",
+                              seed = seed)
+    anchor.rows <- an$rows
+    X0 <- an$X / rep(pmax(colSums(an$X), 1e-12), each = P)
+    if (!is.null(X.init) && !identical(X.init, "spa"))
+      message("nmf.gmm(): X.anchor builds its own starting basis, so X.init was not used.")
   } else {
-    method <- if (is.character(X.init)) X.init else "nndsvd"
-    X0 <- .init_X_method(method, Y, Q, seed = seed, nstart = max(nstart, 1L))
+    X0 <- .nmfgmm.initX(X.init, Y, Q, seed, nstart)
   }
-  X0 <- X0 / rep(pmax(colSums(X0), 1e-12), each = nrow(X0))
 
   fit <- .nmfgmm.fit(Y, A, X0, K, cov = cov, intercept = intercept,
                      maxit = maxit, tol = tol, ptol = ptol, nstart = nstart,
                      inner_tol = inner_tol, inner_max = inner_max, cores = cores,
-                     fixX = fixX, vfloor = vfloor)
+                     fixX = fixX, vfloor = vfloor, S = S)
   par <- fit$par; es <- fit$es
 
   ## --- labels (house style) ---
@@ -543,6 +756,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   blab <- paste0(prefix, seq_len(Q)); clab <- paste0("Class", seq_len(K))
   alab <- rownames(A); if (is.null(alab)) alab <- paste0("Cov", seq_len(R))
   dimnames(X) <- list(rownames(Y), blab)
+  dimnames(X0) <- list(rownames(Y), blab)
   dimnames(C) <- list(blab, alab)
   dimnames(mu) <- list(blab, clab)
   gamma <- es$gamma; colnames(gamma) <- clab
@@ -553,7 +767,7 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   else dimnames(tau2) <- list(blab, clab)
 
   ## --- BIC / ICL ---
-  n.params <- .nmfgmm.pcount(Q, P, R, K, cov = cov)
+  n.params <- .nmfgmm.pcount(Q, P, R, K, cov = cov, nS = length(S))
   bic <- -2 * fit$loglik + n.params * log(N)
   ent <- -sum(ifelse(gamma > 1e-300, gamma * log(gamma), 0))
   icl <- bic + 2 * ent
@@ -569,16 +783,20 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
   dimnames(scores) <- list(blab, colnames(Y))
 
   ## --- responsibility-averaged reconstruction Yhat = X (C A + mu gamma') ---
-  Yhat <- X %*% (C %*% A + mu %*% t(gamma))
+  ##     (plus sum_k gamma_nk Del_k a_n[S] with class-specific rows)
+  Bhat <- C %*% A + mu %*% t(gamma)
+  if (length(S)) for (k in 1:K)
+    Bhat <- Bhat + sweep(par$Del[[k]] %*% A[S, , drop = FALSE], 2, gamma[, k], "*")
+  Yhat <- X %*% Bhat
   dimnames(Yhat) <- dimnames(Y)
 
   dims <- sprintf("Y(%d,%d) ~ X(%d,%d) [K=%d, %s]", P, N, P, Q, K, cov)
   runtime <- as.numeric((proc.time() - t0)["elapsed"])
 
-  structure(list(
+  out <- structure(list(
     call = match.call(), dims = dims, runtime = runtime,
     rank = Q, K = K, cov = cov, intercept = intercept,
-    X = X, C = C, mu = mu, tau2 = tau2, sigma2 = par$sigma2, xi = par$xi,
+    X = X, X0 = X0, C = C, mu = mu, tau2 = tau2, sigma2 = par$sigma2, xi = par$xi,
     gamma = gamma, cluster = cluster, scores = scores, Yhat = Yhat,
     loglik = fit$loglik, BIC = bic, ICL = icl, entropy = ent, n.params = n.params,
     objfunc = -fit$loglik, objfunc.iter = -fit$hist, iter = fit$iter,
@@ -591,6 +809,15 @@ nmf.gmm <- function(Y, A = NULL, rank, K = 1, ...) {
     converged = fit$stop_by != "maxit", stop_by = fit$stop_by, A = A,
     A.formula = A.formula, A.center = A.center, A.scale = A.scale
   ), class = "nmf.gmm")
+  if (length(S)) {
+    ## class-specific coefficients C[, S] + Del_k; C[, S] is their xi-average
+    C.class <- array(0, c(Q, length(S), K), dimnames = list(blab, alab[S], clab))
+    for (k in 1:K) C.class[, , k] <- C[, S, drop = FALSE] + par$Del[[k]]
+    out$class.effects <- alab[S]; out$class.rows <- S; out$C.class <- C.class
+  }
+  ## Added only when anchors were used, so every other fit keeps its fields.
+  if (!is.null(anchor.rows)) out$X.anchor <- stats::setNames(anchor.rows, blab)
+  out
 }
 
 
@@ -639,6 +866,8 @@ nmf.gmm.inference <- function(object, Y, A = object$A, ...) {
   if (!inherits(object, "nmf.gmm")) stop("object must be of class 'nmf.gmm'.")
   if (!identical(object$cov, "tied"))
     stop("nmf.gmm.inference currently supports cov = 'tied' only.")
+  if (length(object$class.rows))
+    stop("nmf.gmm.inference does not yet support class-specific effects (class.effects).")
   extra <- base::list(...)
   B     <- if (!is.null(extra$wild.B))     extra$wild.B     else 500L
   ## CONVENTIONS.md 1: the bootstrap controls carry the wild. prefix, and every
@@ -802,11 +1031,16 @@ nmf.gmm.select <- function(Y, A = NULL, rank, K = 1:5, ...) {
 #' scores on the covariates \emph{blind to the class} and keep the residuals,
 #' (3) reconstitute the residuals in observation space, shift them to
 #' non-negativity, and (4) refit an intercept-only \code{nmf.gmm} from the
-#' \emph{same} basis initialization. Only the order of adjustment and
-#' clustering differs from the joint fit, so the pair isolates the
-#' displacement of the class means that two-stage adjustment incurs when the
-#' covariate is associated with the class (Satoh 2026, Proposition 4); when
-#' the covariate is (near-)mean-independent of the class the two routes agree.
+#' \emph{same} basis initialization. Both routes start from the same basis and
+#' use the same mixture family and settings. They differ in the order of
+#' adjustment and clustering and, unless \code{fixX = TRUE}, in the basis each
+#' refits to its own data: the two-stage route refits it to the
+#' reconstituted, shifted residuals. When the covariate is associated with the
+#' class, the class-blind regression of stage (2) displaces the class means
+#' (the oracle proposition of Satoh 2026); when the covariate is
+#' (near-)mean-independent of the class, that displacement vanishes in the
+#' population, so both routes target the same class means, although the
+#' fitted partitions need not coincide in a finite sample.
 #'
 #' @param Y Data matrix \eqn{Y} (P x N).
 #' @param A Covariate matrix \eqn{A} (R x N) including an intercept row, or a
@@ -839,6 +1073,9 @@ nmf.gmm.twostage <- function(Y, A = NULL, rank, K = 1, ...) {
   getopt <- function(nm, default) if (!is.null(extra[[nm]])) extra[[nm]] else default
   intercept <- getopt("intercept", 1L)
   seed      <- getopt("seed", 1L)
+  if (!is.null(extra$class.effects))
+    stop("class-specific effects (class.effects) cannot be removed before clustering: ",
+         "the two-stage route has no class to attach them to. Use nmf.gmm().")
   .rng <- .nmfkc.rng.save(seed)
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
   Y <- as.matrix(Y); N <- ncol(Y); Q <- as.integer(rank)
@@ -853,15 +1090,18 @@ nmf.gmm.twostage <- function(Y, A = NULL, rank, K = 1, ...) {
   if (nrow(A) < 2) stop("A holds only an intercept; there is nothing to adjust for.")
 
   ## stage 0: the same initial basis nmf.gmm would use
-  X.init <- extra$X.init
   nstart <- getopt("nstart", if (K == 1) 1L else 8L)
-  if (is.matrix(X.init) || (is.numeric(X.init) && length(X.init) > 1)) {
-    X0 <- as.matrix(X.init)
+  anchor.rows <- NULL
+  if (!is.null(extra$X.anchor)) {
+    ## anchors are found on Y, not on the shifted residuals, and reach the
+    ## refit as zeros in X.init = X0, which its multiplicative X-update keeps
+    an <- .nmfkc_anchor_setup(extra$X.anchor, Y, Q, D_A = NULL,
+                              fun = "nmf.gmm.twostage", seed = seed)
+    anchor.rows <- an$rows
+    X0 <- an$X / rep(pmax(colSums(an$X), 1e-12), each = nrow(Y))
   } else {
-    method <- if (is.character(X.init)) X.init else "nndsvd"
-    X0 <- .init_X_method(method, Y, Q, seed = seed, nstart = max(nstart, 1L))
+    X0 <- .nmfgmm.initX(extra$X.init, Y, Q, seed, nstart)
   }
-  X0 <- X0 / rep(pmax(colSums(X0), 1e-12), each = nrow(X0))
 
   ## stage 1: least-squares scores; remove the covariates blind to the class
   B <- solve(crossprod(X0), crossprod(X0, Y))
@@ -875,8 +1115,11 @@ nmf.gmm.twostage <- function(Y, A = NULL, rank, K = 1, ...) {
   dimnames(Yres) <- dimnames(Y)
   pass <- extra
   pass$data <- NULL; pass$standardize <- NULL; pass$X.init <- NULL
+  pass$X.anchor <- NULL
   fit <- do.call(nmf.gmm, c(list(Y = Yres, A = NULL, rank = rank, K = K,
                                  X.init = X0), pass))
+  if (!is.null(anchor.rows))
+    fit$X.anchor <- stats::setNames(anchor.rows, colnames(fit$X))
   fit$twostage <- list(shift = shift, A = A, A.formula = A.formula, X0 = X0)
   fit$call <- match.call()
   class(fit) <- c("nmf.gmm.twostage", class(fit))
@@ -967,6 +1210,8 @@ print.nmf.gmm <- function(x, ...) {
   cat("NMF-GMM: Gaussian-mixture latent-class NMF with covariates\n")
   cat(x$dims, "\n")
   cat(sprintf("K=%d components, rank Q=%d, covariance=%s\n", x$K, x$rank, x$cov))
+  if (length(x$class.effects))
+    cat("Class-specific covariate effects:", paste(x$class.effects, collapse = ", "), "\n")
   cat(sprintf("logLik=%.2f, BIC=%.2f, ICL=%.2f (params=%d)\n",
               x$loglik, x$BIC, x$ICL, x$n.params))
   ## Delegate so this reads exactly like every other fitter's convergence line:
@@ -1110,6 +1355,16 @@ plot.nmf.gmm <- function(x, type = c("convergence", "adjusted.scores", "scores")
   ## the panel "scores" would claim otherwise.
   if (is.null(x$scores)) stop("no $scores stored; refit with nmf.gmm().")
   adj <- x$scores - x$C %*% x$A                      # remove the covariate mean
+  if (length(x$class.rows)) {                        # class-specific rows: remove
+    S <- x$class.rows                                # the effect of each unit's class
+    for (k in seq_len(x$K)) {
+      idx <- x$cluster == k
+      if (any(idx)) {
+        Dk <- matrix(x$C.class[, , k], nrow(adj)) - x$C[, S, drop = FALSE]
+        adj[, idx] <- adj[, idx, drop = FALSE] - Dk %*% x$A[S, idx, drop = FALSE]
+      }
+    }
+  }
   g   <- if (!is.null(group)) as.factor(group) else as.factor(x$cluster)
   pal <- grDevices::hcl.colors(max(nlevels(g), 2), "Dark 3")
   col <- pal[as.integer(g)]

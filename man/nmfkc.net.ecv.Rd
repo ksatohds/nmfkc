@@ -13,15 +13,66 @@ nmfkc.net.ecv(Y, rank = 1:3, type = c("tri", "bi", "signed"), ...)
 
 \item{type}{Model type: \code{"tri"} (default), \code{"bi"}, or \code{"signed"}.}
 
-\item{...}{Passed to the underlying fitter; also accepts \code{nfolds}
-(default 5; \code{div} alias), \code{seed} (default 123), and \code{cores}
-(\code{getOption("mc.cores", 1L)}) to evaluate the rank x fold grid in
-parallel; results are identical to the sequential run for any \code{cores}
-(PSOCK cluster on Windows, forking elsewhere).}
+\item{...}{Passed to the underlying fitter; also accepts:
+\itemize{
+\item \code{nfolds} (default 5; \code{div} alias) and \code{seed}
+(default 123).
+\item \code{diag.exclude} (default \code{FALSE}): leave the diagonal
+out of the folds and out of every fit (see \code{\link{nmfkc.net}}),
+for a network without self-loops.  Otherwise its zeros would be
+scored as edges to predict.
+\item \code{folds}: the folds to use, as a list of linear indices into
+\eqn{Y} -- e.g.\ the \code{$folds} of an earlier run, so that two
+models are compared on the same split.  A lower-triangle index is
+read as its upper-triangle mirror.  An entry in two folds, or one that
+cannot be held out (\code{NA}, zero weight, or the diagonal under
+\code{diag.exclude}), is an error.  \code{nfolds} is then
+\code{length(folds)}.  (Within this function the folds depend only on
+\eqn{N}, \code{nfolds}, \code{seed} and the entries that can be held
+out, so runs that share these already share their folds.)
+\item \code{seeds}: a vector of seeds (overriding \code{seed}), to
+repeat the CV over different splits.  Each split refits with its
+seed, so the results for seed
+\eqn{s} are those of \code{seed = s}.  \code{objfunc}, \code{sigma}
+and \code{r.squared.cv} are then averaged over the seeds, with their
+spread in \code{objfunc.sd} and \code{r.squared.cv.sd}.  Not with
+\code{folds}.
+\item \code{pred} (default \code{FALSE}): also return the held-out
+predictions (an \eqn{N \times N} array per rank; kept optional
+because it is \eqn{N^2} per rank).
+\item \code{Y.weights}: as in \code{\link{nmfkc.net}}.  Entries of
+weight 0 are never held out, every fit keeps the weights, and the
+held-out loss is the weighted mean.  (Before 1.0.0 a
+\code{Y.weights} given here was silently replaced by the fold mask.)
+\item \code{cores} (\code{getOption("mc.cores", 1L)}) to evaluate the
+rank x fold grid in parallel; results are identical to the sequential
+run for any \code{cores} (PSOCK cluster on Windows, forking
+elsewhere).
+}
+\code{NA} entries of \eqn{Y} are never held out and stay masked in every
+fit (before 1.0.0 they were fitted as zeros and made \code{objfunc}
+\code{NA}).}
 }
 \value{
 A list with \code{objfunc}, \code{sigma}, \code{objfunc.fold},
-\code{folds}, \code{Q.grid}, \code{type}.
+\code{folds}, \code{Q.grid}, \code{type}, and
+\describe{
+\item{\code{r.squared.cv}}{Held-out \eqn{R^2} per rank, pooled over
+the folds: \eqn{1 - \sum (y - \hat y)^2 / \sum (y - \bar y)^2} over
+all held-out upper-triangle entries (weighted when \code{Y.weights}
+is given).  Unlike the \code{r.squared} of a fit (a squared
+correlation), it can be negative.}
+\item{\code{pred}}{With \code{pred = TRUE}: \eqn{N \times N \times}
+(ranks) array of held-out predictions, mirrored to the lower triangle;
+\code{NA} where an entry was never held out.}
+\item{\code{diag.exclude}}{\code{TRUE}, present only when used.}
+\item{\code{seeds}, \code{objfunc.rep}, \code{objfunc.sd},
+\code{r.squared.cv.rep}, \code{r.squared.cv.sd}, \code{folds.rep}}{
+Present only with two or more \code{seeds}: the per-seed values
+(ranks x seeds), their standard deviations, and each seed's folds.
+\code{objfunc.fold}, \code{folds} and \code{pred} are those of the
+first seed.}
+}
 }
 \description{
 k-fold CV with folds taken over the upper triangle of the

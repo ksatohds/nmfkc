@@ -1,3 +1,336 @@
+# nmfkc 1.0.1 (2026-10-20)
+
+## The identification diagnostic in `nmf.ffb.inference()`, `nmf.rrr.inference()` and `nmfre.inference()`
+
+The three return `identified.approx` and `identification` as well, built on
+the same check as `nmfkc.inference()` (below), adapted to each model.  Each
+is an algebraic check on the point estimate -- no re-fits -- and `summary()`
+prints one line.  Nothing else changes: every other component is identical
+(checked on six calls).
+
+* **`nmf.ffb.inference()`**: `Y1 ~ X (C1 Y1 + C2 Y2)` is `Y ~ X Theta A`
+  with `Theta = [C1 C2]` and `A = [Y1; Y2]`, all non-negative, so the check
+  applies to `(X, [C1 C2])` (both the `"fiml"` and the `"mu"` paths).  The
+  zeros of the exclusion restriction count; the full latent covariance `Phi`
+  absorbs any rotation and adds nothing.
+* **`nmf.rrr.inference()`**: `Y1 ~ X1 C X2 Y2` has a rotation on each latent
+  space (`X1 T1`, `T1^-1 C T2^-1`, `T2 X2`).  Any admissible `T1` keeps
+  `T1^-1 (C X2) >= 0`, so the check on `(X1, C X2)` pins `T1`, and the check on
+  `(X1 C, X2)` pins `T2`; both, with `Y2` of full row rank, suffice.
+  `identification` holds the two as `left` and `right`.  Zeros are judged
+  relative only, since `X2` and `C X2` have no natural absolute scale.
+* **`nmfre.inference()`**: with `C.signed = FALSE` the check applies to
+  `(X, C)`.  With a signed `C` (the default) non-negativity cannot pin the
+  rotation at all, so `identified.approx` is `NA`.  The working model's
+  isotropic random effects `U ~ N(0, tau2 I)` allow only orthogonal `T`,
+  which with the column sums of `X` fixed is a permutation when `Q = 2` or
+  every basis has an anchor row; `identification$by.assumption` records that
+  -- identification by assumption, not by the data.
+
+Not covered: `nmf.gmm.inference()` and `nmf.rrr.signed.inference()` (signed
+coefficients) and `nmfkc.net.inference()` (the family `(X T, T^-1 C T^-T)`).
+
+## `nmfkc.inference()` reports whether C is identified
+
+The coefficients and intervals of `nmfkc.inference()` are conditional on the
+estimated basis X.  It now also returns `identified.approx` and
+`identification`, the diagnostic of `nmfkc.ar.latent.inference()` (below)
+applied to X and C: when `identified.approx` is `TRUE` the factorization is
+unique up to a permutation of the bases, so the intervals concern the same C
+whichever admissible representative `(X T, T^-1 C)` is taken; when `FALSE`
+the entries of C describe this representative.  It also requires A of full
+row rank (`identification$A.full.rank`), since otherwise C is not unique even
+given X.  `summary()` prints one line about it.  `sep.tol` and `pin.tol` can
+be passed through `...`; coefficients at or below `boundary.tol` count as
+zero.  `nmfkc.net.inference()`, which calls `nmfkc.inference()` with
+`A = t(X)`, does not carry these components: for `Y ~ X C X'` the family of
+equivalent fits is `(X T, T^-1 C T^-T)`, which the diagnostic does not cover.
+
+It is an algebraic check on the point estimate -- no re-fits, nothing random
+-- and takes about a millisecond for Q = 3 with 50 covariates.  Nothing else
+changes: the estimates, intervals and other components are identical.
+
+## `nmfkc.ar.latent.inference()`: a weaker identification check, with two routes
+
+`identified.approx` says whether the entries of the latent transition
+matrices `G_d` and the composition `p.star` can be inferred, i.e. whether the
+factorization is unique up to a permutation.  It used to require an anchor
+row of X for every basis **and a pure covariate for every basis** (a column
+of Theta that is non-zero for that basis alone).  The second half was more
+than the argument needs, and fits whose Theta is nearly one-basis-per-covariate
+were reported as not identified.  Two sufficient conditions are now checked,
+with nothing for the caller to choose:
+
+* **X anchors + Theta pinned.**  The rows of Theta are pinned one at a time:
+  the first by a pure covariate, each later one by covariates that are
+  non-zero only for bases already pinned and itself, and whose zero
+  coefficients separate it from each of those bases -- possibly in different
+  covariates.
+* **The mirror route.**  A pure covariate for every basis, and the bases
+  pinned one at a time through the rows of X (the first by an anchor row).
+
+Every fit that passed the old check passes the new one.  The Details of
+`?nmfkc.ar.latent.inference` give the argument and two counterexamples:
+separability of X alone is not enough, and neither are zeros that merely
+separate every pair of bases (`T = (J - I)/2` is then admissible).
+
+A coefficient counts as zero when it is at most `kkt.tol` or at most the new
+`pin.tol` (default `0.01`) times the coefficient of the same covariate for
+the basis being pinned -- that ratio is the mixing of bases the covariate
+still allows.  A pass is no longer a warning: `print()` states it with the
+precision reached, e.g. "unique up to a permutation of the bases; the zeros
+it rests on hold to 0.0024, so an equivalent fit mixes the bases by at most
+about 0.24%".  A failure still warns, naming the part that fails.  A
+covariate whose coefficients are all numerical noise is ignored; ratios
+inside such a column once looked like a pin.  For X the
+tolerance is `1 - sep.tol` times the loading of the basis being pinned.
+
+`identification` gains `pinned`, `pin.order`, `X.pinned`, `X.pin.order`,
+`route` and the margins `pin.margin` and `X.pin.margin`; `pure` and
+`pure.margin` use the new zero rule (the margin is now a ratio, not an
+absolute coefficient).  On the US 49-industry monthly realized volatility
+(Q = 3, D = 1) the check said FALSE and now says TRUE, by the mirror route;
+a direct search over all admissible `T` on configurations of this kind found
+only permutations.  The fields about X carry a capital `X.`, like `X.anchor`
+and `A.full.rank`; development builds of 2026-10-18 spelled them `x.pinned`,
+`x.pin.order` and `x.pin.margin`.
+
+Nothing else changes: estimates, intervals and the other components are
+identical (8 calls checked).
+
+## A block wild bootstrap for time points: `wild.unit = "block"`
+
+`nmfkc.ar.latent.inference()` and `nmfkc.inference(method = "refit")` accept
+`wild.unit = "block"`.  One multiplier is drawn per block of
+`L = max(1, round(n^(1/3)))` consecutive columns (time points, `n = ncol(Y)`)
+and shared by all rows (series), so residuals within a block keep their
+serial dependence.  The block grid starts at a random offset in
+`0, ..., L-1`, drawn anew in each replicate.  `L` is 3 for `n = 27`, 5 for
+100 and 8 for 500; for `n <= 3` it is 1 and the draws are those of
+`"column"`.  The length is fixed by `n`: it cannot be set and is not stored.
+Use it when the residuals are autocorrelated (for example with too few
+lags); for a correctly specified VAR the default of
+`nmfkc.ar.latent.inference()` -- one Rademacher multiplier per time point
+(`"column"`), `wild.B = 500` -- suffices.  The Details of
+`?nmfkc.ar.latent.inference` describe the scheme.
+
+`nmfkc.inference()` now also returns `wild.unit`, the multiplier unit of the
+`"refit"` bootstrap (`NA` otherwise).
+
+Nothing else changes: the default bootstrap of
+`nmfkc.ar.latent.inference()`, its `"element"` and `"exp"` modes, and the
+onestep and refit (element, column) modes of `nmfkc.inference()` give
+bit-identical results (8 calls checked).
+
+## Anchor rows of X: `X.anchor`, `X.init = "spa"`, and a separability diagnostic
+
+Two options for `nmfkc()`, both passed through `...`.  A fit that uses
+neither is unchanged: checked bit-identical on 167 existing calls.
+
+* **`X.anchor`** imposes anchor rows of X -- rows that carry one basis alone
+  -- as zeros that are kept for the whole fit.  Anchors make the
+  factorization unique up to the column scale that `X.restriction` fixes,
+  and with covariates they identify `C` as well, provided `rank <= nrow(A)`
+  (checked: `B = C A` cannot have a larger rank).  `X.anchor = "spa"` chooses
+  the rows with the successive projection algorithm (Gillis & Vavasis, 2014,
+  IEEE TPAMI); a vector of row indices or names gives them directly, one per
+  basis, and the bases then keep that order.  The rows used are returned as
+  `$X.anchor`.
+* **`X.init = "spa"`** starts from the same anchor rows but fills their
+  zeros, so it is only a starting value and leaves the factorization as
+  (non-)unique as before.  Fitting both ways shows what the assumption of
+  anchors costs:
+  `nmfkc(..., X.anchor = "spa")$objfunc - nmfkc(..., X.init = "spa")$objfunc`.
+
+On data separable by construction, the anchored fit recovered X to 1e-5 and
+the covariate effects to 1e-3, while the default start reached the same
+objective at a rotated solution.
+
+`summary()` now reports the **separability** of the basis: for each basis the
+largest share it takes in any row of X (with the columns of X scaled to sum
+to one, so the value does not depend on `X.restriction`), minimized over the
+bases.  1 means every basis has a row of its own, `1/Q` that every row mixes
+all bases equally; an `X.anchor` fit scores exactly 1, and on the data above
+the default fit scored 0.91.  The per-basis values and the rows attaining them
+are `anchor.purity` and `anchor.row`.  All three are stored on the fit, in
+`fit$criterion`; `summary()` reads them there (and recomputes them for
+objects saved by earlier versions).  It looks at X only -- zeros in B or in `C` can
+also pin the solution -- so a value near 1 says the fit is nearly unique,
+while a low value does not say it is not.
+
+These three `criterion` elements are the only change to a fitted object:
+every value it held before is unchanged (checked bit-identical on the same
+167 calls, with the new elements set aside).
+
+## The anchor options reach the other fitters
+
+`X.anchor` and `X.init = "spa"` now work in `nmfre()`, `nmf.ffb()`,
+`nmf.rrr()`, `nmf.gmm()` / `nmf.gmm.twostage()` and `nmfkc.signed()`.  All
+but the last used to accept `X.anchor` and **drop it without a word** -- the
+fit came out identical with or without it -- so a caller could believe
+anchors were imposed when they were not.  Each now imposes them and returns
+the rows used as `$X.anchor`; what differs between them is where the basis
+is estimated and what limits the rank.
+
+| function | anchors apply to | rank limit |
+|:--|:--|:--|
+| `nmfre()` | X; kept through its floor on X | none (the random effects give B full rank) |
+| `nmf.ffb()` | the stage-1 basis, then held fixed | `rank <= nrow(Y2)` |
+| `nmf.rrr()` | the response basis X1 | `rank1 <= min(rank2, nrow(Y2))` |
+| `nmf.gmm()`, `nmf.gmm.twostage()` | X (found on Y, not on the residuals) | none (the mixture gives B full rank) |
+| `nmfkc.signed()` | X | `rank <= nrow(A)` |
+
+`"spa"` compares rows of Y by their shares, so it needs a non-negative Y.
+`nmfkc.signed()` documents a signed Y: there the anchor rows can be given
+but not searched for, and the start uses the semi-NMF basis step (Ding, Li
+& Jordan 2010).  `nmfkc.net()` and `nmf.ffb(method = "mu")` cannot use the
+options and now refuse them rather than ignoring them.
+
+Nothing changes for a call that uses neither option: checked bit-identical
+on 22 default calls across the seven fitters.
+
+## `nmfkc.net.ecv()`: a diagonal to leave out, folds to share, repeated splits, held-out predictions
+
+Asked for by the covariate-network study, which compares models on edge-wise
+CV.  Each option is passed through `...` and changes nothing when absent:
+checked bit-identical on 16 existing calls of `nmfkc.net()`,
+`nmfkc.net.ecv()` and `nmfkc.net.rank()`.
+
+* **`diag.exclude = TRUE`**, in `nmfkc.net()` and `nmfkc.net.ecv()` alike.
+  For a network without self-loops the diagonal is not an observation.
+  It is now neither fitted nor counted -- exactly a `Y.weights` with a zero
+  diagonal.  In the CV it is no longer held out either: before, its zeros
+  were scored as edges to predict.
+* **`folds =`** takes a split from outside, e.g. the `$folds` of an earlier
+  run or another implementation's.  This compares two models on the same
+  split.  An entry in two folds, or one that cannot be held out, is an
+  error.
+* **`seeds = c(...)`** repeats the CV over several splits.  It returns the
+  mean and also the spread across seeds (`objfunc.sd`, `r.squared.cv.sd`, and
+  the per-seed `*.rep`).  The results for seed s are those of `seed = s`.
+* **`r.squared.cv`**, always: the held-out R² pooled over the folds,
+  1 - SSE/SST over the held-out entries.  **`pred = TRUE`** also returns
+  the held-out predictions (N x N per rank, so optional).  `print()` shows
+  the new columns.
+
+Two inputs went wrong before and now work:
+* **`NA` in `Y`.** It made `objfunc` `NA` for every rank, and the fits took
+  the `NA` entries as observed zeros.  They are now never held out and stay
+  masked.
+* **A `Y.weights` given to `nmfkc.net.ecv()`.** It was silently replaced
+  by the fold mask: the result was identical with or without it.  It is
+  now kept in every fit, its zero entries are not held out, and the
+  held-out loss is weighted.
+
+## The element-wise CVs keep a weights argument
+
+`nmfkc.ecv()`, `nmfkc.signed.ecv()`, `nmf.rrr.ecv()` and
+`nmf.rrr.signed.ecv()` dropped a `Y.weights` (`Y1.weights` for the RRR
+pair) without a word: the result was identical with or without it.  Three
+of them spliced the fold mask in ahead of `...`; `nmfkc.signed.ecv()`
+removed the weights from the fit arguments.  Now, in all four:
+* The weights are kept in every fit, in the forms the fitters take
+  (matrix, one weight per column, or scalar).
+* Cells of weight 0 are never held out.
+* The held-out loss is the weighted mean.
+
+Calls without weights are unchanged: checked bit-identical on 10 + 16
+calls covering the four functions, `nmfkc.rank()`, `nmfkc.signed.rank()`,
+`nmf.rrr.rank()`, `nmf.ffb.cv(method = "fiml")` and `cores = 2`.
+
+## `nmfkc()` no longer stops on data with all-zero columns
+
+With `X.init = "kmeans"` (the default) or `"kmeans++"`, two or more all-zero
+observation columns could make k-means return the zero vector as a cluster
+centre.  Normalizing that basis column gave 0/0, and the fit stopped with
+"missing value where TRUE/FALSE needed" -- or, with `maxit < 10`, returned an
+all-NaN object as if it were a fit.  The initialization is now rerun on the
+non-zero columns, with a message saying so; the fit itself still uses every
+column, since with covariates a zero column is informative about `C`.
+
+A fit whose objective becomes NaN now stops with the cause rather than R's
+generic message, and a `Y` with no positive entries is named as such.  A
+user-supplied `X.init` with a zero column is reported, not altered.
+
+**No fit that succeeded before changes.**  The repair acts only on a start
+that normalizes to a non-finite value, and such a start could not produce a
+result.  Checked bit-identical (`identical()` and `all.equal(tolerance = 0)`)
+on 143 previously successful calls, among them data with zero columns that
+k-means happened not to isolate, and `X.restriction = "none"`, where a zero
+basis column never failed and still stays zero.
+
+## Documentation that answers questions raised in use
+
+None of these change a result.
+
+* `epsilon` spells out the stopping rule: relative while the objective
+  exceeds 1, absolute below it, so small-magnitude data need a smaller
+  `epsilon` or rescaling.
+* `X.L2.ortho` explains why its strength depends on the scale of `Y` (and is
+  of order $1/P^2$ per pair under column-sum normalization), and how to state
+  it relative to the fit: `X.L2.ortho = lambda0 * sum(Y^2)`.
+* `C.init` explains that an exact zero in the initial value is kept
+  throughout, while a zero on the boundary is approached only slowly -- so a
+  structural zero belongs in the initial value.
+* `nmfkc.ecv()` documents that `objfunc` is named `"Q=2"`, `"Q=3"`, ...
+
+## `nmf.gmm()`: covariate effects that differ by class (`class.effects`)
+
+`nmf.gmm()` gains `class.effects`, which names the covariates whose
+coefficients may differ between classes. The class-`k` mean of the scores
+becomes `C a_n + Delta_k a_n[S] + mu_k` with `sum_k xi_k Delta_k = 0`, so
+the columns `S` of `C` keep their meaning as the (xi-weighted) average effect
+and the class-specific coefficients are returned in `C.class`. Before, every
+covariate had one coefficient shared by all classes, so a covariate whose
+effect differs between classes could only be absorbed by extra components.
+Covariates are named by row of `A` or, with a formula, by term, so
+`class.effects = "diet"` frees every indicator row of a factor. The default
+(`NULL`) fits the common-effect model exactly as before. The M-step solves
+the class-specific coefficients, the common ones and the class means jointly
+by weighted least squares; BIC and ICL count the `(K - 1) Q |S|` extra
+parameters. With a categorical covariate, freeing all of its levels gives
+each level its own class means, and the likelihood then no longer ties the
+classes of one level to those of another; the help page says so.
+`nmf.gmm.inference()` and `nmf.gmm.twostage()` refuse such fits for now.
+
+## `nmf.gmm()`: an ordinary-NMF starting basis, and the basis it started from
+
+`nmf.gmm()` and `nmf.gmm.twostage()` accept `X.init = "nmf"`: the basis of an
+ordinary NMF, `nmfkc(Y, rank = rank, seed = seed)` without covariates. Before,
+the only named choices were the one-step initializers (`"nndsvd"`, the
+default, `"kmeans++"`, `"kmeans"`, ...), so reproducing a fit started from a
+fitted NMF basis meant building that basis by hand. The default is unchanged.
+
+The fit now returns `X0`, the column-normalized basis the EM started from. All
+`nstart` restarts share this one basis and differ only in the seeding of the
+mixture, so the partition can depend on the basis; returning it makes a fit
+reproducible from the object alone. Both functions now build the basis through
+one internal helper, so the two-stage baseline cannot drift from the joint fit.
+
+## `nmf.gmm.twostage()`: the help no longer says "only the order differs"
+
+The help page, the `fixX` entry of `nmf.gmm()` and the vignette said that the
+two-stage baseline differs from the joint fit "only in the order of adjustment
+and clustering". It does not: unless `fixX = TRUE`, the two-stage route refits
+the basis to the reconstituted, shifted residuals, and even with `fixX = TRUE`
+it fits different data. The text now says what is held equal (the initial
+basis, the mixture family, the settings) and what is not. It also no longer
+promises that the two routes "agree" when the covariate is mean-independent of
+the class: the class-mean displacement vanishes in the population, but the
+fitted partitions need not coincide in a finite sample. The reference to the
+accompanying paper names its oracle proposition instead of a proposition
+number, which has changed between drafts.
+
+## The package description names `nmf.ffb()`, not the removed `nmf.sem()`
+
+The `Description` field of `DESCRIPTION` still told readers to reach the
+feed-forward + feedback model through `nmf.sem()` -- the very name 0.9.8
+removed -- and called the model "NMF-based Structural Equation Modeling
+(NMF-SEM)", a label the package retired when `nmf.sem()` was renamed in
+0.8.8. It now names `nmf.ffb()` and NMF-FFB. The 0.9.8 release on CRAN
+still carries the old sentence; nothing else in it refers to the removed
+functions.
+
 # nmfkc 0.9.8 (2026-09-23)
 
 ## The deprecated `nmfae*` names are removed

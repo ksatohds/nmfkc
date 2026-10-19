@@ -38,6 +38,16 @@ components from the input \code{object}, with additional inference components:
 \item{C.ci.upper}{Upper CI bounds for \eqn{\Theta} (Q x R matrix).}
 \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{\Theta}.}
 \item{C.p.side}{P-value type used.}
+\item{identified.approx}{Whether the factorization is unique up to
+permutations of both latent spaces, i.e. under
+\eqn{X_1\to X_1T_1}, \eqn{\Theta\to T_1^{-1}\Theta T_2^{-1}},
+\eqn{X_2\to T_2X_2}.  A sufficient condition: the diagnostic of
+\code{\link{nmfkc.inference}} passes on \eqn{(X_1, \Theta X_2)} (pinning
+\eqn{T_1}) and on \eqn{(X_1\Theta, X_2)} (pinning \eqn{T_2}), and \eqn{Y_2}
+has full row rank.  Zeros are judged relative only (\code{pin.tol},
+\code{sep.tol} through \code{...}).  An algebraic check on the point
+estimate: no re-fits.}
+\item{identification}{The two checks, \code{left} and \code{right}.}
 }
 \description{
 Performs post-estimation inference for \eqn{\Theta} in the three-layer NMF model

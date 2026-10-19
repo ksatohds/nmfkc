@@ -40,6 +40,44 @@
 }
 
 
+#' @title Block wild bootstrap multipliers (Internal)
+#' @description Draw \code{n} mean-0, variance-1 multipliers that are constant
+#'   within blocks of \code{L} consecutive columns, for a block wild bootstrap
+#'   of serially dependent residuals (columns = time points).  Residuals at
+#'   nearby time points then share a multiplier, so their serial dependence
+#'   within a block is kept.  The block grid starts at a random offset in
+#'   \code{0, ..., L-1}, so no column is always at a block edge.  With
+#'   \code{L = 1} this is exactly \code{.wild.multipliers(n, dist)} and draws
+#'   the same random numbers.
+#' @param n Number of multipliers (columns).
+#' @param L Block length, a positive integer.
+#' @param dist Multiplier distribution (see \code{.wild.multipliers}).
+#' @return Numeric vector of length \code{n}.
+#' @keywords internal
+#' @noRd
+.wild.block.multipliers <- function(n, L, dist = c("rademacher", "mammen", "exp")) {
+  dist <- base::match.arg(dist)
+  L <- base::suppressWarnings(base::as.integer(L))
+  if (base::length(L) != 1L || base::is.na(L) || L < 1L)
+    base::stop("The block length must be a single positive integer.")
+  if (L == 1L) return(.wild.multipliers(n, dist))
+  s  <- base::sample.int(L, 1L) - 1L                    # offset in 0..(L-1)
+  id <- (base::seq_len(n) - 1L + s) %/% L + 1L           # block of each column
+  v  <- .wild.multipliers(base::max(id), dist)
+  v[id]
+}
+
+
+#' @title Default block length for the block wild bootstrap (Internal)
+#' @description \code{max(1, round(n^(1/3)))}, the usual rate for block
+#'   resampling of a stationary series of length \code{n}.
+#' @param n Number of columns (time points).
+#' @return Positive integer.
+#' @keywords internal
+#' @noRd
+.wild.block.default <- function(n) base::max(1L, base::as.integer(base::round(n^(1 / 3))))
+
+
 #' @title One-step Newton wild bootstrap draws (Internal)
 #' @description Linearised (one-step) wild bootstrap of \eqn{vec(C)} around
 #'   the fitted value, using the score matrix and the inverse information
@@ -88,8 +126,11 @@
 #' @param B Number of replicates.
 #' @param dist Multiplier distribution. Default \code{"rademacher"}.
 #' @param seed RNG seed (set once before the loop).
-#' @param unit \code{"element"} (i.i.d. multiplier per matrix cell) or
-#'   \code{"column"} (one multiplier per sample column, shared over rows).
+#' @param unit \code{"element"} (i.i.d. multiplier per matrix cell),
+#'   \code{"column"} (one multiplier per sample column, shared over rows) or
+#'   \code{"block"} (one multiplier per block of \code{block} consecutive
+#'   columns, shared over rows; see \code{.wild.block.multipliers}).
+#' @param block Block length for \code{unit = "block"}.
 #' @param clipY Logical; clip the perturbed response at 0 (NMF needs
 #'   \eqn{Y \ge 0}). Default \code{TRUE}.
 #' @return \eqn{QK \times B} matrix of bootstrap draws (\code{NA} column if a
@@ -98,7 +139,8 @@
 #' @noRd
 .boot.refit <- function(Yhat, R, refit.fun, B,
                         dist = "rademacher", seed = 123,
-                        unit = c("element", "column"), clipY = TRUE) {
+                        unit = c("element", "column", "block"), block = 1L,
+                        clipY = TRUE) {
   unit <- base::match.arg(unit)
   base::set.seed(seed)
   P <- base::nrow(R); N <- base::ncol(R)
@@ -107,6 +149,9 @@
   for (b in base::seq_len(B)) {
     if (unit == "column") {
       w <- .wild.multipliers(N, dist)
+      W <- base::matrix(w, nrow = P, ncol = N, byrow = TRUE)
+    } else if (unit == "block") {
+      w <- .wild.block.multipliers(N, block, dist)
       W <- base::matrix(w, nrow = P, ncol = N, byrow = TRUE)
     } else {
       W <- base::matrix(.wild.multipliers(P * N, dist), nrow = P, ncol = N)

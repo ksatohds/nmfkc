@@ -41,11 +41,16 @@ carry this caveat.
 scores on the covariates \emph{blind to the class} and keep the residuals,
 (3) reconstitute the residuals in observation space, shift them to
 non-negativity, and (4) refit an intercept-only \code{nmf.gmm} from the
-\emph{same} basis initialization. Only the order of adjustment and
-clustering differs from the joint fit, so the pair isolates the
-displacement of the class means that two-stage adjustment incurs when the
-covariate is associated with the class (Satoh 2026, Proposition 4); when
-the covariate is (near-)mean-independent of the class the two routes agree.
+\emph{same} basis initialization. Both routes start from the same basis and
+use the same mixture family and settings. They differ in the order of
+adjustment and clustering and, unless \code{fixX = TRUE}, in the basis each
+refits to its own data: the two-stage route refits it to the
+reconstituted, shifted residuals. When the covariate is associated with the
+class, the class-blind regression of stage (2) displaces the class means
+(the oracle proposition of Satoh 2026); when the covariate is
+(near-)mean-independent of the class, that displacement vanishes in the
+population, so both routes target the same class means, although the
+fitted partitions need not coincide in a finite sample.
 }
 \examples{
 \donttest{

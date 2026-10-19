@@ -82,6 +82,15 @@
 #'       (e.g.\ 10-20) gives a more stable initialisation and is recommended
 #'       before inference.}
 #'     \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+#'     \item{\code{X.init}}{Initialization method for the two bases, passed to
+#'       the internal \code{\link{nmfkc}} steps: \code{"kmeans"} (default),
+#'       \code{"nndsvd"}, \code{"spa"}, \ldots}
+#'     \item{\code{X.anchor}}{Anchor rows of the response basis \eqn{X_1},
+#'       imposed as in \code{\link{nmfkc}}: \code{NULL} (default),
+#'       \code{"spa"}, or one row of \code{Y1} per basis.  The zeros are kept
+#'       for the whole fit.  The scores of \eqn{X_1} are
+#'       \eqn{\Theta X_2 Y_2}, so \code{rank1 <= min(rank2, nrow(Y2))} is
+#'       required.  The rows used are returned as \code{X.anchor}.}
 #'   }
 #'
 #'   Rank aliases accepted here for backward compatibility:
@@ -237,11 +246,31 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
   }
 
   # === Initialization using nmfkc ===
+  ## X.anchor: anchor rows of the response basis X1, kept as exact zeros for
+  ## the whole fit (the X1 update is multiplicative and the column scaling
+  ## divides).  Imposed where X1 is first estimated, in step 1.  The scores
+  ## of X1 are C X2 Y2, of rank at most min(rank2, nrow(Y2)), so a larger
+  ## rank1 cannot be identified by anchors.
+  X.anchor <- extra_args$X.anchor
+  anchor.rows <- NULL
+  if (!is.null(X.anchor) && Q > min(R, P2))
+    stop(sprintf(paste(
+      "nmf.rrr(): X.anchor needs rank1 <= min(rank2, nrow(Y2)) = %d.  The scores",
+      "of X1 are C X2 Y2, whose rank is at most that, so anchors cannot identify %d bases."),
+      min(R, P2), Q), call. = FALSE)
   # Step 1: X1 from nmfkc(Y1, rank=Q)
   if (print.trace) message("  Init step 1: nmfkc(Y1, rank=Q)...")
-  res1 <- nmfkc(Y1, rank = Q, seed = seed, nstart = nstart, print.dims = FALSE,
-                X.init = X.init.method, Y.weights = Y1.weights)
+  res1 <- if (is.null(X.anchor))
+    nmfkc(Y1, rank = Q, seed = seed, nstart = nstart, print.dims = FALSE,
+          X.init = X.init.method, Y.weights = Y1.weights)
+  else
+    nmfkc(Y1, rank = Q, seed = seed, nstart = nstart, print.dims = FALSE,
+          X.anchor = X.anchor, Y.weights = Y1.weights)
+  if (!is.null(X.anchor) && !is.null(extra_args$X.init) &&
+      !identical(extra_args$X.init, "spa"))
+    message("nmf.rrr(): X.anchor builds the starting X1, so X.init is used for X2 only.")
   X1 <- res1$X  # P1 x Q, column sum 1
+  if (!is.null(X.anchor)) anchor.rows <- unname(res1$X.anchor)
 
   # Step 2: CX2 = C X2 with X1 fixed
   if (print.trace) message("  Init step 2: nmfkc(Y1, A=Y2, X.restriction='fixed')...")
@@ -407,10 +436,14 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 
   # --- Reorder bases by centroid position (cf. nmfkc) ---
   # X1 (P1 x Q): sort columns by weighted centroid of row indices
-  if (Q > 1) {
+  ## (not when the anchor rows were given: basis q is the one anchored at the
+  ## q-th row, and reordering would break that)
+  anchor.keep.order <- !is.null(anchor.rows) && !identical(X.anchor, "spa")
+  if (Q > 1 && !anchor.keep.order) {
     idx1 <- order(matrix(seq_len(P1) / P1, nrow = 1) %*% X1)
     X1 <- X1[, idx1, drop = FALSE]
     C <- C[idx1, , drop = FALSE]
+    if (!is.null(anchor.rows)) anchor.rows <- anchor.rows[idx1]
   }
   # X2 (R x P2): sort rows by weighted centroid of column indices
   if (R > 1) {
@@ -550,6 +583,9 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
     n.missing = n.missing,
     n.total = P1 * N
   )
+  ## Added only when anchors were used, so every other fit keeps its fields.
+  if (!is.null(anchor.rows))
+    result$X.anchor <- stats::setNames(anchor.rows, colnames(result$X1))
   class(result) <- c("nmf.rrr", "nmfae", "nmf")
   return(result)
 }
@@ -587,6 +623,16 @@ nmf.rrr <- function(Y1, Y2 = Y1, rank1 = 2, rank2 = NULL,
 #' \item{C.ci.upper}{Upper CI bounds for \eqn{\Theta} (Q x R matrix).}
 #' \item{coefficients}{Data frame with Estimate, SE, BSE, z, p-value for each element of \eqn{\Theta}.}
 #' \item{C.p.side}{P-value type used.}
+#' \item{identified.approx}{Whether the factorization is unique up to
+#'   permutations of both latent spaces, i.e. under
+#'   \eqn{X_1\to X_1T_1}, \eqn{\Theta\to T_1^{-1}\Theta T_2^{-1}},
+#'   \eqn{X_2\to T_2X_2}.  A sufficient condition: the diagnostic of
+#'   \code{\link{nmfkc.inference}} passes on \eqn{(X_1, \Theta X_2)} (pinning
+#'   \eqn{T_1}) and on \eqn{(X_1\Theta, X_2)} (pinning \eqn{T_2}), and \eqn{Y_2}
+#'   has full row rank.  Zeros are judged relative only (\code{pin.tol},
+#'   \code{sep.tol} through \code{...}).  An algebraic check on the point
+#'   estimate: no re-fits.}
+#' \item{identification}{The two checks, \code{left} and \code{right}.}
 #'
 #' @section Lifecycle:
 #' This function is \strong{experimental}. The interface may change in
@@ -745,6 +791,22 @@ nmf.rrr.inference <- function(object, Y1, Y2 = Y1,
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
+  ## Is the factorization unique up to permutations of both latent spaces?  The
+  ## family is X1 -> X1 T1, C -> T1^-1 C T2^-1, X2 -> T2 X2 (colSums(X1) = 1 and
+  ## rowSums(X2) = 1 fix the scales).  Any admissible T1 keeps X1 T1 >= 0 and
+  ## T1^-1 (C X2) >= 0 (a product of non-negative factors), so the check on
+  ## (X1, C X2) pins T1; likewise (X1 C, X2) pins T2.  Both, plus Y2 of full row
+  ## rank (else X1 C X2 itself is not determined), suffice.  Zeros are judged
+  ## relative only (zero.tol = 0): X2 and C X2 have no natural absolute scale.
+  ## An algebraic check on the point estimate: no re-fits.
+  sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
+  pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 0.01
+  vL <- .ident.verdict(X1, C %*% X2, as.matrix(Y2), scale.fixed = TRUE,
+                       sep.tol = sep.tol, zero.tol = 0, pin.tol = pin.tol)
+  vR <- .ident.verdict(X1 %*% C, X2, NULL, scale.fixed = TRUE,
+                       sep.tol = sep.tol, zero.tol = 0, pin.tol = pin.tol)
+  object$identified.approx <- vL$identified.approx && vR$identified.approx
+  object$identification    <- list(left = vL$identification, right = vR$identification)
   class(object) <- c("nmfae.inference", "nmf.inference", "nmfae", "nmf")
   return(object)
 }
@@ -1080,6 +1142,8 @@ print.summary.nmfae <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' @export
 summary.nmfae.inference <- function(object, ...) {
   ans <- summary.nmfae(object, ...)
+  ans$identified.approx <- object$identified.approx
+  ans$identification    <- object$identification
   class(ans) <- "summary.nmfae.inference"
   return(ans)
 }
@@ -1103,6 +1167,11 @@ print.summary.nmfae.inference <- function(x, digits = max(3L, getOption("digits"
                                           max.coef = 20, by = c("covariate", "basis"), ...) {
   by <- match.arg(by)
   print.summary.nmfae(x, digits = digits, max.coef = max.coef, by = by, ...)
+  if (!is.null(x$identified.approx) && isTRUE(max(x$Q, x$R) > 1L)) {
+    cat("\n")
+    .ident.print.line(x$identified.approx, x$identification, 2L, what = "C")
+  }
+  invisible(x)
 }
 
 
@@ -1395,6 +1464,10 @@ plot.predict.nmfae <- function(x, ...) {
 #'   order, so the returned object is identical for any \code{cores}.
 #'   For backward compatibility, \code{Q} and \code{R} are accepted as aliases for
 #'   \code{rank} and \code{rank.encoder}.
+#'   \code{Y1.weights} (a matrix, one weight per column, or a scalar) is kept
+#'   in every fit; cells of weight 0 are never held out, and the held-out loss
+#'   is the weighted mean.  (Before 1.0.0 a \code{Y1.weights} given here was
+#'   silently replaced by the fold mask.)
 #'
 #'   Rank aliases accepted here for backward compatibility:
 #'   \code{Q} for \code{rank1}, \code{R} for \code{rank2}.
@@ -1450,8 +1523,15 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...) {
   }
   num_pairs <- nrow(QR)
 
+  # A caller's Y1.weights is kept in every fit; cells of weight 0 are never
+  # held out, and the held-out loss is weighted.  (Before 1.0.0 the fold mask
+  # was spliced in ahead of `...`, so a Y1.weights given here was dropped.)
+  W.user <- .ecv.user.weights(extra_ecv$Y1.weights, P1, N, "nmf.rrr.ecv",
+                              arg = "Y1.weights", ynm = "Y1")
+
   # Create folds (element-wise on Y1; shared helper)
-  folds <- .ecv.make.folds(Y1, div, seed)
+  folds <- if (is.null(W.user)) .ecv.make.folds(Y1, div, seed)
+           else .ecv.make.folds(Y1, div, seed, valid = !is.na(Y1) & W.user > 0)
 
   # Prepare result storage
   pair_labels <- sprintf("Q=%d,R=%d", QR$Q, QR$R)
@@ -1462,18 +1542,20 @@ nmf.rrr.ecv <- function(Y1, Y2 = Y1, rank1 = 1:2, rank2 = NULL, ...) {
 
   extra_args <- list(...)
   extra_args$cores <- NULL   # not an nmf.rrr fit argument
+  extra_args$Y1.weights <- NULL
 
   # Model-specific worker: mask fold k, refit at pair i, held-out loss
   run_one <- function(i, k) {
     test_idx <- folds[[k]]
-    weights_train <- matrix(1, nrow = P1, ncol = N)
+    weights_train <- if (is.null(W.user)) matrix(1, nrow = P1, ncol = N) else W.user
     if (has_na) weights_train[is.na(Y1)] <- 0
     weights_train[test_idx] <- 0
     fit <- suppressMessages(
       do.call(nmf.rrr, c(list(Y1 = Y1, Y2 = Y2, Q = QR$Q[i], R = QR$R[i],
                             Y1.weights = weights_train), extra_args))
     )
-    mean((Y1[test_idx] - fit$Y1hat[test_idx])^2)
+    .ecv.loss.mean((Y1[test_idx] - fit$Y1hat[test_idx])^2,
+                   if (!is.null(W.user)) W.user[test_idx])
   }
 
   ## Opt-in parallelism over the (pair x fold) grid. Each (i, k) task is an

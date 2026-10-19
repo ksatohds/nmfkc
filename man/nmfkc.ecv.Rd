@@ -22,11 +22,19 @@ Also accepts: \code{nfolds} (number of folds, default 5; \code{div} also accepte
 rank x fold task grid in parallel; default \code{getOption("mc.cores", 1L)}).
 Parallelism uses a PSOCK cluster on Windows and forking elsewhere; because
 each task is a deterministic self-seeded fit and results are returned in
-order, \code{objfunc}/\code{sigma} are identical for any \code{cores}.}
+order, \code{objfunc}/\code{sigma} are identical for any \code{cores}.
+\code{Y.weights} (as in \code{\link{nmfkc}}: a P x N matrix, one weight
+per column, or a scalar) is kept in every fit; cells of weight 0 are
+never held out, and the held-out loss is the weighted mean.  (Before
+1.0.0 a \code{Y.weights} given here was silently replaced by the fold
+mask.)}
 }
 \value{
 A list with components:
-\item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for each Q.}
+\item{objfunc}{Numeric vector containing the Mean Squared Error (MSE) for
+each Q, named \code{"Q=2"}, \code{"Q=3"}, \ldots.  The names travel with
+the values: \code{unname()} them before combining results into a data
+frame or with \code{c()} if they are not wanted.}
 \item{sigma}{Numeric vector containing the Residual Standard Error (RMSE) for each Q. Only available if method="EU".}
 \item{objfunc.fold}{List of length equal to Q vector. Each element contains the MSE values for the k folds.}
 \item{folds}{A list of length \code{div}, containing the linear indices of held-out elements for each fold (shared across all Q).}

@@ -35,8 +35,19 @@ primary and the p-value is a two-sided bootstrap p-value.}
 Default \code{"exp"} for \code{method="onestep"} (backward
 compatible), \code{"rademacher"} for \code{"refit"}.}
 \item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
-(default, i.i.d. multiplier per matrix cell) or \code{"column"}
-(one multiplier per sample column, shared over rows).}
+(default, i.i.d. multiplier per matrix cell), \code{"column"}
+(one multiplier per sample column, shared over rows) or
+\code{"block"} (one multiplier per block of
+\code{L = max(1, round(N^(1/3)))} consecutive columns, shared over
+rows; \code{N = ncol(Y)}).  Use \code{"block"} when the columns are
+time points with serially dependent residuals, e.g. the design of
+\code{\link{nmfkc.ar}}: residuals at nearby time points then share a
+multiplier.  \code{L} is 3 for \code{N = 27}, 5 for 100, 8 for 500 and
+1 (the same draws as \code{"column"}) for \code{N <= 3}.  The block
+grid starts at a random offset in \code{0, ..., L-1}, drawn anew in
+each replicate, so the first and last blocks may be shorter.  \code{L}
+is fixed by \code{N}; it cannot be set and is not stored in the
+result.}
 \item{\code{refit.epsilon}, \code{refit.maxit}}{For
 \code{method="refit"}: convergence tolerance and iteration cap of the
 re-fits, defaulting to \code{1e-8} and \code{100000}.  These are
@@ -49,12 +60,17 @@ percentile interval can exclude it entirely, and the bootstrap SE is
 understated.  Loosen only if the re-fits are too slow, and check that
 the intervals still contain the estimates.}
 \item{\code{wild.B}}{Number of bootstrap replicates. Default is 500.}
-\item{\code{wild.seed}}{Seed for bootstrap. Default is 42.}
+\item{\code{wild.seed}}{Seed for bootstrap. Default is 123.}
 \item{\code{wild.level}}{Confidence level for bootstrap CI. Default is 0.95.}
 \item{\code{sandwich}}{Logical. Use sandwich covariance. Default is \code{TRUE}.}
 \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
 \item{\code{cov.ridge}}{Ridge stabilization for information matrix inversion. Default is 1e-8.}
 \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+\item{\code{sep.tol}, \code{pin.tol}}{Tolerances of the identification
+diagnostic (defaults \code{0.999} and \code{0.01}); see
+\code{identified.approx} below and the Details of
+\code{\link{nmfkc.ar.latent.inference}}.  Coefficients at or below
+\code{boundary.tol} also count as zero there.}
 }}
 }
 \value{
@@ -75,6 +91,25 @@ interval and p-value behave correctly in the "do not reject" direction, but
 the value is not a calibrated p-value --- a one-sided bootstrap p piles up
 near \eqn{1/2} at the boundary.}
 \item{C.p.side}{P-value type used.}
+\item{wild.unit}{Multiplier unit of the \code{method = "refit"} bootstrap
+(\code{"element"}, \code{"column"} or \code{"block"}); \code{NA} otherwise.}
+\item{identified.approx}{Logical, an approximate diagnostic of whether the
+factorization is unique up to a permutation of the bases.  The intervals
+are conditional on \eqn{\hat X}; when this is \code{TRUE} they concern the
+same \eqn{C} whichever admissible representative
+\eqn{(XT,\,T^{-1}C)} is taken, and when \code{FALSE} the entries of
+\eqn{C} describe this representative.  \code{TRUE} needs \eqn{A} of full
+row rank and either \eqn{Q=1}, \code{X.restriction = "fixed"}, or a fixed
+per-column scale (\code{"colSums"} / \code{"colSqSums"}) with one of two
+zero patterns: an anchor row of \eqn{X} for every basis and the rows of
+\eqn{C} pinned one at a time, or the mirror condition.  The argument is in
+the Details of \code{\link{nmfkc.ar.latent.inference}}.  An algebraic
+check on the point estimate: no re-fits.}
+\item{identification}{Its parts: \code{anchor}, \code{pinned},
+\code{pin.order}, \code{pure}, \code{X.pinned}, \code{X.pin.order},
+\code{ok}, \code{route}, \code{A.full.rank} and the margins
+\code{anchor.margin}, \code{pin.margin}, \code{pure.margin},
+\code{X.pin.margin} (0 = exact).}
 }
 \description{
 \code{nmfkc.inference} performs statistical inference on the parameter matrix

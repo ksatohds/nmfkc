@@ -130,9 +130,12 @@ fit_b
 
 The obvious alternative to adjusting *while* clustering is adjusting *first*:
 regress the scores on size, then cluster the residuals.
-`nmf.gmm.twostage()` packages that recipe with everything held equal to the
-joint fit --- same basis initialization, same mixture, same settings --- so
-that **only the order** of adjustment and clustering differs:
+`nmf.gmm.twostage()` packages that recipe with as much as possible held equal
+to the joint fit --- the same basis initialization, the same mixture family and
+the same settings. The two routes still differ in more than the order of
+adjustment and clustering: the two-stage route refits the basis to the
+reconstituted, shifted residuals rather than to the data (`fixX = TRUE` holds
+both routes at the initial basis):
 
 ```{r twostage}
 fit_c <- nmf.gmm.twostage(Y, ~ size, data = crab_df, rank = 3, K = 4,
@@ -144,10 +147,12 @@ The two-stage route falls short of the joint fit, and in the predicted
 direction: fitted blind to the class, the stage-one regression charges to size
 part of what separates the species--sex groups, so the residuals it hands to
 the mixture have had some of the class contrast subtracted along with the
-nuisance (Satoh 2026, Proposition 4). When the covariate is
+nuisance (the oracle proposition of Satoh 2026). When the covariate is
 (near-)mean-independent of the class --- for instance under a balanced crossed
-design --- the displacement vanishes and the two routes agree; the gap seen
-here is bought by the size--class association in the crabs.
+design --- the displacement vanishes in the population, so both routes target
+the same class means; the fitted partitions can still differ in a finite
+sample, and both depend on the initial basis (`X.init`). The gap seen here is
+bought by the size--class association in the crabs.
 
 ---
 

@@ -66,6 +66,15 @@ initialisation steps (passed to the k-means initialiser of the
 (e.g.\ 10-20) gives a more stable initialisation and is recommended
 before inference.}
 \item{\code{print.trace}}{Logical. If \code{TRUE}, prints progress. Default is \code{FALSE}.}
+\item{\code{X.init}}{Initialization method for the two bases, passed to
+the internal \code{\link{nmfkc}} steps: \code{"kmeans"} (default),
+\code{"nndsvd"}, \code{"spa"}, \ldots}
+\item{\code{X.anchor}}{Anchor rows of the response basis \eqn{X_1},
+imposed as in \code{\link{nmfkc}}: \code{NULL} (default),
+\code{"spa"}, or one row of \code{Y1} per basis.  The zeros are kept
+for the whole fit.  The scores of \eqn{X_1} are
+\eqn{\Theta X_2 Y_2}, so \code{rank1 <= min(rank2, nrow(Y2))} is
+required.  The rows used are returned as \code{X.anchor}.}
 }
 
 Rank aliases accepted here for backward compatibility:

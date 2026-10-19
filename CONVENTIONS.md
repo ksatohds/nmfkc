@@ -18,7 +18,7 @@ with the `wild.` prefix:
 |:---|:---|:---|
 | `wild.B` | number of bootstrap replicates | 500 |
 | `wild.dist` | multiplier distribution | function-specific |
-| `wild.unit` | `"element"` or `"column"` | function-specific |
+| `wild.unit` | `"element"`, `"column"` or `"block"` | function-specific |
 | `wild.level` | confidence level | 0.95 |
 | `wild.seed` | bootstrap seed | 123 |
 
@@ -54,6 +54,11 @@ the conjunction; a nested optimizer uses `outer.iter` / `outer.maxit`
 `C1.restriction`, `Phi.restriction`, and anything that parameterizes it shares
 the prefix (`C1.restriction.threshold`). The realized 0/1 matrix is a separate
 field named for what it marks (`C1.free`).
+A prefix that names a matrix keeps the matrix's capital, in fields as in
+arguments and inside nested lists alike (`X.anchor`, `identification$X.pinned`,
+`identification$A.full.rank`), never `x.pinned`. A summary object carries the
+number of bases as `rank`, as the fit does (the two-sided `nmf.rrr` summary,
+with two ranks, uses `Q` and `R`).
 Coefficient tables use the columns `Basis`, `Covariate`, `Estimate`, `SE`,
 `BSE`, `z_value`, `p_value`, `CI_low`, `CI_high` — `nmfkc.DOT()` depends on
 `Basis` / `Covariate`.
