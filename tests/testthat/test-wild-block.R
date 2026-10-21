@@ -81,7 +81,10 @@ test_that("nmfkc.inference(method = 'refit'): block of length 1 equals column", 
   expect_identical(i_b3$wild.unit, "block")
   expect_null(i_b3$wild.block)
   expect_identical(i_col$wild.unit, "column")
-  i_el <- suppressWarnings(nmfkc.inference(f, Y, A, method = "refit", wild.B = 5))
+  i_def <- suppressWarnings(nmfkc.inference(f, Y, A, method = "refit", wild.B = 5))
+  expect_identical(i_def$wild.unit, "column")
+  i_el <- suppressWarnings(nmfkc.inference(f, Y, A, method = "refit", wild.unit = "element",
+                                           wild.B = 5))
   expect_identical(i_el$wild.unit, "element")
   i_os <- suppressWarnings(nmfkc.inference(f, Y, A))          # onestep: no unit
   expect_identical(i_os$wild.unit, NA_character_)

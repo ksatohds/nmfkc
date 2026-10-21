@@ -18,7 +18,7 @@ with the `wild.` prefix:
 |:---|:---|:---|
 | `wild.B` | number of bootstrap replicates | 500 |
 | `wild.dist` | multiplier distribution | function-specific |
-| `wild.unit` | `"element"`, `"column"` or `"block"` | function-specific |
+| `wild.unit` | `"column"`, `"element"` or `"block"` | `"column"` (since 1.0.2) |
 | `wild.level` | confidence level | 0.95 |
 | `wild.seed` | bootstrap seed | 123 |
 

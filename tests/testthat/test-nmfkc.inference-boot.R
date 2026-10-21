@@ -238,3 +238,40 @@ test_that("seeding behaviour of the fit itself is unchanged", {
   set.seed(5); before <- runif(1)
   expect_equal(after, before)
 })
+
+## ---- the refit bootstrap draws one multiplier per column by default ------------
+## Since 1.0.2 wild.unit defaults to "column" (the columns of Y are the
+## independent units, as for the sandwich SE and the onestep engine).
+## "element" keeps the former default; with P = 1 the two are the same draws.
+test_that("method = 'refit' defaults to wild.unit = 'column'; 'element' is the old default", {
+  skip_unless_full()
+  set.seed(8)
+  Y <- matrix(abs(rnorm(4 * 25)) + 1, 4, 25)
+  A <- rbind(1, runif(25))
+  f <- suppressWarnings(nmfkc(Y, A, rank = 2, epsilon = 1e-8, verbose = FALSE))
+  run <- function(...) suppressWarnings(nmfkc.inference(f, Y, A, method = "refit",
+                                                        wild.B = 15, wild.seed = 3, ...))
+  i_def <- run()
+  i_col <- run(wild.unit = "column")
+  i_el  <- run(wild.unit = "element")
+  expect_identical(i_def$wild.unit, "column")
+  expect_identical(i_def$C.boot.draws, i_col$C.boot.draws)
+  expect_identical(i_def$coefficients, i_col$coefficients)
+  ## with P > 1 the element-wise draws are different multipliers
+  expect_false(identical(i_el$C.boot.draws, i_col$C.boot.draws))
+  ## the point estimate and the sandwich SE do not depend on the unit
+  expect_identical(i_el$coefficients$Estimate, i_col$coefficients$Estimate)
+  expect_identical(i_el$C.se.sandwich, i_col$C.se.sandwich)
+})
+
+test_that("with P = 1, wild.unit = 'element' and 'column' agree exactly", {
+  skip_unless_full()
+  Y <- matrix(cars$dist, nrow = 1); A <- rbind(1, cars$speed)
+  f <- suppressWarnings(nmfkc(Y, A, rank = 1, epsilon = 1e-8, verbose = FALSE))
+  run <- function(u) suppressWarnings(nmfkc.inference(f, Y, A, method = "refit",
+                                                      wild.unit = u, wild.B = 15,
+                                                      wild.seed = 3))
+  i_el <- run("element"); i_col <- run("column")
+  expect_identical(i_el$C.boot.draws, i_col$C.boot.draws)
+  expect_identical(i_el$coefficients, i_col$coefficients)
+})
