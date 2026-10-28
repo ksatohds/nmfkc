@@ -1,15 +1,16 @@
 ## This is an update
 
-An update from v0.9.8 (currently on CRAN, published 2026-09-23) to v1.0.1.
-All changes are listed in NEWS.md.
+An update from v0.9.8 (currently on CRAN, published 2026-09-23) to v1.0.2.
+All changes are listed in NEWS.md.  (A v1.0.1 was tagged on GitHub on
+2026-10-20 but never submitted; its changes are included here.)
 
 ### No exported function was added or removed
 
 The 72 exports, the S3 methods and the data sets are those of v0.9.8, and no
 formal argument was added or removed.  The new controls are optional and
 passed through `...`; with them absent a call gives the result it gave
-before, checked bit-identical on several hundred existing calls.  The main
-additions:
+before (checked bit-identical on several hundred existing calls), with the
+single exception listed below.  The main additions:
 
 * `X.anchor` and `X.init = "spa"` (anchor rows of the basis, chosen by the
   successive projection algorithm or given) in `nmfkc()` and the other
@@ -24,15 +25,26 @@ additions:
 
 ### Calls whose result changes
 
-Only calls that previously failed or silently ignored an argument:
-
-* `nmfkc()` with two or more all-zero columns of `Y` stopped with "missing
-  value where TRUE/FALSE needed"; the initialization is now repaired.
-* A `Y.weights` given to `nmfkc.ecv()`, `nmfkc.signed.ecv()`,
-  `nmf.rrr.ecv()`, `nmf.rrr.signed.ecv()` or `nmfkc.net.ecv()` was dropped
-  without a word; it is now used.
-* `X.anchor` given to `nmfre()`, `nmf.ffb()`, `nmf.rrr()` or `nmf.gmm()` was
-  dropped without a word; it is now imposed.
+* **One deliberate change of a default.**  The re-fitting wild bootstrap of
+  `nmfkc.inference(method = "refit")` now draws one multiplier per column of
+  `Y` (`wild.unit = "column"`) instead of one per cell (`"element"`), so that
+  it treats the columns as the independent units, as the sandwich standard
+  errors and the default `"onestep"` engine of the same function already do.
+  This changes the bootstrap SEs, intervals and p-values of such calls when
+  `Y` has more than one row and `wild.unit` is not set;
+  `wild.unit = "element"` reproduces the earlier results exactly, and with
+  one row the two units give identical results.  Point estimates, sandwich
+  SEs and the `"onestep"` engine are unaffected.  NEWS.md states this.
+* Otherwise only calls that previously failed or silently ignored an
+  argument:
+  * `nmfkc()` with two or more all-zero columns of `Y` stopped with
+    "missing value where TRUE/FALSE needed"; the initialization is now
+    repaired.
+  * A `Y.weights` given to `nmfkc.ecv()`, `nmfkc.signed.ecv()`,
+    `nmf.rrr.ecv()`, `nmf.rrr.signed.ecv()` or `nmfkc.net.ecv()` was dropped
+    without a word; it is now used.
+  * `X.anchor` given to `nmfre()`, `nmf.ffb()`, `nmf.rrr()` or `nmf.gmm()`
+    was dropped without a word; it is now imposed.
 
 The `Description` field no longer names `nmf.sem()`, which v0.9.8 removed.
 
@@ -42,29 +54,25 @@ The `Description` field no longer names `nmf.sem()`, which v0.9.8 removed.
 
 ## Test environments
 
-* win-builder, R-devel (2026-10-18 r90707 ucrt): Status OK, install 24 s,
-  check 210 s
-* win-builder, R-release (4.6.1 ucrt): Status OK, install 23 s, check 234 s
+* win-builder, R-devel: <!-- fill in -->
+* win-builder, R-release: <!-- fill in -->
 * Ubuntu 26.04.1 LTS, R 4.6.1, `--as-cran` with
-  `_R_CHECK_CRAN_INCOMING_USE_ASPELL_=true`: Status OK, 262 s
+  `_R_CHECK_CRAN_INCOMING_USE_ASPELL_=true`: <!-- fill in -->
 * the same with `_R_CHECK_DEPENDS_ONLY_=true` (no Suggests, as CRAN's
-  noSuggests flavour): Status OK, 252 s
+  noSuggests flavour): <!-- fill in -->
 
-An earlier build of this version drew "Possibly misspelled words in
-DESCRIPTION: FFB" (feed-forward + feedback, the model fitted by `nmf.ffb()`);
-the word is now in the package dictionary `.aspell/nmfkc.rds`, and the
-submitted tarball gives no note.
+The word "FFB" (feed-forward + feedback, the model fitted by `nmf.ffb()`) is
+in the package dictionary `.aspell/nmfkc.rds`.
 
 ## On the check time
 
 Unchanged since v0.9.6: only `tests/testthat/test-cran-smoke.R` and a few
 toy-sized tests run by default; the remaining blocks begin with `skip_unless_full()`
 and run when `NMFKC_FULL_TESTS` is set, which is what we run before every
-release (4501 assertions, no failures).  Nothing was deleted to achieve
+release (<!-- N --> assertions, no failures).  Nothing was deleted to achieve
 this.
 
-win-builder reports 210 s (R-devel) and 234 s (R-release) for this
-submission, against 126 s for v0.9.8.
+win-builder reports <!-- N --> for this submission, against 126 s for v0.9.8.
 
 ## Additional checks
 

@@ -5100,10 +5100,10 @@ nmfkc.residual.plot <- function(Y, result,
 #'       (Mammen 1993 two-point), or \code{"exp"} (\eqn{\mathrm{Exp}(1)-1}).
 #'       Default \code{"exp"} for \code{method="onestep"} (backward
 #'       compatible), \code{"rademacher"} for \code{"refit"}.}
-#'     \item{\code{wild.unit}}{For \code{method="refit"}: \code{"element"}
-#'       (default, i.i.d. multiplier per matrix cell), \code{"column"}
-#'       (one multiplier per sample column, shared over rows) or
-#'       \code{"block"} (one multiplier per block of
+#'     \item{\code{wild.unit}}{For \code{method="refit"}: \code{"column"}
+#'       (default since 1.0.2; one multiplier per sample column, shared over
+#'       rows), \code{"element"} (an i.i.d. multiplier per matrix cell; the
+#'       default up to 1.0.1) or \code{"block"} (one multiplier per block of
 #'       \code{L = max(1, round(N^(1/3)))} consecutive columns, shared over
 #'       rows; \code{N = ncol(Y)}).  Use \code{"block"} when the columns are
 #'       time points with serially dependent residuals, e.g. the design of
@@ -5113,7 +5113,12 @@ nmfkc.residual.plot <- function(Y, result,
 #'       grid starts at a random offset in \code{0, ..., L-1}, drawn anew in
 #'       each replicate, so the first and last blocks may be shorter.  \code{L}
 #'       is fixed by \code{N}; it cannot be set and is not stored in the
-#'       result.}
+#'       result.  \code{"column"} treats the columns of \code{Y} as the
+#'       independent units and allows any dependence among the \code{P} rows
+#'       of a column, as the sandwich SE and the \code{"onestep"} engine
+#'       already do (both are built from one score per column).
+#'       \code{"element"} also treats the rows of a column as independent;
+#'       with \code{P = 1} the two draw the same multipliers and agree exactly.}
 #'     \item{\code{refit.epsilon}, \code{refit.maxit}}{For
 #'       \code{method="refit"}: convergence tolerance and iteration cap of the
 #'       re-fits, defaulting to \code{1e-8} and \code{100000}.  These are
@@ -5157,7 +5162,7 @@ nmfkc.residual.plot <- function(Y, result,
 #'   near \eqn{1/2} at the boundary.}
 #' \item{C.p.side}{P-value type used.}
 #' \item{wild.unit}{Multiplier unit of the \code{method = "refit"} bootstrap
-#'   (\code{"element"}, \code{"column"} or \code{"block"}); \code{NA} otherwise.}
+#'   (\code{"column"}, \code{"element"} or \code{"block"}); \code{NA} otherwise.}
 #' \item{identified.approx}{Logical, an approximate diagnostic of whether the
 #'   factorization is unique up to a permutation of the bases.  The intervals
 #'   are conditional on \eqn{\hat X}; when this is \code{TRUE} they concern the
@@ -5212,7 +5217,7 @@ nmfkc.inference <- function(object, Y, A = NULL,
                  base::match.arg(extra_args$wild.dist, c("rademacher", "mammen", "exp"))
                else if (method == "onestep") "exp" else "rademacher"
   wild.unit <- if (!is.null(extra_args$wild.unit))
-                 base::match.arg(extra_args$wild.unit, c("element", "column", "block")) else "element"
+                 base::match.arg(extra_args$wild.unit, c("column", "element", "block")) else "column"
   ## Convergence control for the method = "refit" bootstrap.  This must be much
   ## tighter than nmfkc()'s own default (1e-4): under multiplicative updates a
   ## coefficient heading for the non-negativity boundary approaches 0 slowly, so
