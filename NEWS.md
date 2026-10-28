@@ -1,4 +1,4 @@
-# nmfkc (development version)
+# nmfkc 1.0.2 (2026-10-29)
 
 ## `nmfkc.inference(method = "refit")`: one multiplier per column by default
 
@@ -22,7 +22,7 @@ draws.  `wild.unit = "element"` reproduces the earlier results exactly.  With
 order (checked identical).  The point estimates, the sandwich SE and the
 `"onestep"` engine are not affected.
 
-# nmfkc 1.0.1 (2026-10-20)
+# nmfkc 1.0.1 (2026-10-20; tagged on GitHub, not submitted to CRAN)
 
 ## The identification diagnostic in `nmf.ffb.inference()`, `nmf.rrr.inference()` and `nmfre.inference()`
 
