@@ -128,11 +128,11 @@ cv_res <- nmfkc.kernel.beta.cv(Y_iris, rank = rank_iris, U = U_iris,
                                beta = res_beta$beta_candidates, plot = FALSE)
 #> beta=11034.8457794195...0sec
 #> beta=2377.38545463332...0sec
-#> beta=512.192169503925...0.1sec
+#> beta=512.192169503925...0sec
 #> beta=110.348457794195...0.1sec
 #> beta=23.7738545463332...0.1sec
 #> beta=5.12192169503925...0.1sec
-#> beta=1.10348457794195...0sec
+#> beta=1.10348457794195...0.1sec
 best_beta <- cv_res$beta
 
 # 2. Fit Kernel NMF-LAB

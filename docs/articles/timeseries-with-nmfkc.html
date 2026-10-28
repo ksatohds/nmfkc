@@ -29,7 +29,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -185,7 +185,7 @@ column names derived from the <code>ts</code> object.</p>
 <span></span>
 <span><span class="co"># Fit the NMF-AR model (Rank=1 for univariate)</span></span>
 <span><span class="va">res_air</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nmfkc.html">nmfkc</a></span><span class="op">(</span>Y <span class="op">=</span> <span class="va">a_air</span><span class="op">$</span><span class="va">Y</span>, A <span class="op">=</span> <span class="va">a_air</span><span class="op">$</span><span class="va">A</span>, rank <span class="op">=</span> <span class="fl">1</span>, epsilon <span class="op">=</span> <span class="fl">1e-6</span>, maxit<span class="op">=</span><span class="fl">500000</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Y(1,132)~X(1,1)C(1,13)A(13,132)=XB(1,132)...0.2sec</span></span>
+<span><span class="co">#&gt; Y(1,132)~X(1,1)C(1,13)A(13,132)=XB(1,132)...0.1sec</span></span>
 <span></span>
 <span><span class="co"># Check goodness of fit</span></span>
 <span><span class="va">res_air</span><span class="op">$</span><span class="va">r.squared</span></span>

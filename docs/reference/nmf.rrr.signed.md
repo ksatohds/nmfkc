@@ -332,7 +332,7 @@ summary(res)
 #> 
 #> Convergence:
 #>   Iterations:       16 / 500 (converged)  epsilon = 0.0001
-#>   Runtime (secs):   0.02
+#>   Runtime (secs):   0.03
 #>   Final objfunc:    2.128
 #> 
 #> Goodness of fit:

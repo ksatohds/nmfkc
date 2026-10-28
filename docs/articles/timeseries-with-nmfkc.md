@@ -109,7 +109,7 @@ a_air <- nmfkc.ar(d_air_log, degree = D, intercept = TRUE)
 
 # Fit the NMF-AR model (Rank=1 for univariate)
 res_air <- nmfkc(Y = a_air$Y, A = a_air$A, rank = 1, epsilon = 1e-6, maxit=500000)
-#> Y(1,132)~X(1,1)C(1,13)A(13,132)=XB(1,132)...0.2sec
+#> Y(1,132)~X(1,1)C(1,13)A(13,132)=XB(1,132)...0.1sec
 
 # Check goodness of fit
 res_air$r.squared

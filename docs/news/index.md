@@ -1,6 +1,31 @@
 # Changelog
 
-## nmfkc 1.0.1 (2026-10-20)
+## nmfkc 1.0.2 (2026-10-29)
+
+### `nmfkc.inference(method = "refit")`: one multiplier per column by default
+
+The refit bootstrap now defaults to `wild.unit = "column"`: one
+multiplier per column of `Y`, shared by its `P` rows. It used to default
+to `"element"`, an independent multiplier per cell, which treats the `P`
+rows of a column as independent – for longitudinal data with `P` time
+points per individual, the repeated measurements of one individual. When
+they are correlated, as growth curves typically are, `"element"`
+understates the bootstrap SE. `"column"` allows any dependence within a
+column, as the sandwich SE (built from one score per column, CR1) and
+the `"onestep"` engine (one multiplier per column score) already did;
+the refit default was the only one of the three that did not.
+[`nmfkc.ar.latent.inference()`](https://ksatohds.github.io/nmfkc/reference/nmfkc.ar.latent.inference.md)
+has defaulted to `"column"` from the start.
+
+**This changes the result of an existing call** of
+`nmfkc.inference(method = "refit")` with `P > 1` that does not set
+`wild.unit`: its bootstrap SE, intervals and p-values come from
+different draws. `wild.unit = "element"` reproduces the earlier results
+exactly. With `P = 1` nothing changes: both units draw the same `N`
+multipliers in the same order (checked identical). The point estimates,
+the sandwich SE and the `"onestep"` engine are not affected.
+
+## nmfkc 1.0.1 (2026-10-20; tagged on GitHub, not submitted to CRAN)
 
 ### The identification diagnostic in `nmf.ffb.inference()`, `nmf.rrr.inference()` and `nmfre.inference()`
 

@@ -63,9 +63,10 @@ nmfkc.inference(object, Y, A = NULL, wild.bootstrap = TRUE, ...)
 
   `wild.unit`
 
-  :   For `method="refit"`: `"element"` (default, i.i.d. multiplier per
-      matrix cell), `"column"` (one multiplier per sample column, shared
-      over rows) or `"block"` (one multiplier per block of
+  :   For `method="refit"`: `"column"` (default since 1.0.2; one
+      multiplier per sample column, shared over rows), `"element"` (an
+      i.i.d. multiplier per matrix cell; the default up to 1.0.1) or
+      `"block"` (one multiplier per block of
       `L = max(1, round(N^(1/3)))` consecutive columns, shared over
       rows; `N = ncol(Y)`). Use `"block"` when the columns are time
       points with serially dependent residuals, e.g. the design of
@@ -75,7 +76,12 @@ nmfkc.inference(object, Y, A = NULL, wild.bootstrap = TRUE, ...)
       `"column"`) for `N <= 3`. The block grid starts at a random offset
       in `0, ..., L-1`, drawn anew in each replicate, so the first and
       last blocks may be shorter. `L` is fixed by `N`; it cannot be set
-      and is not stored in the result.
+      and is not stored in the result. `"column"` treats the columns of
+      `Y` as the independent units and allows any dependence among the
+      `P` rows of a column, as the sandwich SE and the `"onestep"`
+      engine already do (both are built from one score per column).
+      `"element"` also treats the rows of a column as independent; with
+      `P = 1` the two draw the same multipliers and agree exactly.
 
   `refit.epsilon`, `refit.maxit`
 
@@ -171,8 +177,8 @@ components:
 
 - wild.unit:
 
-  Multiplier unit of the `method = "refit"` bootstrap (`"element"`,
-  `"column"` or `"block"`); `NA` otherwise.
+  Multiplier unit of the `method = "refit"` bootstrap (`"column"`,
+  `"element"` or `"block"`); `NA` otherwise.
 
 - identified.approx:
 

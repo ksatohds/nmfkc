@@ -25,7 +25,7 @@ one-step wild bootstrap with non-negative projection."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -122,10 +122,10 @@ Default <code>"exp"</code> for <code>method="onestep"</code> (backward
 compatible), <code>"rademacher"</code> for <code>"refit"</code>.</p></dd>
 
 <dt><code>wild.unit</code></dt>
-<dd><p>For <code>method="refit"</code>: <code>"element"</code>
-(default, i.i.d. multiplier per matrix cell), <code>"column"</code>
-(one multiplier per sample column, shared over rows) or
-<code>"block"</code> (one multiplier per block of
+<dd><p>For <code>method="refit"</code>: <code>"column"</code>
+(default since 1.0.2; one multiplier per sample column, shared over
+rows), <code>"element"</code> (an i.i.d. multiplier per matrix cell; the
+default up to 1.0.1) or <code>"block"</code> (one multiplier per block of
 <code>L = max(1, round(N^(1/3)))</code> consecutive columns, shared over
 rows; <code>N = ncol(Y)</code>).  Use <code>"block"</code> when the columns are
 time points with serially dependent residuals, e.g. the design of
@@ -135,7 +135,12 @@ multiplier.  <code>L</code> is 3 for <code>N = 27</code>, 5 for 100, 8 for 500 a
 grid starts at a random offset in <code>0, ..., L-1</code>, drawn anew in
 each replicate, so the first and last blocks may be shorter.  <code>L</code>
 is fixed by <code>N</code>; it cannot be set and is not stored in the
-result.</p></dd>
+result.  <code>"column"</code> treats the columns of <code>Y</code> as the
+independent units and allows any dependence among the <code>P</code> rows
+of a column, as the sandwich SE and the <code>"onestep"</code> engine
+already do (both are built from one score per column).
+<code>"element"</code> also treats the rows of a column as independent;
+with <code>P = 1</code> the two draw the same multipliers and agree exactly.</p></dd>
 
 <dt><code>refit.epsilon</code>, <code>refit.maxit</code></dt>
 <dd><p>For
@@ -217,7 +222,7 @@ near \(1/2\) at the boundary.</p></dd>
 
 <dt>wild.unit</dt>
 <dd><p>Multiplier unit of the <code>method = "refit"</code> bootstrap
-(<code>"element"</code>, <code>"column"</code> or <code>"block"</code>); <code>NA</code> otherwise.</p></dd>
+(<code>"column"</code>, <code>"element"</code> or <code>"block"</code>); <code>NA</code> otherwise.</p></dd>
 
 <dt>identified.approx</dt>
 <dd><p>Logical, an approximate diagnostic of whether the

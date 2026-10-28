@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">nmfkc</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,7 +52,16 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="1.0.1" id="nmfkc-101-2026-10-20">nmfkc 1.0.1 (2026-10-20)<a class="anchor" aria-label="anchor" href="#nmfkc-101-2026-10-20"></a></h2>
+<h2 class="pkg-version" data-toc-text="1.0.2" id="nmfkc-102-2026-10-29">nmfkc 1.0.2 (2026-10-29)<a class="anchor" aria-label="anchor" href="#nmfkc-102-2026-10-29"></a></h2>
+<div class="section level3">
+<h3 id="nmfkcinferencemethod--refit-one-multiplier-per-column-by-default-1-0-2">
+<code>nmfkc.inference(method = "refit")</code>: one multiplier per column by default<a class="anchor" aria-label="anchor" href="#nmfkcinferencemethod--refit-one-multiplier-per-column-by-default-1-0-2"></a></h3>
+<p>The refit bootstrap now defaults to <code>wild.unit = "column"</code>: one multiplier per column of <code>Y</code>, shared by its <code>P</code> rows. It used to default to <code>"element"</code>, an independent multiplier per cell, which treats the <code>P</code> rows of a column as independent – for longitudinal data with <code>P</code> time points per individual, the repeated measurements of one individual. When they are correlated, as growth curves typically are, <code>"element"</code> understates the bootstrap SE. <code>"column"</code> allows any dependence within a column, as the sandwich SE (built from one score per column, CR1) and the <code>"onestep"</code> engine (one multiplier per column score) already did; the refit default was the only one of the three that did not. <code><a href="../reference/nmfkc.ar.latent.inference.html">nmfkc.ar.latent.inference()</a></code> has defaulted to <code>"column"</code> from the start.</p>
+<p><strong>This changes the result of an existing call</strong> of <code>nmfkc.inference(method = "refit")</code> with <code>P &gt; 1</code> that does not set <code>wild.unit</code>: its bootstrap SE, intervals and p-values come from different draws. <code>wild.unit = "element"</code> reproduces the earlier results exactly. With <code>P = 1</code> nothing changes: both units draw the same <code>N</code> multipliers in the same order (checked identical). The point estimates, the sandwich SE and the <code>"onestep"</code> engine are not affected.</p>
+</div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.0.1" id="nmfkc-101-2026-10-20-tagged-on-github-not-submitted-to-cran">nmfkc 1.0.1 (2026-10-20; tagged on GitHub, not submitted to CRAN)<a class="anchor" aria-label="anchor" href="#nmfkc-101-2026-10-20-tagged-on-github-not-submitted-to-cran"></a></h2>
 <div class="section level3">
 <h3 id="the-identification-diagnostic-in-nmfffbinference-nmfrrrinference-and-nmfreinference-1-0-1">The identification diagnostic in <code>nmf.ffb.inference()</code>, <code>nmf.rrr.inference()</code> and <code>nmfre.inference()</code>
 <a class="anchor" aria-label="anchor" href="#the-identification-diagnostic-in-nmfffbinference-nmfrrrinference-and-nmfreinference-1-0-1"></a></h3>

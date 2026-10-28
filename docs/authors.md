@@ -11,14 +11,14 @@ Source:
 [`inst/CITATION`](https://github.com/ksatohds/nmfkc/blob/HEAD/inst/CITATION)
 
 Satoh K (2026). *nmfkc: Non-negative Matrix Factorization with Kernel
-Covariates*. R package version 1.0.1,
+Covariates*. R package version 1.0.2,
 <https://CRAN.R-project.org/package=nmfkc>.
 
     @Manual{,
       title = {nmfkc: Non-negative Matrix Factorization with Kernel Covariates},
       author = {Kenichi Satoh},
       year = {2026},
-      note = {R package version 1.0.1},
+      note = {R package version 1.0.2},
       url = {https://CRAN.R-project.org/package=nmfkc},
     }
 
