@@ -54,12 +54,13 @@ The `Description` field no longer names `nmf.sem()`, which v0.9.8 removed.
 
 ## Test environments
 
-* win-builder, R-devel: <!-- fill in -->
-* win-builder, R-release: <!-- fill in -->
+* win-builder, R-devel: uploaded twice (2026-10-29, 06:26 and 16:42 JST),
+  no result was returned; the same tarball passed R-release below
+* win-builder, R-release (4.6.1 ucrt): Status OK, install 23 s, check 225 s
 * Ubuntu 26.04.1 LTS, R 4.6.1, `--as-cran` with
-  `_R_CHECK_CRAN_INCOMING_USE_ASPELL_=true`: <!-- fill in -->
+  `_R_CHECK_CRAN_INCOMING_USE_ASPELL_=true`: Status OK, 278 s
 * the same with `_R_CHECK_DEPENDS_ONLY_=true` (no Suggests, as CRAN's
-  noSuggests flavour): <!-- fill in -->
+  noSuggests flavour): Status OK, 269 s
 
 The word "FFB" (feed-forward + feedback, the model fitted by `nmf.ffb()`) is
 in the package dictionary `.aspell/nmfkc.rds`.
@@ -69,10 +70,11 @@ in the package dictionary `.aspell/nmfkc.rds`.
 Unchanged since v0.9.6: only `tests/testthat/test-cran-smoke.R` and a few
 toy-sized tests run by default; the remaining blocks begin with `skip_unless_full()`
 and run when `NMFKC_FULL_TESTS` is set, which is what we run before every
-release (<!-- N --> assertions, no failures).  Nothing was deleted to achieve
+release (4510 assertions, no failures).  Nothing was deleted to achieve
 this.
 
-win-builder reports <!-- N --> for this submission, against 126 s for v0.9.8.
+win-builder reports 225 s (R-release) for this submission, against 126 s for
+v0.9.8.
 
 ## Additional checks
 
