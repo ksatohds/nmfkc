@@ -183,7 +183,7 @@
 .nmfre.partial.anchor.fit <- function(Y, A, Q, C.signed, epsilon, maxit, extra_args, call) {
   ea <- extra_args; ea$Q <- NULL; ea$X.anchor <- NULL; ea$.anchor.direct <- NULL
   ## the search compares fits as they stop; the result is oriented once, at the end
-  orient <- if (!is.null(ea$orient)) match.arg(ea$orient, c("geomin", "none")) else "geomin"
+  orient <- if (!is.null(ea$orient)) match.arg(ea$orient, c("none", "geomin")) else "none"
   orient.eps <- if (!is.null(ea$orient.eps)) ea$orient.eps else 0.01
   ea$orient <- "none"
   Ym <- as.matrix(Y)
@@ -389,8 +389,8 @@
 #'     \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 #'       \eqn{\lambda} (default \code{1e-6}).
 #'     \item \code{orient}: Representation reported within the identification
-#'       region (see the return value): \code{"geomin"} (default) or \code{"none"}
-#'       (the point where the algorithm stopped).
+#'       region (see the return value): \code{"none"} (default; the point where
+#'       the algorithm stopped, as up to 1.0.2) or \code{"geomin"}.
 #'     \item \code{orient.eps}: \eqn{\varepsilon} of the geomin criterion (default 0.01).
 #'   }
 #' @return A list of class \code{"nmfre"} with components.
@@ -531,8 +531,9 @@
 #'   of \eqn{X} over the arc is computed exactly.  A width of 0 means the fit
 #'   cannot be moved within the region (a row of \eqn{X} on one basis only pins
 #'   it).  For \eqn{Q\le2} the region is a point up to relabelling; for
-#'   \eqn{Q\ge4} it is not computed.  With \code{orient = "geomin"} the
-#'   representation returned is the member of the local region that minimizes
+#'   \eqn{Q\ge4} it is not computed.  By default (\code{orient = "none"}) the
+#'   representation returned is the point where the algorithm stopped.  With
+#'   \code{orient = "geomin"} it is the member of the local region that minimizes
 #'   the geomin criterion on the row shares of \eqn{X} (as rotated loadings in
 #'   exploratory factor analysis); nothing moves when the region is a point.
 #'   The likelihood and \eqn{X\Theta} do not change.
@@ -692,7 +693,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## nmfkc() needs Y >= 0, but the sign-free fit does not: its semi-NMF X-step
   ## splits the signs.  With C.signed = TRUE a Y with negative entries is
   ## shifted to start the basis only, and C is then started by the exact
-  ## sign-free least squares on the original Y (below).  Before 1.0.2.9000 such
+  ## sign-free least squares on the original Y (below).  Before 1.0.3 such
   ## a Y stopped in the initialisation ("The matrix Y should be non-negative").
   Y.shift <- if (C.mode == "signed" && min(Y, na.rm = TRUE) < 0) -min(Y, na.rm = TRUE) else 0
 
@@ -702,7 +703,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## below puts them back wherever it would lift them.  No rank check as in
   ## nmfkc(): with the random effects U the scores have full rank anyway.
   ## The rows are chosen, and the start is built, on the same shifted Y as the
-  ## nmfkc() initialisation (as X.init = "spa" does); before 1.0.2.9000
+  ## nmfkc() initialisation (as X.init = "spa" does); before 1.0.3
   ## X.anchor = "spa" stopped on a Y with negative entries.  Fewer than Q
   ## rows anchor the first bases only (see .nmfre.partial.anchor.rows()).
   X.anchor <- extra_args$X.anchor
@@ -1196,8 +1197,8 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     out$X.anchor <- stats::setNames(anchor.rows,
       (if (!is.null(colnames(out$X))) colnames(out$X) else
          paste0("Basis", seq_len(Q)))[seq_along(anchor.rows)])
-  ## identification region; the representation within it (geomin by default)
-  orient <- if (!is.null(extra_args$orient)) base::match.arg(extra_args$orient, c("geomin", "none")) else "geomin"
+  ## identification region; the representation within it (as stopped by default)
+  orient <- if (!is.null(extra_args$orient)) base::match.arg(extra_args$orient, c("none", "geomin")) else "none"
   out <- .nmfre.orient.fit(out, nonneg = (C.mode == "nonneg"), orient = orient,
                            eps = if (!is.null(extra_args$orient.eps)) extra_args$orient.eps else 0.01)
   class(out) <- c("nmfre", "nmf")
@@ -1648,7 +1649,7 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 ## Identification region and orientation of a fit, as returned by nmfre():
 ## orient the representation within its local region (geomin, or none) and
 ## add the ranges of C and X over the region and the identification list.
-.nmfre.orient.fit <- function(out, nonneg = FALSE, orient = "geomin", eps = 0.01) {
+.nmfre.orient.fit <- function(out, nonneg = FALSE, orient = "none", eps = 0.01) {
   Q <- base::ncol(out$X)
   region <- .nmfre.ident.region(out$X, out$C, nonneg = nonneg)
   orientation <- base::list(rule = orient, angle = 0, O = base::diag(Q), moved = 0, eps = eps)
@@ -1782,7 +1783,8 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 #'
 #' @details
 #' Inference is on the representation returned by \code{\link{nmfre}}
-#' (by default oriented by geomin within its identification region; see
+#' (by default the point where its algorithm stopped; with
+#' \code{orient = "geomin"} the geomin member of its identification region; see
 #' there).  Its \code{C.ident.*} and \code{X.ident.*} ranges are kept.
 #'
 #' \strong{Profile intervals.} With \code{profile = TRUE}, for each entry the

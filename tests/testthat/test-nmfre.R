@@ -75,7 +75,7 @@ test_that("nmfre.inference: identification is NA for a signed C, by the data for
 
 test_that("nmfre(): a sign-free fit starts on a Y with negative entries", {
   skip_unless_full()
-  ## Before 1.0.2.9000 the nmfkc() initialisation stopped on min(Y) < 0 although
+  ## Before 1.0.3 the nmfkc() initialisation stopped on min(Y) < 0 although
   ## the sign-free model allows it.  Now the basis starts on the shifted Y and C
   ## by sign-free least squares on the original Y.
   set.seed(7); P <- 6; N <- 60; Q <- 2
@@ -109,7 +109,7 @@ anchor_data <- function(seed = 11, P = 9, N = 120, Q = 3, anchors = c(`7` = 3), 
 
 test_that("nmfre(): X.anchor = 'spa' works on a Y with negative entries", {
   skip_unless_full()
-  ## Before 1.0.2.9000 the anchor SPA ran on Y itself and stopped ("SPA needs a
+  ## Before 1.0.3 the anchor SPA ran on Y itself and stopped ("SPA needs a
   ## non-negative Y"), while X.init = "spa" ran on the shifted Y.
   d <- anchor_data(Q = 2, anchors = c(`3` = 1, `7` = 2), shift = 0.3)
   expect_lt(min(d$Y), 0)
@@ -210,7 +210,7 @@ test_that("nmfre(): geomin orientation within the identification region, likelih
   expect_gt(max(r$width), 0)
   O <- nmfkc:::.nmfre.O3(r$arc[2] * 0.6, V)
   fit <- list(X = Xm %*% O, C = crossprod(O, Th), U = matrix(0, 3, N), sigma2 = 0.05^2, tau2 = 0.25)
-  fo <- nmfkc:::.nmfre.orient.fit(fit)                  # what nmfre() does at its end
+  fo <- nmfkc:::.nmfre.orient.fit(fit, orient = "geomin")   # nmfre(orient = "geomin") at its end
   nll <- function(o) nmfkc:::.nmfre.marginal.nll(d$Y, o$X, o$C, d$A, o$sigma2, o$tau2)
   expect_identical(fo$identification$orient$rule, "geomin")
   expect_gt(fo$identification$orient$moved, 0)
@@ -235,6 +235,19 @@ test_that("nmfre(): geomin orientation within the identification region, likelih
   out <- capture.output(nmfkc:::.nmfre.print.ident(fs, 3))
   expect_match(out[1], "width of Theta up to")
   expect_match(paste(out, collapse = " "), "geomin member")
+})
+
+test_that("nmfre(): orient defaults to \"none\", the fit as it stopped (as up to 1.0.2)", {
+  skip_unless_full()
+  d <- anchor_data(anchors = c())                       # rows inside the orthant: a region
+  f  <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, verbose = FALSE))
+  fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, verbose = FALSE, orient = "none"))
+  fg <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, verbose = FALSE, orient = "geomin"))
+  expect_identical(f$identification$orient$rule, "none")
+  expect_identical(f$X, fn$X); expect_identical(f$C, fn$C); expect_identical(f$U, fn$U)
+  expect_identical(fg$identification$orient$rule, "geomin")
+  expect_equal(fg$X %*% fg$C, f$X %*% f$C, tolerance = 1e-8)
+  expect_equal(fg$identification$width, f$identification$width, tolerance = 1e-6)
 })
 
 test_that("nmfre(): anchored fit has width 0; nmfre.inference() keeps it; optional profile intervals", {

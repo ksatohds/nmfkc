@@ -112,8 +112,8 @@ block-coordinate) and outer (EM variance) iterations (defaults
 \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 \eqn{\lambda} (default \code{1e-6}).
 \item \code{orient}: Representation reported within the identification
-region (see the return value): \code{"geomin"} (default) or \code{"none"}
-(the point where the algorithm stopped).
+region (see the return value): \code{"none"} (default; the point where
+the algorithm stopped, as up to 1.0.2) or \code{"geomin"}.
 \item \code{orient.eps}: \eqn{\varepsilon} of the geomin criterion (default 0.01).
 }}
 }
@@ -256,8 +256,9 @@ local identification region; the range of each entry of \eqn{\Theta} and
 of \eqn{X} over the arc is computed exactly.  A width of 0 means the fit
 cannot be moved within the region (a row of \eqn{X} on one basis only pins
 it).  For \eqn{Q\le2} the region is a point up to relabelling; for
-\eqn{Q\ge4} it is not computed.  With \code{orient = "geomin"} the
-representation returned is the member of the local region that minimizes
+\eqn{Q\ge4} it is not computed.  By default (\code{orient = "none"}) the
+representation returned is the point where the algorithm stopped.  With
+\code{orient = "geomin"} it is the member of the local region that minimizes
 the geomin criterion on the row shares of \eqn{X} (as rotated loadings in
 exploratory factor analysis); nothing moves when the region is a point.
 The likelihood and \eqn{X\Theta} do not change.

@@ -1,11 +1,11 @@
-# nmfkc 1.0.2.9000 (development)
+# nmfkc (development version)
 
-## `nmfre()`: identification region and geomin orientation; `nmfre.inference()`: profile intervals
+## `nmfre()`: identification region and an optional geomin orientation; `nmfre.inference()`: profile intervals
 
 Under the working model the fits giving the same distribution are
 `(X O, O' C)` with `O` orthogonal, `O 1 = 1` and `X O >= 0` (also `O' C >= 0`
 when `C.signed = FALSE`); `X C` is the same for all of them.  For `rank = 3`
-`nmfre()` now returns, by default:
+`nmfre()` now returns:
 
 - `C.ident.lower`, `C.ident.upper`, `C.ident.width` and `X.ident.lower`,
   `X.ident.upper`, `X.ident.width`: the exact range of each entry of `C` and of
@@ -14,11 +14,20 @@ when `C.signed = FALSE`); `X C` is the same for all of them.  For `rank = 3`
   width of 0 means the fit is pinned (for example by a row of `X` on one basis
   only).  For `rank <= 2` the region is a point up to relabelling; for
   `rank >= 4` it is not computed.
-- The representation returned is the member of that arc minimizing the geomin
-  criterion on the row shares of `X` (as rotated loadings in factor analysis);
-  nothing moves when the region is a point, and the likelihood and `X C` never
-  change.  `orient = "none"` returns the point where the algorithm stopped;
-  `orient.eps` sets the geomin epsilon (0.01).  Both are passed through `...`.
+- On request, `orient = "geomin"` (through `...`) returns the member of that
+  arc minimizing the geomin criterion on the row shares of `X` (as rotated
+  loadings in factor analysis) instead of the point where the algorithm
+  stopped; nothing moves when the region is a point, and the likelihood and
+  `X C` never change.  `orient.eps` sets the geomin epsilon (0.01).
+
+The default, `orient = "none"`, keeps the representation where the algorithm
+stopped, so the estimates do not change: on eight fits (`rank` 1 to 3, sign-free
+and non-negative `C`, with and without anchor rows, and `nmfre.inference()`) `X`,
+`C`, `U`, the variances, the likelihood and the coefficient table are
+bit-identical to 1.0.2.  `orient = "geomin"` is not the default because it
+moves `C` by the width of the region, which can be large (by 21 on a simulated
+`rank = 3` fit with a region of width 45), and with it the standard errors of
+`nmfre.inference()`.
 
 `nmfre.inference()` works on the representation it is given, keeps these
 entries, and adds its identifiability diagnostic to `identification`.  With
