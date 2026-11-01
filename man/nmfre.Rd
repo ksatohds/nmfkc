@@ -106,9 +106,20 @@ non-negative case.
 When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
 \item \code{U.init}: Initial random effects matrix (Q x N), or \code{NULL} (all zeros).
 \item \code{prefix}: Prefix for basis names (default \code{"Basis"}).
-\item \code{sigma2}: Initial residual variance (default 1).
+\item \code{sigma2}: Initial residual variance.  By default (when
+\eqn{\sigma^2} is updated) it starts from the residual covariance of
+\eqn{Y} on \eqn{A}, \eqn{\tau^2 XX' + \sigma^2 I}, as in probabilistic
+PCA: \eqn{\sigma^2} at the mean of its eigenvalues beyond the
+\eqn{Q}-th, \eqn{\tau^2} at U's share (the top \eqn{Q} eigenvalues in
+excess of \eqn{\sigma^2}) over \eqn{\mathrm{tr}(X'X)} of the start
+basis.  Returned as \code{variance.start}.  nmfkc 1.0.3 and earlier
+started at \eqn{\sigma^2 = \tau^2 = 1} (\eqn{\lambda = 1} whatever the
+scale of \eqn{Y}), from which data-driven starts could fall into a
+degenerate fit; give \code{sigma2 = 1, tau2 = 1} to reproduce them.
+With \code{sigma2.update = FALSE} the default stays 1.
 \item \code{sigma2.update}: Logical. Update \eqn{\sigma^2} during iterations (default \code{TRUE}).
-\item \code{tau2}: Initial random effect variance (default 1).
+\item \code{tau2}: Initial random effect variance (default: from the
+residual covariance, see \code{sigma2}; 1 with \code{tau2.update = FALSE}).
 \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
 \item \code{x.postvar}: Logical. Include the posterior-variance term in
 the \eqn{X}-step (default \code{TRUE}; advanced). Applies to every

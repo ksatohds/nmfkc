@@ -239,6 +239,37 @@
        cos.tol = cos.tol, canc.tol = canc.tol)
 }
 
+#' Variance start of nmfre() from the residual covariance (Internal)
+#'
+#' Given \eqn{A}, the residual \eqn{R = Y(I - H_A)} has covariance
+#' \eqn{\tau^2 XX' + \sigma^2 I}: its eigenvalues beyond the \eqn{Q}-th are
+#' \eqn{\sigma^2} and the top \eqn{Q} exceed it by \eqn{\tau^2 d_q} (\eqn{d_q} the
+#' eigenvalues of \eqn{X'X}), as in probabilistic PCA (Tipping and Bishop, 1999,
+#' JRSS B 61, 611--622, eqs. 7--8).  So \eqn{\sigma^2} starts at the mean of the
+#' eigenvalues beyond \eqn{Q} (within the rank of \eqn{R}) and \eqn{\tau^2} at
+#' U's share \eqn{\sum_{q \le Q} (l_q - \sigma^2)_+} over \eqn{\mathrm{tr}(X'X)}
+#' of the start basis.  In the HS simulation of the NMF-RE paper (2800
+#' samples, true \eqn{\lambda} about 0.06) the start \eqn{\sigma^2 = \tau^2 = 1}
+#' led every data-driven basis start (k-means, SPA, NNDSVD, random) into a
+#' degenerate fit in 509 samples; from this start none did, and the other
+#' samples reached the same fits.
+#' @return \code{c(sigma2, tau2)}, or \code{NULL} when \eqn{Y} has missing
+#'   values or the residual has no eigenvalues beyond the \eqn{Q}-th.
+#' @keywords internal
+#' @noRd
+.nmfre.variance.start <- function(Y, A, X) {
+  Q <- ncol(X); N <- ncol(Y); K <- nrow(A)
+  if (anyNA(Y)) return(NULL)
+  R <- Y - (Y %*% t(A)) %*% solve(tcrossprod(A) + diag(1e-10, K), A)
+  r <- min(nrow(Y), N - K)                         # rank of the residual
+  if (r <= Q) return(NULL)
+  l <- eigen(tcrossprod(R) / (N - K), symmetric = TRUE, only.values = TRUE)$values[seq_len(r)]
+  s2 <- mean(l[(Q + 1):r])
+  if (!is.finite(s2) || s2 <= 0) return(NULL)
+  share <- max(sum(pmax(l[seq_len(Q)] - s2, 0)), 1e-3 * sum(l))
+  c(sigma2 = s2, tau2 = share / sum(X^2))          # tr(X'X) = sum(X^2)
+}
+
 #' Resolve fewer than Q anchor rows for nmfre() (Internal)
 #'
 #' \code{X.anchor} with fewer rows than bases anchors the first bases only:
@@ -306,7 +337,7 @@
                                       X.update = "exact") {
   ea <- extra_args; ea$Q <- NULL; ea$X.anchor <- NULL; ea$.anchor.direct <- NULL
   ## the search compares fits as they stop; the result is oriented once, at the end
-  orient <- if (!is.null(ea$orient)) match.arg(ea$orient, c("none", "geomin")) else "none"
+  orient <- if (!is.null(ea[["orient"]])) match.arg(ea[["orient"]], c("none", "geomin")) else "none"
   orient.eps <- if (!is.null(ea$orient.eps)) ea$orient.eps else 0.01
   ea$orient <- "none"
   Ym <- as.matrix(Y)
@@ -384,7 +415,7 @@
   restarts <- if (!is.null(extra_args$mix.restarts)) as.integer(extra_args$mix.restarts) else 20L
   seed <- if (!is.null(ea$seed)) ea$seed else 1
   ## the fits are compared as they stop; the kept one is oriented once, at the end
-  orient <- if (!is.null(ea$orient)) match.arg(ea$orient, c("none", "geomin")) else "none"
+  orient <- if (!is.null(ea[["orient"]])) match.arg(ea[["orient"]], c("none", "geomin")) else "none"
   orient.eps <- if (!is.null(ea$orient.eps)) ea$orient.eps else 0.01
   ea$orient <- "none"
   Ym <- as.matrix(Y)
@@ -589,9 +620,20 @@
 #'       When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
 #'     \item \code{U.init}: Initial random effects matrix (Q x N), or \code{NULL} (all zeros).
 #'     \item \code{prefix}: Prefix for basis names (default \code{"Basis"}).
-#'     \item \code{sigma2}: Initial residual variance (default 1).
+#'     \item \code{sigma2}: Initial residual variance.  By default (when
+#'       \eqn{\sigma^2} is updated) it starts from the residual covariance of
+#'       \eqn{Y} on \eqn{A}, \eqn{\tau^2 XX' + \sigma^2 I}, as in probabilistic
+#'       PCA: \eqn{\sigma^2} at the mean of its eigenvalues beyond the
+#'       \eqn{Q}-th, \eqn{\tau^2} at U's share (the top \eqn{Q} eigenvalues in
+#'       excess of \eqn{\sigma^2}) over \eqn{\mathrm{tr}(X'X)} of the start
+#'       basis.  Returned as \code{variance.start}.  nmfkc 1.0.3 and earlier
+#'       started at \eqn{\sigma^2 = \tau^2 = 1} (\eqn{\lambda = 1} whatever the
+#'       scale of \eqn{Y}), from which data-driven starts could fall into a
+#'       degenerate fit; give \code{sigma2 = 1, tau2 = 1} to reproduce them.
+#'       With \code{sigma2.update = FALSE} the default stays 1.
 #'     \item \code{sigma2.update}: Logical. Update \eqn{\sigma^2} during iterations (default \code{TRUE}).
-#'     \item \code{tau2}: Initial random effect variance (default 1).
+#'     \item \code{tau2}: Initial random effect variance (default: from the
+#'       residual covariance, see \code{sigma2}; 1 with \code{tau2.update = FALSE}).
 #'     \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
 #'     \item \code{x.postvar}: Logical. Include the posterior-variance term in
 #'       the \eqn{X}-step (default \code{TRUE}; advanced). Applies to every
@@ -931,9 +973,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, X.update = c("exact", 
   C.L2        <- if (!is.null(extra_args$C.L2))        extra_args$C.L2        else 0
 
   # variance handling
-  sigma2        <- if (!is.null(extra_args$sigma2)) extra_args$sigma2 else 1
+  sigma2        <- if (!is.null(extra_args[["sigma2"]])) extra_args[["sigma2"]] else 1
   sigma2.update <- if (!is.null(extra_args$sigma2.update)) extra_args$sigma2.update else TRUE
-  tau2          <- if (!is.null(extra_args$tau2)) extra_args$tau2 else 1
+  tau2          <- if (!is.null(extra_args[["tau2"]])) extra_args[["tau2"]] else 1
   tau2.update   <- if (!is.null(extra_args$tau2.update)) extra_args$tau2.update else TRUE
 
   # variance update internals (fixed at defaults)
@@ -1105,6 +1147,23 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, X.update = c("exact", 
   X <- normed$X
   C_mat <- normed$C
   U <- normed$U
+
+  ## Variance start, when a variance is updated and not given: from the
+  ## eigenvalues of the residual covariance of Y on A (.nmfre.variance.start()).
+  ## sigma2 = tau2 = 1 (nmfkc 1.0.3 and earlier) put lambda at 1 whatever the
+  ## scale of Y, and from there every data-driven basis start could fall into a
+  ## degenerate fit.
+  var.start <- list(rule = "given", sigma2 = sigma2, tau2 = tau2)
+  s2.auto <- sigma2.update && is.null(extra_args[["sigma2"]])
+  t2.auto <- tau2.update && is.null(extra_args[["tau2"]])
+  if (s2.auto || t2.auto) {
+    vs <- .nmfre.variance.start(Y, A, X)
+    if (!is.null(vs)) {
+      if (s2.auto) sigma2 <- vs[["sigma2"]]
+      if (t2.auto) tau2 <- vs[["tau2"]]
+      var.start <- list(rule = "residual eigenvalues", sigma2 = sigma2, tau2 = tau2)
+    } else var.start$rule <- "1 (the residual has no eigenvalues beyond rank)"
+  }
 
   clip_val <- function(x, xmin, xmax) min(max(x, xmin), xmax)
 
@@ -1504,7 +1563,9 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, X.update = c("exact", 
     X.update = X.update,
 
     ## two bases merging while C diverges (see .nmfre.degeneracy)
-    degeneracy = .nmfre.degeneracy(X, C_mat)
+    degeneracy = .nmfre.degeneracy(X, C_mat),
+    ## where the variances started (see .nmfre.variance.start)
+    variance.start = var.start
   )
 
   ## Added only when anchors were used, so every other fit keeps its fields.
@@ -1538,7 +1599,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, X.update = c("exact", 
     }
   }
   ## identification region; the representation within it (as stopped by default)
-  orient <- if (!is.null(extra_args$orient)) base::match.arg(extra_args$orient, c("none", "geomin")) else "none"
+  orient <- if (!is.null(extra_args[["orient"]])) base::match.arg(extra_args[["orient"]], c("none", "geomin")) else "none"
   out <- .nmfre.orient.fit(out, nonneg = (C.mode == "nonneg"), orient = orient,
                            eps = if (!is.null(extra_args$orient.eps)) extra_args$orient.eps else 0.01)
   class(out) <- c("nmfre", "nmf")

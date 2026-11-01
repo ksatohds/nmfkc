@@ -464,3 +464,26 @@ test_that("nmfre(X.init = \"mix2\"): more k-means starts while the kept fit is d
   f0 <- nmfre(Y, A, rank = Q, seed = 3, mix.restarts = 0, verbose = FALSE)
   expect_identical(nrow(f0$X.init.search), 2L)
 })
+
+test_that("nmfre(): the variances start from the residual covariance unless given", {
+  skip_unless_full()
+  set.seed(5); P <- 6; N <- 60; Q <- 2
+  A  <- rbind(intercept = 1, male = rbinom(N, 1, 0.5))
+  Xt <- matrix(abs(rnorm(P * Q)), P, Q)
+  Y  <- pmax(Xt %*% (matrix(abs(rnorm(Q * 2)), Q, 2) %*% A + matrix(rnorm(Q * N, 0, 0.4), Q, N)) +
+               matrix(rnorm(P * N, 0, 0.3), P, N), 0)
+  f <- nmfre(Y, A, rank = Q, seed = 1, X.init = "kmeans", verbose = FALSE)
+  R <- Y - Y %*% t(A) %*% solve(tcrossprod(A), A)
+  l <- eigen(tcrossprod(R) / (N - nrow(A)), symmetric = TRUE, only.values = TRUE)$values
+  expect_identical(f$variance.start$rule, "residual eigenvalues")
+  expect_equal(f$variance.start$sigma2, mean(l[(Q + 1):P]), tolerance = 1e-8)
+  expect_true(is.finite(f$variance.start$tau2) && f$variance.start$tau2 > 0)
+  ## given: used as given (the start of nmfkc 1.0.3 and earlier)
+  g <- nmfre(Y, A, rank = Q, seed = 1, X.init = "kmeans", sigma2 = 1, tau2 = 1, verbose = FALSE)
+  expect_identical(g$variance.start$rule, "given")
+  expect_equal(c(g$variance.start$sigma2, g$variance.start$tau2), c(1, 1))
+  ## a variance not updated keeps the start 1 unless given
+  h <- nmfre(Y, A, rank = Q, seed = 1, X.init = "kmeans", sigma2.update = FALSE, verbose = FALSE)
+  expect_equal(h$sigma2, 1)
+  expect_identical(h$variance.start$rule, "residual eigenvalues")
+})

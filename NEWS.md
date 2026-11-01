@@ -1,5 +1,29 @@
 # nmfkc (development version)
 
+## `nmfre()`: the variances start from the data
+
+**Fits change** where the old start led to a different fit.  When `sigma2` and
+`tau2` are updated and not given, they now start from the residual covariance
+of `Y` on `A`, which is `tau2 X X' + sigma2 I`: as in probabilistic PCA
+(Tipping and Bishop, 1999, JRSS B 61, 611-622), `sigma2` starts at the mean of
+its eigenvalues beyond the `rank`-th and `tau2` at U's share (the top
+eigenvalues in excess of `sigma2`) over `tr(X'X)` of the start basis
+(`variance.start` in the result).  Before, both started at 1, so lambda = 1
+whatever the scale of `Y`.  In the HS1939-based simulation of the NMF-RE paper
+(2800 samples, true lambda about 0.06) that start sent every data-driven basis
+start -- k-means, SPA, NNDSVD, k-means++, random, factor-analysis loadings,
+even the true basis -- into a degenerate fit in 509 samples, 22 starts each;
+from the new start all 509 reached the fit started at the truth (2 x NLL
+higher by 6 to several hundred) and the other samples the same fit as before.
+On the package's examples (HS, college, Orthodont, topic, OD-HUB) the fits are
+the same and up to four times faster.  `sigma2 = 1, tau2 = 1` reproduces the
+old start.
+
+Bug fix: `sigma2.update = FALSE` without `sigma2` held sigma2 at `FALSE`, i.e.
+at the floor 1e-12, because `extra_args$sigma2` matched `sigma2.update`
+partially (likewise `tau2` / `tau2.update`, and `orient` / `orient.eps`).
+These arguments are now matched exactly.
+
 ## `nmfre()`: `X.init = "mix2"` is the default start
 
 **Fits change** where the k-means start was not the better one.  By default
