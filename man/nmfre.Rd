@@ -67,12 +67,11 @@ optimization, and inference settings.
 keep the smaller marginal NLL; while the kept fit is degenerate (see
 \code{degeneracy} in the return value), refit from k-means starts with
 seeds \code{seed + 1}, \code{seed + 2}, \ldots (at most
-\code{mix.restarts}, default 20) and keep the smallest NLL, stopping
-early when two restarts in a row reach the kept fit again
-(\eqn{2\times}NLL within 1e-3: the degenerate point is then where the
-starts lead, e.g. a rank the data do not support).  The fits
+\code{mix.restarts}, default 20) and keep the smallest NLL.  The fits
 are returned as \code{X.init.search}; only the kept fit's messages and
-warnings are shown.  This takes about twice the time of one fit.
+warnings are shown.  This takes about twice the time of one fit, and
+up to 22 times when every start ends degenerate (e.g. a rank the data
+do not support).
 A method name (\code{"kmeans"}, \code{"spa"}, \code{"nndsvd"},
 \code{"kmeans++"}, \ldots) fits once from that start of
 \code{\link{nmfkc}} (\code{"kmeans"} is the single start of nmfkc

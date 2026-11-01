@@ -7,12 +7,14 @@
 keeps the smaller marginal NLL; while the kept fit is degenerate (two bases
 merging, see `$degeneracy`) it refits from k-means starts with seeds
 `seed + 1`, `seed + 2`, ... (at most `mix.restarts`, default 20) and keeps the
-smallest NLL, stopping early when two restarts in a row reach the kept fit
-again (2 x NLL within 1e-3): the degenerate point is then where the starts
-lead (unstructured data, or a rank the data do not support), and on CRAN's
-toy data the 20 restarts would have cost 20 times one fit.  The fits are returned as `X.init.search`, and `summary()` prints
-the start kept and how far the others stopped from it; only the kept fit's
-messages and warnings are shown.  A fit takes about twice as long.
+smallest NLL.  There is no early stop: in the R2 simulation of the NMF-RE
+paper (2800 samples) stopping after two restarts in a row that reached the
+kept fit again would have left 24 samples at a degenerate fit up to 328 worse
+in 2 x NLL, since a later seed still found the non-degenerate one.  The fits
+are returned as `X.init.search`, and `summary()` prints the start kept and
+how far the others stopped from it; only the kept fit's messages and warnings
+are shown.  A fit takes about twice as long, and up to 22 times when every
+start ends degenerate (e.g. a rank the data do not support).
 `X.init = "kmeans"` fits once from the k-means start, as the default of 1.0.3
 and earlier did; other method names and a basis matrix fit once as before.
 With anchor rows the anchors build the start; with fewer anchor rows than

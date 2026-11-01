@@ -367,9 +367,10 @@
 #' the smaller marginal NLL (the k-means fit on a tie).  (2) While the kept fit
 #' is degenerate (\code{.nmfre.degeneracy}), refit from k-means starts with
 #' seeds \code{seed + 1}, \code{seed + 2}, \ldots (at most \code{mix.restarts},
-#' default 20) and keep the smallest NLL; stop early when two restarts in a row
-#' reach the kept fit again (2 x NLL within 1e-3), since then the degenerate
-#' point is where the starts lead, not a trap.  A degenerate fit is a trapped one,
+#' default 20) and keep the smallest NLL.  No early stop: in the R2 simulation
+#' (2800 samples) stopping after two restarts in a row that reached the kept fit
+#' again left 24 samples at a degenerate fit up to 328 worse in 2 x NLL, since a
+#' later seed still found the non-degenerate one.  A degenerate fit is a trapped one,
 #' with a clearly lower likelihood than a fit from another start as a rule, so
 #' the NLL alone sets it aside.  This is the procedure the R2 simulations of the
 #' NMF-RE paper used.  Only the kept fit's messages and warnings are passed on.
@@ -408,28 +409,23 @@
   if (!is.finite(nl[b]))
     stop("nmfre(): the fit failed from both the k-means and the SPA start: ",
          if (!is.null(runs[[1]]$error)) runs[[1]]$error else "no finite likelihood", call. = FALSE)
-  ## (2) while the kept fit is degenerate, more k-means starts; stop when two
-  ## in a row reach the kept fit again (2*NLL within 1e-3): then the degenerate
-  ## point is where the starts lead, not a trap of one start (on unstructured
-  ## data, or a rank the data do not support), and more starts only cost time
-  n.extra <- 0L; n.same <- 0L
-  while (isTRUE(runs[[b]]$fit$degeneracy$flag) && n.extra < restarts && n.same < 2L) {
+  ## (2) while the kept fit is degenerate, more k-means starts (no early stop:
+  ## a seed after several that returned to the degenerate fit can still escape)
+  n.extra <- 0L
+  while (isTRUE(runs[[b]]$fit$degeneracy$flag) && n.extra < restarts) {
     n.extra <- n.extra + 1L
     runs[[length(runs) + 1L]] <- fit1("kmeans", seed + n.extra)
     start <- c(start, "kmeans"); seeds <- c(seeds, seed + n.extra)
-    nx <- nll(runs[[length(runs)]]); nl <- c(nl, nx)
-    n.same <- if (is.finite(nx) && abs(2 * (nx - nl[b])) < 1e-3) n.same + 1L else 0L
-    if (nx < nl[b]) b <- length(nl)
+    nl <- c(nl, nll(runs[[length(runs)]]))
+    if (nl[length(nl)] < nl[b]) b <- length(nl)
   }
   best <- runs[[b]]$fit
   for (m in runs[[b]]$messages) message(m, appendLF = FALSE)
   for (w in runs[[b]]$warnings) warning(w, call. = FALSE)
   if (n.extra > 0L && isTRUE(best$degeneracy$flag))
-    message(if (n.same >= 2L)
-      sprintf(paste("nmfre(): the fit is degenerate, and %d more k-means starts reached it again;",
-                    "the rank may be larger than the data support (see $degeneracy)."), n.extra)
-    else sprintf(paste("nmfre(): the fit is still degenerate after %d more k-means starts;",
-                       "its two merging bases are not interpretable (see $degeneracy)."), n.extra))
+    message(sprintf(paste("nmfre(): the fit is still degenerate after %d more k-means starts;",
+                          "its two merging bases are not interpretable, or the rank may be larger",
+                          "than the data support (see $degeneracy)."), n.extra))
   best$X.init.search <- data.frame(
     start = start, seed = seeds, nll = nl,
     degenerate = vapply(runs, function(r) if (is.null(r$fit)) NA else isTRUE(r$fit$degeneracy$flag), logical(1)),
@@ -554,12 +550,11 @@
 #'       keep the smaller marginal NLL; while the kept fit is degenerate (see
 #'       \code{degeneracy} in the return value), refit from k-means starts with
 #'       seeds \code{seed + 1}, \code{seed + 2}, \ldots (at most
-#'       \code{mix.restarts}, default 20) and keep the smallest NLL, stopping
-#'       early when two restarts in a row reach the kept fit again
-#'       (\eqn{2\times}NLL within 1e-3: the degenerate point is then where the
-#'       starts lead, e.g. a rank the data do not support).  The fits
+#'       \code{mix.restarts}, default 20) and keep the smallest NLL.  The fits
 #'       are returned as \code{X.init.search}; only the kept fit's messages and
-#'       warnings are shown.  This takes about twice the time of one fit.
+#'       warnings are shown.  This takes about twice the time of one fit, and
+#'       up to 22 times when every start ends degenerate (e.g. a rank the data
+#'       do not support).
 #'       A method name (\code{"kmeans"}, \code{"spa"}, \code{"nndsvd"},
 #'       \code{"kmeans++"}, \ldots) fits once from that start of
 #'       \code{\link{nmfkc}} (\code{"kmeans"} is the single start of nmfkc

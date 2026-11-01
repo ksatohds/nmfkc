@@ -451,22 +451,16 @@ test_that("nmfre(X.init = \"mix2\"): more k-means starts while the kept fit is d
   Xt <- matrix(abs(rnorm(P * Q)), P, Q)
   Y  <- pmax(Xt %*% (matrix(abs(rnorm(Q * 2)), Q, 2) %*% A + matrix(rnorm(Q * N, 0, 0.4), Q, N)) +
                matrix(rnorm(P * N, 0, 0.3), P, N), 0)
-  ## every fit flagged degenerate; on these data every start reaches the same point
+  ## every fit flagged degenerate: the restarts run to the cap (no early stop)
   local_mocked_bindings(.nmfre.degeneracy = function(X, C, cos.tol = 0.9, canc.tol = 5)
     list(max.cosine = 0.95, pair = c(1L, 2L), cancellation = 10, kappa.X = 1, flag = TRUE,
          cos.tol = cos.tol, canc.tol = canc.tol))
-  ## two restarts in a row reach the kept fit again: stop there, not at the cap
-  expect_message(f <- nmfre(Y, A, rank = Q, seed = 3, mix.restarts = 5, verbose = FALSE),
-                 "2 more k-means starts reached it again")
+  expect_message(f <- nmfre(Y, A, rank = Q, seed = 3, mix.restarts = 3, verbose = FALSE),
+                 "still degenerate after 3")
   st <- f$X.init.search
-  expect_identical(st$start, c("kmeans", "spa", "kmeans", "kmeans"))
-  expect_equal(st$seed, c(3, 3, 4, 5))
-  expect_lt(max(2 * (st$nll - min(st$nll))), 1e-3)
+  expect_identical(st$start, c("kmeans", "spa", "kmeans", "kmeans", "kmeans"))
+  expect_equal(st$seed, c(3, 3, 4, 5, 6))
   expect_identical(which(st$chosen), which.min(st$nll))
-  ## the cap
-  expect_message(f1 <- nmfre(Y, A, rank = Q, seed = 3, mix.restarts = 1, verbose = FALSE),
-                 "still degenerate after 1")
-  expect_identical(nrow(f1$X.init.search), 3L)
   f0 <- nmfre(Y, A, rank = Q, seed = 3, mix.restarts = 0, verbose = FALSE)
   expect_identical(nrow(f0$X.init.search), 2L)
 })
