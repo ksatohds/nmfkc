@@ -58,8 +58,9 @@ An algebraic check on the point estimate: no re-fits.}
 \item{identification}{The parts of the diagnostic, plus \code{by.assumption}
 (the isotropic argument above holds, with \eqn{\tau^2>0}: \eqn{Q\le2}, an
 anchor row on every basis, or, for \eqn{Q=3}, an identification region
-computed by \code{\link{nmfre}} that is a point) and, for a signed
-\eqn{C}, \code{note}.  The identification-region entries that
+computed by \code{\link{nmfre}} that is a point) and \code{note}: for a
+signed \eqn{C}, and for \eqn{C\ge0} when non-negativity alone does not pin
+the factorization but the isotropic random effects do.  The identification-region entries that
 \code{\link{nmfre}} put in this list (\code{width}, \code{arc},
 \code{full.circle}, \code{orient}) are kept.}
 \item{C.profile.lower, C.profile.upper, C.profile.reached}{With

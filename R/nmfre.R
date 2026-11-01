@@ -1374,7 +1374,9 @@ print.summary.nmfre <- function(x, ...) {
   }
   if (!is.null(x$coefficients) && is.data.frame(x$coefficients)) {
     cat("\n")
-    .ident.print.line(x$identified.approx, x$identification, Q, what = "C")
+    if (identical(x$identified.approx, FALSE) && !is.null(x$identification$note)) {
+      cat("  Identification: ", x$identification$note, "\n", sep = "")
+    } else .ident.print.line(x$identified.approx, x$identification, Q, what = "C")
     cat("Coefficients:\n")
 
     cf <- x$coefficients
@@ -1812,8 +1814,9 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 #' \item{identification}{The parts of the diagnostic, plus \code{by.assumption}
 #'   (the isotropic argument above holds, with \eqn{\tau^2>0}: \eqn{Q\le2}, an
 #'   anchor row on every basis, or, for \eqn{Q=3}, an identification region
-#'   computed by \code{\link{nmfre}} that is a point) and, for a signed
-#'   \eqn{C}, \code{note}.  The identification-region entries that
+#'   computed by \code{\link{nmfre}} that is a point) and \code{note}: for a
+#'   signed \eqn{C}, and for \eqn{C\ge0} when non-negativity alone does not pin
+#'   the factorization but the isotropic random effects do.  The identification-region entries that
 #'   \code{\link{nmfre}} put in this list (\code{width}, \code{arc},
 #'   \code{full.circle}, \code{orient}) are kept.}
 #' \item{C.profile.lower, C.profile.upper, C.profile.reached}{With
@@ -2055,6 +2058,15 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
         base::sprintf("under the isotropic random effects, an identification region of width %.3g (C.ident.lower, C.ident.upper)",
                       w.region)
       } else "not established under the isotropic random effects")
+  } else if (identical(v$identified.approx, FALSE) && v$identification$by.assumption) {
+    ## C >= 0: non-negativity alone (any invertible T) does not pin the
+    ## factorization, but the random effects (orthogonal T) do -- say both,
+    ## so the line does not contradict the identification region
+    v$identification$note <- paste0(
+      "not by non-negativity alone; ",
+      if (Q <= 2L || all(v$identification$anchor))
+        "unique up to a permutation under the isotropic random effects"
+      else "locally unique under the isotropic random effects (identification region a point)")
   }
   object$identified.approx <- v$identified.approx
   ## keep the identification-region entries nmfre() put in this list

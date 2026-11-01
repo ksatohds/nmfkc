@@ -280,4 +280,16 @@ test_that("nmfre.inference(): the identification note follows the region compute
   expect_false(fi0$identification$by.assumption)
   expect_match(fi0$identification$note, "identification region of width")
   expect_false(grepl("not even", fi0$identification$note))
+  ## C >= 0: when non-negativity alone does not pin the factorization but the region is a
+  ## point, the summary says so instead of "another (X T, T^-1 C) may fit equally well"
+  fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE, C.signed = FALSE))
+  fin <- nmfre.inference(fn, d$Y, d$A, wild.bootstrap = FALSE)
+  out <- paste(capture.output(print(summary(fin))), collapse = "\n")
+  if (identical(fin$identified.approx, FALSE) && isTRUE(fin$identification$by.assumption)) {
+    expect_match(fin$identification$note, "not by non-negativity alone")
+    expect_false(grepl("may fit equally well", out))
+  }
+  ## the printer: a FALSE verdict with a note prints the note
+  fs <- fin; fs$identified.approx <- FALSE; fs$identification$note <- "not by non-negativity alone; test"
+  expect_output(print(summary(fs)), "Identification: not by non-negativity alone; test")
 })
