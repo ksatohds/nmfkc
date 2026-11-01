@@ -56,7 +56,9 @@ with the column sums of \eqn{X} fixed is a permutation when \eqn{Q=2} or
 every basis has an anchor row.  That is identification by assumption.
 An algebraic check on the point estimate: no re-fits.}
 \item{identification}{The parts of the diagnostic, plus \code{by.assumption}
-(the isotropic argument above holds, with \eqn{\tau^2>0}) and, for a signed
+(the isotropic argument above holds, with \eqn{\tau^2>0}: \eqn{Q\le2}, an
+anchor row on every basis, or, for \eqn{Q=3}, an identification region
+computed by \code{\link{nmfre}} that is a point) and, for a signed
 \eqn{C}, \code{note}.  The identification-region entries that
 \code{\link{nmfre}} put in this list (\code{width}, \code{arc},
 \code{full.circle}, \code{orient}) are kept.}
