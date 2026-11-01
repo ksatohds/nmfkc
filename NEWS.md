@@ -1,5 +1,26 @@
 # nmfkc (development version)
 
+## `nmfre(C.signed = FALSE)`: exact updates, so the fit reaches a stationary point
+
+With `C >= 0` the C-step used a multiplicative update acting on the positive
+part `[Y - X U]+` and the X-step one acting on `[C A + U]+`.  Neither minimizes
+the objective of its block, and their fixed points need not be stationary: on
+the inaugural-address topic example (`rank = 3`, era dummies) the fit stopped
+with every `C > 0` but a likelihood gradient in `C` of 0.02 to 0.14, and 2 x
+its marginal negative log-likelihood was 67 above the constrained optimum.
+Now, by default (`C.nonneg.update = "exact"`, through `...`):
+
+- the C-step is an exact non-negative least squares (Lawson and Hanson's
+  active-set method on the `QK x QK` normal equations), which can set entries
+  of `C` exactly to 0;
+- the X-step is the complete-EM semi-NMF step of the sign-free path.
+
+Every block update is then exact or monotone, and the fit stops at a KKT point
+of the likelihood (on the topic example all starts reach the same point, with
+three entries of `C` at 0).  `C.nonneg.update = "mu"` keeps the old updates to
+reproduce fits from 1.0.3 and earlier; the fit records which one was used
+(`C.nonneg.update`).  Results with `C.signed = TRUE` (the default) are unchanged.
+
 ## `nmfre()`: identification region and an optional geomin orientation; `nmfre.inference()`: profile intervals
 
 Under the working model the fits giving the same distribution are

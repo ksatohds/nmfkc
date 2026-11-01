@@ -42,6 +42,39 @@
   X * sqrt(.nmfre.safe.div(numer, denom, eps = eps))
 }
 
+#' Exact non-negative least squares in normal-equation form
+#'
+#' Minimizes \eqn{\tfrac12 x^\top H x - g^\top x} subject to \eqn{x\ge0}
+#' (\eqn{H} symmetric positive definite) by the active-set method of Lawson
+#' and Hanson (1974, ch. 23), which ends at the exact solution after finitely
+#' many steps.  Used for the \eqn{C}-step of \code{nmfre(C.signed = FALSE)},
+#' where \eqn{H=(AA^\top)\otimes(X^\top X)} is only \eqn{QK\times QK}.
+#' @keywords internal
+#' @noRd
+.nmfre.nnls <- function(H, g, tol = 1e-10, maxit = 30L * length(g)) {
+  n <- length(g); x <- numeric(n); P <- rep(FALSE, n)
+  sc <- max(1, max(abs(g)))
+  w <- as.vector(g - H %*% x); it <- 0L
+  while (it < maxit && any(!P & w > tol * sc)) {
+    it <- it + 1L
+    j <- which(!P)[which.max(w[!P])]; P[j] <- TRUE
+    repeat {
+      z <- numeric(n); z[P] <- solve(H[P, P, drop = FALSE], g[P])
+      if (all(z[P] > 0)) { x <- z; break }
+      ## step back to the boundary and drop the variables that reach zero
+      Qs <- P & z <= 0
+      alpha <- min(x[Qs] / (x[Qs] - z[Qs]))
+      x <- x + alpha * (z - x)
+      P <- P & x > tol * max(1, max(abs(x)))
+      x[!P] <- 0
+      it <- it + 1L
+      if (it >= maxit) break
+    }
+    w <- as.vector(g - H %*% x)
+  }
+  x
+}
+
 #' Marginal negative log-likelihood of the NMF-RE model
 #'
 #' \eqn{\ell = \tfrac12\big[N\,(P\log 2\pi + \log|\Sigma|) + \sum_n
@@ -357,8 +390,17 @@
 #'     \item \code{tau2}: Initial random effect variance (default 1).
 #'     \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
 #'     \item \code{x.postvar}: Logical. Include the posterior-variance term in
-#'       the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies only
-#'       to the sign-free / semi-NMF path (\code{C.signed = TRUE}).
+#'       the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies to
+#'       the semi-NMF path (\code{C.signed = TRUE}, and \code{C.signed = FALSE}
+#'       with \code{C.nonneg.update = "exact"}).
+#'     \item \code{C.nonneg.update}: Updates used with \code{C.signed = FALSE}.
+#'       \code{"exact"} (default): the \eqn{C}-step is an exact non-negative
+#'       least squares (Lawson and Hanson's active-set method) and the
+#'       \eqn{X}-step is the semi-NMF step of the sign-free path, so every block
+#'       update is exact or monotone and the fit stops at a KKT point of the
+#'       likelihood.  \code{"mu"}: the positive-part multiplicative updates of
+#'       nmfkc 1.0.3 and earlier, kept to reproduce those fits; their fixed
+#'       points need not be stationary.
 #'     \item \code{X.L2.smooth}: Non-negative row-smoothness penalty on the
 #'       basis \eqn{X} (default 0), adding
 #'       \eqn{(\lambda/2)\,\mathrm{tr}(X^\top L X)} with \eqn{L} the path-graph
@@ -373,7 +415,8 @@
 #'       (default 0), adding \eqn{\lambda\lVert C\rVert^2}.  A Gaussian prior on
 #'       the fixed effects; for \code{C.signed = TRUE} the \eqn{C}-step stays a
 #'       closed-form Sylvester ridge-LS solve, for \code{C.signed = FALSE} it is
-#'       added to the multiplicative-update denominator.
+#'       added to the non-negative least squares (or, with
+#'       \code{C.nonneg.update = "mu"}, to the multiplicative-update denominator).
 #'     \item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
 #'       cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
 #'       reported as a diagnostic only.
@@ -607,12 +650,21 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## C.mode is the internal string used throughout the optimizer.
   C.mode <- if (is.character(C.signed)) base::match.arg(C.signed, c("signed", "nonneg"))
             else if (isTRUE(C.signed)) "signed" else "nonneg"
-  ## The X-step rule follows the sign convention of C directly: sign-free (LS) C
-  ## uses the complete-EM semi-NMF step (Ding-Li-Jordan 2010); non-negative (MU)
-  ## C uses the legacy positive-part multiplicative update.
+  ## The X-step is the complete-EM semi-NMF step (Ding-Li-Jordan 2010) for a
+  ## sign-free C and for C >= 0 with the exact updates (the default); only the
+  ## legacy C.nonneg.update = "mu" keeps the positive-part multiplicative step.
   ## Complete-EM X-step: add the posterior-variance term tr(X S X'),
   ## S = N*sigma2*(X'X+lambda I)^{-1}; FALSE recovers the conditional X-step.
   x.postvar <- if (!is.null(extra_args$x.postvar)) isTRUE(extra_args$x.postvar) else TRUE
+  ## With C >= 0, "exact" (default) solves the C-step as an exact non-negative
+  ## least squares and uses the complete-EM semi-NMF X-step of the sign-free
+  ## path, so each block update is exact or monotone and the ECM stops at a KKT
+  ## point of the likelihood.  "mu" is the positive-part multiplicative update
+  ## of nmfkc <= 1.0.3 (kept to reproduce those fits): it acts on [Y - XU]+ and
+  ## [CA + U]+, so its fixed points need not be stationary.
+  C.nonneg.update <- if (!is.null(extra_args$C.nonneg.update))
+    base::match.arg(extra_args$C.nonneg.update, c("exact", "mu")) else "exact"
+  nn.exact <- C.mode == "nonneg" && C.nonneg.update == "exact"
 
   ## Fewer anchor rows than bases (e.g. X.anchor = "x7" for rank = 3): which
   ## basis an anchor row belongs to is part of the estimate.  Fit freely first,
@@ -918,7 +970,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
       # (2) X-step: X >= 0 with sign-free score matrix B = CA + U
       B_sem <- CA + U
       xp <- .xpen(X)
-      if (C.mode == "signed") {
+      if (C.mode == "signed" || nn.exact) {
         ## complete-EM X-step: add posterior-variance S = N*sigma2*(X'X+lambda I)^{-1}
         S_pv <- if (isTRUE(x.postvar))
           N * clip_val(sigma2, sigma2.min, sigma2.max) * chol2inv(cholM) else NULL
@@ -933,7 +985,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
       X <- .floorX(X)
       normed <- .nmfre.normalize.X(X, C_mat, U)
       X     <- .floorX(normed$X)
-      C_mat <- if (C.mode == "nonneg") pmax(normed$C, .eps) else normed$C
+      C_mat <- if (C.mode == "nonneg") pmax(normed$C, if (nn.exact) 0 else .eps) else normed$C
       U     <- normed$U
 
       # (3) C-step
@@ -957,6 +1009,14 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
           C_mat <- solve(XtX_t, rhs)
           C_mat <- t(solve(AAt_t, t(C_mat)))
         }
+      } else if (nn.exact) {
+        ## exact non-negative least squares on vec(C):
+        ##   min_{C >= 0} ||Y - X U - X C A||^2 + C.L2 ||C||^2,
+        ## H = (A A') (x) (X'X) + C.L2 I,  g = vec(X'(Y - X U) A')
+        Hn <- kronecker(AAt_mm, crossprod(X))
+        if (C.L2 > 0) Hn <- Hn + C.L2 * diag(Q * K)
+        gn <- as.vector(crossprod(X, Y - X %*% U) %*% tA)
+        C_mat[] <- .nmfre.nnls(Hn, gn)
       } else {
         ## non-negative MU (Ding 2006), positive-part stabilization
         ## (Y_tilde, tA, AAt_mm hoisted above the outer loop; Y and A invariant)
@@ -1187,6 +1247,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 
     ## sign convention of C (used by nmfre.inference() to pick the test side)
     C.signed = (C.mode == "signed"),
+    C.nonneg.update = if (C.mode == "nonneg") C.nonneg.update else NULL,
 
     ## two bases merging while C diverges (see .nmfre.degeneracy)
     degeneracy = .nmfre.degeneracy(X, C_mat)

@@ -306,3 +306,43 @@ test_that("nmfre.inference(): the identification note follows the region compute
   fs <- fin; fs$identified.approx <- FALSE; fs$identification$note <- "not by non-negativity alone; test"
   expect_output(print(summary(fs)), "Identification: not by non-negativity alone; test")
 })
+
+test_that(".nmfre.nnls() solves the non-negative quadratic program exactly (KKT)", {
+  set.seed(3)
+  for (r in 1:25) {
+    n <- sample(2:9, 1); M <- matrix(rnorm(3 * n * n), 3 * n, n); H <- crossprod(M); g <- 3 * rnorm(n)
+    x <- nmfkc:::.nmfre.nnls(H, g); gr <- as.vector(H %*% x - g); s <- max(1, abs(g))
+    expect_true(all(x >= 0))
+    expect_lt(max(c(0, abs(gr[x > 0]))), 1e-8 * s)                 # stationary on the free set
+    expect_true(all(gr[x == 0] >= -1e-8 * s))                       # no descent into the bound
+  }
+  ## an interior solution is the unconstrained one
+  H <- diag(2); expect_equal(nmfkc:::.nmfre.nnls(H, c(1, 2)), c(1, 2))
+  expect_equal(nmfkc:::.nmfre.nnls(H, c(-1, 2)), c(0, 2))
+})
+
+test_that("nmfre(C.signed = FALSE): exact updates by default stop at a KKT point; 'mu' is the legacy path", {
+  skip_unless_full()
+  set.seed(4); P <- 12; N <- 120; Q <- 2
+  A  <- rbind(a0 = 1, a1 = rbinom(N, 1, 0.5), a2 = runif(N))
+  Xt <- matrix(runif(P * Q, 0.1, 1), P, Q); Xt <- sweep(Xt, 2, colSums(Xt), "/")
+  Th <- matrix(c(3, 3, 6, 0, 2, 5), Q, 3)                             # one true zero
+  Y  <- pmax(Xt %*% (Th %*% A + matrix(rnorm(Q * N, 0, 0.5), Q, N)) +
+               matrix(rnorm(P * N, 0, 0.05), P, N), 0)                # nmfkc() starts need Y >= 0
+  f  <- suppressWarnings(nmfre(Y, A, rank = Q, C.signed = FALSE, seed = 1, verbose = FALSE,
+                               epsilon = 1e-10, epsilon.outer = 1e-10, maxit = 5e5))
+  expect_identical(f$C.nonneg.update, "exact")
+  expect_true(all(f$C >= 0))
+  ## KKT of the marginal likelihood in C: dl/dC = -X' S^-1 (Y - X C A) A'
+  S <- f$tau2 * tcrossprod(f$X) + f$sigma2 * diag(P)
+  g <- -crossprod(f$X, solve(S, Y - f$X %*% f$C %*% A)) %*% t(A)
+  g0 <- -crossprod(f$X, solve(S, Y)) %*% t(A)                        # scale of the gradient at C = 0
+  expect_lt(max(c(0, abs(g[f$C > 1e-8]))), 1e-3 * max(abs(g0)))
+  expect_true(all(g[f$C <= 1e-8] >= -1e-3 * max(abs(g0))))
+  ## the legacy multiplicative updates are still available and do not do better
+  fm <- suppressWarnings(nmfre(Y, A, rank = Q, C.signed = FALSE, C.nonneg.update = "mu", seed = 1, verbose = FALSE))
+  expect_identical(fm$C.nonneg.update, "mu")
+  nll <- function(o) nmfkc:::.nmfre.marginal.nll(Y, o$X, o$C, A, o$sigma2, o$tau2)
+  expect_lte(nll(f), nll(fm) + 1e-6)
+  expect_null(suppressWarnings(nmfre(Y, A, rank = Q, seed = 1, verbose = FALSE))$C.nonneg.update)
+})

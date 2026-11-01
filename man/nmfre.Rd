@@ -80,8 +80,17 @@ When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial v
 \item \code{tau2}: Initial random effect variance (default 1).
 \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
 \item \code{x.postvar}: Logical. Include the posterior-variance term in
-the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies only
-to the sign-free / semi-NMF path (\code{C.signed = TRUE}).
+the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies to
+the semi-NMF path (\code{C.signed = TRUE}, and \code{C.signed = FALSE}
+with \code{C.nonneg.update = "exact"}).
+\item \code{C.nonneg.update}: Updates used with \code{C.signed = FALSE}.
+\code{"exact"} (default): the \eqn{C}-step is an exact non-negative
+least squares (Lawson and Hanson's active-set method) and the
+\eqn{X}-step is the semi-NMF step of the sign-free path, so every block
+update is exact or monotone and the fit stops at a KKT point of the
+likelihood.  \code{"mu"}: the positive-part multiplicative updates of
+nmfkc 1.0.3 and earlier, kept to reproduce those fits; their fixed
+points need not be stationary.
 \item \code{X.L2.smooth}: Non-negative row-smoothness penalty on the
 basis \eqn{X} (default 0), adding
 \eqn{(\lambda/2)\,\mathrm{tr}(X^\top L X)} with \eqn{L} the path-graph
@@ -96,7 +105,8 @@ random-effect variance updates unchanged.
 (default 0), adding \eqn{\lambda\lVert C\rVert^2}.  A Gaussian prior on
 the fixed effects; for \code{C.signed = TRUE} the \eqn{C}-step stays a
 closed-form Sylvester ridge-LS solve, for \code{C.signed = FALSE} it is
-added to the multiplicative-update denominator.
+added to the non-negative least squares (or, with
+\code{C.nonneg.update = "mu"}, to the multiplicative-update denominator).
 \item \code{dfU.control}: Deprecated and inert. The algorithm imposes no
 cap on \eqn{df_U} (\code{"off"}, the only behaviour); \eqn{df_U} is
 reported as a diagnostic only.
