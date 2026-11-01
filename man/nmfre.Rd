@@ -54,6 +54,23 @@ of \code{Y} per basis.  The zeros are kept for the whole fit, including
 through the floor this function applies to \eqn{X}.  There is no
 \code{rank <= nrow(A)} limit here: the random effects give the scores
 full rank.  The rows used are returned as \code{X.anchor}.
+Fewer rows than bases (indices or row names) anchor the first bases
+only: row \code{X.anchor[q]} carries basis \code{q} alone and the
+other bases are free.  Which basis an anchor row belongs to is then
+chosen by likelihood: a free fit (from \code{X.init} if given, else the
+better of the default start and \code{X.init = "spa"}), a refit from
+it for every assignment of the anchor rows to bases (\code{rank} refits
+for one anchor row), and the refit with the smallest marginal NLL.  The
+search is returned as \code{X.anchor.search} and the free fit's
+marginal NLL as \code{nll.free}; their difference is the cost of the
+anchors.  For \code{rank = 3} one exact anchor row already fixes the
+rotation that leaves the likelihood unchanged, so impose only anchors
+the design supports.  With \code{C.signed = TRUE} and a \code{Y} with
+negative entries, \code{"spa"} chooses the rows on \code{Y - min(Y)},
+the same shifted \code{Y} the initialisation sees (as
+\code{X.init = "spa"} does); the shift is a device for the start, so
+the rows chosen are then only approximately those of the
+non-negative case.
 \item \code{C.init}: Initial coefficient matrix (Q x K), or \code{NULL}.
 When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
 \item \code{U.init}: Initial random effects matrix (Q x N), or \code{NULL} (all zeros).
@@ -94,6 +111,10 @@ block-coordinate) and outer (EM variance) iterations (defaults
 \code{10000} and \code{500}).
 \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 \eqn{\lambda} (default \code{1e-6}).
+\item \code{orient}: Representation reported within the identification
+region (see the return value): \code{"geomin"} (default) or \code{"none"}
+(the point where the algorithm stopped).
+\item \code{orient.eps}: \eqn{\varepsilon} of the geomin criterion (default 0.01).
 }}
 }
 \value{
@@ -137,6 +158,26 @@ outer iterations (the penalty jumps when \eqn{\lambda} is updated).}
 log-likelihood \eqn{\ell(X,\Theta,\sigma^2,\tau^2)} per iteration
 (random effects integrated out). This is the ECM-monotone quantity and
 is what \code{\link{plot.nmfre}} displays.}
+}
+
+\strong{Degeneracy diagnostic}
+\describe{
+\item{\code{degeneracy}}{A list for detecting a degenerate fit, in which
+two columns of \eqn{X} approach each other while the corresponding rows
+of \eqn{C} grow with opposite signs (with \eqn{Q \ge 3} and a signed
+\eqn{C}; the fit does not settle and those rows of \eqn{C} are not
+interpretable).  In simulations such fits usually had a clearly lower
+marginal likelihood than a fit from another start, so when \code{flag} is
+\code{TRUE}, refit with e.g. \code{X.init = "spa"} and keep the fit with the
+larger likelihood:
+\code{max.cosine} (largest cosine similarity between two columns of
+\eqn{X}) and its \code{pair}; \code{cancellation}
+(\eqn{\max_k \sum_q |c_{qk}| / \|X c_{\cdot k}\|_1}, large when a composite
+effect is a difference of large opposite terms); \code{kappa.X} (condition
+number of \eqn{X}); and \code{flag} (\code{max.cosine >= 0.9} or
+\code{cancellation >= 5}).  The thresholds were set on two simulation
+designs; read the measures as well.  \code{summary()} prints a line when
+\code{flag} is \code{TRUE}.}
 }
 
 \strong{Effective degrees of freedom (dfU) diagnostics}
@@ -202,6 +243,37 @@ per-column variance attributable to the random effects.}
 \strong{Sign convention}
 \describe{
 \item{\code{C.signed}}{Logical. Whether \eqn{C} was sign-free (\code{TRUE}) or non-negative (\code{FALSE}).}
+}
+
+\strong{Identification region and orientation}
+
+Under the working model the fits giving the same distribution are
+\eqn{(XO, O^\top\Theta)} with \eqn{O} orthogonal, \eqn{O\mathbf 1=\mathbf 1}
+and \eqn{XO\ge0} (and \eqn{O^\top\Theta\ge0} for \code{C.signed = FALSE}):
+the identification region.  \eqn{X\Theta} is constant on it.  For
+\eqn{Q=3} the \eqn{O} form a circle, and the arc through the fit is the
+local identification region; the range of each entry of \eqn{\Theta} and
+of \eqn{X} over the arc is computed exactly.  A width of 0 means the fit
+cannot be moved within the region (a row of \eqn{X} on one basis only pins
+it).  For \eqn{Q\le2} the region is a point up to relabelling; for
+\eqn{Q\ge4} it is not computed.  With \code{orient = "geomin"} the
+representation returned is the member of the local region that minimizes
+the geomin criterion on the row shares of \eqn{X} (as rotated loadings in
+exploratory factor analysis); nothing moves when the region is a point.
+The likelihood and \eqn{X\Theta} do not change.
+\describe{
+\item{\code{C.ident.lower}, \code{C.ident.upper}, \code{C.ident.width}}{Range
+of each entry of \eqn{C} over the local identification region and its
+width (Q x K matrices; absent for \eqn{Q\ge4}).}
+\item{\code{X.ident.lower}, \code{X.ident.upper}, \code{X.ident.width}}{The
+same for \eqn{X} (P x Q matrices).}
+\item{\code{identification}}{List: \code{width} (largest entry of
+\code{C.ident.width}; \code{NA} for \eqn{Q\ge4}), \code{arc} and
+\code{full.circle} of the region, and \code{orient}, the orientation
+applied (\code{rule}, \code{angle}, \code{O}, \code{moved}: largest
+change of \eqn{C}, the geomin \code{criterion} before and after,
+\code{eps}, \code{note}).  \code{\link{nmfre.inference}} adds its
+identifiability diagnostic to this list.}
 }
 
 Standard errors, z-values, p-values, and confidence intervals for

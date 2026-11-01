@@ -26,6 +26,13 @@ bootstrap for confidence intervals and bootstrap standard errors.}
 \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
 \item{\code{cov.ridge}}{Ridge stabilization. Default is 1e-8.}
 \item{\code{print.trace}}{Logical. Default is \code{FALSE}.}
+\item{\code{profile}}{Logical. If \code{TRUE}, also computes profile-likelihood
+intervals for the entries of \eqn{C} (sign-free \eqn{C} only). Default
+\code{FALSE}: each entry needs a sequence of constrained refits.}
+\item{\code{profile.which}}{Entries of \eqn{vec(C)} to profile. Default all.}
+\item{\code{profile.level}}{Level of the profile intervals. Default 0.95.}
+\item{\code{profile.step}, \code{profile.maxstep}}{Step, in standard errors, and
+number of steps of the outward search. Defaults 0.25 and 24.}
 }}
 }
 \value{
@@ -50,7 +57,13 @@ every basis has an anchor row.  That is identification by assumption.
 An algebraic check on the point estimate: no re-fits.}
 \item{identification}{The parts of the diagnostic, plus \code{by.assumption}
 (the isotropic argument above holds, with \eqn{\tau^2>0}) and, for a signed
-\eqn{C}, \code{note}.}
+\eqn{C}, \code{note}.  The identification-region entries that
+\code{\link{nmfre}} put in this list (\code{width}, \code{arc},
+\code{full.circle}, \code{orient}) are kept.}
+\item{C.profile.lower, C.profile.upper, C.profile.reached}{With
+\code{profile = TRUE}: profile-likelihood interval of each entry of
+\eqn{C} (Q x K matrices, \code{NA} for entries not profiled) and whether
+the level was crossed on both sides.}
 }
 \description{
 \code{nmfre.inference} performs statistical inference on the coefficient
@@ -64,6 +77,18 @@ one-step wild bootstrap with non-negative projection.
 
 The result is compatible with \code{\link{nmfkc.DOT}} for visualization
 (pass the result directly as \code{x} with \code{type = "YXA"}).
+}
+\details{
+Inference is on the representation returned by \code{\link{nmfre}}
+(by default oriented by geomin within its identification region; see
+there).  Its \code{C.ident.*} and \code{X.ident.*} ranges are kept.
+
+\strong{Profile intervals.} With \code{profile = TRUE}, for each entry the
+profile marginal likelihood is followed outward from the end of its
+identification region until twice the drop exceeds the
+\eqn{\chi^2_1} quantile; the interval is the level set.  The search is
+local: other components of the region and relabellings, which attain the
+same maximum, are not visited.
 }
 \examples{
 Y <- matrix(cars$dist, nrow = 1)

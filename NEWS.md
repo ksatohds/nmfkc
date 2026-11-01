@@ -1,3 +1,90 @@
+# nmfkc 1.0.2.9000 (development)
+
+## `nmfre()`: identification region and geomin orientation; `nmfre.inference()`: profile intervals
+
+Under the working model the fits giving the same distribution are
+`(X O, O' C)` with `O` orthogonal, `O 1 = 1` and `X O >= 0` (also `O' C >= 0`
+when `C.signed = FALSE`); `X C` is the same for all of them.  For `rank = 3`
+`nmfre()` now returns, by default:
+
+- `C.ident.lower`, `C.ident.upper`, `C.ident.width` and `X.ident.lower`,
+  `X.ident.upper`, `X.ident.width`: the exact range of each entry of `C` and of
+  `X` over the arc of such `O` through the fit, and `identification`, a list
+  with `width` (the largest for `C`), `arc`, `full.circle` and `orient`.  A
+  width of 0 means the fit is pinned (for example by a row of `X` on one basis
+  only).  For `rank <= 2` the region is a point up to relabelling; for
+  `rank >= 4` it is not computed.
+- The representation returned is the member of that arc minimizing the geomin
+  criterion on the row shares of `X` (as rotated loadings in factor analysis);
+  nothing moves when the region is a point, and the likelihood and `X C` never
+  change.  `orient = "none"` returns the point where the algorithm stopped;
+  `orient.eps` sets the geomin epsilon (0.01).  Both are passed through `...`.
+
+`nmfre.inference()` works on the representation it is given, keeps these
+entries, and adds its identifiability diagnostic to `identification`.  With
+`profile = TRUE` (through `...`; also `profile.which`, `profile.level`,
+`profile.step`, `profile.maxstep`) it returns `C.profile.lower`,
+`C.profile.upper`, `C.profile.reached`: profile marginal likelihood intervals
+for the entries of `C` (sign-free `C`; slow, so off by default).
+
+## `nmfre()`: a sign-free fit now starts on a `Y` with negative entries
+
+With `C.signed = TRUE` (the default) the model places no sign restriction on
+`Y` -- the semi-NMF `X`-step splits the signs -- but the initialisation called
+`nmfkc()`, which stops with "The matrix Y should be non-negative".  The basis
+is now started on `Y` shifted by `-min(Y)`, and `C` by the exact sign-free least
+squares `(X'X)^{-1} X' Y A' (A A')^{-1}` on the original `Y`, so the shift does
+not enter `C`.  The fit itself always uses the original `Y`.  Nothing changes
+when `Y >= 0`, when both `X.init` and `C.init` are given, or with
+`C.signed = FALSE` (which still needs `Y >= 0`).
+
+## `nmfre()`: `X.anchor = "spa"` on a `Y` with negative entries
+
+`X.anchor = "spa"` ran SPA on `Y` itself and stopped ("SPA needs a non-negative
+Y"), while `X.init = "spa"` ran it on the shifted `Y` of the initialisation.
+The anchor rows are now chosen, and the anchored start is built, on that same
+shifted `Y`.  The shift is a device for the start: with negative entries the
+rows chosen are only approximately those of the non-negative case.
+
+## `nmfre()`: fewer anchor rows than bases
+
+`X.anchor` may now give fewer rows than `rank` (indices or row names).  They
+anchor the first bases only -- row `X.anchor[q]` carries basis `q` alone --
+and the other bases are free.  Which basis an anchor row belongs to is part of
+the estimate and is chosen by likelihood: a free fit (from `X.init` if given,
+else the better of the default start and `X.init = "spa"`), a refit from it for
+every assignment of the anchor rows to bases, and the refit with the smallest
+marginal NLL.  The search is returned as `X.anchor.search`, and the free fit's
+marginal NLL as `nll.free`, so `min(X.anchor.search$nll) - nll.free` is what the
+anchors cost.  For `rank = 3` one exact anchor row already fixes the rotation
+that leaves the likelihood unchanged, so an anchor known from the design can be
+imposed without imposing anchors the data do not have.  In an HS1939-based
+simulation (only one variable is a pure indicator): the true anchor cost 0--2.4
+in marginal NLL over 24 samples and gave the true basis in all of them (a
+single fit from the k-means start, assigning the anchor by its largest share,
+put it on the wrong basis and degenerated in 9 of 24); anchoring all three
+bases on the SPA rows, which are not all anchors, cost 6--31 and biased the
+intercepts.
+
+## `nmfre()`: degeneracy diagnostic
+
+With `Q >= 3` and a signed `C`, a fit can drift along a path on which two
+columns of `X` approach each other while the corresponding rows of `C` grow
+with opposite signs: their difference then represents a direction outside the
+non-negative cone, so the fit does not settle and those rows of `C` are not
+interpretable.  In simulations (`Q = 3`) this happened in about 2 of 10
+samples, and such fits usually had a clearly lower marginal likelihood than a
+non-degenerate fit from another start (`X.init = "spa"`): the algorithm had
+been trapped.  The fit now returns `degeneracy`: `max.cosine` (the largest
+cosine similarity between two columns of `X`) and its `pair`, `cancellation`
+(`max_k sum_q |c_qk| / ||X c_.k||_1`), `kappa.X`, and `flag`
+(`max.cosine >= 0.9` or `cancellation >= 5`); `summary()` prints a line when
+`flag` is `TRUE`, suggesting a refit from another start.  The thresholds were
+set on two simulation designs (non-degenerate fits: cosine 0.55--0.83,
+cancellation 1.9--3.8; degenerate: cosine 0.89--0.995, cancellation
+5.5--680), so read the measures as well.  The model and the estimates are
+unchanged.
+
 # nmfkc 1.0.2 (2026-10-29)
 
 ## `nmfkc.inference(method = "refit")`: one multiplier per column by default

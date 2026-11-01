@@ -77,6 +77,156 @@
   0.5 * (N * (P * log(2 * pi) + P * log(s2) + logdetQ) + quad)
 }
 
+#' Degeneracy diagnostic of an NMF-RE fit (two bases merging, C diverging)
+#'
+#' With \eqn{Q \ge 3} and a signed \eqn{C}, a fit can drift along a path on which
+#' two columns of \eqn{X} approach each other while the corresponding rows of
+#' \eqn{C} grow with opposite signs: the difference \eqn{(x_q - x_{q'}) c_q} then
+#' represents a direction outside the non-negative cone, and the fit does not
+#' settle.  In simulations such fits usually had a clearly LOWER marginal
+#' likelihood than a non-degenerate fit from another start (e.g.
+#' \code{X.init = "spa"}), i.e. the algorithm had been trapped; refit from another
+#' start and keep the larger likelihood.  Three continuous measures (columns of
+#' \eqn{X} sum to one, so \eqn{\|x_q\|_1 = 1}):
+#' \code{max.cosine}, the largest cosine similarity between two columns of
+#' \eqn{X} (and that \code{pair}); \code{cancellation}, the largest over
+#' covariates \eqn{k} of \eqn{\sum_q |c_{qk}| / \|X c_{\cdot k}\|_1}, i.e. how far
+#' the composite effect is a difference of large opposite terms; and
+#' \code{kappa.X}, the condition number of \eqn{X}.  \code{flag} is
+#' \code{max.cosine >= cos.tol || cancellation >= canc.tol}.  The defaults were
+#' set on two simulation designs (non-degenerate fits: cosine 0.55--0.83,
+#' cancellation 1.9--3.8; degenerate: cosine 0.89--0.995, cancellation
+#' 5.5--680); read the measures, not only the flag.
+#' @keywords internal
+#' @noRd
+.nmfre.degeneracy <- function(X, C, cos.tol = 0.9, canc.tol = 5) {
+  Q <- ncol(X)
+  if (Q < 2) return(list(max.cosine = NA_real_, pair = c(NA_integer_, NA_integer_),
+                         cancellation = NA_real_, kappa.X = NA_real_, flag = FALSE,
+                         cos.tol = cos.tol, canc.tol = canc.tol))
+  nrm <- sqrt(colSums(X^2)); nrm[nrm == 0] <- 1
+  cs <- crossprod(sweep(X, 2, nrm, "/")); diag(cs) <- -Inf
+  ij <- which(cs == max(cs), arr.ind = TRUE)[1, ]
+  Xi <- X %*% C
+  den <- colSums(abs(Xi)); den[den == 0] <- NA
+  canc <- suppressWarnings(max(colSums(abs(C)) / den, na.rm = TRUE))
+  kx <- tryCatch(kappa(X, exact = TRUE), error = function(e) NA_real_)
+  canc <- if (is.finite(canc)) canc else NA_real_
+  list(max.cosine = max(cs), pair = sort(as.integer(ij)), cancellation = canc,
+       kappa.X = kx, flag = isTRUE(max(cs) >= cos.tol) || isTRUE(canc >= canc.tol),
+       cos.tol = cos.tol, canc.tol = canc.tol)
+}
+
+#' Resolve fewer than Q anchor rows for nmfre() (Internal)
+#'
+#' \code{X.anchor} with fewer rows than bases anchors the first bases only:
+#' row \code{J[q]} carries basis \code{q} alone, the other bases are free.  For
+#' \eqn{Q = 3} one exact anchor row already pins the rotation that leaves the
+#' likelihood unchanged, so an anchor known from the design can be imposed
+#' without imposing anchors the data do not have.  The checks are those of
+#' \code{.nmfkc_anchor_rows()} for the rows given (no SPA here: "spa" picks
+#' all \code{Q} rows).
+#' @param Y The response as the initialisation sees it (shifted to be non-negative).
+#' @return Integer row indices, one per anchored basis.
+#' @keywords internal
+#' @noRd
+.nmfre.partial.anchor.rows <- function(X.anchor, Y, Q) {
+  P <- nrow(Y)
+  if (is.character(X.anchor)) {
+    if (is.null(rownames(Y)))
+      stop("nmfre(): X.anchor gives row names, but Y has none.  Give row indices instead.",
+           call. = FALSE)
+    J <- match(X.anchor, rownames(Y))
+    if (anyNA(J))
+      stop("nmfre(): X.anchor names row(s) not in Y: ",
+           paste(X.anchor[is.na(J)], collapse = ", "), ".", call. = FALSE)
+  } else if (is.numeric(X.anchor)) {
+    if (anyNA(X.anchor) || any(X.anchor != round(X.anchor)) ||
+        any(X.anchor < 1) || any(X.anchor > P))
+      stop(sprintf("nmfre(): X.anchor must be row indices between 1 and nrow(Y) = %d.", P),
+           call. = FALSE)
+    J <- as.integer(X.anchor)
+  } else {
+    stop("nmfre(): X.anchor must be NULL, \"spa\", or anchor rows of Y (indices or names).",
+         call. = FALSE)
+  }
+  if (anyDuplicated(J))
+    stop("nmfre(): X.anchor repeats a row; each basis needs its own anchor row.", call. = FALSE)
+  empty <- J[rowSums(Y[J, , drop = FALSE] > 0) == 0]
+  if (length(empty))
+    stop(sprintf(paste("nmfre(): anchor row(s) %s of Y have no positive entry.  An anchor row",
+                       "carries its basis alone, so that basis would be zero."),
+                 paste(empty, collapse = ", ")), call. = FALSE)
+  if (qr(Y[J, , drop = FALSE])$rank < length(J))
+    stop("nmfre(): the anchor rows of Y are linearly dependent.  Choose other rows.", call. = FALSE)
+  J
+}
+
+#' nmfre() with fewer anchor rows than bases: assignment chosen by likelihood (Internal)
+#'
+#' Which basis an anchor row belongs to is part of the estimate, so it is
+#' chosen by the marginal likelihood: (1) a free fit -- from \code{X.init} if
+#' given, else the better of the default start and \code{X.init = "spa"};
+#' (2) for every ordered choice of distinct bases for the anchor rows, a refit
+#' started from the free fit with each anchor row made pure on its basis (so the
+#' start is already on the right side of every other local solution); (3) the
+#' refit with the smallest marginal NLL.  In an HS1939-based simulation
+#' (\code{rank = 3}, one true anchor row) a single fit from the k-means start put
+#' the anchor on the wrong basis and degenerated in 9 of 24 samples; this
+#' procedure gave the true basis in 24 of 24 at a cost of 0--2.4 in NLL.
+#' @return The chosen fit, with \code{X.anchor.search} (one row per assignment:
+#'   \code{bases}, the column of the free fit each anchor row was made pure on;
+#'   \code{nll}; \code{degenerate}; \code{converged}; \code{chosen}) and
+#'   \code{nll.free}, the marginal NLL of the free fit.
+#' @keywords internal
+#' @noRd
+.nmfre.partial.anchor.fit <- function(Y, A, Q, C.signed, epsilon, maxit, extra_args, call) {
+  ea <- extra_args; ea$Q <- NULL; ea$X.anchor <- NULL; ea$.anchor.direct <- NULL
+  ## the search compares fits as they stop; the result is oriented once, at the end
+  orient <- if (!is.null(ea$orient)) match.arg(ea$orient, c("geomin", "none")) else "geomin"
+  orient.eps <- if (!is.null(ea$orient.eps)) ea$orient.eps else 0.01
+  ea$orient <- "none"
+  Ym <- as.matrix(Y)
+  Am <- if (is.null(A)) matrix(1, 1, ncol(Ym)) else as.matrix(A)
+  signed <- !(identical(C.signed, FALSE) || identical(C.signed, "nonneg"))
+  shift <- if (signed && min(Ym, na.rm = TRUE) < 0) -min(Ym, na.rm = TRUE) else 0
+  J <- .nmfre.partial.anchor.rows(extra_args$X.anchor, Ym + shift, Q)
+  fit1 <- function(args) do.call(nmfre, c(list(Y = Y, A = A, rank = Q, C.signed = C.signed,
+                                              epsilon = epsilon, maxit = maxit), args))
+  nll <- function(f) .nmfre.marginal.nll(Ym, f$X, f$C, Am, f$sigma2, f$tau2)
+  ## (1) the free fit
+  starts <- if (!is.null(ea$X.init)) list(ea) else list(ea, utils::modifyList(ea, list(X.init = "spa")))
+  frees <- Filter(Negate(is.null), lapply(starts, function(a) tryCatch(fit1(a), error = function(e) NULL)))
+  if (!length(frees)) stop("nmfre(): the free fit before imposing X.anchor failed.", call. = FALSE)
+  f0 <- frees[[which.min(vapply(frees, nll, numeric(1)))]]
+  ## (2) every ordered choice of distinct bases for the anchor rows
+  asg <- as.matrix(expand.grid(rep(list(seq_len(Q)), length(J))))
+  asg <- asg[apply(asg, 1, function(a) !anyDuplicated(a)), , drop = FALSE]
+  fits <- lapply(seq_len(nrow(asg)), function(i) {
+    X0 <- f0$X
+    for (k in seq_along(J)) {
+      s <- sum(f0$X[J[k], ]); X0[J[k], ] <- 0; X0[J[k], asg[i, k]] <- s
+    }
+    a <- utils::modifyList(ea, list(X.anchor = J, X.init = X0, C.init = f0$C, U.init = f0$U,
+                                    sigma2 = f0$sigma2, tau2 = f0$tau2, .anchor.direct = TRUE))
+    tryCatch(fit1(a), error = function(e) NULL)
+  })
+  ok <- !vapply(fits, is.null, logical(1))
+  if (!any(ok)) stop("nmfre(): every fit with X.anchor failed.", call. = FALSE)
+  ## (3) the smallest marginal NLL
+  nl <- rep(Inf, length(fits)); nl[ok] <- vapply(fits[ok], nll, numeric(1))
+  b <- which.min(nl)
+  best <- fits[[b]]
+  best$X.anchor.search <- data.frame(
+    bases = apply(asg, 1, paste, collapse = ","), nll = nl,
+    degenerate = vapply(fits, function(f) if (is.null(f)) NA else isTRUE(f$degeneracy$flag), logical(1)),
+    converged = vapply(fits, function(f) if (is.null(f)) NA else isTRUE(f$converged), logical(1)),
+    chosen = seq_along(fits) == b)
+  best$nll.free <- nll(f0)
+  best$call <- call
+  .nmfre.orient.fit(best, nonneg = !signed, orient = orient, eps = orient.eps)
+}
+
 #' Normalize columns of X to sum 1, rescaling C and U
 #'
 #' Applies X <- X D^{-1}, C <- D C, U <- D U where D = diag(colSums(X)).
@@ -181,6 +331,23 @@
 #'       through the floor this function applies to \eqn{X}.  There is no
 #'       \code{rank <= nrow(A)} limit here: the random effects give the scores
 #'       full rank.  The rows used are returned as \code{X.anchor}.
+#'       Fewer rows than bases (indices or row names) anchor the first bases
+#'       only: row \code{X.anchor[q]} carries basis \code{q} alone and the
+#'       other bases are free.  Which basis an anchor row belongs to is then
+#'       chosen by likelihood: a free fit (from \code{X.init} if given, else the
+#'       better of the default start and \code{X.init = "spa"}), a refit from
+#'       it for every assignment of the anchor rows to bases (\code{rank} refits
+#'       for one anchor row), and the refit with the smallest marginal NLL.  The
+#'       search is returned as \code{X.anchor.search} and the free fit's
+#'       marginal NLL as \code{nll.free}; their difference is the cost of the
+#'       anchors.  For \code{rank = 3} one exact anchor row already fixes the
+#'       rotation that leaves the likelihood unchanged, so impose only anchors
+#'       the design supports.  With \code{C.signed = TRUE} and a \code{Y} with
+#'       negative entries, \code{"spa"} chooses the rows on \code{Y - min(Y)},
+#'       the same shifted \code{Y} the initialisation sees (as
+#'       \code{X.init = "spa"} does); the shift is a device for the start, so
+#'       the rows chosen are then only approximately those of the
+#'       non-negative case.
 #'     \item \code{C.init}: Initial coefficient matrix (Q x K), or \code{NULL}.
 #'       When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
 #'     \item \code{U.init}: Initial random effects matrix (Q x N), or \code{NULL} (all zeros).
@@ -221,6 +388,10 @@
 #'       \code{10000} and \code{500}).
 #'     \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 #'       \eqn{\lambda} (default \code{1e-6}).
+#'     \item \code{orient}: Representation reported within the identification
+#'       region (see the return value): \code{"geomin"} (default) or \code{"none"}
+#'       (the point where the algorithm stopped).
+#'     \item \code{orient.eps}: \eqn{\varepsilon} of the geomin criterion (default 0.01).
 #'   }
 #' @return A list of class \code{"nmfre"} with components.
 #'   The model is \eqn{Y = X(\Theta A + U) + \mathcal{E}}.
@@ -262,6 +433,26 @@
 #'       log-likelihood \eqn{\ell(X,\Theta,\sigma^2,\tau^2)} per iteration
 #'       (random effects integrated out). This is the ECM-monotone quantity and
 #'       is what \code{\link{plot.nmfre}} displays.}
+#'   }
+#'
+#'   \strong{Degeneracy diagnostic}
+#'   \describe{
+#'     \item{\code{degeneracy}}{A list for detecting a degenerate fit, in which
+#'       two columns of \eqn{X} approach each other while the corresponding rows
+#'       of \eqn{C} grow with opposite signs (with \eqn{Q \ge 3} and a signed
+#'       \eqn{C}; the fit does not settle and those rows of \eqn{C} are not
+#'       interpretable).  In simulations such fits usually had a clearly lower
+#'       marginal likelihood than a fit from another start, so when \code{flag} is
+#'       \code{TRUE}, refit with e.g. \code{X.init = "spa"} and keep the fit with the
+#'       larger likelihood:
+#'       \code{max.cosine} (largest cosine similarity between two columns of
+#'       \eqn{X}) and its \code{pair}; \code{cancellation}
+#'       (\eqn{\max_k \sum_q |c_{qk}| / \|X c_{\cdot k}\|_1}, large when a composite
+#'       effect is a difference of large opposite terms); \code{kappa.X} (condition
+#'       number of \eqn{X}); and \code{flag} (\code{max.cosine >= 0.9} or
+#'       \code{cancellation >= 5}).  The thresholds were set on two simulation
+#'       designs; read the measures as well.  \code{summary()} prints a line when
+#'       \code{flag} is \code{TRUE}.}
 #'   }
 #'
 #'   \strong{Effective degrees of freedom (dfU) diagnostics}
@@ -329,6 +520,37 @@
 #'     \item{\code{C.signed}}{Logical. Whether \eqn{C} was sign-free (\code{TRUE}) or non-negative (\code{FALSE}).}
 #'   }
 #'
+#'   \strong{Identification region and orientation}
+#'
+#'   Under the working model the fits giving the same distribution are
+#'   \eqn{(XO, O^\top\Theta)} with \eqn{O} orthogonal, \eqn{O\mathbf 1=\mathbf 1}
+#'   and \eqn{XO\ge0} (and \eqn{O^\top\Theta\ge0} for \code{C.signed = FALSE}):
+#'   the identification region.  \eqn{X\Theta} is constant on it.  For
+#'   \eqn{Q=3} the \eqn{O} form a circle, and the arc through the fit is the
+#'   local identification region; the range of each entry of \eqn{\Theta} and
+#'   of \eqn{X} over the arc is computed exactly.  A width of 0 means the fit
+#'   cannot be moved within the region (a row of \eqn{X} on one basis only pins
+#'   it).  For \eqn{Q\le2} the region is a point up to relabelling; for
+#'   \eqn{Q\ge4} it is not computed.  With \code{orient = "geomin"} the
+#'   representation returned is the member of the local region that minimizes
+#'   the geomin criterion on the row shares of \eqn{X} (as rotated loadings in
+#'   exploratory factor analysis); nothing moves when the region is a point.
+#'   The likelihood and \eqn{X\Theta} do not change.
+#'   \describe{
+#'     \item{\code{C.ident.lower}, \code{C.ident.upper}, \code{C.ident.width}}{Range
+#'       of each entry of \eqn{C} over the local identification region and its
+#'       width (Q x K matrices; absent for \eqn{Q\ge4}).}
+#'     \item{\code{X.ident.lower}, \code{X.ident.upper}, \code{X.ident.width}}{The
+#'       same for \eqn{X} (P x Q matrices).}
+#'     \item{\code{identification}}{List: \code{width} (largest entry of
+#'       \code{C.ident.width}; \code{NA} for \eqn{Q\ge4}), \code{arc} and
+#'       \code{full.circle} of the region, and \code{orient}, the orientation
+#'       applied (\code{rule}, \code{angle}, \code{O}, \code{moved}: largest
+#'       change of \eqn{C}, the geomin \code{criterion} before and after,
+#'       \code{eps}, \code{note}).  \code{\link{nmfre.inference}} adds its
+#'       identifiability diagnostic to this list.}
+#'   }
+#'
 #'   Standard errors, z-values, p-values, and confidence intervals for
 #'   \eqn{\Theta} are \strong{not} computed here; obtain them by passing the fit
 #'   to \code{\link{nmfre.inference}}.
@@ -390,6 +612,16 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## Complete-EM X-step: add the posterior-variance term tr(X S X'),
   ## S = N*sigma2*(X'X+lambda I)^{-1}; FALSE recovers the conditional X-step.
   x.postvar <- if (!is.null(extra_args$x.postvar)) isTRUE(extra_args$x.postvar) else TRUE
+
+  ## Fewer anchor rows than bases (e.g. X.anchor = "x7" for rank = 3): which
+  ## basis an anchor row belongs to is part of the estimate.  Fit freely first,
+  ## refit from that fit with each assignment of the anchor rows to bases, and
+  ## keep the smallest marginal NLL (.nmfre.partial.anchor.fit()).
+  X.anchor.arg <- extra_args$X.anchor
+  if (!is.null(X.anchor.arg) && !identical(X.anchor.arg, "spa") &&
+      length(X.anchor.arg) < Q && !isTRUE(extra_args$.anchor.direct))
+    return(.nmfre.partial.anchor.fit(Y, A, Q = Q, C.signed = C.signed, epsilon = epsilon,
+                                     maxit = maxit, extra_args = extra_args, call = cl))
 
   ## MAP penalties (default off).  These act on X (basis) and C (= Theta) as
   ## Gaussian priors and are orthogonal to the random-effect machinery
@@ -457,28 +689,46 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
   ## nmfkc() (e.g. "kmeans", "runif", "nndsvd"), or a numeric basis matrix
   ## used as-is (with C then estimated given that fixed X).  A character
   ## X.init previously fell through unresolved and crashed downstream.
+  ## nmfkc() needs Y >= 0, but the sign-free fit does not: its semi-NMF X-step
+  ## splits the signs.  With C.signed = TRUE a Y with negative entries is
+  ## shifted to start the basis only, and C is then started by the exact
+  ## sign-free least squares on the original Y (below).  Before 1.0.2.9000 such
+  ## a Y stopped in the initialisation ("The matrix Y should be non-negative").
+  Y.shift <- if (C.mode == "signed" && min(Y, na.rm = TRUE) < 0) -min(Y, na.rm = TRUE) else 0
+
   ## X.anchor: anchor rows of X, kept as exact zeros for the whole fit.  The
   ## start built from them goes to the nmfkc() initialisation as a matrix,
   ## whose multiplicative updates keep the zeros, and the floor pmax(X, .eps)
   ## below puts them back wherever it would lift them.  No rank check as in
   ## nmfkc(): with the random effects U the scores have full rank anyway.
+  ## The rows are chosen, and the start is built, on the same shifted Y as the
+  ## nmfkc() initialisation (as X.init = "spa" does); before 1.0.2.9000
+  ## X.anchor = "spa" stopped on a Y with negative entries.  Fewer than Q
+  ## rows anchor the first bases only (see .nmfre.partial.anchor.rows()).
   X.anchor <- extra_args$X.anchor
   anchor.rows <- NULL; anchor.mask <- NULL
-  if (!is.null(X.anchor)) {
-    an <- .nmfkc_anchor_setup(X.anchor, Y, Q, D_A = NULL, fun = "nmfre",
+  anchor.partial <- !is.null(X.anchor) && !identical(X.anchor, "spa") &&
+    length(X.anchor) < Q
+  if (anchor.partial) {
+    anchor.rows <- .nmfre.partial.anchor.rows(X.anchor, Y + Y.shift, Q)
+    anchor.mask <- matrix(FALSE, P, Q)
+    for (q in seq_along(anchor.rows)) anchor.mask[anchor.rows[q], -q] <- TRUE
+  } else if (!is.null(X.anchor)) {
+    an <- .nmfkc_anchor_setup(X.anchor, Y + Y.shift, Q, D_A = NULL, fun = "nmfre",
                               seed = seed)
     anchor.rows <- an$rows; anchor.mask <- an$mask
     if (!is.null(X.init) && !identical(X.init, "spa"))
       message("nmfre(): X.anchor builds its own starting basis, so X.init was not used.")
     X.init <- NULL
   }
+  anchor.full <- !is.null(anchor.rows) && !anchor.partial
 
+  C.from.init <- is.null(C.init)
   if (is.null(X.init) || is.null(C.init)) {
-    init_args <- list(Y, A, Q = Q, epsilon = epsilon, seed = seed,
+    init_args <- list(Y + Y.shift, A, Q = Q, epsilon = epsilon, seed = seed,
                       nstart = nstart, print.trace = print.trace,
                       print.dims = FALSE)
-    C.from.init <- is.null(C.init)
-    if (!is.null(anchor.rows)) {
+    if (anchor.full) {
       init_args$X.init <- an$X                    # the anchored start
     } else if (is.character(X.init)) {
       init_args$X.init <- X.init                  # forward the named method
@@ -489,12 +739,36 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     res0 <- do.call(nmfkc, init_args)
     if (is.null(X.init) || is.character(X.init)) X.init <- res0$X
     if (is.null(C.init)) C.init <- res0$C
-    if (!is.null(anchor.rows)) {
+    if (anchor.full) {
       ## nmfkc() reorders its bases: put basis q back on anchor row q
       k <- apply(X.init[anchor.rows, , drop = FALSE] > 0, 1, which)
       X.init <- X.init[, k, drop = FALSE]
       if (C.from.init) C.init <- C.init[k, , drop = FALSE]
     }
+  }
+  if (anchor.partial) {
+    ## the free start gives every row some share of each basis: anchor row q
+    ## goes to the basis with its largest share among those not yet taken, and
+    ## the anchored bases are moved to the front (basis q on anchor row q)
+    X0 <- as.matrix(X.init)
+    sh <- X0 / pmax(rowSums(X0), .eps)
+    k <- integer(0)
+    for (j in anchor.rows) {
+      cand <- setdiff(seq_len(Q), k)
+      k <- c(k, cand[which.max(sh[j, cand])])
+    }
+    ord <- c(k, setdiff(seq_len(Q), k))
+    X.init <- X0[, ord, drop = FALSE]
+    C.init <- as.matrix(C.init)[ord, , drop = FALSE]
+    if (!is.null(U.init)) U.init <- as.matrix(U.init)[ord, , drop = FALSE]
+  }
+  if (Y.shift > 0 && C.from.init) {
+    ## C from the shifted Y would carry the shift; restart it by the sign-free
+    ## least squares C = (X'X)^{-1} X' Y A' (A A')^{-1} on the original Y.
+    X0 <- as.matrix(X.init)
+    C.init <- solve(crossprod(X0) + diag(1e-10, Q), crossprod(X0, Y)) %*%
+      t(A) %*% solve(tcrossprod(A) + diag(1e-10, K))
+    dimnames(C.init) <- list(colnames(X0), rownames(A))
   }
   ## pmax(X, .eps), except at the anchors' zeros
   .floorX <- function(X) {
@@ -505,6 +779,7 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
 
   X <- X.init
   stopifnot(nrow(X) == P, ncol(X) == Q)
+  if (!is.null(anchor.mask)) X[anchor.mask] <- 0   # a free start (partial anchors) has them non-zero
 
   C_mat <- C.init
   stopifnot(nrow(C_mat) == Q, ncol(C_mat) == K)
@@ -910,13 +1185,21 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE,
     ICC = ICC,
 
     ## sign convention of C (used by nmfre.inference() to pick the test side)
-    C.signed = (C.mode == "signed")
+    C.signed = (C.mode == "signed"),
+
+    ## two bases merging while C diverges (see .nmfre.degeneracy)
+    degeneracy = .nmfre.degeneracy(X, C_mat)
   )
 
   ## Added only when anchors were used, so every other fit keeps its fields.
   if (!is.null(anchor.rows))
     out$X.anchor <- stats::setNames(anchor.rows,
-      if (!is.null(colnames(out$X))) colnames(out$X) else paste0("Basis", seq_len(Q)))
+      (if (!is.null(colnames(out$X))) colnames(out$X) else
+         paste0("Basis", seq_len(Q)))[seq_along(anchor.rows)])
+  ## identification region; the representation within it (geomin by default)
+  orient <- if (!is.null(extra_args$orient)) base::match.arg(extra_args$orient, c("geomin", "none")) else "geomin"
+  out <- .nmfre.orient.fit(out, nonneg = (C.mode == "nonneg"), orient = orient,
+                           eps = if (!is.null(extra_args$orient.eps)) extra_args$orient.eps else 0.01)
   class(out) <- c("nmfre", "nmf")
   out
 }
@@ -977,6 +1260,39 @@ print.summary.nmfre <- function(x, ...) {
   invisible(x)
 }
 
+## One block for summary(): the identification region nmfre() computed.
+.nmfre.print.ident <- function(x, Q) {
+  idn <- x$identification
+  if (!is.list(idn) || (is.null(idn$width) && is.null(idn$orient))) return(invisible(NULL))
+  w <- idn$width; o <- idn$orient
+  pad <- "                      "
+  if (Q <= 2L) {
+    cat("Identification region: a point up to relabelling of the bases (Q <= 2)\n")
+  } else if (is.null(w) || !is.finite(w)) {
+    cat("Identification region: not computed (Q >= 4)\n")
+  } else if (w <= 1e-8) {
+    cat("Identification region: a point (width 0); Theta is unique up to relabelling\n")
+  } else {
+    cat(sprintf("Identification region: width of Theta up to %.3g (arc %.1f deg%s)\n", w,
+                diff(idn$arc) * 180 / pi, if (isTRUE(idn$full.circle)) ", full circle" else ""))
+    if (!is.null(o))
+      cat(pad, " reported: ",
+          if (identical(o$rule, "geomin")) sprintf("the geomin member (Theta moved by %.3g)", o$moved)
+          else "the fit as it stopped (orient = \"none\")", "\n", sep = "")
+    if (!is.null(x$C.ident.lower)) {
+      both <- which(x$C.ident.lower < 0 & x$C.ident.upper > 0)
+      if (length(both)) {
+        rn <- if (!is.null(rownames(x$C))) rownames(x$C) else paste0("Basis", seq_len(nrow(x$C)))
+        cn <- if (!is.null(colnames(x$C))) colnames(x$C) else paste0("Cov", seq_len(ncol(x$C)))
+        lab <- paste0(rep(cn, each = length(rn)), ":", rep(rn, times = length(cn)))[both]
+        cat(pad, " sign not determined by the data: ", paste(lab, collapse = ", "), "\n", sep = "")
+      }
+    }
+    cat(pad, " ranges: C.ident.lower / C.ident.upper (X: X.ident.*)\n", sep = "")
+  }
+  invisible(NULL)
+}
+
 ## Shared body: prints when `print = TRUE`, otherwise just packages the
 ## arguments so print.summary.nmfre can render later.
 .summary.nmfre.body <- function(object, ci.show = FALSE, max.coef = 20,
@@ -1022,10 +1338,22 @@ print.summary.nmfre <- function(x, ...) {
     }
   }
 
+  # ---- degeneracy (two bases merging, C diverging) ----
+  dg <- x$degeneracy
+  if (!is.null(dg) && isTRUE(dg$flag))
+    cat(sprintf(paste0("Degeneracy:           bases %d and %d nearly coincide (cosine %.3f);",
+                       " C cancellation %.1f.\n",
+                       "                      Their rows of C are not interpretable; refit from another\n",
+                       "                      start (e.g. X.init = \"spa\") and keep the larger likelihood.\n"),
+                dg$pair[1], dg$pair[2], dg$max.cosine, dg$cancellation))
+
   # ---- effective rank (BLUP scores B = Theta A + U, Q x N) ----
   eff <- if (!is.null(x$B.blup)) .effective.rank(x$B.blup) else NA_real_
   if (is.finite(eff)) cat(sprintf("Effective Rank:       %.2f / %d  (%.1f%%)\n",
                                   eff, Q, 100 * eff / Q))
+
+  # ---- identification region (from nmfre(); Q = 3) ----
+  .nmfre.print.ident(x, Q)
 
   # ---- variance components ----
   cat(sprintf("\nVariance components:\n"))
@@ -1187,6 +1515,227 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 
 
 # ============================================================
+# Identification region of C under the isotropic random effects
+# ============================================================
+
+## Under the working model, (X, C) and (XO, O'C) give the same distribution
+## exactly when O is orthogonal with O1 = 1 and XO >= 0 (and O'C >= 0 for the
+## non-negative variant).  These (X, C) form the identification region.  For
+## Q = 3 the O lie on one circle O(phi) about 1; the feasible arc through
+## phi = 0 is the local identification region.  Each entry of O(phi)'C is
+## a + b cos(phi) + c sin(phi), so its range over the arc is exact; only the
+## ends of the arc are found numerically.  Q = 1, 2: the region is a point up
+## to relabelling.  Q >= 4: not computed (the region is multi-dimensional).
+.nmfre.O3.basis <- function() base::qr.Q(base::qr(base::cbind(1, base::diag(3))))[, 2:3, drop = FALSE]
+
+.nmfre.O3 <- function(phi, V) {
+  R <- base::matrix(c(base::cos(phi), base::sin(phi), -base::sin(phi), base::cos(phi)), 2, 2)
+  base::matrix(1 / 3, 3, 3) + V %*% R %*% base::t(V)
+}
+
+.nmfre.ident.region <- function(X, C, nonneg = FALSE, tol = 1e-10, ngrid = 7200L) {
+  Q <- base::ncol(X)
+  if (Q <= 2L)
+    return(base::list(Q = Q, computed = TRUE, full = FALSE, arc = c(0, 0), lower = C, upper = C,
+                      width = C * 0, phi.lower = C * 0, phi.upper = C * 0,
+                      X.lower = X, X.upper = X, X.width = X * 0))
+  if (Q > 3L) return(base::list(Q = Q, computed = FALSE))
+  V <- .nmfre.O3.basis()
+  ctol <- tol * base::max(1, base::max(base::abs(C)))
+  g <- function(phi) {
+    O <- .nmfre.O3(phi, V)
+    m <- base::min(X %*% O)
+    if (nonneg) m <- base::min(m, base::min(base::crossprod(O, C)) * tol / ctol)
+    m
+  }
+  ph <- base::seq(-pi, pi, length.out = ngrid + 1L)
+  ok <- base::vapply(ph, g, 0) >= -tol
+  i0 <- base::which.min(base::abs(ph)); ok[i0] <- TRUE
+  full <- base::all(ok)
+  if (full) {
+    lo <- -pi; hi <- pi
+  } else {
+    n <- base::length(ph); h <- ph[2] - ph[1]
+    a <- i0; while (a > 1L && ok[a - 1L]) a <- a - 1L
+    b <- i0; while (b < n && ok[b + 1L]) b <- b + 1L
+    ## the grid's two ends are the same point of the circle: wrap around
+    if (a == 1L) { a2 <- n; while (ok[a2 - 1L]) a2 <- a2 - 1L; lo.in <- ph[a2] - 2 * pi } else lo.in <- ph[a]
+    if (b == n)  { b2 <- 1L; while (ok[b2 + 1L]) b2 <- b2 + 1L; hi.in <- ph[b2] + 2 * pi } else hi.in <- ph[b]
+    gt <- function(p) g(p) + tol
+    lo <- if (gt(lo.in - h) < 0) stats::uniroot(gt, c(lo.in - h, lo.in), tol = 1e-12)$root else lo.in
+    hi <- if (gt(hi.in + h) < 0) stats::uniroot(gt, c(hi.in, hi.in + h), tol = 1e-12)$root else hi.in
+    lo <- base::min(lo, 0); hi <- base::max(hi, 0)
+    ## an arc this short is the tolerance, not the region: a point (e.g. an anchor row)
+    if (hi - lo < 1e-7) lo <- hi <- 0
+  }
+  ## O(phi)'C = A0 + cos(phi) Bm + sin(phi) Cm;  X O(phi) likewise
+  Jt <- base::matrix(c(0, -1, 1, 0), 2, 2)               # R(phi)' = cos I + sin Jt
+  rc <- .nmfre.arc.range(base::matrix(base::colSums(C) / 3, 3, base::ncol(C), byrow = TRUE),
+                         V %*% base::crossprod(V, C), V %*% Jt %*% base::crossprod(V, C), lo, hi)
+  rx <- .nmfre.arc.range(base::matrix(base::rowSums(X) / 3, base::nrow(X), 3),
+                         X %*% V %*% base::t(V), X %*% V %*% base::t(Jt) %*% base::t(V), lo, hi)
+  base::list(Q = 3L, computed = TRUE, full = full, arc = c(lo, hi), V = V,
+             lower = rc$lower, upper = rc$upper, width = rc$upper - rc$lower,
+             phi.lower = rc$phi.lower, phi.upper = rc$phi.upper,
+             X.lower = rx$lower, X.upper = rx$upper, X.width = rx$upper - rx$lower)
+}
+
+## Exact range over phi in [lo, hi] of each entry of A0 + cos(phi) Bm + sin(phi) Cm:
+## the extremes are at the ends or where the derivative vanishes.
+.nmfre.arc.range <- function(A0, Bm, Cm, lo, hi) {
+  lower <- upper <- A0; phl <- phu <- A0 * 0
+  for (j in base::seq_along(A0)) {
+    fj <- function(p) A0[j] + base::cos(p) * Bm[j] + base::sin(p) * Cm[j]
+    p0 <- base::atan2(Cm[j], Bm[j])
+    cand <- c(lo, hi, base::as.vector(base::outer(c(p0, p0 + pi), 2 * pi * (-2:2), "+")))
+    cand <- cand[cand >= lo - 1e-12 & cand <= hi + 1e-12]
+    v <- base::vapply(cand, fj, 0)
+    lower[j] <- base::min(v); upper[j] <- base::max(v)
+    phl[j] <- cand[base::which.min(v)]; phu[j] <- cand[base::which.max(v)]
+  }
+  base::list(lower = lower, upper = upper, phi.lower = phl, phi.upper = phu)
+}
+
+## geomin criterion on the row shares of X (Yates 1987; Browne 2001)
+.nmfre.geomin.crit <- function(X, eps = 0.01) {
+  rs <- base::rowSums(X); keep <- rs > 0
+  S <- X[keep, , drop = FALSE] / rs[keep]
+  base::sum(base::apply(S^2 + eps, 1, base::prod)^(1 / base::ncol(X)))
+}
+
+## The member of the local identification region that minimizes geomin.  On a
+## full circle the cyclic permutations O(+-2pi/3) are in the region too, so the
+## search is kept to the arc between them that contains phi = 0.
+.nmfre.orient.geomin <- function(X, region, eps = 0.01, ngrid = 2000L) {
+  V <- region$V
+  crit <- function(p) .nmfre.geomin.crit(X %*% .nmfre.O3(p, V), eps)
+  arc <- if (region$full) c(-pi / 3, pi / 3) else region$arc
+  ph <- base::seq(arc[1], arc[2], length.out = ngrid + 1L)
+  v <- base::vapply(ph, crit, 0)
+  j <- base::which.min(v); h <- ph[2] - ph[1]
+  o <- stats::optimize(crit, c(base::max(arc[1], ph[j] - h), base::min(arc[2], ph[j] + h)), tol = 1e-10)
+  p <- if (o$objective <= v[j]) o$minimum else ph[j]
+  base::list(phi = p, O = .nmfre.O3(p, V), criterion = base::min(o$objective, v[j]), criterion.start = crit(0))
+}
+
+## Rotate a fit within its identification region: (X, C, U) -> (XO, O'C, O'U),
+## with the fields derived from them recomputed.  XB, XB.blup and the fit
+## statistics do not change.
+.nmfre.rotate <- function(object, O) {
+  colnorm_prob <- function(M, eps = 1e-12) base::sweep(M, 2, base::pmax(base::colSums(M), eps), "/")
+  dX <- base::dimnames(object$X); dC <- base::dimnames(object$C); dU <- base::dimnames(object$U)
+  object$X <- base::pmax(object$X %*% O, 0); base::dimnames(object$X) <- dX
+  object$C <- base::crossprod(O, object$C); base::dimnames(object$C) <- dC
+  object$U <- base::crossprod(O, object$U); base::dimnames(object$U) <- dU
+  if (!is.null(object$B)) {
+    dB <- base::dimnames(object$B); object$B <- base::crossprod(O, object$B); base::dimnames(object$B) <- dB
+    object$B.prob <- colnorm_prob(base::pmax(object$B, 0))
+  }
+  if (!is.null(object$B.blup)) {
+    dB <- base::dimnames(object$B.blup); object$B.blup <- base::crossprod(O, object$B.blup)
+    base::dimnames(object$B.blup) <- dB
+    object$B.blup.pos <- base::pmax(object$B.blup, 0)
+    object$B.blup.prob <- colnorm_prob(object$B.blup.pos)
+  }
+  object$X.prob <- object$X / (base::rowSums(object$X) + 1e-10)
+  object$X.cluster <- base::apply(object$X.prob, 1, base::which.max)
+  object$degeneracy <- .nmfre.degeneracy(object$X, object$C)
+  object
+}
+
+## Identification region and orientation of a fit, as returned by nmfre():
+## orient the representation within its local region (geomin, or none) and
+## add the ranges of C and X over the region and the identification list.
+.nmfre.orient.fit <- function(out, nonneg = FALSE, orient = "geomin", eps = 0.01) {
+  Q <- base::ncol(out$X)
+  region <- .nmfre.ident.region(out$X, out$C, nonneg = nonneg)
+  orientation <- base::list(rule = orient, angle = 0, O = base::diag(Q), moved = 0, eps = eps)
+  if (orient == "geomin" && isTRUE(region$computed) && region$Q == 3L && base::diff(region$arc) > 1e-9) {
+    og <- .nmfre.orient.geomin(out$X, region, eps = eps)
+    C.before <- out$C
+    out <- .nmfre.rotate(out, og$O)
+    orientation <- base::list(rule = "geomin", angle = og$phi, O = og$O,
+                              moved = base::max(base::abs(out$C - C.before)),
+                              criterion = og$criterion, criterion.start = og$criterion.start, eps = eps)
+    region <- .nmfre.ident.region(out$X, out$C, nonneg = nonneg)
+  }
+  orientation$note <- if (!isTRUE(region$computed)) "identification region not computed for Q >= 4"
+    else if (region$Q <= 2L) "Q <= 2: the region is a point up to relabelling"
+    else if (base::diff(region$arc) <= 1e-9 && orientation$angle == 0) "the region is a point: nothing to orient"
+    else NULL
+  if (isTRUE(region$computed)) {
+    out$C.ident.lower <- region$lower; out$C.ident.upper <- region$upper; out$C.ident.width <- region$width
+    base::dimnames(out$C.ident.lower) <- base::dimnames(out$C.ident.upper) <-
+      base::dimnames(out$C.ident.width) <- base::dimnames(out$C)
+    out$X.ident.lower <- region$X.lower; out$X.ident.upper <- region$X.upper; out$X.ident.width <- region$X.width
+    base::dimnames(out$X.ident.lower) <- base::dimnames(out$X.ident.upper) <-
+      base::dimnames(out$X.ident.width) <- base::dimnames(out$X)
+  }
+  out$identification <- base::list(
+    width = if (isTRUE(region$computed)) base::max(region$width) else NA_real_,
+    arc = if (isTRUE(region$computed)) region$arc else NULL,
+    full.circle = isTRUE(region$full), orient = orientation)
+  out
+}
+
+## Profile marginal likelihood intervals for entries of C (sign-free C).  For
+## each entry the profile is followed outward from the member of the local
+## identification region attaining the end (from the estimate when the region
+## is not computed), in steps of `step` standard errors, each step warm-started
+## from the previous one.  The optimization is local, so the profile stays in
+## the component of the estimate (other components and relabelings, which
+## also attain the maximum, are not visited).
+.nmfre.profile.ci <- function(object, Y, A, se, region, which, level = 0.95, step = 0.25,
+                              maxstep = 24L) {
+  X <- object$X; C <- object$C; P <- base::nrow(Y); N <- base::ncol(Y)
+  Q <- base::ncol(X); K <- base::nrow(A); crit <- stats::qchisq(level, 1)
+  nll <- function(Xm, Cm, s2, t2) {
+    S <- t2 * base::tcrossprod(Xm) + s2 * base::diag(P); R <- Y - Xm %*% Cm %*% A
+    if (!base::all(base::is.finite(S)) || !base::all(base::is.finite(R))) return(1e10)
+    ch <- base::tryCatch(base::chol(S), error = function(e) NULL)
+    if (is.null(ch)) return(1e10)
+    0.5 * (N * (P * base::log(2 * pi) + 2 * base::sum(base::log(base::diag(ch)))) +
+             base::sum(base::backsolve(ch, R, transpose = TRUE)^2))
+  }
+  unpack <- function(par, idx, cval) {
+    z <- base::matrix(par[1:(P * Q)], P, Q); Xm <- z^2; Xm <- base::sweep(Xm, 2, base::colSums(Xm), "/")
+    th <- base::numeric(Q * K); th[-idx] <- par[P * Q + base::seq_len(Q * K - 1L)]; th[idx] <- cval
+    base::list(X = Xm, C = base::matrix(th, Q, K), s2 = base::exp(par[P * Q + Q * K]),
+               t2 = base::exp(par[P * Q + Q * K + 1L]))
+  }
+  pack <- function(Xm, Cm, idx) c(base::as.vector(base::sqrt(base::pmax(Xm, 1e-6))), base::as.vector(Cm)[-idx],
+                                  base::log(object$sigma2), base::log(object$tau2))
+  nll0 <- nll(X, C, object$sigma2, object$tau2)
+  have.region <- isTRUE(region$computed) && region$Q == 3L
+  out <- base::lapply(which, function(idx) {
+    sd <- base::max(se[idx], 1e-8); est <- C[idx]
+    side <- function(dir) {
+      if (have.region) {
+        p <- if (dir > 0) region$phi.upper[idx] else region$phi.lower[idx]
+        O <- .nmfre.O3(p, region$V); X0 <- X %*% O; C0 <- base::crossprod(O, C)
+        c0 <- if (dir > 0) region$upper[idx] else region$lower[idx]
+      } else { X0 <- X; C0 <- C; c0 <- est }
+      par <- pack(X0, C0, idx); dprev <- 0; cprev <- c0; low <- 0
+      for (s in base::seq_len(maxstep)) {
+        cval <- c0 + dir * step * s * sd
+        o <- stats::optim(par, function(pp) { u <- unpack(pp, idx, cval); nll(u$X, u$C, u$s2, u$t2) },
+                          method = "BFGS", control = base::list(maxit = 5000, reltol = 1e-12))
+        par <- o$par; d <- 2 * (o$value - nll0); low <- base::min(low, d)
+        if (d > crit)
+          return(base::list(end = cprev + (crit - dprev) / (d - dprev) * (cval - cprev), reached = TRUE, low = low))
+        dprev <- base::max(d, 0); cprev <- cval
+      }
+      base::list(end = c0 + dir * step * maxstep * sd, reached = FALSE, low = low)
+    }
+    up <- side(1); dn <- side(-1)
+    base::data.frame(idx = idx, Lower = dn$end, Upper = up$end, reached = up$reached && dn$reached,
+                     below.fit = -base::min(up$low, dn$low, 0))
+  })
+  base::do.call(base::rbind, out)
+}
+
+
+# ============================================================
 # nmfre.inference() - statistical inference on C (separated)
 # ============================================================
 
@@ -1220,7 +1769,26 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 #'     \item{\code{C.p.side}}{P-value type: \code{"one.sided"} (default) or \code{"two.sided"}.}
 #'     \item{\code{cov.ridge}}{Ridge stabilization. Default is 1e-8.}
 #'     \item{\code{print.trace}}{Logical. Default is \code{FALSE}.}
+#'     \item{\code{profile}}{Logical. If \code{TRUE}, also computes profile-likelihood
+#'       intervals for the entries of \eqn{C} (sign-free \eqn{C} only). Default
+#'       \code{FALSE}: each entry needs a sequence of constrained refits.}
+#'     \item{\code{profile.which}}{Entries of \eqn{vec(C)} to profile. Default all.}
+#'     \item{\code{profile.level}}{Level of the profile intervals. Default 0.95.}
+#'     \item{\code{profile.step}, \code{profile.maxstep}}{Step, in standard errors, and
+#'       number of steps of the outward search. Defaults 0.25 and 24.}
 #'   }
+#'
+#' @details
+#' Inference is on the representation returned by \code{\link{nmfre}}
+#' (by default oriented by geomin within its identification region; see
+#' there).  Its \code{C.ident.*} and \code{X.ident.*} ranges are kept.
+#'
+#' \strong{Profile intervals.} With \code{profile = TRUE}, for each entry the
+#' profile marginal likelihood is followed outward from the end of its
+#' identification region until twice the drop exceeds the
+#' \eqn{\chi^2_1} quantile; the interval is the level set.  The search is
+#' local: other components of the region and relabellings, which attain the
+#' same maximum, are not visited.
 #'
 #' @return The input \code{object} with additional inference components:
 #' \item{sigma2.used}{Estimated \eqn{\sigma^2} used for inference.}
@@ -1243,7 +1811,13 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 #'   An algebraic check on the point estimate: no re-fits.}
 #' \item{identification}{The parts of the diagnostic, plus \code{by.assumption}
 #'   (the isotropic argument above holds, with \eqn{\tau^2>0}) and, for a signed
-#'   \eqn{C}, \code{note}.}
+#'   \eqn{C}, \code{note}.  The identification-region entries that
+#'   \code{\link{nmfre}} put in this list (\code{width}, \code{arc},
+#'   \code{full.circle}, \code{orient}) are kept.}
+#' \item{C.profile.lower, C.profile.upper, C.profile.reached}{With
+#'   \code{profile = TRUE}: profile-likelihood interval of each entry of
+#'   \eqn{C} (Q x K matrices, \code{NA} for entries not profiled) and whether
+#'   the level was crossed on both sides.}
 #'
 #' @seealso \code{\link{nmfre}}, \code{\link{nmfkc.DOT}},
 #'   \code{\link{summary.nmfre}}
@@ -1264,6 +1838,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
     stop("object must be of class 'nmfre' (returned by nmfre).")
 
   extra_args <- base::list(...)
+  profile <- base::isTRUE(extra_args$profile)
   wild.B      <- if (!is.null(extra_args$wild.B))      extra_args$wild.B      else 500
   wild.seed   <- if (!is.null(extra_args$wild.seed))   extra_args$wild.seed   else 123
   ## Keep our own seeding out of the caller's random stream.
@@ -1430,6 +2005,23 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   object$C.ci.upper   <- C.ci.upper
   object$coefficients <- coefficients
   object$C.p.side     <- C.p.side
+
+  ## ---- optional profile-likelihood intervals (sign-free C) ----
+  if (base::isTRUE(profile)) {
+    if (C.mode != "signed") {
+      base::warning("profile = TRUE is implemented for a sign-free C (C.signed = TRUE) only; skipped.")
+    } else {
+      p.which <- if (!is.null(extra_args$profile.which)) extra_args$profile.which else base::seq_along(C_mat)
+      region <- .nmfre.ident.region(X, C_mat)
+      pr <- .nmfre.profile.ci(object, Y, A, se = se_vec, region = region, which = p.which,
+              level = if (!is.null(extra_args$profile.level)) extra_args$profile.level else 0.95,
+              step = if (!is.null(extra_args$profile.step)) extra_args$profile.step else 0.25,
+              maxstep = if (!is.null(extra_args$profile.maxstep)) extra_args$profile.maxstep else 24L)
+      plo <- pup <- C_mat * NA_real_; prc <- base::matrix(NA, Q, K, dimnames = base::dimnames(C_mat))
+      plo[pr$idx] <- pr$Lower; pup[pr$idx] <- pr$Upper; prc[pr$idx] <- pr$reached
+      object$C.profile.lower <- plo; object$C.profile.upper <- pup; object$C.profile.reached <- prc
+    }
+  }
   ## Is (X, C) unique up to a permutation?  Y ~ X (C A + U): X >= 0 with
   ## columns summing to one; U and B = C A + U are sign-free.  With C >= 0
   ## (C.signed = FALSE) the diagnostic of nmfkc.inference() applies to (X, C).
@@ -1451,7 +2043,10 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
       else "not even under the isotropic random effects")
   }
   object$identified.approx <- v$identified.approx
-  object$identification    <- v$identification
+  ## keep the identification-region entries nmfre() put in this list
+  id <- if (base::is.list(object$identification)) object$identification else base::list()
+  for (nm in base::names(v$identification)) id[[nm]] <- v$identification[[nm]]
+  object$identification    <- id
   ## Tag it as an inference result, as nmfkc.inference / nmf.rrr.inference do.
   ## Without this the class stayed c("nmfre", "nmf") and print() fell to
   ## print.nmf, showing the ten-line fit header instead of the coefficient

@@ -72,3 +72,192 @@ test_that("nmfre.inference: identification is NA for a signed C, by the data for
   expect_false(is.na(inf2$identified.approx))
   expect_identical(inf2$identified.approx, nmfkc:::.ident.verdict(f2$X, f2$C, A)$identified.approx)
 })
+
+test_that("nmfre(): a sign-free fit starts on a Y with negative entries", {
+  skip_unless_full()
+  ## Before 1.0.2.9000 the nmfkc() initialisation stopped on min(Y) < 0 although
+  ## the sign-free model allows it.  Now the basis starts on the shifted Y and C
+  ## by sign-free least squares on the original Y.
+  set.seed(7); P <- 6; N <- 60; Q <- 2
+  A  <- rbind(intercept = 1, x = runif(N, 0, 2))
+  Xt <- matrix(rgamma(P * Q, 1) + 0.2, P, Q); Xt <- sweep(Xt, 2, colSums(Xt), "/")
+  Th <- cbind(intercept = c(2, 1), x = c(-1, 0.5))
+  Y  <- Xt %*% (Th %*% A + matrix(rnorm(Q * N, 0, 0.5), Q, N)) +
+          matrix(rnorm(P * N, 0, 0.1), P, N)
+  expect_lt(min(Y), 0)
+  f <- nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE)
+  expect_s3_class(f, "nmfre")
+  expect_true(all(is.finite(f$C)))
+  expect_true(all(f$X >= 0))
+  ## C.signed = FALSE still needs Y >= 0
+  expect_error(nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE, C.signed = FALSE))
+})
+
+## data with an exact anchor row for each basis listed in `anchors` (row -> basis)
+anchor_data <- function(seed = 11, P = 9, N = 120, Q = 3, anchors = c(`7` = 3), shift = 0) {
+  set.seed(seed)
+  A  <- rbind(intercept = 1, x = runif(N, 0, 2), z = rbinom(N, 1, 0.5))
+  Xt <- matrix(runif(P * Q, 0.2, 1), P, Q)
+  for (j in names(anchors)) { Xt[as.integer(j), ] <- 0; Xt[as.integer(j), anchors[[j]]] <- 1 }
+  Xt <- sweep(Xt, 2, colSums(Xt), "/")
+  Th <- matrix(c(2, 1, 3, -1, 0.5, 0.8, 0.3, -0.4, 0.2)[seq_len(Q * 3)], Q, 3)
+  Y  <- Xt %*% (Th %*% A + matrix(rnorm(Q * N, 0, 0.5), Q, N)) +
+          matrix(rnorm(P * N, 0, 0.05), P, N) - shift
+  rownames(Y) <- paste0("y", seq_len(P))
+  list(Y = Y, A = A, Xt = Xt)
+}
+
+test_that("nmfre(): X.anchor = 'spa' works on a Y with negative entries", {
+  skip_unless_full()
+  ## Before 1.0.2.9000 the anchor SPA ran on Y itself and stopped ("SPA needs a
+  ## non-negative Y"), while X.init = "spa" ran on the shifted Y.
+  d <- anchor_data(Q = 2, anchors = c(`3` = 1, `7` = 2), shift = 0.3)
+  expect_lt(min(d$Y), 0)
+  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 2, X.anchor = "spa", seed = 1, verbose = FALSE))
+  J <- f$X.anchor
+  expect_length(J, 2)
+  for (q in 1:2) {
+    expect_true(all(f$X[J[q], -q] == 0))
+    expect_gt(f$X[J[q], q], 0)
+  }
+})
+
+test_that("nmfre(): fewer anchor rows than bases anchor the first bases only", {
+  skip_unless_full()
+  d <- anchor_data(Q = 3, anchors = c(`7` = 3))
+  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE))
+  expect_identical(unname(f$X.anchor), 7L)
+  expect_identical(names(f$X.anchor), colnames(f$X)[1])
+  expect_true(all(f$X[7, -1] == 0))
+  expect_gt(f$X[7, 1], 0)
+  expect_true(all(f$X[-7, ] > 0))                  # no other zeros imposed
+  ## the basis of the anchor row is chosen by likelihood over all 3 assignments
+  s <- f$X.anchor.search
+  expect_identical(nrow(s), 3L)
+  expect_identical(which(s$chosen), which.min(s$nll))
+  expect_equal(min(s$nll),
+               nmfkc:::.nmfre.marginal.nll(d$Y, f$X, f$C, d$A, f$sigma2, f$tau2), tolerance = 1e-8)
+  expect_true(is.numeric(f$nll.free))
+  expect_identical(f$call[[1]], quote(nmfre))
+  ## by row name, on a Y with negative entries, with an X.init method (used, no message)
+  d2 <- anchor_data(Q = 3, anchors = c(`7` = 3), shift = 0.5)
+  expect_lt(min(d2$Y), 0)
+  msgs <- character(0)
+  f2 <- withCallingHandlers(suppressWarnings(nmfre(d2$Y, d2$A, rank = 3, X.anchor = "y7",
+                                                   X.init = "kmeans++", seed = 2, verbose = FALSE)),
+          message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+  expect_false(any(grepl("X.init was not used", msgs)))
+  expect_true(all(f2$X[7, -1] == 0))
+  ## two of three
+  f3 <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = c("y7", "y1"), seed = 1, verbose = FALSE))
+  expect_identical(unname(f3$X.anchor), c(7L, 1L))
+  expect_true(all(f3$X[7, -1] == 0) && all(f3$X[1, -2] == 0))
+  expect_identical(nrow(f3$X.anchor.search), 6L)   # 3 x 2 ordered choices of bases
+  ## refused as for full anchors
+  expect_error(nmfre(d$Y, d$A, rank = 3, X.anchor = c(7, 7), verbose = FALSE), "repeats a row")
+  expect_error(nmfre(d$Y, d$A, rank = 3, X.anchor = 12, verbose = FALSE), "between 1 and nrow")
+  expect_error(nmfre(d$Y, d$A, rank = 3, X.anchor = "y99", verbose = FALSE), "not in Y")
+})
+
+test_that("identification region (Q = 3): exact range, arc ends, a point under an anchor", {
+  skip_unless_full()
+  d1 <- anchor_data()                                   # x7 loads on basis 3 only
+  Th <- matrix(c(2, 1, 3, -1, 0.5, 0.8, 0.3, -0.4, 0.2), 3, 3)
+  M  <- 0.9 * diag(3) + 0.05 * (matrix(1, 3, 3) - diag(3))   # mix the bases: no zero left
+  Xm <- d1$Xt %*% M
+  r <- nmfkc:::.nmfre.ident.region(Xm, Th)
+  expect_true(r$computed && !r$full)
+  expect_lt(r$arc[1], 0); expect_gt(r$arc[2], 0)
+  V <- nmfkc:::.nmfre.O3.basis()
+  ## O(phi) is orthogonal, fixes 1, and the ends of the arc are where X O first turns negative
+  O <- nmfkc:::.nmfre.O3(0.3, V)
+  expect_equal(crossprod(O), diag(3), tolerance = 1e-12)
+  expect_equal(as.vector(O %*% rep(1, 3)), rep(1, 3), tolerance = 1e-12)
+  expect_gte(min(Xm %*% nmfkc:::.nmfre.O3(r$arc[2], V)), -1e-9)
+  expect_lt(min(Xm %*% nmfkc:::.nmfre.O3(r$arc[2] + 1e-3, V)), 0)
+  expect_lt(min(Xm %*% nmfkc:::.nmfre.O3(r$arc[1] - 1e-3, V)), 0)
+  ## the exact range of each entry of O'C over the arc matches a fine scan
+  ph <- seq(r$arc[1], r$arc[2], length.out = 20001)
+  path <- sapply(ph, function(p) as.vector(crossprod(nmfkc:::.nmfre.O3(p, V), Th)))
+  expect_equal(as.vector(r$lower), apply(path, 1, min), tolerance = 1e-6)
+  expect_equal(as.vector(r$upper), apply(path, 1, max), tolerance = 1e-6)
+  pathX <- sapply(ph, function(p) as.vector(Xm %*% nmfkc:::.nmfre.O3(p, V)))
+  expect_equal(as.vector(r$X.lower), apply(pathX, 1, min), tolerance = 1e-6)
+  expect_equal(as.vector(r$X.upper), apply(pathX, 1, max), tolerance = 1e-6)
+  expect_gte(min(r$X.lower), -1e-9)                     # X stays non-negative on the arc
+  ## an anchor row (x7 on basis 3) pins the rotation: the region is a point
+  r1 <- nmfkc:::.nmfre.ident.region(d1$Xt, Th)
+  expect_lt(max(r1$width), 1e-6)
+  ## rows far inside the orthant: the whole circle (cyclic relabellings included)
+  d <- anchor_data(anchors = c())
+  expect_true(nmfkc:::.nmfre.ident.region(d$Xt, Th)$full)
+  ## Q = 2: a point up to relabelling; Q = 4: not computed
+  expect_equal(nmfkc:::.nmfre.ident.region(d$Xt[, 1:2] / rep(colSums(d$Xt[, 1:2]), each = 9), Th[1:2, ])$width,
+               Th[1:2, ] * 0)
+  expect_false(nmfkc:::.nmfre.ident.region(matrix(1 / 9, 9, 4), matrix(1, 4, 2))$computed)
+})
+
+test_that("nmfre(): geomin orientation within the identification region, likelihood and Xi unchanged", {
+  skip_unless_full()
+  d <- anchor_data()
+  Th <- matrix(c(2, 1, 3, -1, 0.5, 0.8, 0.3, -0.4, 0.2), 3, 3,
+               dimnames = list(paste0("Basis", 1:3), rownames(d$A)))
+  N <- ncol(d$Y)
+  M  <- 0.9 * diag(3) + 0.05 * (matrix(1, 3, 3) - diag(3))
+  Xm <- d$Xt %*% M
+  ## a representation inside the region, away from the geomin member
+  V <- nmfkc:::.nmfre.O3.basis(); r <- nmfkc:::.nmfre.ident.region(Xm, Th)
+  expect_gt(max(r$width), 0)
+  O <- nmfkc:::.nmfre.O3(r$arc[2] * 0.6, V)
+  fit <- list(X = Xm %*% O, C = crossprod(O, Th), U = matrix(0, 3, N), sigma2 = 0.05^2, tau2 = 0.25)
+  fo <- nmfkc:::.nmfre.orient.fit(fit)                  # what nmfre() does at its end
+  nll <- function(o) nmfkc:::.nmfre.marginal.nll(d$Y, o$X, o$C, d$A, o$sigma2, o$tau2)
+  expect_identical(fo$identification$orient$rule, "geomin")
+  expect_gt(fo$identification$orient$moved, 0)
+  expect_equal(nll(fo), nll(fit), tolerance = 1e-8)
+  expect_equal(fo$X %*% fo$C, fit$X %*% fit$C, tolerance = 1e-10)
+  expect_equal(unname(colSums(fo$X)), rep(1, 3), tolerance = 1e-8)
+  expect_lte(fo$identification$orient$criterion, fo$identification$orient$criterion.start + 1e-12)
+  ## the reported ranges contain the representation; the width is that of the start
+  expect_true(all(fo$C.ident.lower - 1e-8 <= fo$C & fo$C <= fo$C.ident.upper + 1e-8))
+  expect_true(all(fo$X.ident.lower - 1e-8 <= fo$X & fo$X <= fo$X.ident.upper + 1e-8))
+  expect_equal(fo$C.ident.width, fo$C.ident.upper - fo$C.ident.lower)
+  expect_equal(fo$identification$width, max(r$width), tolerance = 1e-6)
+  expect_identical(dimnames(fo$C.ident.lower), dimnames(fo$C))
+  ## orient = "none" keeps the representation
+  fn <- nmfkc:::.nmfre.orient.fit(fit, orient = "none")
+  expect_equal(fn$C, fit$C)
+  expect_identical(fn$identification$orient$rule, "none")
+  expect_equal(fn$identification$width, fo$identification$width, tolerance = 1e-6)
+  ## summary() reports the width, the orientation and the coefficients of undetermined sign
+  fs <- structure(c(fo, list(B.blup = matrix(0, 3, N), sigma2 = 0.05^2, tau2 = 0.25, lambda = 0.01,
+                             ICC = 0.5, dfU = 10, converged = TRUE)), class = c("nmfre", "nmf"))
+  out <- capture.output(nmfkc:::.nmfre.print.ident(fs, 3))
+  expect_match(out[1], "width of Theta up to")
+  expect_match(paste(out, collapse = " "), "geomin member")
+})
+
+test_that("nmfre(): anchored fit has width 0; nmfre.inference() keeps it; optional profile intervals", {
+  skip_unless_full()
+  d <- anchor_data(Q = 3, anchors = c(`7` = 3))
+  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE))
+  expect_lt(f$identification$width, 1e-6)
+  expect_equal(f$identification$orient$angle, 0)
+  expect_true(all(f$X[7, -1] == 0))                  # the anchor zeros stay exact
+  expect_output(print(summary(f)), "Identification region: a point")
+  fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE, orient = "none"))
+  expect_equal(fn$C, f$C)
+  fi <- nmfre.inference(f, d$Y, d$A, wild.bootstrap = FALSE)
+  expect_equal(fi$C, f$C)
+  expect_equal(fi$identification$width, f$identification$width)   # kept
+  expect_false(is.null(fi$identification$by.assumption))            # diagnostic added
+  expect_equal(fi$C.ident.width, f$C.ident.width)
+  expect_null(fi$C.profile.lower)
+  fp <- nmfre.inference(f, d$Y, d$A, wild.bootstrap = FALSE, profile = TRUE, profile.which = 4)
+  expect_identical(sum(!is.na(fp$C.profile.lower)), 1L)
+  expect_true(fp$C.profile.reached[4])
+  expect_lt(fp$C.profile.lower[4], fp$C[4]); expect_gt(fp$C.profile.upper[4], fp$C[4])
+  ## close to the Wald interval when the region is a point
+  se <- fp$C.se[4]
+  expect_lt(abs((fp$C.profile.upper[4] - fp$C.profile.lower[4]) / (2 * qnorm(0.975) * se) - 1), 0.5)
+})
