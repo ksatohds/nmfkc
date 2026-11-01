@@ -261,3 +261,23 @@ test_that("nmfre(): anchored fit has width 0; nmfre.inference() keeps it; option
   se <- fp$C.se[4]
   expect_lt(abs((fp$C.profile.upper[4] - fp$C.profile.lower[4]) / (2 * qnorm(0.975) * se) - 1), 0.5)
 })
+
+test_that("nmfre.inference(): the identification note follows the region computed by nmfre()", {
+  skip_unless_full()
+  ## an anchor row on one basis only, yet the region is a point: locally unique
+  d <- anchor_data(Q = 3, anchors = c(`7` = 3))
+  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE))
+  fi <- nmfre.inference(f, d$Y, d$A, wild.bootstrap = FALSE)
+  expect_false(all(fi$identification$anchor))
+  expect_lt(fi$identification$width, 1e-6)
+  expect_identical(fi$identification$by.assumption, isTRUE(f$tau2 > 0))
+  expect_match(fi$identification$note, "locally unique")
+  ## no anchor row: a region of positive width, and the note gives it
+  d0 <- anchor_data(Q = 3, anchors = NULL)
+  f0 <- suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, seed = 1, verbose = FALSE))
+  expect_gt(f0$identification$width, 1e-6)
+  fi0 <- nmfre.inference(f0, d0$Y, d0$A, wild.bootstrap = FALSE)
+  expect_false(fi0$identification$by.assumption)
+  expect_match(fi0$identification$note, "identification region of width")
+  expect_false(grepl("not even", fi0$identification$note))
+})

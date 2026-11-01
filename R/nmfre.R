@@ -1810,7 +1810,9 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 #'   every basis has an anchor row.  That is identification by assumption.
 #'   An algebraic check on the point estimate: no re-fits.}
 #' \item{identification}{The parts of the diagnostic, plus \code{by.assumption}
-#'   (the isotropic argument above holds, with \eqn{\tau^2>0}) and, for a signed
+#'   (the isotropic argument above holds, with \eqn{\tau^2>0}: \eqn{Q\le2}, an
+#'   anchor row on every basis, or, for \eqn{Q=3}, an identification region
+#'   computed by \code{\link{nmfre}} that is a point) and, for a signed
 #'   \eqn{C}, \code{note}.  The identification-region entries that
 #'   \code{\link{nmfre}} put in this list (\code{width}, \code{arc},
 #'   \code{full.circle}, \code{orient}) are kept.}
@@ -2034,13 +2036,25 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
   pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 0.01
   v <- .ident.verdict(X, C_mat, A, scale.fixed = TRUE, sep.tol = sep.tol, pin.tol = pin.tol)
-  v$identification$by.assumption <- isTRUE(tau2 > 0) && (Q <= 2L || all(v$identification$anchor))
+  ## For Q = 3 nmfre() computed the identification region under those random
+  ## effects exactly; an anchor row on every basis is only a sufficient
+  ## condition for it to be a point, so the region decides when it is there.
+  w.region <- if (base::is.list(object$identification)) object$identification$width else NULL
+  region.known <- Q == 3L && !is.null(w.region) && base::is.finite(w.region)
+  v$identification$by.assumption <- isTRUE(tau2 > 0) &&
+    (Q <= 2L || all(v$identification$anchor) || (region.known && w.region <= 1e-8))
   if (C.mode == "signed") {
     v$identified.approx <- NA
     v$identification$note <- paste0(
       "not by the data (C is signed); ",
-      if (v$identification$by.assumption) "unique up to a permutation under the isotropic random effects"
-      else "not even under the isotropic random effects")
+      if (v$identification$by.assumption) {
+        if (Q <= 2L || all(v$identification$anchor))
+          "unique up to a permutation under the isotropic random effects"
+        else "locally unique under the isotropic random effects (identification region a point)"
+      } else if (region.known && isTRUE(tau2 > 0)) {
+        base::sprintf("under the isotropic random effects, an identification region of width %.3g (C.ident.lower, C.ident.upper)",
+                      w.region)
+      } else "not established under the isotropic random effects")
   }
   object$identified.approx <- v$identified.approx
   ## keep the identification-region entries nmfre() put in this list
