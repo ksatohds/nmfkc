@@ -201,14 +201,18 @@
 
 #' Degeneracy diagnostic of an NMF-RE fit (two bases merging, C diverging)
 #'
-#' With \eqn{Q \ge 3} and a signed \eqn{C}, a fit can drift along a path on which
+#' With \eqn{Q \ge 2} and a signed \eqn{C}, a fit can drift along a path on which
 #' two columns of \eqn{X} approach each other while the corresponding rows of
 #' \eqn{C} grow with opposite signs: the difference \eqn{(x_q - x_{q'}) c_q} then
 #' represents a direction outside the non-negative cone, and the fit does not
-#' settle.  In simulations such fits usually had a clearly LOWER marginal
-#' likelihood than a non-degenerate fit from another start (e.g.
-#' \code{X.init = "spa"}), i.e. the algorithm had been trapped; refit from another
-#' start and keep the larger likelihood.  Three continuous measures (columns of
+#' settle.  Two bases suffice, so this is not tied to the rotational
+#' indeterminacy of \eqn{Q \ge 3} (seen at \eqn{Q = 2} on Orthodont, a rank the
+#' data do not support, and on test data).  In simulations such fits usually
+#' had a clearly LOWER marginal likelihood than a non-degenerate fit, i.e. the
+#' algorithm had been trapped -- in the HS-based simulation of the NMF-RE paper
+#' (\eqn{Q = 3}) mostly by the old variance start \eqn{\sigma^2 = \tau^2 = 1},
+#' from which every data-driven basis start fell in; refit from another start
+#' and keep the larger likelihood.  Three continuous measures (columns of
 #' \eqn{X} sum to one, so \eqn{\|x_q\|_1 = 1}):
 #' \code{max.cosine}, the largest cosine similarity between two columns of
 #' \eqn{X} (and that \code{pair}); \code{cancellation}, the largest over
@@ -734,9 +738,10 @@
 #'   \describe{
 #'     \item{\code{degeneracy}}{A list for detecting a degenerate fit, in which
 #'       two columns of \eqn{X} approach each other while the corresponding rows
-#'       of \eqn{C} grow with opposite signs (with \eqn{Q \ge 3} and a signed
-#'       \eqn{C}; the fit does not settle and those rows of \eqn{C} are not
-#'       interpretable).  In simulations such fits usually had a clearly lower
+#'       of \eqn{C} grow with opposite signs (with \eqn{Q \ge 2} and a signed
+#'       \eqn{C}: two bases suffice, so it can happen at \eqn{Q = 2} as well,
+#'       e.g. when the rank exceeds what the data support; the fit does not
+#'       settle and those rows of \eqn{C} are not interpretable).  In simulations such fits usually had a clearly lower
 #'       marginal likelihood than a fit from another start, so the default
 #'       \code{X.init = "mix2"} refits from other starts while \code{flag} is
 #'       \code{TRUE} and keeps the fit with the larger likelihood:

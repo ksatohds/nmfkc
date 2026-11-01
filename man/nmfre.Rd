@@ -222,9 +222,10 @@ is what \code{\link{plot.nmfre}} displays.}
 \describe{
 \item{\code{degeneracy}}{A list for detecting a degenerate fit, in which
 two columns of \eqn{X} approach each other while the corresponding rows
-of \eqn{C} grow with opposite signs (with \eqn{Q \ge 3} and a signed
-\eqn{C}; the fit does not settle and those rows of \eqn{C} are not
-interpretable).  In simulations such fits usually had a clearly lower
+of \eqn{C} grow with opposite signs (with \eqn{Q \ge 2} and a signed
+\eqn{C}: two bases suffice, so it can happen at \eqn{Q = 2} as well,
+e.g. when the rank exceeds what the data support; the fit does not
+settle and those rows of \eqn{C} are not interpretable).  In simulations such fits usually had a clearly lower
 marginal likelihood than a fit from another start, so the default
 \code{X.init = "mix2"} refits from other starts while \code{flag} is
 \code{TRUE} and keeps the fit with the larger likelihood:
