@@ -1,5 +1,43 @@
 # nmfkc (development version)
 
+## `nmfre()`: new argument `X.update = c("exact", "semi")`; the exact X-step is the default
+
+**Fits change**: the default X-step is now `"exact"` (below).  `X.update =
+"semi"` reproduces the fits of 1.0.3 and earlier.  On the package's examples
+(Holzinger-Swineford, college, Orthodont, inaugural-address topics, OD-HUB;
+nine starts each) `"exact"` took as long as `"semi"` or less (2 x faster on the
+first two, 0.6 s slower on the topics) and reached the same best point from
+every start, where `"semi"` stopped short of it on three of them; with
+`X.L2.ortho` / `X.L2.smooth`, which `"exact"` does not support, the default
+falls back to `"semi"` with a message.
+
+The X-step of 1.0.3 and earlier (`"semi"`) is the complete-EM semi-NMF
+multiplicative step followed by the column renormalization
+`X -> X D^-1`, `(C, U) -> (D C, D U)`.  The renormalization keeps the fitted
+mean but not the likelihood (the random-effect penalty and `tau2 X X'` change
+with the column scales), so the fit can stop slightly short of a stationary
+point: on the inaugural-address topic example (`C.signed = FALSE`) 2 x NLL
+0.47 above the constrained optimum, on the OD-HUB example 0.74.
+
+`X.update = "exact"` minimizes the X-block exactly under `X >= 0` and
+`1'X = 1'`, a convex quadratic program: given the multipliers of the column
+sums the rows decouple into small non-negative least squares (solved for all
+rows at once by trying every free set), and the multipliers solve the column-sum
+equations by a damped semismooth Newton method on the concave dual.  No
+renormalization is needed; with the exact U- and C-steps every block update is
+an exact minimization and the fit reaches the constrained optimum (topic
+example: 2 x NLL equal to direct maximization to 1e-6).  It is slower per
+iteration but needs fewer outer iterations (topic example: 8 s against 2 s;
+on Holzinger-Swineford from an SPA start, where `"semi"` took 247 s, it
+finished in about 1 s from the `"semi"` fit).  The fit records `X.update`.
+
+A `"semi"` fit now checks itself: 50 iterations of `X.update = "exact"` are
+run from it (a fraction of a second on the examples; they reach 85-98% of
+what a full `"exact"` fit gains), the decrease of 2 x NLL is stored as
+`kkt$improvement`, shown by `summary()`, and a message suggests
+`X.update = "exact"` when it exceeds `kkt.tol` (default 0.1).
+`kkt.check = FALSE` (through `...`) turns this off.
+
 ## `nmfre(C.signed = FALSE)`: exact updates, so the fit reaches a stationary point
 
 With `C >= 0` the C-step used a multiplicative update acting on the positive

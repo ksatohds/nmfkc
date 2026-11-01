@@ -9,6 +9,7 @@ nmfre(
   A = NULL,
   rank = 2,
   C.signed = TRUE,
+  X.update = c("exact", "semi"),
   epsilon = 1e-05,
   maxit = 5000,
   ...
@@ -26,12 +27,29 @@ For backward compatibility, \code{Q} is accepted via \code{...}.}
 (\eqn{= \Theta} in the paper) are sign-free; the single switch that selects
 the whole estimation scheme. \code{TRUE} (default, recommended, matches the
 paper) treats \eqn{C} as real-valued and updates it by exact least squares,
-with the basis \eqn{X} estimated by the complete-EM semi-NMF step and a
-two-sided test (interior null). \code{FALSE} constrains \eqn{C \ge 0} via a
-multiplicative update, with \eqn{X} estimated by the positive-part
-multiplicative update and a one-sided test (boundary null). The basis
-\eqn{X} is always non-negative. A character value (\code{"signed"} /
-\code{"nonneg"}) is also accepted for backward compatibility.}
+with a two-sided test (interior null). \code{FALSE} constrains
+\eqn{C \ge 0}, updated by an exact non-negative least squares (see
+\code{C.nonneg.update} under \code{...}), with a one-sided test (boundary
+null). The basis \eqn{X} is always non-negative (see \code{X.update}). A
+character value (\code{"signed"} / \code{"nonneg"}) is also accepted for
+backward compatibility.}
+
+\item{X.update}{The \eqn{X}-step.  \code{"exact"} (default): the
+\eqn{X}-block is minimized exactly under \eqn{X\ge0} and
+\eqn{\mathbf 1^\top X=\mathbf 1^\top} (a convex quadratic program, solved
+through the multipliers of the column sums), with no renormalization; with
+the exact \eqn{U}- and \eqn{C}-steps every block update is an exact
+minimization, the objective decreases monotonically and the fit stops at a
+KKT point of the likelihood.  \code{"semi"}: the complete-EM semi-NMF
+multiplicative step (Ding, Li and Jordan, 2010) followed by the column
+renormalization \eqn{X\to XD^{-1}}, \eqn{(C,U)\to(DC,DU)}, which keeps the
+fitted mean but not the likelihood, so the fit can stop short of a
+stationary point; the default of nmfkc 1.0.3 and earlier, kept to reproduce
+those fits.  On the package's examples \code{"exact"} took as long as
+\code{"semi"} or less and reached the same best point from every start.  A
+\code{"semi"} fit checks how far it is from a stationary point
+(\code{kkt.check} under \code{...}).  \code{"exact"} is not available with
+\code{X.L2.ortho} or \code{X.L2.smooth}.}
 
 \item{epsilon}{Convergence tolerance for relative change in objective (default 1e-5).}
 
@@ -80,9 +98,15 @@ When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial v
 \item \code{tau2}: Initial random effect variance (default 1).
 \item \code{tau2.update}: Logical. Update \eqn{\tau^2} by moment matching (default \code{TRUE}).
 \item \code{x.postvar}: Logical. Include the posterior-variance term in
-the semi-NMF \eqn{X}-step (default \code{TRUE}; advanced). Applies to
-the semi-NMF path (\code{C.signed = TRUE}, and \code{C.signed = FALSE}
-with \code{C.nonneg.update = "exact"}).
+the \eqn{X}-step (default \code{TRUE}; advanced). Applies to every
+\eqn{X}-step except the positive-part multiplicative one used with
+\code{C.nonneg.update = "mu"} and \code{X.update = "semi"}.
+\item \code{kkt.check}: Logical (default \code{TRUE}).  With
+\code{X.update = "semi"}, run 50 iterations of \code{X.update = "exact"}
+from the fit and record the decrease of \eqn{2\times}NLL as
+\code{kkt$improvement}; a message suggests \code{X.update = "exact"}
+when it exceeds \code{kkt.tol} (default 0.1).  Skipped with anchor rows
+and with the \eqn{X} penalties.
 \item \code{C.nonneg.update}: Updates used with \code{C.signed = FALSE}.
 \code{"exact"} (default): the \eqn{C}-step is an exact non-negative
 least squares (Lawson and Hanson's active-set method) and the

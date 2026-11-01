@@ -321,6 +321,59 @@ test_that(".nmfre.nnls() solves the non-negative quadratic program exactly (KKT)
   expect_equal(nmfkc:::.nmfre.nnls(H, c(-1, 2)), c(0, 2))
 })
 
+test_that(".nmfre.rows.nnls() and .nmfre.simplex.X() solve their quadratic programs exactly", {
+  set.seed(5)
+  for (r in 1:10) {
+    Q <- sample(1:4, 1); P <- sample(3:12, 1)
+    B <- matrix(rnorm(Q * 30), Q, 30); G <- B %*% t(B) + diag(0.1, Q); Cm <- matrix(3 * rnorm(P * Q), P, Q)
+    X1 <- nmfkc:::.nmfre.rows.nnls(G, Cm)
+    X2 <- t(apply(Cm, 1, function(cc) nmfkc:::.nmfre.nnls(G, cc)))
+    if (Q == 1) X2 <- t(X2)
+    expect_equal(X1, X2, tolerance = 1e-8)
+    sx <- nmfkc:::.nmfre.simplex.X(G, Cm)
+    expect_lt(max(abs(colSums(sx$X) - 1)), 1e-10); expect_true(all(sx$X >= 0))
+    ## KKT on the simplices: within a column, the gradient 2(XG - C) equals -2 mu_q on X > 0 and is >= it on X = 0
+    gr <- sx$X %*% G - Cm
+    for (q in seq_len(Q)) {
+      pos <- sx$X[, q] > 1e-12
+      if (any(pos)) {
+        expect_lt(diff(range(gr[pos, q])), 1e-7 * max(1, abs(Cm)))
+        expect_true(all(gr[!pos, q] >= min(gr[pos, q]) - 1e-7 * max(1, abs(Cm))))
+      }
+    }
+  }
+})
+
+test_that("nmfre(X.update = \"exact\"): no worse than \"semi\", columns sum to one exactly, recorded", {
+  skip_unless_full()
+  d <- anchor_data(Q = 3, anchors = c(`7` = 3))
+  fs <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.update = "semi", seed = 1, verbose = FALSE, epsilon = 1e-8, maxit = 2e5))
+  fe <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.update = "exact", seed = 1, verbose = FALSE,
+                               epsilon = 1e-8, maxit = 2e5))
+  expect_identical(fs$X.update, "semi"); expect_identical(fe$X.update, "exact")
+  ## the stationarity check of a "semi" fit (anchor rows skip it, so use a free fit)
+  d0 <- anchor_data(Q = 3, anchors = NULL)
+  f0 <- suppressMessages(suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, X.update = "semi", seed = 1, verbose = FALSE)))
+  expect_true(is.numeric(f0$kkt$improvement) && f0$kkt$improvement >= -1e-6)
+  expect_null(suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, X.update = "semi", seed = 1, verbose = FALSE,
+                                     kkt.check = FALSE))$kkt)
+  expect_null(suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, seed = 1, verbose = FALSE))$kkt)   # "exact" (default): no check
+  expect_null(fe$kkt)
+  expect_output(print(summary(f0)), "Stationarity check")
+  expect_lt(max(abs(colSums(fe$X) - 1)), 1e-9)
+  nll <- function(o) nmfkc:::.nmfre.marginal.nll(d$Y, o$X, o$C, d$A, o$sigma2, o$tau2)
+  expect_lte(nll(fe), nll(fs) + 1e-6)
+  ## sign-free C: dl/dC = 0 at the exact fit
+  S <- fe$tau2 * tcrossprod(fe$X) + fe$sigma2 * diag(nrow(d$Y))
+  g <- -crossprod(fe$X, solve(S, d$Y - fe$X %*% fe$C %*% d$A)) %*% t(d$A)
+  expect_lt(max(abs(g)), 1e-4 * max(1, abs(crossprod(fe$X, solve(S, d$Y)) %*% t(d$A))))
+  expect_error(nmfre(d$Y, d$A, rank = 3, X.update = "exact", X.L2.ortho = 1, verbose = FALSE), "does not support")
+  ## the default falls back to "semi" with the X penalties
+  expect_message(fp <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.L2.ortho = 1, verbose = FALSE, maxit = 200)),
+                 "need X.update")
+  expect_identical(fp$X.update, "semi")
+})
+
 test_that("nmfre(C.signed = FALSE): exact updates by default stop at a KKT point; 'mu' is the legacy path", {
   skip_unless_full()
   set.seed(4); P <- 12; N <- 120; Q <- 2
