@@ -62,10 +62,24 @@ warning is emitted so users notice unconverged fits.}
 \item{...}{Additional arguments for initialization, variance control, dfU control,
 optimization, and inference settings.
 \itemize{
-\item \code{X.init}: Initial basis matrix (P x Q), or \code{NULL}.
-When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
-A method name (\code{"kmeans"}, \code{"nndsvd"}, \code{"spa"}, \ldots)
-is forwarded to that \code{nmfkc()} initialization.
+\item \code{X.init}: Start of the basis.  \code{"mix2"} (default; also
+\code{NULL}): fit from the k-means start and from the SPA start and
+keep the smaller marginal NLL; while the kept fit is degenerate (see
+\code{degeneracy} in the return value), refit from k-means starts with
+seeds \code{seed + 1}, \code{seed + 2}, \ldots (at most
+\code{mix.restarts}, default 20) and keep the smallest NLL, stopping
+early when two restarts in a row reach the kept fit again
+(\eqn{2\times}NLL within 1e-3: the degenerate point is then where the
+starts lead, e.g. a rank the data do not support).  The fits
+are returned as \code{X.init.search}; only the kept fit's messages and
+warnings are shown.  This takes about twice the time of one fit.
+A method name (\code{"kmeans"}, \code{"spa"}, \code{"nndsvd"},
+\code{"kmeans++"}, \ldots) fits once from that start of
+\code{\link{nmfkc}} (\code{"kmeans"} is the single start of nmfkc
+1.0.3 and earlier); a basis matrix (P x Q) is used as given.  With
+\code{X.anchor} the anchors build the start instead.
+\item \code{mix.restarts}: Most k-means restarts after a degenerate fit
+with \code{X.init = "mix2"} (default 20; 0 for none).
 \item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
 \code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
 of \code{Y} per basis.  The zeros are kept for the whole fit, including
@@ -75,8 +89,8 @@ full rank.  The rows used are returned as \code{X.anchor}.
 Fewer rows than bases (indices or row names) anchor the first bases
 only: row \code{X.anchor[q]} carries basis \code{q} alone and the
 other bases are free.  Which basis an anchor row belongs to is then
-chosen by likelihood: a free fit (from \code{X.init} if given, else the
-better of the default start and \code{X.init = "spa"}), a refit from
+chosen by likelihood: a free fit (from \code{X.init}, by default
+\code{"mix2"}), a refit from
 it for every assignment of the anchor rows to bases (\code{rank} refits
 for one anchor row), and the refit with the smallest marginal NLL.  The
 search is returned as \code{X.anchor.search} and the free fit's
@@ -201,9 +215,9 @@ two columns of \eqn{X} approach each other while the corresponding rows
 of \eqn{C} grow with opposite signs (with \eqn{Q \ge 3} and a signed
 \eqn{C}; the fit does not settle and those rows of \eqn{C} are not
 interpretable).  In simulations such fits usually had a clearly lower
-marginal likelihood than a fit from another start, so when \code{flag} is
-\code{TRUE}, refit with e.g. \code{X.init = "spa"} and keep the fit with the
-larger likelihood:
+marginal likelihood than a fit from another start, so the default
+\code{X.init = "mix2"} refits from other starts while \code{flag} is
+\code{TRUE} and keeps the fit with the larger likelihood:
 \code{max.cosine} (largest cosine similarity between two columns of
 \eqn{X}) and its \code{pair}; \code{cancellation}
 (\eqn{\max_k \sum_q |c_{qk}| / \|X c_{\cdot k}\|_1}, large when a composite
@@ -212,6 +226,10 @@ number of \eqn{X}); and \code{flag} (\code{max.cosine >= 0.9} or
 \code{cancellation >= 5}).  The thresholds were set on two simulation
 designs; read the measures as well.  \code{summary()} prints a line when
 \code{flag} is \code{TRUE}.}
+\item{\code{X.init.search}}{With \code{X.init = "mix2"}: one row per fit
+(\code{start}, \code{seed}, marginal \code{nll}, \code{degenerate},
+\code{converged}, \code{chosen}).  \code{summary()} prints the start
+kept and how far the others stopped from it.}
 }
 
 \strong{Effective degrees of freedom (dfU) diagnostics}

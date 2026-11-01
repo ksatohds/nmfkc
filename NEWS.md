@@ -1,5 +1,24 @@
 # nmfkc (development version)
 
+## `nmfre()`: `X.init = "mix2"` is the default start
+
+**Fits change** where the k-means start was not the better one.  By default
+`nmfre()` now fits from the k-means start (`seed`) and from the SPA start and
+keeps the smaller marginal NLL; while the kept fit is degenerate (two bases
+merging, see `$degeneracy`) it refits from k-means starts with seeds
+`seed + 1`, `seed + 2`, ... (at most `mix.restarts`, default 20) and keeps the
+smallest NLL, stopping early when two restarts in a row reach the kept fit
+again (2 x NLL within 1e-3): the degenerate point is then where the starts
+lead (unstructured data, or a rank the data do not support), and on CRAN's
+toy data the 20 restarts would have cost 20 times one fit.  The fits are returned as `X.init.search`, and `summary()` prints
+the start kept and how far the others stopped from it; only the kept fit's
+messages and warnings are shown.  A fit takes about twice as long.
+`X.init = "kmeans"` fits once from the k-means start, as the default of 1.0.3
+and earlier did; other method names and a basis matrix fit once as before.
+With anchor rows the anchors build the start; with fewer anchor rows than
+bases the free fit uses `"mix2"`.  `nmfre.ecv()` keeps the single k-means start
+for its first round.
+
 ## `nmfre()`: new argument `X.update = c("exact", "semi")`; the exact X-step is the default
 
 **Fits change**: the default X-step is now `"exact"` (below).  `X.update =

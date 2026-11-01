@@ -20,6 +20,9 @@ test_that("nmfre() accepts X.init as NULL, a method name, or a matrix", {
   set.seed(5); P <- 5; N <- 50; Q <- 2
   A  <- rbind(intercept = 1, male = rbinom(N, 1, 0.5))
   Xt <- matrix(abs(rnorm(P * Q)), P, Q)
+  ## one basis per row raised: without it the columns are alike (cosine 0.91), the
+  ## fit is flagged degenerate, and X.init = "mix2" restarts 20 times
+  ij <- cbind(seq_len(P), (seq_len(P) - 1) %% Q + 1); Xt[ij] <- Xt[ij] + 1
   Th <- matrix(abs(rnorm(Q * 2)), Q, 2)
   Y  <- pmax(Xt %*% (Th %*% A + matrix(rnorm(Q * N, 0, 0.4), Q, N)) +
                matrix(rnorm(P * N, 0, 0.3), P, N), 0)
@@ -44,10 +47,10 @@ test_that("nmfre() accepts X.init as NULL, a method name, or a matrix", {
   expect_equal(dim(fmat$X), c(P, Q))
 
   ## nstart is accepted and the default is reproducible
-  a  <- nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE)
-  a1 <- nmfre(Y, A = A, rank = Q, seed = 1, nstart = 1, verbose = FALSE)
+  a  <- nmfre(Y, A = A, rank = Q, seed = 1, X.init = "kmeans", verbose = FALSE)
+  a1 <- nmfre(Y, A = A, rank = Q, seed = 1, X.init = "kmeans", nstart = 1, verbose = FALSE)
   expect_equal(a$objfunc, a1$objfunc)
-  expect_s3_class(nmfre(Y, A = A, rank = Q, seed = 1, nstart = 5, verbose = FALSE), "nmfre")
+  expect_s3_class(nmfre(Y, A = A, rank = Q, seed = 1, X.init = "kmeans", nstart = 5, verbose = FALSE), "nmfre")
 })
 
 test_that("nmfre.inference: identification is NA for a signed C, by the data for C >= 0", {
@@ -55,11 +58,12 @@ test_that("nmfre.inference: identification is NA for a signed C, by the data for
   set.seed(5); P <- 5; N <- 50; Q <- 2
   A  <- rbind(intercept = 1, male = rbinom(N, 1, 0.5))
   Xt <- matrix(abs(rnorm(P * Q)), P, Q)
+  ij <- cbind(seq_len(P), (seq_len(P) - 1) %% Q + 1); Xt[ij] <- Xt[ij] + 1   # distinct bases (see above)
   Th <- matrix(abs(rnorm(Q * 2)), Q, 2)
   Y  <- pmax(Xt %*% (Th %*% A + matrix(rnorm(Q * N, 0, 0.4), Q, N)) +
                matrix(rnorm(P * N, 0, 0.3), P, N), 0)
   ## C.signed = TRUE (default): non-negativity cannot pin T^-1
-  f <- nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE)
+  f <- nmfre(Y, A = A, rank = Q, seed = 1, X.init = "kmeans", verbose = FALSE)
   inf <- suppressWarnings(nmfre.inference(f, Y, A, wild.B = 5))
   expect_true(is.na(inf$identified.approx))
   expect_match(inf$identification$note, "C is signed")
@@ -67,7 +71,7 @@ test_that("nmfre.inference: identification is NA for a signed C, by the data for
   expect_identical(inf$identification$by.assumption, isTRUE(f$tau2 > 0))
   expect_output(print(summary(inf)), "Identification:")
   ## C >= 0: the data diagnostic, exactly the shared check on (X, C)
-  f2 <- nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE, C.signed = FALSE)
+  f2 <- nmfre(Y, A = A, rank = Q, seed = 1, X.init = "kmeans", verbose = FALSE, C.signed = FALSE)
   inf2 <- suppressWarnings(nmfre.inference(f2, Y, A, wild.B = 5))
   expect_false(is.na(inf2$identified.approx))
   expect_identical(inf2$identified.approx, nmfkc:::.ident.verdict(f2$X, f2$C, A)$identified.approx)
@@ -85,7 +89,7 @@ test_that("nmfre(): a sign-free fit starts on a Y with negative entries", {
   Y  <- Xt %*% (Th %*% A + matrix(rnorm(Q * N, 0, 0.5), Q, N)) +
           matrix(rnorm(P * N, 0, 0.1), P, N)
   expect_lt(min(Y), 0)
-  f <- nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE)
+  f <- nmfre(Y, A = A, rank = Q, seed = 1, X.init = "kmeans", verbose = FALSE)
   expect_s3_class(f, "nmfre")
   expect_true(all(is.finite(f$C)))
   expect_true(all(f$X >= 0))
@@ -94,10 +98,16 @@ test_that("nmfre(): a sign-free fit starts on a Y with negative entries", {
 })
 
 ## data with an exact anchor row for each basis listed in `anchors` (row -> basis)
-anchor_data <- function(seed = 11, P = 9, N = 120, Q = 3, anchors = c(`7` = 3), shift = 0) {
+## block > 0 adds `block` to one basis per row (rows 1, 4, 7 -> basis 1, ...): the
+## bases stay inside the orthant (a region of positive width) but are distinct.
+## Without it the columns of Xt are alike (cosine 0.91 for seed 11), so a fit
+## near the truth is already flagged degenerate and X.init = "mix2" restarts.
+anchor_data <- function(seed = 11, P = 9, N = 120, Q = 3, anchors = c(`7` = 3), shift = 0,
+                        block = 0) {
   set.seed(seed)
   A  <- rbind(intercept = 1, x = runif(N, 0, 2), z = rbinom(N, 1, 0.5))
   Xt <- matrix(runif(P * Q, 0.2, 1), P, Q)
+  if (block > 0) Xt[cbind(seq_len(P), (seq_len(P) - 1) %% Q + 1)] <- Xt[cbind(seq_len(P), (seq_len(P) - 1) %% Q + 1)] + block
   for (j in names(anchors)) { Xt[as.integer(j), ] <- 0; Xt[as.integer(j), anchors[[j]]] <- 1 }
   Xt <- sweep(Xt, 2, colSums(Xt), "/")
   Th <- matrix(c(2, 1, 3, -1, 0.5, 0.8, 0.3, -0.4, 0.2)[seq_len(Q * 3)], Q, 3)
@@ -125,7 +135,7 @@ test_that("nmfre(): X.anchor = 'spa' works on a Y with negative entries", {
 test_that("nmfre(): fewer anchor rows than bases anchor the first bases only", {
   skip_unless_full()
   d <- anchor_data(Q = 3, anchors = c(`7` = 3))
-  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE))
+  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE))
   expect_identical(unname(f$X.anchor), 7L)
   expect_identical(names(f$X.anchor), colnames(f$X)[1])
   expect_true(all(f$X[7, -1] == 0))
@@ -143,13 +153,13 @@ test_that("nmfre(): fewer anchor rows than bases anchor the first bases only", {
   d2 <- anchor_data(Q = 3, anchors = c(`7` = 3), shift = 0.5)
   expect_lt(min(d2$Y), 0)
   msgs <- character(0)
-  f2 <- withCallingHandlers(suppressWarnings(nmfre(d2$Y, d2$A, rank = 3, X.anchor = "y7",
+  f2 <- withCallingHandlers(suppressWarnings(nmfre(d2$Y, d2$A, rank = 3, epsilon = 1e-4, X.anchor = "y7",
                                                    X.init = "kmeans++", seed = 2, verbose = FALSE)),
           message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
   expect_false(any(grepl("X.init was not used", msgs)))
   expect_true(all(f2$X[7, -1] == 0))
   ## two of three
-  f3 <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = c("y7", "y1"), seed = 1, verbose = FALSE))
+  f3 <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = c("y7", "y1"), seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE))
   expect_identical(unname(f3$X.anchor), c(7L, 1L))
   expect_true(all(f3$X[7, -1] == 0) && all(f3$X[1, -2] == 0))
   expect_identical(nrow(f3$X.anchor.search), 6L)   # 3 x 2 ordered choices of bases
@@ -239,10 +249,10 @@ test_that("nmfre(): geomin orientation within the identification region, likelih
 
 test_that("nmfre(): orient defaults to \"none\", the fit as it stopped (as up to 1.0.2)", {
   skip_unless_full()
-  d <- anchor_data(anchors = c())                       # rows inside the orthant: a region
-  f  <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, verbose = FALSE))
-  fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, verbose = FALSE, orient = "none"))
-  fg <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, verbose = FALSE, orient = "geomin"))
+  d <- anchor_data(anchors = c(), block = 1)            # rows inside the orthant: a region
+  f  <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE))
+  fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE, orient = "none"))
+  fg <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE, orient = "geomin"))
   expect_identical(f$identification$orient$rule, "none")
   expect_identical(f$X, fn$X); expect_identical(f$C, fn$C); expect_identical(f$U, fn$U)
   expect_identical(fg$identification$orient$rule, "geomin")
@@ -253,12 +263,12 @@ test_that("nmfre(): orient defaults to \"none\", the fit as it stopped (as up to
 test_that("nmfre(): anchored fit has width 0; nmfre.inference() keeps it; optional profile intervals", {
   skip_unless_full()
   d <- anchor_data(Q = 3, anchors = c(`7` = 3))
-  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE))
+  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE))
   expect_lt(f$identification$width, 1e-6)
   expect_equal(f$identification$orient$angle, 0)
   expect_true(all(f$X[7, -1] == 0))                  # the anchor zeros stay exact
   expect_output(print(summary(f)), "Identification region: a point")
-  fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE, orient = "none"))
+  fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE, orient = "none"))
   expect_equal(fn$C, f$C)
   fi <- nmfre.inference(f, d$Y, d$A, wild.bootstrap = FALSE)
   expect_equal(fi$C, f$C)
@@ -279,15 +289,15 @@ test_that("nmfre.inference(): the identification note follows the region compute
   skip_unless_full()
   ## an anchor row on one basis only, yet the region is a point: locally unique
   d <- anchor_data(Q = 3, anchors = c(`7` = 3))
-  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE))
+  f <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE))
   fi <- nmfre.inference(f, d$Y, d$A, wild.bootstrap = FALSE)
   expect_false(all(fi$identification$anchor))
   expect_lt(fi$identification$width, 1e-6)
   expect_identical(fi$identification$by.assumption, isTRUE(f$tau2 > 0))
   expect_match(fi$identification$note, "locally unique")
   ## no anchor row: a region of positive width, and the note gives it
-  d0 <- anchor_data(Q = 3, anchors = NULL)
-  f0 <- suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, seed = 1, verbose = FALSE))
+  d0 <- anchor_data(Q = 3, anchors = NULL, block = 1)
+  f0 <- suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE))
   expect_gt(f0$identification$width, 1e-6)
   fi0 <- nmfre.inference(f0, d0$Y, d0$A, wild.bootstrap = FALSE)
   expect_false(fi0$identification$by.assumption)
@@ -295,7 +305,7 @@ test_that("nmfre.inference(): the identification note follows the region compute
   expect_false(grepl("not even", fi0$identification$note))
   ## C >= 0: when non-negativity alone does not pin the factorization but the region is a
   ## point, the summary says so instead of "another (X T, T^-1 C) may fit equally well"
-  fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, verbose = FALSE, C.signed = FALSE))
+  fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.anchor = 7, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE, C.signed = FALSE))
   fin <- nmfre.inference(fn, d$Y, d$A, wild.bootstrap = FALSE)
   out <- paste(capture.output(print(summary(fin))), collapse = "\n")
   if (identical(fin$identified.approx, FALSE) && isTRUE(fin$identification$by.assumption)) {
@@ -347,17 +357,18 @@ test_that(".nmfre.rows.nnls() and .nmfre.simplex.X() solve their quadratic progr
 test_that("nmfre(X.update = \"exact\"): no worse than \"semi\", columns sum to one exactly, recorded", {
   skip_unless_full()
   d <- anchor_data(Q = 3, anchors = c(`7` = 3))
-  fs <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.update = "semi", seed = 1, verbose = FALSE, epsilon = 1e-8, maxit = 2e5))
-  fe <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.update = "exact", seed = 1, verbose = FALSE,
-                               epsilon = 1e-8, maxit = 2e5))
+  ## both at the default tolerance (the gradient check below has a wide margin: 2.5e-4
+  ## against 0.08; 1e-8 for both took 90 s)
+  fs <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.update = "semi", seed = 1, X.init = "kmeans", verbose = FALSE))
+  fe <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.update = "exact", seed = 1, X.init = "kmeans", verbose = FALSE))
   expect_identical(fs$X.update, "semi"); expect_identical(fe$X.update, "exact")
   ## the stationarity check of a "semi" fit (anchor rows skip it, so use a free fit)
-  d0 <- anchor_data(Q = 3, anchors = NULL)
-  f0 <- suppressMessages(suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, X.update = "semi", seed = 1, verbose = FALSE)))
+  d0 <- anchor_data(Q = 3, anchors = NULL, block = 1)
+  f0 <- suppressMessages(suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, X.update = "semi", seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE)))
   expect_true(is.numeric(f0$kkt$improvement) && f0$kkt$improvement >= -1e-6)
-  expect_null(suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, X.update = "semi", seed = 1, verbose = FALSE,
+  expect_null(suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, X.update = "semi", seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE,
                                      kkt.check = FALSE))$kkt)
-  expect_null(suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, seed = 1, verbose = FALSE))$kkt)   # "exact" (default): no check
+  expect_null(suppressWarnings(nmfre(d0$Y, d0$A, rank = 3, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE))$kkt)   # "exact" (default): no check
   expect_null(fe$kkt)
   expect_output(print(summary(f0)), "Stationarity check")
   expect_lt(max(abs(colSums(fe$X) - 1)), 1e-9)
@@ -369,7 +380,7 @@ test_that("nmfre(X.update = \"exact\"): no worse than \"semi\", columns sum to o
   expect_lt(max(abs(g)), 1e-4 * max(1, abs(crossprod(fe$X, solve(S, d$Y)) %*% t(d$A))))
   expect_error(nmfre(d$Y, d$A, rank = 3, X.update = "exact", X.L2.ortho = 1, verbose = FALSE), "does not support")
   ## the default falls back to "semi" with the X penalties
-  expect_message(fp <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.L2.ortho = 1, verbose = FALSE, maxit = 200)),
+  expect_message(fp <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, X.init = "kmeans", X.L2.ortho = 1, verbose = FALSE, maxit = 200)),
                  "need X.update")
   expect_identical(fp$X.update, "semi")
 })
@@ -379,12 +390,14 @@ test_that("nmfre(C.signed = FALSE): exact updates by default stop at a KKT point
   set.seed(4); P <- 12; N <- 120; Q <- 2
   A  <- rbind(a0 = 1, a1 = rbinom(N, 1, 0.5), a2 = runif(N))
   Xt <- matrix(runif(P * Q, 0.1, 1), P, Q); Xt <- sweep(Xt, 2, colSums(Xt), "/")
-  Th <- matrix(c(3, 3, 6, 0, 2, 5), Q, 3)                             # one true zero
+  Th <- matrix(c(3, 3, 6, -1, 2, 5), Q, 3)                            # one negative effect: C >= 0 puts it at 0
   Y  <- pmax(Xt %*% (Th %*% A + matrix(rnorm(Q * N, 0, 0.5), Q, N)) +
                matrix(rnorm(P * N, 0, 0.05), P, N), 0)                # nmfkc() starts need Y >= 0
-  f  <- suppressWarnings(nmfre(Y, A, rank = Q, C.signed = FALSE, seed = 1, verbose = FALSE,
-                               epsilon = 1e-10, epsilon.outer = 1e-10, maxit = 5e5))
+  ## with a true zero instead, the bound became active only at 1e-8 (12 s; 1e-10: 39 s)
+  f  <- suppressWarnings(nmfre(Y, A, rank = Q, C.signed = FALSE, seed = 1, X.init = "kmeans", verbose = FALSE,
+                               epsilon = 1e-6, epsilon.outer = 1e-6, maxit = 5e5))
   expect_identical(f$C.nonneg.update, "exact")
+  expect_gt(sum(f$C <= 1e-8), 0)                                      # the bound is active somewhere
   expect_true(all(f$C >= 0))
   ## KKT of the marginal likelihood in C: dl/dC = -X' S^-1 (Y - X C A) A'
   S <- f$tau2 * tcrossprod(f$X) + f$sigma2 * diag(P)
@@ -393,9 +406,67 @@ test_that("nmfre(C.signed = FALSE): exact updates by default stop at a KKT point
   expect_lt(max(c(0, abs(g[f$C > 1e-8]))), 1e-3 * max(abs(g0)))
   expect_true(all(g[f$C <= 1e-8] >= -1e-3 * max(abs(g0))))
   ## the legacy multiplicative updates are still available and do not do better
-  fm <- suppressWarnings(nmfre(Y, A, rank = Q, C.signed = FALSE, C.nonneg.update = "mu", seed = 1, verbose = FALSE))
+  fm <- suppressWarnings(nmfre(Y, A, rank = Q, C.signed = FALSE, C.nonneg.update = "mu", seed = 1, X.init = "kmeans", verbose = FALSE))
   expect_identical(fm$C.nonneg.update, "mu")
   nll <- function(o) nmfkc:::.nmfre.marginal.nll(Y, o$X, o$C, A, o$sigma2, o$tau2)
   expect_lte(nll(f), nll(fm) + 1e-6)
-  expect_null(suppressWarnings(nmfre(Y, A, rank = Q, seed = 1, verbose = FALSE))$C.nonneg.update)
+  expect_null(suppressWarnings(nmfre(Y, A, rank = Q, seed = 1, X.init = "kmeans", verbose = FALSE))$C.nonneg.update)
+})
+
+test_that("nmfre(X.init = \"mix2\", the default): the better of the k-means and SPA starts", {
+  skip_unless_full()
+  set.seed(5); P <- 6; N <- 60; Q <- 2
+  A  <- rbind(intercept = 1, male = rbinom(N, 1, 0.5))
+  Xt <- matrix(abs(rnorm(P * Q)), P, Q)
+  Y  <- pmax(Xt %*% (matrix(abs(rnorm(Q * 2)), Q, 2) %*% A + matrix(rnorm(Q * N, 0, 0.4), Q, N)) +
+               matrix(rnorm(P * N, 0, 0.3), P, N), 0)
+  nll <- function(o) nmfkc:::.nmfre.marginal.nll(Y, o$X, o$C, A, o$sigma2, o$tau2)
+  f  <- nmfre(Y, A, rank = Q, seed = 1, verbose = FALSE)
+  fk <- nmfre(Y, A, rank = Q, seed = 1, X.init = "kmeans", verbose = FALSE)
+  fs <- nmfre(Y, A, rank = Q, seed = 1, X.init = "spa", verbose = FALSE)
+  st <- f$X.init.search
+  expect_identical(st$start, c("kmeans", "spa"))
+  expect_equal(st$seed, c(1, 1))
+  expect_equal(st$nll, c(nll(fk), nll(fs)), tolerance = 1e-10)
+  expect_identical(which(st$chosen), if (nll(fs) < nll(fk)) 2L else 1L)
+  expect_equal(f$C, if (nll(fs) < nll(fk)) fs$C else fk$C, tolerance = 1e-10)
+  expect_null(fk$X.init.search)                                      # a named start fits once
+  expect_equal(nmfre(Y, A, rank = Q, seed = 1, X.init = "mix2", verbose = FALSE)$C, f$C)
+  expect_output(print(summary(f)), "Starts (mix2)", fixed = TRUE)
+  ## only the kept fit's warnings are passed on (both starts stop at maxit here)
+  wn <- function(expr) { w <- 0L; withCallingHandlers(expr, warning = function(c) {
+    w <<- w + 1L; invokeRestart("muffleWarning") }); w }
+  fm <- NULL
+  n_mix <- wn(fm <- nmfre(Y, A, rank = Q, seed = 1, maxit = 5, verbose = FALSE))
+  n_one <- wn(nmfre(Y, A, rank = Q, seed = 1, maxit = 5, verbose = FALSE,
+                    X.init = fm$X.init.search$start[fm$X.init.search$chosen]))
+  expect_gt(n_one, 0L)
+  expect_identical(n_mix, n_one)
+})
+
+test_that("nmfre(X.init = \"mix2\"): more k-means starts while the kept fit is degenerate", {
+  skip_unless_full()
+  set.seed(5); P <- 6; N <- 60; Q <- 2
+  A  <- rbind(intercept = 1, male = rbinom(N, 1, 0.5))
+  Xt <- matrix(abs(rnorm(P * Q)), P, Q)
+  Y  <- pmax(Xt %*% (matrix(abs(rnorm(Q * 2)), Q, 2) %*% A + matrix(rnorm(Q * N, 0, 0.4), Q, N)) +
+               matrix(rnorm(P * N, 0, 0.3), P, N), 0)
+  ## every fit flagged degenerate; on these data every start reaches the same point
+  local_mocked_bindings(.nmfre.degeneracy = function(X, C, cos.tol = 0.9, canc.tol = 5)
+    list(max.cosine = 0.95, pair = c(1L, 2L), cancellation = 10, kappa.X = 1, flag = TRUE,
+         cos.tol = cos.tol, canc.tol = canc.tol))
+  ## two restarts in a row reach the kept fit again: stop there, not at the cap
+  expect_message(f <- nmfre(Y, A, rank = Q, seed = 3, mix.restarts = 5, verbose = FALSE),
+                 "2 more k-means starts reached it again")
+  st <- f$X.init.search
+  expect_identical(st$start, c("kmeans", "spa", "kmeans", "kmeans"))
+  expect_equal(st$seed, c(3, 3, 4, 5))
+  expect_lt(max(2 * (st$nll - min(st$nll))), 1e-3)
+  expect_identical(which(st$chosen), which.min(st$nll))
+  ## the cap
+  expect_message(f1 <- nmfre(Y, A, rank = Q, seed = 3, mix.restarts = 1, verbose = FALSE),
+                 "still degenerate after 1")
+  expect_identical(nrow(f1$X.init.search), 3L)
+  f0 <- nmfre(Y, A, rank = Q, seed = 3, mix.restarts = 0, verbose = FALSE)
+  expect_identical(nrow(f0$X.init.search), 2L)
 })

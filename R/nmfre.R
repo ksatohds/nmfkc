@@ -287,8 +287,8 @@
 #' nmfre() with fewer anchor rows than bases: assignment chosen by likelihood (Internal)
 #'
 #' Which basis an anchor row belongs to is part of the estimate, so it is
-#' chosen by the marginal likelihood: (1) a free fit -- from \code{X.init} if
-#' given, else the better of the default start and \code{X.init = "spa"};
+#' chosen by the marginal likelihood: (1) a free fit -- from \code{X.init}
+#' (by default \code{"mix2"}: the better of the k-means and SPA starts);
 #' (2) for every ordered choice of distinct bases for the anchor rows, a refit
 #' started from the free fit with each anchor row made pure on its basis (so the
 #' start is already on the right side of every other local solution); (3) the
@@ -317,11 +317,9 @@
   fit1 <- function(args) do.call(nmfre, c(list(Y = Y, A = A, rank = Q, C.signed = C.signed,
                                               X.update = X.update, epsilon = epsilon, maxit = maxit), args))
   nll <- function(f) .nmfre.marginal.nll(Ym, f$X, f$C, Am, f$sigma2, f$tau2)
-  ## (1) the free fit
-  starts <- if (!is.null(ea$X.init)) list(ea) else list(ea, utils::modifyList(ea, list(X.init = "spa")))
-  frees <- Filter(Negate(is.null), lapply(starts, function(a) tryCatch(fit1(a), error = function(e) NULL)))
-  if (!length(frees)) stop("nmfre(): the free fit before imposing X.anchor failed.", call. = FALSE)
-  f0 <- frees[[which.min(vapply(frees, nll, numeric(1)))]]
+  ## (1) the free fit (by default X.init = "mix2": the k-means and SPA starts)
+  f0 <- tryCatch(fit1(ea), error = function(e) NULL)
+  if (is.null(f0)) stop("nmfre(): the free fit before imposing X.anchor failed.", call. = FALSE)
   ## (2) every ordered choice of distinct bases for the anchor rows
   asg <- as.matrix(expand.grid(rep(list(seq_len(Q)), length(J))))
   asg <- asg[apply(asg, 1, function(a) !anyDuplicated(a)), , drop = FALSE]
@@ -346,6 +344,97 @@
     converged = vapply(fits, function(f) if (is.null(f)) NA else isTRUE(f$converged), logical(1)),
     chosen = seq_along(fits) == b)
   best$nll.free <- nll(f0)
+  best$call <- call
+  .nmfre.orient.fit(best, nonneg = !signed, orient = orient, eps = orient.eps)
+}
+
+## Evaluate a fit, holding back its messages and warnings (and an error) so the
+## caller can pass on those of the fit it keeps only.
+.nmfre.quietly <- function(expr) {
+  msg <- character(0); wrn <- character(0)
+  val <- withCallingHandlers(
+    tryCatch(expr, error = function(e) e),
+    message = function(m) { msg <<- c(msg, conditionMessage(m)); invokeRestart("muffleMessage") },
+    warning = function(w) { wrn <<- c(wrn, conditionMessage(w)); invokeRestart("muffleWarning") })
+  err <- inherits(val, "error")
+  list(fit = if (err) NULL else val, error = if (err) conditionMessage(val) else NULL,
+       messages = msg, warnings = wrn)
+}
+
+#' nmfre() from the k-means and SPA starts (X.init = "mix2", the default) (Internal)
+#'
+#' (1) Fit from the k-means start (\code{seed}) and from the SPA start and keep
+#' the smaller marginal NLL (the k-means fit on a tie).  (2) While the kept fit
+#' is degenerate (\code{.nmfre.degeneracy}), refit from k-means starts with
+#' seeds \code{seed + 1}, \code{seed + 2}, \ldots (at most \code{mix.restarts},
+#' default 20) and keep the smallest NLL; stop early when two restarts in a row
+#' reach the kept fit again (2 x NLL within 1e-3), since then the degenerate
+#' point is where the starts lead, not a trap.  A degenerate fit is a trapped one,
+#' with a clearly lower likelihood than a fit from another start as a rule, so
+#' the NLL alone sets it aside.  This is the procedure the R2 simulations of the
+#' NMF-RE paper used.  Only the kept fit's messages and warnings are passed on.
+#' @return The kept fit, with \code{X.init.search} (one row per fit:
+#'   \code{start}, \code{seed}, \code{nll}, \code{degenerate}, \code{converged},
+#'   \code{chosen}).
+#' @keywords internal
+#' @noRd
+.nmfre.mix2.fit <- function(Y, A, Q, C.signed, X.update, epsilon, maxit, extra_args, call) {
+  ea <- extra_args; ea$Q <- NULL; ea$X.init <- NULL; ea$mix.restarts <- NULL
+  restarts <- if (!is.null(extra_args$mix.restarts)) as.integer(extra_args$mix.restarts) else 20L
+  seed <- if (!is.null(ea$seed)) ea$seed else 1
+  ## the fits are compared as they stop; the kept one is oriented once, at the end
+  orient <- if (!is.null(ea$orient)) match.arg(ea$orient, c("none", "geomin")) else "none"
+  orient.eps <- if (!is.null(ea$orient.eps)) ea$orient.eps else 0.01
+  ea$orient <- "none"
+  Ym <- as.matrix(Y)
+  Am <- if (is.null(A)) matrix(1, 1, ncol(Ym)) else as.matrix(A)
+  signed <- !(identical(C.signed, FALSE) || identical(C.signed, "nonneg"))
+  fit1 <- function(init, s) {
+    args <- c(list(Y = Y, A = A, rank = Q, C.signed = C.signed, epsilon = epsilon, maxit = maxit,
+                   X.init = init), utils::modifyList(ea, list(seed = s)))
+    if (!is.null(X.update)) args$X.update <- X.update   # only when the caller gave it
+    .nmfre.quietly(do.call(nmfre, args))
+  }
+  nll <- function(r) {
+    if (is.null(r$fit)) return(Inf)
+    v <- .nmfre.marginal.nll(Ym, r$fit$X, r$fit$C, Am, r$fit$sigma2, r$fit$tau2)
+    if (is.finite(v)) v else Inf
+  }
+  ## (1) the k-means and SPA starts
+  runs <- list(fit1("kmeans", seed), fit1("spa", seed))
+  start <- c("kmeans", "spa"); seeds <- c(seed, seed)
+  nl <- vapply(runs, nll, numeric(1))
+  b <- which.min(nl)
+  if (!is.finite(nl[b]))
+    stop("nmfre(): the fit failed from both the k-means and the SPA start: ",
+         if (!is.null(runs[[1]]$error)) runs[[1]]$error else "no finite likelihood", call. = FALSE)
+  ## (2) while the kept fit is degenerate, more k-means starts; stop when two
+  ## in a row reach the kept fit again (2*NLL within 1e-3): then the degenerate
+  ## point is where the starts lead, not a trap of one start (on unstructured
+  ## data, or a rank the data do not support), and more starts only cost time
+  n.extra <- 0L; n.same <- 0L
+  while (isTRUE(runs[[b]]$fit$degeneracy$flag) && n.extra < restarts && n.same < 2L) {
+    n.extra <- n.extra + 1L
+    runs[[length(runs) + 1L]] <- fit1("kmeans", seed + n.extra)
+    start <- c(start, "kmeans"); seeds <- c(seeds, seed + n.extra)
+    nx <- nll(runs[[length(runs)]]); nl <- c(nl, nx)
+    n.same <- if (is.finite(nx) && abs(2 * (nx - nl[b])) < 1e-3) n.same + 1L else 0L
+    if (nx < nl[b]) b <- length(nl)
+  }
+  best <- runs[[b]]$fit
+  for (m in runs[[b]]$messages) message(m, appendLF = FALSE)
+  for (w in runs[[b]]$warnings) warning(w, call. = FALSE)
+  if (n.extra > 0L && isTRUE(best$degeneracy$flag))
+    message(if (n.same >= 2L)
+      sprintf(paste("nmfre(): the fit is degenerate, and %d more k-means starts reached it again;",
+                    "the rank may be larger than the data support (see $degeneracy)."), n.extra)
+    else sprintf(paste("nmfre(): the fit is still degenerate after %d more k-means starts;",
+                       "its two merging bases are not interpretable (see $degeneracy)."), n.extra))
+  best$X.init.search <- data.frame(
+    start = start, seed = seeds, nll = nl,
+    degenerate = vapply(runs, function(r) if (is.null(r$fit)) NA else isTRUE(r$fit$degeneracy$flag), logical(1)),
+    converged = vapply(runs, function(r) if (is.null(r$fit)) NA else isTRUE(r$fit$converged), logical(1)),
+    chosen = seq_along(runs) == b)
   best$call <- call
   .nmfre.orient.fit(best, nonneg = !signed, orient = orient, eps = orient.eps)
 }
@@ -460,10 +549,24 @@
 #' @param ... Additional arguments for initialization, variance control, dfU control,
 #'   optimization, and inference settings.
 #'   \itemize{
-#'     \item \code{X.init}: Initial basis matrix (P x Q), or \code{NULL}.
-#'       When \code{NULL}, \code{\link{nmfkc}} is called internally to generate initial values.
-#'       A method name (\code{"kmeans"}, \code{"nndsvd"}, \code{"spa"}, \ldots)
-#'       is forwarded to that \code{nmfkc()} initialization.
+#'     \item \code{X.init}: Start of the basis.  \code{"mix2"} (default; also
+#'       \code{NULL}): fit from the k-means start and from the SPA start and
+#'       keep the smaller marginal NLL; while the kept fit is degenerate (see
+#'       \code{degeneracy} in the return value), refit from k-means starts with
+#'       seeds \code{seed + 1}, \code{seed + 2}, \ldots (at most
+#'       \code{mix.restarts}, default 20) and keep the smallest NLL, stopping
+#'       early when two restarts in a row reach the kept fit again
+#'       (\eqn{2\times}NLL within 1e-3: the degenerate point is then where the
+#'       starts lead, e.g. a rank the data do not support).  The fits
+#'       are returned as \code{X.init.search}; only the kept fit's messages and
+#'       warnings are shown.  This takes about twice the time of one fit.
+#'       A method name (\code{"kmeans"}, \code{"spa"}, \code{"nndsvd"},
+#'       \code{"kmeans++"}, \ldots) fits once from that start of
+#'       \code{\link{nmfkc}} (\code{"kmeans"} is the single start of nmfkc
+#'       1.0.3 and earlier); a basis matrix (P x Q) is used as given.  With
+#'       \code{X.anchor} the anchors build the start instead.
+#'     \item \code{mix.restarts}: Most k-means restarts after a degenerate fit
+#'       with \code{X.init = "mix2"} (default 20; 0 for none).
 #'     \item \code{X.anchor}: anchor rows of \eqn{X}, imposed as in
 #'       \code{\link{nmfkc}}: \code{NULL} (default), \code{"spa"}, or one row
 #'       of \code{Y} per basis.  The zeros are kept for the whole fit, including
@@ -473,8 +576,8 @@
 #'       Fewer rows than bases (indices or row names) anchor the first bases
 #'       only: row \code{X.anchor[q]} carries basis \code{q} alone and the
 #'       other bases are free.  Which basis an anchor row belongs to is then
-#'       chosen by likelihood: a free fit (from \code{X.init} if given, else the
-#'       better of the default start and \code{X.init = "spa"}), a refit from
+#'       chosen by likelihood: a free fit (from \code{X.init}, by default
+#'       \code{"mix2"}), a refit from
 #'       it for every assignment of the anchor rows to bases (\code{rank} refits
 #'       for one anchor row), and the refit with the smallest marginal NLL.  The
 #'       search is returned as \code{X.anchor.search} and the free fit's
@@ -597,9 +700,9 @@
 #'       of \eqn{C} grow with opposite signs (with \eqn{Q \ge 3} and a signed
 #'       \eqn{C}; the fit does not settle and those rows of \eqn{C} are not
 #'       interpretable).  In simulations such fits usually had a clearly lower
-#'       marginal likelihood than a fit from another start, so when \code{flag} is
-#'       \code{TRUE}, refit with e.g. \code{X.init = "spa"} and keep the fit with the
-#'       larger likelihood:
+#'       marginal likelihood than a fit from another start, so the default
+#'       \code{X.init = "mix2"} refits from other starts while \code{flag} is
+#'       \code{TRUE} and keeps the fit with the larger likelihood:
 #'       \code{max.cosine} (largest cosine similarity between two columns of
 #'       \eqn{X}) and its \code{pair}; \code{cancellation}
 #'       (\eqn{\max_k \sum_q |c_{qk}| / \|X c_{\cdot k}\|_1}, large when a composite
@@ -608,6 +711,10 @@
 #'       \code{cancellation >= 5}).  The thresholds were set on two simulation
 #'       designs; read the measures as well.  \code{summary()} prints a line when
 #'       \code{flag} is \code{TRUE}.}
+#'     \item{\code{X.init.search}}{With \code{X.init = "mix2"}: one row per fit
+#'       (\code{start}, \code{seed}, marginal \code{nll}, \code{degenerate},
+#'       \code{converged}, \code{chosen}).  \code{summary()} prints the start
+#'       kept and how far the others stopped from it.}
 #'   }
 #'
 #'   \strong{Effective degrees of freedom (dfU) diagnostics}
@@ -798,6 +905,17 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, X.update = c("exact", 
     return(.nmfre.partial.anchor.fit(Y, A, Q = Q, C.signed = C.signed, epsilon = epsilon,
                                      maxit = maxit, extra_args = extra_args, call = cl,
                                      X.update = X.update))
+  ## X.init = "mix2" (the default): the better of the k-means and SPA starts,
+  ## with more k-means starts while the kept fit is degenerate
+  ## (.nmfre.mix2.fit()).  Anchor rows build their own start, so it does not
+  ## apply to them.
+  if (is.null(X.init) || identical(X.init, "mix2")) {
+    if (is.null(X.anchor.arg))
+      return(.nmfre.mix2.fit(Y, A, Q = Q, C.signed = C.signed,
+                             X.update = if (X.update.given) X.update else NULL,
+                             epsilon = epsilon, maxit = maxit, extra_args = extra_args, call = cl))
+    X.init <- NULL
+  }
 
   ## MAP penalties (default off).  These act on X (basis) and C (= Theta) as
   ## Gaussian priors and are orthogonal to the random-effect machinery
@@ -1572,8 +1690,23 @@ print.summary.nmfre <- function(x, ...) {
     cat(sprintf(paste0("Degeneracy:           bases %d and %d nearly coincide (cosine %.3f);",
                        " C cancellation %.1f.\n",
                        "                      Their rows of C are not interpretable; refit from another\n",
-                       "                      start (e.g. X.init = \"spa\") and keep the larger likelihood.\n"),
+                       "                      start (e.g. another seed) and keep the larger likelihood.\n"),
                 dg$pair[1], dg$pair[2], dg$max.cosine, dg$cancellation))
+
+  # ---- starts (X.init = "mix2") ----
+  st <- x$X.init.search
+  if (!is.null(st) && any(st$chosen)) {
+    ch <- which(st$chosen)
+    gap <- 2 * (st$nll[-ch] - st$nll[ch]); gap <- gap[is.finite(gap)]
+    cat(sprintf("Starts (mix2):        kept %s of %d fits (k-means, SPA%s); %s\n",
+                if (st$start[ch] == "spa") "SPA" else sprintf("k-means seed %d", st$seed[ch]), nrow(st),
+                if (nrow(st) > 2) sprintf(", %d k-means after a degenerate fit", nrow(st) - 2) else "",
+                if (!length(gap)) "the other fits failed"
+                else if (max(gap) < 1e-3) sprintf("%s the same likelihood",
+                                                  if (length(gap) == 1) "the other reaches" else "the others reach")
+                else if (length(gap) == 1) sprintf("the other is higher in 2*NLL by %.3g", gap)
+                else sprintf("the others are higher in 2*NLL by %.3g to %.3g", min(gap), max(gap))))
+  }
 
   # ---- effective rank (BLUP scores B = Theta A + U, Q x N) ----
   eff <- if (!is.null(x$B.blup)) .effective.rank(x$B.blup) else NA_real_
@@ -2418,8 +2551,9 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
     tryCatch(
       suppressMessages({
         utils::capture.output(
+          ## first round from the k-means start alone, as before "mix2"
           f <- nmfre(fill, A, rank = Q, C.signed = C.signed,
-                     X.init = Xi, C.init = Ci, U.init = Ui,
+                     X.init = if (is.null(Xi)) "kmeans" else Xi, C.init = Ci, U.init = Ui,
                      sigma2 = 1, tau2 = 1,
                      epsilon = epsilon, epsilon.outer = epsilon.outer,
                      inner.maxit = inner.maxit, outer.maxit = outer.maxit,

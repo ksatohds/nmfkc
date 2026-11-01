@@ -56,7 +56,9 @@ test_that("nmfkc.inference() returns a coefficient table", {
 })
 
 test_that("nmfre() fits and infers", {
-  f <- nmfre(Y, A = A, rank = Q, seed = 1, verbose = FALSE)
+  ## no restarts: on these unstructured data every start ends degenerate, and the
+  ## restarts are covered by the full suite
+  f <- nmfre(Y, A = A, rank = Q, seed = 1, mix.restarts = 0, verbose = FALSE)
   expect_s3_class(f, "nmfre")
   expect_equal(dim(f$X), c(P, Q))
   expect_equal(dim(fitted(f)), dim(Y))
