@@ -1271,7 +1271,7 @@ print.summary.nmfre <- function(x, ...) {
   } else if (is.null(w) || !is.finite(w)) {
     cat("Identification region: not computed (Q >= 4)\n")
   } else if (w <= 1e-8) {
-    cat("Identification region: a point (width 0); Theta is unique up to relabelling\n")
+    cat("Identification region: a point (width 0); Theta is locally unique (no other representation nearby)\n")
   } else {
     cat(sprintf("Identification region: width of Theta up to %.3g (arc %.1f deg%s)\n", w,
                 diff(idn$arc) * 180 / pi, if (isTRUE(idn$full.circle)) ", full circle" else ""))
