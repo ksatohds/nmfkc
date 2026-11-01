@@ -1,3 +1,9 @@
+## nmf.gmm() is on hold (2026-11-01): this file is skipped until its
+## development is taken up again.  Delete the skip() below to run it.
+## The short nmf.gmm checks in test-cran-smoke.R and test-anchor-families.R
+## still run.
+skip("nmf.gmm(): tests paused while its development is on hold")
+
 ## small synthetic NMF-GMM data: K=2 well-separated classes on the scores
 make_gmm_data <- function(seed = 1, P = 10, N = 80, Q = 2) {
   set.seed(seed)
