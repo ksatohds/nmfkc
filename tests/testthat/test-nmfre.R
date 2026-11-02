@@ -201,10 +201,63 @@ test_that("identification region (Q = 3): exact range, arc ends, a point under a
   ## rows far inside the orthant: the whole circle (cyclic relabellings included)
   d <- anchor_data(anchors = c())
   expect_true(nmfkc:::.nmfre.ident.region(d$Xt, Th)$full)
-  ## Q = 2: a point up to relabelling; Q = 4: not computed
+  ## Q = 2: a point up to relabelling; Q = 4 without anchors and without the search: not computed
   expect_equal(nmfkc:::.nmfre.ident.region(d$Xt[, 1:2] / rep(colSums(d$Xt[, 1:2]), each = 9), Th[1:2, ])$width,
                Th[1:2, ] * 0)
-  expect_false(nmfkc:::.nmfre.ident.region(matrix(1 / 9, 9, 4), matrix(1, 4, 2))$computed)
+  expect_false(nmfkc:::.nmfre.ident.region(matrix(1 / 9, 9, 4), matrix(1, 4, 2),
+                                           ident = list(search = FALSE))$computed)
+})
+
+test_that("identification region (Q >= 4): bases pinned by anchors one at a time, then exact or searched", {
+  skip_unless_full()
+  set.seed(3)
+  nrm <- function(X) sweep(X, 2, colSums(X), "/")
+  mk <- function(P, Q) nrm(matrix(runif(P * Q, 0.2, 1), P, Q))
+  C4 <- matrix(rnorm(12), 4, 3)
+  ## anchors on bases 1 and 2 pin them; the two left are a point up to relabelling
+  Xa <- mk(12, 4); Xa[1, -1] <- 0; Xa[2, -2] <- 0; Xa <- nrm(Xa)
+  ra <- nmfkc:::.nmfre.ident.region(Xa, C4)
+  expect_identical(ra$method, "anchors"); expect_identical(ra$pinned, 1:2)
+  expect_equal(max(ra$width), 0)
+  ## a relative anchor: row 3 is non-zero on bases 1 and 3 only, so once basis 1 is pinned it pins basis 3
+  Xr <- mk(12, 4); Xr[1, -1] <- 0; Xr[3, c(2, 4)] <- 0; Xr <- nrm(Xr)
+  rr <- nmfkc:::.nmfre.ident.region(Xr, C4)
+  expect_identical(rr$pinned, c(1L, 3L)); expect_identical(rr$method, "anchors")
+  ## the non-negative variant: a column of C on one basis pins it as well
+  Cd <- rbind(c(2, 0, 0), c(0, 3, 0), c(0, 0, 1.5), c(0, 0, 0.7))
+  rd <- nmfkc:::.nmfre.ident.region(mk(12, 4), Cd, nonneg = TRUE)
+  expect_identical(rd$pinned, 1:2); expect_identical(rd$method, "anchors")
+  ## one anchor only: the three bases left form an arc, computed exactly.  A search over all four
+  ## (no pinning) stays inside it; it finds only part of it, since the arc is a one-dimensional
+  ## subset of a three-dimensional family -- which is why the anchors are removed first
+  Xc <- matrix(0.08, 10, 4); Xc[1, ] <- c(1, 0, 0, 0)
+  Xc[2:4, 2] <- 1; Xc[5:7, 3] <- 1; Xc[8:10, 4] <- 1; Xc <- nrm(Xc)
+  rc <- nmfkc:::.nmfre.ident.region(Xc, C4)
+  expect_identical(rc$method, "anchors+exact"); expect_identical(rc$pinned, 1L)
+  expect_gt(max(rc$width), 0); expect_equal(max(rc$width[1, ]), 0)
+  sc <- nmfkc:::.nmfre.ident.search(Xc, C4, n.dir = 300L, n.global = 3000L)
+  expect_true(all(sc$lower >= rc$lower - 1e-8 & sc$upper <= rc$upper + 1e-8))
+  ## no anchor: searched along feasible paths from the fit (approximate ranges)
+  rb <- nmfkc:::.nmfre.ident.region(mk(12, 4), C4, ident = list(search = TRUE, n.dir = 200L, n.global = 2000L))
+  expect_identical(rb$method, "search"); expect_gt(max(rb$width), 0); expect_gt(rb$search$local.feasible, 0)
+  ## (counterexample, comment of 2026-11-02) the local region is a point but another component of the region
+  ## has feasible transformations labelled near the identity: they must not enter the local ranges
+  eta <- 0.01; rows <- list()
+  for (q in 1:4) for (i in setdiff(1:4, q)) for (s in c(-1, 1)) {
+    x <- rep(1, 4); x[q] <- 0; x[i] <- x[i] + s * eta; rows[[length(rows) + 1]] <- x
+  }
+  Xe <- do.call(rbind, rows) / 18
+  re <- nmfkc:::.nmfre.ident.region(Xe, diag(4), ident = list(search = TRUE, n.dir = 100L, n.global = 5000L, seed = 1))
+  expect_identical(re$method, "search"); expect_equal(max(re$width), 0)
+  expect_gt(re$search$global.nonperm, 0)                 # not unique globally, reported apart
+  ## (counterexample) tiny positive entries are not zeros: no pinning unless a tolerance is asked for
+  Xd <- (1 - 1e-12) * rbind(diag(4), 0) + 1e-12 / 5
+  expect_length(nmfkc:::.nmfre.ident.pin(Xd, diag(4)), 0)
+  expect_identical(nmfkc:::.nmfre.ident.pin(Xd, diag(4), zero.tol = 1e-11), 1:4)
+  ## through the fit: the identification list
+  fo <- nmfkc:::.nmfre.orient.fit(list(X = Xa, C = C4, U = matrix(0, 4, 5)))
+  expect_identical(fo$identification$method, "anchors"); expect_equal(fo$identification$width, 0)
+  expect_match(fo$identification$orient$note, "pinned by an anchor")
 })
 
 test_that("nmfre(): geomin orientation within the identification region, likelihood and Xi unchanged", {

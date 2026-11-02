@@ -1,5 +1,29 @@
 # nmfkc (development version)
 
+## `nmfre()`: the identification region for rank 4 and above
+
+The identification region (`C.ident.*`, `X.ident.*`, `identification`) was
+computed for `rank <= 3` only.  For `rank >= 4` the bases pinned by anchors are
+now removed one at a time: if a row of `X` is non-zero, outside the bases
+already removed, on one basis only (and, with `C.signed = FALSE`, if a column
+of `C` is), every observationally equivalent transformation keeps that basis,
+because a non-negative row of an orthogonal `O` with `O 1 = 1` is a unit
+vector.  Zeros are exact zeros (the exact updates return them for active
+constraints) unless `ident.zero.tol` is set, which makes the pinning a
+numerical diagnostic.  If at most two bases remain the region is a point up to
+relabelling; if three remain their local region is computed as for `rank = 3`;
+if 4 to 7 remain it is searched numerically (`ident.search`, `ident.dirs`,
+`ident.draws`): the ranges come from points reached along paths from the fit
+that are feasible at each step, and are approximate, not certified bounds.
+Feasible transformations found by random draws elsewhere in the family show
+that the fit is not unique globally; they are counted (`search$global.nonperm`)
+but kept out of the ranges, since they need not belong to the local region.
+`identification$method` says which (`"exact"`, `"anchors"`, `"anchors+exact"`,
+`"search"`, `"anchors+search"`, `"none"`), with `pinned` and `Q.rest`.  The
+geomin orientation and the profile intervals' use of the region remain for
+`rank = 3` only.  The search runs once, on the fit returned (not on every
+start, nor inside `nmfre.ecv()`).  Rank 3 and below are unchanged.
+
 ## `nmfre()`: the variances start from the data
 
 **Fits change** where the old start led to a different fit.  When `sigma2` and

@@ -173,6 +173,18 @@ block-coordinate) and outer (EM variance) iterations (defaults
 region (see the return value): \code{"none"} (default; the point where
 the algorithm stopped, as up to 1.0.2) or \code{"geomin"}.
 \item \code{orient.eps}: \eqn{\varepsilon} of the geomin criterion (default 0.01).
+\item \code{ident.search}: For \eqn{Q\ge4}, search the identification
+region numerically when, after the bases pinned by anchors are
+removed, between 4 and 7 remain (default \code{TRUE}; see the return
+value).
+\item \code{ident.dirs}, \code{ident.draws}: Directions followed from the
+fit and random draws over the whole family in that search (defaults
+\code{300} and \code{20000}).
+\item \code{ident.zero.tol}: Entries of \eqn{X} (and of \eqn{C} for
+\code{C.signed = FALSE}) at most this value count as zeros when
+looking for anchors (default \code{0}: exact zeros only, which the
+exact updates return for active constraints).  A positive value makes
+the pinning a numerical diagnostic, not an exact result.
 }}
 }
 \value{
@@ -318,8 +330,24 @@ the identification region.  \eqn{X\Theta} is constant on it.  For
 local identification region; the range of each entry of \eqn{\Theta} and
 of \eqn{X} over the arc is computed exactly.  A width of 0 means the fit
 cannot be moved within the region (a row of \eqn{X} on one basis only pins
-it).  For \eqn{Q\le2} the region is a point up to relabelling; for
-\eqn{Q\ge4} it is not computed.  By default (\code{orient = "none"}) the
+it).  For \eqn{Q\le2} the region is a point up to relabelling.  For
+\eqn{Q\ge4} the bases pinned by anchors are removed one at a time: if a row
+of \eqn{X} is non-zero, outside the bases already removed, on one basis
+only (and, for \code{C.signed = FALSE}, if a column of \eqn{C} is), every
+admissible \eqn{O} keeps that basis, because a non-negative row of \eqn{O}
+with sum 1 and length 1 is a unit vector.  Zeros are exact zeros unless
+\code{ident.zero.tol} is set.  If at most two bases remain the region is a
+point up to relabelling; if three remain their local region (an arc, a
+point, or the whole circle) is computed as for \eqn{Q=3}; if 4 to 7 remain
+it is searched numerically (\code{ident.search}): the ranges then come from
+points reached along paths from the fit that are feasible at each step,
+and are approximate, not certified bounds (finding no other
+representation is evidence, not a proof).  Feasible transformations found
+elsewhere in the family show that the fit is not unique globally; they are
+counted (\code{identification$search$global.nonperm}) but not used in the
+ranges, since they need not belong to the local region.  The geomin
+orientation and the profile intervals' use of the region are for
+\eqn{Q=3} only.  By default (\code{orient = "none"}) the
 representation returned is the point where the algorithm stopped.  With
 \code{orient = "geomin"} it is the member of the local region that minimizes
 the geomin criterion on the row shares of \eqn{X} (as rotated loadings in
@@ -328,12 +356,16 @@ The likelihood and \eqn{X\Theta} do not change.
 \describe{
 \item{\code{C.ident.lower}, \code{C.ident.upper}, \code{C.ident.width}}{Range
 of each entry of \eqn{C} over the local identification region and its
-width (Q x K matrices; absent for \eqn{Q\ge4}).}
+width (Q x K matrices; absent when the region is not computed).}
 \item{\code{X.ident.lower}, \code{X.ident.upper}, \code{X.ident.width}}{The
 same for \eqn{X} (P x Q matrices).}
 \item{\code{identification}}{List: \code{width} (largest entry of
-\code{C.ident.width}; \code{NA} for \eqn{Q\ge4}), \code{arc} and
-\code{full.circle} of the region, and \code{orient}, the orientation
+\code{C.ident.width}; \code{NA} when not computed), \code{arc} and
+\code{full.circle} of the region, \code{method} (\code{"exact"},
+\code{"anchors"}, \code{"anchors+exact"}, \code{"search"},
+\code{"anchors+search"} or \code{"none"}), \code{pinned} (bases pinned
+by anchors, \eqn{Q\ge4}), \code{Q.rest} (bases left after them),
+\code{search} (counts of the numerical search), and \code{orient}, the orientation
 applied (\code{rule}, \code{angle}, \code{O}, \code{moved}: largest
 change of \eqn{C}, the geomin \code{criterion} before and after,
 \code{eps}, \code{note}).  \code{\link{nmfre.inference}} adds its

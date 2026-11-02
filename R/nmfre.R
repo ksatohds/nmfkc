@@ -343,7 +343,8 @@
   ## the search compares fits as they stop; the result is oriented once, at the end
   orient <- if (!is.null(ea[["orient"]])) match.arg(ea[["orient"]], c("none", "geomin")) else "none"
   orient.eps <- if (!is.null(ea$orient.eps)) ea$orient.eps else 0.01
-  ea$orient <- "none"
+  ident <- .nmfre.ident.args(ea)
+  ea$orient <- "none"; ea$ident.search <- FALSE
   Ym <- as.matrix(Y)
   Am <- if (is.null(A)) matrix(1, 1, ncol(Ym)) else as.matrix(A)
   signed <- !(identical(C.signed, FALSE) || identical(C.signed, "nonneg"))
@@ -380,7 +381,7 @@
     chosen = seq_along(fits) == b)
   best$nll.free <- nll(f0)
   best$call <- call
-  .nmfre.orient.fit(best, nonneg = !signed, orient = orient, eps = orient.eps)
+  .nmfre.orient.fit(best, nonneg = !signed, orient = orient, eps = orient.eps, ident = ident)
 }
 
 ## Evaluate a fit, holding back its messages and warnings (and an error) so the
@@ -421,7 +422,8 @@
   ## the fits are compared as they stop; the kept one is oriented once, at the end
   orient <- if (!is.null(ea[["orient"]])) match.arg(ea[["orient"]], c("none", "geomin")) else "none"
   orient.eps <- if (!is.null(ea$orient.eps)) ea$orient.eps else 0.01
-  ea$orient <- "none"
+  ident <- .nmfre.ident.args(ea)
+  ea$orient <- "none"; ea$ident.search <- FALSE
   Ym <- as.matrix(Y)
   Am <- if (is.null(A)) matrix(1, 1, ncol(Ym)) else as.matrix(A)
   signed <- !(identical(C.signed, FALSE) || identical(C.signed, "nonneg"))
@@ -467,7 +469,7 @@
     converged = vapply(runs, function(r) if (is.null(r$fit)) NA else isTRUE(r$fit$converged), logical(1)),
     chosen = seq_along(runs) == b)
   best$call <- call
-  .nmfre.orient.fit(best, nonneg = !signed, orient = orient, eps = orient.eps)
+  .nmfre.orient.fit(best, nonneg = !signed, orient = orient, eps = orient.eps, ident = ident)
 }
 
 #' Normalize columns of X to sum 1, rescaling C and U
@@ -691,6 +693,18 @@
 #'       region (see the return value): \code{"none"} (default; the point where
 #'       the algorithm stopped, as up to 1.0.2) or \code{"geomin"}.
 #'     \item \code{orient.eps}: \eqn{\varepsilon} of the geomin criterion (default 0.01).
+#'     \item \code{ident.search}: For \eqn{Q\ge4}, search the identification
+#'       region numerically when, after the bases pinned by anchors are
+#'       removed, between 4 and 7 remain (default \code{TRUE}; see the return
+#'       value).
+#'     \item \code{ident.dirs}, \code{ident.draws}: Directions followed from the
+#'       fit and random draws over the whole family in that search (defaults
+#'       \code{300} and \code{20000}).
+#'     \item \code{ident.zero.tol}: Entries of \eqn{X} (and of \eqn{C} for
+#'       \code{C.signed = FALSE}) at most this value count as zeros when
+#'       looking for anchors (default \code{0}: exact zeros only, which the
+#'       exact updates return for active constraints).  A positive value makes
+#'       the pinning a numerical diagnostic, not an exact result.
 #'   }
 #' @return A list of class \code{"nmfre"} with components.
 #'   The model is \eqn{Y = X(\Theta A + U) + \mathcal{E}}.
@@ -834,8 +848,24 @@
 #'   local identification region; the range of each entry of \eqn{\Theta} and
 #'   of \eqn{X} over the arc is computed exactly.  A width of 0 means the fit
 #'   cannot be moved within the region (a row of \eqn{X} on one basis only pins
-#'   it).  For \eqn{Q\le2} the region is a point up to relabelling; for
-#'   \eqn{Q\ge4} it is not computed.  By default (\code{orient = "none"}) the
+#'   it).  For \eqn{Q\le2} the region is a point up to relabelling.  For
+#'   \eqn{Q\ge4} the bases pinned by anchors are removed one at a time: if a row
+#'   of \eqn{X} is non-zero, outside the bases already removed, on one basis
+#'   only (and, for \code{C.signed = FALSE}, if a column of \eqn{C} is), every
+#'   admissible \eqn{O} keeps that basis, because a non-negative row of \eqn{O}
+#'   with sum 1 and length 1 is a unit vector.  Zeros are exact zeros unless
+#'   \code{ident.zero.tol} is set.  If at most two bases remain the region is a
+#'   point up to relabelling; if three remain their local region (an arc, a
+#'   point, or the whole circle) is computed as for \eqn{Q=3}; if 4 to 7 remain
+#'   it is searched numerically (\code{ident.search}): the ranges then come from
+#'   points reached along paths from the fit that are feasible at each step,
+#'   and are approximate, not certified bounds (finding no other
+#'   representation is evidence, not a proof).  Feasible transformations found
+#'   elsewhere in the family show that the fit is not unique globally; they are
+#'   counted (\code{identification$search$global.nonperm}) but not used in the
+#'   ranges, since they need not belong to the local region.  The geomin
+#'   orientation and the profile intervals' use of the region are for
+#'   \eqn{Q=3} only.  By default (\code{orient = "none"}) the
 #'   representation returned is the point where the algorithm stopped.  With
 #'   \code{orient = "geomin"} it is the member of the local region that minimizes
 #'   the geomin criterion on the row shares of \eqn{X} (as rotated loadings in
@@ -844,12 +874,16 @@
 #'   \describe{
 #'     \item{\code{C.ident.lower}, \code{C.ident.upper}, \code{C.ident.width}}{Range
 #'       of each entry of \eqn{C} over the local identification region and its
-#'       width (Q x K matrices; absent for \eqn{Q\ge4}).}
+#'       width (Q x K matrices; absent when the region is not computed).}
 #'     \item{\code{X.ident.lower}, \code{X.ident.upper}, \code{X.ident.width}}{The
 #'       same for \eqn{X} (P x Q matrices).}
 #'     \item{\code{identification}}{List: \code{width} (largest entry of
-#'       \code{C.ident.width}; \code{NA} for \eqn{Q\ge4}), \code{arc} and
-#'       \code{full.circle} of the region, and \code{orient}, the orientation
+#'       \code{C.ident.width}; \code{NA} when not computed), \code{arc} and
+#'       \code{full.circle} of the region, \code{method} (\code{"exact"},
+#'       \code{"anchors"}, \code{"anchors+exact"}, \code{"search"},
+#'       \code{"anchors+search"} or \code{"none"}), \code{pinned} (bases pinned
+#'       by anchors, \eqn{Q\ge4}), \code{Q.rest} (bases left after them),
+#'       \code{search} (counts of the numerical search), and \code{orient}, the orientation
 #'       applied (\code{rule}, \code{angle}, \code{O}, \code{moved}: largest
 #'       change of \eqn{C}, the geomin \code{criterion} before and after,
 #'       \code{eps}, \code{note}).  \code{\link{nmfre.inference}} adds its
@@ -1587,11 +1621,11 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, X.update = c("exact", 
       X.L2.ortho == 0 && X.L2.smooth == 0) {
     ea <- extra_args
     ea[c("X.init", "C.init", "U.init", "sigma2", "tau2", "kkt.check", "kkt.tol", ".kkt.inner", "orient",
-         "orient.eps", "print.trace", "verbose", "seed", "nstart", "Q")] <- NULL
+         "orient.eps", "print.trace", "verbose", "seed", "nstart", "Q", "ident.search")] <- NULL
     fe <- tryCatch(suppressMessages(suppressWarnings(do.call(nmfre, c(list(
       Y = Y, A = A, rank = Q, C.signed = C.signed, X.update = "exact", epsilon = epsilon, maxit = 50L,
       X.init = out$X, C.init = out$C, U.init = out$U, sigma2 = out$sigma2, tau2 = out$tau2,
-      verbose = FALSE, print.trace = FALSE, .kkt.inner = TRUE), ea)))), error = function(e) NULL)
+      verbose = FALSE, print.trace = FALSE, .kkt.inner = TRUE, ident.search = FALSE), ea)))), error = function(e) NULL)
     if (!is.null(fe)) {
       imp <- 2 * (.nmfre.marginal.nll(Y, out$X, out$C, A, out$sigma2, out$tau2) -
                   .nmfre.marginal.nll(Y, fe$X, fe$C, A, fe$sigma2, fe$tau2))
@@ -1606,7 +1640,8 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, X.update = c("exact", 
   ## identification region; the representation within it (as stopped by default)
   orient <- if (!is.null(extra_args[["orient"]])) base::match.arg(extra_args[["orient"]], c("none", "geomin")) else "none"
   out <- .nmfre.orient.fit(out, nonneg = (C.mode == "nonneg"), orient = orient,
-                           eps = if (!is.null(extra_args$orient.eps)) extra_args$orient.eps else 0.01)
+                           eps = if (!is.null(extra_args$orient.eps)) extra_args$orient.eps else 0.01,
+                           ident = .nmfre.ident.args(extra_args))
   class(out) <- c("nmfre", "nmf")
   out
 }
@@ -1673,15 +1708,30 @@ print.summary.nmfre <- function(x, ...) {
   if (!is.list(idn) || (is.null(idn$width) && is.null(idn$orient))) return(invisible(NULL))
   w <- idn$width; o <- idn$orient
   pad <- "                      "
+  srch <- !is.null(idn$method) && grepl("search", idn$method)
+  np <- length(idn$pinned)
+  pin <- if (np == 1L) sprintf("basis %d pinned by an anchor", idn$pinned)
+         else if (np > 1L) sprintf("bases %s pinned by anchors", paste(idn$pinned, collapse = ", ")) else ""
   if (Q <= 2L) {
     cat("Identification region: a point up to relabelling of the bases (Q <= 2)\n")
   } else if (is.null(w) || !is.finite(w)) {
-    cat("Identification region: not computed (Q >= 4)\n")
+    cat(sprintf("Identification region: not computed (%s%d bases left; at most 7 are searched)\n",
+                if (np) paste0(pin, "; ") else "", if (is.null(idn$Q.rest)) Q else idn$Q.rest))
+  } else if (w <= 1e-8 && identical(idn$method, "anchors")) {
+    cat(sprintf("Identification region: a point up to relabelling (%s)\n", pin))
+  } else if (w <= 1e-8 && srch) {
+    cat(sprintf("Identification region: no other representation found near the fit by a numerical search%s\n",
+                if (np) paste0(" (", pin, ")") else ""))
   } else if (w <= 1e-8) {
     cat("Identification region: a point (width 0); Theta is locally unique (no other representation nearby)\n")
   } else {
-    cat(sprintf("Identification region: width of Theta up to %.3g (arc %.1f deg%s)\n", w,
-                diff(idn$arc) * 180 / pi, if (isTRUE(idn$full.circle)) ", full circle" else ""))
+    if (srch)
+      cat(sprintf("Identification region: width of Theta about %.3g (numerical search, not a certified bound%s)\n", w,
+                  if (np) paste0("; ", pin) else ""))
+    else
+      cat(sprintf("Identification region: width of Theta up to %.3g (arc %.1f deg%s)%s\n", w,
+                  diff(idn$arc) * 180 / pi, if (isTRUE(idn$full.circle)) ", full circle" else "",
+                  if (np) paste0(" (", pin, ")") else ""))
     if (!is.null(o))
       cat(pad, " reported: ",
           if (identical(o$rule, "geomin")) sprintf("the geomin member (Theta moved by %.3g)", o$moved)
@@ -1692,7 +1742,8 @@ print.summary.nmfre <- function(x, ...) {
         rn <- if (!is.null(rownames(x$C))) rownames(x$C) else paste0("Basis", seq_len(nrow(x$C)))
         cn <- if (!is.null(colnames(x$C))) colnames(x$C) else paste0("Cov", seq_len(ncol(x$C)))
         lab <- paste0(rep(cn, each = length(rn)), ":", rep(rn, times = length(cn)))[both]
-        cat(pad, " sign not determined by the data: ", paste(lab, collapse = ", "), "\n", sep = "")
+        cat(pad, if (srch) " sign not determined (both signs found by the search): "
+                 else " sign not determined by the data: ", paste(lab, collapse = ", "), "\n", sep = "")
       }
     }
     cat(pad, " ranges: C.ident.lower / C.ident.upper (X: X.ident.*)\n", sep = "")
@@ -1954,7 +2005,9 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 ## phi = 0 is the local identification region.  Each entry of O(phi)'C is
 ## a + b cos(phi) + c sin(phi), so its range over the arc is exact; only the
 ## ends of the arc are found numerically.  Q = 1, 2: the region is a point up
-## to relabelling.  Q >= 4: not computed (the region is multi-dimensional).
+## to relabelling.  Q >= 4: components pinned by anchors are removed one at a
+## time (.nmfre.ident.pin()); the Q' that remain are a point (Q' <= 2), an arc
+## computed as for Q = 3 (Q' = 3), or searched numerically (4 <= Q' <= 7).
 .nmfre.O3.basis <- function() base::qr.Q(base::qr(base::cbind(1, base::diag(3))))[, 2:3, drop = FALSE]
 
 .nmfre.O3 <- function(phi, V) {
@@ -1962,13 +2015,14 @@ predict.nmfre <- function(object, newA = NULL, ...) {
   base::matrix(1 / 3, 3, 3) + V %*% R %*% base::t(V)
 }
 
-.nmfre.ident.region <- function(X, C, nonneg = FALSE, tol = 1e-10, ngrid = 7200L) {
+.nmfre.ident.region <- function(X, C, nonneg = FALSE, tol = 1e-10, ngrid = 7200L,
+                                ident = base::list(search = TRUE)) {
   Q <- base::ncol(X)
   if (Q <= 2L)
-    return(base::list(Q = Q, computed = TRUE, full = FALSE, arc = c(0, 0), lower = C, upper = C,
-                      width = C * 0, phi.lower = C * 0, phi.upper = C * 0,
+    return(base::list(Q = Q, computed = TRUE, method = "exact", full = FALSE, arc = c(0, 0), lower = C,
+                      upper = C, width = C * 0, phi.lower = C * 0, phi.upper = C * 0,
                       X.lower = X, X.upper = X, X.width = X * 0))
-  if (Q > 3L) return(base::list(Q = Q, computed = FALSE))
+  if (Q > 3L) return(.nmfre.ident.reduce(X, C, nonneg = nonneg, tol = tol, ngrid = ngrid, ident = ident))
   V <- .nmfre.O3.basis()
   ctol <- tol * base::max(1, base::max(base::abs(C)))
   g <- function(phi) {
@@ -2003,7 +2057,7 @@ predict.nmfre <- function(object, newA = NULL, ...) {
                          V %*% base::crossprod(V, C), V %*% Jt %*% base::crossprod(V, C), lo, hi)
   rx <- .nmfre.arc.range(base::matrix(base::rowSums(X) / 3, base::nrow(X), 3),
                          X %*% V %*% base::t(V), X %*% V %*% base::t(Jt) %*% base::t(V), lo, hi)
-  base::list(Q = 3L, computed = TRUE, full = full, arc = c(lo, hi), V = V,
+  base::list(Q = 3L, computed = TRUE, method = "exact", full = full, arc = c(lo, hi), V = V,
              lower = rc$lower, upper = rc$upper, width = rc$upper - rc$lower,
              phi.lower = rc$phi.lower, phi.upper = rc$phi.upper,
              X.lower = rx$lower, X.upper = rx$upper, X.width = rx$upper - rx$lower)
@@ -2023,6 +2077,140 @@ predict.nmfre <- function(object, newA = NULL, ...) {
     phl[j] <- cand[base::which.min(v)]; phu[j] <- cand[base::which.max(v)]
   }
   base::list(lower = lower, upper = upper, phi.lower = phl, phi.upper = phu)
+}
+
+## Options of the identification computation from the arguments of nmfre()
+## (exact matching: `ident.search` must not pick up another argument).
+.nmfre.ident.args <- function(ea) base::list(
+  search   = if (!is.null(ea[["ident.search"]])) base::isTRUE(ea[["ident.search"]]) else TRUE,
+  n.dir    = if (!is.null(ea[["ident.dirs"]])) base::as.integer(ea[["ident.dirs"]]) else 300L,
+  n.global = if (!is.null(ea[["ident.draws"]])) base::as.integer(ea[["ident.draws"]]) else 20000L,
+  zero.tol = if (!is.null(ea[["ident.zero.tol"]])) ea[["ident.zero.tol"]] else 0,
+  seed     = if (!is.null(ea[["seed"]])) ea[["seed"]] else 1L)
+
+## Components pinned by anchors, found one at a time.  If a row of X is
+## non-zero, outside the components already pinned, on component q alone, then
+## row q of every admissible O is non-negative (XO >= 0 on that row).  A
+## non-negative row with sum 1 (O1 = 1) and length 1 (O orthogonal) is a unit
+## vector, so O keeps component q (up to relabelling) and is the identity on
+## it; what is left is the same problem for the other components.  Under the
+## non-negative variant a column of C non-zero on one remaining component pins
+## it in the same way (O'C >= 0).  The result is about exact zeros: by default
+## (zero.tol = 0) only entries equal to 0 count, which the exact X- and C-steps
+## return for active constraints; a positive zero.tol (an absolute threshold)
+## makes the pinning a numerical diagnostic, not a proof.
+.nmfre.ident.pin <- function(X, C, nonneg = FALSE, zero.tol = 0) {
+  Q <- base::ncol(X); S <- base::integer(0)
+  nzx <- X > zero.tol
+  nzc <- base::abs(C) > zero.tol
+  repeat {
+    rest <- base::setdiff(base::seq_len(Q), S)
+    if (base::length(rest) <= 1L) break
+    r <- nzx[, rest, drop = FALSE]
+    new <- base::integer(0)
+    for (i in base::which(base::rowSums(r) == 1L)) new <- base::c(new, rest[base::which(r[i, ])])
+    if (nonneg) {
+      cc <- nzc[rest, , drop = FALSE]
+      for (k in base::which(base::colSums(cc) == 1L)) new <- base::c(new, rest[base::which(cc[, k])])
+    }
+    new <- base::setdiff(base::unique(new), S)
+    if (!base::length(new)) break
+    S <- base::sort(base::union(S, new))
+  }
+  S
+}
+
+## Q >= 4: remove the pinned components, then treat the Q' that remain.
+.nmfre.ident.reduce <- function(X, C, nonneg = FALSE, tol = 1e-10, ngrid = 7200L,
+                                ident = base::list(search = TRUE)) {
+  Q <- base::ncol(X)
+  zt <- if (is.null(ident$zero.tol)) 0 else ident$zero.tol
+  S <- .nmfre.ident.pin(X, C, nonneg = nonneg, zero.tol = zt)
+  rest <- base::setdiff(base::seq_len(Q), S); Qr <- base::length(rest)
+  base.out <- base::list(Q = Q, computed = TRUE, full = FALSE, arc = NULL, pinned = S, Q.rest = Qr, zero.tol = zt,
+                         lower = C, upper = C, width = C * 0 + 0, X.lower = X, X.upper = X, X.width = X * 0 + 0)
+  if (Qr <= 2L) return(base::c(base.out, base::list(method = "anchors")))
+  if (Qr == 3L) {
+    r <- .nmfre.ident.region(X[, rest, drop = FALSE], C[rest, , drop = FALSE], nonneg = nonneg,
+                             tol = tol, ngrid = ngrid)
+    method <- if (base::length(S)) "anchors+exact" else "exact"
+  } else if (base::isTRUE(ident$search) && Qr <= 7L) {
+    r <- .nmfre.ident.search(X[, rest, drop = FALSE], C[rest, , drop = FALSE], nonneg = nonneg, tol = tol,
+                             n.dir = if (is.null(ident$n.dir)) 300L else ident$n.dir,
+                             n.global = if (is.null(ident$n.global)) 20000L else ident$n.global,
+                             seed = if (is.null(ident$seed)) 1L else ident$seed)
+    method <- if (base::length(S)) "anchors+search" else "search"
+  } else return(base::list(Q = Q, computed = FALSE, pinned = S, Q.rest = Qr, zero.tol = zt, method = "none"))
+  out <- base.out
+  out$lower[rest, ] <- r$lower; out$upper[rest, ] <- r$upper; out$width <- out$upper - out$lower
+  out$X.lower[, rest] <- r$X.lower; out$X.upper[, rest] <- r$X.upper; out$X.width <- out$X.upper - out$X.lower
+  out$method <- method
+  if (!is.null(r$arc)) out$arc <- r$arc
+  if (!is.null(r$search)) out$search <- r$search
+  out
+}
+
+## Numerical search of the region for 4 <= Q <= 7; approximate, without a
+## certificate.  The O with O1 = 1 are O = 11'/Q + V R V' with R orthogonal of
+## size Q - 1 (a family of dimension (Q-1)(Q-2)/2).  Local part: from O = I,
+## random directions (Cayley curves R(t) = cayley(t A), A skew-symmetric) are
+## walked outward in small steps and stopped at the first infeasible step,
+## whose position is then refined by bisection, so every point used is reached
+## along a path feasible at each step.  The ranges over these points
+## approximate the local region from inside; a violation between two steps can
+## be missed, so they are not a certified bound.  Global part: random draws over
+## the whole family.  A feasible O other than a relabelling shows that the
+## representation is not unique globally, but it need not lie in the local
+## region (another connected component), so these draws are counted and kept
+## out of the ranges.
+.nmfre.ident.search <- function(X, C, nonneg = FALSE, tol = 1e-10, n.dir = 300L, n.global = 20000L,
+                                seed = 1L, step = 1.05) {
+  Q <- base::ncol(X); m <- Q - 1L
+  .rng <- .nmfkc.rng.save(seed)
+  on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
+  V <- base::qr.Q(base::qr(base::cbind(1, base::diag(Q))))[, 2:Q, drop = FALSE]
+  J <- base::matrix(1 / Q, Q, Q)
+  Omat <- function(R) J + V %*% R %*% base::t(V)
+  tolX <- tol * base::max(1, base::max(X)); tolC <- tol * base::max(1, base::max(base::abs(C)))
+  feas <- function(O) base::min(X %*% O) >= -tolX && (!nonneg || base::min(base::crossprod(O, C)) >= -tolC)
+  cayley <- function(A) base::solve(base::diag(m) + A, base::diag(m) - A)
+  rskew <- function() {
+    A <- base::matrix(0, m, m); A[base::upper.tri(A)] <- stats::rnorm(m * (m - 1L) / 2)
+    A <- A - base::t(A); A / base::sqrt(base::sum(A^2))
+  }
+  found <- base::list(base::diag(Q)); n.loc <- 0L
+  for (d in base::seq_len(n.dir)) {
+    A <- rskew()
+    t <- 1e-6
+    if (!feas(Omat(cayley(t * A)))) next
+    lo <- t; hi <- NA_real_
+    while (t < 1e3) {                                     # walk out in small steps to the first violation
+      t <- t * step
+      if (feas(Omat(cayley(t * A)))) lo <- t else { hi <- t; break }
+    }
+    if (!base::is.na(hi)) for (it in 1:30) { mid <- (lo + hi) / 2; if (feas(Omat(cayley(mid * A)))) lo <- mid else hi <- mid }
+    if (lo < 1e-5) next                                   # a segment this short is the tolerance
+    n.loc <- n.loc + 1L
+    found[[base::length(found) + 1L]] <- Omat(cayley(lo * A))
+  }
+  n.glob <- 0L
+  for (b in base::seq_len(n.global)) {
+    qz <- base::qr(base::matrix(stats::rnorm(m * m), m, m))
+    O <- Omat(base::qr.Q(qz) %*% base::diag(base::sign(base::diag(base::qr.R(qz))), m))
+    if (!feas(O)) next
+    jm <- base::apply(O, 2, base::which.max)
+    if (base::anyDuplicated(jm) || base::max(base::abs(O - base::diag(Q)[, jm])) > 1e-6) n.glob <- n.glob + 1L
+  }
+  Cs <- base::matrix(base::vapply(found, function(O) base::as.vector(base::crossprod(O, C)), base::numeric(base::length(C))),
+                     ncol = base::length(found))
+  Xs <- base::matrix(base::vapply(found, function(O) base::as.vector(X %*% O), base::numeric(base::length(X))),
+                     ncol = base::length(found))
+  lower <- upper <- C; lower[] <- base::apply(Cs, 1, base::min); upper[] <- base::apply(Cs, 1, base::max)
+  Xl <- Xu <- X; Xl[] <- base::pmax(base::apply(Xs, 1, base::min), 0); Xu[] <- base::apply(Xs, 1, base::max)
+  base::list(Q = Q, computed = TRUE, method = "search", full = FALSE, arc = NULL,
+             lower = lower, upper = upper, width = upper - lower, X.lower = Xl, X.upper = Xu, X.width = Xu - Xl,
+             search = base::list(dim = m * (m - 1L) / 2, n.dir = n.dir, n.global = n.global,
+                                 local.feasible = n.loc, global.nonperm = n.glob))
 }
 
 ## geomin criterion on the row shares of X (Yates 1987; Browne 2001)
@@ -2075,9 +2263,10 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 ## Identification region and orientation of a fit, as returned by nmfre():
 ## orient the representation within its local region (geomin, or none) and
 ## add the ranges of C and X over the region and the identification list.
-.nmfre.orient.fit <- function(out, nonneg = FALSE, orient = "none", eps = 0.01) {
+.nmfre.orient.fit <- function(out, nonneg = FALSE, orient = "none", eps = 0.01,
+                              ident = base::list(search = TRUE)) {
   Q <- base::ncol(out$X)
-  region <- .nmfre.ident.region(out$X, out$C, nonneg = nonneg)
+  region <- .nmfre.ident.region(out$X, out$C, nonneg = nonneg, ident = ident)
   orientation <- base::list(rule = orient, angle = 0, O = base::diag(Q), moved = 0, eps = eps)
   if (orient == "geomin" && isTRUE(region$computed) && region$Q == 3L && base::diff(region$arc) > 1e-9) {
     og <- .nmfre.orient.geomin(out$X, region, eps = eps)
@@ -2086,10 +2275,24 @@ predict.nmfre <- function(object, newA = NULL, ...) {
     orientation <- base::list(rule = "geomin", angle = og$phi, O = og$O,
                               moved = base::max(base::abs(out$C - C.before)),
                               criterion = og$criterion, criterion.start = og$criterion.start, eps = eps)
-    region <- .nmfre.ident.region(out$X, out$C, nonneg = nonneg)
+    region <- .nmfre.ident.region(out$X, out$C, nonneg = nonneg, ident = ident)
   }
-  orientation$note <- if (!isTRUE(region$computed)) "identification region not computed for Q >= 4"
+  w.max <- if (isTRUE(region$computed)) base::max(region$width) else NA_real_
+  orientation$note <- if (!isTRUE(region$computed))
+      base::sprintf("identification region not computed (%d components left after the anchors%s)",
+                    region$Q.rest, if (isTRUE(ident$search)) "; searched for at most 7" else "; ident.search = FALSE")
     else if (region$Q <= 2L) "Q <= 2: the region is a point up to relabelling"
+    else if (region$Q >= 4L && w.max <= 1e-8 && identical(region$method, "anchors"))
+      "Q >= 4: every basis pinned by an anchor, one at a time: the region is a point up to relabelling"
+    else if (region$Q >= 4L && grepl("search", region$method))
+      base::paste0("Q >= 4: region searched numerically", if (base::length(region$pinned)) " after the anchors" else "", "; ",
+                   if (w.max <= 1e-8) "no other representation found near the fit (evidence, not a proof)"
+                   else "the ranges are approximate (along feasible paths from the fit, not certified bounds)",
+                   if (isTRUE(region$search$global.nonperm > 0))
+                     base::sprintf("; %d feasible transformations other than relabellings found elsewhere (not unique globally)",
+                                   region$search$global.nonperm) else "")
+    else if (region$Q >= 4L && w.max > 1e-8) "Q >= 4: orientation is computed for Q = 3 only"
+    else if (region$Q >= 4L) "Q >= 4: the region is a point after the anchors"
     else if (base::diff(region$arc) <= 1e-9 && orientation$angle == 0) "the region is a point: nothing to orient"
     else NULL
   if (isTRUE(region$computed)) {
@@ -2101,9 +2304,10 @@ predict.nmfre <- function(object, newA = NULL, ...) {
       base::dimnames(out$X.ident.width) <- base::dimnames(out$X)
   }
   out$identification <- base::list(
-    width = if (isTRUE(region$computed)) base::max(region$width) else NA_real_,
+    width = w.max,
     arc = if (isTRUE(region$computed)) region$arc else NULL,
-    full.circle = isTRUE(region$full), orient = orientation)
+    full.circle = isTRUE(region$full), method = region$method,
+    pinned = region$pinned, Q.rest = region$Q.rest, search = region$search, orient = orientation)
   out
 }
 
@@ -2445,7 +2649,7 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
       base::warning("profile = TRUE is implemented for a sign-free C (C.signed = TRUE) only; skipped.")
     } else {
       p.which <- if (!is.null(extra_args$profile.which)) extra_args$profile.which else base::seq_along(C_mat)
-      region <- .nmfre.ident.region(X, C_mat)
+      region <- .nmfre.ident.region(X, C_mat, ident = base::list(search = FALSE))   # used for Q = 3 only
       pr <- .nmfre.profile.ci(object, Y, A, se = se_vec, region = region, which = p.which,
               level = if (!is.null(extra_args$profile.level)) extra_args$profile.level else 0.95,
               step = if (!is.null(extra_args$profile.step)) extra_args$profile.step else 0.25,
@@ -2471,7 +2675,11 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   ## effects exactly; an anchor row on every basis is only a sufficient
   ## condition for it to be a point, so the region decides when it is there.
   w.region <- if (base::is.list(object$identification)) object$identification$width else NULL
-  region.known <- Q == 3L && !is.null(w.region) && base::is.finite(w.region)
+  m.region <- if (base::is.list(object$identification)) object$identification$method else NULL
+  ## computed exactly: Q = 3, or Q >= 4 with the anchors and an exact arc for what remains
+  ## (a numerical search is evidence, not a proof, and does not count here)
+  region.known <- !is.null(w.region) && base::is.finite(w.region) &&
+    (Q == 3L || (Q >= 4L && !is.null(m.region) && m.region %in% c("anchors", "anchors+exact", "exact")))
   v$identification$by.assumption <- isTRUE(tau2 > 0) &&
     (Q <= 2L || all(v$identification$anchor) || (region.known && w.region <= 1e-8))
   if (C.mode == "signed") {
@@ -2618,7 +2826,7 @@ nmfre.ecv <- function(Y, A = NULL, rank = 1:3, C.signed = TRUE, ...) {
                      sigma2 = 1, tau2 = 1,
                      epsilon = epsilon, epsilon.outer = epsilon.outer,
                      inner.maxit = inner.maxit, outer.maxit = outer.maxit,
-                     maxit = maxit))
+                     maxit = maxit, ident.search = FALSE))
         f
       }),
       error = function(e) {
