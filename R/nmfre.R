@@ -845,10 +845,13 @@
 #'   and \eqn{XO\ge0} (and \eqn{O^\top\Theta\ge0} for \code{C.signed = FALSE}):
 #'   the identification region.  \eqn{X\Theta} is constant on it.  For
 #'   \eqn{Q=3} the \eqn{O} form a circle, and the arc through the fit is the
-#'   local identification region; the range of each entry of \eqn{\Theta} and
-#'   of \eqn{X} over the arc is computed exactly.  A width of 0 means the fit
-#'   cannot be moved within the region (a row of \eqn{X} on one basis only pins
-#'   it).  For \eqn{Q\le2} the region is a point up to relabelling.  For
+#'   local identification region.  The ends of the arc are found numerically
+#'   (a grid of 7200 angles refined by root finding, constraints met to
+#'   \eqn{10^{-10}}; an arc shorter than \eqn{10^{-7}} is reported as a point);
+#'   the range of each entry of \eqn{\Theta} and of \eqn{X} over the arc is
+#'   then computed in closed form.  A width of 0 means the fit cannot be moved
+#'   within the region, to this resolution (a row of \eqn{X} on one basis only
+#'   pins it).  For \eqn{Q\le2} the region is a point up to relabelling.  For
 #'   \eqn{Q\ge4} the bases pinned by anchors are removed one at a time: if a row
 #'   of \eqn{X} is non-zero, outside the bases already removed, on one basis
 #'   only (and, for \code{C.signed = FALSE}, if a column of \eqn{C} is), every
@@ -881,7 +884,9 @@
 #'       \code{C.ident.width}; \code{NA} when not computed), \code{arc} and
 #'       \code{full.circle} of the region, \code{method} (\code{"exact"},
 #'       \code{"anchors"}, \code{"anchors+exact"}, \code{"search"},
-#'       \code{"anchors+search"} or \code{"none"}), \code{pinned} (bases pinned
+#'       \code{"anchors+search"} or \code{"none"}; \code{"exact"} means the arc
+#'       computed as above, in closed form over an arc whose ends are found
+#'       numerically, not a certified computation), \code{pinned} (bases pinned
 #'       by anchors, \eqn{Q\ge4}), \code{Q.rest} (bases left after them),
 #'       \code{search} (counts of the numerical search), and \code{orient}, the orientation
 #'       applied (\code{rule}, \code{angle}, \code{O}, \code{moved}: largest
@@ -2672,11 +2677,11 @@ nmfre.inference <- function(object, Y, A = NULL, wild.bootstrap = TRUE, ...) {
   pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 0.01
   v <- .ident.verdict(X, C_mat, A, scale.fixed = TRUE, sep.tol = sep.tol, pin.tol = pin.tol)
   ## For Q = 3 nmfre() computed the identification region under those random
-  ## effects exactly; an anchor row on every basis is only a sufficient
+  ## effects (the arc; its ends numerically); an anchor row on every basis is only a sufficient
   ## condition for it to be a point, so the region decides when it is there.
   w.region <- if (base::is.list(object$identification)) object$identification$width else NULL
   m.region <- if (base::is.list(object$identification)) object$identification$method else NULL
-  ## computed exactly: Q = 3, or Q >= 4 with the anchors and an exact arc for what remains
+  ## computed, not searched: Q = 3, or Q >= 4 with the anchors and an arc for what remains
   ## (a numerical search is evidence, not a proof, and does not count here)
   region.known <- !is.null(w.region) && base::is.finite(w.region) &&
     (Q == 3L || (Q >= 4L && !is.null(m.region) && m.region %in% c("anchors", "anchors+exact", "exact")))

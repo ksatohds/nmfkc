@@ -19,7 +19,10 @@ Feasible transformations found by random draws elsewhere in the family show
 that the fit is not unique globally; they are counted (`search$global.nonperm`)
 but kept out of the ranges, since they need not belong to the local region.
 `identification$method` says which (`"exact"`, `"anchors"`, `"anchors+exact"`,
-`"search"`, `"anchors+search"`, `"none"`), with `pinned` and `Q.rest`.  The
+`"search"`, `"anchors+search"`, `"none"`), with `pinned` and `Q.rest`.
+`"exact"` means the arc of `rank = 3`: closed form over an arc whose ends are
+found numerically (grid and root finding), not a certified computation; the
+help now says so (it said the range over the arc "is computed exactly").  The
 geomin orientation and the profile intervals' use of the region remain for
 `rank = 3` only.  The search runs once, on the fit returned (not on every
 start, nor inside `nmfre.ecv()`).  Rank 3 and below are unchanged.
