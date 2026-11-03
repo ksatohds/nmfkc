@@ -897,7 +897,9 @@ nmfkc.ar.latent <- function(x) {
                                pin.tol = 0.01, negl.tol = 1e-6) {
   Q  <- ncol(X)
   rs <- rowSums(X)
-  Xn <- if (all(rs > 0)) X / rs else X
+  ## shares within each row; an all-zero row stays zero (it used to leave the
+  ## whole of X unnormalised, so no row could reach sep.tol)
+  Xn <- X; Xn[rs > 0, ] <- X[rs > 0, , drop = FALSE] / rs[rs > 0]
   best <- vapply(seq_len(Q), function(q) {
     v <- Xn[, q]; v <- v[is.finite(v)]
     if (length(v)) max(v) else NA_real_

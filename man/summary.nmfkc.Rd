@@ -13,30 +13,50 @@
 }
 \value{
 An object of class \code{summary.nmfkc}, containing summary statistics.
-Among them, \code{separability}, \code{anchor.purity} and
-\code{anchor.row}; see Details.
+Among them, \code{anchors}, \code{identified.approx} and
+\code{identification}; see Details.
 }
 \description{
 Produces a summary of an \code{nmfkc} object, including matrix dimensions,
 runtime, fit statistics, and diagnostics.
 }
 \details{
-\strong{Separability} measures how close the basis is to having an anchor
-row for every basis -- a row of \eqn{X} that carries that basis alone.  For
-each basis \eqn{q} take the largest share it has in any row,
-\eqn{\max_j \tilde x_{jq} / \sum_r \tilde x_{jr}}, with \eqn{\tilde X} the
-basis rescaled so that its columns sum to one (so the value does not depend
-on \code{X.restriction}); these are \code{anchor.purity}, attained at rows
-\code{anchor.row}.  The separability is their minimum: 1 when every basis
-has a row of its own, \eqn{1/Q} when every row mixes all bases equally, and
-\code{NA} for \code{rank = 1}.  The same three values are stored on the fit,
-in \code{fit$criterion}.
+\strong{Anchors and identification.}  With the column scale of \eqn{X}
+fixed, the fits \eqn{(XT, T^{-1}\Theta)} give the same \eqn{X\Theta} for
+every invertible \eqn{T} with \eqn{\mathbf 1^\top T = \mathbf 1^\top},
+\eqn{XT \ge 0} and \eqn{T^{-1}\Theta \ge 0} (\eqn{\Theta} is \eqn{C}, or
+\eqn{B} without covariates).  An \emph{anchor row} of \eqn{X} (a row
+carrying one basis) and an \emph{anchor column} of \eqn{\Theta} (a column
+non-zero for one basis) for every basis force \eqn{T} to be a permutation;
+anchors on one side are not enough (\eqn{X = I_2} with
+\eqn{\Theta = [1\ 1;\ 1\ 2]} has anchors in \eqn{X} and still a continuum
+of equivalent fits).
 
-Anchors for every basis, together with \eqn{\mathrm{rank}(B) = Q}, make the
-factorization unique up to scale, so a value near 1 says the solution is
-nearly unique.  A fit with \code{X.anchor} scores exactly 1.  The measure
-looks at \eqn{X} only, however: zeros in \eqn{B} or in \eqn{\Theta} can pin
-the solution as well, so a low value does not show that it is not unique.
+The summary prints two lines of \emph{anchor purity}, for \eqn{X} and for
+\eqn{\Theta}: the smallest over the bases of the largest share a basis has
+in a row of \eqn{X} (or a column of \eqn{\Theta}), the basis attaining it,
+and how many bases have an anchor.  The shares are plain shares; the
+anchors are counted by the tolerances of the identification verdict: a row
+of \eqn{X} with share at least 0.999, a column of \eqn{\Theta} whose other
+entries are at most \code{1e-3} or at most 1\\% of the basis's entry.  Then
+one line of \emph{Identification}, the verdict of
+\code{\link{nmfkc.inference}} and the other inference functions: anchors in
+\eqn{X} for every basis with the rows of \eqn{\Theta} pinned one at a time
+(or the mirror route), a fixed column scale of \eqn{X}, and \eqn{A} of full
+row rank.  It is a sufficient condition on the fit, with the size of the
+zeros it rests on (how much an equivalent fit can mix the bases); a fit
+that fails it may still be unique.  The verdict costs about \eqn{Q^2K} and
+is computed when \eqn{Q^2K \le 10^6}; above that only anchors on both
+sides are decided.  The values are in \code{anchors} (and
+\code{fit$criterion$anchors}): \code{X.anchor.purity}, \code{X.anchor.row},
+\code{X.anchor} (logical, per basis), \code{C.anchor.purity},
+\code{C.anchor.col}, \code{C.anchor}, \code{anchor.both},
+\code{A.full.rank} and \code{tol}; the verdict in \code{identified.approx}
+and \code{identification}.  With negative entries in \eqn{\Theta} it does
+not apply.  Up to 1.0.2 the summary printed a separability (the X side
+alone) and returned \code{separability}, \code{anchor.purity} and
+\code{anchor.row}; \code{X.anchor.purity} and \code{X.anchor.row} replace
+them.
 }
 \examples{
 Y <- matrix(cars$dist, nrow = 1)

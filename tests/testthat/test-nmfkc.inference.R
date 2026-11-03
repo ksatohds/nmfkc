@@ -133,7 +133,7 @@ test_that("effective.rank.index is the [0,1] broken-stick index nmfkc.rank plots
   expect_true(all(idx >= 0 & idx <= 1))
   ## summary prints it in place of the old crispness
   out <- capture.output(print(summary(fits[[1]])))
-  expect_true(any(grepl("Factor variance share", out)))
+  expect_true(any(grepl("Effective rank index", out)))
   expect_false(any(grepl("Clustering Crispness", out)))
 })
 

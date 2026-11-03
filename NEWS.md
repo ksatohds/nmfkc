@@ -1,5 +1,54 @@
 # nmfkc (development version)
 
+## `summary.nmfkc()`: anchor purity and the identification verdict instead of the separability line
+
+With the column scale of `X` fixed, `(X T, T^-1 Theta)` gives the same fit for
+every invertible `T` with `1'T = 1'`, `X T >= 0` and `T^-1 Theta >= 0`.
+Anchors in `X` alone do not make the fit unique (`X = I`,
+`Theta = [1 1; 1 2]` admits a continuum); the summary used to print a
+separability of `X` and said they did.  It now prints, in place of
+`Separability:`,
+
+```
+  Anchor purity (X):       min 0.9961 at basis 3; anchors 4/5
+  Anchor purity (C):       min 1.0000; anchors 5/5
+  Identification: not shown -- C describes this representative of the
+                  basis; another (X T, T^-1 C) may fit equally well
+```
+
+- **Anchor purity**, for `X` and for `Theta`: the smallest over the bases of
+  the largest share a basis has in a row of `X` (a column of `Theta`), the
+  basis attaining it, and how many bases have an anchor.  The shares are plain;
+  the anchors are counted by the tolerances of the verdict below (a row of `X`
+  with share at least 0.999; a column of `Theta` whose other entries are at
+  most 1e-3 or 1% of the basis's).  O(PQ + QK), computed for every fit.
+- **Identification**: the verdict that `nmfkc.inference()`, `nmf.ffb.inference()`,
+  `nmf.rrr.inference()`, `nmfre.inference()` and `nmfkc.ar.latent.inference()`
+  already give -- anchors in `X` for every basis with the rows of `Theta`
+  pinned one at a time (or the mirror route), a fixed column scale of `X`, `A`
+  of full row rank -- now also for the fit itself, with the same wording.  A
+  sufficient condition: anchors on both sides pass it, and it also passes fits
+  pinned by zeros that are not anchors.  It costs about `Q^2 K`, so it is
+  computed by `summary()` (not by `nmfkc()`, which bootstraps call many times)
+  when `Q^2 K <= 1e6`, about two seconds (`Q = 50` takes under a second at
+  `K = 100`); above that only anchors on both sides are decided.  The summary of
+  `nmfkc.inference()` prints it once, in its inference section.
+
+The values are on the fit as `criterion$anchors` (`X.anchor.purity`,
+`X.anchor.row`, `X.anchor`, `C.anchor.purity`, `C.anchor.col`, `C.anchor`,
+`anchor.both`, `A.full.rank`, `tol`) and in the summary as `anchors`,
+`identified.approx` and `identification`; objects saved earlier get them from
+`summary()` (without the rank check of `A`, which they do not record).
+**Removed:** `separability`, `anchor.purity` and `anchor.row` (in
+`fit$criterion` and in the summary, since 1.0.0); `X.anchor.purity` and
+`X.anchor.row` replace them, and code reading the old names now gets `NULL`.
+`nmfkc.ar.latent()` keeps its own `separability`.  Not printed for
+`nmfkc.net.inference()`, whose family is `(X T, T^-1 C T^-T)`.
+
+The verdict itself changes in one case: an all-zero row of `X` used to leave
+all of `X` unnormalised, so that no row could count as an anchor; the rows are
+now read as shares and the zero row is skipped.
+
 ## `nmfre()`: the identification region for rank 4 and above
 
 The identification region (`C.ident.*`, `X.ident.*`, `identification`) was
@@ -224,6 +273,13 @@ set on two simulation designs (non-degenerate fits: cosine 0.55--0.83,
 cancellation 1.9--3.8; degenerate: cosine 0.89--0.995, cancellation
 5.5--680), so read the measures as well.  The model and the estimates are
 unchanged.
+
+## `summary()`: `Factor variance share` is now labelled `Effective rank index`
+
+The value (`criterion$effective.rank.index`) is unchanged.  The new label ties
+it to the `Effective Rank` line it rescales and to the `eff.rank` line of the
+`nmfkc.rank()` plot, and the note reads "0 = no more even than a random split,
+1 = even across bases".
 
 # nmfkc 1.0.2 (2026-10-29)
 

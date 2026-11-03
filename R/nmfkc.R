@@ -1180,45 +1180,143 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 
 
 
-#' @title Separability of the basis: the purest row of each basis (Internal)
+#' @title Anchor purity of X and of C (Internal)
 #' @description
-#' For each basis \eqn{q}, the largest share it takes in any row,
-#' \eqn{\max_j \tilde x_{jq} / \sum_r \tilde x_{jr}}, where \eqn{\tilde X} is
-#' \eqn{X} with its columns scaled to sum to one.  The scaling makes the shares
-#' independent of \code{X.restriction}; an anchor row -- one that carries a
-#' single basis -- has share exactly 1 under any column scaling.  The
-#' separability is the smallest of these: 1 when every basis has a row of its
-#' own (\eqn{X} is separable, which with \eqn{\mathrm{rank}(B) = Q} makes the
-#' factorization unique up to scale), and \eqn{1/Q} when every row mixes all
-#' bases in equal shares.  It looks at \eqn{X} only: zeros in \eqn{B} or
-#' \eqn{\Theta} can pin the factorization too, so a value near 1 indicates a
-#' nearly unique solution, while a low value does not show that it is not.
+#' With the columns of \eqn{X} scaled, \eqn{(X, C)} and \eqn{(XT, T^{-1}C)}
+#' give the same \eqn{XC} for every invertible \eqn{T} with
+#' \eqn{\mathbf 1^\top T = \mathbf 1^\top}, \eqn{XT \ge 0} and
+#' \eqn{T^{-1}C \ge 0}.  An anchor row of \eqn{X} (a row carrying one basis)
+#' for every basis forces \eqn{T \ge 0}; an anchor column of \eqn{C} for every
+#' basis forces \eqn{T^{-1} \ge 0}; together they leave only permutations.
+#' Anchors on one side are not enough (\eqn{X = I_2}, \eqn{C = [1\ 1;\ 1\ 2]}
+#' admit a continuum of \eqn{T}).
+#'
+#' The purities are plain shares, with no tolerance: for each basis the largest
+#' share it has in a row of \eqn{X} (the rows as returned) and in a column of
+#' \eqn{C}.  The anchors are counted by the tolerances of the identification
+#' verdict (\code{.nmfvar.identified}), so the two always agree: an anchor row
+#' of \eqn{X} has share at least \code{sep.tol}; an anchor column of \eqn{C}
+#' for basis \eqn{q} has \eqn{c_{qk} >} \code{zero.tol} and every other entry
+#' either at most \code{zero.tol} or at most \code{pin.tol} times
+#' \eqn{c_{qk}}.  Columns of \eqn{C} that are noise throughout (largest entry
+#' below \code{negl.tol} times the largest of \eqn{C}) are not used.
+#' O(PQ + QK), so it is computed for every fit, while the verdict, which pins
+#' the rows of \eqn{C} one at a time and costs about \eqn{Q^2K}, is left to
+#' \code{summary()} (see \code{.nmfkc.ident.summary}).
 #' @param X Basis matrix (P x Q).
-#' @return A list: \code{purity} (per basis), \code{row} (the row where each
-#'   basis is purest), and \code{index} (their minimum; \code{NA} when
-#'   \eqn{Q = 1}, where there is nothing to separate).  A basis whose column
-#'   is all zero has purity 0.
+#' @param C Parameter matrix (Q x K: \eqn{\Theta}, or \eqn{B} without covariates).
+#' @param A Covariate matrix, \code{NULL}, or a Gram object: only its row rank
+#'   is recorded (\code{NA} for a Gram object).
+#' @param sep.tol,zero.tol,pin.tol,negl.tol Tolerances, the defaults of
+#'   \code{\link{nmfkc.inference}}.
+#' @return A list: \code{X.anchor.purity}, \code{X.anchor.row}, \code{X.anchor}
+#'   (logical per basis); \code{C.anchor.purity}, \code{C.anchor.col},
+#'   \code{C.anchor}; \code{anchor.both} (every basis anchored on both sides);
+#'   \code{A.full.rank}; \code{tol}.  With negative entries in \eqn{C} its side
+#'   is \code{NA}.
 #' @keywords internal
 #' @noRd
-.nmfkc.separability <- function(X) {
+.nmfkc.anchor <- function(X, C, A = NULL, sep.tol = 0.999, zero.tol = 1e-3,
+                          pin.tol = 0.01, negl.tol = 1e-6) {
   Q <- base::ncol(X)
-  cs <- base::colSums(X)
-  Xn <- base::sweep(X, 2, base::ifelse(cs > 0, cs, 1), "/")
-  rs <- base::rowSums(Xn)
-  keep <- base::which(rs > 0)
-  if (base::length(keep) == 0L) {
-    ## X is all zero -- a degenerate fit that nmfkc() does return, e.g. an
-    ## all-zero Y under X.restriction = "none".  No basis appears anywhere.
-    purity <- base::rep(0, Q)
-    row <- base::rep(NA_integer_, Q)
+  lab <- base::colnames(X)
+  nm <- function(v) stats::setNames(v, lab)
+  ## X side: shares of the bases in each row of X (as .nmfvar.identified)
+  rs <- base::rowSums(X); keep <- base::which(rs > 0)
+  if (base::length(keep)) {
+    S <- X[keep, , drop = FALSE] / rs[keep]
+    X.purity <- base::apply(S, 2, base::max)
+    X.row <- keep[base::apply(S, 2, base::which.max)]
   } else {
-    S <- Xn[keep, , drop = FALSE] / rs[keep]
-    purity <- base::apply(S, 2, base::max)
-    row <- keep[base::apply(S, 2, base::which.max)]
+    X.purity <- base::rep(0, Q); X.row <- base::rep(NA_integer_, Q)
   }
-  base::names(purity) <- base::names(row) <- base::colnames(X)
-  base::list(purity = purity, row = row,
-             index = if (Q < 2) NA_real_ else base::min(purity))
+  X.anchor <- X.purity >= sep.tol
+  ## C side
+  if (base::is.null(C) || !base::is.matrix(C) || base::nrow(C) != Q ||
+      base::any(C < 0, na.rm = TRUE)) {
+    C.purity <- base::rep(NA_real_, Q); C.col <- base::rep(NA_integer_, Q)
+    C.anchor <- base::rep(NA, Q)
+  } else {
+    Th <- C
+    Th[, base::apply(Th, 2, base::max) < negl.tol * base::max(Th)] <- 0
+    cs <- base::colSums(Th); use <- base::which(cs > 0)
+    if (base::length(use)) {
+      Sh <- base::sweep(Th[, use, drop = FALSE], 2, cs[use], "/")
+      C.purity <- base::apply(Sh, 1, base::max)
+      C.col <- use[base::apply(Sh, 1, base::which.max)]
+    } else {
+      C.purity <- base::rep(0, Q); C.col <- base::rep(NA_integer_, Q)
+    }
+    ## the largest other entry of each column, zeros (<= zero.tol) removed
+    Z <- Th; Z[Z <= zero.tol] <- 0
+    other <- if (Q == 1L) Z * 0 else {
+      top <- base::apply(Z, 2, base::which.max)
+      m1 <- Z[base::cbind(top, base::seq_len(base::ncol(Z)))]
+      Z2 <- Z; Z2[base::cbind(top, base::seq_len(base::ncol(Z)))] <- -Inf
+      m2 <- base::apply(Z2, 2, base::max)
+      M <- base::matrix(m1, Q, base::ncol(Z), byrow = TRUE)
+      M[base::cbind(top, base::seq_len(base::ncol(Z)))] <- m2
+      M
+    }
+    C.anchor <- base::rowSums(Th > zero.tol & other <= pin.tol * Th) > 0
+  }
+  A.full.rank <- if (base::is.null(A)) TRUE
+                 else if (base::is.matrix(A)) base::qr(A)$rank == base::nrow(A)
+                 else NA
+  base::list(X.anchor.purity = nm(X.purity), X.anchor.row = nm(X.row), X.anchor = nm(X.anchor),
+             C.anchor.purity = nm(C.purity), C.anchor.col = nm(C.col), C.anchor = nm(C.anchor),
+             anchor.both = base::all(X.anchor) && base::all(C.anchor),
+             A.full.rank = A.full.rank,
+             tol = c(sep.tol = sep.tol, zero.tol = zero.tol, pin.tol = pin.tol))
+}
+
+
+#' @title Identification verdict for summary.nmfkc (Internal)
+#' @description
+#' The verdict of \code{\link{nmfkc.inference}} (\code{.ident.verdict}), on
+#' the fit: the rows of \eqn{\Theta} pinned one at a time from the anchors of
+#' \eqn{X}, or the mirror route, with the rank of \eqn{A} recorded by
+#' \code{.nmfkc.anchor}.  It costs about \eqn{Q^2K}, so above \code{max.work}
+#' only the special case of anchors on both sides is decided (it passes the
+#' first route at once); otherwise the verdict is \code{NA}.
+#' @param X,C The fit's basis and parameter matrix.
+#' @param a The list from \code{.nmfkc.anchor}.
+#' @param X.restriction The fit's restriction (column scale fixed by
+#'   \code{"colSums"} or \code{"colSqSums"}; \code{"fixed"}: X is given).
+#' @param max.work Largest \eqn{Q^2K} for the full verdict (about two seconds).
+#' @return \code{list(identified.approx, identification)}, as
+#'   \code{.ident.verdict}.
+#' @keywords internal
+#' @noRd
+.nmfkc.ident.summary <- function(X, C, a, X.restriction, max.work = 1e6) {
+  Q <- base::ncol(X)
+  if (base::any(base::is.na(a$C.anchor)))
+    return(base::list(identified.approx = NA,
+                      identification = base::list(note = "not assessed: C has negative entries")))
+  scale.fixed <- base::isTRUE(X.restriction %in% c("colSums", "colSqSums"))
+  held <- base::isTRUE(X.restriction == "fixed")
+  ## rank of A unknown (Gram object, or a fit saved before 1.0.3): not checked
+  fr <- !base::isFALSE(a$A.full.rank)
+  tol <- a$tol
+  if (Q^2 * base::ncol(C) <= max.work) {
+    v <- .ident.verdict(X, C, NULL, scale.fixed = scale.fixed, X.held = held,
+                        sep.tol = tol[["sep.tol"]], zero.tol = tol[["zero.tol"]],
+                        pin.tol = tol[["pin.tol"]])
+    v$identification$A.full.rank <- fr
+    v$identified.approx <- fr && (Q == 1L || held || (scale.fixed && v$identification$ok))
+    return(v)
+  }
+  id <- base::list(anchor = a$X.anchor, pure = a$C.anchor, A.full.rank = fr,
+                   route = if (a$anchor.both) "X anchors + Theta pinned" else base::character(0),
+                   anchor.margin = base::max(1 - a$X.anchor.purity),
+                   pin.margin = NA_real_)
+  ok <- if (!fr) FALSE else if (held) TRUE else if (!scale.fixed) FALSE
+        else if (a$anchor.both) TRUE else NA
+  if (base::is.na(ok))
+    id$note <- base::sprintf(paste0("not assessed (Q^2 K = %.3g is too large for the full ",
+                                    "check, and not every basis has anchors on both sides)"),
+                             Q^2 * base::ncol(C))
+  base::list(identified.approx = ok, identification = id)
 }
 
 
@@ -1531,15 +1629,12 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
 #'   \eqn{[0, 1]}; names become the row labels (e.g.\ \code{"Basis (X)"}).
 #' @param eff.rank.index Optional broken-stick effective-rank index in
 #'   \eqn{[0, 1]} (see \code{.effective.rank.index}).
-#' @param separability Optional separability of the basis (see
-#'   \code{.nmfkc.separability}); \code{NULL} or \code{NA} prints nothing.
 #' @param header Section header (default \code{"Structure Diagnostics:"}).
 #' @return \code{NULL}, invisibly.
 #' @keywords internal
 #' @noRd
 .print.structure.diagnostics <- function(sparsity = NULL,
                                          eff.rank.index = NULL,
-                                         separability = NULL,
                                          header = "Structure Diagnostics:") {
   base::cat("\n", header, "\n", sep = "")
   w <- 24L
@@ -1554,16 +1649,12 @@ nmfkc.kernel.beta.cv <- function(Y,rank=2,U,V=NULL,beta=NULL,plot=TRUE,...){
   ## What this is and is NOT: it is the evenness of the across-sample
   ## coefficient variance, rescaled so 0 is the broken-stick (random) null and
   ## 1 is a perfectly equal share.  Evenness is not usefulness -- two
-  ## duplicated factors split the variance evenly and score near 1 -- so the
-  ## label says "variance share", not "all factors useful".
+  ## duplicated factors split the variance evenly and score near 1.  Labelled
+  ## after the Effective Rank line it rescales (and nmfkc.rank()'s eff.rank).
   if (!base::is.null(eff.rank.index) && base::is.finite(eff.rank.index))
     base::cat(base::sprintf(
-      "  %-*s %s (0 = broken-stick null, 1 = variance shared evenly)\n",
-      w, "Factor variance share:", base::format(eff.rank.index, digits = 4)))
-  if (!base::is.null(separability) && base::is.finite(separability))
-    base::cat(base::sprintf(
-      "  %-*s %s (1 = every basis has a row of its own)\n",
-      w, "Separability:", base::format(separability, digits = 4)))
+      "  %-*s %s (0 = no more even than a random split, 1 = even across bases)\n",
+      w, "Effective rank index:", base::format(eff.rank.index, digits = 4)))
   base::invisible(NULL)
 }
 
@@ -2873,11 +2964,10 @@ print.nmf.rank <- function(x, ...) {
 #' \item{sigma}{The residual standard error, representing the typical deviation of the observed values \eqn{Y} from the fitted values \eqn{X B}.}
 #' \item{mae}{Mean Absolute Error between \eqn{Y} and \eqn{X B}.}
 #' \item{criterion}{A list with \code{effective.rank},
-#'   \code{effective.rank.index}, and the separability of the basis:
-#'   \code{separability} (one value; 1 = every basis has a row of its own),
-#'   \code{anchor.purity} (per basis) and \code{anchor.row} (where each basis
-#'   is purest).  See the Details of \code{\link{summary.nmfkc}} for their
-#'   definition and reading.
+#'   \code{effective.rank.index}, and \code{anchors}: the anchor purity of
+#'   \eqn{X} and of \eqn{C}, which bases have anchors on each side, and the
+#'   rank of \eqn{A}, from which \code{\link{summary.nmfkc}} gives the
+#'   identification verdict.  See its Details for their definition and reading.
 #'
 #'   \code{effective.rank.index} is \code{effective.rank} rescaled onto
 #'   \eqn{[0,1]} by the broken-stick correction
@@ -3469,9 +3559,10 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
     base::list(X = X, B = B, C = C, XB = XB, method = method, A.attr = A.attr),
     Y, detail = detail, Y.weights = Y.weights, X.restriction = X.restriction
   )
-  ## Separability of the basis (see ?summary.nmfkc).  O(PQ), so it is kept
-  ## under detail = "fast" as well.
-  sep <- .nmfkc.separability(X)
+  ## Anchor purity of X and C and the rank of A (see ?summary.nmfkc).  O(PQ + QK)
+  ## plus one QR of A, so it is kept under detail = "fast" as well; the
+  ## identification verdict itself (about Q^2 K) is left to summary().
+  anchors <- .nmfkc.anchor(X, C, A)
   r2          <- crit_result$r.squared
   r2.uncentered     <- crit_result$r.squared.uncentered
   r2.centered <- crit_result$r.squared.centered
@@ -3542,9 +3633,7 @@ nmfkc <- function(Y, A=NULL, rank=NULL, data, epsilon=1e-4, maxit=5000, verbose=
                   else crit_result$criterion[
                     base::setdiff(base::names(crit_result$criterion),
                                   base::c("silhouette", "CPCC", "dist.cor"))],
-                  base::list(separability  = sep$index,
-                             anchor.purity = sep$purity,
-                             anchor.row    = sep$row))
+                  base::list(anchors = anchors))
   )
   ## Added only when anchors were used, so every other fit keeps exactly the
   ## fields it had.
@@ -3605,25 +3694,45 @@ plot.nmfkc <- function(x,...){
 #' @param object An object of class \code{nmfkc}, i.e., the return value of \code{nmfkc}.
 #' @param ... Additional arguments (currently unused).
 #' @return An object of class \code{summary.nmfkc}, containing summary statistics.
-#'   Among them, \code{separability}, \code{anchor.purity} and
-#'   \code{anchor.row}; see Details.
+#'   Among them, \code{anchors}, \code{identified.approx} and
+#'   \code{identification}; see Details.
 #' @details
-#' \strong{Separability} measures how close the basis is to having an anchor
-#' row for every basis -- a row of \eqn{X} that carries that basis alone.  For
-#' each basis \eqn{q} take the largest share it has in any row,
-#' \eqn{\max_j \tilde x_{jq} / \sum_r \tilde x_{jr}}, with \eqn{\tilde X} the
-#' basis rescaled so that its columns sum to one (so the value does not depend
-#' on \code{X.restriction}); these are \code{anchor.purity}, attained at rows
-#' \code{anchor.row}.  The separability is their minimum: 1 when every basis
-#' has a row of its own, \eqn{1/Q} when every row mixes all bases equally, and
-#' \code{NA} for \code{rank = 1}.  The same three values are stored on the fit,
-#' in \code{fit$criterion}.
+#' \strong{Anchors and identification.}  With the column scale of \eqn{X}
+#' fixed, the fits \eqn{(XT, T^{-1}\Theta)} give the same \eqn{X\Theta} for
+#' every invertible \eqn{T} with \eqn{\mathbf 1^\top T = \mathbf 1^\top},
+#' \eqn{XT \ge 0} and \eqn{T^{-1}\Theta \ge 0} (\eqn{\Theta} is \eqn{C}, or
+#' \eqn{B} without covariates).  An \emph{anchor row} of \eqn{X} (a row
+#' carrying one basis) and an \emph{anchor column} of \eqn{\Theta} (a column
+#' non-zero for one basis) for every basis force \eqn{T} to be a permutation;
+#' anchors on one side are not enough (\eqn{X = I_2} with
+#' \eqn{\Theta = [1\ 1;\ 1\ 2]} has anchors in \eqn{X} and still a continuum
+#' of equivalent fits).
 #'
-#' Anchors for every basis, together with \eqn{\mathrm{rank}(B) = Q}, make the
-#' factorization unique up to scale, so a value near 1 says the solution is
-#' nearly unique.  A fit with \code{X.anchor} scores exactly 1.  The measure
-#' looks at \eqn{X} only, however: zeros in \eqn{B} or in \eqn{\Theta} can pin
-#' the solution as well, so a low value does not show that it is not unique.
+#' The summary prints two lines of \emph{anchor purity}, for \eqn{X} and for
+#' \eqn{\Theta}: the smallest over the bases of the largest share a basis has
+#' in a row of \eqn{X} (or a column of \eqn{\Theta}), the basis attaining it,
+#' and how many bases have an anchor.  The shares are plain shares; the
+#' anchors are counted by the tolerances of the identification verdict: a row
+#' of \eqn{X} with share at least 0.999, a column of \eqn{\Theta} whose other
+#' entries are at most \code{1e-3} or at most 1\% of the basis's entry.  Then
+#' one line of \emph{Identification}, the verdict of
+#' \code{\link{nmfkc.inference}} and the other inference functions: anchors in
+#' \eqn{X} for every basis with the rows of \eqn{\Theta} pinned one at a time
+#' (or the mirror route), a fixed column scale of \eqn{X}, and \eqn{A} of full
+#' row rank.  It is a sufficient condition on the fit, with the size of the
+#' zeros it rests on (how much an equivalent fit can mix the bases); a fit
+#' that fails it may still be unique.  The verdict costs about \eqn{Q^2K} and
+#' is computed when \eqn{Q^2K \le 10^6}; above that only anchors on both
+#' sides are decided.  The values are in \code{anchors} (and
+#' \code{fit$criterion$anchors}): \code{X.anchor.purity}, \code{X.anchor.row},
+#' \code{X.anchor} (logical, per basis), \code{C.anchor.purity},
+#' \code{C.anchor.col}, \code{C.anchor}, \code{anchor.both},
+#' \code{A.full.rank} and \code{tol}; the verdict in \code{identified.approx}
+#' and \code{identification}.  With negative entries in \eqn{\Theta} it does
+#' not apply.  Up to 1.0.2 the summary printed a separability (the X side
+#' alone) and returned \code{separability}, \code{anchor.purity} and
+#' \code{anchor.row}; \code{X.anchor.purity} and \code{X.anchor.row} replace
+#' them.
 #' @examples
 #' Y <- matrix(cars$dist, nrow = 1)
 #' A <- rbind(1, cars$speed)
@@ -3680,17 +3789,23 @@ summary.nmfkc <- function(object, ...) {
   if (!is.null(object$X) && is.matrix(object$X)) {
     # Sparsity: Proportion of elements close to zero (< 1e-4)
     ans$X.sparsity <- mean(object$X < 1e-4)
-    ## How close X is to having an anchor row for every basis; see
-    ## .nmfkc.separability() and the Details of ?summary.nmfkc.  Stored on
-    ## the fit since 1.0.0; recomputed for objects saved before that.
-    sep <- if ("separability" %in% names(object$criterion))
-             list(index  = object$criterion$separability,
-                  purity = object$criterion$anchor.purity,
-                  row    = object$criterion$anchor.row)
-           else .nmfkc.separability(object$X)
-    ans$separability  <- sep$index
-    ans$anchor.purity <- sep$purity
-    ans$anchor.row    <- sep$row
+    ## Anchor purity of X and C (see .nmfkc.anchor() and the Details of
+    ## ?summary.nmfkc).  Stored on the fit since 1.0.3; recomputed for objects
+    ## saved before that, whose A is not known (its rank is then not checked).
+    ## Not for nmfkc.net.inference(), whose family is (X T, T^-1 C T^-T).
+    if (!inherits(object, "nmfkc.net")) {
+      a <- object$criterion$anchors
+      if (is.null(a)) { a <- .nmfkc.anchor(object$X, object$C); a$A.full.rank <- NA }
+      ans$anchors <- a
+      ## The identification verdict: an inference object carries its own (the
+      ## same check, with the A it was given); otherwise it is computed here.
+      v <- if (!is.null(object$identified.approx))
+             list(identified.approx = object$identified.approx,
+                  identification = object$identification)
+           else .nmfkc.ident.summary(object$X, object$C, a, object$X.restriction)
+      ans$identified.approx <- v$identified.approx
+      ans$identification    <- v$identification
+    }
   }
 
   # 2. Probabilities (B.prob)
@@ -3744,10 +3859,41 @@ print.summary.nmfkc <- function(x, digits = max(3L, getOption("digits") - 3L), .
 
   .print.structure.diagnostics(
     sparsity  = c("Basis (X)" = x$X.sparsity, "Coef (B)" = x$B.prob.sparsity),
-    eff.rank.index = x$effective.rank.index,
-    separability = x$separability)
+    eff.rank.index = x$effective.rank.index)
+  if (!is.null(x$rank) && x$rank >= 2L) {
+    .print.anchors(x$anchors)
+    ## an inference summary prints the verdict in its own section
+    if (!inherits(x, "summary.nmfkc.inference"))
+      .ident.print.line(x$identified.approx, x$identification, x$rank)
+  }
   cat("\n")
   invisible(x)
+}
+
+
+#' @title Print the anchor purity lines of summary.nmfkc (Internal)
+#' @description
+#' Two lines in the Structure Diagnostics block, for \eqn{X} and for \eqn{C}:
+#' the smallest purity over the bases, the basis attaining it when it is below
+#' 1, and how many bases have an anchor (by the tolerances of the
+#' identification verdict; see \code{.nmfkc.anchor}).
+#' @param a The list returned by \code{.nmfkc.anchor}.
+#' @return \code{NULL}, invisibly.
+#' @keywords internal
+#' @noRd
+.print.anchors <- function(a) {
+  if (base::is.null(a)) return(base::invisible(NULL))
+  w <- 24L
+  one <- function(purity, anchor) {
+    if (base::all(base::is.na(purity))) return("not applicable (negative entries)")
+    m <- base::min(purity)
+    base::paste0(base::sprintf("min %.4f", m),
+                 if (m < 1) base::sprintf(" at basis %d", base::which.min(purity)) else "",
+                 base::sprintf("; anchors %d/%d", base::sum(anchor), base::length(anchor)))
+  }
+  base::cat(base::sprintf("  %-*s %s\n", w, "Anchor purity (X):", one(a$X.anchor.purity, a$X.anchor)))
+  base::cat(base::sprintf("  %-*s %s\n", w, "Anchor purity (C):", one(a$C.anchor.purity, a$C.anchor)))
+  base::invisible(NULL)
 }
 
 
