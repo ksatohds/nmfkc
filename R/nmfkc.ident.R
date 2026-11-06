@@ -19,7 +19,7 @@
 #' of a fitted \code{\link{nmfkc}} model is unique, and what can be said about
 #' \eqn{C} (\eqn{\Theta}) when it is not.  For the model
 #' \eqn{Y = X C A + \varepsilon} with \eqn{X \ge 0} (columns summing to 1),
-#' \eqn{C \ge 0} and \eqn{A} known, any column-stochastic \eqn{T} with
+#' \eqn{C \ge 0} and \eqn{A} known, any \eqn{T} with columns summing to 1,
 #' \eqn{XT \ge 0} and \eqn{T^{-1}C \ge 0} gives the same fit, so the bases and
 #' the coefficients are determined only up to such a remixing.  The function
 #' \enumerate{
@@ -105,14 +105,21 @@
 #' every non-negative \eqn{\Xi} factorizes exactly, so the maximum of the
 #' likelihood over the model is the row-wise non-negative least squares
 #' \eqn{\hat\Xi} in the metric \eqn{AA^\top} (for one-hot \eqn{A}, the group
-#' means). All exact factorizations are \eqn{X = \tilde X N^{-1}},
-#' \eqn{C = N S} with \eqn{\tilde X} the column-normalized \eqn{\hat\Xi},
-#' \eqn{S} its column sums and \eqn{N \ge 0} column-stochastic with
-#' \eqn{\tilde X N^{-1} \ge 0}; the bases are labelled by matching the columns
-#' of \eqn{X} to those of \eqn{\tilde X} (so that relabellings are excluded).
-#' The range of each entry of \eqn{C} is found from \code{region.n} random
-#' factorizations and refined by Nelder--Mead from the \code{region.nstart} most extreme of them; the ranges of \eqn{X} come from
-#' the random factorizations only. Both are inner approximations.
+#' means). All exact factorizations are \eqn{X = \tilde X T},
+#' \eqn{C = T^{-1} S} with \eqn{\tilde X} the column-normalized \eqn{\hat\Xi},
+#' \eqn{S} its column sums and \eqn{T} the remixing above (columns summing to
+#' 1, \eqn{\tilde X T \ge 0}, \eqn{T^{-1} \ge 0}); \eqn{T = I} is the
+#' representative in which every covariate has its own basis. The bases are
+#' labelled by matching the columns of \eqn{X} to those of \eqn{\tilde X} (so
+#' that relabellings are excluded). The region is explored from \eqn{T = I}
+#' by \code{region.n} random proposals, each a small move of a factorization
+#' already found that is kept only if it satisfies these conditions; each end
+#' of the range of an entry of \eqn{C} is then refined by Nelder--Mead (with a
+#' penalty for negative entries) from the \code{region.nstart} most extreme
+#' factorizations. The ranges of \eqn{X} come from the factorizations found.
+#' Both are inner approximations: when the region is thin (for example, when
+#' only some columns of \eqn{T} can move), the ends can be found noticeably
+#' inside, and a larger \code{region.nstart} helps.
 #' \code{identified} is \code{TRUE} when every range of \eqn{C} is shorter than
 #' \code{1e-6} times the largest column sum.
 #'
