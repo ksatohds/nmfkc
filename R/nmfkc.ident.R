@@ -1,8 +1,10 @@
 ## nmfkc.ident(): identifiability of a covariate-NMF fit Y ~ X C A
 ## (X >= 0 with columns summing to 1, C >= 0, A known).
 ##
-## 1. test: the anchor test H(pi, rho) on the OLS estimate of Xi = X C (HC1, intersection-union over
-##    candidates, Bonferroni over the 2Q conditions of a candidate); pi.max and rho.max.
+## 1. test: the anchor test H(rho) on the OLS estimate of Xi = X C (HC1, intersection-union over candidates):
+##    the Q(Q-1) off-diagonal entries and the Q sizes of a candidate are tested one by one (Bonferroni over
+##    Q^2), with no ratios; rho.max.  pi.max (reported only) uses the membership contrasts with the column sums
+##    of Xi held fixed (Bonferroni over 2Q); pi.max = 1 exactly when H(rho) is not rejected.
 ## 2. identification region (R = Q): the maximum over the model, Xi.hat (row-wise non-negative least
 ##    squares in the metric AA'; the group means when A is one-hot), and the range of every entry of C and
 ##    X over all exact factorizations X = Xt N^-1, C = N S of Xi.hat.
@@ -87,17 +89,29 @@
 #' @details
 #' \strong{Test.} \eqn{\hat\Xi = Y A^\top (AA^\top)^{-1}} with HC1 standard
 #' errors. A candidate is an ordered set of \eqn{Q} columns \eqn{L} of
-#' \eqn{\Xi} (the anchor columns of \eqn{C}) and \eqn{Q} distinct rows (the
-#' anchor rows of \eqn{X}); in the representative where the columns \eqn{L}
-#' are pure, \eqn{X = \Xi_L S_L^{-1}}, so the membership probability and the
-#' size of a row are smooth functions of \eqn{\hat\Xi}. A candidate survives if
-#' none of its \eqn{2Q} one-sided \eqn{t} statistics falls below
-#' \eqn{-t_{1-\alpha/(2Q)}(N-R)}; the null hypothesis is rejected if no
-#' candidate survives (intersection--union test). \code{pi.max} is the largest
-#' \code{pi} not rejected at \code{rho}, an upper confidence bound of the best
-#' attainable membership probability of the anchor rows; \code{rho.max} is the
-#' largest \code{rho} not rejected at \code{pi = 1}. Non-rejection is not
-#' evidence of identification, as in a goodness-of-fit test. For
+#' \eqn{\Xi} (the anchor columns of \eqn{C}) and \eqn{Q} distinct rows \eqn{J}
+#' (the anchor rows of \eqn{X}). The null hypothesis \eqn{H(\rho)} (at
+#' \code{pi = 1}) says that some candidate has zero off-diagonal entries
+#' \eqn{\Xi_{j_q l_{q'}}} (\eqn{q \ne q'}) and sizes
+#' \eqn{\Xi_{j_q l_q} \ge \rho \sum_p \Xi_{p l_q}}. Each of these \eqn{Q^2}
+#' conditions is tested on the entries of \eqn{\hat\Xi} directly by a one-sided
+#' \eqn{t} test at \eqn{\alpha/Q^2} (\eqn{t_{N-R}} critical value; no ratios of
+#' estimates enter the standard errors); a candidate survives if none of them
+#' rejects, and \eqn{H(\rho)} is rejected if no candidate survives
+#' (intersection--union test). \code{rho.max} is the largest \code{rho} not
+#' rejected, an upper confidence bound of the size of the anchors.
+#'
+#' The membership probability of a row (its share in the representative where
+#' the columns \eqn{L} are pure, \eqn{X = \Xi_L S_L^{-1}}) is reported, not
+#' used for the decision at \code{pi = 1}: \code{pi.max} is 1 when
+#' \eqn{H(\rho)} is not rejected, and otherwise the largest \code{pi} for which
+#' some candidate passes the \eqn{2Q} one-sided tests of the membership
+#' contrasts \eqn{(1-\pi) u_{j l_q} - \pi \sum_{q' \ne q} u_{j l_{q'}} \ge 0}
+#' and the sizes, at \eqn{\alpha/(2Q)}, with \eqn{u = \Xi / s} and the column
+#' sums \eqn{s} held fixed in the standard errors (letting them vary, with the
+#' estimate plugged into the gradient, made the test liberal when \eqn{P} is
+#' small). A decision at \code{pi < 1} uses the same contrasts. Non-rejection
+#' is not evidence of identification, as in a goodness-of-fit test. For
 #' \code{nrow(A) > rank} the condition that \eqn{C} is non-negative outside the
 #' anchor columns is not tested.
 #'
@@ -217,12 +231,14 @@ nmfkc.ident <- function(object, Y, A, ...) {
 
   ## ---- 1. test ----
   f <- .nid.ols(Y, A)
-  cval <- stats::qt(1 - alpha / (2 * Q), N - R)
-  dec <- .nid.decide(f, Q, pi0, rho0, cval)
+  crit.rho <- stats::qt(1 - alpha / Q^2, N - R)       # H(rho): Q(Q-1) off-diagonal entries and Q sizes
+  crit.pi  <- stats::qt(1 - alpha / (2 * Q), N - R)   # membership contrasts (pi.max, pi < 1): 2Q per candidate
+  dec <- if (pi0 >= 1) .nid.decide.rho(f, Q, rho0, crit.rho) else .nid.decide(f, Q, pi0, rho0, crit.pi)
   test <- base::list(pi = pi0, rho = rho0, alpha = alpha, reject = dec$reject,
-                     pi.max = .nid.max.pi(f, Q, rho0, cval),
-                     rho.max = .nid.max.rho(f, Q, cval),
-                     pi.point = .nid.pi.point(f, Q, rho0)$value, crit = cval,
+                     pi.max = .nid.max.pi(f, Q, rho0, crit.rho, crit.pi),
+                     rho.max = .nid.max.rho(f, Q, crit.rho),
+                     pi.point = .nid.pi.point(f, Q, rho0)$value,
+                     crit = if (pi0 >= 1) crit.rho else crit.pi,
                      candidate = if (dec$reject) NULL else
                        base::list(rows = dec$J, columns = dec$L, row.names = base::rownames(Y)[dec$J],
                                   column.names = base::rownames(A)[dec$L]))
@@ -298,7 +314,17 @@ nmfkc.ident <- function(object, Y, A, ...) {
              hc = N / (N - R))
 }
 
-## one-sided t of the membership contrast (1 - pi) u_jq - pi sum_{q' != q} u_jq', rows j, columns L
+## t of every entry of Xi.hat (HC1): the off-diagonal entries of H(rho) are tested one by one
+.nid.entry.t <- function(f) {
+  se <- base::sqrt(base::sapply(base::seq_len(f$R), function(l)
+    base::rowSums(base::sweep(f$E, 2, f$W[l, ], "*")^2)) * f$hc)
+  se <- base::matrix(se, base::nrow(f$Xi))
+  base::ifelse(se > 0, f$Xi / se, base::ifelse(f$Xi > 0, Inf, base::ifelse(f$Xi < 0, -Inf, 0)))
+}
+
+## one-sided t of the membership contrast (1 - pi) u_jq - pi sum_{q' != q} u_jq', rows j, columns L.
+## The column sums s are held fixed in the standard error: with s random, the gradient in s carries the
+## estimate Xi.hat, which shrinks the standard error exactly when Xi.hat is large (liberal for small P).
 .nid.purity.t <- function(f, L, pi) {
   Q <- base::length(L); P <- base::nrow(f$Xi)
   sL <- f$s[L]; XL <- f$Xi[, L, drop = FALSE]; U <- base::sweep(XL, 2, sL, "/")
@@ -307,10 +333,7 @@ nmfkc.ident <- function(object, Y, A, ...) {
   for (q in base::seq_len(Q)) {
     wq <- base::ifelse(base::seq_len(Q) == q, 1 - pi, -pi)
     g <- base::as.vector(U %*% wq)
-    a <- wq / sL
-    B <- -base::sweep(XL, 2, wq / sL^2, "*")
-    psi <- base::sweep(f$E, 2, base::as.vector(base::crossprod(a, WL)), "*") +
-      base::sweep(B %*% WL, 2, f$e1, "*")
+    psi <- base::sweep(f$E, 2, base::as.vector(base::crossprod(wq / sL, WL)), "*")
     se <- base::sqrt(base::rowSums(psi^2) * f$hc)
     tt[, q] <- base::ifelse(se > 0, g / se, base::ifelse(g >= 0, Inf, -Inf))
   }
@@ -359,27 +382,45 @@ nmfkc.ident <- function(object, Y, A, ...) {
   base::list(reject = TRUE, L = NULL, J = NULL)
 }
 
-## largest pi not rejected at rho (bisection); -Inf if rejected at pi = 1/Q
-.nid.max.pi <- function(f, Q, rho, cval) {
+## H(rho): a candidate survives when none of its Q(Q-1) off-diagonal entries is significantly positive and
+## none of its Q sizes Xi[j, l_q] - rho s_{l_q} is significantly negative (one-sided t at cval each)
+.nid.decide.rho <- function(f, Q, rho, cval, tE = .nid.entry.t(f)) {
+  Ls <- .nid.all.L(f$R, Q); P <- base::nrow(f$Xi)
+  for (k in base::seq_len(base::nrow(Ls))) {
+    L <- Ls[k, ]; st <- .nid.size.t(f, L, rho)
+    S <- base::lapply(base::seq_len(Q), function(q) {
+      off <- if (Q > 1) base::apply(tE[, L[-q], drop = FALSE], 1, base::max) else base::rep(-Inf, P)
+      base::which(off <= cval & st[, q] >= -cval)
+    })
+    J <- .nid.matching(S)
+    if (!base::is.null(J)) return(base::list(reject = FALSE, L = L, J = J))
+  }
+  base::list(reject = TRUE, L = NULL, J = NULL)
+}
+
+## pi.max (reported): 1 when H(rho) is not rejected; otherwise the largest pi not rejected by the membership
+## contrasts (bisection on [1/Q, 1)); -Inf if rejected at pi = 1/Q
+.nid.max.pi <- function(f, Q, rho, cval.rho, cval.pi) {
+  if (!.nid.decide.rho(f, Q, rho, cval.rho)$reject) return(1)
   lo <- 1 / Q
-  if (.nid.decide(f, Q, lo, rho, cval)$reject) return(-Inf)
-  if (!.nid.decide(f, Q, 1, rho, cval)$reject) return(1)
+  if (.nid.decide(f, Q, lo, rho, cval.pi)$reject) return(-Inf)
   hi <- 1
   for (it in 1:30) {
     mid <- (lo + hi) / 2
-    if (.nid.decide(f, Q, mid, rho, cval)$reject) hi <- mid else lo <- mid
+    if (.nid.decide(f, Q, mid, rho, cval.pi)$reject) hi <- mid else lo <- mid
   }
   lo
 }
 
-## largest rho not rejected at pi = 1 (bisection on [0, 1]); -Inf if rejected at rho = 0
+## largest rho not rejected by H(rho) (bisection on [0, 1]); -Inf if rejected at rho = 0
 .nid.max.rho <- function(f, Q, cval) {
-  if (.nid.decide(f, Q, 1, 0, cval)$reject) return(-Inf)
+  tE <- .nid.entry.t(f)
+  if (.nid.decide.rho(f, Q, 0, cval, tE)$reject) return(-Inf)
   lo <- 0; hi <- 1
-  if (!.nid.decide(f, Q, 1, hi, cval)$reject) return(1)
+  if (!.nid.decide.rho(f, Q, hi, cval, tE)$reject) return(1)
   for (it in 1:30) {
     mid <- (lo + hi) / 2
-    if (.nid.decide(f, Q, 1, mid, cval)$reject) hi <- mid else lo <- mid
+    if (.nid.decide.rho(f, Q, mid, cval, tE)$reject) hi <- mid else lo <- mid
   }
   lo
 }
@@ -706,7 +747,9 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
   base::cat("Identifiability of an nmfkc fit\n")
   if (!base::is.null(d))
     base::cat(base::sprintf("  Y: %d x %d,  A: %d covariates,  rank %d\n", d[["P"]], d[["N"]], d[["R"]], x$rank))
-  base::cat("\nAnchor test H(pi, rho)  [OLS of Xi = XC, HC1, intersection-union over candidates]\n")
+  base::cat(if (t$pi >= 1)
+    "\nAnchor test H(rho)  [OLS of Xi = XC, HC1, entries tested one by one, intersection-union over candidates]\n" else
+    "\nAnchor test H(pi, rho)  [OLS of Xi = XC, HC1, membership contrasts, intersection-union over candidates]\n")
   base::cat(base::sprintf("  at pi = %g, rho = %.3g:  %s   (alpha = %g, critical t = %.3f)\n", t$pi, t$rho,
                           if (t$reject) "rejected" else "not rejected", t$alpha, t$crit))
   base::cat(base::sprintf("  pi.max  = %s   (largest membership probability not rejected; point estimate %s)\n",

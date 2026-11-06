@@ -3,14 +3,17 @@
 ## New `nmfkc.ident()`: is the factorization unique, and what can be said if it is not?
 
 For `Y = X C A + E` with `X >= 0` (columns summing to 1), `C >= 0` and `A`
-known, every column-stochastic `T` with `X T >= 0` and `T^-1 C >= 0` gives the
+known, every `T` with columns summing to 1, `X T >= 0` and `T^-1 C >= 0` gives the
 same fit.  `nmfkc.ident(object, Y, A)` takes an `nmfkc()` fit and returns
 
-- **an anchor test** `H(pi, rho)` from the least-squares estimate of
-  `Xi = X C` alone (HC1 standard errors, intersection-union over candidate
-  anchor rows and columns): the decision at `pi` (membership probability of
-  the anchor rows, default 1) and `rho` (their size, default `0.5 / P`), and
-  the largest values not rejected, `pi.max` and `rho.max`;
+- **an anchor test** `H(rho)` from the least-squares estimate of `Xi = X C`
+  alone (HC1 standard errors, intersection-union over candidate anchor rows
+  and columns): the off-diagonal entries and the sizes of a candidate are
+  tested one by one (Bonferroni over `Q^2`), so no ratio of estimates enters
+  a standard error; the decision at `rho` (default `0.5 / P`) and the largest
+  `rho` not rejected, `rho.max`.  The membership probability of the anchor
+  rows is reported as `pi.max` (1 exactly when `H(rho)` is not rejected),
+  from membership contrasts with the column sums of `Xi` held fixed;
 - **the identification region** (when `nrow(A) == rank`): the range of every
   entry of `C` and `X` over all exact factorizations of the maximum
   `Xi.hat` (row-wise non-negative least squares; the group means for

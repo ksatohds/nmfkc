@@ -125,3 +125,26 @@ test_that("summary(), print() and plot() of nmfkc.ident", {
   expect_output(print(a), "not computed")
   expect_error(plot(a), "no identification region")
 })
+
+test_that("H(rho) tests the entries of Xi.hat one by one; pi.max = 1 exactly when H(rho) is not rejected", {
+  skip_unless_full()
+  for (anch in c(TRUE, FALSE)) {
+    d <- make_ident_data(anch, seed = 3)
+    f <- nmfkc(d$Y, d$A, rank = 2, epsilon = 1e-8, verbose = FALSE)
+    id <- nmfkc.ident(f, d$Y, d$A, region = FALSE)
+    ## direct implementation for Q = R = 2: rows j1 != j2, columns in both orders
+    A <- d$A; Y <- d$Y; N <- ncol(Y); R <- nrow(A); Q <- 2; rho <- 0.5 / nrow(Y)
+    W <- solve(A %*% t(A), A); Xi <- Y %*% t(W); E <- Y - Xi %*% A; hc <- N / (N - R); s <- colSums(Xi)
+    se <- sapply(1:R, function(l) sqrt(rowSums(sweep(E, 2, W[l, ], "*")^2) * hc))
+    tE <- ifelse(se > 0, Xi / se, ifelse(Xi > 0, Inf, ifelse(Xi < 0, -Inf, 0)))   # exact zeros: t = 0
+    tS <- function(j, l) { psi <- E[j, ] * W[l, ] - rho * colSums(E) * W[l, ]
+                           g <- Xi[j, l] - rho * s[l]; v <- sum(psi^2) * hc
+                           if (v > 0) g / sqrt(v) else if (g >= 0) Inf else -Inf }
+    cv <- qt(1 - 0.05 / Q^2, N - R); survive <- FALSE
+    for (L in list(c(1, 2), c(2, 1))) for (j1 in 1:nrow(Y)) for (j2 in 1:nrow(Y)) if (j1 != j2)
+      if (tE[j1, L[2]] <= cv && tE[j2, L[1]] <= cv && tS(j1, L[1]) >= -cv && tS(j2, L[2]) >= -cv) survive <- TRUE
+    expect_identical(id$test$reject, !survive)
+    expect_equal(id$test$crit, cv)
+    expect_identical(id$test$pi.max == 1, !id$test$reject)
+  }
+})

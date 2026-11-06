@@ -108,17 +108,29 @@ group indicators or \code{rank} continuous covariates; for
 \details{
 \strong{Test.} \eqn{\hat\Xi = Y A^\top (AA^\top)^{-1}} with HC1 standard
 errors. A candidate is an ordered set of \eqn{Q} columns \eqn{L} of
-\eqn{\Xi} (the anchor columns of \eqn{C}) and \eqn{Q} distinct rows (the
-anchor rows of \eqn{X}); in the representative where the columns \eqn{L}
-are pure, \eqn{X = \Xi_L S_L^{-1}}, so the membership probability and the
-size of a row are smooth functions of \eqn{\hat\Xi}. A candidate survives if
-none of its \eqn{2Q} one-sided \eqn{t} statistics falls below
-\eqn{-t_{1-\alpha/(2Q)}(N-R)}; the null hypothesis is rejected if no
-candidate survives (intersection--union test). \code{pi.max} is the largest
-\code{pi} not rejected at \code{rho}, an upper confidence bound of the best
-attainable membership probability of the anchor rows; \code{rho.max} is the
-largest \code{rho} not rejected at \code{pi = 1}. Non-rejection is not
-evidence of identification, as in a goodness-of-fit test. For
+\eqn{\Xi} (the anchor columns of \eqn{C}) and \eqn{Q} distinct rows \eqn{J}
+(the anchor rows of \eqn{X}). The null hypothesis \eqn{H(\rho)} (at
+\code{pi = 1}) says that some candidate has zero off-diagonal entries
+\eqn{\Xi_{j_q l_{q'}}} (\eqn{q \ne q'}) and sizes
+\eqn{\Xi_{j_q l_q} \ge \rho \sum_p \Xi_{p l_q}}. Each of these \eqn{Q^2}
+conditions is tested on the entries of \eqn{\hat\Xi} directly by a one-sided
+\eqn{t} test at \eqn{\alpha/Q^2} (\eqn{t_{N-R}} critical value; no ratios of
+estimates enter the standard errors); a candidate survives if none of them
+rejects, and \eqn{H(\rho)} is rejected if no candidate survives
+(intersection--union test). \code{rho.max} is the largest \code{rho} not
+rejected, an upper confidence bound of the size of the anchors.
+
+The membership probability of a row (its share in the representative where
+the columns \eqn{L} are pure, \eqn{X = \Xi_L S_L^{-1}}) is reported, not
+used for the decision at \code{pi = 1}: \code{pi.max} is 1 when
+\eqn{H(\rho)} is not rejected, and otherwise the largest \code{pi} for which
+some candidate passes the \eqn{2Q} one-sided tests of the membership
+contrasts \eqn{(1-\pi) u_{j l_q} - \pi \sum_{q' \ne q} u_{j l_{q'}} \ge 0}
+and the sizes, at \eqn{\alpha/(2Q)}, with \eqn{u = \Xi / s} and the column
+sums \eqn{s} held fixed in the standard errors (letting them vary, with the
+estimate plugged into the gradient, made the test liberal when \eqn{P} is
+small). A decision at \code{pi < 1} uses the same contrasts. Non-rejection
+is not evidence of identification, as in a goodness-of-fit test. For
 \code{nrow(A) > rank} the condition that \eqn{C} is non-negative outside the
 anchor columns is not tested.
 
