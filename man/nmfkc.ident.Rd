@@ -74,8 +74,8 @@ order), usable with \code{\link{nmfkc.inference}} and the other methods.}
 \item{repair}{List: \code{start}, \code{iter}, \code{change} (largest change
 of \eqn{C} during the re-fit), \code{gap} (largest
 \eqn{|XC - \hat\Xi|}, relative to the largest entry of \eqn{\hat\Xi}).}
-\item{C.ci.lower, C.ci.upper}{Profile-likelihood interval of \eqn{C}
-(\code{NULL} unless \code{ci = TRUE}).}
+\item{C.ci.lower, C.ci.upper}{Profile-likelihood interval of \eqn{C}, which
+contains the identification region (\code{NULL} unless \code{ci = TRUE}).}
 \item{ci.level, rank, call}{As named; \code{dims} holds \code{P}, \code{N}, \code{R}.}
 }
 \description{
@@ -98,8 +98,8 @@ reports the largest \code{pi} and \code{rho} not rejected;
 \item re-optimizes the fit from a point of that region (\code{fit}), which
 repairs a fit that stopped short of the optimum;
 \item optionally (\code{ci = TRUE}) computes profile-likelihood intervals
-for \eqn{C}, which cover the identification region with the stated
-confidence.
+for \eqn{C} that contain the identification region (approximate; see
+Intervals below).
 }
 Steps 2--4 need as many covariates as bases (\code{nrow(A) == rank}), e.g.
 group indicators or \code{rank} continuous covariates; for
@@ -160,14 +160,19 @@ inside, and a larger \code{region.nstart} helps.
 of \eqn{Y} (the working model whose maximum is nmfkc's least squares),
 profiled over \eqn{X}, the other entries of \eqn{C} and the variance. The
 profile is flat over the identification region, so the interval contains
-it; with the \eqn{\chi^2_1} cut each end of the region is missed with
-probability about \eqn{(1-\code{ci.level})/2}, so the interval is a
-confidence interval of the identification region (and a conservative one
-for the true value of the coefficient). The asymptotics need the ends of
-the region to move smoothly with \eqn{\Xi}; an exact zero in
-\eqn{\hat\Xi} that pins a column breaks this. The profile is computed by
-continuation from the ends of the region with local re-fits, so the
-intervals may be slightly too short.
+it. The \eqn{\chi^2_1} cut is meant to cover each point of the region with
+probability about \code{ci.level}, as for a point of an identified set
+(Imbens and Manski, 2004; Chernozhukov, Hong and Tamer, 2007); the true
+coefficient is one such point. The probability of covering the whole
+region at once can be lower: the ends of the region are where an entry of
+\eqn{X} or \eqn{C} reaches 0, so they are minima and maxima rather than
+smooth functions of \eqn{\Xi} and need not be asymptotically normal, in
+particular when the width of the region is comparable to its standard
+error or when an exact zero in \eqn{\hat\Xi} pins a column. The coverage
+has not yet been studied by simulation in this setting, so read the
+intervals as approximate. The profile is computed by continuation from the
+ends of the region with local re-fits, so the intervals may be slightly
+too short.
 }
 \examples{
 ## two groups, two bases; variables 1 and 5 are anchors (multiplicative noise keeps their zeros)
@@ -189,6 +194,10 @@ plot(id2, type = "X")
 Imbens, G. W. and Manski, C. F. (2004). Confidence intervals for partially
 identified parameters. \emph{Econometrica}, 72(6), 1845--1857.
 \doi{10.1111/j.1468-0262.2004.00555.x}
+
+Chernozhukov, V., Hong, H. and Tamer, E. (2007). Estimation and confidence
+regions for parameter sets in econometric models. \emph{Econometrica},
+75(5), 1243--1284. \doi{10.1111/j.1468-0262.2007.00794.x}
 }
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.inference}},

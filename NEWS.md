@@ -23,8 +23,10 @@ same fit.  `nmfkc.ident(object, Y, A)` takes an `nmfkc()` fit and returns
   optimum -- a fit whose multiplicative updates stopped short of it, or in a
   local solution, is put back on the optimum with the basis order kept;
 - **profile-likelihood intervals** for `C` (`ci = TRUE`; Gaussian errors with
-  one variance for all entries of `Y`), which contain the region and cover it
-  with the stated confidence; `cores` runs them in parallel.
+  one variance for all entries of `Y`), which contain the region and are meant
+  to cover each point of it with about the stated confidence (the whole region
+  can be covered less often; the coverage has not yet been studied by
+  simulation); `cores` runs them in parallel.
 
 `print()`, `summary()` and `plot()` methods are included.  For
 `nrow(A) > rank` only the test is computed.
