@@ -1,5 +1,31 @@
 # nmfkc (development version)
 
+## New `nmfkc.ident()`: is the factorization unique, and what can be said if it is not?
+
+For `Y = X C A + E` with `X >= 0` (columns summing to 1), `C >= 0` and `A`
+known, every column-stochastic `T` with `X T >= 0` and `T^-1 C >= 0` gives the
+same fit.  `nmfkc.ident(object, Y, A)` takes an `nmfkc()` fit and returns
+
+- **an anchor test** `H(pi, rho)` from the least-squares estimate of
+  `Xi = X C` alone (HC1 standard errors, intersection-union over candidate
+  anchor rows and columns): the decision at `pi` (membership probability of
+  the anchor rows, default 1) and `rho` (their size, default `0.5 / P`), and
+  the largest values not rejected, `pi.max` and `rho.max`;
+- **the identification region** (when `nrow(A) == rank`): the range of every
+  entry of `C` and `X` over all exact factorizations of the maximum
+  `Xi.hat` (row-wise non-negative least squares; the group means for
+  indicator covariates);
+- **a repaired fit**: `nmfkc()` re-run from a point of the region (the one
+  nearest to the given fit, or its centre), which stops at once at the exact
+  optimum -- a fit whose multiplicative updates stopped short of it, or in a
+  local solution, is put back on the optimum with the basis order kept;
+- **profile-likelihood intervals** for `C` (`ci = TRUE`; Gaussian errors with
+  one variance for all entries of `Y`), which contain the region and cover it
+  with the stated confidence; `cores` runs them in parallel.
+
+`print()`, `summary()` and `plot()` methods are included.  For
+`nrow(A) > rank` only the test is computed.
+
 ## `summary.nmfkc()`: anchor purity and the identification verdict instead of the separability line
 
 With the column scale of `X` fixed, `(X T, T^-1 Theta)` gives the same fit for

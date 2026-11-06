@@ -55,6 +55,16 @@ test_that("nmfkc.inference() returns a coefficient table", {
   expect_true(all(is.finite(cf$Estimate)))
 })
 
+test_that("nmfkc.ident() returns the test, the region and a repaired fit", {
+  f <- nmfkc(Y, A = A, rank = Q, epsilon = 1e-6, verbose = FALSE)
+  id <- nmfkc.ident(f, Y, A, region.n = 300, region.nstart = 1)
+  expect_s3_class(id, "nmfkc.ident")
+  expect_true(is.logical(id$test$reject))
+  expect_equal(dim(id$C.region.lower), c(Q, nrow(A)))
+  expect_s3_class(id$fit, "nmfkc")
+  expect_output(print(id))
+})
+
 test_that("nmfre() fits and infers", {
   ## no restarts: on these unstructured data every start ends degenerate, and the
   ## restarts are covered by the full suite
