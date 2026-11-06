@@ -381,10 +381,15 @@ nmfkc.ident <- function(object, Y, A, ...) {
     base::t(base::apply(pm, 1, function(p) cs[p, k]))))
 }
 
+## Candidates for the decisions: the column sets in increasing order only. Reordering L permutes the
+## row sets S_q and leaves the existence of a matching unchanged, and the identity order was the first
+## one tried among the Q! orders, so the decision and the reported candidate are the same.
+.nid.comb.L <- function(R, Q) base::t(utils::combn(R, Q))
+
 .nid.decide <- function(f, Q, pi, rho, cval) {
-  Ls <- .nid.all.L(f$R, Q)
+  Ls <- .nid.comb.L(f$R, Q); stR <- .nid.size.t(f, base::seq_len(f$R), rho)
   for (k in base::seq_len(base::nrow(Ls))) {
-    L <- Ls[k, ]; pt <- .nid.purity.t(f, L, pi); st <- .nid.size.t(f, L, rho)
+    L <- Ls[k, ]; pt <- .nid.purity.t(f, L, pi); st <- stR[, L, drop = FALSE]
     S <- base::lapply(base::seq_len(Q), function(q) base::which(pt[, q] >= -cval & st[, q] >= -cval))
     J <- .nid.matching(S)
     if (!base::is.null(J)) return(base::list(reject = FALSE, L = L, J = J))
@@ -395,9 +400,9 @@ nmfkc.ident <- function(object, Y, A, ...) {
 ## H(rho): a candidate survives when none of its Q(Q-1) off-diagonal entries is significantly positive and
 ## none of its Q sizes Xi[j, l_q] - rho s_{l_q} is significantly negative (one-sided t at cval each)
 .nid.decide.rho <- function(f, Q, rho, cval, tE = .nid.entry.t(f)) {
-  Ls <- .nid.all.L(f$R, Q); P <- base::nrow(f$Xi)
+  Ls <- .nid.comb.L(f$R, Q); P <- base::nrow(f$Xi); stR <- .nid.size.t(f, base::seq_len(f$R), rho)
   for (k in base::seq_len(base::nrow(Ls))) {
-    L <- Ls[k, ]; st <- .nid.size.t(f, L, rho)
+    L <- Ls[k, ]; st <- stR[, L, drop = FALSE]
     S <- base::lapply(base::seq_len(Q), function(q) {
       off <- if (Q > 1) base::apply(tE[, L[-q], drop = FALSE], 1, base::max) else base::rep(-Inf, P)
       base::which(off <= cval & st[, q] >= -cval)
