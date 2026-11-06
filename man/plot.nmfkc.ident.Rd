@@ -4,10 +4,12 @@
 \alias{plot.nmfkc.ident}
 \title{Plot the identification region and intervals of an nmfkc.ident object}
 \usage{
-\method{plot}{nmfkc.ident}(x, ...)
+\method{plot}{nmfkc.ident}(x, type = c("C", "X"), ...)
 }
 \arguments{
 \item{x}{An object of class \code{"nmfkc.ident"}.}
+
+\item{type}{\code{"C"} or \code{"X"}.}
 
 \item{...}{Not used.}
 }
@@ -15,7 +17,14 @@
 \code{x}, invisibly.
 }
 \description{
-One panel per entry of \eqn{C} (rows = bases, columns =
-covariates): the identification region (black), the profile-likelihood
-interval if computed (gray) and the repaired estimate (red cross).
+\code{type = "C"} (default): one panel per entry of \eqn{C}, bases in rows
+and covariates in columns, showing the identification region (black; a dot
+when it is a single point), the profile-likelihood interval if computed
+(gray) and the repaired estimate (red cross). Panels whose interval
+excludes 0 are shaded.
+\code{type = "X"}: for each basis, the identification region of every row of
+\eqn{X} (black) with the repaired basis (red).
+}
+\seealso{
+\code{\link{nmfkc.ident}}, \code{\link{summary.nmfkc.ident}}
 }

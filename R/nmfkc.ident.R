@@ -151,9 +151,9 @@
 #'   \eqn{|XC - \hat\Xi|}, relative to the largest entry of \eqn{\hat\Xi}).}
 #' \item{C.ci.lower, C.ci.upper}{Profile-likelihood interval of \eqn{C}
 #'   (\code{NULL} unless \code{ci = TRUE}).}
-#' \item{ci.level, rank, call}{As named.}
+#' \item{ci.level, rank, call}{As named; \code{dims} holds \code{P}, \code{N}, \code{R}.}
 #' @seealso \code{\link{nmfkc}}, \code{\link{nmfkc.inference}},
-#'   \code{\link{plot.nmfkc.ident}}
+#'   \code{\link{summary.nmfkc.ident}}, \code{\link{plot.nmfkc.ident}}
 #' @references
 #' Imbens, G. W. and Manski, C. F. (2004). Confidence intervals for partially
 #' identified parameters. \emph{Econometrica}, 72(6), 1845--1857.
@@ -170,7 +170,9 @@
 #' id
 #' \donttest{
 #' id2 <- nmfkc.ident(fit, Y, A, region.n = 5000, ci = TRUE)  # profile intervals
+#' summary(id2)
 #' plot(id2)
+#' plot(id2, type = "X")
 #' }
 nmfkc.ident <- function(object, Y, A, ...) {
   if (!inherits(object, "nmfkc")) stop("object must be of class 'nmfkc'")
@@ -214,12 +216,15 @@ nmfkc.ident <- function(object, Y, A, ...) {
                      pi.max = .nid.max.pi(f, Q, rho0, cval),
                      rho.max = .nid.max.rho(f, Q, cval),
                      pi.point = .nid.pi.point(f, Q, rho0)$value, crit = cval,
-                     candidate = if (dec$reject) NULL else base::list(rows = dec$J, columns = dec$L))
+                     candidate = if (dec$reject) NULL else
+                       base::list(rows = dec$J, columns = dec$L, row.names = base::rownames(Y)[dec$J],
+                                  column.names = base::rownames(A)[dec$L]))
 
   out <- base::list(test = test, Xi.hat = NULL, C.region.lower = NULL, C.region.upper = NULL,
                     X.region.lower = NULL, X.region.upper = NULL, identified = NA,
                     X = object$X, C = object$C, fit = object, repair = NULL,
                     C.ci.lower = NULL, C.ci.upper = NULL, ci.level = ci.level, rank = Q,
+                    dims = base::c(P = P, N = N, R = R),
                     call = base::match.call())
   if (R > Q || !region) {
     base::class(out) <- "nmfkc.ident"
@@ -643,30 +648,29 @@ nmfkc.ident <- function(object, Y, A, ...) {
 
 #' @export
 print.nmfkc.ident <- function(x, ...) {
-  t <- x$test
-  base::cat("Identifiability of an nmfkc fit (rank ", x$rank, ")\n", sep = "")
-  base::cat(base::sprintf("  anchor test H(pi = %g, rho = %.3g): %s (alpha = %g)\n", t$pi, t$rho,
-                          if (t$reject) "rejected" else "not rejected", t$alpha))
-  base::cat(base::sprintf("  pi.max = %s  (point estimate %s);  rho.max = %s\n",
-                          base::formatC(t$pi.max, digits = 3, format = "f"),
-                          base::formatC(t$pi.point, digits = 3, format = "f"),
-                          base::formatC(t$rho.max, digits = 3, format = "f")))
-  if (base::is.null(x$Xi.hat)) {
-    base::cat("  identification region: not computed (needs nrow(A) == rank)\n")
-    return(base::invisible(x))
-  }
-  base::cat(base::sprintf("  identification region of C: %s\n",
-                          if (base::isTRUE(x$identified)) "a single point (identified)" else "has width (not identified)"))
-  base::cat(base::sprintf("  repaired fit: start = %s, %d iterations, largest change of C %.2g\n",
-                          x$repair$start, x$repair$iter, x$repair$change))
-  base::print(summary(x)$coefficients, row.names = FALSE, digits = 4)
+  base::print(summary(x), ...)
   base::invisible(x)
 }
 
+#' @title Summary of an nmfkc.ident object
+#' @description The anchor test, the identification region, the repaired fit
+#'   and, when computed, the profile-likelihood intervals, with a coefficient
+#'   table for \eqn{C}.
+#' @param object An object of class \code{"nmfkc.ident"}.
+#' @param ... Not used.
+#' @return An object of class \code{"summary.nmfkc.ident"}: \code{test},
+#'   \code{dims}, \code{rank}, \code{identified}, \code{repair},
+#'   \code{region.share} (largest share of an interval taken by the
+#'   identification region), \code{ci.level}, and \code{coefficients}, a data
+#'   frame with columns \code{Basis}, \code{Covariate}, \code{Estimate}
+#'   (repaired fit), \code{region_low}, \code{region_high}, and with intervals
+#'   \code{CI_low}, \code{CI_high} and \code{nonzero} (the interval excludes 0:
+#'   positive even allowing for the non-uniqueness).
+#' @seealso \code{\link{nmfkc.ident}}, \code{\link{plot.nmfkc.ident}}
 #' @export
 summary.nmfkc.ident <- function(object, ...) {
   x <- object
-  co <- NULL
+  co <- NULL; share <- NA_real_
   if (!base::is.null(x$Xi.hat)) {
     C <- x$C
     co <- base::data.frame(Basis = base::rep(base::rownames(C), base::ncol(C)),
@@ -675,43 +679,131 @@ summary.nmfkc.ident <- function(object, ...) {
                            region_low = base::as.vector(x$C.region.lower),
                            region_high = base::as.vector(x$C.region.upper),
                            stringsAsFactors = FALSE)
-    if (!base::is.null(x$C.ci.lower)) { co$CI_low <- base::as.vector(x$C.ci.lower); co$CI_high <- base::as.vector(x$C.ci.upper) }
+    if (!base::is.null(x$C.ci.lower)) {
+      co$CI_low <- base::as.vector(x$C.ci.lower); co$CI_high <- base::as.vector(x$C.ci.upper)
+      co$nonzero <- co$CI_low > 0
+      w <- co$CI_high - co$CI_low
+      share <- base::max(base::ifelse(w > 0, (co$region_high - co$region_low) / w, 0))
+    }
   }
-  base::structure(base::list(test = x$test, identified = x$identified, coefficients = co,
-                             ci.level = x$ci.level, rank = x$rank), class = "summary.nmfkc.ident")
+  base::structure(base::list(test = x$test, dims = x$dims, rank = x$rank, identified = x$identified,
+                             repair = x$repair, region.share = share, ci.level = x$ci.level,
+                             coefficients = co, call = x$call),
+                  class = "summary.nmfkc.ident")
 }
 
 #' @export
-print.summary.nmfkc.ident <- function(x, ...) {
-  base::cat(base::sprintf("pi.max = %.3f, rho.max = %.3f, identified = %s\n", x$test$pi.max, x$test$rho.max,
-                          base::format(x$identified)))
-  if (!base::is.null(x$coefficients)) base::print(x$coefficients, row.names = FALSE, digits = 4)
+print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
+  t <- x$test; d <- x$dims
+  fmt <- function(v, k = 3) if (base::is.finite(v)) base::formatC(v, digits = k, format = "f") else "none (rejected at 0)"
+  base::cat("Identifiability of an nmfkc fit\n")
+  if (!base::is.null(d))
+    base::cat(base::sprintf("  Y: %d x %d,  A: %d covariates,  rank %d\n", d[["P"]], d[["N"]], d[["R"]], x$rank))
+  base::cat("\nAnchor test H(pi, rho)  [OLS of Xi = XC, HC1, intersection-union over candidates]\n")
+  base::cat(base::sprintf("  at pi = %g, rho = %.3g:  %s   (alpha = %g, critical t = %.3f)\n", t$pi, t$rho,
+                          if (t$reject) "rejected" else "not rejected", t$alpha, t$crit))
+  base::cat(base::sprintf("  pi.max  = %s   (largest membership probability not rejected; point estimate %s)\n",
+                          fmt(t$pi.max), fmt(t$pi.point)))
+  rm <- if (base::is.finite(t$rho.max) && !base::is.null(d))
+    base::sprintf("%s  (P * rho.max = %.2f; 1 = a uniform basis)", fmt(t$rho.max), d[["P"]] * t$rho.max) else fmt(t$rho.max)
+  base::cat(base::sprintf("  rho.max = %s\n", rm))
+  if (!base::is.null(t$candidate)) {
+    cr <- if (!base::is.null(t$candidate$row.names)) t$candidate$row.names else t$candidate$rows
+    cc <- if (!base::is.null(t$candidate$column.names)) t$candidate$column.names else t$candidate$columns
+    base::cat(base::sprintf("  surviving candidate: rows %s  x  covariates %s\n",
+                            base::paste(cr, collapse = ", "), base::paste(cc, collapse = ", ")))
+  }
+  base::cat("  (non-rejection is not evidence of uniqueness, as in a goodness-of-fit test)\n")
+  if (base::is.null(x$coefficients)) {
+    base::cat("\nIdentification region: not computed (needs nrow(A) == rank and region = TRUE)\n")
+    return(base::invisible(x))
+  }
+  base::cat("\nIdentification region of C\n")
+  base::cat(base::sprintf("  %s\n", if (base::isTRUE(x$identified)) "a single point: the factorization is unique"
+                          else "has width: C is not unique; read it from the region and its intervals"))
+  if (base::is.finite(x$region.share))
+    base::cat(base::sprintf("  largest share of an interval taken by the region: %.0f%%\n", 100 * x$region.share))
+  r <- x$repair
+  base::cat(base::sprintf("  repaired fit (start = %s): %d iterations, |XC - Xi.hat| / max(Xi.hat) = %.1e\n",
+                          r$start, r$iter, r$gap))
+  co <- x$coefficients
+  base::cat("\nCoefficients (Estimate = repaired fit; region = identification region")
+  if (!base::is.null(co$CI_low)) base::cat(base::sprintf(";\n  CI = %g%% profile-likelihood interval of the region, one error variance for all of Y",
+                                                         100 * x$ci.level))
+  base::cat(")\n")
+  show <- co
+  tol <- 1e-6 * base::max(base::abs(base::c(co$region_low, co$region_high)), 1)
+  near <- show$Estimate >= show$region_low - tol & show$Estimate <= show$region_high + tol
+  show$Estimate[near] <- base::pmin(base::pmax(show$Estimate[near], show$region_low[near]), show$region_high[near])
+  if (!base::is.null(show$nonzero)) { show$nonzero <- base::ifelse(show$nonzero, "*", ""); base::names(show)[base::names(show) == "nonzero"] <- "" }
+  num <- base::vapply(show, base::is.numeric, TRUE)
+  show[num] <- base::lapply(show[num], function(v) base::signif(v, digits))
+  base::print(show, row.names = FALSE)
+  if (!base::is.null(co$nonzero))
+    base::cat("  *: the interval excludes 0 -- positive even allowing for the non-uniqueness\n")
   base::invisible(x)
 }
 
 #' @title Plot the identification region and intervals of an nmfkc.ident object
-#' @description One panel per entry of \eqn{C} (rows = bases, columns =
-#'   covariates): the identification region (black), the profile-likelihood
-#'   interval if computed (gray) and the repaired estimate (red cross).
+#' @description
+#' \code{type = "C"} (default): one panel per entry of \eqn{C}, bases in rows
+#' and covariates in columns, showing the identification region (black; a dot
+#' when it is a single point), the profile-likelihood interval if computed
+#' (gray) and the repaired estimate (red cross). Panels whose interval
+#' excludes 0 are shaded.
+#' \code{type = "X"}: for each basis, the identification region of every row of
+#' \eqn{X} (black) with the repaired basis (red).
 #' @param x An object of class \code{"nmfkc.ident"}.
+#' @param type \code{"C"} or \code{"X"}.
 #' @param ... Not used.
 #' @return \code{x}, invisibly.
+#' @seealso \code{\link{nmfkc.ident}}, \code{\link{summary.nmfkc.ident}}
 #' @export
-plot.nmfkc.ident <- function(x, ...) {
-  if (base::is.null(x$Xi.hat)) stop("no identification region (needs nrow(A) == rank)")
-  Q <- base::nrow(x$C); R <- base::ncol(x$C)
-  hi <- if (!base::is.null(x$C.ci.upper)) x$C.ci.upper else x$C.region.upper
-  xmax <- base::max(hi[base::is.finite(hi)], x$C) * 1.05
-  op <- graphics::par(mfrow = base::c(Q, R), mar = base::c(2, 2, 1.6, 0.5))
+plot.nmfkc.ident <- function(x, type = c("C", "X"), ...) {
+  type <- base::match.arg(type)
+  if (base::is.null(x$Xi.hat)) stop("no identification region (needs nrow(A) == rank and region = TRUE)")
+  op <- graphics::par(no.readonly = TRUE)
   base::on.exit(graphics::par(op))
-  for (q in base::seq_len(Q)) for (k in base::seq_len(R)) {
-    graphics::plot(NA, xlim = base::c(0, xmax), ylim = base::c(0.5, 1.5), yaxt = "n", xlab = "", ylab = "",
-                   main = base::paste(base::rownames(x$C)[q], "x", base::colnames(x$C)[k]), cex.main = 0.8)
-    if (!base::is.null(x$C.ci.lower))
-      graphics::segments(x$C.ci.lower[q, k], 1, x$C.ci.upper[q, k], 1, lwd = 2.5, col = "gray55")
-    graphics::segments(x$C.region.lower[q, k], 1, x$C.region.upper[q, k], 1, lwd = 6, lend = 1)
-    graphics::points(x$C.region.lower[q, k], 1, pch = 19, cex = 0.6)
-    graphics::points(x$C[q, k], 1, pch = 4, col = "red3", cex = 1.6, lwd = 2)
+  Q <- base::nrow(x$C)
+  if (type == "X") {
+    P <- base::nrow(x$X); yy <- base::rev(base::seq_len(P))
+    graphics::par(mfrow = base::c(1, Q), mar = base::c(3, if (P <= 40) 6 else 2, 2, 0.5), oma = base::c(1.5, 0, 0, 0))
+    for (q in base::seq_len(Q)) {
+      graphics::plot(NA, xlim = base::c(0, base::max(x$X.region.upper) * 1.05), ylim = base::c(0.5, P + 0.5),
+                     yaxt = "n", xlab = "", ylab = "", main = base::colnames(x$X)[q], cex.main = 0.9)
+      if (P <= 40) graphics::axis(2, at = yy, labels = base::rownames(x$X), las = 1, cex.axis = 0.6)
+      w <- x$X.region.upper[, q] - x$X.region.lower[, q]; pt <- w < 1e-6 * base::max(x$X.region.upper)
+      graphics::segments(x$X.region.lower[!pt, q], yy[!pt], x$X.region.upper[!pt, q], yy[!pt], lwd = 4, lend = 1)
+      graphics::points(x$X.region.lower[pt, q], yy[pt], pch = 19, cex = 0.45)
+      graphics::points(x$X[, q], yy, pch = 1, col = "red3", cex = 0.8)
+    }
+    graphics::mtext("black: identification region of X (a dot when it is a single point);  red circle: repaired basis",
+                  side = 1, outer = TRUE, cex = 0.75)
+    return(base::invisible(x))
   }
+  R <- base::ncol(x$C)
+  hasci <- !base::is.null(x$C.ci.lower)
+  hi <- if (hasci) x$C.ci.upper else x$C.region.upper
+  xmax <- base::max(hi[base::is.finite(hi)], x$C) * 1.05
+  graphics::layout(base::matrix(base::seq_len(Q * R), Q, R, byrow = TRUE), widths = base::c(1.35, base::rep(1, R - 1)))
+  graphics::par(oma = base::c(2, 0, 0.5, 0), mgp = base::c(1.5, 0.4, 0), tcl = -0.25)
+  for (q in base::seq_len(Q)) for (k in base::seq_len(R)) {
+    graphics::par(mar = base::c(if (q == Q) 2 else 0.6, if (k == 1) 5 else 0.5, if (q == 1) 1.4 else 0.3, 0.5))
+    graphics::plot(NA, xlim = base::c(0, xmax), ylim = base::c(0.5, 1.5), xaxt = "n", yaxt = "n", xlab = "", ylab = "")
+    if (hasci && x$C.ci.lower[q, k] > 0) graphics::rect(-xmax, 0, 2 * xmax, 2, col = "gray90", border = NA)
+    if (hasci) graphics::segments(x$C.ci.lower[q, k], 1, base::min(x$C.ci.upper[q, k], 2 * xmax), 1,
+                                  lwd = 2.5, col = "gray55", lend = 1)
+    graphics::segments(x$C.region.lower[q, k], 1, x$C.region.upper[q, k], 1, lwd = 6, lend = 1)
+    if (x$C.region.upper[q, k] - x$C.region.lower[q, k] < 1e-9 * xmax)
+      graphics::points(x$C.region.lower[q, k], 1, pch = 19, cex = 0.8)
+    graphics::points(x$C[q, k], 1, pch = 4, col = "red3", cex = 1.6, lwd = 2)
+    graphics::axis(1, labels = q == Q, cex.axis = 0.75)
+    if (k == 1) graphics::mtext(base::rownames(x$C)[q], side = 2, line = 0.5, las = 1, adj = 1, cex = 0.7)
+    if (q == 1) graphics::mtext(base::colnames(x$C)[k], side = 3, line = 0.2, cex = 0.75)
+    graphics::box()
+  }
+  leg <- base::paste0("black: identification region", if (hasci) base::sprintf(";  gray: %g%% interval", 100 * x$ci.level) else "",
+                      ";  red x: repaired estimate", if (hasci) ";  shaded: interval excludes 0" else "")
+  graphics::mtext(leg, side = 1, outer = TRUE, line = 0.6, cex = 0.7)
   base::invisible(x)
 }

@@ -102,3 +102,26 @@ test_that("region = FALSE returns the test only", {
   expect_null(a$Xi.hat)
   expect_identical(a$test, b$test)                    # the test does not depend on the region
 })
+
+test_that("summary(), print() and plot() of nmfkc.ident", {
+  skip_unless_full()
+  d <- make_ident_data(FALSE)
+  f <- nmfkc(d$Y, d$A, rank = 2, epsilon = 1e-8, verbose = FALSE)
+  id <- nmfkc.ident(f, d$Y, d$A, region.n = 2000, ci = TRUE)
+  s <- summary(id)
+  expect_s3_class(s, "summary.nmfkc.ident")
+  expect_true(all(c("Basis", "Covariate", "Estimate", "region_low", "region_high", "CI_low", "CI_high", "nonzero")
+                  %in% names(s$coefficients)))
+  expect_identical(s$coefficients$nonzero, s$coefficients$CI_low > 0)
+  expect_true(s$region.share >= 0 && s$region.share <= 1)
+  expect_output(print(id), "Anchor test")
+  expect_output(print(id), "Identification region of C")
+  grDevices::pdf(NULL)
+  on.exit(grDevices::dev.off())
+  expect_silent(plot(id))
+  expect_silent(plot(id, type = "X"))
+  ## test only: summary says so and plot() refuses
+  a <- nmfkc.ident(f, d$Y, d$A, region = FALSE)
+  expect_output(print(a), "not computed")
+  expect_error(plot(a), "no identification region")
+})

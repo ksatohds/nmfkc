@@ -76,7 +76,7 @@ of \eqn{C} during the re-fit), \code{gap} (largest
 \eqn{|XC - \hat\Xi|}, relative to the largest entry of \eqn{\hat\Xi}).}
 \item{C.ci.lower, C.ci.upper}{Profile-likelihood interval of \eqn{C}
 (\code{NULL} unless \code{ci = TRUE}).}
-\item{ci.level, rank, call}{As named.}
+\item{ci.level, rank, call}{As named; \code{dims} holds \code{P}, \code{N}, \code{R}.}
 }
 \description{
 \code{nmfkc.ident} examines whether the factorization \eqn{Y \approx X C A}
@@ -161,7 +161,9 @@ id <- nmfkc.ident(fit, Y, A, region.n = 5000)
 id
 \donttest{
 id2 <- nmfkc.ident(fit, Y, A, region.n = 5000, ci = TRUE)  # profile intervals
+summary(id2)
 plot(id2)
+plot(id2, type = "X")
 }
 }
 \references{
@@ -171,5 +173,5 @@ identified parameters. \emph{Econometrica}, 72(6), 1845--1857.
 }
 \seealso{
 \code{\link{nmfkc}}, \code{\link{nmfkc.inference}},
-\code{\link{plot.nmfkc.ident}}
+\code{\link{summary.nmfkc.ident}}, \code{\link{plot.nmfkc.ident}}
 }
