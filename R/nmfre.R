@@ -533,7 +533,8 @@
 #' significantly affect which components.
 #'
 #' Estimation is an outer--inner ECM: an inner loop (fixed \eqn{\lambda}) runs a
-#' ridge/BLUP update for \eqn{U}, a complete-EM semi-NMF update for \eqn{X}, and
+#' ridge/BLUP update for \eqn{U}, an update for \eqn{X} (by default the exact
+#' minimization under the column sums; see \code{X.update}), and
 #' a fixed-effect update for \eqn{\Theta}; an outer loop runs the EM M-steps for
 #' \eqn{(\sigma^2, \tau^2)}. The variance components are estimated from the data;
 #' the effective degrees of freedom \eqn{df_U} are reported only as a diagnostic.
@@ -654,7 +655,7 @@
 #'     \item \code{C.nonneg.update}: Updates used with \code{C.signed = FALSE}.
 #'       \code{"exact"} (default): the \eqn{C}-step is an exact non-negative
 #'       least squares (Lawson and Hanson's active-set method) and the
-#'       \eqn{X}-step is the semi-NMF step of the sign-free path, so every block
+#'       \eqn{X}-step is that of the sign-free path (\code{X.update}), so every block
 #'       update is exact or monotone and the fit stops at a KKT point of the
 #'       likelihood.  \code{"mu"}: the positive-part multiplicative updates of
 #'       nmfkc 1.0.3 and earlier, kept to reproduce those fits; their fixed
@@ -871,8 +872,10 @@
 #'   \eqn{Q=3} only.  By default (\code{orient = "none"}) the
 #'   representation returned is the point where the algorithm stopped.  With
 #'   \code{orient = "geomin"} it is the member of the local region that minimizes
-#'   the geomin criterion on the row shares of \eqn{X} (as rotated loadings in
-#'   exploratory factor analysis); nothing moves when the region is a point.
+#'   the geomin criterion on the row shares of \eqn{X} (rows of zeros left out;
+#'   as rotated loadings in exploratory factor analysis); nothing moves when the
+#'   region is a point.  The search is local: it finds the minimizer over the
+#'   whole identification region only when the local region contains it.
 #'   The likelihood and \eqn{X\Theta} do not change.
 #'   \describe{
 #'     \item{\code{C.ident.lower}, \code{C.ident.upper}, \code{C.ident.width}}{Range
@@ -952,25 +955,25 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, X.update = c("exact", 
   ## C.mode is the internal string used throughout the optimizer.
   C.mode <- if (is.character(C.signed)) base::match.arg(C.signed, c("signed", "nonneg"))
             else if (isTRUE(C.signed)) "signed" else "nonneg"
-  ## The X-step is the complete-EM semi-NMF step (Ding-Li-Jordan 2010) for a
-  ## sign-free C and for C >= 0 with the exact updates (the default); only the
-  ## legacy C.nonneg.update = "mu" keeps the positive-part multiplicative step.
+  ## The X-step is set by X.update (exact by default) for a sign-free C and for
+  ## C >= 0 with the exact updates (the default); with X.update = "semi" it is
+  ## the complete-EM semi-NMF step (Ding-Li-Jordan 2010).  Only the legacy
+  ## C.nonneg.update = "mu" keeps the positive-part multiplicative step.
   ## Complete-EM X-step: add the posterior-variance term tr(X S X'),
   ## S = N*sigma2*(X'X+lambda I)^{-1}; FALSE recovers the conditional X-step.
   x.postvar <- if (!is.null(extra_args$x.postvar)) isTRUE(extra_args$x.postvar) else TRUE
   ## With C >= 0, "exact" (default) solves the C-step as an exact non-negative
-  ## least squares and uses the complete-EM semi-NMF X-step of the sign-free
-  ## path, so each block update is exact or monotone and the ECM stops at a KKT
+  ## least squares and uses the X-step of the sign-free path (X.update), so each block update is exact or monotone and the ECM stops at a KKT
   ## point of the likelihood.  "mu" is the positive-part multiplicative update
   ## of nmfkc <= 1.0.3 (kept to reproduce those fits): it acts on [Y - XU]+ and
   ## [CA + U]+, so its fixed points need not be stationary.
   C.nonneg.update <- if (!is.null(extra_args$C.nonneg.update))
     base::match.arg(extra_args$C.nonneg.update, c("exact", "mu")) else "exact"
   nn.exact <- C.mode == "nonneg" && C.nonneg.update == "exact"
-  ## X-step (argument X.update).  "semi" (default): the (complete-EM) semi-NMF
+  ## X-step (argument X.update).  "semi": the (complete-EM) semi-NMF
   ## multiplicative step followed by the column renormalization X -> X D^-1,
   ## (C, U) -> (D C, D U), which keeps the fitted mean but not the likelihood,
-  ## so the ECM may stop short of a stationary point.  "exact": the X-block is
+  ## so the ECM may stop short of a stationary point.  "exact" (default): the X-block is
   ## minimized exactly under 1'X = 1' (.nmfre.simplex.X()), no renormalization;
   ## with the exact U- and C-steps every block of the inner loop is then
   ## minimized exactly.
@@ -2320,9 +2323,11 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 ## each entry the profile is followed outward from the member of the local
 ## identification region attaining the end (from the estimate when the region
 ## is not computed), in steps of `step` standard errors, each step warm-started
-## from the previous one.  The optimization is local, so the profile stays in
-## the component of the estimate (other components and relabelings, which
-## also attain the maximum, are not visited).
+## from the previous one.  The optimization is local (a continuation), which is
+## meant to keep the profile in the component of the estimate, away from other
+## components and relabelings that also attain the maximum; it guarantees
+## neither this nor a global maximum.  `below.fit` is how far a step went below
+## the fit's 2 x NLL (a higher likelihood than the fit's); it is not returned.
 .nmfre.profile.ci <- function(object, Y, A, se, region, which, level = 0.95, step = 0.25,
                               maxstep = 24L) {
   X <- object$X; C <- object$C; P <- base::nrow(Y); N <- base::ncol(Y)
@@ -2425,9 +2430,15 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 #' \strong{Profile intervals.} With \code{profile = TRUE}, for each entry the
 #' profile marginal likelihood is followed outward from the end of its
 #' identification region until twice the drop exceeds the
-#' \eqn{\chi^2_1} quantile; the interval is the level set.  The search is
-#' local: other components of the region and relabellings, which attain the
-#' same maximum, are not visited.
+#' \eqn{\chi^2_1} quantile; the interval is the level set.  The profile is
+#' computed by continuation: the entry moves outward in steps of
+#' \code{profile.step} standard errors, and each constrained maximization
+#' (BFGS) starts from the previous solution.  The search is local, which is
+#' meant to keep it away from other components of the region and from
+#' relabellings (they attain the same maximum), but it neither certifies a
+#' global maximum nor excludes other branches.  \code{C.profile.reached}
+#' records whether the level was crossed on both sides within
+#' \code{profile.maxstep} steps.
 #'
 #' @return The input \code{object} with additional inference components:
 #' \item{sigma2.used}{Estimated \eqn{\sigma^2} used for inference.}

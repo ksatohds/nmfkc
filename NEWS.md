@@ -1,5 +1,19 @@
 # nmfkc (development version)
 
+## Help of `nmfre()` and `nmfre.inference()` corrected (no code changed)
+
+- `nmfre.inference(profile = TRUE)`: the profile is computed by continuation,
+  each constrained maximization starting from the previous one.  The help no
+  longer says that other components of the identification region and
+  relabellings are never visited: the search is local, but it neither
+  certifies a global maximum nor excludes other branches.
+- `nmfre(orient = "geomin")`: rows of `X` that are all zero are left out of
+  the criterion (as the code always did), and the local search finds the
+  minimizer over the whole identification region only when the local region
+  contains it.
+- `nmfre()`: the inner loop and `C.nonneg.update` are described with the
+  `X`-step chosen by `X.update` (exact by default) instead of the semi-NMF step.
+
 ## New `nmfkc.ident()`: is the factorization unique, and what can be said if it is not?
 
 For `Y = X C A + E` with `X >= 0` (columns summing to 1), `C >= 0` and `A`

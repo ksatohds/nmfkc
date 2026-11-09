@@ -90,9 +90,15 @@ there).  Its \code{C.ident.*} and \code{X.ident.*} ranges are kept.
 \strong{Profile intervals.} With \code{profile = TRUE}, for each entry the
 profile marginal likelihood is followed outward from the end of its
 identification region until twice the drop exceeds the
-\eqn{\chi^2_1} quantile; the interval is the level set.  The search is
-local: other components of the region and relabellings, which attain the
-same maximum, are not visited.
+\eqn{\chi^2_1} quantile; the interval is the level set.  The profile is
+computed by continuation: the entry moves outward in steps of
+\code{profile.step} standard errors, and each constrained maximization
+(BFGS) starts from the previous solution.  The search is local, which is
+meant to keep it away from other components of the region and from
+relabellings (they attain the same maximum), but it neither certifies a
+global maximum nor excludes other branches.  \code{C.profile.reached}
+records whether the level was crossed on both sides within
+\code{profile.maxstep} steps.
 }
 \examples{
 Y <- matrix(cars$dist, nrow = 1)

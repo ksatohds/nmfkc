@@ -134,7 +134,7 @@ and with the \eqn{X} penalties.
 \item \code{C.nonneg.update}: Updates used with \code{C.signed = FALSE}.
 \code{"exact"} (default): the \eqn{C}-step is an exact non-negative
 least squares (Lawson and Hanson's active-set method) and the
-\eqn{X}-step is the semi-NMF step of the sign-free path, so every block
+\eqn{X}-step is that of the sign-free path (\code{X.update}), so every block
 update is exact or monotone and the fit stops at a KKT point of the
 likelihood.  \code{"mu"}: the positive-part multiplicative updates of
 nmfkc 1.0.3 and earlier, kept to reproduce those fits; their fixed
@@ -353,8 +353,10 @@ orientation and the profile intervals' use of the region are for
 \eqn{Q=3} only.  By default (\code{orient = "none"}) the
 representation returned is the point where the algorithm stopped.  With
 \code{orient = "geomin"} it is the member of the local region that minimizes
-the geomin criterion on the row shares of \eqn{X} (as rotated loadings in
-exploratory factor analysis); nothing moves when the region is a point.
+the geomin criterion on the row shares of \eqn{X} (rows of zeros left out;
+as rotated loadings in exploratory factor analysis); nothing moves when the
+region is a point.  The search is local: it finds the minimizer over the
+whole identification region only when the local region contains it.
 The likelihood and \eqn{X\Theta} do not change.
 \describe{
 \item{\code{C.ident.lower}, \code{C.ident.upper}, \code{C.ident.width}}{Range
@@ -400,7 +402,8 @@ provides covariate-side variable selection by identifying which covariates
 significantly affect which components.
 
 Estimation is an outer--inner ECM: an inner loop (fixed \eqn{\lambda}) runs a
-ridge/BLUP update for \eqn{U}, a complete-EM semi-NMF update for \eqn{X}, and
+ridge/BLUP update for \eqn{U}, an update for \eqn{X} (by default the exact
+minimization under the column sums; see \code{X.update}), and
 a fixed-effect update for \eqn{\Theta}; an outer loop runs the EM M-steps for
 \eqn{(\sigma^2, \tau^2)}. The variance components are estimated from the data;
 the effective degrees of freedom \eqn{df_U} are reported only as a diagnostic.
