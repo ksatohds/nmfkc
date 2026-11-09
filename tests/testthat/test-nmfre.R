@@ -300,17 +300,17 @@ test_that("nmfre(): geomin orientation within the identification region, likelih
   expect_match(paste(out, collapse = " "), "geomin member")
 })
 
-test_that("nmfre(): orient defaults to \"none\", the fit as it stopped (as up to 1.0.2)", {
+test_that("nmfre(): orient defaults to \"geomin\"; orient = \"none\" keeps the fit as it stopped", {
   skip_unless_full()
   d <- anchor_data(anchors = c(), block = 1)            # rows inside the orthant: a region
   f  <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE))
   fn <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE, orient = "none"))
   fg <- suppressWarnings(nmfre(d$Y, d$A, rank = 3, seed = 1, X.init = "kmeans", epsilon = 1e-4, verbose = FALSE, orient = "geomin"))
-  expect_identical(f$identification$orient$rule, "none")
-  expect_identical(f$X, fn$X); expect_identical(f$C, fn$C); expect_identical(f$U, fn$U)
-  expect_identical(fg$identification$orient$rule, "geomin")
-  expect_equal(fg$X %*% fg$C, f$X %*% f$C, tolerance = 1e-8)
-  expect_equal(fg$identification$width, f$identification$width, tolerance = 1e-6)
+  expect_identical(f$identification$orient$rule, "geomin")
+  expect_identical(f$X, fg$X); expect_identical(f$C, fg$C); expect_identical(f$U, fg$U)
+  expect_identical(fn$identification$orient$rule, "none")
+  expect_equal(fn$X %*% fn$C, f$X %*% f$C, tolerance = 1e-8)
+  expect_equal(fn$identification$width, f$identification$width, tolerance = 1e-6)
 })
 
 test_that("nmfre(): anchored fit has width 0; nmfre.inference() keeps it; optional profile intervals", {

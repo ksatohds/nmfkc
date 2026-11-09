@@ -1,5 +1,16 @@
 # nmfkc (development version)
 
+## `nmfre()`: `orient = "geomin"` is now the default
+
+For `rank = 3`, when the identification region of a fit has positive width,
+`nmfre()` now returns its geomin member, which defines the reported
+coefficients (as rotated loadings in exploratory factor analysis), instead of
+the point where the algorithm stopped, which depends on the start.  Nothing
+moves when the region is a point (in particular when a row of `X` pins a
+basis), for `rank <= 2`, or for `rank >= 4`, where the orientation is not
+computed; the likelihood and `X C` never change.  `orient = "none"` gives the
+previous behavior.  The examples and vignettes (`rank` 1 and 2) are unchanged.
+
 ## Help of `nmfre()` and `nmfre.inference()` corrected (no code changed)
 
 - `nmfre.inference(profile = TRUE)`: the profile is computed by continuation,
@@ -252,7 +263,8 @@ and non-negative `C`, with and without anchor rows, and `nmfre.inference()`) `X`
 bit-identical to 1.0.2.  `orient = "geomin"` is not the default because it
 moves `C` by the width of the region, which can be large (by 21 on a simulated
 `rank = 3` fit with a region of width 45), and with it the standard errors of
-`nmfre.inference()`.
+`nmfre.inference()`.  (Changed later in this development version: the default
+is now `orient = "geomin"`; see above.)
 
 `nmfre.inference()` works on the representation it is given, keeps these
 entries, and adds its identifiability diagnostic to `identification`.  With

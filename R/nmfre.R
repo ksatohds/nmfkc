@@ -341,7 +341,7 @@
                                       X.update = "exact") {
   ea <- extra_args; ea$Q <- NULL; ea$X.anchor <- NULL; ea$.anchor.direct <- NULL
   ## the search compares fits as they stop; the result is oriented once, at the end
-  orient <- if (!is.null(ea[["orient"]])) match.arg(ea[["orient"]], c("none", "geomin")) else "none"
+  orient <- if (!is.null(ea[["orient"]])) match.arg(ea[["orient"]], c("none", "geomin")) else "geomin"
   orient.eps <- if (!is.null(ea$orient.eps)) ea$orient.eps else 0.01
   ident <- .nmfre.ident.args(ea)
   ea$orient <- "none"; ea$ident.search <- FALSE
@@ -420,7 +420,7 @@
   restarts <- if (!is.null(extra_args$mix.restarts)) as.integer(extra_args$mix.restarts) else 20L
   seed <- if (!is.null(ea$seed)) ea$seed else 1
   ## the fits are compared as they stop; the kept one is oriented once, at the end
-  orient <- if (!is.null(ea[["orient"]])) match.arg(ea[["orient"]], c("none", "geomin")) else "none"
+  orient <- if (!is.null(ea[["orient"]])) match.arg(ea[["orient"]], c("none", "geomin")) else "geomin"
   orient.eps <- if (!is.null(ea$orient.eps)) ea$orient.eps else 0.01
   ident <- .nmfre.ident.args(ea)
   ea$orient <- "none"; ea$ident.search <- FALSE
@@ -691,8 +691,9 @@
 #'     \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 #'       \eqn{\lambda} (default \code{1e-6}).
 #'     \item \code{orient}: Representation reported within the identification
-#'       region (see the return value): \code{"none"} (default; the point where
-#'       the algorithm stopped, as up to 1.0.2) or \code{"geomin"}.
+#'       region (see the return value): \code{"geomin"} (default; the geomin
+#'       member of the local region) or \code{"none"} (the point where the
+#'       algorithm stopped, as up to 1.0.2).
 #'     \item \code{orient.eps}: \eqn{\varepsilon} of the geomin criterion (default 0.01).
 #'     \item \code{ident.search}: For \eqn{Q\ge4}, search the identification
 #'       region numerically when, after the bases pinned by anchors are
@@ -869,14 +870,16 @@
 #'   counted (\code{identification$search$global.nonperm}) but not used in the
 #'   ranges, since they need not belong to the local region.  The geomin
 #'   orientation and the profile intervals' use of the region are for
-#'   \eqn{Q=3} only.  By default (\code{orient = "none"}) the
-#'   representation returned is the point where the algorithm stopped.  With
-#'   \code{orient = "geomin"} it is the member of the local region that minimizes
+#'   \eqn{Q=3} only.  By default (\code{orient = "geomin"}) the
+#'   representation returned is the member of the local region that minimizes
 #'   the geomin criterion on the row shares of \eqn{X} (rows of zeros left out;
-#'   as rotated loadings in exploratory factor analysis); nothing moves when the
-#'   region is a point.  The search is local: it finds the minimizer over the
-#'   whole identification region only when the local region contains it.
-#'   The likelihood and \eqn{X\Theta} do not change.
+#'   as rotated loadings in exploratory factor analysis), which defines the
+#'   reported coefficients when the region has positive width; nothing moves
+#'   when the region is a point.  The search is local: it finds the minimizer
+#'   over the whole identification region only when the local region contains
+#'   it.  With \code{orient = "none"} the representation returned is the point
+#'   where the algorithm stopped, which depends on the start.  The likelihood
+#'   and \eqn{X\Theta} do not change.
 #'   \describe{
 #'     \item{\code{C.ident.lower}, \code{C.ident.upper}, \code{C.ident.width}}{Range
 #'       of each entry of \eqn{C} over the local identification region and its
@@ -1645,8 +1648,8 @@ nmfre <- function(Y, A = NULL, rank = 2, C.signed = TRUE, X.update = c("exact", 
                                "this fit: X.init, C.init, U.init, sigma2, tau2)."), imp))
     }
   }
-  ## identification region; the representation within it (as stopped by default)
-  orient <- if (!is.null(extra_args[["orient"]])) base::match.arg(extra_args[["orient"]], c("none", "geomin")) else "none"
+  ## identification region; the representation within it (geomin by default)
+  orient <- if (!is.null(extra_args[["orient"]])) base::match.arg(extra_args[["orient"]], c("none", "geomin")) else "geomin"
   out <- .nmfre.orient.fit(out, nonneg = (C.mode == "nonneg"), orient = orient,
                            eps = if (!is.null(extra_args$orient.eps)) extra_args$orient.eps else 0.01,
                            ident = .nmfre.ident.args(extra_args))
@@ -2423,8 +2426,8 @@ predict.nmfre <- function(object, newA = NULL, ...) {
 #'
 #' @details
 #' Inference is on the representation returned by \code{\link{nmfre}}
-#' (by default the point where its algorithm stopped; with
-#' \code{orient = "geomin"} the geomin member of its identification region; see
+#' (by default the geomin member of its identification region; with
+#' \code{orient = "none"} the point where its algorithm stopped; see
 #' there).  Its \code{C.ident.*} and \code{X.ident.*} ranges are kept.
 #'
 #' \strong{Profile intervals.} With \code{profile = TRUE}, for each entry the

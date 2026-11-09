@@ -170,8 +170,9 @@ block-coordinate) and outer (EM variance) iterations (defaults
 \item \code{epsilon.outer}: Convergence tolerance for the outer EM loop on
 \eqn{\lambda} (default \code{1e-6}).
 \item \code{orient}: Representation reported within the identification
-region (see the return value): \code{"none"} (default; the point where
-the algorithm stopped, as up to 1.0.2) or \code{"geomin"}.
+region (see the return value): \code{"geomin"} (default; the geomin
+member of the local region) or \code{"none"} (the point where the
+algorithm stopped, as up to 1.0.2).
 \item \code{orient.eps}: \eqn{\varepsilon} of the geomin criterion (default 0.01).
 \item \code{ident.search}: For \eqn{Q\ge4}, search the identification
 region numerically when, after the bases pinned by anchors are
@@ -350,14 +351,16 @@ elsewhere in the family show that the fit is not unique globally; they are
 counted (\code{identification$search$global.nonperm}) but not used in the
 ranges, since they need not belong to the local region.  The geomin
 orientation and the profile intervals' use of the region are for
-\eqn{Q=3} only.  By default (\code{orient = "none"}) the
-representation returned is the point where the algorithm stopped.  With
-\code{orient = "geomin"} it is the member of the local region that minimizes
+\eqn{Q=3} only.  By default (\code{orient = "geomin"}) the
+representation returned is the member of the local region that minimizes
 the geomin criterion on the row shares of \eqn{X} (rows of zeros left out;
-as rotated loadings in exploratory factor analysis); nothing moves when the
-region is a point.  The search is local: it finds the minimizer over the
-whole identification region only when the local region contains it.
-The likelihood and \eqn{X\Theta} do not change.
+as rotated loadings in exploratory factor analysis), which defines the
+reported coefficients when the region has positive width; nothing moves
+when the region is a point.  The search is local: it finds the minimizer
+over the whole identification region only when the local region contains
+it.  With \code{orient = "none"} the representation returned is the point
+where the algorithm stopped, which depends on the start.  The likelihood
+and \eqn{X\Theta} do not change.
 \describe{
 \item{\code{C.ident.lower}, \code{C.ident.upper}, \code{C.ident.width}}{Range
 of each entry of \eqn{C} over the local identification region and its

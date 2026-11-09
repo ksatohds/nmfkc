@@ -83,8 +83,8 @@ The result is compatible with \code{\link{nmfkc.DOT}} for visualization
 }
 \details{
 Inference is on the representation returned by \code{\link{nmfre}}
-(by default the point where its algorithm stopped; with
-\code{orient = "geomin"} the geomin member of its identification region; see
+(by default the geomin member of its identification region; with
+\code{orient = "none"} the point where its algorithm stopped; see
 there).  Its \code{C.ident.*} and \code{X.ident.*} ranges are kept.
 
 \strong{Profile intervals.} With \code{profile = TRUE}, for each entry the
