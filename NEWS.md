@@ -25,6 +25,11 @@ previous behavior.  The examples and vignettes (`rank` 1 and 2) are unchanged.
 - `nmfre()`: the inner loop and `C.nonneg.update` are described with the
   `X`-step chosen by `X.update` (exact by default) instead of the semi-NMF step.
 
+## Help of `nmfkc.inference()` corrected (no code changed)
+
+- `method = "refit"`: the bootstrap p-value follows `C.p.side` like the other
+  engines, one-sided by default.  The help used to call it two-sided.
+
 ## New `nmfkc.ident()`: is the factorization unique, and what can be said if it is not?
 
 For `Y = X C A + E` with `X >= 0` (columns summing to 1), `C >= 0` and `A`

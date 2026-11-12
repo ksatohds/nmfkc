@@ -28,7 +28,9 @@ to convergence with the basis \eqn{X} held FIXED. The "refit" engine
 uses no information matrix, so it stays valid when the Fisher
 information \eqn{AA'} is singular (over-parameterised covariates) or
 \eqn{C} sits on the \eqn{\ge 0} boundary; the bootstrap SE/CI become
-primary and the p-value is a two-sided bootstrap p-value.}
+primary and the p-value is the basic-bootstrap p-value
+\eqn{P^\ast(\hat c^\ast \ge 2\hat c)} from the replicates, one-sided
+by default and two-sided with \code{C.p.side = "two.sided"}.}
 \item{\code{wild.dist}}{Multiplier distribution (orthogonal to
 \code{method}): \code{"rademacher"} (\eqn{\pm 1}), \code{"mammen"}
 (Mammen 1993 two-point), or \code{"exp"} (\eqn{\mathrm{Exp}(1)-1}).
