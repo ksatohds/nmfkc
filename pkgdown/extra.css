@@ -101,3 +101,16 @@ code {
 html {
   scroll-behavior: smooth;
 }
+
+/* Reference index: the model-fitting (optimization) functions in red */
+.template-reference-index dt a[href="nmfkc.html"],
+.template-reference-index dt a[href="nmfkc.net.html"],
+.template-reference-index dt a[href="nmfkc.signed.html"],
+.template-reference-index dt a[href="nmfre.html"],
+.template-reference-index dt a[href="nmf.ffb.html"],
+.template-reference-index dt a[href="nmf.gmm.html"],
+.template-reference-index dt a[href="nmf.rrr.html"],
+.template-reference-index dt a[href="nmf.rrr.signed.html"] {
+  color: #c0392b;
+  font-weight: 700;
+}
