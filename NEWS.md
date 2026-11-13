@@ -25,6 +25,14 @@ previous behavior.  The examples and vignettes (`rank` 1 and 2) are unchanged.
 - `nmfre()`: the inner loop and `C.nonneg.update` are described with the
   `X`-step chosen by `X.update` (exact by default) instead of the semi-NMF step.
 
+## `*.rank()`: no more note about `nmf.cluster.criteria()`
+
+`nmfkc.rank()`, `nmfkc.net.rank()`, `nmfkc.signed.rank()`, `nmf.rrr.rank()`
+and `nmf.rrr.signed.rank()` no longer print the message pointing to
+`nmf.cluster.criteria()` for clustering quality (added when those criteria
+left rank selection).  The help of `nmfkc.rank()` still says so.  Nothing else
+changes.
+
 ## Help of `nmfkc.inference()` corrected (no code changed)
 
 - `method = "refit"`: the bootstrap p-value follows `C.p.side` like the other

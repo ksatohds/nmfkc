@@ -2383,9 +2383,6 @@ print.nmf.cluster.flow <- function(x, ...) {
 #' @noRd
 .rank.finish <- function(criteria, plot = TRUE,
                          main = "Rank Selection Diagnostics") {
-  base::message("Note: sample-clustering quality (silhouette / CPCC / ",
-                "dist.cor) is not part of rank selection; compute it from a ",
-                "list of fits with nmf.cluster.criteria().  See ?nmf.cluster.criteria")
   rk <- criteria$rank
   nq <- base::length(rk)
 
