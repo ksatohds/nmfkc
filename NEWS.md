@@ -35,7 +35,9 @@ pairwise and cone directions found it. For `rank = 2` the pairwise intervals
 reproduce the exact rectangle of the identification region.
 
 Entries at most `zero.tol = 1e-3` times their column (`X`) or row (`C`)
-maximum count as zero. The check runs last, with a seed of its own. Every
+maximum count as zero (a relative threshold; the sufficient condition keeps
+the rule of `summary.nmfkc()`, at most 1e-3 in absolute terms or 1% of the
+entry compared with, and does not use `zero.tol`). The check runs last, with a seed of its own. Every
 earlier component of `nmfkc.ident()` (test, region, repair, intervals) is
 bit-identical on six calls; only the `runtime` of the repaired fit differs.
 `print()` gains an "Algebraic check" block.

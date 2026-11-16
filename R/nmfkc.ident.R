@@ -103,7 +103,10 @@
 #'       \code{getOption("mc.cores", 1L)}; results do not depend on it.}
 #'     \item{\code{zero.tol}}{Algebraic check: an entry of \eqn{X} (\eqn{C})
 #'       at most \code{zero.tol} times its column (row) maximum counts as 0.
-#'       Default \code{1e-3}, as for the anchors in \code{summary.nmfkc()}.}
+#'       Default \code{1e-3}. The threshold is relative; the sufficient
+#'       condition does not use it but keeps the rule of \code{summary.nmfkc()}
+#'       (an entry at most 1e-3 in absolute terms, or at most 1\% of the
+#'       entry it is compared with, counts as 0).}
 #'     \item{\code{move.tol}}{Algebraic check: a remixing counts as moving
 #'       the fit when it changes an entry of \eqn{X} or an entry of \eqn{C}
 #'       relative to its column sum by more than this. Default \code{1e-3}.}
@@ -122,7 +125,8 @@
 #' values where the fit is at the boundary.
 #' \enumerate{
 #'   \item \emph{Sufficient condition}: two-sided anchors, or the peeling of
-#'     \code{summary.nmfkc()}; when it holds the fit is identified.
+#'     \code{summary.nmfkc()}, with its own rule for zeros (not
+#'     \code{zero.tol}); when it holds the fit is identified.
 #'   \item \emph{Local cone}: the directions \eqn{D} that keep both
 #'     inequalities to first order, \eqn{(XD)_{ij} \ge 0} where
 #'     \eqn{X_{ij} = 0} and \eqn{(DC)_{kj} \le 0} where \eqn{C_{kj} = 0}. Whether
