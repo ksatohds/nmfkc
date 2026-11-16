@@ -14,6 +14,10 @@
 ##    all entries of Y); they contain the identification region and are meant to cover each point of it
 ##    (the whole region can be covered less often; coverage not yet studied by simulation).
 ##
+## 0. algebraic check (any A, also none; needs only the fitted X and C): sufficient condition, the
+##    first-order cone of remixings decided by NNLS (Farkas), and the extent along pairwise, cone and
+##    random directions (inner bounds of the region).  Computed last, with its own seed.
+##
 ## Internal helpers carry the prefix .nid. (".ident." is taken by nmfkc.ar.R).
 
 #' @title Identifiability of an nmfkc fit: test, identification region, repair and intervals
@@ -44,11 +48,23 @@
 #' group indicators or \code{rank} continuous covariates; for
 #' \code{nrow(A) > rank} (or \code{region = FALSE}) only the test is computed.
 #'
-#' @param object An object of class \code{"nmfkc"} fitted with covariates
-#'   (\code{X.restriction = "colSums"}, the default).
-#' @param Y Observation matrix (P x N) used in the fit.
+#' In every case, with or without covariates, the function also runs an
+#' \strong{algebraic check} on the fitted \eqn{X} and \eqn{C} themselves
+#' (component \code{algebraic}): whether any remixing moves them, and how far.
+#' It needs neither \code{Y} nor \code{A}, so \code{nmfkc.ident(fit)} works
+#' for a fit without covariates (\eqn{Y \approx XB}, where the test is not
+#' available) and for one with covariates alike.
+#'
+#' @param object An object of class \code{"nmfkc"}
+#'   (\code{X.restriction = "colSums"}, the default), with or without
+#'   covariates.
+#' @param Y Observation matrix (P x N) used in the fit. Needed, with \code{A},
+#'   for the test, the region, the repair and the intervals; not needed for the
+#'   algebraic check.
 #' @param A Covariate matrix (R x N) used in the fit, of full row rank with
-#'   \code{R < N}.
+#'   \code{R < N}. \code{NULL} (default): only the algebraic check is computed
+#'   (for a fit without covariates, or when only the fitted matrices are at
+#'   hand).
 #' @param ... Additional arguments:
 #'   \describe{
 #'     \item{\code{pi}}{Membership-probability threshold of the anchor rows at
@@ -85,7 +101,50 @@
 #'       restored on exit.}
 #'     \item{\code{cores}}{Number of cores for the profile intervals. Default
 #'       \code{getOption("mc.cores", 1L)}; results do not depend on it.}
+#'     \item{\code{zero.tol}}{Algebraic check: an entry of \eqn{X} (\eqn{C})
+#'       at most \code{zero.tol} times its column (row) maximum counts as 0.
+#'       Default \code{1e-3}, as for the anchors in \code{summary.nmfkc()}.}
+#'     \item{\code{move.tol}}{Algebraic check: a remixing counts as moving
+#'       the fit when it changes an entry of \eqn{X} or an entry of \eqn{C}
+#'       relative to its column sum by more than this. Default \code{1e-3}.}
+#'     \item{\code{ident.n}}{Algebraic check: number of random directions
+#'       added to the pairwise and cone directions. Default 2000.}
 #'   }
+#'
+#' @section Algebraic check:
+#' Every \eqn{T} with columns summing to 1, \eqn{XT \ge 0} and
+#' \eqn{T^{-1}C \ge 0} gives the same fit; with \eqn{A} of full row rank the
+#' non-negativity is that of \eqn{C} itself (of \eqn{B = C} without
+#' covariates), so the check needs only \eqn{X} and \eqn{C}. Write
+#' \eqn{T = I + tD} with \eqn{D} of zero column sums (\eqn{Q(Q-1)} free
+#' entries). Entries at most \code{zero.tol} times their column (row) maximum
+#' are set to 0 first, since the multiplicative updates leave small positive
+#' values where the fit is at the boundary.
+#' \enumerate{
+#'   \item \emph{Sufficient condition}: two-sided anchors, or the peeling of
+#'     \code{summary.nmfkc()}; when it holds the fit is identified.
+#'   \item \emph{Local cone}: the directions \eqn{D} that keep both
+#'     inequalities to first order, \eqn{(XD)_{ij} \ge 0} where
+#'     \eqn{X_{ij} = 0} and \eqn{(DC)_{kj} \le 0} where \eqn{C_{kj} = 0}. Whether
+#'     it contains a direction with a positive (negative) value of each
+#'     off-diagonal entry is decided exactly by a non-negative least-squares
+#'     problem (Farkas' lemma), whose residual is such a direction. If none
+#'     does, no remixing moves the fit: it is locally identified.
+#'   \item \emph{Extent}: along the pairwise remixings
+#'     \eqn{x_q \to (1-a)x_q + a x_r}, the cone directions and \code{ident.n}
+#'     random directions, the largest step that keeps \eqn{XT \ge 0} (exact,
+#'     linear in \eqn{t}) and \eqn{T^{-1}C \ge 0} (grid, then bisection) is
+#'     found. The ranges of \eqn{X} and \eqn{C} over these factorizations are
+#'     inner bounds of the identification region, and \code{pairs} gives the
+#'     exact interval of \eqn{a} for each pair of bases.
+#' }
+#' Random directions alone miss narrow sets of remixings (a single possible
+#' direction is hit with probability 0), which is why the pairwise and cone
+#' directions are always included. The check concerns the fitted matrices: a
+#' zero in \eqn{\hat X} or \eqn{\hat C} that pins the fit is an estimate and
+#' may not survive sampling variation (use the test with \code{Y} and \code{A}
+#' for that), and it examines only remixings connected to the fit, not
+#' factorizations far away.
 #'
 #' @details
 #' \strong{Test.} \eqn{\hat\Xi = Y A^\top (AA^\top)^{-1}} with HC1 standard
@@ -157,7 +216,17 @@
 #' too short.
 #'
 #' @return An object of class \code{"nmfkc.ident"}:
-#' \item{test}{List: \code{pi}, \code{rho}, \code{alpha}, \code{reject}
+#' \item{algebraic}{List: \code{verdict} (text), \code{sufficient} (two-sided
+#'   anchors / peeling), \code{A.full.rank}, \code{cone.trivial} (no remixing
+#'   moves the fit to first order), \code{pairs} (data frame \code{basis},
+#'   \code{from}, \code{a.min}, \code{a.max}: column \code{basis} of \eqn{X}
+#'   can become \eqn{(1-a)x_{basis} + a x_{from}}), \code{X.lower},
+#'   \code{X.upper}, \code{C.lower}, \code{C.upper} (inner bounds of the
+#'   identification region, containing the fit), \code{width.X},
+#'   \code{width.C} (largest width; for \eqn{C} relative to its column sums,
+#'   which do not change), \code{moved} (number of directions that moved the
+#'   fit, by kind), \code{zero.tol}, \code{move.tol}, \code{n.dir}.}
+#' \item{test}{\code{NULL} without \code{A}; otherwise a list: \code{pi}, \code{rho}, \code{alpha}, \code{reject}
 #'   (decision at \code{pi}, \code{rho}), \code{pi.max}, \code{rho.max},
 #'   \code{pi.point} (point estimate of the attainable membership
 #'   probability), \code{crit} (critical value), \code{candidate} (rows and
@@ -199,16 +268,40 @@
 #' fit <- nmfkc(Y, A, rank = 2, epsilon = 1e-8, verbose = FALSE)
 #' id <- nmfkc.ident(fit, Y, A, region.n = 5000)
 #' id
+#'
+#' ## without covariates: the algebraic check only
+#' fit0 <- nmfkc(t(as.matrix(iris[, 1:4])), rank = 2, epsilon = 1e-8, verbose = FALSE)
+#' nmfkc.ident(fit0)
 #' \donttest{
 #' id2 <- nmfkc.ident(fit, Y, A, region.n = 5000, ci = TRUE)  # profile intervals
 #' summary(id2)
 #' plot(id2)
 #' plot(id2, type = "X")
 #' }
-nmfkc.ident <- function(object, Y, A, ...) {
+nmfkc.ident <- function(object, Y = NULL, A = NULL, ...) {
   if (!inherits(object, "nmfkc")) stop("object must be of class 'nmfkc'")
   ex <- base::list(...)
   opt <- function(nm, def) if (!base::is.null(ex[[nm]])) ex[[nm]] else def
+  if (!base::identical(object$X.restriction, "colSums"))
+    stop("nmfkc.ident() needs a fit with X.restriction = \"colSums\"")
+  alg.args <- base::list(zero.tol = opt("zero.tol", 1e-3), move.tol = opt("move.tol", 1e-3),
+                         n.dir = opt("ident.n", 2000), seed = opt("seed", 123))
+  ## Without A (a fit without covariates, or no A given), only the algebraic
+  ## check on the fitted X and C is possible: the test needs A's residual df.
+  if (base::is.null(A)) {
+    if (!base::is.null(object$criterion$anchors$A.full.rank) && base::isFALSE(object$criterion$anchors$A.full.rank))
+      alg.args$A.full.rank <- FALSE
+    out <- base::list(test = NULL, Xi.hat = NULL, C.region.lower = NULL, C.region.upper = NULL,
+                      X.region.lower = NULL, X.region.upper = NULL, identified = NA,
+                      X = object$X, C = object$C, fit = object, repair = NULL,
+                      C.ci.lower = NULL, C.ci.upper = NULL, ci.level = NA, rank = object$rank,
+                      dims = base::c(P = base::nrow(object$X), N = NA, R = NA),
+                      call = base::match.call())
+    out$algebraic <- base::do.call(.nid.algebraic, base::c(base::list(object$X, object$C), alg.args))
+    base::class(out) <- "nmfkc.ident"
+    return(out)
+  }
+  if (base::is.null(Y)) stop("Y is needed when A is given (the test uses both)")
   Y <- base::as.matrix(Y); A <- base::as.matrix(A)
   P <- base::nrow(Y); N <- base::ncol(Y); R <- base::nrow(A); Q <- object$rank
   pi0      <- opt("pi", 1)
@@ -231,8 +324,6 @@ nmfkc.ident <- function(object, Y, A, ...) {
 
   if (base::ncol(A) != N) stop("ncol(A) must equal ncol(Y)")
   if (base::anyNA(Y) || base::anyNA(A)) stop("Y and A must not contain missing values")
-  if (!base::identical(object$X.restriction, "colSums"))
-    stop("nmfkc.ident() needs a fit with X.restriction = \"colSums\"")
   if (R >= N) stop("nrow(A) must be smaller than ncol(Y)")
   if (base::qr(A)$rank < R) stop("A must have full row rank")
   if (Q > R) stop("the rank must not exceed nrow(A)")
@@ -259,10 +350,14 @@ nmfkc.ident <- function(object, Y, A, ...) {
                     C.ci.lower = NULL, C.ci.upper = NULL, ci.level = ci.level, rank = Q,
                     dims = base::c(P = P, N = N, R = R),
                     call = base::match.call())
-  if (R > Q || !region) {
+  ## the algebraic check comes last: it draws random directions after a set.seed()
+  ## of its own, so the test, region, repair and intervals are as without it
+  alg <- function(out) {
+    out$algebraic <- base::do.call(.nid.algebraic, base::c(base::list(object$X, object$C, A = A), alg.args))
     base::class(out) <- "nmfkc.ident"
-    return(out)
+    out
   }
+  if (R > Q || !region) return(alg(out))
 
   ## ---- 2. identification region ----
   s <- .nid.suff(Y, A)
@@ -303,8 +398,7 @@ nmfkc.ident <- function(object, Y, A, ...) {
     out$C.ci.lower <- put_C(pr$lo); out$C.ci.upper <- put_C(pr$hi)
     out$ci.dip <- pr$dip
   }
-  base::class(out) <- "nmfkc.ident"
-  out
+  alg(out)
 }
 
 ## ===================== test =====================
@@ -707,6 +801,157 @@ nmfkc.ident <- function(object, Y, A, ...) {
   base::list(lo = lo, hi = hi, dip = base::max(base::vapply(res, `[[`, 0, "dip")))
 }
 
+## ===================== algebraic check (any A, also none) =====================
+## Every T with 1'T = 1', X T >= 0 and T^-1 C >= 0 gives the same fit; with A of
+## full row rank the constraint is on C itself (on B = C when there is no A), so
+## the check needs only the fitted X and C.  T = I + t D with D of zero column
+## sums, parametrised by its Q(Q-1) off-diagonal entries d (D_qq = -sum_r D_rq).
+
+## off-diagonal positions (r, q), column-major
+.nid.alg.ij <- function(Q) base::which(base::diag(Q) == 0, arr.ind = TRUE)
+
+.nid.alg.D <- function(d, Q) {
+  D <- base::matrix(0, Q, Q); D[.nid.alg.ij(Q)] <- d; base::diag(D) <- -base::colSums(D); D
+}
+
+## entries at most zero.tol times their column maximum (X) or row maximum (C)
+## count as zero: multiplicative updates leave 1e-10..1e-5 at the boundary
+.nid.alg.snap <- function(X, C, zero.tol) {
+  X[X <= zero.tol * base::rep(base::apply(X, 2, base::max), each = base::nrow(X))] <- 0
+  C[C <= zero.tol * base::apply(C, 1, base::max)] <- 0
+  base::list(X = X, C = C)
+}
+
+## first-order constraints on d, as rows of M with M d >= 0:
+## (XD)_ij = sum_{q != j} X_iq D_qj >= 0 where X_ij = 0, and
+## (DC)_kj = sum_{q != k} D_kq C_qj <= 0 where C_kj = 0
+.nid.alg.M <- function(X, C) {
+  ij <- .nid.alg.ij(base::ncol(X)); m <- base::nrow(ij)
+  zx <- base::which(X == 0, arr.ind = TRUE); zc <- base::which(C == 0, arr.ind = TRUE)
+  Mx <- base::matrix(0, base::nrow(zx), m); Mc <- base::matrix(0, base::nrow(zc), m)
+  for (k in base::seq_len(m)) {
+    s <- zx[, 2] == ij[k, 2]
+    if (base::any(s)) Mx[s, k] <- X[base::cbind(zx[s, 1], ij[k, 1])]
+    s <- zc[, 1] == ij[k, 1]
+    if (base::any(s)) Mc[s, k] <- -C[base::cbind(base::rep(ij[k, 2], base::sum(s)), zc[s, 2])]
+  }
+  M <- base::rbind(Mx, Mc)
+  nr <- base::sqrt(base::rowSums(M^2)); M <- M[nr > 0, , drop = FALSE] / nr[nr > 0]
+  base::unique(base::round(M, 12))
+}
+
+## The cone {d : M d >= 0}.  By Farkas' lemma there is d in it with s d_k > 0
+## iff M'y = -s e_k has no solution y >= 0; the residual of the non-negative
+## least squares min ||M'y + s e_k|| is then such a d (the KKT conditions give
+## M r >= 0 and s r_k = ||r||^2 > 0), so each of the 2 Q(Q-1) problems both
+## decides and, when the answer is yes, returns a direction.
+.nid.alg.cone <- function(M, m, tol = 1e-8) {
+  feas <- base::matrix(FALSE, m, 2, dimnames = base::list(NULL, c("plus", "minus")))
+  rays <- base::list(); err <- FALSE
+  Mt <- base::t(M)
+  for (k in base::seq_len(m)) for (si in 1:2) {
+    s <- c(1, -1)[si]; b <- base::numeric(m); b[k] <- -s
+    r <- if (base::nrow(M) == 0) -b else base::tryCatch({
+      y <- .nid.nnls(Mt, b); base::as.vector(Mt %*% y) - b
+    }, error = function(e) NULL)
+    if (base::is.null(r)) { err <- TRUE; next }
+    nr <- base::sqrt(base::sum(r^2))
+    if (nr > tol && s * r[k] > 0 && (base::nrow(M) == 0 || base::all(M %*% r >= -1e-8 * nr))) {
+      feas[k, si] <- TRUE; rays[[base::length(rays) + 1L]] <- r / nr
+    }
+  }
+  base::list(trivial = !base::any(feas) && !err, feasible = feas, rays = rays, error = err)
+}
+
+## largest t >= 0 (first exit, capped) with X (I + tD) >= 0 and (I + tD)^-1 C >= 0:
+## the X side is linear in t (exact bound); the C side is checked on a grid on
+## [0, t_X] and the first exit bisected
+.nid.alg.line <- function(X, C, D, t.cap = 10, grid = 20, bis = 30, ftol = 1e-12) {
+  XD <- X %*% D
+  neg <- XD < -ftol
+  tX <- base::min(if (base::any(neg)) base::min(X[neg] / -XD[neg]) else t.cap, t.cap)
+  if (tX <= 0) return(0)
+  DC <- D %*% C
+  if (base::any(C == 0 & DC > ftol * base::max(1, base::abs(DC)))) return(0)   # blocked at first order
+  Q <- base::nrow(D); I <- base::diag(Q); cs <- base::max(C)
+  ok <- function(t) {
+    Tm <- I + t * D
+    base::det(Tm) > 1e-12 && base::all(base::solve(Tm, C) >= -ftol * cs)
+  }
+  ts <- tX * base::seq_len(grid) / grid
+  for (g in base::seq_along(ts)) if (!ok(ts[g])) {
+    lo <- if (g == 1) 0 else ts[g - 1]; hi <- ts[g]
+    for (i in base::seq_len(bis)) { mid <- (lo + hi) / 2; if (ok(mid)) lo <- mid else hi <- mid }
+    return(lo)
+  }
+  tX
+}
+
+.nid.algebraic <- function(X, C, A = NULL, A.full.rank = NULL, zero.tol = 1e-3, move.tol = 1e-3,
+                           n.dir = 2000, seed = 123, t.cap = 10) {
+  X <- base::as.matrix(X); C <- base::as.matrix(C); Q <- base::ncol(X)
+  if (base::is.null(A.full.rank)) A.full.rank <- base::is.null(A) || base::qr(A)$rank == base::nrow(A)
+  suff <- base::isTRUE(.ident.verdict(X, C, A = A)$identified.approx) && base::isTRUE(A.full.rank)
+  res <- base::list(verdict = NA_character_, sufficient = suff, A.full.rank = A.full.rank,
+                    cone.trivial = NA, pairs = NULL, X.lower = X, X.upper = X,
+                    C.lower = C, C.upper = C, width.X = 0, width.C = 0, moved = NULL,
+                    zero.tol = zero.tol, move.tol = move.tol, n.dir = n.dir)
+  if (!base::isTRUE(A.full.rank)) {
+    res$verdict <- "not identified: A is not of full row rank, so C is not unique even given X"
+    return(res)
+  }
+  if (Q == 1L) { res$verdict <- "identified (rank 1)"; res$cone.trivial <- TRUE; return(res) }
+  st <- .nmfkc.rng.save(seed); base::on.exit(.nmfkc.rng.restore(st), add = TRUE)
+  base::set.seed(seed)
+  sn <- .nid.alg.snap(X, C, zero.tol); X0 <- sn$X; C0 <- sn$C
+  ij <- .nid.alg.ij(Q); m <- base::nrow(ij)
+  cone <- .nid.alg.cone(.nid.alg.M(X0, C0), m)
+  ## directions: the pairwise remixings (unnormalised, so t is the share a), the
+  ## cone directions from the Farkas certificates, and n.dir random ones
+  dirs <- base::list(); type <- base::character(0)
+  for (k in base::seq_len(m)) for (s in c(1, -1)) {
+    E <- base::matrix(0, Q, Q); E[ij[k, 1], ij[k, 2]] <- s; E[ij[k, 2], ij[k, 2]] <- -s
+    dirs[[base::length(dirs) + 1L]] <- E; type <- c(type, "pair")
+  }
+  for (r in cone$rays) { dirs[[base::length(dirs) + 1L]] <- .nid.alg.D(r, Q); type <- c(type, "cone") }
+  for (i in base::seq_len(n.dir)) {
+    D <- base::matrix(stats::rnorm(Q * Q), Q, Q); D <- base::sweep(D, 2, base::colMeans(D))
+    dirs[[base::length(dirs) + 1L]] <- D / base::sqrt(base::sum(D^2)); type <- c(type, "random")
+  }
+  tt <- base::vapply(dirs, function(D) .nid.alg.line(X0, C0, D, t.cap), 0)
+  cs <- base::pmax(base::colSums(C0), 1e-300)
+  Xlo <- Xhi <- X0; Clo <- Chi <- C0; dX <- dC <- base::numeric(base::length(dirs))
+  for (i in base::which(tt > 0)) {
+    Tm <- base::diag(Q) + tt[i] * dirs[[i]]
+    Xn <- X0 %*% Tm; Cn <- base::solve(Tm, C0)
+    dX[i] <- base::max(base::abs(Xn - X0)); dC[i] <- base::max(base::sweep(base::abs(Cn - C0), 2, cs, "/"))
+    if (base::max(dX[i], dC[i]) > move.tol) {
+      Xlo <- base::pmin(Xlo, Xn); Xhi <- base::pmax(Xhi, Xn); Clo <- base::pmin(Clo, Cn); Chi <- base::pmax(Chi, Cn)
+    }
+  }
+  moved <- base::pmax(dX, dC) > move.tol
+  ## pairwise table: column q of X becomes (1 - a) x_q + a x_r, a in [a.min, a.max]
+  pt <- tt[type == "pair"]
+  bn <- if (!base::is.null(base::colnames(X))) base::colnames(X) else base::paste0("Basis", base::seq_len(Q))
+  res$pairs <- base::data.frame(basis = bn[ij[, 2]], from = bn[ij[, 1]],
+                                a.min = -pt[c(FALSE, TRUE)], a.max = pt[c(TRUE, FALSE)],
+                                stringsAsFactors = FALSE)
+  res$cone.trivial <- cone$trivial
+  res$X.lower <- base::pmin(Xlo, X); res$X.upper <- base::pmax(Xhi, X)
+  res$C.lower <- base::pmin(Clo, C); res$C.upper <- base::pmax(Chi, C)
+  base::dimnames(res$X.lower) <- base::dimnames(res$X.upper) <- base::dimnames(X)
+  base::dimnames(res$C.lower) <- base::dimnames(res$C.upper) <- base::dimnames(C)
+  res$width.X <- base::max(Xhi - Xlo)
+  res$width.C <- base::max(base::sweep(Chi - Clo, 2, cs, "/"))
+  res$moved <- base::c(pair = base::sum(moved[type == "pair"]), cone = base::sum(moved[type == "cone"]),
+                       random = base::sum(moved[type == "random"]))
+  res$verdict <- if (suff) "identified (two-sided anchors / peeling, a sufficient condition)"
+    else if (base::any(moved)) "not identified: another factorization gives the same fit"
+    else if (base::isTRUE(cone$trivial)) "locally identified: no remixing moves the fit (fits far away are not examined)"
+    else "undetermined: some remixings are possible but move X and C by less than move.tol"
+  res
+}
+
 ## ===================== methods =====================
 
 #' @export
@@ -723,6 +968,8 @@ print.nmfkc.ident <- function(x, ...) {
 #' @param ... Not used.
 #' @return An object of class \code{"summary.nmfkc.ident"}: \code{test},
 #'   \code{dims}, \code{rank}, \code{identified}, \code{repair},
+#'   \code{algebraic} (as in \code{\link{nmfkc.ident}}), \code{X.dim},
+#'   \code{C.dim},
 #'   \code{region.share} (largest share of an interval taken by the
 #'   identification region), \code{ci.level}, and \code{coefficients}, a data
 #'   frame with columns \code{Basis}, \code{Covariate}, \code{Estimate}
@@ -751,8 +998,34 @@ summary.nmfkc.ident <- function(object, ...) {
   }
   base::structure(base::list(test = x$test, dims = x$dims, rank = x$rank, identified = x$identified,
                              repair = x$repair, region.share = share, ci.level = x$ci.level,
-                             coefficients = co, call = x$call),
+                             coefficients = co, call = x$call, algebraic = x$algebraic,
+                             X.dim = base::dim(x$X), C.dim = base::dim(x$C)),
                   class = "summary.nmfkc.ident")
+}
+
+## the algebraic-check block of print.summary.nmfkc.ident()
+.nid.print.algebraic <- function(a, digits = 4) {
+  if (base::is.null(a)) return(base::invisible(NULL))
+  base::cat(base::sprintf("\nAlgebraic check on the fitted X and C  [remixings XT, T^-1 C with 1'T = 1'; entries <= %g x their column (X) / row (C) maximum count as 0]\n",
+                          a$zero.tol))
+  base::cat("  ", a$verdict, "\n", sep = "")
+  yn <- function(v) if (base::isTRUE(v)) "yes" else if (base::isFALSE(v)) "no" else "not computed"
+  base::cat(base::sprintf("  sufficient condition (two-sided anchors / peeling): %s;  first-order cone of remixings is {0}: %s\n",
+                          if (a$sufficient) "met" else "not met", yn(a$cone.trivial)))
+  if (!base::is.null(a$moved))
+    base::cat(base::sprintf("  remixings that move the fit (> %g): %d pairwise, %d cone, %d of %d random\n",
+                            a$move.tol, a$moved[["pair"]], a$moved[["cone"]], a$moved[["random"]], a$n.dir))
+  if (a$width.X > 0 || a$width.C > 0)
+    base::cat(base::sprintf("  widths found: X up to %.4f;  C up to %.1f%% of a column sum (inner bounds: the region is at least this wide)\n",
+                            a$width.X, 100 * a$width.C))
+  pr <- a$pairs
+  if (!base::is.null(pr) && base::nrow(pr) <= 30 && base::any(pr$a.max - pr$a.min > 0)) {
+    base::cat("  pairwise remixings, column 'basis' -> (1 - a) x_basis + a x_from  (a = 0: no change):\n")
+    pr$a.min <- base::signif(pr$a.min, digits); pr$a.max <- base::signif(pr$a.max, digits)
+    l <- utils::capture.output(base::print(pr, row.names = FALSE))
+    base::cat(base::paste0("    ", l), sep = "\n")
+  }
+  base::invisible(NULL)
 }
 
 #' @export
@@ -760,8 +1033,17 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
   t <- x$test; d <- x$dims
   fmt <- function(v, k = 3) if (base::is.finite(v)) base::formatC(v, digits = k, format = "f") else "none (rejected at 0)"
   base::cat("Identifiability of an nmfkc fit\n")
+  if (base::is.null(t)) {
+    ## no A: the algebraic check only
+    if (!base::is.null(x$X.dim))
+      base::cat(base::sprintf("  X: %d x %d,  C: %d x %d,  rank %d  (no A given: the test, region and intervals need Y and A)\n",
+                              x$X.dim[1], x$X.dim[2], x$C.dim[1], x$C.dim[2], x$rank))
+    .nid.print.algebraic(x$algebraic, digits)
+    return(base::invisible(x))
+  }
   if (!base::is.null(d))
     base::cat(base::sprintf("  Y: %d x %d,  A: %d covariates,  rank %d\n", d[["P"]], d[["N"]], d[["R"]], x$rank))
+  .nid.print.algebraic(x$algebraic, digits)
   base::cat(if (t$pi >= 1)
     "\nAnchor test H(rho)  [OLS of Xi = XC, HC1, entries tested one by one, intersection-union over candidates]\n" else
     "\nAnchor test H(pi, rho)  [OLS of Xi = XC, HC1, membership contrasts, intersection-union over candidates]\n")

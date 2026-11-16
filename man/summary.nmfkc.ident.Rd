@@ -14,6 +14,8 @@
 \value{
 An object of class \code{"summary.nmfkc.ident"}: \code{test},
 \code{dims}, \code{rank}, \code{identified}, \code{repair},
+\code{algebraic} (as in \code{\link{nmfkc.ident}}), \code{X.dim},
+\code{C.dim},
 \code{region.share} (largest share of an interval taken by the
 identification region), \code{ci.level}, and \code{coefficients}, a data
 frame with columns \code{Basis}, \code{Covariate}, \code{Estimate}

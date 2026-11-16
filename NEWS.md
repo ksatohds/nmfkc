@@ -1,5 +1,45 @@
 # nmfkc (development version)
 
+## `nmfkc.ident()`: an algebraic check on the fitted X and C, also without covariates
+
+`nmfkc.ident(fit)` now works for every `nmfkc()` fit with
+`X.restriction = "colSums"`, with or without covariates. `Y` and `A` are needed
+only for the test, region, repair and intervals. The new component
+`algebraic` asks whether some remixing `(X T, T^-1 C)` moves the fitted
+matrices, and how far. With `A` of full row rank, the non-negativity
+constraint is on `C` itself (on `B` without covariates), so the check needs
+only `X` and `C`. It has three parts:
+
+- the sufficient condition of `summary.nmfkc()` (two-sided anchors, or
+  peeling);
+- the first-order cone of remixings, decided exactly. A non-negative
+  least-squares problem settles each direction by Farkas' lemma, and its
+  residual is a direction of the cone. The decision agreed with a
+  linear-programming solver on 399 of 400 random zero patterns. In the
+  remaining case the two differed only on three directions of size 1e-7 to
+  1e-5;
+- how far the fit moves, along the pairwise remixings
+  `x_q -> (1 - a) x_q + a x_r`, the cone directions and `ident.n` (2000)
+  random directions.
+
+It reports:
+
+- a verdict: identified, locally identified, not identified, or
+  undetermined;
+- the exact interval of `a` for each pair of bases;
+- inner bounds of the ranges of `X` and `C`.
+
+Random directions alone miss narrow sets of remixings. In a test case with
+a single possible remixing, all 2000 random directions missed it, and the
+pairwise and cone directions found it. For `rank = 2` the pairwise intervals
+reproduce the exact rectangle of the identification region.
+
+Entries at most `zero.tol = 1e-3` times their column (`X`) or row (`C`)
+maximum count as zero. The check runs last, with a seed of its own. Every
+earlier component of `nmfkc.ident()` (test, region, repair, intervals) is
+bit-identical on six calls; only the `runtime` of the repaired fit differs.
+`print()` gains an "Algebraic check" block.
+
 ## `*.DOT()`: node order and edge-label size, through `...`
 
 `nmfkc.DOT()` takes two display options through `...`: `Y.order` and

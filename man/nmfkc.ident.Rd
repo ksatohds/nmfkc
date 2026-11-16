@@ -4,16 +4,21 @@
 \alias{nmfkc.ident}
 \title{Identifiability of an nmfkc fit: test, identification region, repair and intervals}
 \usage{
-nmfkc.ident(object, Y, A, ...)
+nmfkc.ident(object, Y = NULL, A = NULL, ...)
 }
 \arguments{
-\item{object}{An object of class \code{"nmfkc"} fitted with covariates
-(\code{X.restriction = "colSums"}, the default).}
+\item{object}{An object of class \code{"nmfkc"}
+(\code{X.restriction = "colSums"}, the default), with or without
+covariates.}
 
-\item{Y}{Observation matrix (P x N) used in the fit.}
+\item{Y}{Observation matrix (P x N) used in the fit. Needed, with \code{A},
+for the test, the region, the repair and the intervals; not needed for the
+algebraic check.}
 
 \item{A}{Covariate matrix (R x N) used in the fit, of full row rank with
-\code{R < N}.}
+\code{R < N}. \code{NULL} (default): only the algebraic check is computed
+(for a fit without covariates, or when only the fitted matrices are at
+hand).}
 
 \item{...}{Additional arguments:
 \describe{
@@ -51,11 +56,29 @@ repair re-fit. Defaults \code{1e-8} and \code{1e5}.}
 restored on exit.}
 \item{\code{cores}}{Number of cores for the profile intervals. Default
 \code{getOption("mc.cores", 1L)}; results do not depend on it.}
+\item{\code{zero.tol}}{Algebraic check: an entry of \eqn{X} (\eqn{C})
+at most \code{zero.tol} times its column (row) maximum counts as 0.
+Default \code{1e-3}, as for the anchors in \code{summary.nmfkc()}.}
+\item{\code{move.tol}}{Algebraic check: a remixing counts as moving
+the fit when it changes an entry of \eqn{X} or an entry of \eqn{C}
+relative to its column sum by more than this. Default \code{1e-3}.}
+\item{\code{ident.n}}{Algebraic check: number of random directions
+added to the pairwise and cone directions. Default 2000.}
 }}
 }
 \value{
 An object of class \code{"nmfkc.ident"}:
-\item{test}{List: \code{pi}, \code{rho}, \code{alpha}, \code{reject}
+\item{algebraic}{List: \code{verdict} (text), \code{sufficient} (two-sided
+anchors / peeling), \code{A.full.rank}, \code{cone.trivial} (no remixing
+moves the fit to first order), \code{pairs} (data frame \code{basis},
+\code{from}, \code{a.min}, \code{a.max}: column \code{basis} of \eqn{X}
+can become \eqn{(1-a)x_{basis} + a x_{from}}), \code{X.lower},
+\code{X.upper}, \code{C.lower}, \code{C.upper} (inner bounds of the
+identification region, containing the fit), \code{width.X},
+\code{width.C} (largest width; for \eqn{C} relative to its column sums,
+which do not change), \code{moved} (number of directions that moved the
+fit, by kind), \code{zero.tol}, \code{move.tol}, \code{n.dir}.}
+\item{test}{\code{NULL} without \code{A}; otherwise a list: \code{pi}, \code{rho}, \code{alpha}, \code{reject}
 (decision at \code{pi}, \code{rho}), \code{pi.max}, \code{rho.max},
 \code{pi.point} (point estimate of the attainable membership
 probability), \code{crit} (critical value), \code{candidate} (rows and
@@ -104,6 +127,13 @@ Intervals below).
 Steps 2--4 need as many covariates as bases (\code{nrow(A) == rank}), e.g.
 group indicators or \code{rank} continuous covariates; for
 \code{nrow(A) > rank} (or \code{region = FALSE}) only the test is computed.
+
+In every case, with or without covariates, the function also runs an
+\strong{algebraic check} on the fitted \eqn{X} and \eqn{C} themselves
+(component \code{algebraic}): whether any remixing moves them, and how far.
+It needs neither \code{Y} nor \code{A}, so \code{nmfkc.ident(fit)} works
+for a fit without covariates (\eqn{Y \approx XB}, where the test is not
+available) and for one with covariates alike.
 }
 \details{
 \strong{Test.} \eqn{\hat\Xi = Y A^\top (AA^\top)^{-1}} with HC1 standard
@@ -174,6 +204,43 @@ intervals as approximate. The profile is computed by continuation from the
 ends of the region with local re-fits, so the intervals may be slightly
 too short.
 }
+\section{Algebraic check}{
+
+Every \eqn{T} with columns summing to 1, \eqn{XT \ge 0} and
+\eqn{T^{-1}C \ge 0} gives the same fit; with \eqn{A} of full row rank the
+non-negativity is that of \eqn{C} itself (of \eqn{B = C} without
+covariates), so the check needs only \eqn{X} and \eqn{C}. Write
+\eqn{T = I + tD} with \eqn{D} of zero column sums (\eqn{Q(Q-1)} free
+entries). Entries at most \code{zero.tol} times their column (row) maximum
+are set to 0 first, since the multiplicative updates leave small positive
+values where the fit is at the boundary.
+\enumerate{
+\item \emph{Sufficient condition}: two-sided anchors, or the peeling of
+\code{summary.nmfkc()}; when it holds the fit is identified.
+\item \emph{Local cone}: the directions \eqn{D} that keep both
+inequalities to first order, \eqn{(XD)_{ij} \ge 0} where
+\eqn{X_{ij} = 0} and \eqn{(DC)_{kj} \le 0} where \eqn{C_{kj} = 0}. Whether
+it contains a direction with a positive (negative) value of each
+off-diagonal entry is decided exactly by a non-negative least-squares
+problem (Farkas' lemma), whose residual is such a direction. If none
+does, no remixing moves the fit: it is locally identified.
+\item \emph{Extent}: along the pairwise remixings
+\eqn{x_q \to (1-a)x_q + a x_r}, the cone directions and \code{ident.n}
+random directions, the largest step that keeps \eqn{XT \ge 0} (exact,
+linear in \eqn{t}) and \eqn{T^{-1}C \ge 0} (grid, then bisection) is
+found. The ranges of \eqn{X} and \eqn{C} over these factorizations are
+inner bounds of the identification region, and \code{pairs} gives the
+exact interval of \eqn{a} for each pair of bases.
+}
+Random directions alone miss narrow sets of remixings (a single possible
+direction is hit with probability 0), which is why the pairwise and cone
+directions are always included. The check concerns the fitted matrices: a
+zero in \eqn{\hat X} or \eqn{\hat C} that pins the fit is an estimate and
+may not survive sampling variation (use the test with \code{Y} and \code{A}
+for that), and it examines only remixings connected to the fit, not
+factorizations far away.
+}
+
 \examples{
 ## two groups, two bases; variables 1 and 5 are anchors (multiplicative noise keeps their zeros)
 set.seed(1)
@@ -183,6 +250,10 @@ Y <- (X \%*\% diag(c(10, 8)) \%*\% A) * exp(matrix(rnorm(200, sd = 0.1), 5, 40))
 fit <- nmfkc(Y, A, rank = 2, epsilon = 1e-8, verbose = FALSE)
 id <- nmfkc.ident(fit, Y, A, region.n = 5000)
 id
+
+## without covariates: the algebraic check only
+fit0 <- nmfkc(t(as.matrix(iris[, 1:4])), rank = 2, epsilon = 1e-8, verbose = FALSE)
+nmfkc.ident(fit0)
 \donttest{
 id2 <- nmfkc.ident(fit, Y, A, region.n = 5000, ci = TRUE)  # profile intervals
 summary(id2)
