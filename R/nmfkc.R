@@ -5209,6 +5209,82 @@ nmfkc.residual.plot <- function(Y, result,
 }
 
 
+#' Read the display options that the *.DOT writers take through \code{...}
+#'
+#' Options must be named; names outside \code{allowed} are ignored with a
+#' warning, so that a misspelt option (\code{edge.font = 14}) does not pass
+#' silently.
+#'
+#' @param dots \code{list(...)} of the caller.
+#' @param allowed Character vector of accepted names.
+#' @param fun Name of the caller, for messages.
+#' @return \code{dots}.
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_dots <- function(dots, allowed, fun) {
+  if (length(dots) == 0L) return(dots)
+  nm <- names(dots)
+  if (is.null(nm) || any(!nzchar(nm)))
+    stop(fun, "(): options passed through ... must be named.", call. = FALSE)
+  bad <- setdiff(nm, allowed)
+  if (length(bad))
+    warning(sprintf("%s(): unknown option(s) in ... ignored: %s.", fun,
+                    paste(bad, collapse = ", ")), call. = FALSE)
+  dots
+}
+
+
+#' Check \code{edge.fontsize} and format it for DOT
+#'
+#' @param x \code{NULL} (default 8) or a single positive number.
+#' @param fun Name of the caller, for messages.
+#' @return Character scalar (\code{"8"} by default, so the scripts of the
+#'   writers are unchanged when the option is not given).
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_edge_fontsize <- function(x, fun) {
+  if (is.null(x)) return("8")
+  if (!is.numeric(x) || length(x) != 1L || !is.finite(x) || x <= 0)
+    stop(fun, "(): edge.fontsize must be a single positive number.", call. = FALSE)
+  format(x)
+}
+
+
+#' The edge-default line shared by the *.DOT writers
+#'
+#' @param fontsize Character scalar from \code{.nmfkc_dot_edge_fontsize()}.
+#' @return Character scalar ending in a newline.
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_edge_line <- function(fontsize) {
+  sprintf('  edge [fontname="Arial", fontsize=%s, arrowhead=open];\n', fontsize)
+}
+
+
+#' Resolve a node order given by index or by name
+#'
+#' @param order \code{NULL} (keep the order), a permutation of \code{1:n}, or a
+#'   permutation of \code{names}.
+#' @param n Number of nodes.
+#' @param names Names of the nodes (may be \code{NULL}).
+#' @param arg Name of the option, for messages.
+#' @param what What the nodes are, for messages.
+#' @param fun Name of the caller, for messages.
+#' @return Integer permutation of \code{1:n}.
+#' @keywords internal
+#' @noRd
+.nmfkc_dot_order <- function(order, n, names, arg, what, fun) {
+  if (is.null(order)) return(seq_len(n))
+  idx <- if (is.character(order)) match(order, names) else order
+  ok <- is.numeric(idx) && length(idx) == n && !anyNA(idx) &&
+    all(idx == round(idx)) && identical(sort(as.integer(idx)), seq_len(n))
+  if (!ok)
+    stop(sprintf("%s(): %s must list each of the %d %s exactly once, by index or by name.",
+                 fun, arg, n, what), call. = FALSE)
+  as.integer(idx)
+}
+
+
 #' @title Statistical inference for the parameter matrix C (Theta)
 #' @description
 #' \code{nmfkc.inference} performs statistical inference on the parameter matrix

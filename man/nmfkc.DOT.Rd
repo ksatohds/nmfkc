@@ -22,7 +22,8 @@ nmfkc.DOT(
   Y.title = "Observation (Y)",
   X.title = "Basis (X)",
   A.title = "Covariates (A)",
-  hide.isolated = TRUE
+  hide.isolated = TRUE,
+  ...
 )
 }
 \arguments{
@@ -80,6 +81,28 @@ to disable filtering and show all edges above \code{threshold}. Default is 0.1.}
 
 \item{hide.isolated}{Logical. If \code{TRUE} (default), Y and A nodes that have no
 edges at or above \code{threshold} are excluded from the graph.}
+
+\item{...}{Display options, given by name:
+\describe{
+\item{\code{Y.order}}{Order in which the observation nodes (the rows of
+\eqn{X}) are written: a permutation of \code{1:nrow(X)} or of
+\code{rownames(X)}.  Default: the row order of \eqn{X}.}
+\item{\code{X.order}}{Order in which the basis nodes (the columns of
+\eqn{X}) are written: a permutation of \code{1:ncol(X)} or of
+\code{colnames(X)}.  Default: the column order of \eqn{X}.  Not used
+for \code{type = "YA"}, which has no basis nodes.}
+\item{\code{edge.fontsize}}{Font size of the edge labels (default 8).}
+}
+The two orders change only the order in which the nodes (and their edges)
+are written into the script; no value, label, or edge changes, and
+\code{Y.label} / \code{X.label} are still given in the original order.
+Graphviz's \code{dot} layout starts from the written order but may still
+move nodes to reduce edge crossings, so an order is a suggestion rather
+than a guarantee.  An order that tends to give a drawing without
+crossings writes the bases so that bases sharing observations are
+neighbours, groups the observations by the basis they load on, and puts
+an observation that loads on two bases between the two groups (see the
+examples).  Unknown names are ignored with a warning.}
 }
 \value{
 A character string representing a Graphviz DOT script.
@@ -105,6 +128,19 @@ A <- rbind(1, cars$speed)
 result <- nmfkc(Y, A, rank = 1)
 dot <- nmfkc.DOT(result)
 cat(dot)
+
+# Standard NMF: order the nodes and enlarge the edge labels.
+# Basis2 is written first, the observations are grouped by the basis they
+# load on, and Sepal.Length, which loads on both, goes between the groups.
+# Values and edges are the same as with the default order.
+Yi <- t(as.matrix(iris[, 1:4]))
+res <- nmfkc(Yi, rank = 2, verbose = FALSE)
+round(res$X, 2)
+dot2 <- nmfkc.DOT(res, type = "YX", threshold = 0.15, X.order = c(2, 1),
+                  Y.order = c("Petal.Width", "Petal.Length",
+                              "Sepal.Length", "Sepal.Width"),
+                  edge.fontsize = 14)
+cat(dot2)
 
 }
 \seealso{

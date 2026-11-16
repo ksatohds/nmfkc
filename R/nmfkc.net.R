@@ -323,6 +323,8 @@ print.summary.nmfkc.net.inference <- function(x,
 #' @param X.color Color palette for basis nodes (length Q).
 #' @param Y.cluster Coloring mode for outer nodes: \code{"soft"} (weighted mix)
 #'   or \code{"hard"} (most probable basis color).
+#' @param ... Display option \code{edge.fontsize}: font size of the edge
+#'   labels (default 8).  Other names are ignored with a warning.
 #'
 #' @return A character string of class \code{c("nmfkc.net.DOT", "nmfkc.DOT")}
 #'   representing a valid Graphviz DOT script.
@@ -369,8 +371,12 @@ nmfkc.net.DOT <- function(
     cluster.box     = c("none", "normal", "faint", "invisible"),
     layout          = c("neato", "fdp", "twopi", "circo", "dot"),
     X.color         = NULL,
-    Y.cluster       = c("soft", "hard")
+    Y.cluster       = c("soft", "hard"),
+    ...
 ) {
+  edge_fs <- .nmfkc_dot_edge_fontsize(
+    .nmfkc_dot_dots(list(...), "edge.fontsize", "nmfkc.net.DOT")[["edge.fontsize", exact = TRUE]],
+    "nmfkc.net.DOT")
 
   ## ---------------------------------------------------------
   ## Extract matrices
@@ -553,7 +559,7 @@ nmfkc.net.DOT <- function(
   ## Edge defaults
   ## ---------------------------------------------------------
   scr <- paste0(scr,
-    '\n  edge [fontname="Arial", fontsize=8, arrowhead=open];\n')
+    paste0('\n', .nmfkc_dot_edge_line(edge_fs)))
 
   pw     <- .nmfkc_dot_penwidth
   digits <- .nmfkc_dot_digits_from_threshold(threshold)

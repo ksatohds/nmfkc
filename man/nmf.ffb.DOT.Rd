@@ -73,9 +73,11 @@ feed-forward null: \eqn{\Theta_1 = 0}, \eqn{\Theta_2} from
 which refer to the selected model.  Ignored for \code{method = "mu"}
 objects, which carry a single fit.}
 
-\item{...}{For backward compatibility: accepts deprecated names
-\code{weight_scale_y2f} (use \code{weight_scale_c2}) and
-\code{weight_scale_fy1} (use \code{weight_scale_x1}).}
+\item{...}{Display option \code{edge.fontsize}: font size of the edge
+labels (default 8).  For backward compatibility, also accepts the
+deprecated names \code{weight_scale_y2f} (use \code{weight_scale_c2})
+and \code{weight_scale_fy1} (use \code{weight_scale_x1}).  Other names
+are ignored with a warning.}
 }
 \value{
 A character string representing a valid Graphviz DOT script.

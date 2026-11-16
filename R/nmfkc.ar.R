@@ -2285,6 +2285,8 @@ print.nmfkc.ar.latent.inference <- function(x, digits = 4, ...) {
 #' @param weight_scale_int Scaling factor for intercept edges.
 #' @param hide.isolated Logical. If \code{TRUE} (default), Y nodes that have no
 #'   edges at or above \code{threshold} are excluded from the graph.
+#' @param ... Display option \code{edge.fontsize}: font size of the edge
+#'   labels (default 8).  Other names are ignored with a warning.
 #'
 #' @return A character string representing a Graphviz DOT file.
 #' @seealso \code{\link{nmfkc.ar}}, \code{\link{nmfkc}}, \code{\link{plot.nmfkc.DOT}}
@@ -2305,7 +2307,11 @@ nmfkc.ar.DOT <- function(result,
                          weight_scale_xy  = 5,
                          weight_scale_lag = 5,
                          weight_scale_int = 3,
-                         hide.isolated   = TRUE) {
+                         hide.isolated   = TRUE,
+                         ...) {
+  edge_fs <- .nmfkc_dot_edge_fontsize(
+    .nmfkc_dot_dots(list(...), "edge.fontsize", "nmfkc.ar.DOT")[["edge.fontsize", exact = TRUE]],
+    "nmfkc.ar.DOT")
 
   ## -------------------------------------------------------------
   ## Extract required AR components
@@ -2432,7 +2438,7 @@ nmfkc.ar.DOT <- function(result,
   ## -------------------------------------------------------------
   scr <- paste0(
     scr,
-    '\n  edge [fontname="Arial", fontsize=8, arrowhead=open];\n'
+    paste0('\n', .nmfkc_dot_edge_line(edge_fs))
   )
 
   ## -------------------------------------------------------------

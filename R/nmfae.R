@@ -2165,6 +2165,8 @@ plot.nmfae.kernel.beta.cv <- function(x, ...) {
 #' @param hide.isolated Logical. If \code{TRUE} (default), Y1 and Y2 nodes that have no
 #'   edges at or above \code{threshold} are excluded from the graph. Only
 #'   applies when \code{type = "YXCXY"}.
+#' @param ... Display option \code{edge.fontsize}: font size of the edge
+#'   labels (default 8).  Other names are ignored with a warning.
 #'
 #' @return A character string containing the DOT graph specification.
 #'
@@ -2197,7 +2199,11 @@ nmf.rrr.DOT <- function(result,
                       X1.title = "Response (X1)",
                       X2.title = "Covariate (X2)",
                       Y2.title = "Input (Y2)",
-                      hide.isolated = TRUE) {
+                      hide.isolated = TRUE,
+                      ...) {
+  edge_fs <- .nmfkc_dot_edge_fontsize(
+    .nmfkc_dot_dots(list(...), "edge.fontsize", "nmf.rrr.DOT")[["edge.fontsize", exact = TRUE]],
+    "nmf.rrr.DOT")
 
   type <- match.arg(type)
 
@@ -2326,7 +2332,7 @@ nmf.rrr.DOT <- function(result,
     "digraph NMF_AE {\n",
     "  graph [rankdir=", rankdir, " compound=true];\n",
     "  splines=true; nodesep=0.4; ranksep=0.7; fontname=\"Arial\";\n",
-    '  edge [fontname="Arial", fontsize=8, arrowhead=open];\n'
+    .nmfkc_dot_edge_line(edge_fs)
   )
 
   if (type == "YXCXY") {

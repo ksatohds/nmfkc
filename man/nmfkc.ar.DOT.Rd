@@ -14,7 +14,8 @@ nmfkc.ar.DOT(
   weight_scale_xy = 5,
   weight_scale_lag = 5,
   weight_scale_int = 3,
-  hide.isolated = TRUE
+  hide.isolated = TRUE,
+  ...
 )
 }
 \arguments{
@@ -42,6 +43,9 @@ Default is \code{TRUE} when an intercept column is detected in \code{C},
 
 \item{hide.isolated}{Logical. If \code{TRUE} (default), Y nodes that have no
 edges at or above \code{threshold} are excluded from the graph.}
+
+\item{...}{Display option \code{edge.fontsize}: font size of the edge
+labels (default 8).  Other names are ignored with a warning.}
 }
 \value{
 A character string representing a Graphviz DOT file.

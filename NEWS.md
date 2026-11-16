@@ -1,5 +1,23 @@
 # nmfkc (development version)
 
+## `*.DOT()`: node order and edge-label size, through `...`
+
+`nmfkc.DOT()` takes two display options through `...`: `Y.order` and
+`X.order` give the order in which the observation nodes (rows of `X`) and the
+basis nodes (columns of `X`) are written, by index or by name.  Only the
+written order changes -- values, labels, and edges are the same -- and
+Graphviz's `dot` layout starts from that order, so grouping the observations
+by basis, with an observation that loads on two bases placed between their
+groups, typically gives a drawing without edge crossings (on the decathlon
+data of `ade4::olympic` with `rank = 3` and `threshold = 0.095`, the 14 edges
+no longer cross).  `edge.fontsize` sets the font size of the edge labels in all
+five writers (`nmfkc.DOT()`, `nmfkc.net.DOT()`, `nmfkc.ar.DOT()`,
+`nmf.rrr.DOT()`, `nmf.ffb.DOT()`); `nmfkc.net.DOT()`, `nmfkc.ar.DOT()` and
+`nmf.rrr.DOT()` gain `...` for it.  The default stays 8, so the scripts are
+unchanged when the options are not given.  Names in `...` that a writer does
+not know are now ignored with a warning (`nmf.ffb.DOT()` used to ignore them
+silently).
+
 ## `nmfre()`: `orient = "geomin"` is now the default
 
 For `rank = 3`, when the identification region of a fit has positive width,

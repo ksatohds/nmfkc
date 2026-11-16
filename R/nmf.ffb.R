@@ -1926,9 +1926,11 @@ nmf.ffb.split <- function(x, n.exogenous = NULL, threshold = 0.1,
 #'   (requires inference results). Edges with p-value above this level are omitted.
 #' @param rankdir Graphviz rank direction (e.g., \code{"LR"}, \code{"TB"}).
 #' @param fill Logical; whether to use filled node shapes.
-#' @param ... For backward compatibility: accepts deprecated names
-#'   \code{weight_scale_y2f} (use \code{weight_scale_c2}) and
-#'   \code{weight_scale_fy1} (use \code{weight_scale_x1}).
+#' @param ... Display option \code{edge.fontsize}: font size of the edge
+#'   labels (default 8).  For backward compatibility, also accepts the
+#'   deprecated names \code{weight_scale_y2f} (use \code{weight_scale_c2})
+#'   and \code{weight_scale_fy1} (use \code{weight_scale_x1}).  Other names
+#'   are ignored with a warning.
 #' @param cluster.box Character string controlling the visibility and style
 #'   of cluster frames around Y2, factors, and Y1 blocks.
 #'   One of \code{"normal"}, \code{"faint"}, \code{"invisible"}, \code{"none"}.
@@ -1985,7 +1987,10 @@ nmf.ffb.DOT <- function(result,
                         ...) {
 
   ## Backward compatibility: accept deprecated names via ...
-  extra_args <- base::list(...)
+  extra_args <- .nmfkc_dot_dots(base::list(...),
+    c("edge.fontsize", "weight_scale_y2f", "weight_scale_fy1"), "nmf.ffb.DOT")
+  edge_fs <- .nmfkc_dot_edge_fontsize(extra_args[["edge.fontsize", exact = TRUE]],
+                                      "nmf.ffb.DOT")
   if (!base::is.null(extra_args$weight_scale_y2f)) weight_scale_c2 <- extra_args$weight_scale_y2f
   if (!base::is.null(extra_args$weight_scale_fy1)) weight_scale_x1 <- extra_args$weight_scale_fy1
 
@@ -2163,7 +2168,7 @@ nmf.ffb.DOT <- function(result,
   ## ---------------------------------------------------------------
   dot_script <- paste0(
     dot_script,
-    '\n  edge [fontname="Arial", fontsize=8, arrowhead=open];\n'
+    paste0('\n', .nmfkc_dot_edge_line(edge_fs))
   )
 
   pw     <- .nmfkc_dot_penwidth
@@ -2385,6 +2390,27 @@ nmf.ffb.DOT <- function(result,
 #' @param A.title Cluster title for A nodes.
 #' @param hide.isolated Logical. If \code{TRUE} (default), Y and A nodes that have no
 #'   edges at or above \code{threshold} are excluded from the graph.
+#' @param ... Display options, given by name:
+#'   \describe{
+#'     \item{\code{Y.order}}{Order in which the observation nodes (the rows of
+#'       \eqn{X}) are written: a permutation of \code{1:nrow(X)} or of
+#'       \code{rownames(X)}.  Default: the row order of \eqn{X}.}
+#'     \item{\code{X.order}}{Order in which the basis nodes (the columns of
+#'       \eqn{X}) are written: a permutation of \code{1:ncol(X)} or of
+#'       \code{colnames(X)}.  Default: the column order of \eqn{X}.  Not used
+#'       for \code{type = "YA"}, which has no basis nodes.}
+#'     \item{\code{edge.fontsize}}{Font size of the edge labels (default 8).}
+#'   }
+#'   The two orders change only the order in which the nodes (and their edges)
+#'   are written into the script; no value, label, or edge changes, and
+#'   \code{Y.label} / \code{X.label} are still given in the original order.
+#'   Graphviz's \code{dot} layout starts from the written order but may still
+#'   move nodes to reduce edge crossings, so an order is a suggestion rather
+#'   than a guarantee.  An order that tends to give a drawing without
+#'   crossings writes the bases so that bases sharing observations are
+#'   neighbours, groups the observations by the basis they load on, and puts
+#'   an observation that loads on two bases between the two groups (see the
+#'   examples).  Unknown names are ignored with a warning.
 #'
 #' @return A character string representing a Graphviz DOT script.
 #'
@@ -2396,6 +2422,19 @@ nmf.ffb.DOT <- function(result,
 #' result <- nmfkc(Y, A, rank = 1)
 #' dot <- nmfkc.DOT(result)
 #' cat(dot)
+#'
+#' # Standard NMF: order the nodes and enlarge the edge labels.
+#' # Basis2 is written first, the observations are grouped by the basis they
+#' # load on, and Sepal.Length, which loads on both, goes between the groups.
+#' # Values and edges are the same as with the default order.
+#' Yi <- t(as.matrix(iris[, 1:4]))
+#' res <- nmfkc(Yi, rank = 2, verbose = FALSE)
+#' round(res$X, 2)
+#' dot2 <- nmfkc.DOT(res, type = "YX", threshold = 0.15, X.order = c(2, 1),
+#'                   Y.order = c("Petal.Width", "Petal.Length",
+#'                               "Sepal.Length", "Sepal.Width"),
+#'                   edge.fontsize = 14)
+#' cat(dot2)
 #'
 #' @export
 nmfkc.DOT <- function(
@@ -2414,10 +2453,15 @@ nmfkc.DOT <- function(
     Y.title = "Observation (Y)",
     X.title = "Basis (X)",
     A.title = "Covariates (A)",
-    hide.isolated = TRUE
+    hide.isolated = TRUE,
+    ...
 ) {
 
   type <- match.arg(type)
+  dots <- .nmfkc_dot_dots(list(...), c("Y.order", "X.order", "edge.fontsize"),
+                          "nmfkc.DOT")
+  edge_fs <- .nmfkc_dot_edge_fontsize(dots[["edge.fontsize", exact = TRUE]],
+                                      "nmfkc.DOT")
 
   ## ---------------------------------------------------------
   ## Required matrices
@@ -2433,6 +2477,12 @@ nmfkc.DOT <- function(
 
   P <- nrow(X)
   Q <- ncol(X)
+  ## Y.order / X.order: the order in which the nodes are written (values and
+  ## edges are unchanged; Y.label / X.label stay in the original order)
+  ordY <- .nmfkc_dot_order(dots[["Y.order", exact = TRUE]], P, rownames(X),
+                           "Y.order", "rows of X", "nmfkc.DOT")
+  ordX <- .nmfkc_dot_order(dots[["X.order", exact = TRUE]], Q, colnames(X),
+                           "X.order", "columns of X", "nmfkc.DOT")
 
   ## ---------------------------------------------------------
   ## Labels
@@ -2520,6 +2570,8 @@ nmfkc.DOT <- function(
   ## ---------------------------------------------------------
   ## DOT header
   ## ---------------------------------------------------------
+  idx_Y <- ordY[ordY %in% idx_Y]   # write the Y nodes in Y.order
+
   scr <- .nmfkc_dot_header(graph_name = "NMF", rankdir = rankdir)
 
   ## ---------------------------------------------------------
@@ -2551,8 +2603,8 @@ nmfkc.DOT <- function(
       .nmfkc_dot_cluster_nodes(
         cluster_id  = "X",
         title       = X.title,
-        node_ids    = X_ids,
-        node_labels = X_labels,
+        node_ids    = X_ids[ordX],
+        node_labels = X_labels[ordX],
         shape       = "ellipse",
         fill        = fill,
         fillcolor   = "wheat",
@@ -2621,7 +2673,7 @@ nmfkc.DOT <- function(
   ## ---------------------------------------------------------
   scr <- paste0(
     scr,
-    '\n  edge [fontname="Arial", fontsize=8, arrowhead=open];\n'
+    paste0('\n', .nmfkc_dot_edge_line(edge_fs))
   )
 
   pw     <- .nmfkc_dot_penwidth
@@ -2643,7 +2695,7 @@ nmfkc.DOT <- function(
 
     max_C <- suppressWarnings(max(mag(C), na.rm = TRUE))
     if (is.finite(max_C) && max_C > 0) {
-      for (q in seq_len(Q)) {
+      for (q in ordX) {
         for (k in idx_A) {
           val <- C[q, k]
           show <- if (!is.null(C_show)) C_show[q, k]
@@ -2673,7 +2725,7 @@ nmfkc.DOT <- function(
     max_X <- suppressWarnings(max(X, na.rm = TRUE))
     if (is.finite(max_X) && max_X > 0) {
       for (i in idx_Y) {
-        for (j in seq_len(Q)) {
+        for (j in ordX) {
           val <- X[i, j]
           if (is.finite(val) && val >= threshold) {
             pen <- pw(val, max_X, weight_scale_xy)
@@ -2734,7 +2786,7 @@ nmfkc.DOT <- function(
     max_X <- suppressWarnings(max(X, na.rm = TRUE))
     if (is.finite(max_X) && max_X > 0) {
       for (i in idx_Y) {
-        for (j in seq_len(Q)) {
+        for (j in ordX) {
           val <- X[i, j]
           if (is.finite(val) && val >= threshold) {
             pen <- pw(val, max_X, weight_scale_xy)

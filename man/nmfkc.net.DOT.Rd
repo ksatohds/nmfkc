@@ -23,7 +23,8 @@ nmfkc.net.DOT(
   cluster.box = c("none", "normal", "faint", "invisible"),
   layout = c("neato", "fdp", "twopi", "circo", "dot"),
   X.color = NULL,
-  Y.cluster = c("soft", "hard")
+  Y.cluster = c("soft", "hard"),
+  ...
 )
 }
 \arguments{
@@ -103,6 +104,9 @@ a raised \code{threshold} (e.g.\ 0.2--0.3) separate the groups best.}
 
 \item{Y.cluster}{Coloring mode for outer nodes: \code{"soft"} (weighted mix)
 or \code{"hard"} (most probable basis color).}
+
+\item{...}{Display option \code{edge.fontsize}: font size of the edge
+labels (default 8).  Other names are ignored with a warning.}
 }
 \value{
 A character string of class \code{c("nmfkc.net.DOT", "nmfkc.DOT")}
