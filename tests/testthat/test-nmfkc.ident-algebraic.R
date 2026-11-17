@@ -92,7 +92,6 @@ test_that("nmfkc.ident(fit) without covariates gives the algebraic check only, a
   out <- capture.output(print(id))
   expect_true(any(grepl("Algebraic check on the fitted X and C", out)))
   expect_true(any(grepl("no A given", out)))
-  expect_error(plot(id), "no identification region")
   ## Y without A is accepted (the test needs A); A without Y is not
   expect_null(nmfkc.ident(fit, t(as.matrix(iris[, 1:4])), ident.n = 50)$test)
   expect_error(nmfkc.ident(fit, A = diag(2)), "Y is needed")
@@ -113,4 +112,36 @@ test_that("with covariates the earlier components are unchanged and the check is
   ## the caller's random stream is left alone
   set.seed(5); u1 <- runif(1); set.seed(5); invisible(nmfkc.ident(fit)); u2 <- runif(1)
   expect_equal(u1, u2)
+})
+
+test_that("plot(): X, B and C from the algebraic check, bases and at", {
+  fit <- nmfkc(t(as.matrix(iris[, 1:4])), rank = 3, epsilon = 1e-8, maxit = 1e5, verbose = FALSE)
+  id <- nmfkc.ident(fit, ident.n = 200)
+  f <- tempfile(fileext = ".pdf"); grDevices::pdf(f)
+  expect_invisible(plot(id, type = "X"))
+  expect_invisible(plot(id, type = "X", bases = c("Basis1", "Basis3")))
+  expect_invisible(plot(id))                         # 150 columns: type "B" by default
+  hit <- integer(0)
+  expect_invisible(plot(id, type = "B", at = seq(0, 1, length.out = 150), panel = function(q) hit <<- c(hit, q)))
+  ## by default "B" draws the bases that move
+  cs <- colSums(id$C)
+  mv <- which(apply(sweep(id$algebraic$C.upper - id$algebraic$C.lower, 2, cs, "/"), 1, max) > 1e-3)
+  expect_equal(hit, unname(mv))
+  expect_error(plot(id, type = "B", at = 1:3), "one position per column")
+  ## shares of the column sums: B.prob (membership probabilities) and C.prob
+  expect_invisible(plot(id, type = "B.prob"))
+  sh <- sweep(id$algebraic$C.upper, 2, colSums(id$C), "/")
+  expect_true(all(sh <= 1 + 1e-9) && all(sweep(id$algebraic$C.lower, 2, colSums(id$C), "/") >= -1e-9))
+  expect_equal(colSums(id$C), colSums(fit$B))
+  expect_error(plot(id, bases = "nope"), "bases must")
+  ## a fit with covariates and only the fitted matrices: the C grid
+  set.seed(1)
+  X <- cbind(c(0.4, 0.3, 0.2, 0.1, 0), c(0, 0.1, 0.2, 0.3, 0.4))
+  A <- rbind(g1 = rep(c(1, 0), each = 20), g2 = rep(c(0, 1), each = 20))
+  Y <- (X %*% diag(c(10, 8)) %*% A) * exp(matrix(rnorm(200, sd = 0.1), 5, 40))
+  fa <- nmfkc(Y, A, rank = 2, epsilon = 1e-8, verbose = FALSE)
+  expect_invisible(plot(nmfkc.ident(fa), type = "C"))
+  expect_invisible(plot(nmfkc.ident(fa, Y, A, region.n = 2000), type = "C", bases = 2))
+  expect_invisible(plot(nmfkc.ident(fa, Y, A, region.n = 2000, ci = TRUE), type = "C.prob"))
+  grDevices::dev.off(); unlink(f)
 })

@@ -42,6 +42,29 @@ earlier component of `nmfkc.ident()` (test, region, repair, intervals) is
 bit-identical on six calls; only the `runtime` of the repaired fit differs.
 `print()` gains an "Algebraic check" block.
 
+`plot()` now draws a fit that has only the algebraic check, from its ranges.
+These ranges are inner bounds, and the legend says so. A third type is added:
+
+- `type = "B"`: one strip per basis with the columns of `C` along the axis.
+  For a fit without covariates that is one entry per sample. The default
+  when `C` has more than 12 columns.
+- `type = "C.prob"` and `"B.prob"`: the same with every column of `C`
+  divided by its sum, i.e. the share of each basis in a covariate, or the
+  membership probability of a sample (`B.prob` of the fit). The column
+  sums do not change under a remixing, so the ranges rescale exactly.
+  Profile intervals are not drawn on this scale. There is no `"X.prob"`,
+  because the row sums of `X` change under a remixing.
+
+New arguments:
+
+- `bases`: which bases to draw. The default is all of them, and for "B"
+  the ones that move.
+- `at`: positions of the columns.
+- `panel`: a `function(q)` called in each strip, e.g. to add period lines.
+
+The figures for a computed identification region are drawn as before, with
+"estimate" for "repaired estimate" in the legend.
+
 ## `*.DOT()`: node order and edge-label size, through `...`
 
 `nmfkc.DOT()` takes two display options through `...`: `Y.order` and

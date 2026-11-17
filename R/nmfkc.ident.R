@@ -1097,64 +1097,149 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 
 #' @title Plot the identification region and intervals of an nmfkc.ident object
 #' @description
-#' \code{type = "C"} (default): one panel per entry of \eqn{C}, bases in rows
-#' and covariates in columns, showing the identification region (black; a dot
-#' when it is a single point), the profile-likelihood interval if computed
-#' (gray) and the repaired estimate (red cross). Panels whose interval
-#' excludes 0 are shaded.
-#' \code{type = "X"}: for each basis, the identification region of every row of
-#' \eqn{X} (black) with the repaired basis (red).
+#' Draws how far \eqn{X} and \eqn{C} (\eqn{B} for a fit without covariates)
+#' can move without changing the fit. The ranges are the identification region
+#' when it was computed (\code{Y} and \code{A} given, \code{nrow(A) == rank});
+#' otherwise they are the ranges found by the algebraic check, which are inner
+#' bounds (the region is at least this wide). Each line is the range of one
+#' entry on its own: the entries do not reach their ends together, since one
+#' remixing moves the whole matrix.
+#' \itemize{
+#'   \item \code{type = "C"}: one panel per entry of \eqn{C}, bases in rows and
+#'     covariates in columns: the range (black; a dot when it is a single
+#'     point), the profile-likelihood interval if computed (gray) and the
+#'     estimate (red cross). Panels whose interval excludes 0 are shaded.
+#'   \item \code{type = "X"}: one panel per basis, the range of every row of
+#'     \eqn{X} (black) and the estimate (red circle).
+#'   \item \code{type = "B"}: one strip per basis, the columns of \eqn{C} along
+#'     the horizontal axis (for a fit without covariates, \eqn{C = B} has one
+#'     column per sample), the range of every entry (gray) and the estimate
+#'     (points). Suited to many columns.
+#'   \item \code{type = "C.prob"}, \code{"B.prob"}: the same with every
+#'     column of \eqn{C} divided by its sum, i.e. the share of each basis in
+#'     a covariate, or the membership probability of a sample (\code{B.prob}
+#'     of the fit) without covariates. The column sums do not change under a
+#'     remixing, so these ranges are exact rescalings and lie between 0 and 1; the
+#'     profile-likelihood intervals, which are for \eqn{C} itself, are not
+#'     drawn. No \code{"X.prob"} is offered: the row sums of \eqn{X} change
+#'     under a remixing, so its row shares do not rescale.
+#' }
+#' The estimate is the repaired fit when the region was computed, otherwise
+#' the fitted matrices.
 #' @param x An object of class \code{"nmfkc.ident"}.
-#' @param type \code{"C"} or \code{"X"}.
+#' @param type \code{"C"}, \code{"X"}, \code{"B"}, \code{"C.prob"} or
+#'   \code{"B.prob"}. Default: \code{"C"} when \eqn{C} has at most 12
+#'   columns, otherwise \code{"B"}.
+#' @param bases Bases to draw, by index or name (columns of \eqn{X}, rows of
+#'   \eqn{C}). Default: all of them for \code{"C"} and \code{"X"} (a basis
+#'   that cannot move shows as dots); for \code{"B"} the bases whose range
+#'   exceeds \code{move.tol} of a column sum (all of them if none does).
+#' @param at For \code{type = "B"}: horizontal positions of the columns
+#'   (e.g. times). Default \code{1:ncol(C)}.
+#' @param panel For \code{type = "B"}: optional \code{function(q)} called in
+#'   each strip after drawing (e.g. to add \code{abline(v = ...)}); \code{q} is
+#'   the index of the basis.
 #' @param ... Not used.
-#' @return \code{x}, invisibly.
+#' @return \code{x}, invisibly. For \code{type = "B"} the graphical
+#'   parameters are left as set, with the last strip active, so that
+#'   \code{axis(1, ...)} can relabel the horizontal axis afterwards.
 #' @seealso \code{\link{nmfkc.ident}}, \code{\link{summary.nmfkc.ident}}
 #' @export
-plot.nmfkc.ident <- function(x, type = c("C", "X"), ...) {
-  type <- base::match.arg(type)
-  if (base::is.null(x$Xi.hat)) stop("no identification region (needs nrow(A) == rank and region = TRUE)")
+plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NULL, ...) {
+  reg <- !base::is.null(x$Xi.hat)
+  if (reg) {
+    Xl <- x$X.region.lower; Xu <- x$X.region.upper; Cl <- x$C.region.lower; Cu <- x$C.region.upper
+  } else if (!base::is.null(x$algebraic)) {
+    a <- x$algebraic
+    Xl <- a$X.lower; Xu <- a$X.upper; Cl <- a$C.lower; Cu <- a$C.upper
+  } else stop("no identification region and no algebraic check in x")
+  what <- if (reg) "identification region" else "range found by the algebraic check (at least this wide)"
+  Q <- base::nrow(x$C); R <- base::ncol(x$C)
+  if (base::is.null(type)) type <- if (R <= 12) "C" else "B"
+  type <- base::match.arg(type, c("C", "X", "B", "C.prob", "B.prob"))
+  prob <- type %in% c("C.prob", "B.prob"); type <- base::sub(".prob", "", type, fixed = TRUE)
+  bn <- base::rownames(x$C); if (base::is.null(bn)) bn <- base::paste0("Basis", base::seq_len(Q))
+  sel <- if (base::is.null(bases)) {
+    if (type == "B") {
+      cs <- base::pmax(base::colSums(x$C), 1e-300)
+      mt <- if (!base::is.null(x$algebraic$move.tol)) x$algebraic$move.tol else 1e-3
+      mv <- base::which(base::apply(base::sweep(Cu - Cl, 2, cs, "/"), 1, base::max) > mt)
+      if (base::length(mv)) mv else base::seq_len(Q)
+    } else base::seq_len(Q)
+  } else if (base::is.character(bases)) base::match(bases, bn) else bases
+  if (!base::length(sel) || base::anyNA(sel) || base::any(sel < 1 | sel > Q))
+    stop("bases must name or index bases of the fit")
+  sel <- base::as.integer(sel)
+  ## shares of the column sums of C (membership probabilities for B): the column sums
+  ## do not change under a remixing (1'T^-1 = 1'), so the ranges scale exactly
+  Cv <- x$C; scl <- ""
+  if (prob) {
+    cs0 <- base::pmax(base::colSums(x$C), 1e-300)
+    Cv <- base::sweep(x$C, 2, cs0, "/"); Cl <- base::sweep(Cl, 2, cs0, "/"); Cu <- base::sweep(Cu, 2, cs0, "/")
+    scl <- ", as shares of the column sums"
+  }
   op <- graphics::par(no.readonly = TRUE)
-  base::on.exit(graphics::par(op))
-  Q <- base::nrow(x$C)
+  if (type != "B") base::on.exit(graphics::par(op))
   if (type == "X") {
     P <- base::nrow(x$X); yy <- base::rev(base::seq_len(P))
-    graphics::par(mfrow = base::c(1, Q), mar = base::c(3, if (P <= 40) 6 else 2, 2, 0.5), oma = base::c(1.5, 0, 0, 0))
-    for (q in base::seq_len(Q)) {
-      graphics::plot(NA, xlim = base::c(0, base::max(x$X.region.upper) * 1.05), ylim = base::c(0.5, P + 0.5),
+    graphics::par(mfrow = base::c(1, base::length(sel)), mar = base::c(3, if (P <= 40) 6 else 2, 2, 0.5),
+                  oma = base::c(1.5, 0, 0, 0))
+    for (q in sel) {
+      graphics::plot(NA, xlim = base::c(0, base::max(Xu[, sel]) * 1.05), ylim = base::c(0.5, P + 0.5),
                      yaxt = "n", xlab = "", ylab = "", main = base::colnames(x$X)[q], cex.main = 0.9)
       if (P <= 40) graphics::axis(2, at = yy, labels = base::rownames(x$X), las = 1, cex.axis = 0.6)
-      w <- x$X.region.upper[, q] - x$X.region.lower[, q]; pt <- w < 1e-6 * base::max(x$X.region.upper)
-      graphics::segments(x$X.region.lower[!pt, q], yy[!pt], x$X.region.upper[!pt, q], yy[!pt], lwd = 4, lend = 1)
-      graphics::points(x$X.region.lower[pt, q], yy[pt], pch = 19, cex = 0.45)
+      w <- Xu[, q] - Xl[, q]; pt <- w < 1e-6 * base::max(Xu)
+      graphics::segments(Xl[!pt, q], yy[!pt], Xu[!pt, q], yy[!pt], lwd = 4, lend = 1)
+      graphics::points(Xl[pt, q], yy[pt], pch = 19, cex = 0.45)
       graphics::points(x$X[, q], yy, pch = 1, col = "red3", cex = 0.8)
     }
-    graphics::mtext("black: identification region of X (a dot when it is a single point);  red circle: repaired basis",
-                  side = 1, outer = TRUE, cex = 0.75)
+    graphics::mtext(base::paste0("black: ", what, " of X (a dot: a single point);  red circle: estimate"),
+                    side = 1, outer = TRUE, cex = 0.75)
     return(base::invisible(x))
   }
-  R <- base::ncol(x$C)
-  hasci <- !base::is.null(x$C.ci.lower)
-  hi <- if (hasci) x$C.ci.upper else x$C.region.upper
-  xmax <- base::max(hi[base::is.finite(hi)], x$C) * 1.05
-  graphics::layout(base::matrix(base::seq_len(Q * R), Q, R, byrow = TRUE), widths = base::c(1.35, base::rep(1, R - 1)))
+  if (type == "B") {
+    if (base::is.null(at)) at <- base::seq_len(R)
+    if (base::length(at) != R) stop("at must have one position per column of C")
+    cols <- if (Q <= 8) grDevices::palette.colors(8L, "Dark 2")[base::seq_len(Q)] else grDevices::hcl.colors(Q, "Dark 3")
+    graphics::par(mfrow = base::c(base::length(sel), 1), mar = base::c(0.5, 4, 0.5, 1), oma = base::c(4, 0, 0, 0),
+                  cex.lab = 0.8)
+    for (i in base::seq_along(sel)) {
+      q <- sel[i]
+      graphics::plot(at, Cv[q, ], type = "n", xaxt = "n", las = 1, ylab = bn[q], xlab = "",
+                     ylim = if (prob) base::c(0, 1) else base::range(Cl[q, ], Cu[q, ], Cv[q, ]))
+      graphics::segments(at, Cl[q, ], at, Cu[q, ], col = "gray65", lwd = 2.5, lend = 1)
+      graphics::points(at, Cv[q, ], pch = 16, cex = 0.45, col = cols[q])
+      if (!base::is.null(panel)) panel(q)
+      if (i == base::length(sel)) graphics::axis(1)
+    }
+    graphics::mtext(base::paste0("gray: ", what, " of each entry", scl, ";  points: estimate"),
+                    side = 1, outer = TRUE, line = 2.5, cex = 0.7)
+    return(base::invisible(x))
+  }
+  hasci <- !base::is.null(x$C.ci.lower) && !prob   # intervals are for C itself, not its shares
+  hi <- if (hasci) x$C.ci.upper else Cu
+  hs <- hi[sel, , drop = FALSE]
+  xmax <- if (prob) 1 else base::max(hs[base::is.finite(hs)], Cv[sel, ]) * 1.05
+  nq <- base::length(sel)
+  graphics::layout(base::matrix(base::seq_len(nq * R), nq, R, byrow = TRUE), widths = base::c(1.35, base::rep(1, R - 1)))
   graphics::par(oma = base::c(2, 0, 0.5, 0), mgp = base::c(1.5, 0.4, 0), tcl = -0.25)
-  for (q in base::seq_len(Q)) for (k in base::seq_len(R)) {
-    graphics::par(mar = base::c(if (q == Q) 2 else 0.6, if (k == 1) 5 else 0.5, if (q == 1) 1.4 else 0.3, 0.5))
+  for (i in base::seq_len(nq)) for (k in base::seq_len(R)) {
+    q <- sel[i]
+    graphics::par(mar = base::c(if (i == nq) 2 else 0.6, if (k == 1) 5 else 0.5, if (i == 1) 1.4 else 0.3, 0.5))
     graphics::plot(NA, xlim = base::c(0, xmax), ylim = base::c(0.5, 1.5), xaxt = "n", yaxt = "n", xlab = "", ylab = "")
     if (hasci && x$C.ci.lower[q, k] > 0) graphics::rect(-xmax, 0, 2 * xmax, 2, col = "gray90", border = NA)
     if (hasci) graphics::segments(x$C.ci.lower[q, k], 1, base::min(x$C.ci.upper[q, k], 2 * xmax), 1,
                                   lwd = 2.5, col = "gray55", lend = 1)
-    graphics::segments(x$C.region.lower[q, k], 1, x$C.region.upper[q, k], 1, lwd = 6, lend = 1)
-    if (x$C.region.upper[q, k] - x$C.region.lower[q, k] < 1e-9 * xmax)
-      graphics::points(x$C.region.lower[q, k], 1, pch = 19, cex = 0.8)
-    graphics::points(x$C[q, k], 1, pch = 4, col = "red3", cex = 1.6, lwd = 2)
-    graphics::axis(1, labels = q == Q, cex.axis = 0.75)
-    if (k == 1) graphics::mtext(base::rownames(x$C)[q], side = 2, line = 0.5, las = 1, adj = 1, cex = 0.7)
-    if (q == 1) graphics::mtext(base::colnames(x$C)[k], side = 3, line = 0.2, cex = 0.75)
+    graphics::segments(Cl[q, k], 1, Cu[q, k], 1, lwd = 6, lend = 1)
+    if (Cu[q, k] - Cl[q, k] < 1e-9 * xmax) graphics::points(Cl[q, k], 1, pch = 19, cex = 0.8)
+    graphics::points(Cv[q, k], 1, pch = 4, col = "red3", cex = 1.6, lwd = 2)
+    graphics::axis(1, labels = i == nq, cex.axis = 0.75)
+    if (k == 1) graphics::mtext(bn[q], side = 2, line = 0.5, las = 1, adj = 1, cex = 0.7)
+    if (i == 1) graphics::mtext(base::colnames(x$C)[k], side = 3, line = 0.2, cex = 0.75)
     graphics::box()
   }
-  leg <- base::paste0("black: identification region", if (hasci) base::sprintf(";  gray: %g%% interval", 100 * x$ci.level) else "",
-                      ";  red x: repaired estimate", if (hasci) ";  shaded: interval excludes 0" else "")
+  leg <- base::paste0("black: ", what, scl, if (hasci) base::sprintf(";  gray: %g%% interval", 100 * x$ci.level) else "",
+                      ";  red x: estimate", if (hasci) ";  shaded: interval excludes 0" else "")
   graphics::mtext(leg, side = 1, outer = TRUE, line = 0.6, cex = 0.7)
   base::invisible(x)
 }

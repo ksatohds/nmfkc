@@ -120,10 +120,11 @@ test_that("summary(), print() and plot() of nmfkc.ident", {
   on.exit(grDevices::dev.off())
   expect_silent(plot(id))
   expect_silent(plot(id, type = "X"))
-  ## test only: summary says so and plot() refuses
+  ## test only: summary says so, and plot() draws the ranges of the algebraic check
   a <- nmfkc.ident(f, d$Y, d$A, region = FALSE)
   expect_output(print(a), "not computed")
-  expect_error(plot(a), "no identification region")
+  expect_silent(plot(a))
+  expect_silent(plot(a, type = "X"))
 })
 
 test_that("H(rho) tests the entries of Xi.hat one by one; pi.max = 1 exactly when H(rho) is not rejected", {

@@ -4,26 +4,64 @@
 \alias{plot.nmfkc.ident}
 \title{Plot the identification region and intervals of an nmfkc.ident object}
 \usage{
-\method{plot}{nmfkc.ident}(x, type = c("C", "X"), ...)
+\method{plot}{nmfkc.ident}(x, type = NULL, bases = NULL, at = NULL, panel = NULL, ...)
 }
 \arguments{
 \item{x}{An object of class \code{"nmfkc.ident"}.}
 
-\item{type}{\code{"C"} or \code{"X"}.}
+\item{type}{\code{"C"}, \code{"X"}, \code{"B"}, \code{"C.prob"} or
+\code{"B.prob"}. Default: \code{"C"} when \eqn{C} has at most 12
+columns, otherwise \code{"B"}.}
+
+\item{bases}{Bases to draw, by index or name (columns of \eqn{X}, rows of
+\eqn{C}). Default: all of them for \code{"C"} and \code{"X"} (a basis
+that cannot move shows as dots); for \code{"B"} the bases whose range
+exceeds \code{move.tol} of a column sum (all of them if none does).}
+
+\item{at}{For \code{type = "B"}: horizontal positions of the columns
+(e.g. times). Default \code{1:ncol(C)}.}
+
+\item{panel}{For \code{type = "B"}: optional \code{function(q)} called in
+each strip after drawing (e.g. to add \code{abline(v = ...)}); \code{q} is
+the index of the basis.}
 
 \item{...}{Not used.}
 }
 \value{
-\code{x}, invisibly.
+\code{x}, invisibly. For \code{type = "B"} the graphical
+parameters are left as set, with the last strip active, so that
+\code{axis(1, ...)} can relabel the horizontal axis afterwards.
 }
 \description{
-\code{type = "C"} (default): one panel per entry of \eqn{C}, bases in rows
-and covariates in columns, showing the identification region (black; a dot
-when it is a single point), the profile-likelihood interval if computed
-(gray) and the repaired estimate (red cross). Panels whose interval
-excludes 0 are shaded.
-\code{type = "X"}: for each basis, the identification region of every row of
-\eqn{X} (black) with the repaired basis (red).
+Draws how far \eqn{X} and \eqn{C} (\eqn{B} for a fit without covariates)
+can move without changing the fit. The ranges are the identification region
+when it was computed (\code{Y} and \code{A} given, \code{nrow(A) == rank});
+otherwise they are the ranges found by the algebraic check, which are inner
+bounds (the region is at least this wide). Each line is the range of one
+entry on its own: the entries do not reach their ends together, since one
+remixing moves the whole matrix.
+\itemize{
+\item \code{type = "C"}: one panel per entry of \eqn{C}, bases in rows and
+covariates in columns: the range (black; a dot when it is a single
+point), the profile-likelihood interval if computed (gray) and the
+estimate (red cross). Panels whose interval excludes 0 are shaded.
+\item \code{type = "X"}: one panel per basis, the range of every row of
+\eqn{X} (black) and the estimate (red circle).
+\item \code{type = "B"}: one strip per basis, the columns of \eqn{C} along
+the horizontal axis (for a fit without covariates, \eqn{C = B} has one
+column per sample), the range of every entry (gray) and the estimate
+(points). Suited to many columns.
+\item \code{type = "C.prob"}, \code{"B.prob"}: the same with every
+column of \eqn{C} divided by its sum, i.e. the share of each basis in
+a covariate, or the membership probability of a sample (\code{B.prob}
+of the fit) without covariates. The column sums do not change under a
+remixing, so these ranges are exact rescalings and lie between 0 and 1; the
+profile-likelihood intervals, which are for \eqn{C} itself, are not
+drawn. No \code{"X.prob"} is offered: the row sums of \eqn{X} change
+under a remixing, so its row shares do not rescale.
+}
+The estimate is the repaired fit when the region was computed, otherwise
+the fitted matrices.
 }
 \seealso{
 \code{\link{nmfkc.ident}}, \code{\link{summary.nmfkc.ident}}
