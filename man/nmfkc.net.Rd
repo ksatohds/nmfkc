@@ -71,6 +71,9 @@ default for network data.
 \item \code{"kmeansar"}: \code{"kmeans"} followed by filling zero
 entries of \eqn{X} with \eqn{\mathrm{Uniform}(0, \bar Y / 100)}
 to escape trivial stationary points.
+\item \code{"kmeans++"}: k-means with \eqn{D^2}-weighted seeding
+(Arthur & Vassilvitskii 2007) and no restarts, so the start differs
+with the seed; the start of \code{\link{nmfkc.net.consensus}}.
 \item \code{"nndsvd"}: Non-negative Double SVD with additive
 randomness (NNDSVDar).  Requires a full SVD of \eqn{Y}, so for
 very large networks (N > a few thousand) \code{"kmeans"} is

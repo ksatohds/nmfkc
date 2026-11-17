@@ -62,5 +62,5 @@ components in factor and principal components models.
 }
 \seealso{
 \code{\link{nmfkc.net}}, \code{\link{nmfkc.net.ecv}},
-\code{\link{nmfkc.rank}}
+\code{\link{nmfkc.net.consensus}}, \code{\link{nmfkc.rank}}
 }

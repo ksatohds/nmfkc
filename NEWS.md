@@ -1,5 +1,42 @@
 # nmfkc (development version)
 
+## New `nmfkc.net.consensus()`: consensus clustering of the nodes of a network fit
+
+`nmfkc.net.consensus(Y, rank, type, nrun, keep.consensus, ...)` is the
+consensus-clustering stability of `nmfkc.consensus()` (Brunet et al. 2004)
+for the network models of `nmfkc.net()`. The clustered objects are the nodes.
+
+- Each run is an `nmfkc.net()` fit with its own seed, and its node clustering
+  is the fit's `X.cluster`, read from `X`. It is not read from the column
+  maxima of `B = C X'`, as in `nmfkc.consensus()`: with off-diagonal or
+  negative entries in `C`, the columns of `C X'` mix the bases.
+- The runs start from `X.init = "kmeans++"`, which differs with the seed. The
+  consensus needs starts that differ from run to run: at too small a rank,
+  which blocks are merged then changes from run to run, and the rank shows
+  as unstable. Other starts failed on 20 networks of three planted blocks
+  (10 nodes each, link probability 0.8 inside and 0.05 between blocks).
+  Counted is how often rank 3 had the largest dispersion among ranks 2 to 6,
+  with no tie:
+  - `"kmeans++"`: 19 or 20 networks for each type;
+  - `"kmeans"`, the default of `nmfkc.net()`, which keeps the best of 10
+    restarts: 3 networks. In most of the others, ranks 2 and 3 were both
+    fully stable;
+  - `"runif"`, the start of `nmfkc.consensus()`: 16 for `"bi"`, none for
+    `"tri"` and `"signed"`, whose runs stopped in poor local minima;
+  - `"nndsvd"`: 11 for `"tri"`, 12 for `"signed"`, none for `"bi"`.
+
+  With weaker blocks (0.4 and 0.15) or blocks of unequal size, no start
+  picked rank 3 reliably: stability favours small ranks. Any start can be
+  given through `X.init`.
+- The result has class `"nmfkc.consensus"` (with `type` added), so `print()`
+  and `plot()` (criteria and heatmap) are shared. The heatmap carries the node
+  names.
+- `seed`, `pac.range` and `cores` work as in `nmfkc.consensus()`. Other
+  options (`diag.exclude`, `Y.weights`, `maxit`, ...) go to `nmfkc.net()`.
+
+The three stability summaries are now computed by one internal function for
+both. `nmfkc.consensus()` gives the same results as before, bit for bit.
+
 ## `nmfkc.ident()`: an algebraic check on the fitted X and C, also without covariates
 
 `nmfkc.ident(fit)` now works for every `nmfkc()` fit with

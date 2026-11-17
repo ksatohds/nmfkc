@@ -897,6 +897,9 @@ nmfkc.net.DOT <- function(
 #'   \item \code{"kmeansar"}: \code{"kmeans"} followed by filling zero
 #'     entries of \eqn{X} with \eqn{\mathrm{Uniform}(0, \bar Y / 100)}
 #'     to escape trivial stationary points.
+#'   \item \code{"kmeans++"}: k-means with \eqn{D^2}-weighted seeding
+#'     (Arthur & Vassilvitskii 2007) and no restarts, so the start differs
+#'     with the seed; the start of \code{\link{nmfkc.net.consensus}}.
 #'   \item \code{"nndsvd"}: Non-negative Double SVD with additive
 #'     randomness (NNDSVDar).  Requires a full SVD of \eqn{Y}, so for
 #'     very large networks (N > a few thousand) \code{"kmeans"} is
@@ -1062,7 +1065,7 @@ nmfkc.net <- function(Y, rank = 2, type = c("tri", "bi", "signed"),
       ## also varies.
       X0 <- .init_X_method(X.init, Y, Q, seed = s_seed)
     } else {
-      stop("X.init must be one of \"kmeans\", \"kmeansar\", \"nndsvd\", ",
+      stop("X.init must be one of \"kmeans\", \"kmeansar\", \"kmeans++\", \"nndsvd\", ",
            "\"runif\", \"random\", or a numeric (N x Q) matrix; got ",
            class(X.init)[1], ".")
     }
@@ -1626,7 +1629,7 @@ nmfkc.net.ecv <- function(Y, rank = 1:3,
 #'   frame: \code{rank}, \code{effective.rank}, \code{effective.rank.ratio},
 #'   \code{r.squared}, \code{sigma.ecv}).
 #' @seealso \code{\link{nmfkc.net}}, \code{\link{nmfkc.net.ecv}},
-#'   \code{\link{nmfkc.rank}}
+#'   \code{\link{nmfkc.net.consensus}}, \code{\link{nmfkc.rank}}
 #' @references
 #' Roy, O., & Vetterli, M. (2007).  The effective rank: A measure of
 #' effective dimensionality.  \emph{Proc. EUSIPCO}, 606--610.
