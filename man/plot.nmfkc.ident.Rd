@@ -49,8 +49,10 @@ estimate (red cross). Panels whose interval excludes 0 are shaded.
 \eqn{X} (black) and the estimate (red circle).
 \item \code{type = "B"}: one strip per basis, the columns of \eqn{C} along
 the horizontal axis (for a fit without covariates, \eqn{C = B} has one
-column per sample), the range of every entry (gray) and the estimate
-(points). Suited to many columns.
+column per sample), the range of every entry (black line) and the
+estimate (small red point). Suited to many columns. When \code{at}
+is given, the horizontal axis is left undrawn so that
+\code{axis(1, ...)} can label it (e.g. with dates).
 \item \code{type = "C.prob"}, \code{"B.prob"}: the same with every
 column of \eqn{C} divided by its sum, i.e. the share of each basis in
 a covariate, or the membership probability of a sample (\code{B.prob}

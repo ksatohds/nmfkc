@@ -47,7 +47,9 @@ These ranges are inner bounds, and the legend says so. A third type is added:
 
 - `type = "B"`: one strip per basis with the columns of `C` along the axis.
   For a fit without covariates that is one entry per sample. The default
-  when `C` has more than 12 columns.
+  when `C` has more than 12 columns. Each range is a thin black line and
+  each estimate a small red point; with `at` given (e.g. times), the
+  horizontal axis is left for `axis(1, ...)` to draw.
 - `type = "C.prob"` and `"B.prob"`: the same with every column of `C`
   divided by its sum, i.e. the share of each basis in a covariate, or the
   membership probability of a sample (`B.prob` of the fit). The column

@@ -1113,8 +1113,10 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 #'     \eqn{X} (black) and the estimate (red circle).
 #'   \item \code{type = "B"}: one strip per basis, the columns of \eqn{C} along
 #'     the horizontal axis (for a fit without covariates, \eqn{C = B} has one
-#'     column per sample), the range of every entry (gray) and the estimate
-#'     (points). Suited to many columns.
+#'     column per sample), the range of every entry (black line) and the
+#'     estimate (small red point). Suited to many columns. When \code{at}
+#'     is given, the horizontal axis is left undrawn so that
+#'     \code{axis(1, ...)} can label it (e.g. with dates).
 #'   \item \code{type = "C.prob"}, \code{"B.prob"}: the same with every
 #'     column of \eqn{C} divided by its sum, i.e. the share of each basis in
 #'     a covariate, or the membership probability of a sample (\code{B.prob}
@@ -1198,21 +1200,21 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
     return(base::invisible(x))
   }
   if (type == "B") {
+    draw.axis <- base::is.null(at)   # with `at` given, the caller labels the axis
     if (base::is.null(at)) at <- base::seq_len(R)
     if (base::length(at) != R) stop("at must have one position per column of C")
-    cols <- if (Q <= 8) grDevices::palette.colors(8L, "Dark 2")[base::seq_len(Q)] else grDevices::hcl.colors(Q, "Dark 3")
     graphics::par(mfrow = base::c(base::length(sel), 1), mar = base::c(0.5, 4, 0.5, 1), oma = base::c(4, 0, 0, 0),
                   cex.lab = 0.8)
     for (i in base::seq_along(sel)) {
       q <- sel[i]
       graphics::plot(at, Cv[q, ], type = "n", xaxt = "n", las = 1, ylab = bn[q], xlab = "",
                      ylim = if (prob) base::c(0, 1) else base::range(Cl[q, ], Cu[q, ], Cv[q, ]))
-      graphics::segments(at, Cl[q, ], at, Cu[q, ], col = "gray65", lwd = 2.5, lend = 1)
-      graphics::points(at, Cv[q, ], pch = 16, cex = 0.45, col = cols[q])
+      graphics::segments(at, Cl[q, ], at, Cu[q, ])
+      graphics::points(at, Cv[q, ], pch = 16, cex = 0.3, col = "red3")
       if (!base::is.null(panel)) panel(q)
-      if (i == base::length(sel)) graphics::axis(1)
+      if (i == base::length(sel) && draw.axis) graphics::axis(1)
     }
-    graphics::mtext(base::paste0("gray: ", what, " of each entry", scl, ";  points: estimate"),
+    graphics::mtext(base::paste0("black: ", what, " of each entry", scl, ";  red points: estimate"),
                     side = 1, outer = TRUE, line = 2.5, cex = 0.7)
     return(base::invisible(x))
   }
