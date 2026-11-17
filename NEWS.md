@@ -120,6 +120,15 @@ New arguments:
 The figures for a computed identification region are drawn as before, with
 "estimate" for "repaired estimate" in the legend.
 
+The repaired fit now carries the basis names of the fit given to
+`nmfkc.ident()` (a `prefix`, or names set by hand). When the repair kept the
+order of the bases, the estimates `X` and `C`, the repaired fit, the
+coefficient table and the labels of `plot()` had `nmfkc()`'s default names
+`Basis1, Basis2, ...`, while the region and the intervals had the fit's
+names. The anchor summary of the repaired fit (`fit$criterion$anchors`) is
+now also recomputed when the bases are reordered; it used to keep the order
+of the refit. The values are unchanged.
+
 ## `*.DOT()`: node order and edge-label size, through `...`
 
 `nmfkc.DOT()` takes two display options through `...`: `Y.order` and

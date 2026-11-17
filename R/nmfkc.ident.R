@@ -702,20 +702,25 @@ nmfkc.ident <- function(object, Y = NULL, A = NULL, ...) {
   if (.nid.feas(N2, Xt, tol = 1e-10) && gap(N2) < gap(N1)) N2 else N1
 }
 
-## put the bases of an nmfkc fit in a given order (idx[q] = fit's basis for basis q) and refresh the
-## quantities derived from X, B and C
+## put the bases of the refit in the object's order (idx[q] = fit's basis for basis q) and give
+## them the object's names -- also when the order is already the same: the refit is named by
+## nmfkc()'s default prefix ("Basis"), the object may carry other names (prefix, or set by hand)
 .nid.reorder <- function(fit, idx, Y, A, object) {
-  if (base::identical(base::as.integer(idx), base::seq_along(idx))) return(fit)
-  fit$X <- fit$X[, idx, drop = FALSE]; fit$C <- fit$C[idx, , drop = FALSE]; fit$B <- fit$B[idx, , drop = FALSE]
+  if (!base::identical(base::as.integer(idx), base::seq_along(idx))) {
+    fit$X <- fit$X[, idx, drop = FALSE]; fit$C <- fit$C[idx, , drop = FALSE]; fit$B <- fit$B[idx, , drop = FALSE]
+    .eps <- 1e-10
+    fit$B.prob <- base::t(base::t(fit$B) / (base::colSums(fit$B) + .eps))
+    fit$B.cluster <- base::apply(fit$B.prob, 2, base::which.max)
+    fit$B.cluster[base::colSums(fit$B.prob) == 0] <- NA
+    fit$X.prob <- fit$X / (base::rowSums(fit$X) + .eps)
+    fit$X.cluster <- base::apply(fit$X.prob, 1, base::which.max)
+  }
   base::dimnames(fit$X) <- base::dimnames(object$X); base::dimnames(fit$C) <- base::dimnames(object$C)
   base::rownames(fit$B) <- base::rownames(object$C)
-  .eps <- 1e-10
-  fit$B.prob <- base::t(base::t(fit$B) / (base::colSums(fit$B) + .eps))
-  fit$B.cluster <- base::apply(fit$B.prob, 2, base::which.max)
-  fit$B.cluster[base::colSums(fit$B.prob) == 0] <- NA
-  fit$X.prob <- fit$X / (base::rowSums(fit$X) + .eps)
-  fit$X.cluster <- base::apply(fit$X.prob, 1, base::which.max)
-  if (!base::is.null(fit$anchors)) fit$anchors <- .nmfkc.anchor(fit$X, fit$C, A)
+  if (base::is.matrix(fit$B.prob)) base::rownames(fit$B.prob) <- base::rownames(object$C)
+  if (base::is.matrix(fit$X.prob)) base::colnames(fit$X.prob) <- base::colnames(object$X)
+  ## anchor purity (named by basis; nmfkc() computes it with the defaults, as here)
+  if (!base::is.null(fit$criterion$anchors)) fit$criterion$anchors <- .nmfkc.anchor(fit$X, fit$C, A)
   fit
 }
 

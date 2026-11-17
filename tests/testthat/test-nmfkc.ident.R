@@ -127,6 +127,46 @@ test_that("summary(), print() and plot() of nmfkc.ident", {
   expect_silent(plot(a, type = "X"))
 })
 
+test_that("the repaired fit carries the basis names of the object (prefix, set by hand, bases swapped)", {
+  skip_unless_full()
+  d <- make_ident_data(FALSE)
+  f <- nmfkc(d$Y, d$A, rank = 2, epsilon = 1e-8, verbose = FALSE)
+  fF <- nmfkc(d$Y, d$A, rank = 2, epsilon = 1e-8, verbose = FALSE, prefix = "F")
+  fh <- f; colnames(fh$X) <- rownames(fh$C) <- rownames(fh$B) <- c("up", "down")
+  fs <- fh; fs$X <- fh$X[, 2:1]; fs$C <- fh$C[2:1, ]; fs$B <- fh$B[2:1, ]   # the refit reorders these
+  id0 <- nmfkc.ident(f, d$Y, d$A, region.n = 2000)
+  ## every name or dimname of the result, the repaired fit included
+  allnames <- function(z) {
+    out <- c(names(z), unlist(dimnames(z)))
+    if (is.list(z)) out <- c(out, unlist(lapply(z, allnames)))
+    out
+  }
+  for (g in list(fF, fh, fs)) {
+    nm <- colnames(g$X)
+    id <- nmfkc.ident(g, d$Y, d$A, region.n = 2000)
+    expect_identical(colnames(id$X), nm)
+    expect_identical(rownames(id$C), nm)
+    expect_identical(rownames(id$fit$B), nm)
+    expect_identical(rownames(id$fit$B.prob), nm)
+    expect_identical(colnames(id$fit$X.prob), nm)
+    expect_identical(names(id$fit$criterion$anchors$X.anchor.purity), nm)
+    expect_identical(rownames(id$C.region.lower), nm)
+    expect_identical(unique(summary(id)$coefficients$Basis), nm)
+    expect_false(any(grepl("^Basis", allnames(id[setdiff(names(id), "call")]))))
+    ## the anchor summary of the repaired fit follows its order
+    expect_identical(id$fit$criterion$anchors, nmfkc:::.nmfkc.anchor(id$fit$X, id$fit$C, d$A))
+  }
+  ## the values do not depend on the names (the same fit, renamed)
+  idh <- nmfkc.ident(fh, d$Y, d$A, region.n = 2000)
+  strip <- function(z) {
+    if (is.list(z)) { z <- lapply(z, strip); names(z) <- NULL; return(z) }
+    attributes(z) <- attributes(z)[intersect(names(attributes(z)), "dim")]; z
+  }
+  expect_identical(strip(idh$C), strip(id0$C))
+  expect_identical(strip(idh$X), strip(id0$X))
+  expect_identical(strip(idh$C.region.upper), strip(id0$C.region.upper))
+})
+
 test_that("H(rho) tests the entries of Xi.hat one by one; pi.max = 1 exactly when H(rho) is not rejected", {
   skip_unless_full()
   for (anch in c(TRUE, FALSE)) {
