@@ -1218,7 +1218,7 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
       graphics::plot(at, Cv[q, ], type = "n", xaxt = "n", las = 1, ylab = bn[q], xlab = "",
                      ylim = if (prob) base::c(0, 1) else base::range(Cl[q, ], Cu[q, ], Cv[q, ]))
       graphics::segments(at, Cl[q, ], at, Cu[q, ])
-      graphics::points(at, Cv[q, ], pch = 16, cex = 0.3, col = "red3")
+      graphics::points(at, Cv[q, ], pch = 16, cex = 0.5, col = "red3")
       if (!base::is.null(panel)) panel(q)
       if (i == base::length(sel) && draw.axis) graphics::axis(1)
     }
