@@ -1110,7 +1110,9 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 #'     point), the profile-likelihood interval if computed (gray) and the
 #'     estimate (red cross). Panels whose interval excludes 0 are shaded.
 #'   \item \code{type = "X"}: one panel per basis, the range of every row of
-#'     \eqn{X} (black) and the estimate (red circle).
+#'     \eqn{X} (black) and the estimate (red cross). The row names are
+#'     written once, left of the first panel, so that many bases fit side by
+#'     side on a page.
 #'   \item \code{type = "B"}: one strip per basis, the columns of \eqn{C} along
 #'     the horizontal axis (for a fit without covariates, \eqn{C = B} has one
 #'     column per sample), the range of every entry (black line) and the
@@ -1183,19 +1185,25 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
   op <- graphics::par(no.readonly = TRUE)
   if (type != "B") base::on.exit(graphics::par(op))
   if (type == "X") {
-    P <- base::nrow(x$X); yy <- base::rev(base::seq_len(P))
-    graphics::par(mfrow = base::c(1, base::length(sel)), mar = base::c(3, if (P <= 40) 6 else 2, 2, 0.5),
-                  oma = base::c(1.5, 0, 0, 0))
-    for (q in sel) {
+    P <- base::nrow(x$X); yy <- base::rev(base::seq_len(P)); nq <- base::length(sel)
+    lab <- P <= 40   # row names are written once, left of the first panel, so that many bases fit
+    graphics::layout(base::matrix(base::seq_len(nq), 1),
+                     widths = base::c(if (lab) 1.6 else 1, base::rep(1, nq - 1)))
+    graphics::par(oma = base::c(1.5, 0, 0, 0), mgp = base::c(1.5, 0.4, 0), tcl = -0.25)
+    for (i in base::seq_len(nq)) {
+      q <- sel[i]
+      graphics::par(mar = base::c(2.5, if (i == 1 && lab) 4 else 0.5, 2, 0.5))
       graphics::plot(NA, xlim = base::c(0, base::max(Xu[, sel]) * 1.05), ylim = base::c(0.5, P + 0.5),
-                     yaxt = "n", xlab = "", ylab = "", main = base::colnames(x$X)[q], cex.main = 0.9)
-      if (P <= 40) graphics::axis(2, at = yy, labels = base::rownames(x$X), las = 1, cex.axis = 0.6)
+                     yaxt = "n", xlab = "", ylab = "", main = base::colnames(x$X)[q], cex.main = 0.9,
+                     cex.axis = 0.75)
+      graphics::axis(2, at = yy, labels = if (i == 1 && lab) base::rownames(x$X) else FALSE,
+                     las = 1, cex.axis = 0.6)
       w <- Xu[, q] - Xl[, q]; pt <- w < 1e-6 * base::max(Xu)
       graphics::segments(Xl[!pt, q], yy[!pt], Xu[!pt, q], yy[!pt], lwd = 4, lend = 1)
       graphics::points(Xl[pt, q], yy[pt], pch = 19, cex = 0.45)
-      graphics::points(x$X[, q], yy, pch = 1, col = "red3", cex = 0.8)
+      graphics::points(x$X[, q], yy, pch = 4, col = "red3", cex = 0.9, lwd = 1.5)
     }
-    graphics::mtext(base::paste0("black: ", what, " of X (a dot: a single point);  red circle: estimate"),
+    graphics::mtext(base::paste0("black: ", what, " of X (a dot: a single point);  red cross: estimate"),
                     side = 1, outer = TRUE, cex = 0.75)
     return(base::invisible(x))
   }

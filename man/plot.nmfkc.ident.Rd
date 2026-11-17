@@ -46,7 +46,9 @@ covariates in columns: the range (black; a dot when it is a single
 point), the profile-likelihood interval if computed (gray) and the
 estimate (red cross). Panels whose interval excludes 0 are shaded.
 \item \code{type = "X"}: one panel per basis, the range of every row of
-\eqn{X} (black) and the estimate (red circle).
+\eqn{X} (black) and the estimate (red cross). The row names are
+written once, left of the first panel, so that many bases fit side by
+side on a page.
 \item \code{type = "B"}: one strip per basis, the columns of \eqn{C} along
 the horizontal axis (for a fit without covariates, \eqn{C = B} has one
 column per sample), the range of every entry (black line) and the

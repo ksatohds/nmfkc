@@ -50,6 +50,9 @@ These ranges are inner bounds, and the legend says so. A third type is added:
   when `C` has more than 12 columns. Each range is a thin black line and
   each estimate a small red point; with `at` given (e.g. times), the
   horizontal axis is left for `axis(1, ...)` to draw.
+- `type = "X"`: the row names are written once, left of the first panel,
+  and the estimate is a red cross as in `type = "C"`, so that many bases
+  fit side by side on a page.
 - `type = "C.prob"` and `"B.prob"`: the same with every column of `C`
   divided by its sum, i.e. the share of each basis in a covariate, or the
   membership probability of a sample (`B.prob` of the fit). The column
