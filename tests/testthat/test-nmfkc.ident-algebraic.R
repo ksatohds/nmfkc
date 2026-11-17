@@ -145,3 +145,36 @@ test_that("plot(): X, B and C from the algebraic check, bases and at", {
   expect_invisible(plot(nmfkc.ident(fa, Y, A, region.n = 2000, ci = TRUE), type = "C.prob"))
   grDevices::dev.off(); unlink(f)
 })
+
+test_that("plot(col = ): the colours reach the drawing, NA leaves a part out, bad input stops", {
+  set.seed(1)
+  X <- cbind(c(0.4, 0.3, 0.2, 0.1, 0), c(0, 0.1, 0.2, 0.3, 0.4))
+  A <- rbind(g1 = rep(c(1, 0), each = 20), g2 = rep(c(0, 1), each = 20))
+  Y <- (X %*% diag(c(10, 8)) %*% A) * exp(matrix(rnorm(200, sd = 0.1), 5, 40))
+  fa <- nmfkc(Y, A, rank = 2, epsilon = 1e-8, verbose = FALSE)
+  id <- nmfkc.ident(fa, Y, A, region.n = 2000, ci = TRUE)
+  ## an uncompressed PDF sets each colour as "r g b SCN" (stroke) or "r g b scn" (fill;
+  ## "RG" / "rg" with colormodel = "rgb"): match the three numbers
+  ops <- function(...) {
+    f <- tempfile(fileext = ".pdf"); grDevices::pdf(f, compress = FALSE)
+    plot(id, ...); grDevices::dev.off()
+    on.exit(unlink(f)); readLines(f, warn = FALSE)
+  }
+  has <- function(txt, s) any(grepl(s, txt, fixed = TRUE, useBytes = TRUE))   # the PDF has binary lines
+  blue <- "0.000 0.000 1.000 "; red3 <- "0.804 0.000 0.000 "
+  gray55 <- "0.549 0.549 0.549 "; gray90 <- "0.898 0.898 0.898 "
+  d <- ops(type = "C")
+  expect_true(has(d, red3) && has(d, gray55) && has(d, gray90) && !has(d, blue))
+  b <- ops(type = "C", col = c(estimate = "blue", shade = NA))
+  expect_true(has(b, blue) && has(b, gray55) && !has(b, red3) && !has(b, gray90))
+  expect_true(has(ops(type = "X", col = c(range = "blue")), blue))
+  expect_true(has(ops(type = "B", col = c(estimate = "blue")), blue))
+  expect_false(has(ops(type = "B", col = c(estimate = NA)), red3))
+  ## the legend names a colour given by name, otherwise only the mark
+  w <- .nid.plot.col(c(estimate = "blue", range = "#1f77b4", interval = "grey40"))$word
+  expect_identical(unname(w[c("range", "estimate", "interval")]), c("", "blue", "grey"))
+  expect_identical(.nid.plot.col(NULL), .nid.plot.col(c(estimate = "red3")))
+  expect_error(plot(id, col = "blue"), "named vector")
+  expect_error(plot(id, col = c(colour = "blue")), "named vector")
+  expect_error(plot(id, col = c(estimate = "nocolour")), "not a colour")
+})

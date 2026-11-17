@@ -4,7 +4,7 @@
 \alias{plot.nmfkc.ident}
 \title{Plot the identification region and intervals of an nmfkc.ident object}
 \usage{
-\method{plot}{nmfkc.ident}(x, type = NULL, bases = NULL, at = NULL, panel = NULL, ...)
+\method{plot}{nmfkc.ident}(x, type = NULL, bases = NULL, at = NULL, panel = NULL, col = NULL, ...)
 }
 \arguments{
 \item{x}{An object of class \code{"nmfkc.ident"}.}
@@ -24,6 +24,16 @@ exceeds \code{move.tol} of a column sum (all of them if none does).}
 \item{panel}{For \code{type = "B"}: optional \code{function(q)} called in
 each strip after drawing (e.g. to add \code{abline(v = ...)}); \code{q} is
 the index of the basis.}
+
+\item{col}{Colours, as a named vector with any of \code{range} (the
+ranges; default \code{"black"}), \code{estimate} (the estimate marks;
+\code{"red3"}), \code{interval} (the profile-likelihood intervals of
+\code{type = "C"}; \code{"gray55"}) and \code{shade} (the panels whose
+interval excludes 0; \code{"gray90"}), e.g.
+\code{col = c(estimate = "blue")}. Elements not given keep their
+default, and \code{NA} leaves that part out. The legend below the plot
+names a colour given by name (e.g. "blue cross: estimate") and
+otherwise only the mark (e.g. "cross: estimate" for \code{"#1f77b4"}).}
 
 \item{...}{Not used.}
 }
@@ -65,7 +75,8 @@ drawn. No \code{"X.prob"} is offered: the row sums of \eqn{X} change
 under a remixing, so its row shares do not rescale.
 }
 The estimate is the repaired fit when the region was computed, otherwise
-the fitted matrices.
+the fitted matrices. The colours named above are the defaults; \code{col}
+changes them.
 }
 \seealso{
 \code{\link{nmfkc.ident}}, \code{\link{summary.nmfkc.ident}}

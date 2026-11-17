@@ -103,6 +103,12 @@ New arguments:
   the ones that move.
 - `at`: positions of the columns.
 - `panel`: a `function(q)` called in each strip, e.g. to add period lines.
+- `col`: the colours, as a named vector with any of `range` (black),
+  `estimate` (red3), `interval` (gray55) and `shade` (gray90), e.g.
+  `col = c(estimate = "blue")`. `NA` leaves that part out (e.g.
+  `shade = NA` for no shading). The legend names a colour given by name
+  ("blue cross: estimate") and otherwise only the mark ("cross: estimate").
+  Without `col` the figures are the same as before.
 
 The figures for a computed identification region are drawn as before, with
 "estimate" for "repaired estimate" in the legend.

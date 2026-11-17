@@ -263,6 +263,7 @@ id2 <- nmfkc.ident(fit, Y, A, region.n = 5000, ci = TRUE)  # profile intervals
 summary(id2)
 plot(id2)
 plot(id2, type = "X")
+plot(id2, col = c(estimate = "blue", shade = NA))  # colours; NA leaves a part out
 }
 }
 \references{

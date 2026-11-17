@@ -281,6 +281,7 @@
 #' summary(id2)
 #' plot(id2)
 #' plot(id2, type = "X")
+#' plot(id2, col = c(estimate = "blue", shade = NA))  # colours; NA leaves a part out
 #' }
 nmfkc.ident <- function(object, Y = NULL, A = NULL, ...) {
   if (!inherits(object, "nmfkc")) stop("object must be of class 'nmfkc'")
@@ -1129,7 +1130,8 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 #'     under a remixing, so its row shares do not rescale.
 #' }
 #' The estimate is the repaired fit when the region was computed, otherwise
-#' the fitted matrices.
+#' the fitted matrices. The colours named above are the defaults; \code{col}
+#' changes them.
 #' @param x An object of class \code{"nmfkc.ident"}.
 #' @param type \code{"C"}, \code{"X"}, \code{"B"}, \code{"C.prob"} or
 #'   \code{"B.prob"}. Default: \code{"C"} when \eqn{C} has at most 12
@@ -1143,13 +1145,27 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 #' @param panel For \code{type = "B"}: optional \code{function(q)} called in
 #'   each strip after drawing (e.g. to add \code{abline(v = ...)}); \code{q} is
 #'   the index of the basis.
+#' @param col Colours, as a named vector with any of \code{range} (the
+#'   ranges; default \code{"black"}), \code{estimate} (the estimate marks;
+#'   \code{"red3"}), \code{interval} (the profile-likelihood intervals of
+#'   \code{type = "C"}; \code{"gray55"}) and \code{shade} (the panels whose
+#'   interval excludes 0; \code{"gray90"}), e.g.
+#'   \code{col = c(estimate = "blue")}. Elements not given keep their
+#'   default, and \code{NA} leaves that part out. The legend below the plot
+#'   names a colour given by name (e.g. "blue cross: estimate") and
+#'   otherwise only the mark (e.g. "cross: estimate" for \code{"#1f77b4"}).
 #' @param ... Not used.
 #' @return \code{x}, invisibly. For \code{type = "B"} the graphical
 #'   parameters are left as set, with the last strip active, so that
 #'   \code{axis(1, ...)} can relabel the horizontal axis afterwards.
 #' @seealso \code{\link{nmfkc.ident}}, \code{\link{summary.nmfkc.ident}}
 #' @export
-plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NULL, ...) {
+plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NULL, col = NULL, ...) {
+  pc <- .nid.plot.col(col); cc <- pc$col; cw <- pc$word
+  ## legend words: the colour's name if it has one, otherwise the mark alone
+  nm.rng <- function(noun) if (base::nzchar(cw[["range"]])) cw[["range"]] else noun
+  nm.est <- function(noun) base::paste(base::c(if (base::nzchar(cw[["estimate"]])) cw[["estimate"]], noun), collapse = " ")
+  legtxt <- function(...) base::paste(base::c(...), collapse = ";  ")
   reg <- !base::is.null(x$Xi.hat)
   if (reg) {
     Xl <- x$X.region.lower; Xu <- x$X.region.upper; Cl <- x$C.region.lower; Cu <- x$C.region.upper
@@ -1199,11 +1215,16 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
       graphics::axis(2, at = yy, labels = if (i == 1 && lab) base::rownames(x$X) else FALSE,
                      las = 1, cex.axis = 0.6)
       w <- Xu[, q] - Xl[, q]; pt <- w < 1e-6 * base::max(Xu)
-      graphics::segments(Xl[!pt, q], yy[!pt], Xu[!pt, q], yy[!pt], lwd = 4, lend = 1)
-      graphics::points(Xl[pt, q], yy[pt], pch = 19, cex = 0.45)
-      graphics::points(x$X[, q], yy, pch = 4, col = "red3", cex = 0.9, lwd = 1.5)
+      if (!base::is.na(cc[["range"]])) {
+        graphics::segments(Xl[!pt, q], yy[!pt], Xu[!pt, q], yy[!pt], lwd = 4, lend = 1, col = cc[["range"]])
+        graphics::points(Xl[pt, q], yy[pt], pch = 19, cex = 0.45, col = cc[["range"]])
+      }
+      if (!base::is.na(cc[["estimate"]]))
+        graphics::points(x$X[, q], yy, pch = 4, col = cc[["estimate"]], cex = 0.9, lwd = 1.5)
     }
-    graphics::mtext(base::paste0("black: ", what, " of X (a dot: a single point);  red cross: estimate"),
+    graphics::mtext(legtxt(if (!base::is.na(cc[["range"]]))
+                             base::paste0(nm.rng("lines"), ": ", what, " of X (a dot: a single point)"),
+                           if (!base::is.na(cc[["estimate"]])) base::paste0(nm.est("cross"), ": estimate")),
                     side = 1, outer = TRUE, cex = 0.75)
     return(base::invisible(x))
   }
@@ -1217,12 +1238,14 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
       q <- sel[i]
       graphics::plot(at, Cv[q, ], type = "n", xaxt = "n", las = 1, ylab = bn[q], xlab = "",
                      ylim = if (prob) base::c(0, 1) else base::range(Cl[q, ], Cu[q, ], Cv[q, ]))
-      graphics::segments(at, Cl[q, ], at, Cu[q, ])
-      graphics::points(at, Cv[q, ], pch = 16, cex = 0.5, col = "red3")
+      if (!base::is.na(cc[["range"]])) graphics::segments(at, Cl[q, ], at, Cu[q, ], col = cc[["range"]])
+      if (!base::is.na(cc[["estimate"]])) graphics::points(at, Cv[q, ], pch = 16, cex = 0.5, col = cc[["estimate"]])
       if (!base::is.null(panel)) panel(q)
       if (i == base::length(sel) && draw.axis) graphics::axis(1)
     }
-    graphics::mtext(base::paste0("black: ", what, " of each entry", scl, ";  red points: estimate"),
+    graphics::mtext(legtxt(if (!base::is.na(cc[["range"]]))
+                             base::paste0(nm.rng("lines"), ": ", what, " of each entry", scl),
+                           if (!base::is.na(cc[["estimate"]])) base::paste0(nm.est("points"), ": estimate")),
                     side = 1, outer = TRUE, line = 2.5, cex = 0.7)
     return(base::invisible(x))
   }
@@ -1237,19 +1260,47 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
     q <- sel[i]
     graphics::par(mar = base::c(if (i == nq) 2 else 0.6, if (k == 1) 5 else 0.5, if (i == 1) 1.4 else 0.3, 0.5))
     graphics::plot(NA, xlim = base::c(0, xmax), ylim = base::c(0.5, 1.5), xaxt = "n", yaxt = "n", xlab = "", ylab = "")
-    if (hasci && x$C.ci.lower[q, k] > 0) graphics::rect(-xmax, 0, 2 * xmax, 2, col = "gray90", border = NA)
-    if (hasci) graphics::segments(x$C.ci.lower[q, k], 1, base::min(x$C.ci.upper[q, k], 2 * xmax), 1,
-                                  lwd = 2.5, col = "gray55", lend = 1)
-    graphics::segments(Cl[q, k], 1, Cu[q, k], 1, lwd = 6, lend = 1)
-    if (Cu[q, k] - Cl[q, k] < 1e-9 * xmax) graphics::points(Cl[q, k], 1, pch = 19, cex = 0.8)
-    graphics::points(Cv[q, k], 1, pch = 4, col = "red3", cex = 1.6, lwd = 2)
+    if (hasci && x$C.ci.lower[q, k] > 0 && !base::is.na(cc[["shade"]]))
+      graphics::rect(-xmax, 0, 2 * xmax, 2, col = cc[["shade"]], border = NA)
+    if (hasci && !base::is.na(cc[["interval"]]))
+      graphics::segments(x$C.ci.lower[q, k], 1, base::min(x$C.ci.upper[q, k], 2 * xmax), 1,
+                         lwd = 2.5, col = cc[["interval"]], lend = 1)
+    if (!base::is.na(cc[["range"]])) {
+      graphics::segments(Cl[q, k], 1, Cu[q, k], 1, lwd = 6, lend = 1, col = cc[["range"]])
+      if (Cu[q, k] - Cl[q, k] < 1e-9 * xmax) graphics::points(Cl[q, k], 1, pch = 19, cex = 0.8, col = cc[["range"]])
+    }
+    if (!base::is.na(cc[["estimate"]])) graphics::points(Cv[q, k], 1, pch = 4, col = cc[["estimate"]], cex = 1.6, lwd = 2)
     graphics::axis(1, labels = i == nq, cex.axis = 0.75)
     if (k == 1) graphics::mtext(bn[q], side = 2, line = 0.5, las = 1, adj = 1, cex = 0.7)
     if (i == 1) graphics::mtext(base::colnames(x$C)[k], side = 3, line = 0.2, cex = 0.75)
     graphics::box()
   }
-  leg <- base::paste0("black: ", what, scl, if (hasci) base::sprintf(";  gray: %g%% interval", 100 * x$ci.level) else "",
-                      ";  red x: estimate", if (hasci) ";  shaded: interval excludes 0" else "")
+  leg <- legtxt(if (!base::is.na(cc[["range"]])) base::paste0(nm.rng("thick line"), ": ", what, scl),
+                if (hasci && !base::is.na(cc[["interval"]]))
+                  base::sprintf("%s: %g%% interval",
+                                if (base::nzchar(cw[["interval"]])) cw[["interval"]] else "thin line", 100 * x$ci.level),
+                if (!base::is.na(cc[["estimate"]])) base::paste0(nm.est("x"), ": estimate"),
+                if (hasci && !base::is.na(cc[["shade"]])) "shaded: interval excludes 0")
   graphics::mtext(leg, side = 1, outer = TRUE, line = 0.6, cex = 0.7)
   base::invisible(x)
+}
+
+## colours of plot.nmfkc.ident(): the defaults, the caller's overrides, and the word
+## naming each colour in the legend ("" for a colour without a name, e.g. "#1f77b4")
+.nid.plot.col <- function(col) {
+  def <- base::c(range = "black", estimate = "red3", interval = "gray55", shade = "gray90")
+  word <- base::c(range = "black", estimate = "red", interval = "gray", shade = "")
+  if (base::is.null(col)) return(base::list(col = def, word = word))
+  nm <- base::names(col)
+  if (!base::is.atomic(col) || base::is.null(nm) || base::anyNA(nm) || !base::all(nm %in% base::names(def)) ||
+      base::anyDuplicated(nm))
+    stop("col must be a named vector with names among \"range\", \"estimate\", \"interval\" and \"shade\"")
+  col <- base::as.character(col); base::names(col) <- nm
+  ok <- base::vapply(col, function(v) base::is.na(v) ||
+                       !base::inherits(base::try(grDevices::col2rgb(v), silent = TRUE), "try-error"), TRUE)
+  if (!base::all(ok)) stop("col: not a colour: ", base::paste(col[!ok], collapse = ", "))
+  for (k in nm) if (!base::identical(col[[k]], def[[k]]))
+    word[[k]] <- if (!base::is.na(col[[k]]) && col[[k]] %in% grDevices::colors()) base::sub("[0-9]+$", "", col[[k]]) else ""
+  def[nm] <- col
+  base::list(col = def, word = word)
 }
