@@ -264,6 +264,7 @@ summary(id2)
 plot(id2)
 plot(id2, type = "X")
 plot(id2, col = c(estimate = "blue", shade = NA))  # colours; NA leaves a part out
+plot(id2, type = "X", cex = c(estimate = 0.5), lwd = c(range = 2))  # sizes, widths
 }
 }
 \references{

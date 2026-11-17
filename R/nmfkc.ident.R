@@ -282,6 +282,7 @@
 #' plot(id2)
 #' plot(id2, type = "X")
 #' plot(id2, col = c(estimate = "blue", shade = NA))  # colours; NA leaves a part out
+#' plot(id2, type = "X", cex = c(estimate = 0.5), lwd = c(range = 2))  # sizes, widths
 #' }
 nmfkc.ident <- function(object, Y = NULL, A = NULL, ...) {
   if (!inherits(object, "nmfkc")) stop("object must be of class 'nmfkc'")
@@ -1131,7 +1132,8 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 #' }
 #' The estimate is the repaired fit when the region was computed, otherwise
 #' the fitted matrices. The colours named above are the defaults; \code{col}
-#' changes them.
+#' changes them, and \code{cex} and \code{lwd} the sizes of the marks and the
+#' widths of the lines.
 #' @param x An object of class \code{"nmfkc.ident"}.
 #' @param type \code{"C"}, \code{"X"}, \code{"B"}, \code{"C.prob"} or
 #'   \code{"B.prob"}. Default: \code{"C"} when \eqn{C} has at most 12
@@ -1154,14 +1156,32 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 #'   default, and \code{NA} leaves that part out. The legend below the plot
 #'   names a colour given by name (e.g. "blue cross: estimate") and
 #'   otherwise only the mark (e.g. "cross: estimate" for \code{"#1f77b4"}).
+#' @param cex Sizes of the marks, as a named vector with any of
+#'   \code{estimate} (the estimate marks) and \code{range} (the dot drawn
+#'   when a range is a single point; types \code{"C"} and \code{"X"}), e.g.
+#'   \code{cex = c(estimate = 0.5)}. Defaults: \code{estimate} 1.6
+#'   (\code{"C"}), 0.9 (\code{"X"}), 0.5 (\code{"B"}); \code{range} 0.8
+#'   (\code{"C"}), 0.45 (\code{"X"}).
+#' @param lwd Line widths, as a named vector with any of \code{range} (the
+#'   range lines), \code{interval} (the profile-likelihood intervals of
+#'   \code{type = "C"}) and \code{estimate} (the strokes of the estimate
+#'   crosses; types \code{"C"} and \code{"X"}), e.g.
+#'   \code{lwd = c(range = 2)}. Defaults: \code{range} 6 (\code{"C"}), 4
+#'   (\code{"X"}), \code{par("lwd")} (\code{"B"}); \code{interval} 2.5;
+#'   \code{estimate} 2 (\code{"C"}), 1.5 (\code{"X"}). For \code{col},
+#'   \code{cex} and \code{lwd}, elements not given keep their default and
+#'   elements that do not apply to the type are ignored.
 #' @param ... Not used.
 #' @return \code{x}, invisibly. For \code{type = "B"} the graphical
 #'   parameters are left as set, with the last strip active, so that
 #'   \code{axis(1, ...)} can relabel the horizontal axis afterwards.
 #' @seealso \code{\link{nmfkc.ident}}, \code{\link{summary.nmfkc.ident}}
 #' @export
-plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NULL, col = NULL, ...) {
+plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NULL, col = NULL,
+                             cex = NULL, lwd = NULL, ...) {
   pc <- .nid.plot.col(col); cc <- pc$col; cw <- pc$word
+  ucex <- .nid.plot.size(cex, "cex", base::c("range", "estimate"))
+  ulwd <- .nid.plot.size(lwd, "lwd", base::c("range", "interval", "estimate"))
   ## legend words: the colour's name if it has one, otherwise the mark alone
   nm.rng <- function(noun) if (base::nzchar(cw[["range"]])) cw[["range"]] else noun
   nm.est <- function(noun) base::paste(base::c(if (base::nzchar(cw[["estimate"]])) cw[["estimate"]], noun), collapse = " ")
@@ -1178,6 +1198,14 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
   if (base::is.null(type)) type <- if (R <= 12) "C" else "B"
   type <- base::match.arg(type, c("C", "X", "B", "C.prob", "B.prob"))
   prob <- type %in% c("C.prob", "B.prob"); type <- base::sub(".prob", "", type, fixed = TRUE)
+  ## mark sizes and line widths of this type (NA: not drawn in it), with the caller's values
+  sz <- base::switch(type,
+    C = base::list(cex = base::c(range = 0.8, estimate = 1.6), lwd = base::c(range = 6, interval = 2.5, estimate = 2)),
+    X = base::list(cex = base::c(range = 0.45, estimate = 0.9), lwd = base::c(range = 4, interval = NA, estimate = 1.5)),
+    B = base::list(cex = base::c(range = NA, estimate = 0.5),
+                   lwd = base::c(range = graphics::par("lwd"), interval = NA, estimate = NA)))
+  cx <- sz$cex; cx[base::names(ucex)] <- ucex
+  lw <- sz$lwd; lw[base::names(ulwd)] <- ulwd
   bn <- base::rownames(x$C); if (base::is.null(bn)) bn <- base::paste0("Basis", base::seq_len(Q))
   sel <- if (base::is.null(bases)) {
     if (type == "B") {
@@ -1216,11 +1244,11 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
                      las = 1, cex.axis = 0.6)
       w <- Xu[, q] - Xl[, q]; pt <- w < 1e-6 * base::max(Xu)
       if (!base::is.na(cc[["range"]])) {
-        graphics::segments(Xl[!pt, q], yy[!pt], Xu[!pt, q], yy[!pt], lwd = 4, lend = 1, col = cc[["range"]])
-        graphics::points(Xl[pt, q], yy[pt], pch = 19, cex = 0.45, col = cc[["range"]])
+        graphics::segments(Xl[!pt, q], yy[!pt], Xu[!pt, q], yy[!pt], lwd = lw[["range"]], lend = 1, col = cc[["range"]])
+        graphics::points(Xl[pt, q], yy[pt], pch = 19, cex = cx[["range"]], col = cc[["range"]])
       }
       if (!base::is.na(cc[["estimate"]]))
-        graphics::points(x$X[, q], yy, pch = 4, col = cc[["estimate"]], cex = 0.9, lwd = 1.5)
+        graphics::points(x$X[, q], yy, pch = 4, col = cc[["estimate"]], cex = cx[["estimate"]], lwd = lw[["estimate"]])
     }
     graphics::mtext(legtxt(if (!base::is.na(cc[["range"]]))
                              base::paste0(nm.rng("lines"), ": ", what, " of X (a dot: a single point)"),
@@ -1238,8 +1266,8 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
       q <- sel[i]
       graphics::plot(at, Cv[q, ], type = "n", xaxt = "n", las = 1, ylab = bn[q], xlab = "",
                      ylim = if (prob) base::c(0, 1) else base::range(Cl[q, ], Cu[q, ], Cv[q, ]))
-      if (!base::is.na(cc[["range"]])) graphics::segments(at, Cl[q, ], at, Cu[q, ], col = cc[["range"]])
-      if (!base::is.na(cc[["estimate"]])) graphics::points(at, Cv[q, ], pch = 16, cex = 0.5, col = cc[["estimate"]])
+      if (!base::is.na(cc[["range"]])) graphics::segments(at, Cl[q, ], at, Cu[q, ], col = cc[["range"]], lwd = lw[["range"]])
+      if (!base::is.na(cc[["estimate"]])) graphics::points(at, Cv[q, ], pch = 16, cex = cx[["estimate"]], col = cc[["estimate"]])
       if (!base::is.null(panel)) panel(q)
       if (i == base::length(sel) && draw.axis) graphics::axis(1)
     }
@@ -1264,12 +1292,14 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
       graphics::rect(-xmax, 0, 2 * xmax, 2, col = cc[["shade"]], border = NA)
     if (hasci && !base::is.na(cc[["interval"]]))
       graphics::segments(x$C.ci.lower[q, k], 1, base::min(x$C.ci.upper[q, k], 2 * xmax), 1,
-                         lwd = 2.5, col = cc[["interval"]], lend = 1)
+                         lwd = lw[["interval"]], col = cc[["interval"]], lend = 1)
     if (!base::is.na(cc[["range"]])) {
-      graphics::segments(Cl[q, k], 1, Cu[q, k], 1, lwd = 6, lend = 1, col = cc[["range"]])
-      if (Cu[q, k] - Cl[q, k] < 1e-9 * xmax) graphics::points(Cl[q, k], 1, pch = 19, cex = 0.8, col = cc[["range"]])
+      graphics::segments(Cl[q, k], 1, Cu[q, k], 1, lwd = lw[["range"]], lend = 1, col = cc[["range"]])
+      if (Cu[q, k] - Cl[q, k] < 1e-9 * xmax)
+        graphics::points(Cl[q, k], 1, pch = 19, cex = cx[["range"]], col = cc[["range"]])
     }
-    if (!base::is.na(cc[["estimate"]])) graphics::points(Cv[q, k], 1, pch = 4, col = cc[["estimate"]], cex = 1.6, lwd = 2)
+    if (!base::is.na(cc[["estimate"]]))
+      graphics::points(Cv[q, k], 1, pch = 4, col = cc[["estimate"]], cex = cx[["estimate"]], lwd = lw[["estimate"]])
     graphics::axis(1, labels = i == nq, cex.axis = 0.75)
     if (k == 1) graphics::mtext(bn[q], side = 2, line = 0.5, las = 1, adj = 1, cex = 0.7)
     if (i == 1) graphics::mtext(base::colnames(x$C)[k], side = 3, line = 0.2, cex = 0.75)
@@ -1303,4 +1333,17 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
     word[[k]] <- if (!base::is.na(col[[k]]) && col[[k]] %in% grDevices::colors()) base::sub("[0-9]+$", "", col[[k]]) else ""
   def[nm] <- col
   base::list(col = def, word = word)
+}
+
+## mark sizes (cex) or line widths (lwd) of plot.nmfkc.ident(): a named vector of
+## positive numbers over `allowed`; the defaults depend on the type and are set there
+.nid.plot.size <- function(v, arg, allowed) {
+  if (base::is.null(v)) return(base::numeric(0))
+  nm <- base::names(v)
+  if (!base::is.numeric(v) || base::is.null(nm) || base::anyNA(nm) || !base::all(nm %in% allowed) ||
+      base::anyDuplicated(nm))
+    stop(base::sprintf("%s must be a named numeric vector with names among %s", arg,
+                       base::paste0("\"", allowed, "\"", collapse = ", ")))
+  if (base::any(!base::is.finite(v) | v <= 0)) stop(base::sprintf("%s must be positive", arg))
+  v
 }

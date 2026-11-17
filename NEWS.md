@@ -109,6 +109,13 @@ New arguments:
   `shade = NA` for no shading). The legend names a colour given by name
   ("blue cross: estimate") and otherwise only the mark ("cross: estimate").
   Without `col` the figures are the same as before.
+- `cex` and `lwd`: the sizes of the marks and the widths of the lines, in the
+  same form, e.g. `cex = c(estimate = 0.5)` or `lwd = c(range = 2)`. `cex`
+  takes `estimate` and `range` (the dot of a single-point range), `lwd`
+  takes `range`, `interval` and `estimate` (the strokes of the crosses). The
+  defaults depend on the type (e.g. the estimate cross is 1.6 in `"C"` and
+  0.9 in `"X"`) and are kept for the elements not given; elements that do
+  not apply to the type are ignored.
 
 The figures for a computed identification region are drawn as before, with
 "estimate" for "repaired estimate" in the legend.

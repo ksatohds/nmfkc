@@ -158,7 +158,8 @@ test_that("plot(col = ): the colours reach the drawing, NA leaves a part out, ba
   ops <- function(...) {
     f <- tempfile(fileext = ".pdf"); grDevices::pdf(f, compress = FALSE)
     plot(id, ...); grDevices::dev.off()
-    on.exit(unlink(f)); readLines(f, warn = FALSE)
+    on.exit(unlink(f)); txt <- readLines(f, warn = FALSE)
+    txt[!grepl("CreationDate|ModDate", txt, useBytes = TRUE)]
   }
   has <- function(txt, s) any(grepl(s, txt, fixed = TRUE, useBytes = TRUE))   # the PDF has binary lines
   blue <- "0.000 0.000 1.000 "; red3 <- "0.804 0.000 0.000 "
@@ -177,4 +178,23 @@ test_that("plot(col = ): the colours reach the drawing, NA leaves a part out, ba
   expect_error(plot(id, col = "blue"), "named vector")
   expect_error(plot(id, col = c(colour = "blue")), "named vector")
   expect_error(plot(id, col = c(estimate = "nocolour")), "not a colour")
+  ## cex and lwd: the defaults given explicitly change nothing, other values do;
+  ## a line width lwd is written as "0.75 * lwd w"
+  expect_identical(ops(type = "C", cex = c(estimate = 1.6, range = 0.8), lwd = c(range = 6, interval = 2.5, estimate = 2)), d)
+  expect_identical(ops(type = "X", cex = c(estimate = 0.9, range = 0.45), lwd = c(range = 4, estimate = 1.5)),
+                   ops(type = "X"))
+  expect_identical(ops(type = "B", cex = c(estimate = 0.5)), ops(type = "B"))
+  for (tp in c("C", "X", "B"))
+    expect_false(identical(ops(type = tp, cex = c(estimate = 3)), ops(type = tp)))
+  expect_false(identical(ops(type = "X", lwd = c(estimate = 4)), ops(type = "X")))
+  expect_false(has(d, "7.50 w"))
+  expect_true(has(ops(type = "C", lwd = c(range = 10)), "7.50 w"))
+  expect_true(has(ops(type = "C", lwd = c(interval = 10)), "7.50 w"))
+  expect_true(has(ops(type = "X", lwd = c(estimate = 10)), "7.50 w"))   # (the X ranges of id are points)
+  expect_true(has(ops(type = "B", lwd = c(range = 10)), "7.50 w"))
+  expect_identical(ops(type = "X", lwd = c(interval = 9)), ops(type = "X"))   # not drawn in "X": ignored
+  expect_error(plot(id, cex = 0.5), "named numeric vector")
+  expect_error(plot(id, cex = c(interval = 1)), "named numeric vector")
+  expect_error(plot(id, lwd = c(range = "2")), "named numeric vector")
+  expect_error(plot(id, lwd = c(range = 0)), "positive")
 })

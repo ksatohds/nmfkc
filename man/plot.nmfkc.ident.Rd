@@ -4,7 +4,17 @@
 \alias{plot.nmfkc.ident}
 \title{Plot the identification region and intervals of an nmfkc.ident object}
 \usage{
-\method{plot}{nmfkc.ident}(x, type = NULL, bases = NULL, at = NULL, panel = NULL, col = NULL, ...)
+\method{plot}{nmfkc.ident}(
+  x,
+  type = NULL,
+  bases = NULL,
+  at = NULL,
+  panel = NULL,
+  col = NULL,
+  cex = NULL,
+  lwd = NULL,
+  ...
+)
 }
 \arguments{
 \item{x}{An object of class \code{"nmfkc.ident"}.}
@@ -34,6 +44,23 @@ interval excludes 0; \code{"gray90"}), e.g.
 default, and \code{NA} leaves that part out. The legend below the plot
 names a colour given by name (e.g. "blue cross: estimate") and
 otherwise only the mark (e.g. "cross: estimate" for \code{"#1f77b4"}).}
+
+\item{cex}{Sizes of the marks, as a named vector with any of
+\code{estimate} (the estimate marks) and \code{range} (the dot drawn
+when a range is a single point; types \code{"C"} and \code{"X"}), e.g.
+\code{cex = c(estimate = 0.5)}. Defaults: \code{estimate} 1.6
+(\code{"C"}), 0.9 (\code{"X"}), 0.5 (\code{"B"}); \code{range} 0.8
+(\code{"C"}), 0.45 (\code{"X"}).}
+
+\item{lwd}{Line widths, as a named vector with any of \code{range} (the
+range lines), \code{interval} (the profile-likelihood intervals of
+\code{type = "C"}) and \code{estimate} (the strokes of the estimate
+crosses; types \code{"C"} and \code{"X"}), e.g.
+\code{lwd = c(range = 2)}. Defaults: \code{range} 6 (\code{"C"}), 4
+(\code{"X"}), \code{par("lwd")} (\code{"B"}); \code{interval} 2.5;
+\code{estimate} 2 (\code{"C"}), 1.5 (\code{"X"}). For \code{col},
+\code{cex} and \code{lwd}, elements not given keep their default and
+elements that do not apply to the type are ignored.}
 
 \item{...}{Not used.}
 }
@@ -76,7 +103,8 @@ under a remixing, so its row shares do not rescale.
 }
 The estimate is the repaired fit when the region was computed, otherwise
 the fitted matrices. The colours named above are the defaults; \code{col}
-changes them.
+changes them, and \code{cex} and \code{lwd} the sizes of the marks and the
+widths of the lines.
 }
 \seealso{
 \code{\link{nmfkc.ident}}, \code{\link{summary.nmfkc.ident}}
