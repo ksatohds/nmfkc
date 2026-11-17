@@ -13,6 +13,7 @@
   col = NULL,
   cex = NULL,
   lwd = NULL,
+  rows = NULL,
   ...
 )
 }
@@ -62,6 +63,10 @@ crosses; types \code{"C"} and \code{"X"}), e.g.
 \code{cex} and \code{lwd}, elements not given keep their default and
 elements that do not apply to the type are ignored.}
 
+\item{rows}{For \code{type = "X"}: rows of \eqn{X} to draw, by index or
+name, in the order given from the top (e.g. \code{rows = 1:30}).
+Default: all of them.}
+
 \item{...}{Not used.}
 }
 \value{
@@ -85,7 +90,9 @@ estimate (red cross). Panels whose interval excludes 0 are shaded.
 \item \code{type = "X"}: one panel per basis, the range of every row of
 \eqn{X} (black) and the estimate (red cross). The row names are
 written once, left of the first panel, so that many bases fit side by
-side on a page.
+side on a page; when they do not fit the height, every k-th row is
+named. Beyond 40 rows the row numbers are written at a few
+\code{pretty()} positions instead; \code{rows} draws a subset.
 \item \code{type = "B"}: one strip per basis, the columns of \eqn{C} along
 the horizontal axis (for a fit without covariates, \eqn{C = B} has one
 column per sample), the range of every entry (black line) and the

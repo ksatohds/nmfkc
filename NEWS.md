@@ -116,6 +116,17 @@ New arguments:
   defaults depend on the type (e.g. the estimate cross is 1.6 in `"C"` and
   0.9 in `"X"`) and are kept for the elements not given; elements that do
   not apply to the type are ignored.
+- `rows`: for `type = "X"`, the rows of `X` to draw, by index or name
+  (e.g. `rows = 1:30`).
+
+`type = "X"` with many rows: a tick used to be drawn at every row of every
+panel, which made a black band with many rows. Up to 40 rows the names are
+written as before, and when they do not fit the height of the panel only
+every k-th row is named and ticked. Beyond 40 rows the row numbers are
+written at a few `pretty()` positions (1, 20, 40, ...). Rows without names
+are now labelled with their numbers; the labels used to be the positions
+from the bottom, so the first row was labelled with the number of rows.
+Figures with at most 40 named rows that fit are the same as before.
 
 The figures for a computed identification region are drawn as before, with
 "estimate" for "repaired estimate" in the legend.

@@ -198,3 +198,35 @@ test_that("plot(col = ): the colours reach the drawing, NA leaves a part out, ba
   expect_error(plot(id, lwd = c(range = "2")), "named numeric vector")
   expect_error(plot(id, lwd = c(range = 0)), "positive")
 })
+
+test_that("plot(type = \"X\"): rows, thinned names, row numbers beyond 40 rows", {
+  set.seed(2)
+  Y <- matrix(runif(100 * 20), 100, 20); rownames(Y) <- paste0("r", 1:100)
+  fit <- nmfkc(Y, rank = 2, epsilon = 1e-6, verbose = FALSE)
+  id <- nmfkc.ident(fit, ident.n = 200)
+  ## the row labels written, from the top: "(label) Tj" in an uncompressed PDF (the x axis has
+  ## decimals); axis() writes them from the bottom
+  labs <- function(obj = id, height = 7, ...) {
+    f <- tempfile(fileext = ".pdf"); grDevices::pdf(f, height = height, compress = FALSE)
+    plot(obj, type = "X", ...); grDevices::dev.off(); on.exit(unlink(f))
+    txt <- readLines(f, warn = FALSE)
+    m <- regmatches(txt, regexpr("\\(r?[0-9]+\\) Tj", txt, useBytes = TRUE))
+    rev(gsub("^\\(|\\) Tj$", "", m))
+  }
+  ## 100 rows: no names, the row numbers at pretty() positions
+  l <- labs()
+  expect_false(any(grepl("^r", l)))
+  expect_identical(l, as.character(c(1, 20, 40, 60, 80, 100)))
+  ## 30 rows that fit: every name; on a low page every k-th row
+  expect_identical(labs(rows = 1:30), paste0("r", 1:30))
+  l <- labs(rows = 1:30, height = 2.5)
+  k <- as.integer(sub("r", "", l[2])) - 1
+  expect_gt(k, 1)
+  expect_identical(l, paste0("r", seq(1, 30, by = k)))
+  ## by name, in the order given from the top; rows without names get their numbers
+  expect_identical(labs(rows = c("r5", "r2", "r9")), c("r5", "r2", "r9"))
+  id0 <- id; rownames(id0$X) <- NULL
+  expect_identical(labs(id0, rows = 1:3), c("1", "2", "3"))
+  expect_error(plot(id, type = "X", rows = "nope"), "rows must")
+  expect_error(plot(id, type = "X", rows = 101), "rows must")
+})

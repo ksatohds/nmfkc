@@ -1119,7 +1119,9 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 #'   \item \code{type = "X"}: one panel per basis, the range of every row of
 #'     \eqn{X} (black) and the estimate (red cross). The row names are
 #'     written once, left of the first panel, so that many bases fit side by
-#'     side on a page.
+#'     side on a page; when they do not fit the height, every k-th row is
+#'     named. Beyond 40 rows the row numbers are written at a few
+#'     \code{pretty()} positions instead; \code{rows} draws a subset.
 #'   \item \code{type = "B"}: one strip per basis, the columns of \eqn{C} along
 #'     the horizontal axis (for a fit without covariates, \eqn{C = B} has one
 #'     column per sample), the range of every entry (black line) and the
@@ -1176,6 +1178,9 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 #'   \code{estimate} 2 (\code{"C"}), 1.5 (\code{"X"}). For \code{col},
 #'   \code{cex} and \code{lwd}, elements not given keep their default and
 #'   elements that do not apply to the type are ignored.
+#' @param rows For \code{type = "X"}: rows of \eqn{X} to draw, by index or
+#'   name, in the order given from the top (e.g. \code{rows = 1:30}).
+#'   Default: all of them.
 #' @param ... Not used.
 #' @return \code{x}, invisibly. For \code{type = "B"} the graphical
 #'   parameters are left as set, with the last strip active, so that
@@ -1183,7 +1188,7 @@ print.summary.nmfkc.ident <- function(x, digits = 4, ...) {
 #' @seealso \code{\link{nmfkc.ident}}, \code{\link{summary.nmfkc.ident}}
 #' @export
 plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NULL, col = NULL,
-                             cex = NULL, lwd = NULL, ...) {
+                             cex = NULL, lwd = NULL, rows = NULL, ...) {
   pc <- .nid.plot.col(col); cc <- pc$col; cw <- pc$word
   ucex <- .nid.plot.size(cex, "cex", base::c("range", "estimate"))
   ulwd <- .nid.plot.size(lwd, "lwd", base::c("range", "interval", "estimate"))
@@ -1223,6 +1228,14 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
   if (!base::length(sel) || base::anyNA(sel) || base::any(sel < 1 | sel > Q))
     stop("bases must name or index bases of the fit")
   sel <- base::as.integer(sel)
+  if (type == "X") {   # rows of X to draw (checked before the graphical parameters are touched)
+    rn <- base::rownames(x$X)
+    rr <- if (base::is.null(rows)) base::seq_len(base::nrow(x$X))
+          else if (base::is.character(rows)) base::match(rows, rn) else rows
+    if (!base::length(rr) || base::anyNA(rr) || base::any(rr < 1 | rr > base::nrow(x$X)))
+      stop("rows must name or index rows of X")
+    rr <- base::as.integer(rr)
+  }
   ## shares of the column sums of C (membership probabilities for B): the column sums
   ## do not change under a remixing (1'T^-1 = 1'), so the ranges scale exactly
   Cv <- x$C; scl <- ""
@@ -1234,26 +1247,40 @@ plot.nmfkc.ident <- function(x, type = NULL, bases = NULL, at = NULL, panel = NU
   op <- graphics::par(no.readonly = TRUE)
   if (type != "B") base::on.exit(graphics::par(op))
   if (type == "X") {
-    P <- base::nrow(x$X); yy <- base::rev(base::seq_len(P)); nq <- base::length(sel)
-    lab <- P <= 40   # row names are written once, left of the first panel, so that many bases fit
+    P <- base::length(rr); yy <- base::rev(base::seq_len(P)); nq <- base::length(sel)
+    rl <- if (base::is.null(rn)) base::as.character(rr) else rn[rr]
+    ## up to 40 rows the row names are written once, left of the first panel (thinned if they
+    ## do not fit its height); beyond, the row numbers at pretty() positions
+    lab <- P <= 40
     graphics::layout(base::matrix(base::seq_len(nq), 1),
-                     widths = base::c(if (lab) 1.6 else 1, base::rep(1, nq - 1)))
+                     widths = base::c(if (lab) 1.6 else 1.25, base::rep(1, nq - 1)))
     graphics::par(oma = base::c(1.5, 0, 0, 0), mgp = base::c(1.5, 0.4, 0), tcl = -0.25)
+    tk <- NULL   # rows with a tick (and a label in the first panel), set in the first panel
     for (i in base::seq_len(nq)) {
       q <- sel[i]
-      graphics::par(mar = base::c(2.5, if (i == 1 && lab) 4 else 0.5, 2, 0.5))
-      graphics::plot(NA, xlim = base::c(0, base::max(Xu[, sel]) * 1.05), ylim = base::c(0.5, P + 0.5),
+      graphics::par(mar = base::c(2.5, if (i == 1) (if (lab) 4 else 2.5) else 0.5, 2, 0.5))
+      graphics::plot(NA, xlim = base::c(0, base::max(Xu[rr, sel]) * 1.05), ylim = base::c(0.5, P + 0.5),
                      yaxt = "n", xlab = "", ylab = "", main = base::colnames(x$X)[q], cex.main = 0.9,
                      cex.axis = 0.75)
-      graphics::axis(2, at = yy, labels = if (i == 1 && lab) base::rownames(x$X) else FALSE,
+      if (base::is.null(tk)) tk <- if (lab) {
+        ## every k-th row when the names would overlap: rows are par("pin")[2] / P inches
+        ## apart, a name needs about 1.4 times the height of "M"
+        k <- base::max(1, base::ceiling(1.4 * graphics::strheight("M", units = "inches", cex = 0.6) /
+                                          (graphics::par("pin")[2] / P)))
+        base::seq(1, P, by = k)
+      } else {
+        pr <- base::pretty(base::c(1, P)); base::unique(base::c(1, pr[pr >= 1 & pr <= P]))
+      }
+      graphics::axis(2, at = yy[tk], labels = if (i > 1) FALSE else if (lab) rl[tk] else base::as.character(rr[tk]),
                      las = 1, cex.axis = 0.6)
-      w <- Xu[, q] - Xl[, q]; pt <- w < 1e-6 * base::max(Xu)
+      w <- Xu[rr, q] - Xl[rr, q]; pt <- w < 1e-6 * base::max(Xu)
       if (!base::is.na(cc[["range"]])) {
-        graphics::segments(Xl[!pt, q], yy[!pt], Xu[!pt, q], yy[!pt], lwd = lw[["range"]], lend = 1, col = cc[["range"]])
-        graphics::points(Xl[pt, q], yy[pt], pch = 19, cex = cx[["range"]], col = cc[["range"]])
+        graphics::segments(Xl[rr, q][!pt], yy[!pt], Xu[rr, q][!pt], yy[!pt], lwd = lw[["range"]], lend = 1,
+                           col = cc[["range"]])
+        graphics::points(Xl[rr, q][pt], yy[pt], pch = 19, cex = cx[["range"]], col = cc[["range"]])
       }
       if (!base::is.na(cc[["estimate"]]))
-        graphics::points(x$X[, q], yy, pch = 4, col = cc[["estimate"]], cex = cx[["estimate"]], lwd = lw[["estimate"]])
+        graphics::points(x$X[rr, q], yy, pch = 4, col = cc[["estimate"]], cex = cx[["estimate"]], lwd = lw[["estimate"]])
     }
     graphics::mtext(legtxt(if (!base::is.na(cc[["range"]]))
                              base::paste0(nm.rng("lines"), ": ", what, " of X (a dot: a single point)"),
