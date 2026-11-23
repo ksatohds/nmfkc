@@ -376,6 +376,18 @@ test_that("the coefficient table covers every entry of every G_d", {
   expect_true(all(ct$p_value >= 0 & ct$p_value <= 1))
   expect_true(any(ct$p_value > 0))
   expect_true(all(is.finite(ct$BSE) & ct$BSE >= 0))
+  ## one-sided by default (G >= 0); the two-sided p of the same replicates is
+  ## min(1, 2 min(p1, 1 - p1)), and nothing else changes
+  expect_identical(inf$G.p.side, "one.sided")
+  expect_output(print(inf), "one-sided")
+  two <- suppressWarnings(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 20, G.p.side = "two.sided"))
+  expect_identical(two$G.p.side, "two.sided")
+  p1 <- ct$p_value
+  expect_identical(two$coefficients$p_value, pmin(1, 2 * pmin(p1, 1 - p1)))
+  keep <- setdiff(names(inf), c("coefficients", "G.p.value", "G.p.side"))
+  expect_identical(two[keep], inf[keep])
+  expect_identical(two$coefficients[names(ct) != "p_value"], ct[names(ct) != "p_value"])
+  expect_error(nmfkc.ar.latent.inference(lat, a$Y, a$A, wild.B = 2, G.p.side = "left"))
 })
 
 test_that("a separable, column-normalised X does NOT certify uniqueness", {

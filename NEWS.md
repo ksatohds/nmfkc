@@ -1,5 +1,20 @@
 # nmfkc (development version)
 
+## `nmfkc.ar.latent.inference()`: one-sided p-values for the entries of `G_d` by default
+
+New option `G.p.side = "one.sided"` (default) or `"two.sided"`, as `C.p.side`
+of `nmfkc.inference()`. Up to 1.0.6 only the two-sided p was reported. The
+default is now one-sided because `G_d = Theta_d X >= 0`, so `H0: G = 0` has
+only the alternative `G > 0`. The two-sided
+`min(1, 2 min(p1, 1 - p1))`, with `p1 = P*(G* >= 2 G)`, also uses the lower
+tail `1 - p1`, which is about `G < 0`. At the boundary the replicates pile up
+above the estimate, so that tail is small and the two-sided p comes out small
+(0 for an estimate of exactly 0); in one data set a coefficient estimated at
+1e-43 had a one-sided p of 0.83 and a two-sided p of 0.34 (the same formula in
+`nmfkc.inference()`). The two-sided p is kept for fits with negative entries. **The `G.p.value` of earlier results
+changes** unless `G.p.side = "two.sided"` is given; everything else is the
+same. `print()` names the side.
+
 ## `nmfkc.inference(method = "refit.basis")`: the basis re-estimated in every replicate
 
 `method = "refit"` holds the basis `X` fixed, so its intervals are

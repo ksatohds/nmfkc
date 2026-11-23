@@ -23,6 +23,9 @@ consecutive time points, \code{n} the number of time points) or
 \code{"element"} (one per cell).}
 \item{\code{wild.level}}{Confidence level.  Default 0.95.}
 \item{\code{wild.seed}}{Seed for the bootstrap.  Default 123.}
+\item{\code{G.p.side}}{\code{"one.sided"} (default) or
+\code{"two.sided"} p-values for the entries of \eqn{G_d} (see
+Details; two-sided up to 1.0.6).}
 \item{\code{fit}}{The fitted \code{"nmfkc"} object.  Only needed when
 \code{object} does not carry \code{X} / \code{Theta}.}
 \item{\code{truncate}}{Logical; clip \eqn{Y^\ast} at 0 (default
@@ -64,6 +67,8 @@ with columns \code{Lag}, \code{Basis} (effect at \eqn{t}),
 \code{identified.approx}.}
 \item{G, G.se, G.ci.lower, G.ci.upper, G.p.value}{The same quantities as
 lists of \eqn{Q\times Q} matrices, one per lag.}
+\item{G.p.side}{\code{"one.sided"} or \code{"two.sided"}: the p-values
+above.}
 \item{spectral.radius}{The radius of the \eqn{DQ\times DQ} latent companion
 matrix --- the same quantity \code{\link{nmfkc.ar.latent}} reports, not
 \eqn{\rho(\sum_d G_d)}, which differs when \eqn{D>1}.  With
@@ -220,8 +225,15 @@ lagged design itself stays fixed (see below).
 \strong{Bootstrap p-values invert the centred distribution.}  Every replicate
 of a non-negative coefficient is \eqn{\ge 0}, so comparing the raw replicates
 with zero would return \eqn{p = 0} for every entry.  The reported
-\code{G.p.value} is the basic-bootstrap two-sided \eqn{p} obtained from
-\eqn{P^\ast(\hat G^\ast \ge 2\hat G)}.
+\code{G.p.value} is the basic-bootstrap \eqn{p}, \eqn{p_1 =
+P^\ast(\hat G^\ast \ge 2\hat G)} for \eqn{H_0: G = 0}.  It is one-sided by
+default (\code{G.p.side = "one.sided"}): \eqn{G_d = \Theta_d X \ge 0}, so
+the only alternative is \eqn{G > 0}.  The two-sided
+\eqn{\min(1, 2\min(p_1, 1-p_1))} (the only one up to 1.0.6) also uses the
+lower tail \eqn{1 - p_1}, which is about \eqn{G < 0}; at the boundary, where
+the replicates pile up above the estimate, that tail is small and the
+two-sided \eqn{p} comes out small (0 for an estimate of exactly 0).  It is
+kept for fits with negative entries.
 
 \strong{Resampling scheme.}  With \eqn{\hat Y = X\Theta A} and residuals
 \eqn{E=Y-\hat Y}, each replicate forms \eqn{Y^\ast=\hat Y+E\odot W} and

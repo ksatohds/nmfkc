@@ -1687,8 +1687,15 @@ plot.nmfkc.ar.latent <- function(x,
 #' \strong{Bootstrap p-values invert the centred distribution.}  Every replicate
 #' of a non-negative coefficient is \eqn{\ge 0}, so comparing the raw replicates
 #' with zero would return \eqn{p = 0} for every entry.  The reported
-#' \code{G.p.value} is the basic-bootstrap two-sided \eqn{p} obtained from
-#' \eqn{P^\ast(\hat G^\ast \ge 2\hat G)}.
+#' \code{G.p.value} is the basic-bootstrap \eqn{p}, \eqn{p_1 =
+#' P^\ast(\hat G^\ast \ge 2\hat G)} for \eqn{H_0: G = 0}.  It is one-sided by
+#' default (\code{G.p.side = "one.sided"}): \eqn{G_d = \Theta_d X \ge 0}, so
+#' the only alternative is \eqn{G > 0}.  The two-sided
+#' \eqn{\min(1, 2\min(p_1, 1-p_1))} (the only one up to 1.0.6) also uses the
+#' lower tail \eqn{1 - p_1}, which is about \eqn{G < 0}; at the boundary, where
+#' the replicates pile up above the estimate, that tail is small and the
+#' two-sided \eqn{p} comes out small (0 for an estimate of exactly 0).  It is
+#' kept for fits with negative entries.
 #'
 #' \strong{Resampling scheme.}  With \eqn{\hat Y = X\Theta A} and residuals
 #' \eqn{E=Y-\hat Y}, each replicate forms \eqn{Y^\ast=\hat Y+E\odot W} and
@@ -1737,6 +1744,9 @@ plot.nmfkc.ar.latent <- function(x,
 #'       \code{"element"} (one per cell).}
 #'     \item{\code{wild.level}}{Confidence level.  Default 0.95.}
 #'     \item{\code{wild.seed}}{Seed for the bootstrap.  Default 123.}
+#'     \item{\code{G.p.side}}{\code{"one.sided"} (default) or
+#'       \code{"two.sided"} p-values for the entries of \eqn{G_d} (see
+#'       Details; two-sided up to 1.0.6).}
 #'     \item{\code{fit}}{The fitted \code{"nmfkc"} object.  Only needed when
 #'       \code{object} does not carry \code{X} / \code{Theta}.}
 #'     \item{\code{truncate}}{Logical; clip \eqn{Y^\ast} at 0 (default
@@ -1776,6 +1786,8 @@ plot.nmfkc.ar.latent <- function(x,
 #'   \code{identified.approx}.}
 #' \item{G, G.se, G.ci.lower, G.ci.upper, G.p.value}{The same quantities as
 #'   lists of \eqn{Q\times Q} matrices, one per lag.}
+#' \item{G.p.side}{\code{"one.sided"} or \code{"two.sided"}: the p-values
+#'   above.}
 #' \item{spectral.radius}{The radius of the \eqn{DQ\times DQ} latent companion
 #'   matrix --- the same quantity \code{\link{nmfkc.ar.latent}} reports, not
 #'   \eqn{\rho(\sum_d G_d)}, which differs when \eqn{D>1}.  With
@@ -1847,6 +1859,8 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
                   match.arg(ex$wild.unit, c("column", "element", "block")) else "column"
   wild.level <- if (!is.null(ex$wild.level)) ex$wild.level else 0.95
   wild.seed  <- if (!is.null(ex$wild.seed))  ex$wild.seed  else 123
+  G.p.side   <- if (!is.null(ex$G.p.side))
+                  match.arg(ex$G.p.side, c("one.sided", "two.sided")) else "one.sided"
   truncate   <- if (!is.null(ex$truncate))   ex$truncate   else TRUE
   epsilon    <- if (!is.null(ex$epsilon))    ex$epsilon    else 1e-8
   maxit      <- if (!is.null(ex$maxit))      ex$maxit      else 20000L
@@ -2096,11 +2110,17 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
   g0     <- base::as.numeric(Gd0)
   G.se   <- base::apply(G.b, 2, function(v) stats::sd(v[base::is.finite(v)]))
   G.ci   <- base::apply(G.b, 2, qci)
+  ## One-sided by default: G_d = Theta_d X >= 0, so H0: G = 0 has only the
+  ## alternative G > 0.  The two-sided p also uses the lower tail 1 - p1, which
+  ## is about G < 0; at the boundary, where the replicates pile up above the
+  ## estimate, that tail is small and the two-sided p comes out small (0 for an
+  ## estimate of exactly 0).  It is kept for fits with negative entries.
   G.p    <- base::vapply(base::seq_along(g0), function(i) {
     v <- G.b[, i]; v <- v[base::is.finite(v)]
     if (!base::length(v)) return(NA_real_)
-    base::min(1, 2 * base::min(base::mean(v >= 2 * g0[i]),
-                               1 - base::mean(v >= 2 * g0[i])))
+    p1 <- base::mean(v >= 2 * g0[i])
+    if (G.p.side == "one.sided") base::min(1, p1)
+    else base::min(1, 2 * base::min(p1, 1 - p1))
   }, base::numeric(1))
 
   lab  <- base::colnames(Gd0)[base::seq_len(Q)]
@@ -2128,7 +2148,7 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
     coefficients = coefficients,
     G = spl(g0), G.se = spl(G.se),
     G.ci.lower = spl(G.ci[1L, ]), G.ci.upper = spl(G.ci[2L, ]),
-    G.p.value = spl(G.p),
+    G.p.value = spl(G.p), G.p.side = G.p.side,
     identified.approx = identified.approx, identification = ident,
     refit.args = refit.args,
     spectral.radius           = rho0,
@@ -2179,7 +2199,10 @@ print.nmfkc.ar.latent.inference <- function(x, digits = 4, ...) {
     cat("\n", nm, ":\n", sep = "")
     print(round(x$G[[nm]], 3))
     cat("SE:\n"); print(round(x$G.se[[nm]], 3))
-    cat("p-value:\n"); print(round(x$G.p.value[[nm]], 3))
+    cat(if (is.null(x$G.p.side)) "p-value:\n"     # objects made before G.p.side (two-sided)
+        else if (x$G.p.side == "one.sided") "p-value (one-sided, H0: G = 0 against G > 0):\n"
+        else "p-value (two-sided):\n")
+    print(round(x$G.p.value[[nm]], 3))
   }
   cat(sprintf("\nrho(G) = %.*f   SE = %.*f   %g%% CI = [%.*f, %.*f]\n",
               digits, x$spectral.radius, digits, x$spectral.radius.se,
