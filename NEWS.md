@@ -1,5 +1,36 @@
 # nmfkc (development version)
 
+## `nmfkc.inference(method = "refit.basis")`: the basis re-estimated in every replicate
+
+`method = "refit"` holds the basis `X` fixed, so its intervals are
+conditional on `X`. The new `method = "refit.basis"` draws the same
+replicates (the same multipliers, `wild.unit`, `wild.dist`) and re-fits the
+whole model in each of them with the estimator of the original fit, so the
+uncertainty of `X` enters the intervals of `C`.
+
+- The bases of a replicate are matched to the original ones by the
+  permutation that brings its `X` closest in squared distance (all
+  permutations up to six bases, greedily beyond), as in
+  `nmfkc.ar.latent.inference()`. The matching is now one internal function
+  shared by the two.
+- SE, percentile CI and the basic-bootstrap p-value `P*(c* >= 2 c)` are formed
+  as under `"refit"` (`C.p.side` one- or two-sided).
+- A permutation is all that is undone. When the factorization is not unique
+  up to a permutation (`identified.approx = FALSE`) a warning says that the
+  intervals of `C` are descriptive.
+- The re-fits take `method` and `X.restriction` from the fit. Other
+  arguments of its call (`X.init`, penalties, ...) are passed through
+  `refit.args`; a warning names those seen in the call but not passed (the
+  rule of `nmfkc.ar.latent.inference()`, now shared).
+- `refit.info` reports failed re-fits, the share of `Y*` clipped at 0 and how
+  often each permutation matched the bases.
+
+New option `cores` for `"refit"` and `"refit.basis"`: the re-fits run in
+parallel. The multipliers are drawn first, in the order of the sequential
+loop, so the draws do not depend on `cores`. With one core the code path is
+the one of before, and `"onestep"`, `"refit"` and
+`nmfkc.ar.latent.inference()` give the same results as before.
+
 ## New `nmfkc.net.consensus()`: consensus clustering of the nodes of a network fit
 
 `nmfkc.net.consensus(Y, rank, type, nrun, keep.consensus, ...)` is the

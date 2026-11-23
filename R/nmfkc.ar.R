@@ -1858,28 +1858,14 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
   ## bootstrap describes a different one.  What nmfkc() records (method,
   ## X.restriction) is carried on the object and reused; anything else the
   ## original call set must be supplied here.
-  refit.args <- object$fit.args
-  refit.args <- refit.args[!vapply(refit.args, is.null, logical(1))]
-  if (!is.null(ex$refit.args)) refit.args[names(ex$refit.args)] <- ex$refit.args
+  ra <- .refit.args.collect(object$fit.args, object$call, ex$refit.args)
+  refit.args <- ra$args
   ## Warn about non-default settings in the original call that we cannot see.
-  if (!is.null(object$call)) {
-    ## Arguments that cannot change the estimator (labels and reporting) plus the
-    ## ones we set or inherit ourselves.
-    seen <- c("Y", "A", "rank", "data", "epsilon", "maxit", "verbose",
-              "prefix", "print.trace", "detail", "", names(refit.args))
-    cl <- as.list(object$call)
-    ## A literal seed can be inherited outright; anything else has to be passed.
-    if (!is.null(cl$seed) && is.numeric(cl$seed) && is.null(refit.args$seed)) {
-      refit.args$seed <- cl$seed
-      seen <- c(seen, "seed")
-    }
-    unseen <- setdiff(names(cl)[-1], seen)
-    if (length(unseen))
-      warning("The original fit was called with ", paste(unseen, collapse = ", "),
-              ", which the bootstrap re-fits cannot reproduce automatically. ",
-              "Pass them through refit.args= so the replicates use the same ",
-              "estimator.")
-  }
+  if (length(ra$unseen))
+    warning("The original fit was called with ", paste(ra$unseen, collapse = ", "),
+            ", which the bootstrap re-fits cannot reproduce automatically. ",
+            "Pass them through refit.args= so the replicates use the same ",
+            "estimator.")
   ## Keep our own seeding out of the caller's random stream.
   .rng <- .nmfkc.rng.save(wild.seed)
   on.exit(.nmfkc.rng.restore(.rng), add = TRUE)
@@ -2009,22 +1995,8 @@ nmfkc.ar.latent.inference <- function(object, Y, A, ...) {
   ## G_d and p* are invariant only up to the ordering of the bases, so each
   ## replicate is matched to the original X first (rho and mu.y need no such
   ## alignment).
-  perms <- if (Q <= 6)
-    do.call(rbind, lapply(seq_len(factorial(Q)), function(i) .nmfvar.perm(Q, i)))
-  else NULL
-  align <- function(Xs) {
-    if (!is.null(perms)) {
-      d <- apply(perms, 1, function(p) sum((Xs[, p, drop = FALSE] - X)^2))
-      perms[which.min(d), ]
-    } else {
-      p <- integer(Q); avail <- seq_len(Q)
-      for (q in seq_len(Q)) {
-        d <- vapply(avail, function(j) sum((Xs[, j] - X[, q])^2), numeric(1))
-        p[q] <- avail[which.min(d)]; avail <- setdiff(avail, p[q])
-      }
-      p
-    }
-  }
+  perms <- .all.perms(Q)
+  align <- function(Xs) .align.bases(Xs, X, perms)
 
   Yhat <- X %*% Theta %*% A
   E    <- Y - Yhat

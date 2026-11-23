@@ -5289,7 +5289,8 @@ nmfkc.residual.plot <- function(Y, result,
 #' @description
 #' \code{nmfkc.inference} performs statistical inference on the parameter matrix
 #' \eqn{C} (\eqn{\Theta}) from a fitted \code{nmfkc} model, conditional on
-#' the estimated basis matrix \eqn{\hat{X}}.
+#' the estimated basis matrix \eqn{\hat{X}} (with \code{method = "refit.basis"},
+#' the basis is re-estimated in every bootstrap replicate instead).
 #'
 #' Under the working model \eqn{Y = X C A + \varepsilon} where
 #' \eqn{\varepsilon_{pn} \stackrel{iid}{\sim} N(0, \sigma^2)},
@@ -5315,13 +5316,43 @@ nmfkc.residual.plot <- function(Y, result,
 #'       \eqn{C} sits on the \eqn{\ge 0} boundary; the bootstrap SE/CI become
 #'       primary and the p-value is the basic-bootstrap p-value
 #'       \eqn{P^\ast(\hat c^\ast \ge 2\hat c)} from the replicates, one-sided
-#'       by default and two-sided with \code{C.p.side = "two.sided"}.}
+#'       by default and two-sided with \code{C.p.side = "two.sided"}.
+#'       \code{"refit.basis"}: the same residual wild bootstrap (the same
+#'       multipliers), but every replicate re-estimates the basis \eqn{X}
+#'       as well, with the estimator of the original fit, so the
+#'       uncertainty of \eqn{\hat X} enters the intervals.  The bases of a
+#'       replicate are matched to the original ones by the permutation that
+#'       brings its \eqn{X} closest in squared distance (all permutations up
+#'       to six bases, greedily beyond), as in
+#'       \code{\link{nmfkc.ar.latent.inference}}; SE, CI and p-value are then
+#'       formed as under \code{"refit"}.  A permutation is all that is
+#'       undone: when the factorization is not unique up to one
+#'       (\code{identified.approx = FALSE}, warned), a replicate may land on
+#'       another representative \eqn{(XT, T^{-1}C)} of its own fit, and the
+#'       intervals of \eqn{C} are descriptive.  The re-fits take
+#'       \code{method} and \code{X.restriction} from the fit; anything else
+#'       its call set (\code{X.init}, penalties, ...) must be passed in
+#'       \code{refit.args}, and a warning names what was seen in the call
+#'       but not passed.  They use \code{refit.epsilon} and
+#'       \code{refit.maxit}, so fit the original model as tightly.  The
+#'       replicates' failures, clipping and permutations are in
+#'       \code{refit.info}.}
+#'     \item{\code{refit.args}}{For \code{method = "refit.basis"}: named list
+#'       of further arguments of the re-fits, e.g.
+#'       \code{list(X.init = "nndsvd")} when the original fit was called with
+#'       it.}
+#'     \item{\code{cores}}{For \code{method = "refit"} and
+#'       \code{"refit.basis"}: number of workers for the re-fits, default
+#'       \code{getOption("mc.cores", 1L)}.  The multipliers are drawn before
+#'       the re-fits, in the same order, so the result does not depend on
+#'       \code{cores}.}
 #'     \item{\code{wild.dist}}{Multiplier distribution (orthogonal to
 #'       \code{method}): \code{"rademacher"} (\eqn{\pm 1}), \code{"mammen"}
 #'       (Mammen 1993 two-point), or \code{"exp"} (\eqn{\mathrm{Exp}(1)-1}).
 #'       Default \code{"exp"} for \code{method="onestep"} (backward
 #'       compatible), \code{"rademacher"} for \code{"refit"}.}
-#'     \item{\code{wild.unit}}{For \code{method="refit"}: \code{"column"}
+#'     \item{\code{wild.unit}}{For \code{method="refit"} and
+#'       \code{"refit.basis"}: \code{"column"}
 #'       (default since 1.0.2; one multiplier per sample column, shared over
 #'       rows), \code{"element"} (an i.i.d. multiplier per matrix cell; the
 #'       default up to 1.0.1) or \code{"block"} (one multiplier per block of
@@ -5376,14 +5407,23 @@ nmfkc.residual.plot <- function(Y, result,
 #'   \code{SE} is always the sandwich standard error and \code{BSE} always the
 #'   bootstrap one, so the two columns differ; \code{z_value} and \code{p_value}
 #'   use whichever is primary for the chosen \code{method} (bootstrap under
-#'   \code{"refit"}, sandwich under \code{"onestep"}).  \code{on.boundary} flags
+#'   \code{"refit"} and \code{"refit.basis"}, sandwich under \code{"onestep"}).  \code{on.boundary} flags
 #'   coefficients at or below \code{boundary.tol} (default \code{1e-3}): their
 #'   interval and p-value behave correctly in the "do not reject" direction, but
 #'   the value is not a calibrated p-value --- a one-sided bootstrap p piles up
 #'   near \eqn{1/2} at the boundary.}
 #' \item{C.p.side}{P-value type used.}
-#' \item{wild.unit}{Multiplier unit of the \code{method = "refit"} bootstrap
-#'   (\code{"column"}, \code{"element"} or \code{"block"}); \code{NA} otherwise.}
+#' \item{wild.unit}{Multiplier unit of the \code{method = "refit"} or
+#'   \code{"refit.basis"} bootstrap (\code{"column"}, \code{"element"} or
+#'   \code{"block"}); \code{NA} otherwise.}
+#' \item{C.boot.draws}{The \eqn{QK \times B} bootstrap draws of
+#'   \eqn{\mathrm{vec}(C)} (\code{NULL} without the bootstrap); under
+#'   \code{"refit.basis"} with the bases of every draw in the original order.}
+#' \item{refit.info}{\code{method = "refit.basis"} only: \code{n.fail}
+#'   (re-fits that failed), \code{truncate.rate} (share of \eqn{Y^\ast} clipped
+#'   at 0), \code{perm} (how often each permutation matched the bases;
+#'   \code{"1-2-3"} = kept in order) and \code{refit.args} (the arguments the
+#'   re-fits used).}
 #' \item{identified.approx}{Logical, an approximate diagnostic of whether the
 #'   factorization is unique up to a permutation of the bases.  The intervals
 #'   are conditional on \eqn{\hat X}; when this is \code{TRUE} they concern the
@@ -5430,10 +5470,13 @@ nmfkc.inference <- function(object, Y, A = NULL,
   C.p.side    <- if (!is.null(extra_args$C.p.side))    extra_args$C.p.side    else "one.sided"
   cov.ridge   <- if (!is.null(extra_args$cov.ridge))   extra_args$cov.ridge   else 1e-8
   print.trace <- if (!is.null(extra_args$print.trace)) extra_args$print.trace else FALSE
-  ## Bootstrap engine: "onestep" (Hinv-linearised; historical default) or
-  ## "refit" (X-fixed residual wild bootstrap; valid when AA' is singular).
+  ## Bootstrap engine: "onestep" (Hinv-linearised; historical default),
+  ## "refit" (X-fixed residual wild bootstrap; valid when AA' is singular) or
+  ## "refit.basis" (the same draws, the basis re-estimated in every replicate
+  ## and its bases matched to the original ones by permutation).
   method    <- if (!is.null(extra_args$method))
-                 base::match.arg(extra_args$method, c("onestep", "refit")) else "onestep"
+                 base::match.arg(extra_args$method, c("onestep", "refit", "refit.basis")) else "onestep"
+  refit.any <- method %in% c("refit", "refit.basis")
   wild.dist <- if (!is.null(extra_args$wild.dist))
                  base::match.arg(extra_args$wild.dist, c("rademacher", "mammen", "exp"))
                else if (method == "onestep") "exp" else "rademacher"
@@ -5456,10 +5499,15 @@ nmfkc.inference <- function(object, Y, A = NULL,
   sep.tol <- if (!is.null(extra_args$sep.tol)) extra_args$sep.tol else 0.999
   pin.tol <- if (!is.null(extra_args$pin.tol)) extra_args$pin.tol else 0.01
 
+  ## Workers for the re-fits of the "refit" / "refit.basis" bootstraps; the
+  ## result does not depend on it (see .boot.refit).
+  cores <- if (!is.null(extra_args$cores)) extra_args$cores else base::getOption("mc.cores", 1L)
+
   X <- object$X   # P x Q
   C_mat <- object$C   # Q x K (or Q x N if A is NULL)
 
   # If A is NULL, use identity (B = C)
+  A.arg <- A   # as given: the "refit.basis" re-fits are called like the original fit
   if (is.null(A)) A <- diag(ncol(Y))
 
   XB <- X %*% C_mat %*% A   # P x N  fitted values
@@ -5525,12 +5573,68 @@ nmfkc.inference <- function(object, Y, A = NULL,
   C.ci.upper <- NULL
   p.boot.vec <- NULL
   C_boot <- NULL
+  refit.info <- NULL
+
+  ## Is the factorization unique up to a permutation of the bases?  The
+  ## intervals below are conditional on X; when this passes they concern the
+  ## same C whichever admissible representative (X T, T^-1 C) is taken.  It
+  ## also needs A of full row rank (else C is not unique even given X) and a
+  ## fixed per-column scale of X.  An algebraic check on the point estimate
+  ## (see ?nmfkc.ar.latent.inference): no re-fits, nothing random.
+  xr <- object$X.restriction
+  v <- .ident.verdict(X, C_mat, A, scale.fixed = isTRUE(xr %in% c("colSums", "colSqSums")),
+                      X.held = isTRUE(xr == "fixed"), sep.tol = sep.tol,
+                      zero.tol = boundary.tol, pin.tol = pin.tol)
 
   if (isTRUE(wild.bootstrap)) {
     if (method == "onestep") {
       # score_mat was already built above (shared with the sandwich step)
       C_boot <- .boot.onestep(as.vector(C_mat), score_mat, Hinv, wild.B,
                               dist = wild.dist, seed = wild.seed, project = TRUE)
+    } else if (method == "refit.basis") {
+      ## The same draws as "refit", but every replicate re-estimates the basis
+      ## too, with the estimator of the original fit, and its bases are matched
+      ## to the original ones by the permutation closest in squared distance
+      ## (as in nmfkc.ar.latent.inference).  A permutation is all that can be
+      ## undone: when the factorization is not unique up to one, a replicate
+      ## may land on another representative (X T, T^-1 C) of its own fit.
+      if (Q > 1L && !isTRUE(v$identified.approx))
+        warning("method = \"refit.basis\": the factorization is not unique up to a permutation ",
+                "of the bases (see $identification), so the replicates are matched only by ",
+                "permuting the bases; their spread mixes sampling variation with the choice ",
+                "among equivalent fits, and the intervals of C are descriptive.")
+      fit.args <- c(list(method = object$method, X.restriction = object$X.restriction),
+                    if (isTRUE(object$X.restriction == "fixed")) list(X.init = X))
+      ra <- .refit.args.collect(fit.args, object$call, extra_args$refit.args)
+      if (length(ra$unseen))
+        warning("method = \"refit.basis\": the original fit was called with ",
+                paste(ra$unseen, collapse = ", "), ", which the re-fits cannot reproduce ",
+                "automatically. Pass them through refit.args= so the replicates use the ",
+                "same estimator.")
+      perms <- .all.perms(Q)
+      fit.list <- list(Y = NULL, A = A.arg, rank = Q, epsilon = refit.epsilon, maxit = refit.maxit,
+                       detail = "fast", verbose = FALSE)
+      fit.list[names(ra$args)] <- ra$args
+      ## Returns vec(C) with its bases in the original order, then the
+      ## permutation and the share of Y* clipped at 0.
+      refit.fun <- function(Ys) {
+        neg <- mean(Ys < 0)
+        fit.list$Y <- pmax(Ys, 0)
+        r <- do.call(nmfkc, fit.list)
+        pm <- .align.bases(r$X, X, perms)
+        c(as.vector(r$C[pm, , drop = FALSE]), pm, neg)
+      }
+      out <- .boot.refit(XB, R_C, refit.fun, wild.B,
+                         dist = wild.dist, seed = wild.seed,
+                         unit = wild.unit,
+                         block = .wild.block.default(ncol(XB)),   # used by "block" only
+                         clipY = FALSE, cores = cores)            # clipped in refit.fun
+      QK <- Q * K
+      C_boot <- out[seq_len(QK), , drop = FALSE]
+      ok <- !is.na(out[1L, ])
+      pm.lab <- apply(out[QK + seq_len(Q), ok, drop = FALSE], 2, paste, collapse = "-")
+      refit.info <- list(n.fail = sum(!ok), truncate.rate = mean(out[QK + Q + 1L, ok]),
+                         perm = table(pm.lab), refit.args = ra$args)
     } else {                                   # method == "refit"
       ## Re-fit with nmfkc()'s own optimiser, basis X held FIXED, so the
       ## result matches the model's fitting behaviour (faithful even under
@@ -5548,7 +5652,7 @@ nmfkc.inference <- function(object, Y, A = NULL,
                             dist = wild.dist, seed = wild.seed,
                             unit = wild.unit,
                             block = .wild.block.default(ncol(XB)),   # used by "block" only
-                            clipY = TRUE)
+                            clipY = TRUE, cores = cores)
     }
     bs <- .boot.summarize(C_boot, est = as.vector(C_mat),
                           level = wild.level, p.side = C.p.side)
@@ -5558,8 +5662,8 @@ nmfkc.inference <- function(object, Y, A = NULL,
     p.boot.vec <- bs$p.boot
   }
 
-  # Primary SE driving z / p: bootstrap SE under "refit", sandwich under "onestep"
-  C.se <- if (method == "refit" && !is.null(C.se.boot)) C.se.boot else C.se.sandwich
+  # Primary SE driving z / p: bootstrap SE under "refit" / "refit.basis", sandwich under "onestep"
+  C.se <- if (refit.any && !is.null(C.se.boot)) C.se.boot else C.se.sandwich
 
   # ---- Coefficients table ----
   ## SE is always the sandwich SE and BSE always the bootstrap one, so the two
@@ -5574,7 +5678,7 @@ nmfkc.inference <- function(object, Y, A = NULL,
   se_primary <- as.vector(C.se)
   z_value <- ifelse(se_primary > 0, Estimate / se_primary, NA_real_)
 
-  if (method == "refit" && !is.null(p.boot.vec)) {
+  if (refit.any && !is.null(p.boot.vec)) {
     ## Bootstrap p from the centred replicates (no analytical z); honours
     ## C.p.side, as the "onestep" branches below do.
     p_value <- p.boot.vec
@@ -5624,23 +5728,17 @@ nmfkc.inference <- function(object, Y, A = NULL,
   object$C.p.side     <- C.p.side
   object$boot.method  <- method
   object$wild.dist    <- if (isTRUE(wild.bootstrap)) wild.dist else NA_character_
-  ## The multiplier unit applies to the method = "refit" bootstrap only.  The
-  ## block length of wild.unit = "block" is not stored: it is fixed by N.
-  refit.boot <- isTRUE(wild.bootstrap) && method == "refit"
+  ## The multiplier unit applies to the "refit" / "refit.basis" bootstraps only.
+  ## The block length of wild.unit = "block" is not stored: it is fixed by N.
+  refit.boot <- isTRUE(wild.bootstrap) && refit.any
   object$wild.unit    <- if (refit.boot) wild.unit else NA_character_
   ## Raw QK x B bootstrap draws of vec(C): lets callers form any functional
   ## (e.g. an identifiable contrast / fitted curve) and its percentile band.
+  ## Under "refit.basis" the bases of every draw are in the original order.
   object$C.boot.draws <- C_boot
-  ## Is the factorization unique up to a permutation of the bases?  The
-  ## intervals above are conditional on X; when this passes they concern the
-  ## same C whichever admissible representative (X T, T^-1 C) is taken.  It
-  ## also needs A of full row rank (else C is not unique even given X) and a
-  ## fixed per-column scale of X.  An algebraic check on the point estimate
-  ## (see ?nmfkc.ar.latent.inference): no re-fits, nothing random.
-  xr <- object$X.restriction
-  v <- .ident.verdict(X, C_mat, A, scale.fixed = isTRUE(xr %in% c("colSums", "colSqSums")),
-                      X.held = isTRUE(xr == "fixed"), sep.tol = sep.tol,
-                      zero.tol = boundary.tol, pin.tol = pin.tol)
+  ## "refit.basis" only: failed re-fits, the share of Y* clipped at 0, how often
+  ## each permutation matched the bases, and the arguments of the re-fits.
+  if (!is.null(refit.info)) object$refit.info <- refit.info
   object$identified.approx <- v$identified.approx
   object$identification    <- v$identification
   class(object) <- c("nmfkc.inference", "nmf.inference", "nmfkc", "nmf")
@@ -5666,6 +5764,7 @@ summary.nmfkc.inference <- function(object, ...) {
   ans$identified.approx <- object$identified.approx
   ans$identification    <- object$identification
   ans$rank              <- ncol(object$X)
+  ans$boot.method       <- object$boot.method
   class(ans) <- "summary.nmfkc.inference"
   return(ans)
 }
@@ -5692,7 +5791,10 @@ print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits"
   print.summary.nmfkc(x, digits = digits, ...)
 
   # Print inference section
-  cat("Inference (conditional on X):\n")
+  ## "refit.basis" re-estimates X in every replicate: the inference is not conditional on X
+  rb <- identical(x$boot.method, "refit.basis")
+  cond <- if (rb) "basis re-estimated in each replicate, matched by permutation" else "conditional on X"
+  cat(sprintf("Inference (%s):\n", cond))
   cat("  sigma^2:  ", format(x$sigma2.used, digits = digits), "\n")
   ## Objects saved before the diagnostic existed carry no identified.approx.
   .ident.print.line(x$identified.approx, x$identification, x$rank)
@@ -5723,8 +5825,8 @@ print.summary.nmfkc.inference <- function(x, digits = max(3L, getOption("digits"
     }
 
     n_sig <- sum(cf$p_value < 0.05, na.rm = TRUE)
-    cat(sprintf("\nCoefficients (conditional on X): %d total, %d significant\n",
-                n_total, n_sig))
+    cat(sprintf("\nCoefficients (%s): %d total, %d significant\n",
+                if (rb) "basis re-estimated" else "conditional on X", n_total, n_sig))
     if (n_total > max.coef) {
       cat(sprintf("  (showing %d significant rows; use res$coefficients for full table)\n",
                   length(show_idx)))

@@ -30,13 +30,43 @@ information \eqn{AA'} is singular (over-parameterised covariates) or
 \eqn{C} sits on the \eqn{\ge 0} boundary; the bootstrap SE/CI become
 primary and the p-value is the basic-bootstrap p-value
 \eqn{P^\ast(\hat c^\ast \ge 2\hat c)} from the replicates, one-sided
-by default and two-sided with \code{C.p.side = "two.sided"}.}
+by default and two-sided with \code{C.p.side = "two.sided"}.
+\code{"refit.basis"}: the same residual wild bootstrap (the same
+multipliers), but every replicate re-estimates the basis \eqn{X}
+as well, with the estimator of the original fit, so the
+uncertainty of \eqn{\hat X} enters the intervals.  The bases of a
+replicate are matched to the original ones by the permutation that
+brings its \eqn{X} closest in squared distance (all permutations up
+to six bases, greedily beyond), as in
+\code{\link{nmfkc.ar.latent.inference}}; SE, CI and p-value are then
+formed as under \code{"refit"}.  A permutation is all that is
+undone: when the factorization is not unique up to one
+(\code{identified.approx = FALSE}, warned), a replicate may land on
+another representative \eqn{(XT, T^{-1}C)} of its own fit, and the
+intervals of \eqn{C} are descriptive.  The re-fits take
+\code{method} and \code{X.restriction} from the fit; anything else
+its call set (\code{X.init}, penalties, ...) must be passed in
+\code{refit.args}, and a warning names what was seen in the call
+but not passed.  They use \code{refit.epsilon} and
+\code{refit.maxit}, so fit the original model as tightly.  The
+replicates' failures, clipping and permutations are in
+\code{refit.info}.}
+\item{\code{refit.args}}{For \code{method = "refit.basis"}: named list
+of further arguments of the re-fits, e.g.
+\code{list(X.init = "nndsvd")} when the original fit was called with
+it.}
+\item{\code{cores}}{For \code{method = "refit"} and
+\code{"refit.basis"}: number of workers for the re-fits, default
+\code{getOption("mc.cores", 1L)}.  The multipliers are drawn before
+the re-fits, in the same order, so the result does not depend on
+\code{cores}.}
 \item{\code{wild.dist}}{Multiplier distribution (orthogonal to
 \code{method}): \code{"rademacher"} (\eqn{\pm 1}), \code{"mammen"}
 (Mammen 1993 two-point), or \code{"exp"} (\eqn{\mathrm{Exp}(1)-1}).
 Default \code{"exp"} for \code{method="onestep"} (backward
 compatible), \code{"rademacher"} for \code{"refit"}.}
-\item{\code{wild.unit}}{For \code{method="refit"}: \code{"column"}
+\item{\code{wild.unit}}{For \code{method="refit"} and
+\code{"refit.basis"}: \code{"column"}
 (default since 1.0.2; one multiplier per sample column, shared over
 rows), \code{"element"} (an i.i.d. multiplier per matrix cell; the
 default up to 1.0.1) or \code{"block"} (one multiplier per block of
@@ -92,14 +122,23 @@ components from the input \code{object}, with additional inference components:
 \code{SE} is always the sandwich standard error and \code{BSE} always the
 bootstrap one, so the two columns differ; \code{z_value} and \code{p_value}
 use whichever is primary for the chosen \code{method} (bootstrap under
-\code{"refit"}, sandwich under \code{"onestep"}).  \code{on.boundary} flags
+\code{"refit"} and \code{"refit.basis"}, sandwich under \code{"onestep"}).  \code{on.boundary} flags
 coefficients at or below \code{boundary.tol} (default \code{1e-3}): their
 interval and p-value behave correctly in the "do not reject" direction, but
 the value is not a calibrated p-value --- a one-sided bootstrap p piles up
 near \eqn{1/2} at the boundary.}
 \item{C.p.side}{P-value type used.}
-\item{wild.unit}{Multiplier unit of the \code{method = "refit"} bootstrap
-(\code{"column"}, \code{"element"} or \code{"block"}); \code{NA} otherwise.}
+\item{wild.unit}{Multiplier unit of the \code{method = "refit"} or
+\code{"refit.basis"} bootstrap (\code{"column"}, \code{"element"} or
+\code{"block"}); \code{NA} otherwise.}
+\item{C.boot.draws}{The \eqn{QK \times B} bootstrap draws of
+\eqn{\mathrm{vec}(C)} (\code{NULL} without the bootstrap); under
+\code{"refit.basis"} with the bases of every draw in the original order.}
+\item{refit.info}{\code{method = "refit.basis"} only: \code{n.fail}
+(re-fits that failed), \code{truncate.rate} (share of \eqn{Y^\ast} clipped
+at 0), \code{perm} (how often each permutation matched the bases;
+\code{"1-2-3"} = kept in order) and \code{refit.args} (the arguments the
+re-fits used).}
 \item{identified.approx}{Logical, an approximate diagnostic of whether the
 factorization is unique up to a permutation of the bases.  The intervals
 are conditional on \eqn{\hat X}; when this is \code{TRUE} they concern the
@@ -121,7 +160,8 @@ check on the point estimate: no re-fits.}
 \description{
 \code{nmfkc.inference} performs statistical inference on the parameter matrix
 \eqn{C} (\eqn{\Theta}) from a fitted \code{nmfkc} model, conditional on
-the estimated basis matrix \eqn{\hat{X}}.
+the estimated basis matrix \eqn{\hat{X}} (with \code{method = "refit.basis"},
+the basis is re-estimated in every bootstrap replicate instead).
 
 Under the working model \eqn{Y = X C A + \varepsilon} where
 \eqn{\varepsilon_{pn} \stackrel{iid}{\sim} N(0, \sigma^2)},
