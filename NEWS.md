@@ -1,4 +1,4 @@
-# nmfkc (development version)
+# nmfkc 1.0.6 (2026-11-26)
 
 ## `nmfkc.ar.latent.inference()`: one-sided p-values for the entries of `G_d` by default
 

@@ -5,8 +5,8 @@
 \title{Create a kernel matrix from covariates}
 \source{
 Satoh, K. (2026). Applying Non-negative Matrix Factorization with Covariates to the Longitudinal Data as Growth Curve Model.
-\emph{American Journal of Mathematical and Management Sciences}. In press.
-arXiv:2403.05359. \url{https://arxiv.org/abs/2403.05359}
+\emph{American Journal of Mathematical and Management Sciences}, 45(3), 243--263.
+\doi{10.1080/01966324.2026.2740470}
 }
 \usage{
 nmfkc.kernel(

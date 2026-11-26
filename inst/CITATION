@@ -44,7 +44,10 @@ bibentry(
   title    = "Applying non-negative Matrix Factorization with Covariates to Multivariate Time Series Data as a Vector Autoregression Model",
   author   = "Kenichi Satoh",
   journal  = "Japanese Journal of Statistics and Data Science",
-  year     = "2025",
+  year     = "2026",
+  volume   = "9",
+  number   = "1",
+  pages    = "79--97",
   doi      = "10.1007/s42081-025-00314-0"
 )
 
@@ -55,8 +58,10 @@ bibentry(
   author   = "Kenichi Satoh",
   journal  = "American Journal of Mathematical and Management Sciences",
   year     = "2026",
-  note     = "In press; accepted 2026-09-11. Preprint arXiv:2403.05359",
-  url      = "https://arxiv.org/abs/2403.05359"
+  volume   = "45",
+  number   = "3",
+  pages    = "243--263",
+  doi      = "10.1080/01966324.2026.2740470"
 )
 
 bibentry(
